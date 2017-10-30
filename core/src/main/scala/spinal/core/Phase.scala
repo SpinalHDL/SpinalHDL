@@ -128,7 +128,8 @@ class PhaseContext(val config : SpinalConfig){
 
 
   def checkGlobalData() : Unit = {
-    if (!GlobalData.get.context.isEmpty) SpinalError("context stack is not empty :(")
+    if (!GlobalData.get.dslScope.isEmpty) SpinalError("dslScope stack is not empty :(")
+    if (!GlobalData.get.dslClockDomain.isEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
@@ -1338,10 +1339,10 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
-    globalData.context.push(globalData.contextHead.copy(clockDomain = defaultClockDomain))
+    defaultClockDomain.push()
     binaryOneHot //Avoid unconstructable during phase
     pc.topLevel = gen
-    globalData.context.pop()
+    defaultClockDomain.pop()
     pc.checkGlobalData()
   }
 }

@@ -169,7 +169,7 @@ trait MinMaxProvider {
 
 trait ContextUser extends GlobalDataUser {
 //  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
-  var parentScope = globalData.contextHead.scope
+  var parentScope = globalData.currentScope
   def component : Component = if(parentScope != null) parentScope.component else null
   private[core] var instanceCounter = globalData.getInstanceCounter
 
@@ -800,9 +800,23 @@ object GlobalData {
   *
   */
 class GlobalData {
-  val context = new Stack[DslContext]
-  def contextHead = if(context.nonEmpty) context.head else new DslContext(null,null,null)
+  val dslScope = new Stack[ScopeStatement]()
+  val dslClockDomain = new Stack[ClockDomain]()
 
+  def currentComponent = dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope.component
+  }
+
+  def currentScope = dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope
+  }
+
+  def currentClockDomain = dslClockDomain.headOption match {
+    case None => null
+    case Some(cd) => cd
+  }
 
   private var algoIncrementale = 1
 

@@ -120,16 +120,14 @@ object ClockDomain {
 
 
   def push(c: ClockDomain): Unit = {
-    val globalData = GlobalData.get
-    globalData.context.push(globalData.contextHead.copy(clockDomain = c))
+    GlobalData.get.dslClockDomain.push(c)
   }
 
   def pop(c: ClockDomain): Unit = {
-    val globalData = GlobalData.get
-    globalData.context.pop()
+    GlobalData.get.dslClockDomain.pop()
   }
 
-  def current : ClockDomain = GlobalData.get.context.head.clockDomain
+  def current : ClockDomain = GlobalData.get.dslClockDomain.head
 
   def isResetActive = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive

@@ -35,8 +35,11 @@ object Component {
     * @param c new component to add
     */
   def push(c: Component): Unit = {
-    val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.context.push(globalData.contextHead.copy(component = c, scope = if(c != null) c.dslBody else null))
+    if(c != null)
+      c.globalData.dslScope.push(c.dslBody)
+    else
+      GlobalData.get.dslScope.push(null)
+
   }
 
   /**
@@ -45,14 +48,17 @@ object Component {
     */
   def pop(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.context.pop()
+    globalData.dslScope.pop()
   }
 
   /** Get the current component on the stack */
   def current: Component = current(GlobalData.get)
 
   /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.contextHead.component
+  def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope.component
+  }
 }
 
 
@@ -80,87 +86,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
-
-//
-//
-//  var headNameable, lastNameable : NameableExpression = null
-//
-//  //  def sizeIsOne = headNameable != null && headNameable == last
-//  def prepend(that : NameableExpression) : this.type = {
-//    if(headNameable != null){
-//      headNameable.previousNameable = that
-//    } else {
-//      lastNameable = that
-//    }
-//    that.nextNameable = headNameable
-//    that.previousNameable = null
-//
-//    headNameable = that
-//
-//    this
-//  }
-//
-//  def append(that : NameableExpression) : this.type = {
-//    that.nextNameable = null
-//    that.previousNameable = lastNameable
-//    if(lastNameable != null){
-//      lastNameable.nextNameable = that
-//    } else {
-//      headNameable = that
-//    }
-//
-//    lastNameable = that
-//    this
-//  }
-//
-//  def foreachNameable(func : (NameableExpression) => Unit) = {
-//    var ptr = headNameable
-//    while(ptr != null){
-//      val current = ptr
-//      ptr = ptr.nextNameable
-//      func(current)
-//    }
-//  }
-//
-//
-//  def nameableIterable = new Iterable[NameableExpression] {
-//    override def iterator: Iterator[NameableExpression] = nameableIterator
-//  }
-//
-//  def nameableIterator = new Iterator[NameableExpression] {
-//    var ptr = headNameable
-//    override def hasNext: Boolean = ptr != null
-//
-//    override def next(): NameableExpression = {
-//      val ret = ptr
-//      ptr = ret.nextNameable
-//      ret
-//    }
-//  }
-//  def ownNameableNodes = nameableNodes.toIterator.withFilter(_.component == this)
-//  private def nameableNodes = { //TODO IR don't use hashset for it (speed)
-//    val nameablesSet = mutable.HashSet[Nameable]()
-//    nameablesSet ++= children
-//    nameablesSet ++= ioSet
-//
-//
-//    def expressionWalker(s : Expression): Unit = s match {
-//      case n : NameableExpression => nameablesSet += n
-//      case _ => s.foreachExpression(expressionWalker)
-//    }
-//
-//    def statementWalker(s : Statement): Unit ={
-//      s.foreachExpression(expressionWalker)
-//      s.foreachStatements(statementWalker)
-//      s match {
-//        case a : AssignmentStatement => nameablesSet += (a.finalTarget)
-//        case _ =>
-//      }
-//    }
-//
-//    dslBody.foreachStatements(statementWalker)
-//    nameablesSet
-//  }
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -195,7 +120,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the parent component (null if there is no parent)*/
   def parent : Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  val clockDomain = globalData.contextHead.clockDomain
+  val clockDomain = ClockDomain.current
 
 
   // Check if it is a top level component or a children of another component

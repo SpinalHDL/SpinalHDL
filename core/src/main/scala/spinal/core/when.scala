@@ -34,10 +34,9 @@ trait ConditionalContext extends GlobalDataUser{
 
 class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
   def otherwise(block: => Unit): Unit = {
-    val dslContext = GlobalData.get.context
-    dslContext.push(dslContext.head.copy(scope = whenStatement.whenFalse))
+    whenStatement.whenFalse.push()
     block
-    dslContext.pop()
+    whenStatement.whenFalse.pop()
   }
 
   def elsewhen(cond: Bool)(block: => Unit): WhenContext = {
@@ -52,21 +51,13 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
 object ConditionalContext{
   def isTrue: Bool ={
     val globalData = GlobalData.get
-    val originalContext = globalData.contextHead
-    if(originalContext.scope == globalData.context.head.component.dslBody) return True
-    val componentContextStack = mutable.Stack[DslContext]()
-    while(globalData.context.head.component == originalContext.component){
-      componentContextStack.push(globalData.context.pop())
-    }
-
-    globalData.context.push(componentContextStack.pop())
-    val cond = Bool()
-    originalContext.component.dslBody.prepend(DataAssignmentStatement(cond, new BoolLiteral(false)))
-
-    while(componentContextStack.nonEmpty){
-      globalData.context.push(componentContextStack.pop())
-    }
-
+    val rootScope = globalData.dslScope.head.component.dslBody
+    if(globalData.dslScope.head == rootScope) return True
+    rootScope.push()
+    val swap = rootScope.swap()
+    val cond = False
+    swap.appendBack()
+    rootScope.pop()
     cond := True
     cond
   }
@@ -74,13 +65,12 @@ object ConditionalContext{
 
 object when {
   def apply(cond: Bool)(block: => Unit): WhenContext = {
-    val dslContext = cond.globalData.contextHead
     val whenStatement = new WhenStatement(cond)
     val whenContext = new WhenContext(whenStatement)
-    dslContext.scope.append(whenStatement)
-    cond.globalData.context.push(cond.globalData.contextHead.copy(scope = whenStatement.whenTrue))
+    cond.globalData.dslScope.head.append(whenStatement)
+    whenStatement.whenTrue.push()
     block
-    cond.globalData.context.pop()
+    whenStatement.whenTrue.pop()
     whenContext
   }
 }
@@ -93,35 +83,12 @@ class SwitchContext(val statement : SwitchStatement) {
 object switch{
     def apply[T <: BaseType](value: T)(block: => Unit): Unit = {
       val globalData = value.globalData
-      val dslContext = value.globalData.contextHead
       val switchStatement = new SwitchStatement(value)
       val switchContext = new SwitchContext(switchStatement)
       globalData.switchStack.push(switchContext)
-//      globalData.context.push(globalData.contextHead.copy(scope = null))
       block
-//      globalData.context.pop()
       globalData.switchStack.pop()
-      dslContext.scope.append(switchStatement)
-
-      //    //value.globalData.pushNetlistLock(() => {
-  ////      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
-  ////    })
-  //    val s = new SwitchStack(value)
-  //    value.globalData.switchStack.push(s)
-  //    block
-  //
-  //    //value.globalData.pushNetlistUnlock()
-  //    if (s.defaultBlock != null) {
-  //      if (s.lastWhen == null) {
-  //        block
-  //      } else {
-  //        s.lastWhen.otherwise(s.defaultBlock())
-  //      }
-  //    }
-  //
-  //    //value.globalData.popNetlistUnlock()
-  //    value.globalData.switchStack.pop(s)
-  //    //value.globalData.popNetlistLock
+      globalData.dslScope.head.append(switchStatement)
   }
 }
 
@@ -181,9 +148,9 @@ object is{
 
 
     switchContext.statement.elements += switchElement
-    globalData.context.push(globalData.contextHead.copy(scope = switchElement.scopeStatement))
+    switchElement.scopeStatement.push()
     block
-    globalData.context.pop()
+    switchElement.scopeStatement.pop()
   }
 }
 
@@ -193,20 +160,9 @@ object default {
     val switchContext = globalData.switchStack.head
     val defaultScope =  new ScopeStatement(switchContext.statement)
     switchContext.statement.defaultScope = defaultScope
-    globalData.context.push(globalData.contextHead.copy(scope = defaultScope))
+    defaultScope.push()
     block
-    globalData.context.pop()
-    //    val globalData = GlobalData.get
-//    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
-//    globalData.pushNetlistUnlock()
-//    val value = globalData.switchStack.head()
-//
-//    if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-//    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
-//    value.defaultBlock = () => {
-//      block
-//    }
-//    globalData.popNetlistUnlock()
+    defaultScope.pop()
   }
 }
 

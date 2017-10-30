@@ -261,3 +261,30 @@ object PlayDebugPruned{
     SpinalVhdl(StreamFifo(UInt(8 bits), 512)).printPruned()
   }
 }
+
+
+
+object PlayCondActive{
+
+  class TopLevel extends Component {
+    val a,b,c = in Bool()
+    var x : Bool = null
+    when(a){
+
+    } otherwise{
+      when(!b){
+
+      } otherwise{
+        when(c){
+          x = ConditionalContext.isTrue
+        }
+      }
+    }
+
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}

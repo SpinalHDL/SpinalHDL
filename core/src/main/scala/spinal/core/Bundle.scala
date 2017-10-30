@@ -30,7 +30,7 @@ object Bundle {
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   var cloneFunc: () => Object = null
-  globalData.contextHead.component match {
+  globalData.currentComponent match {
     case null =>
     case component => {
       component.addPrePopTask(() => {

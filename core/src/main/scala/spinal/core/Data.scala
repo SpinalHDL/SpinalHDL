@@ -67,12 +67,14 @@ object Data {
 
 
     def push(c : Component, scope : ScopeStatement) : Unit = {
-      c.globalData.context.push(DslContext(c.clockDomain, c, scope))
+      c.globalData.dslScope.push(scope)
+      c.globalData.dslClockDomain.push(c.clockDomain)
     }
 
     def pop(c : Component) : Unit = {
-      assert(c.globalData.context.head.component == c)
-      c.globalData.context.pop()
+      assert(c.globalData.currentComponent == c)
+      c.globalData.dslScope.pop()
+      c.globalData.dslClockDomain.pop()
     }
 
     var currentData : T = srcData
@@ -149,12 +151,12 @@ trait DataPrimitives[T <: Data]{
   //Use as \= to have the same behavioral than VHDL variable
   def \(that: T) : T = {
     val globalData = GlobalData.get
-    globalData.context.push(DslContext(null, _data.component, _data.parentScope))
+    globalData.dslScope.push(_data.parentScope)
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
     ret := _data
     swapContext.appendBack()
-    globalData.context.pop()
+    globalData.dslScope.pop()
     ret.allowOverride
     ret := that
     ret

@@ -174,7 +174,7 @@ object BaseType{
   * Abstract base class of all Spinal types
   */
 abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignmentStatement] with Expression {
-  globalData.contextHead.scope match {
+  globalData.currentScope match {
     case null =>
     case scope =>  scope.append(this)
   }
@@ -190,7 +190,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   def setAsVital() : this.type = {btFlags |= BaseType.isVitalMask; this}
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
-  var clockDomain = globalData.contextHead.clockDomain
+  var clockDomain = globalData.currentClockDomain
 
 
 //  def isDrivedIn(c : Component) = dir match {
@@ -292,7 +292,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     }
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
-        globalData.contextHead.scope.append(statement(that))
+        globalData.dslScope.head.append(statement(that))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
