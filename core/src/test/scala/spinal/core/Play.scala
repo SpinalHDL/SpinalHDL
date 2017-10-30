@@ -11,21 +11,21 @@ import spinal.core._
 object PlayBits{
 
   class TopLevel extends Component {
-    val a, b, c = in Bits(8 bits)
-    val d, e, f = out Bool()
-    val g, h, i, j = Bits(8 bits)
-    val x,y,z = out( Reg(Bits(8 bits)))
-
-    val bits4 = Bits(4 bits)
-
-    class Struct extends Bundle{
-      val a,b,c = Bits(32 bits)
-    }
-
-    val structA, structB = new Struct
-
-    structA.a := 1
-    structB := structA
+//    val a, b, c = in Bits(8 bits)
+//    val d, e, f = out Bool()
+//    val g, h, i, j = Bits(8 bits)
+//    val x,y,z = out( Reg(Bits(8 bits)))
+//
+//    val bits4 = Bits(4 bits)
+//
+//    class Struct extends Bundle{
+//      val a,b,c = Bits(32 bits)
+//    }
+//
+//    val structA, structB = new Struct
+//
+//    structA.a := 1
+//    structB := structA
 //    val tmp = a & b & c
 //    val xx = g & a
 //    i := h
@@ -44,41 +44,41 @@ object PlayBits{
 //    val miaou = a.resize(2)
 //    miaou := b.resize(4)
 //    miaou := c.resize(3)
-    val sel = in UInt(6 bits)
-    a & c & b
-    True
-    False
-    val yy = bits4.resized & c.resized
-    bits4 := a.resized
-    bits4 := (a & b).resized
-    bits4 := B"111".resized
-    bits4 := (B(0) & B(0)).resized
+//    val sel = in UInt(6 bits)
+//    a & c & b
+//    True
+//    False
+//    val yy = bits4.resized & c.resized
+//    bits4 := a.resized
+//    bits4 := (a & b).resized
+//    bits4 := B"111".resized
+//    bits4 := (B(0) & B(0)).resized
+//
+//
+//    True <>  x(0)
+//
+//    val aa = a & B(0).resized
+//    val bb = B(0).resized & a
+//    val cc = B"11".resized & a
+//    a & b & c
+//
+//
+//    var ano = False
+//    ano := ano & True & False & ano
+//    ano = null
+//
+//    bits4 := B"101010".resized
+//    bits4(3 downto 1)(2) := in.Bool()
+//    x(2) := True
+//    x := a
+//    x := (bits4 | bits4).resized
+//    when(a === b){
+//      x init(c)
+//      bits4 := 0
+//      bits4(sel) := Mux(c === a, a(2), False)
+//    }
 
-
-    True <>  x(0)
-
-    val aa = a & B(0).resized
-    val bb = B(0).resized & a
-    val cc = B"11".resized & a
-    a & b & c
-
-
-    var ano = False
-    ano := ano & True & False & ano
-    ano = null
-
-    bits4 := B"101010".resized
-    bits4(3 downto 1)(2) := in.Bool()
-    x(2) := True
-    x := a
-    x := (bits4 | bits4).resized
-    when(a === b){
-      x init(c)
-      bits4 := 0
-      bits4(sel) := Mux(c === a, a(2), False)
-    }
-
-
+    val a = in Bits(8 bits)
     var v = B"00000000"
 //    e := False
     v \= a
@@ -102,7 +102,7 @@ object PlayBits{
       v \= 7
     }
 
-    bits4 := (2 -> True, default -> (c === c))
+//    bits4 := (2 -> True, default -> (c === c))
 
 
 //    when(a === c){

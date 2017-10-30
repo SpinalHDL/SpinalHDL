@@ -8,6 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 //TODO IR :
 // Mem blackboxify
 // Switch enum encoding
+// Remove component from globalData context
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -502,6 +503,29 @@ class ScopeStatement(var parentStatement : TreeStatement){
 
   def push() = GlobalData.get.context.push(GlobalData.get.contextHead.copy(scope = this))
   def pop() = GlobalData.get.context.pop()
+
+  class SwapContext(cHead : Statement, cLast : Statement){
+    def appendBack() : Unit ={
+      if(nonEmpty){
+        last.nextScopeStatement = cHead
+        cHead.lastScopeStatement = last
+      } else {
+        head = cHead
+      }
+
+      if(cLast != null) {
+        last = cLast
+      }
+    }
+  }
+
+  def swap(): SwapContext ={
+    val ret = new SwapContext(head,last)
+    head = null
+    last = null
+    ret
+  }
+
 
   def prepend(that : Statement) : this.type = {
     if(head != null){

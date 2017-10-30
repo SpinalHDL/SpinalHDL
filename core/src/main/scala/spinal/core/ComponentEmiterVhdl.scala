@@ -80,16 +80,19 @@ class ComponentEmiterVhdl(val c : Component,
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemReadAsync => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemReadWrite => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemWrite =>
         }

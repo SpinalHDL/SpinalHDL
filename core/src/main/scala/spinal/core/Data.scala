@@ -150,12 +150,10 @@ trait DataPrimitives[T <: Data]{
   def \(that: T) : T = {
     val globalData = GlobalData.get
     globalData.context.push(DslContext(null, _data.component, _data.parentScope))
-    val lastStatement = _data.parentScope.last
-    val manageLastStatement = lastStatement.isInstanceOf[TreeStatement]
-    if(manageLastStatement) lastStatement.removeStatementFromScope()
+    val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
     ret := _data
-    if(manageLastStatement) _data.parentScope.append(lastStatement)
+    swapContext.appendBack()
     globalData.context.pop()
     ret.allowOverride
     ret := that

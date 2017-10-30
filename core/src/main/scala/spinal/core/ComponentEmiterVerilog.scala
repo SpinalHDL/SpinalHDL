@@ -74,16 +74,19 @@ class ComponentEmiterVerilog(val c : Component,
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemReadAsync => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemReadWrite => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
+            expressionToWrap -= s
           }
           case s : MemWrite =>
         }
