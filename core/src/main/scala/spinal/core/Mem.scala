@@ -472,6 +472,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   }
 
   override def normalizeInputs: Unit = {
+    if(getWidth == 0) return
     val addressReq = mem.addressWidth + log2Up(aspectRatio)
     address = InputNormalize.resizedOrUnfixedLit(address,addressReq,new ResizeUInt,address, this) //TODO better error messaging
 
@@ -555,6 +556,7 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
 
 
   override def normalizeInputs: Unit = {
+    if(getWidth == 0) return
     val addressReq = mem.addressWidth + log2Up(aspectRatio)
     address = InputNormalize.resizedOrUnfixedLit(address,addressReq,new ResizeUInt,address, this) //TODO better error messaging
 
@@ -635,6 +637,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   }
 
   override def normalizeInputs: Unit = {
+    if(getWidth == 0) return
     val addressReq = mem.addressWidth + log2Up(aspectRatio)
     address = InputNormalize.resizedOrUnfixedLit(address,addressReq,new ResizeUInt,address, this) //TODO better error messaging
 
@@ -730,6 +733,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   }
 
   override def normalizeInputs: Unit = {
+    if(getWidth == 0) return
     val addressReq = mem.addressWidth + log2Up(aspectRatio)
     address = InputNormalize.resizedOrUnfixedLit(address,addressReq,new ResizeUInt,address, this) //TODO better error messaging
 

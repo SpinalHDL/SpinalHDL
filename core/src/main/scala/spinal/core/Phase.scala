@@ -735,6 +735,10 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
         s.foreachStatements(toRemove += _)
         s.removeStatement()
       }
+      case s : Mem[_] if s.getWidth == 0 => {
+        s.foreachStatements(toRemove += _)
+        s.removeStatement()
+      }
       case s => s.walkRemapExpressions(_.simplifyNode)
     }
 

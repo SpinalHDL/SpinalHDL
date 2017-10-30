@@ -9,6 +9,7 @@ class ComponentEmiterVerilog(val c : Component,
                              verilogBase : VerilogBase,
                              override val algoIdIncrementalBase : Int,
                              override val mergeAsyncProcess : Boolean,
+                             asyncResetCombSensitivity : Boolean,
                              anonymSignalPrefix : String,
                              emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
   import verilogBase._
@@ -212,9 +213,14 @@ class ComponentEmiterVerilog(val c : Component,
 
     val initialStatlementsGeneration =  new StringBuilder()
     referenceSetStart()
+
     referenceSetAdd(emitClockEdge(emitReference(clock,false),clockDomain.config.clockEdge))
 
-    if(withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
+    if(withReset) {
+      if(!asyncResetCombSensitivity) referenceSetPause()
+      emitRegsInitialValue("      ", initialStatlementsGeneration)
+      if(!asyncResetCombSensitivity) referenceSetResume()
+    }
 
     if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset,false),clockDomain.config.resetActiveLevel))
@@ -480,6 +486,12 @@ class ComponentEmiterVerilog(val c : Component,
     _referenceSet.clear()
   }
 
+  def referenceSetPause(): Unit ={
+    _referenceSetEnabled = false
+  }
+  def referenceSetResume(): Unit ={
+    _referenceSetEnabled = true
+  }
   def referenceSetAdd(str : String): Unit ={
     if(_referenceSetEnabled) {
       _referenceSet.add(str)
@@ -824,7 +836,7 @@ end
       onEachExpression(e)
       e match {
         case node: Resize => applyTo(node)
-        case node: Literal => applyTo(node)
+    //    case node: Literal => applyTo(node)
         case node if node.getTypeObject == TypeUInt || node.getTypeObject == TypeSInt => applyTo(node)
         case node: Operator.BitVector.ShiftOperator => applyTo(node)
         case _ =>
@@ -916,7 +928,7 @@ end
     val enumDef = e.getDefinition
     val encoding = e.getEncoding
     encoding match {
-      case `binaryOneHot` => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} 'b${"0" * encoding.getWidth(enumDef)})"
+      case `binaryOneHot` => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
       case _ => s"(${emitExpression(e.left)} ${if (eguals) "==" else "!="} ${emitExpression(e.right)})"
     }
   }

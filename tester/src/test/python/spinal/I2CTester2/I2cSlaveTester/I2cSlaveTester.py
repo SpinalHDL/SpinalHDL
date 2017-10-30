@@ -46,7 +46,7 @@ def i2cSlaveThread(cmdBus, rspBus, cmds, rsps, clk):
         yield FallingEdge(clk)
 
         rspBus.valid <= False
-        if cmdBus.kind == NONE:
+        if str(cmdBus.kind) == "xxx" or cmdBus.kind == NONE:
             continue
 
         expected = cmds.pop(0)

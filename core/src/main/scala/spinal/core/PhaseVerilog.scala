@@ -28,7 +28,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   def compile(component: Component): Unit = {
-    val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
     if(component.parentScope == null && pc.config.dumpWave != null) {
       componentBuilderVerilog.logics ++=
         s"""
@@ -81,7 +81,8 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
 
     def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str = encoding.getValue(enum).toString(2)
-      "'b" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str
+      val length = encoding.getWidth(enum.spinalEnum)
+      length.toString + "'b" + ("0" * (length - str.length)) + str
     }
 
 
