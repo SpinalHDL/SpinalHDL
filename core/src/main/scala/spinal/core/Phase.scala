@@ -1244,24 +1244,29 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignal
 
 //    val targetAlgoId = GlobalData.get.algoId
 //    Node.walk(walkNodesDefautStack,node => {node.algoId = targetAlgoId})
-
-    for(c <- components){
-      def checkNameable(that : Any) : Unit = that match {
-        case area : Area => {
-          area.foreachReflectableNameables(obj => checkNameable(obj))
-        }
-        case data : Data =>  {
-          data.flatten.foreach(bt => {
-            if(!bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed){
-              prunedSignals += bt
-            }
-          })
-        }
-        case _ => {}
+    walkStatements{
+      case bt : BaseType if !bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed && !bt.getName().startsWith(globalData.anonymSignalPrefix) => {
+        prunedSignals += bt
       }
-
-      c.foreachReflectableNameables(obj => checkNameable(obj))
+      case _ =>
     }
+//    for(c <- components){
+//      def checkNameable(that : Any) : Unit = that match {
+//        case area : Area => {
+//          area.foreachReflectableNameables(obj => checkNameable(obj))
+//        }
+//        case data : Data =>  {
+//          data.flatten.foreach(bt => {
+//            if(!bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed){
+//              prunedSignals += bt
+//            }
+//          })
+//        }
+//        case _ =>
+//      }
+//
+//      c.foreachReflectableNameables(obj => checkNameable(obj))
+//    }
     if(!prunedSignals.isEmpty){
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }

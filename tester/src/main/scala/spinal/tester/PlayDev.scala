@@ -476,18 +476,18 @@ object PlayDevTriplify{
   }
 
   def main(args: Array[String]) {
-        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Apb3SpiMasterCtrl(
-          SpiMasterCtrlMemoryMappedConfig(
-            ctrlGenerics = SpiMasterCtrlGenerics(
-              ssWidth     = 4,
-              timerWidth  = 12,
-              dataWidth   = 8
-            ),
-            cmdFifoDepth = 32,
-            rspFifoDepth = 32
-          )
-        )).printPruned()
+//        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Apb3SpiMasterCtrl(
+//          SpiMasterCtrlMemoryMappedConfig(
+//            ctrlGenerics = SpiMasterCtrlGenerics(
+//              ssWidth     = 4,
+//              timerWidth  = 12,
+//              dataWidth   = 8
+//            ),
+//            cmdFifoDepth = 32,
+//            rspFifoDepth = 32
+//          )
+//        )).printPruned()
 //    val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Pinsec(PinsecConfig.default)).printPruned()
-    //    val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new TopLevel).printPruned()
+        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new TopLevel).printPruned()
   }
 }

@@ -7,7 +7,6 @@ import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
 // Mem blackboxify
-// Pruned should now be identify from the graph, not from reflection
 
 
 trait BaseNode {
