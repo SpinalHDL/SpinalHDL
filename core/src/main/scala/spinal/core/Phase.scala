@@ -641,7 +641,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
     }
 
 
-
+    //Fill consumers
     walkStatements(s => s match {
       case s : AssignmentStatement =>
         val finalTarget = s.finalTarget
@@ -650,13 +650,19 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
           case _ =>
         }
         s.foreachDrivingExpression(e => walkExpression(e))
+      case s : SwitchStatement if s.value.getTypeObject == TypeEnum =>
+        s.elements.foreach(_.keys.foreach{
+          case key if key.getTypeObject == TypeEnum =>  consumers.getOrElseUpdate(s.value,ArrayBuffer[Expression]()) += key
+        })
+        s.foreachDrivingExpression(e => walkExpression(e))
       case _ =>
         s.foreachDrivingExpression(e => walkExpression(e))
     })
 
-    //???
+
     walkDeclarations{case e : Expression => walkExpression(e) case _ => }
 
+    //Prepear the feild
     nodesInferrable.foreach(node => {
       node.bootInferration()
     })
@@ -1229,6 +1235,8 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
     })
   }
 }
+
+
 
 class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
   override def impl(pc : PhaseContext): Unit = {

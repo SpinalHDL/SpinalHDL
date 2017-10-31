@@ -7,8 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
 // Mem blackboxify
-// Switch enum encoding
-// Remove component from globalData context
+// Pruned should now be identify from the graph, not from reflection
 
 
 trait BaseNode {
@@ -226,6 +225,19 @@ trait Statement extends ExpressionContainer with ContextUser with ScalaLocated w
       ptr = ptr.parentStatement.parentScope
     }
   }
+
+  def insertNext(s : Statement): Unit = {
+    if(nextScopeStatement == null)
+      parentScope.last = s
+    else
+      this.nextScopeStatement.lastScopeStatement = s
+
+    s.nextScopeStatement = this.nextScopeStatement
+    this.nextScopeStatement = s
+
+    s.lastScopeStatement = this
+    s.parentScope = this.parentScope
+  }
 }
 
 trait LeafStatement extends Statement{
@@ -433,6 +445,7 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
       case `TypeBits` => bitVectorNormalize(new ResizeBits)
       case `TypeUInt` => bitVectorNormalize(new ResizeUInt)
       case `TypeSInt` => bitVectorNormalize(new ResizeSInt)
+      case `TypeEnum` => InputNormalize.switchEnumImpl(this)
       case _ =>
     }
   }

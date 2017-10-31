@@ -184,6 +184,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def isReg = (btFlags & BaseType.isRegMask) != 0
   override def isComb = (btFlags & BaseType.isRegMask) == 0
   def setAsReg() : this.type = {btFlags |= BaseType.isRegMask; this}
+  def setAsComb() : this.type = {btFlags &= ~BaseType.isRegMask; this}
   def isTypeNode = (btFlags & BaseType.isTypeNodeMask) != 0
   def setAsTypeNode() : this.type = {btFlags |= BaseType.isTypeNodeMask; this}
   def isVital = (btFlags & BaseType.isVitalMask) != 0

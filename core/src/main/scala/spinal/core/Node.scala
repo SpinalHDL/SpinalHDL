@@ -307,6 +307,19 @@ object InputNormalize {
     })
   }
 
+  def switchEnumImpl(node : SwitchStatement) : Unit = {
+    val value = node.value.asInstanceOf[Expression with EnumEncoded]
+    node.remapExpressions(input => input match {
+      case input : Expression with EnumEncoded if value.getEncoding != input.getEncoding => {
+        val cast = new CastEnumToEnum(value.getDefinition)
+        cast.input = input.asInstanceOf[cast.T]
+        cast.fixEncoding(value.getEncoding)
+        cast
+      }
+      case _ => input
+    })
+  }
+
 //  def resizedOrUnfixedLit(node : Expression): Unit ={
 //    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
 //    node.remapExpressions(e => resizedOrUnfixedLit(e, targetWidth,))
