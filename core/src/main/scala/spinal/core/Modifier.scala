@@ -67,7 +67,8 @@ class ResizeSInt extends Resize{
 
 
 
-abstract class Operator extends Modifier
+abstract class Operator extends Modifier{
+}
 
 abstract class UnaryOperator extends Operator{
   type T <: Expression
@@ -123,14 +124,22 @@ abstract class BinaryOperator extends Operator{
   }
 
 //  override def toString(): String = {
-//    def inStr(that : T) = (if (that == null) "null" else that.nonRecursiveToString())
+//    def inStr(that : T) = (if (that == null) "null" else that.toString())
 //    s"(${inStr(left)} $opName ${inStr(right)})"
 //  }
+  override def toStringMultiLine() = {
+    s"""$this
+       |- Left  operand : $left
+       |- Right operand : $right
+       |""".stripMargin
+  }
 }
 
 
 abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
   override type T = Expression with WidthProvider
+
+  override def toString() = super.toString()
 }
 
 
@@ -166,32 +175,32 @@ object Operator{
   object Bool{
     class And extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "&&"
+      override def opName: String = "Bool && Bool"
     }
 
     class Or extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "||"
+      override def opName: String = "Bool || Bool"
     }
 
     class Xor extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "B^B"
+      override def opName: String = "Bool ^ Bool"
     }
 
     class Not extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "!"
+      override def opName: String = "! Bool"
     }
 
     class Equal extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "B==B"
+      override def opName: String = "Bool === Bool"
     }
 
     class NotEqual extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "B!=B"
+      override def opName: String = "Bool =/= Bool"
     }
   }
 //
@@ -280,7 +289,7 @@ object Operator{
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
-      
+
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
     }
 
@@ -320,7 +329,7 @@ object Operator{
     abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = source.getWidth
-      
+
     }
 
     abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
@@ -332,32 +341,32 @@ object Operator{
   object Bits{
     class Cat extends BinaryOperatorWidthableInputs with Widthable{
       override def getTypeObject = TypeBits
-      override def opName: String = "b##b"
+      override def opName: String = "Bits ## Bits"
       override def calcWidth(): Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryTakeOther(this)}
     }
 
     class Not extends UnaryOperatorWidthableInputs{
       override def getTypeObject = TypeBits
-      override def opName: String = "~b"
+      override def opName: String = "~ Bits"
       override def calcWidth(): Int = source.getWidth
     }
 
     class And extends BitVector.And{
       override def getTypeObject = TypeBits
-      override def opName: String = "b&b"
+      override def opName: String = "Bits & Bits"
       def resizeFactory : Resize = new ResizeBits
     }
 
     class Or extends BitVector.Or{
       override def getTypeObject = TypeBits
-      override def opName: String = "b|b"
+      override def opName: String = "Bits | Bits"
       def resizeFactory : Resize = new ResizeBits
     }
 
     class Xor extends BitVector.Xor{
       override def getTypeObject = TypeBits
-      override def opName: String = "b^b"
+      override def opName: String = "Bits ^ Bits"
       def resizeFactory : Resize = new ResizeBits
     }
 
@@ -367,7 +376,7 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
-      override def opName: String = "b==b"
+      override def opName: String = "Bits === Bits"
     }
 
     class NotEqual extends BitVector.NotEqual{
@@ -376,44 +385,44 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
-      override def opName: String = "b!=b"
+      override def opName: String = "Bits =/= Bits"
     }
 
     class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
       override def getTypeObject = TypeBits
-      override def opName: String = "b>>i"
+      override def opName: String = "Bits >> Int"
     }
 
     class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
       override def getTypeObject = TypeBits
-      override def opName: String = "b>>u"
+      override def opName: String = "Bits >> UInt"
     }
 
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeBits
-      override def opName: String = "b<<i"
+      override def opName: String = "Bits << Int"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = BitsLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeBits
-      override def opName: String = "b<<u"
+      override def opName: String = "Bits << UInt"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = BitsLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
       override def getTypeObject = TypeBits
-      override def opName: String = "b|>>i"
+      override def opName: String = "Bits |>> Int"
     }
 
     class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
       override def getTypeObject = TypeBits
-      override def opName: String = "b|<<i"
+      override def opName: String = "Bits |<< Int"
     }
 
     class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
       override def getTypeObject = TypeBits
-      override def opName: String = "b|<<u"
+      override def opName: String = "Bits |<< UInt"
     }
   }
 
@@ -421,59 +430,59 @@ object Operator{
   object UInt{
     class Not extends UnaryOperatorWidthableInputs{
       override def getTypeObject = TypeUInt
-      override def opName: String = "~u"
+      override def opName: String = "~ UInt"
       override def calcWidth(): Int = source.getWidth
     }
 
     class And extends BitVector.And{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u&u"
+      override def opName: String = "UInt & UInt"
       def resizeFactory : Resize = new ResizeUInt
     }
 
     class Or extends BitVector.Or{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u|u"
+      override def opName: String = "UInt | UInt"
       def resizeFactory : Resize = new ResizeUInt
     }
 
     class Xor extends BitVector.Xor{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u^u"
+      override def opName: String = "UInt ^ UInt"
       def resizeFactory : Resize = new ResizeUInt
     }
 
     class Add extends BitVector.Add{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u+u"
+      override def opName: String = "UInt + UInt"
       def resizeFactory : Resize = new ResizeUInt
     }
 
     class Sub extends BitVector.Sub{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u-u"
+      override def opName: String = "UInt - UInt"
       def resizeFactory : Resize = new ResizeUInt
     }
 
     class Mul extends BitVector.Mul{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u*u"
+      override def opName: String = "UInt * UInt"
       override def getLiteralFactory: (BigInt, Int) => Expression = UIntLiteral.apply
     }
 
     class Div extends BitVector.Div{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u/u"
+      override def opName: String = "UInt / UInt"
     }
 
     class Mod extends BitVector.Mod{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u%u"
+      override def opName: String = "UInt % UInt"
     }
 
     class Smaller extends BinaryOperatorWidthableInputs{
       override def getTypeObject = TypeBool
-      override def opName: String = "u<u"
+      override def opName: String = "UInt < UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -483,7 +492,7 @@ object Operator{
 
     class SmallerOrEqual extends BinaryOperatorWidthableInputs{
       override def getTypeObject = TypeBool
-      override def opName: String = "u<=u"
+      override def opName: String = "UInt <= UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -492,7 +501,7 @@ object Operator{
     }
 
     class Equal extends BitVector.Equal{
-      override def opName: String = "u==u"
+      override def opName: String = "UInt === UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -501,7 +510,7 @@ object Operator{
     }
 
     class NotEqual extends BitVector.NotEqual{
-      override def opName: String = "u!=u"
+      override def opName: String = "UInt =/= UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -511,104 +520,104 @@ object Operator{
 
     class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
       override def getTypeObject = TypeUInt
-      override def opName: String = "u>>i"
+      override def opName: String = "UInt >> Int"
     }
 
     class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u>>u"
+      override def opName: String = "UInt >> UInt"
     }
 
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeUInt
-      override def opName: String = "u<<i"
+      override def opName: String = "UInt << Int"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = UIntLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u<<u"
+      override def opName: String = "UInt << UInt"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = UIntLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
       override def getTypeObject = TypeUInt
-      override def opName: String = "u|>>i"
+      override def opName: String = "UInt |>> Int"
     }
 
     class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
       override def getTypeObject = TypeUInt
-      override def opName: String = "u|<<i"
+      override def opName: String = "UInt |<< Int"
     }
 
     class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
       override def getTypeObject = TypeUInt
-      override def opName: String = "u|<<u"
+      override def opName: String = "UInt |<< UInt"
     }
   }
 
   object SInt{
     class Not extends UnaryOperatorWidthableInputs with Widthable{
       override def getTypeObject = TypeSInt
-      override def opName: String = "~s"
+      override def opName: String = "~ SInt"
       override def calcWidth(): Int = source.getWidth
     }
 
     class Minus extends UnaryOperatorWidthableInputs with Widthable{
       override def getTypeObject = TypeSInt
-      override def opName: String = "-s"
+      override def opName: String = "- SInt"
       override def calcWidth(): Int = source.getWidth
     }
 
     class And extends BitVector.And{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s&s"
+      override def opName: String = "SInt & SInt"
       def resizeFactory : Resize = new ResizeSInt
     }
 
     class Or extends BitVector.Or{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s|s"
+      override def opName: String = "SInt | SInt"
       def resizeFactory : Resize = new ResizeSInt
     }
 
     class Xor extends BitVector.Xor{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s^s"
+      override def opName: String = "SInt ^ SInt"
       def resizeFactory : Resize = new ResizeSInt
     }
 
     class Add extends BitVector.Add{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s+s"
+      override def opName: String = "SInt + SInt"
       def resizeFactory : Resize = new ResizeSInt
     }
 
     class Sub extends BitVector.Sub{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s-s"
+      override def opName: String = "SInt - SInt"
       def resizeFactory : Resize = new ResizeSInt
     }
 
     class Mul extends BitVector.Mul{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s*s"
+      override def opName: String = "SInt * SInt"
       override def getLiteralFactory: (BigInt, Int) => Expression = SIntLiteral.apply
     }
 
     class Div extends BitVector.Div{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s/s"
+      override def opName: String = "SInt / SInt"
     }
 
     class Mod extends BitVector.Mod{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s%s"
+      override def opName: String = "SInt % SInt"
     }
 
     class Smaller extends BinaryOperatorWidthableInputs{
       override def getTypeObject = TypeBool
-      override def opName: String = "s<s"
+      override def opName: String = "SInt < SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -618,7 +627,7 @@ object Operator{
 
     class SmallerOrEqual extends BinaryOperatorWidthableInputs{
       override def getTypeObject = TypeBool
-      override def opName: String = "s<=s"
+      override def opName: String = "SInt <= SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -627,7 +636,7 @@ object Operator{
     }
 
     class Equal extends BitVector.Equal{
-      override def opName: String = "s==s"
+      override def opName: String = "SInt === SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -636,7 +645,7 @@ object Operator{
     }
 
     class NotEqual extends BitVector.NotEqual{
-      override def opName: String = "s!=s"
+      override def opName: String = "SInt =/= SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -646,39 +655,39 @@ object Operator{
 
     class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
       override def getTypeObject = TypeSInt
-      override def opName: String = "s>>i"
+      override def opName: String = "SInt >> Int"
     }
 
     class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s>>u"
+      override def opName: String = "SInt >> UInt"
     }
 
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeSInt
-      override def opName: String = "s<<i"
+      override def opName: String = "SInt << Int"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = SIntLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s<<u"
+      override def opName: String = "SInt << UInt"
       override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = SIntLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
       override def getTypeObject = TypeSInt
-      override def opName: String = "s|>>i"
+      override def opName: String = "SInt |>> Int"
     }
 
     class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
       override def getTypeObject = TypeSInt
-      override def opName: String = "s|<<i"
+      override def opName: String = "SInt |<< Int"
     }
 
     class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
       override def getTypeObject = TypeSInt
-      override def opName: String = "s|<<u"
+      override def opName: String = "SInt |<< UInt"
     }
   }
 
@@ -686,7 +695,7 @@ object Operator{
     class Equal(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
       override def getTypeObject: Any = TypeBool
 
-      override def opName: String = "e==e"
+      override def opName: String = "Enum === Enum"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
 
       override type T = Expression with EnumEncoded
@@ -696,7 +705,7 @@ object Operator{
 
     class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
       override def getTypeObject: Any = TypeBool
-      override def opName: String = "e!=e"
+      override def opName: String = "Enum =/= Enum"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
 
       override type T = Expression with EnumEncoded
@@ -727,44 +736,44 @@ abstract class CastBitVectorToBitVector extends Cast with Widthable{
 
 class CastSIntToBits extends CastBitVectorToBitVector{
   override def getTypeObject = TypeBits
-  override def opName: String = "s->b"
+  override def opName: String = "SInt -> Bits"
 }
 class CastUIntToBits extends CastBitVectorToBitVector{
   override def getTypeObject = TypeBits
-  override def opName: String = "u->b"
+  override def opName: String = "UInt -> Bits"
 }
 class CastBitsToUInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeUInt
-  override def opName: String = "b->u"
+  override def opName: String = "b-> UInt"
 }
 class CastSIntToUInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeUInt
-  override def opName: String = "s->u"
+  override def opName: String = "SInt -> UInt"
 }
 class CastBitsToSInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeSInt
-  override def opName: String = "b->s"
+  override def opName: String = "b-> SInt"
 }
 class CastUIntToSInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeSInt
-  override def opName: String = "u->s"
+  override def opName: String = "UInt -> SInt"
 }
 class CastBoolToBits extends Cast with Widthable{
   override def getTypeObject = TypeBits
-  override def opName: String = "B->b"
+  override def opName: String = "B-> Bits"
   override private[core] def calcWidth: Int = 1
 }
 
 class CastEnumToBits extends Cast with Widthable{
   override type T <: Expression with EnumEncoded
-  override def opName: String = "e->b"
+  override def opName: String = "Enum -> Bits"
   override private[core] def calcWidth: Int = input.getEncoding.getWidth(input.getDefinition)
   override def getTypeObject: Any = TypeBits
 }
 
 class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl{
   override type T <: Expression with WidthProvider
-  override def opName: String = "b->e"
+  override def opName: String = "b-> Enum"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
 
@@ -777,7 +786,7 @@ class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEnc
 
 class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
   override type T <: Expression with EnumEncoded
-  override def opName: String = "e->e"
+  override def opName: String = "Enum -> Enum"
 
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
@@ -1737,7 +1746,7 @@ object FAILURE  extends AssertNodeSeverity
 
 case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
   var clockDomain = globalData.dslClockDomain.head
-  
+
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)

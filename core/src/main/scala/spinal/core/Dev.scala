@@ -12,6 +12,7 @@ import scala.collection.mutable.ArrayBuffer
 trait BaseNode {
   var algoInt, algoIncrementale = 0
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
+  def toStringMultiLine() : String = this.toString
 }
 
 
@@ -165,6 +166,8 @@ trait Expression extends BaseNode with ExpressionContainer{
     case input : Expression with WidthProvider => f(input, input.getWidth-1,0)
     case input => f(input, 0,0)
   }
+
+  override def toString = opName
 }
 
 
@@ -292,7 +295,7 @@ abstract class AssignmentStatement extends LeafStatement with StatementDoubleLin
     target match {
       case t : WidthProvider =>
         val finalTarget = this.finalTarget
-        source = InputNormalize.resizedOrUnfixedLit(source.asInstanceOf[Expression with WidthProvider], t.getWidth, finalTarget.asInstanceOf[BitVector].resizeFactory, finalTarget, this)
+        source = InputNormalize.assignementResizedOrUnfixedLit(this)
       case _ =>
     }
   }
@@ -329,7 +332,9 @@ abstract class AssignmentStatement extends LeafStatement with StatementDoubleLin
     source = func(source)
   }
 
-
+  override def toStringMultiLine() = {
+    s"$target := $source"
+  }
 }
 
 object DataAssignmentStatement{

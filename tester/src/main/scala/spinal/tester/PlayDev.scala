@@ -61,6 +61,19 @@ object PlayDevMem{
   }
 }
 
+object PlayDevErrorReport{
+  class TopLevel extends Component {
+    val a = in UInt(8 bits)
+    val b = in UInt(10 bits)
+    val result = a | b
+    val x = UInt(32 bits)
+    x(3 downto 1) := a
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
 
 
 object PlayDevLatency{
