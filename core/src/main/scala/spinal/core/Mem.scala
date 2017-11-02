@@ -84,16 +84,16 @@ trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainer
 
 class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady{
   if(parentScope != null) parentScope.append(this)
-//  var forceMemToBlackboxTranslation = false
+  var forceMemToBlackboxTranslation = false
   val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width = _widths.reduce(_ + _)
   def wordType: T = cloneOf(_wordType)
 
 
 
-//  var technology : MemTechnologyKind = auto
-//  def setTechnology(tech : MemTechnologyKind) = this.technology = tech
-//
+  var technology : MemTechnologyKind = auto
+  def setTechnology(tech : MemTechnologyKind) = this.technology = tech
+
 //  val ports = ArrayBuffer[Any]()
 //  def getWritePorts() = ports.filter(_.isInstanceOf[MemWrite]).map(_.asInstanceOf[MemWrite])
 //  def getReadSyncPorts() = ports.filter(_.isInstanceOf[MemReadSync]).map(_.asInstanceOf[MemReadSync])

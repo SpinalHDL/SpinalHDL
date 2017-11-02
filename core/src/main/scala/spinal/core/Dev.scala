@@ -6,7 +6,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
-// Mem blackboxify
+// Miaou
 
 
 trait BaseNode {
@@ -70,18 +70,18 @@ trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLin
     dlcLast = that
     this
   }
-//
-//  def iterable = new Iterable[Any] {
+
+//  def dlcIterable = new Iterable[SE] {
 //    override def iterator: Iterator[SE] = iterator
 //  }
 //
-//  def iterator = new Iterator[Any] {
+//  def dlcIterator = new Iterator[SE] {
 //    var ptr = dlcHead
 //    override def hasNext: Boolean = ptr != null
 //
 //    override def next(): SE = {
 //      val ret = ptr
-//      ptr = ret.nextNameableStatement
+//      ptr = ret.dlceNext
 //      ret.asInstanceOf[SE]
 //    }
 //  }
@@ -101,6 +101,8 @@ trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[
   def foreachStatements(func : SE => Unit) = dlcForeach(func)
   def hasOnlyOneStatement = dlcHasOnlyOne
   def head = dlcHead
+//  def statementsIterator = dlcIterator
+//  def statementsIterable = dlcIterable
 }
 
 trait StatementDoubleLinkedContainerElement[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainerElement[SC,SE]{
@@ -332,7 +334,7 @@ abstract class AssignmentStatement extends LeafStatement with StatementDoubleLin
     source = func(source)
   }
 
-  override def toStringMultiLine() = {
+  override def toString() = {
     s"$target := $source"
   }
 }

@@ -18,9 +18,9 @@ object PlayDevMem{
       val mask = in(Bits(4 bits))
       val enable = in Bool()
     }
-
-    mem.write(p0.address, p0.data,mask = p0.mask)
-
+    when(p0.enable) {
+      mem.write(p0.address, p0.data, mask = p0.mask)
+    }
 
     val p1 = new Bundle{
       val address = in(mem.addressType)
@@ -45,19 +45,19 @@ object PlayDevMem{
       val enable = in Bool()
       val wr = in Bool()
     }
-
-    mem.readWriteSync(
-      address = p3.address  ,
-      data = p3.data  ,
-      enable = p3.enable  ,
-      write = p3.wr  ,
-      mask = p3.mask
-    )
+//
+//    mem.readWriteSync(
+//      address = p3.address  ,
+//      data = p3.data  ,
+//      enable = p3.enable  ,
+//      write = p3.wr  ,
+//      mask = p3.mask
+//    )
 
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    val toplevel = SpinalConfig().addStandardMemBlackboxing(blackboxAll).generateVhdl(new TopLevel()).printPruned()
   }
 }
 

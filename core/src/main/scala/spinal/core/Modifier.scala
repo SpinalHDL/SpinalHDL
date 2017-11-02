@@ -1037,15 +1037,15 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
 
 class BitsBitAccessFixed extends BitVectorBitAccessFixed{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(b,i)"
+  override def opName: String = "Bits(Int)"
 }
 class UIntBitAccessFixed extends BitVectorBitAccessFixed{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(u,i)"
+  override def opName: String = "UInt(Int)"
 }
 class SIntBitAccessFixed extends BitVectorBitAccessFixed{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(s,i)"
+  override def opName: String = "SInt(Int)"
 }
 
 abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
@@ -1098,17 +1098,17 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
 
 class BitsBitAccessFloating extends BitVectorBitAccessFloating{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(b,u)"
+  override def opName: String = "Bits(UInt)"
   override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new BitsBitAccessFixed
 }
 class UIntBitAccessFloating extends BitVectorBitAccessFloating{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(u,u)"
+  override def opName: String = "UInt(UInt)"
   override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new UIntBitAccessFixed
 }
 class SIntBitAccessFloating extends BitVectorBitAccessFloating{
   override def getTypeObject = TypeBool
-  override def opName: String = "extract(s,u)"
+  override def opName: String = "SInt(UInt)"
   override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new SIntBitAccessFixed
 }
 
@@ -1145,15 +1145,15 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
 
 class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
   override def getTypeObject = TypeBits
-  override def opName: String = "extract(b,i,i)"
+  override def opName: String = "Bits(Int downto Int)"
 }
 class UIntRangedAccessFixed extends BitVectorRangedAccessFixed{
   override def getTypeObject = TypeUInt
-  override def opName: String = "extract(u,i,i)"
+  override def opName: String = "UInt(Int downto Int)"
 }
 class SIntRangedAccessFixed extends BitVectorRangedAccessFixed{
   override def getTypeObject = TypeSInt
-  override def opName: String = "extract(s,i,i)"
+  override def opName: String = "SInt(Int downto Int)"
 }
 //
 ////WHen used offset.dontSimplifyIt() Because it can appear at multipe location (o+bc-1 downto o)
@@ -1211,17 +1211,17 @@ abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvide
 
 class BitsRangedAccessFloating extends BitVectorRangedAccessFloating{
   override def getTypeObject = TypeBits
-  override def opName: String = "extract(b,u,w)"
+  override def opName: String = "Bits(UInt + Int downto UInt)"
   override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new BitsRangedAccessFixed
 }
 class UIntRangedAccessFloating extends BitVectorRangedAccessFloating{
   override def getTypeObject = TypeUInt
-  override def opName: String = "extract(u,u,w)"
+  override def opName: String = "UInt(UInt + Int downto UInt)"
   override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new UIntRangedAccessFixed
 }
 class SIntRangedAccessFloating extends BitVectorRangedAccessFloating{
   override def getTypeObject = TypeSInt
-  override def opName: String = "extract(s,u,w)"
+  override def opName: String = "SInt(UInt + Int downto UInt)"
   override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new SIntRangedAccessFixed
 }
 
