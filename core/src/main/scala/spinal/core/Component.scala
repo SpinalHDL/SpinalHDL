@@ -98,10 +98,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-//  private[core] val additionalNodesRoot = mutable.Set[Node]()
-//  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null

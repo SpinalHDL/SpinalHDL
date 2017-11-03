@@ -504,3 +504,33 @@ object PlayDevTriplify{
         val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new TopLevel).printPruned()
   }
 }
+
+
+
+object PlayDevMiaou{
+
+  class TopLevel extends Component {
+//    val a,b,c = in UInt(32 bits)
+//    val result = out UInt(32 bits)
+//
+//    val tmp = Reg(UInt(32 bits)) init(42)
+//    when(a === 666){
+//      tmp := (tmp + 1) & 0xFFFF
+//    }
+//
+//    result := tmp
+
+//    val x = out UInt(32 bits)
+//    x := U"0101".resized
+    val a,b,c,d = Reg(UInt(32 bits)) init(0)
+    val sel = in UInt(2 bits)
+    val data = in UInt(32 bits)
+    Vec(a,b,c,d)(sel) := data
+
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalConfig().dumpWave(depth = 5, vcdPath = "miaou.vcd").generateVerilog(new TopLevel())
+    print("done")
+  }
+}

@@ -491,7 +491,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
         case bt : BaseType if bt.isReg => {
           val cd = bt.clockDomain
           if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
-            SpinalError(s"Clock domain without reset contain a register which needs one\n ${bt.getScalaLocationLong}")
+            SpinalError(s"MISSING RESET SIGNAL in the ClockDomain used by $bt\n${bt.getScalaLocationLong}")
 
           cds += cd
         }
@@ -754,11 +754,11 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
         if (!filtred.exists(e => e.isInstanceOf[SpinalTagReady] && e.asInstanceOf[SpinalTagReady].hasTag(noCombinatorialLoopCheck))) {
           val wellNameLoop = new StringBuilder()
           for(n <- filtred.reverseIterator) n match{
-            case n : DeclarationStatement => wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+            case n : DeclarationStatement => wellNameLoop ++= s"    >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
             case _ =>
           }
-          val multiLineLoop = filtred.reverseIterator.filter(!_.isInstanceOf[AssignmentStatement]).map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
-          PendingError(s"  Combinatorial loop !\n      Partial chain :\n${wellNameLoop}\n      Full chain :\n${multiLineLoop}")
+          val multiLineLoop = filtred.reverseIterator.filter(!_.isInstanceOf[AssignmentStatement]).map(n => "    " + n.toString).foldLeft("")(_ + "\n" + _)
+          PendingError(s"COMBINATORIAL LOOP :\n  Partial chain :\n${wellNameLoop}\n  Full chain :${multiLineLoop}")
         }
       }else if (node.algoIncrementale != okId) {
         node.algoIncrementale = walkingId
@@ -825,9 +825,11 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             }
             val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
             PendingError(
-              s"Synchronous element ${s} is driven " +
-              s"by ${syncDriver} but they don't have the same clock domain. " +
-              s"Register declaration at \n${s.getScalaLocationLong} through\n${wellNameLoop}"
+              s"""CLOCK CROSSING VIOLATION from ${syncDriver} to ${s}.
+                 |- Register declaration at
+                 |${s.getScalaLocationLong}- through
+                 |${wellNameLoop}"
+               """.stripMargin
             )
         }
 
@@ -1128,12 +1130,12 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           case s: DataAssignmentStatement => { //Omit InitAssignmentStatement
             s.target match {
               case bt : BaseType => if(getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)){
-                PendingError(s"The previous assignments of $bt are fully overridden at \n${s.getScalaLocationLong}")
+                PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
               }
               case e : BitVectorAssignmentExpression => {
                 val bt = e.finalTarget
                 if(getOrEmptyAdd2(bt,e.getAssignedBits)){
-                  PendingError(s"The previous assignments of $bt are fully overridden at \n${s.getScalaLocationLong}")
+                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                 }
               }
             }
@@ -1144,7 +1146,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
             for ((bt, assigned) <- whenTrue) {
               whenFalse.get(bt) match {
                 case Some(otherBt) => if(getOrEmptyAdd(bt,assigned.intersect(otherBt))){
-                  PendingError(s"The previous assignments of $bt are fully overridden inside the when statement at \n ${s.getScalaLocationLong}")
+                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n ${s.getScalaLocationLong}")
                 }
                 case None =>
               }
@@ -1171,7 +1173,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
               for ((bt, assigned) <- head) {
                 if(getOrEmptyAdd(bt,assigned)){
-                  PendingError(s"The previous assignments of $bt are fully overridden inside the switch statement at \n ${s.getScalaLocationLong}")
+                  PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n ${s.getScalaLocationLong}")
                 }
               }
             }
@@ -1188,10 +1190,10 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           unassignedBits.remove(assignedBits)
           if (!unassignedBits.isEmpty) {
             if(unassignedBits.isFull)
-              PendingError(s"Combinatorial signal $bt has no default value => LATCH, defined at\n${bt.getScalaLocationLong}")
+              PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
             else
-              PendingError(s"Incomplete assignment is detected on the combinatorial signal $bt, unassigned bit mask " +
-                s"is ${unassignedBits.toBinaryString}, declared at\n${bt.getScalaLocationLong}")
+              PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
           }
         }
 
