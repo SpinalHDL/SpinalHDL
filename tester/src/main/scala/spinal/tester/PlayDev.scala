@@ -3,6 +3,7 @@ package spinal.tester
 import spinal.core._
 import spinal.lib._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
+import spinal.lib.io.TriState
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 
 import scala.collection.mutable.ArrayBuffer
@@ -531,6 +532,64 @@ object PlayDevMiaou{
 
   def main(args: Array[String]) {
     val toplevel = SpinalConfig().dumpWave(depth = 5, vcdPath = "miaou.vcd").generateVerilog(new TopLevel())
+    print("done")
+  }
+}
+
+object PlayDevAnalog{
+  class TopLevel extends Component {
+    val cmd = slave(TriState(Bool))
+    val gpio = inout(analog(Bool))
+
+    val tmp = analog(Bool)
+    when(cmd.writeEnable){
+      tmp := cmd.write
+    }
+    cmd.read := tmp
+
+    tmp := gpio
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+object PlayDevAnalog2{
+  class Sub extends Component{
+    val cmd2 = slave(TriState(Bool))
+    val gpio2 = inout(analog(Bool))
+
+    val tmp2 = analog(Bool)
+    when(cmd2.writeEnable){
+      tmp2 := cmd2.write
+    }
+    cmd2.read := tmp2
+
+    gpio2 := tmp2
+  }
+
+  class TopLevel extends Component {
+    val cmd = slave(TriState(Bool))
+    val cmd2 = slave(TriState(Bool))
+    val gpio = inout(analog(Bool))
+
+    val tmp = analog(Bool)
+    when(cmd.writeEnable){
+      tmp := cmd.write
+    }
+    cmd.read := tmp
+    gpio <> tmp
+
+    val sub = new Sub
+    sub.cmd2  <> cmd2
+    sub.gpio2 <> gpio
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalConfig().generateVhdl(new TopLevel())
     print("done")
   }
 }

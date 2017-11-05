@@ -102,7 +102,7 @@ class ComponentEmiterVerilog(val c : Component,
       referencesOverrides(output) = name
     }
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
+    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) { //TODO INOUT
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= emitExpressionWrap(io, name)
       referencesOverrides(io) = name

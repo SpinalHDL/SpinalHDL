@@ -144,6 +144,10 @@ object out extends IODirection {
   override def applyIt[T <: Data](data: T): T = data.asOutput()
 }
 
+object inout extends IODirection {
+  override def applyIt[T <: Data](data: T): T = data.asInOut()
+}
+
 object inWithNull extends IODirection {
   override def applyIt[T <: Data](data: T): T = if(data != null) data.asInput() else data
 }

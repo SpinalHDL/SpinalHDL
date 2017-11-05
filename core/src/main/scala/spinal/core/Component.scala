@@ -85,7 +85,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   dslBody.component = this
 
   /** Contains all in/out signals of the component */
-  private[core] val ioSet = mutable.Set[BaseType]()
+  private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 

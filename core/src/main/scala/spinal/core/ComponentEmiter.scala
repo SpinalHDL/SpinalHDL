@@ -34,6 +34,7 @@ abstract class ComponentEmiter {
 
   val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
   val processes = mutable.LinkedHashSet[AsyncProcess]()
+  val analogs = ArrayBuffer[BaseType]()
   val mems = ArrayBuffer[Mem[_]]()
   val expressionToWrap = mutable.LinkedHashSet[Expression]()
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
@@ -91,6 +92,7 @@ abstract class ComponentEmiter {
             case s : DataAssignmentStatement => group.dataStatements += s
           }
         }
+        case target : BaseType if target.isAnalog =>
       }
       case assertStatement : AssertStatement => {
         val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
@@ -99,6 +101,7 @@ abstract class ComponentEmiter {
       }
       case x : MemPortStatement =>
       case x : Mem[_] => mems += x
+      case x : BaseType if x.isAnalog => analogs += x
       case x : DeclarationStatement =>
     })
 
@@ -258,7 +261,7 @@ abstract class ComponentEmiter {
       }
       s.walkDrivingExpressions(_ match {
         case bt: BaseType => {
-          if (bt.component == component && bt.isOutput) {
+          if (bt.component == component && bt.isOutput) { //TODO INOUT
             outputsToBufferize += bt
           }
         }

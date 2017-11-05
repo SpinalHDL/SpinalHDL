@@ -640,3 +640,44 @@ object GraphUtils{
 
 
 class DefaultTag(val that : BaseType) extends SpinalTag
+
+
+object analogDrive{
+  def apply[T <: Data](analog : T, data : T, enable : Bool) : Unit = {
+
+  }
+}
+
+object analog{
+  def apply[T <: Data](that : T) : T = that.setAsAnalog()
+}
+
+abstract class AnalogDriver extends Expression{
+  type T <: Expression
+  var data  : T = null.asInstanceOf[T]
+  var enable : Expression = null
+
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(data)
+    func(enable)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    data = func(data).asInstanceOf[T]
+    enable = func(enable)
+  }
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- data  operand : $data
+       |- enable operand : $enable
+       |""".stripMargin
+  }
+}
+
+class AnalogDriverBool extends AnalogDriver{
+  override def opName = "AnalogDriver(Bool, Bool)"
+
+  override def getTypeObject = TypeBool
+}
+

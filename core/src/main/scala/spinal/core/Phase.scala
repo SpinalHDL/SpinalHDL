@@ -208,6 +208,122 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
+
+class PhaseAnalog extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+
+    //Be sure that sub io assign parent component stuff
+    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
+      io.foreachStatements(s => s match {
+        case AssignmentStatement(_ : BaseType, x: BaseType) if (x.isAnalog && x.component == c.parent) => {
+          s.dlcRemove()
+          x.dlcAppend(s)
+          s.target = x
+          s.source = io
+        }
+        case _ =>
+      })
+    }))
+
+    val analogs = ArrayBuffer[BaseType]()
+    val islands = mutable.LinkedHashSet[mutable.LinkedHashSet[BaseType]]()
+    val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[BaseType]]()
+
+    def addToIsland(that : BaseType, island : mutable.LinkedHashSet[BaseType]) : Unit = {
+      island += that
+      analogToIsland(that) = island
+    }
+
+
+
+    val wrapped = mutable.HashMap[BaseType,BaseType]()
+    walkStatements{
+      case bt : BaseType if bt.isAnalog => {
+        analogs += bt
+
+        //Manage islands
+        bt.foreachStatements(s =>  s match{
+          case AssignmentStatement(x, y: BaseType) if (y.isAnalog) =>
+            if(s.finalTarget.component == y.component) {
+              (analogToIsland.get(bt), analogToIsland.get(y)) match {
+                case (None, None) =>
+                  val island = mutable.LinkedHashSet[BaseType]()
+                  addToIsland(bt,island)
+                  addToIsland(y,island)
+                  islands += island
+                case (None, Some(island)) =>
+                  addToIsland(bt,island)
+                case (Some(island), None) =>
+                  addToIsland(y,island)
+                case (Some(islandBt), Some(islandY)) =>
+                  islandY.foreach(addToIsland(_, islandBt))
+                  islands.remove(islandY)
+              }
+            }
+          case AssignmentStatement(x, y: BaseType) if (!y.isAnalog) =>
+        })
+      }
+      case _ =>
+    }
+
+
+    islands.foreach(island => {
+      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+        val target = island.count(_.isInOut) match {
+          case 0 => island.head
+          case 1 => island.find(_.isInOut).get
+          case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+        }
+
+        //Remove target analog assignements
+        target.foreachStatements(s =>  s match {
+          case AssignmentStatement(x, y: BaseType) if (y.isAnalog && y.component == target.component) => s.removeStatement()
+          case _ =>
+        })
+
+        //redirect island comb assignement to target
+        //drive isllands analogs from target as comb signal
+        for(bt <- island if bt != target){
+          val btStatements = ArrayBuffer[AssignmentStatement]()
+          bt.foreachStatements(btStatements += _)
+          btStatements.foreach(s => s match {
+              case AssignmentStatement(_, x: BaseType) if (!x.isAnalog) => //analog driver
+                s.dlcRemove()
+                target.dlcAppend(s)
+                s.walkRemapExpressions(e => if(e == bt) target else e)
+              case _ =>
+            }
+          )
+          bt.removeAssignments()
+          bt.setAsComb()
+          bt.rootScopeStatement.push()
+          bt := target
+          bt.rootScopeStatement.pop()
+        }
+
+        //Convert target comb assignement into AnalogDriver nods
+        target.foreachStatements(s => {
+          s.source match {
+            case btSource: BaseType if btSource.isAnalog =>
+            case _ => {
+              s.parentScope.push()
+              val enable = ConditionalContext.isTrue(target.rootScopeStatement)
+              s.parentScope.pop()
+              s.removeStatementFromScope()
+              target.rootScopeStatement.append(s)
+              val driver = new AnalogDriverBool
+              driver.data = s.source.asInstanceOf[driver.T]
+              driver.enable = enable
+              s.source = driver
+            }
+          }
+        })
+      }
+    })
+  }
+}
+
 class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
   val writes = ArrayBuffer[MemWrite]()
   val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -965,7 +1081,7 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
     }
 
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
-    topLevel.getAllIo.withFilter(_.isOutput).foreach(propagate(_, tagVitals))
+    topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
       case c : BlackBox => c.getAllIo.withFilter(_.isInput).foreach(propagate(_, tagVitals))
       case c =>
@@ -1051,6 +1167,8 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 
 }
+
+//TODO INOUT
 class PhaseCheckHiearchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1062,7 +1180,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
         s match {
           case s : AssignmentStatement => {
             val bt = s.finalTarget
-            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutput && bt.component == c) && !(bt.isInput && bt.component.parent == c)) {
+            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
               PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
@@ -1084,7 +1202,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
         }
         if(!error) s.walkExpression(e => e match{
           case bt : BaseType => {
-            if(!(bt.component == c) && !(bt.isInput && bt.component.parent == c) && !(bt.isOutput && bt.component.parent == c)){
+            if(!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)){
               PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
             }
           }
@@ -1128,14 +1246,16 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         }
         body.foreachStatements {
           case s: DataAssignmentStatement => { //Omit InitAssignmentStatement
-            s.target match {
-              case bt : BaseType => if(getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)){
-                PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
-              }
-              case e : BitVectorAssignmentExpression => {
-                val bt = e.finalTarget
-                if(getOrEmptyAdd2(bt,e.getAssignedBits)){
+            if(!s.finalTarget.isAnalog) {
+              s.target match {
+                case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)) {
                   PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
+                }
+                case e: BitVectorAssignmentExpression => {
+                  val bt = e.finalTarget
+                  if (getOrEmptyAdd2(bt, e.getAssignedBits)) {
+                    PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
+                  }
                 }
               }
             }
@@ -1189,7 +1309,9 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           unassignedBits.add(bt.getBitsWidth-1, 0)
           unassignedBits.remove(assignedBits)
           if (!unassignedBits.isEmpty) {
-            if(unassignedBits.isFull)
+            if(bt.dlcIsEmpty)
+              PendingError(s" signal $bt, defined at\n${bt.getScalaLocationLong}")
+            else if(unassignedBits.isFull)
               PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
             else
               PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
@@ -1391,6 +1513,7 @@ object SpinalVhdlBoot{
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseAnalog()
 
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))

@@ -168,6 +168,7 @@ trait DataPrimitives[T <: Data]{
     _data
   }
   def default(that : => T) : T ={
+    assert(_data.dir != inout)
     val c = if(_data.dir == in)
       Component.current.parent
     else
@@ -218,21 +219,40 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     }
     this
   }
+  def asInOut(): this.type = {
+    if(this.component != Component.current) {
+      val location = ScalaLocated.long
+      PendingError(s"You should not set $this as output outside it's own component.\n$location" )
+    }else {
+      dir = inout
+    }
+    this
+  }
 
   def asDirectionLess() : this.type = {
     dir = null
     this
   }
 
+  def dirString() : String = dir match {
+    case `in` => "in"
+    case `out` => "out"
+    case `inout` => "inout"
+    case null => ""
+  }
  // def assignDontCare() : Unit = ???
 
   def isOutput: Boolean = dir == out
   def isInput: Boolean = dir == in
+  def isInOut: Boolean = dir == inout
+  def isOutputOrInOut : Boolean = dir == out || dir == inout
+  def isInputOrInOut : Boolean = dir == in || dir == inout
   def isDirectionLess: Boolean = dir == null
   def flip(): this.type  = {
     dir match {
       case `in` => dir = out
       case `out` => dir = in
+      case `inout` =>
       case _ => SpinalError(s"Can't flip a data that is direction less $this")
     }
     this
@@ -301,6 +321,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
+  //TODO INOUT
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
 
     def error(message : String) = {
@@ -330,12 +351,18 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 
     def sameFromOutside: Unit = {
-      if (thisTrue.isOutput && thatTrue.isInput) {
-        that := this
-      } else if (thisTrue.isInput && thatTrue.isOutput) {
-        this := that
-      } else error("Bad input output specification for autoconnect")
+      (thisTrue.dir,thatTrue.dir) match {
+        case (`out`, `in`) => that := this
+        case (`in`, out) => this := that
+        case (`inout`, `inout`) => this := that
+        case (`inout`, `out`) => this := that
+        case (`out`, `inout`) => that := this
+        case (`inout`, `in`) => that := this
+        case (`in`, `inout`) => this := that
+        case _ => error("Bad input output specification for autoconnect")
+      }
     }
+
     def sameFromInside: Unit = {
       (thisTrue.dir,thatTrue.dir) match {
         case (`out`,`in`) => this := that
@@ -344,7 +371,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         case (`in`,`out`) => that := this
         case (`in`,null) => that := this
         case (null,`out`) => that := this
-        case _ =>  error("Bad input output specification for autoconnect")
+        case _ =>  if(this.isAnalog && that.isAnalog) this := that else error("Bad input output specification for autoconnect")
       }
     }
 
@@ -361,7 +388,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         p := k
       } else if (getTrueIoBaseType(k).isInput) {
         k := p
-      } else error("Bad input output specification for autoconnect")
+      } else  if(this.isAnalog && that.isAnalog) this := that else error("Bad input output specification for autoconnect")
     }
   }
 
@@ -389,7 +416,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
   def isComb: Boolean = flatten.foldLeft(true)(_ && _.isComb)
-
+  def isAnalog: Boolean = flatten.foldLeft(true)(_ && _.isAnalog)
+  def setAsAnalog() : this.type = {flatten.foreach(_.setAsAnalog()); this}
   override def getRealSourceNoRec: Any = this
 
   /*private[core] */

@@ -107,7 +107,7 @@ class ComponentEmiterVhdl(val c : Component,
       referencesOverrides(output) = name
     }
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
+    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) { //TODO INOUT
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= s"  signal $name : ${emitDataType(io)};\n"
       referencesOverrides(io) = name
@@ -124,6 +124,14 @@ class ComponentEmiterVhdl(val c : Component,
       logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
+    c.getOrdredNodeIo.withFilter(_.isInOut).foreach(io => {
+      io.foreachStatements{
+        case AssignmentStatement(_, source : BaseType) =>
+          referencesOverrides(source) = emitExpression(io)
+        case _ =>
+      }
+    })
+
 
     //Flush all that mess out ^^
     emitBlackBoxComponents()
@@ -131,6 +139,7 @@ class ComponentEmiterVhdl(val c : Component,
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
+    emitAnalogs()
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
@@ -150,9 +159,18 @@ class ComponentEmiterVhdl(val c : Component,
   }
 
 
+  def emitAnalogs(): Unit ={
+    analogs.foreach(analog => {
+      analog.foreachStatements{
+        case AssignmentStatement(target, source : AnalogDriver) => {
+          logics ++= s"  ${emitAssignedExpression(target)} <= ${emitExpression(source.data)} when ${emitExpression(source.enable)} = '1' else 'Z';\n"
+        }
+        case s =>
+      }
+    })
+  }
 
-
-  def emitSubComponents( openSubIo : mutable.HashSet[BaseType]): Unit = {
+  def emitSubComponents(openSubIo : mutable.HashSet[BaseType]): Unit = {
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
       //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic

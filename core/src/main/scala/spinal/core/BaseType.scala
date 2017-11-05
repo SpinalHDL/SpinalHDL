@@ -35,139 +35,11 @@ trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with
   */
 trait BaseTypeCast extends SFixCast with UFixCast
 
-
-//object BaseType {
-//
-//  def checkAssignability(dst: BaseType, src: Node): Unit = {
-//
-//    val globalData = dst.globalData
-//
-//    dst.dir match{
-//      case null => if(globalData.componentStack.head() != dst.component) {
-//        val trace = ScalaLocated.long
-//        globalData.pendingErrors += (() => (s"Hierarchy violation : Signal $dst can't be assigned by $src\n$trace"))
-//      }
-//      case `in` => if(!(src.component == dst.component.parent || (dst.component.parent == src.component.parent && src.isInstanceOf[BaseType] && src.asInstanceOf[BaseType].isOutput))){
-//        val trace = ScalaLocated.long
-//        globalData.pendingErrors += (() => (s"Hierarchy violation : Input signal $dst can't be assigned by $src\n$trace"))
-//      }
-//      case `out` => if(globalData.componentStack.head() != dst.component){
-//        val trace = ScalaLocated.long
-//        globalData.pendingErrors += (() => (s"Hierarchy violation : Output signal $dst can't be assigned by $src\n$trace"))
-//      }
-//    }
-//
-//    if(dst.hasTag(tagAutoResize)){
-//      val trace = ScalaLocated.long
-//      globalData.pendingErrors += (() => (s"xxx.resized := yyy is not something legal. You can do xxx := yyy.resized to automaticaly resize yyy to the correct size, OR this : \nxxx := SomePaddedValue\nxxx(yyy.range) := yyy\n$trace"))
-//    }
-//  }
-//
-//  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node, Int) = {
-//    var consumer = initialConsumer
-//    var consumerInputId: Int = initialConsumerInputId
-//    val globalData = baseType.globalData
-//    var initialConditionalAssignHit = baseType.conditionalAssignScope == null
-//    globalData.netlistUpdate()
-//
-//    def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
-//      if(consumer.isInstanceOf[AssignmentTreePart]){
-//        man.setAssignmentContext(0,consumer.asInstanceOf[AssignmentTreePart].getAssignmentContext(consumerInputId))
-//      }
-//      //To be sure that there is basetype to bufferise (for future resize)
-//      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignmentNode] ||
-//          that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
-//        man.inputs += that.asInstanceOf[man.T]
-//      } else {
-//        val bt = baseType.weakClone
-//        bt.input = that
-//        man.inputs += bt.asInstanceOf[man.T]
-//      }
-//    }
-//
-//    for (conditionalAssign <- globalData.conditionalAssignStack.stack.reverseIterator) {
-//      if (!initialConditionalAssignHit) {
-//        if (conditionalAssign == baseType.conditionalAssignScope) initialConditionalAssignHit = true
-//      } else {
-//        conditionalAssign match {
-//          case when: WhenContext => {
-//            consumer.getInput(consumerInputId) match {
-//              case null =>
-//                val whenNode = WhenNode(baseType,when)
-//                if(consumer.isInstanceOf[AssignmentTreePart]){
-//                  consumer.asInstanceOf[AssignmentTreePart].setAssignmentContext(consumerInputId,globalData.getThrowable())
-//                }
-//                consumer.setInput(consumerInputId,whenNode)
-//                consumer = whenNode
-//              case man: MultipleAssignmentNode =>
-//                man.inputs.last match {
-//                  case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
-//                  case _ => {
-//                    val whenNode = WhenNode(baseType,when)
-//                    man.inputs += whenNode.asInstanceOf[man.T]
-//                    consumer = whenNode
-//                  }
-//                }
-//              case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
-//              case that =>
-//                val man = MultipleAssignmentNode.newFor(baseType)
-//                val whenNode = WhenNode(baseType,when)
-//                initMan(man, that)
-//                man.inputs += whenNode.asInstanceOf[man.T]
-//                consumer.setInput(consumerInputId, man)
-//                consumer = whenNode
-//            }
-//
-//            consumerInputId = if (when.isTrue) 1 else 2
-//          }
-//        }
-//      }
-//    }
-//
-//    if (!initialConditionalAssignHit){
-//      val location = ScalaLocated.long
-//      SpinalError(s"$baseType is assigned outside the when statements where it is declared.\n Assignment there :\n $location The signal is declared there :\n${baseType.getScalaLocationLong}")
-//    }
-//
-//    if (conservative) {
-//      consumer.getInput(consumerInputId) match {
-//        case null =>
-//        case man: MultipleAssignmentNode =>
-//          consumer = man
-//          consumerInputId = man.inputs.length
-//          man.inputs += null.asInstanceOf[man.T]
-//        case that =>
-//          val man = MultipleAssignmentNode.newFor(baseType)
-//          initMan(man, that)
-//          man.inputs += null.asInstanceOf[man.T]
-//          consumer.setInput(consumerInputId,man)
-//          consumerInputId = 1
-//          consumer = man
-//      }
-//    } else {
-//      val overrided = consumer.getInput(consumerInputId)
-//      if (overrided != null && !overrided.isInstanceOf[Reg])
-//        if (consumer.globalData.overridingAssignmentWarnings) {
-//          val exept = new Throwable()
-//          val trace = ScalaLocated.short
-//          Component.current.addPrePopTask (() => {
-//            SpinalWarning(s"$baseType is overridden at ${trace}")
-//          })
-//        }
-//    }
-//
-//    consumer match {
-//      case consumer : AssignmentTreePart => consumer.setAssignmentContext(consumerInputId,consumer.globalData.getThrowable())
-//      case _                              =>
-//    }
-//    (consumer, consumerInputId)
-//  }
-//}
-
 object BaseType{
   final val isRegMask = 1
   final val isTypeNodeMask = 2
   final val isVitalMask = 4
+  final val isAnalogMask = 8
 }
 
 /**
@@ -181,10 +53,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   //  if(component != null) component.append(this)
   private var btFlags = 0
+  override def isAnalog = (btFlags & BaseType.isAnalogMask) != 0
   override def isReg = (btFlags & BaseType.isRegMask) != 0
-  override def isComb = (btFlags & BaseType.isRegMask) == 0
+  override def isComb = (btFlags & (BaseType.isRegMask | BaseType.isAnalogMask)) == 0
+  override def setAsAnalog() : this.type = {btFlags |= BaseType.isAnalogMask; this}
   def setAsReg() : this.type = {btFlags |= BaseType.isRegMask; this}
-  def setAsComb() : this.type = {btFlags &= ~BaseType.isRegMask; this}
+  def setAsComb() : this.type = {btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this}
   def isTypeNode = (btFlags & BaseType.isTypeNodeMask) != 0
   def setAsTypeNode() : this.type = {btFlags |= BaseType.isTypeNodeMask; this}
   def isVital = (btFlags & BaseType.isVitalMask) != 0
@@ -268,6 +142,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def asOutput(): this.type = {
     component.ioSet += this
     super.asOutput()
+  }
+
+  override def asInOut(): this.type = {
+    component.ioSet += this
+    super.asInOut()
   }
 
   override def asDirectionLess(): BaseType.this.type = {
@@ -438,7 +317,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
 
   override def toString(): String = if(isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
-    s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier)"
+    s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${dirString} $getClassIdentifier)"
   else
     head.source.toString
 

@@ -49,9 +49,8 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
 }
 
 object ConditionalContext{
-  def isTrue: Bool ={
+  def isTrue(rootScope : ScopeStatement) : Bool ={
     val globalData = GlobalData.get
-    val rootScope = globalData.dslScope.head.component.dslBody
     if(globalData.dslScope.head == rootScope) return True
     rootScope.push()
     val swap = rootScope.swap()
@@ -61,6 +60,7 @@ object ConditionalContext{
     cond := True
     cond
   }
+  def isTrue() : Bool = isTrue(GlobalData.get.dslScope.head.component.dslBody)
 }
 
 object when {

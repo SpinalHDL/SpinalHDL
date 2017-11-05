@@ -70,6 +70,11 @@ abstract class MultiData extends Data {
     this
   }
 
+  override def asInOut(): this.type = {
+    super.asInOut()
+    elements.foreach(_._2.asInOut());
+    this
+  }
 
   override def asDirectionLess: this.type = {
     super.asDirectionLess()

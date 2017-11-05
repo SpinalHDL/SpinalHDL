@@ -365,7 +365,9 @@ object SpinalWarning {
 class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).map(_ + "\n" + SpinalExit.errorsMessagesSeparator + "\n\n").mkString("") + "Design's errors are listed above.\nSpinalHDL compiler exit stack : \n");
 
 object PendingError {
-  def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)
+  def apply(error : => String) : Unit = {
+    GlobalData.get.pendingErrors += (() => error)
+  }
 }
 object LocatedPendingError {
   def apply(error : => String) = {

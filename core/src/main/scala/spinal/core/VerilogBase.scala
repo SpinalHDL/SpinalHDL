@@ -111,6 +111,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitDirection(baseType: BaseType) = baseType.dir match {
     case `in` => "input "
     case `out` => "output"
+    case `inout` => "inout"
     case _ => throw new Exception("Unknown direction"); ""
   }
 
