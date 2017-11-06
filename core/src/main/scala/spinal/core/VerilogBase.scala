@@ -120,7 +120,7 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def signalNeedProcess(baseType: BaseType) : Boolean = {
     if(baseType.isReg) return true
-    if(baseType.dlcIsEmpty) return false
+    if(baseType.dlcIsEmpty || baseType.isAnalog) return false
     if(!baseType.hasOnlyOneStatement || baseType.head.parentScope != baseType.rootScopeStatement) return true
     return false
   }

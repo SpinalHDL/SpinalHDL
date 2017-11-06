@@ -119,11 +119,20 @@ class ComponentEmiterVerilog(val c : Component,
       logics ++= s"  assign ${wrappedExpressionToName(e)} = ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
+    //Wrap inout
+    analogs.foreach(io => {
+      io.foreachStatements{
+        case AssignmentStatement(_, source : BaseType) =>
+          referencesOverrides(source) = emitExpression(io)
+        case _ =>
+      }
+    })
 
     //Flush all that mess out ^^
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
+    emitAnalogs()
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
@@ -142,7 +151,17 @@ class ComponentEmiterVerilog(val c : Component,
     }
   }
 
-
+  def emitAnalogs(): Unit ={
+    analogs.foreach(analog => {
+      analog.foreachStatements(s => s match {
+        case AssignmentStatement(target, source : AnalogDriver) => {
+          val width = s.finalTarget.getBitsWidth
+          logics ++= s"  assign ${emitAssignedExpression(target)} = ${emitExpression(source.enable)} ? ${emitExpression(source.data)} : $width'b${"z"*width};\n"
+        }
+        case s =>
+      })
+    })
+  }
 
 
   def emitSubComponents( openSubIo : mutable.HashSet[BaseType]): Unit = {

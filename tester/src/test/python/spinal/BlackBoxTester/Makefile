@@ -6,7 +6,7 @@ ifeq ($(TOPLEVEL_LANG),verilog)
 endif
 
 ifeq ($(TOPLEVEL_LANG),vhdl)
-	VHDL_SOURCES += ${CURDIR}/BlackBoxToTest.vhd $(SPINALROOT)/BlackBoxTester.vhd
+	VHDL_SOURCES += ${CURDIR}/BlackBoxed.vhd $(SPINALROOT)/BlackBoxTester.vhd
 	TOPLEVEL=blackboxtester
 endif
 

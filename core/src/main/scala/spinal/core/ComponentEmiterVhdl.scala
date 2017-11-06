@@ -107,7 +107,8 @@ class ComponentEmiterVhdl(val c : Component,
       referencesOverrides(output) = name
     }
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) { //TODO INOUT
+
+    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= s"  signal $name : ${emitDataType(io)};\n"
       referencesOverrides(io) = name
@@ -124,7 +125,8 @@ class ComponentEmiterVhdl(val c : Component,
       logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
-    c.getOrdredNodeIo.withFilter(_.isInOut).foreach(io => {
+    //Wrap inout
+    analogs.foreach(io => {
       io.foreachStatements{
         case AssignmentStatement(_, source : BaseType) =>
           referencesOverrides(source) = emitExpression(io)

@@ -282,13 +282,17 @@ class PhaseAnalog extends PhaseNetlist{
           case _ =>
         })
 
-        //redirect island comb assignement to target
+        //redirect island assignements to target
         //drive isllands analogs from target as comb signal
         for(bt <- island if bt != target){
           val btStatements = ArrayBuffer[AssignmentStatement]()
           bt.foreachStatements(btStatements += _)
           btStatements.foreach(s => s match {
               case AssignmentStatement(_, x: BaseType) if (!x.isAnalog) => //analog driver
+                s.dlcRemove()
+                target.dlcAppend(s)
+                s.walkRemapExpressions(e => if(e == bt) target else e)
+              case AssignmentStatement(_, x: BaseType) if (x.isAnalog && x.component.parent == bt.component) => //analog connection
                 s.dlcRemove()
                 target.dlcAppend(s)
                 s.walkRemapExpressions(e => if(e == bt) target else e)
@@ -628,78 +632,6 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
 
 
-class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
-  override def impl(pc : PhaseContext): Unit = {
-    import pc._
-    globalData.nodeAreInferringWidth = true
-
-
-
-
-    var iterationCounter = 0
-    while (true) {
-      var somethingChange = false
-
-      //Infer width on all expressions
-      walkExpression(e => e match {
-        case e : DeclarationStatement =>
-        case e : Widthable =>
-          val hasChange = e.inferWidth
-          somethingChange = somethingChange || hasChange
-        case _ =>
-      })
-
-      //Infer width on all nameable expression (BitVector)
-      walkDeclarations(e => e match{
-        case e : Widthable =>
-          val hasChange = e.inferWidth
-          somethingChange = somethingChange || hasChange
-        case _ =>
-      })
-
-      //Check in the width inferation is done, then check it and generate errors
-      if (!somethingChange || iterationCounter == 10000) {
-        val errors = mutable.ArrayBuffer[String]()
-
-        def widthableCheck(e : Widthable) : Unit = {
-          if (e.inferWidth) {
-            //Don't care about Reg width inference
-            errors += s"Can't infer width on ${e.getScalaLocationLong}"
-          }
-          if (e.widthWhenNotInferred != -1 &&
-            e.widthWhenNotInferred != e.getWidth) {
-            errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
-          }
-
-          if(e.inferredWidth < -1){
-            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
-          }
-        }
-
-        walkExpression(e => e match {
-          case e : DeclarationStatement =>
-          case e : Widthable => widthableCheck(e)
-          case e : WidthProvider => if(e.getWidth < 0){
-            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
-          }
-          case _ =>
-        })
-
-        walkDeclarations(e => e match{
-          case e : Widthable => widthableCheck(e)
-          case _ =>
-        })
-
-        if (errors.nonEmpty)
-          SpinalError(errors)
-        return
-      }
-      iterationCounter += 1
-    }
-  }
-}
-
-
 class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -810,6 +742,78 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
           }
         }
       }
+    }
+  }
+}
+
+
+class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    globalData.nodeAreInferringWidth = true
+
+
+
+
+    var iterationCounter = 0
+    while (true) {
+      var somethingChange = false
+
+      //Infer width on all expressions
+      walkExpression(e => e match {
+        case e : DeclarationStatement =>
+        case e : Widthable =>
+          val hasChange = e.inferWidth
+          somethingChange = somethingChange || hasChange
+        case _ =>
+      })
+
+      //Infer width on all nameable expression (BitVector)
+      walkDeclarations(e => e match{
+        case e : Widthable =>
+          val hasChange = e.inferWidth
+          somethingChange = somethingChange || hasChange
+        case _ =>
+      })
+
+      //Check in the width inferation is done, then check it and generate errors
+      if (!somethingChange || iterationCounter == 10000) {
+        val errors = mutable.ArrayBuffer[String]()
+
+        def widthableCheck(e : Widthable) : Unit = {
+          if (e.inferWidth) {
+            //Don't care about Reg width inference
+            errors += s"Can't infer width on ${e.getScalaLocationLong}"
+          }
+          if (e.widthWhenNotInferred != -1 &&
+            e.widthWhenNotInferred != e.getWidth) {
+            errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
+          }
+
+          if(e.inferredWidth < -1){
+            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+          }
+        }
+
+        walkExpression(e => e match {
+          case e : DeclarationStatement =>
+          case e : Widthable => widthableCheck(e)
+          case e : WidthProvider => if(e.getWidth < 0){
+            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+          }
+          case _ =>
+        })
+
+        walkDeclarations(e => e match{
+          case e : Widthable => widthableCheck(e)
+          case _ =>
+        })
+
+        if (errors.nonEmpty)
+          SpinalError(errors)
+        return
+      }
+      iterationCounter += 1
     }
   }
 }
@@ -1083,7 +1087,7 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
     topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
-      case c : BlackBox => c.getAllIo.withFilter(_.isInput).foreach(propagate(_, tagVitals))
+      case c : BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
@@ -1185,7 +1189,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
               error = true
             }
 
-            if(!error){
+            if(!error && !(bt.isInOut)){
               val rootScope = s.rootScopeStatement
               var ptr = s.parentScope
 
@@ -1513,7 +1517,6 @@ object SpinalVhdlBoot{
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
-    phases += new PhaseAnalog()
 
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
@@ -1524,6 +1527,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
+    phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 
@@ -1651,6 +1655,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
+    phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 

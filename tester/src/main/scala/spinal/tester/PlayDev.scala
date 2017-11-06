@@ -536,6 +536,25 @@ object PlayDevMiaou{
   }
 }
 
+object PlayDevBugx{
+  class TopLevel extends Component {
+//    val vec = out(Vec(Reg(Bits(32 bits)), 4))
+//    val sel = in(UInt(2 bits))
+//
+//    vec(sel) := 0
+
+    val a,b = out(Bits(32 bits))
+    val x = B(0).resized
+    a := x
+    b := x
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
 object PlayDevAnalog{
   class TopLevel extends Component {
     val cmd = slave(TriState(Bool))
