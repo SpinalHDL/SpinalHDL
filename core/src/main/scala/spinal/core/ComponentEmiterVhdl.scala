@@ -165,8 +165,13 @@ class ComponentEmiterVhdl(val c : Component,
     analogs.foreach(analog => {
       analog.foreachStatements{
         case AssignmentStatement(target, source : AnalogDriver) => {
-          logics ++= s"  ${emitAssignedExpression(target)} <= ${emitExpression(source.data)} when ${emitExpression(source.enable)} = '1' else 'Z';\n"
-        }
+          source.getTypeObject match {
+            case `TypeBool` => logics ++= s"  ${emitAssignedExpression(target)} <= ${emitExpression(source.data)} when ${emitExpression(source.enable)} = '1' else 'Z';\n"
+            case `TypeBits` | `TypeUInt` | `TypeSInt` => logics ++= s"  ${emitAssignedExpression(target)} <= ${emitExpression(source.data)} when ${emitExpression(source.enable)} = '1' else (others => 'Z');\n"
+            case `TypeEnum` => SpinalError("???")
+          }
+
+       }
         case s =>
       }
     })

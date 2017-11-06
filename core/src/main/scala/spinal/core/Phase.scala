@@ -310,13 +310,19 @@ class PhaseAnalog extends PhaseNetlist{
         target.foreachStatements(s => {
           s.source match {
             case btSource: BaseType if btSource.isAnalog =>
-            case _ => {
+            case btSource => {
               s.parentScope.push()
               val enable = ConditionalContext.isTrue(target.rootScopeStatement)
               s.parentScope.pop()
               s.removeStatementFromScope()
               target.rootScopeStatement.append(s)
-              val driver = new AnalogDriverBool
+              val driver = btSource.getTypeObject match {
+                case `TypeBool` => new AnalogDriverBool
+                case `TypeBits` => new AnalogDriverBits
+                case `TypeUInt` => new AnalogDriverUInt
+                case `TypeSInt` => new AnalogDriverSInt
+                case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+              }
               driver.data = s.source.asInstanceOf[driver.T]
               driver.enable = enable
               s.source = driver
