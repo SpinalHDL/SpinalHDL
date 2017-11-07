@@ -2,6 +2,7 @@ package spinal.tester
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb.Apb3Gpio
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.TriState
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -609,6 +610,30 @@ object PlayDevAnalog2{
 
   def main(args: Array[String]) {
     val toplevel = SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+
+
+object PlayDevAnalog3{
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl({
+      val toplevel = Apb3Gpio(32)
+      toplevel.rework{
+        import toplevel._
+        io.gpio.asDirectionLess.allowDirectionLessIo
+        val analog = inout(Analog(Bits(32 bits))).setName("analog")
+        io.gpio.read := analog
+        for(i <- 0 to 31){
+          when(io.gpio.writeEnable(i)){
+            analog(i) := io.gpio.write(i)
+          }
+        }
+        toplevel
+      }
+    })
     print("done")
   }
 }

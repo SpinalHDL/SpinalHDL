@@ -655,6 +655,7 @@ trait SpinalTag {
   def canSymplifyHost = false
 }
 
+object allowDirectionLessIoTag extends SpinalTag
 object allowAssignmentOverride extends SpinalTag
 object unusedTag extends SpinalTag
 object noCombinatorialLoopCheck extends SpinalTag

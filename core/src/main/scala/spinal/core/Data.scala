@@ -314,10 +314,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.addTag(tagAutoResize)
     return ret.asInstanceOf[this.type]
   }
+
   def allowOverride : this.type ={
     addTag(allowAssignmentOverride)
   }
 
+  def allowDirectionLessIo : this.type = {
+    addTag(allowDirectionLessIoTag)
+  }
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 

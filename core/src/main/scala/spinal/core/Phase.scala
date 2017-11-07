@@ -263,13 +263,19 @@ class PhaseAnalog extends PhaseNetlist{
             }
           case AssignmentStatement(x, y: BaseType) if (!y.isAnalog) =>
         })
+
+        if(!analogToIsland.contains(bt)){
+          val island = mutable.LinkedHashSet[BaseType]()
+          addToIsland(bt,island)
+          islands += island
+        }
       }
       case _ =>
     }
 
 
     islands.foreach(island => {
-      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+//      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
         val target = island.count(_.isInOut) match {
           case 0 => island.head
           case 1 => island.find(_.isInOut).get
@@ -329,7 +335,7 @@ class PhaseAnalog extends PhaseNetlist{
             }
           }
         })
-      }
+//      }
     })
   }
 }
@@ -1166,7 +1172,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
       try{
         val io = c.reflectIo
         for(bt <- io.flatten){
-          if(bt.isDirectionLess){
+          if(bt.isDirectionLess && !bt.hasTag(allowDirectionLessIoTag)){
            PendingError(s"IO BUNDLE ERROR : A direction less $bt signal was defined into $c component's io bundle\n${bt.getScalaLocationLong}")
           }
         }
@@ -1175,10 +1181,9 @@ class PhaseCheckIoBundle extends PhaseCheck{
       }
     })
   }
-
 }
 
-//TODO INOUT
+
 class PhaseCheckHiearchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
