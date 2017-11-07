@@ -558,9 +558,9 @@ object PlayDevBugx{
 object PlayDevAnalog{
   class TopLevel extends Component {
     val cmd = slave(TriState(Bool))
-    val gpio = inout(analog(Bool))
+    val gpio = inout(Analog(Bool))
 
-    val tmp = analog(Bool)
+    val tmp = Analog(Bool)
     when(cmd.writeEnable){
       tmp := cmd.write
     }
@@ -579,9 +579,9 @@ object PlayDevAnalog{
 object PlayDevAnalog2{
   class Sub extends Component{
     val cmd2 = slave(TriState(Bool))
-    val gpio2 = inout(analog(Bool))
+    val gpio2 = inout(Analog(Bool))
 
-    val tmp2 = analog(Bool)
+    val tmp2 = Analog(Bool)
     when(cmd2.writeEnable){
       tmp2 := cmd2.write
     }
@@ -593,9 +593,9 @@ object PlayDevAnalog2{
   class TopLevel extends Component {
     val cmd = slave(TriState(Bool))
     val cmd2 = slave(TriState(Bool))
-    val gpio = inout(analog(Bool))
+    val gpio = inout(Analog(Bool))
 
-    val tmp = analog(Bool)
+    val tmp = Analog(Bool)
     when(cmd.writeEnable){
       tmp := cmd.write
     }

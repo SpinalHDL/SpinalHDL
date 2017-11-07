@@ -648,8 +648,8 @@ object analogDrive{
   }
 }
 
-object analog{
-  def apply[T <: Data](that : T) : T = that.setAsAnalog()
+object Analog{
+  def apply[T <: Data](that : HardType[T]) : T = that().setAsAnalog()
 }
 
 abstract class AnalogDriver extends Expression{

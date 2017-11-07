@@ -155,8 +155,13 @@ class ComponentEmiterVerilog(val c : Component,
     analogs.foreach(analog => {
       analog.foreachStatements(s => s match {
         case AssignmentStatement(target, source : AnalogDriver) => {
-          val width = s.finalTarget.getBitsWidth
-          logics ++= s"  assign ${emitAssignedExpression(target)} = ${emitExpression(source.enable)} ? ${emitExpression(source.data)} : $width'b${"z"*width};\n"
+          source.getTypeObject match {
+            case `TypeBool` => logics ++=  s"  assign ${emitAssignedExpression(target)} = ${emitExpression(source.enable)} ? ${emitExpression(source.data)} : 1'bz;\n"
+            case `TypeBits` | `TypeUInt` | `TypeSInt` =>
+              val width = source.asInstanceOf[WidthProvider].getWidth
+              logics ++= s"  assign ${emitAssignedExpression(target)} = ${emitExpression(source.enable)} ? ${emitExpression(source.data)} : $width'b${"z"*width};\n"
+            case `TypeEnum` => SpinalError("???")
+          }
         }
         case s =>
       })

@@ -24,7 +24,7 @@ import scala.collection.mutable.ArrayBuffer
 object Reg {
   //def apply[T <: SpinalEnum](enumKind: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): SpinalEnumCraft[T] = Reg(enumKind.craft(),init,next).asInstanceOf[SpinalEnumCraft[T]]
 
-  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
+  def apply[T <: Data](dataType: HardType[T], init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
     val regOut = cloneOf(dataType)
     for ( e <- regOut.flatten) {
       e.setAsReg()

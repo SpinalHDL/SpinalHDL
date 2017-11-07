@@ -36,6 +36,5 @@ class I2cSlaveTester extends SpinalTesterCocotbBase {
     ret
   }
 
-  withWaveform = true
 }
 

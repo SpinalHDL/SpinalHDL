@@ -22,13 +22,13 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.io.TriState
+import spinal.lib.io.{TriState, TriStateArray}
 
 object InOutTester {
   def analogType = Bool()
   case class Bus() extends Bundle with IMasterSlave{
     val cmd = TriState(analogType)
-    val gpio = analog(analogType)
+    val gpio = Analog(analogType)
     cmd.writeEnable.setCompositeName(cmd,"writeenable")
     override def asMaster(): Unit = {
       master(cmd)
@@ -38,7 +38,7 @@ object InOutTester {
 
   class Sub extends Component{
     val bus2 = slave(Bus())
-    val tmp2 = analog(analogType)
+    val tmp2 = Analog(analogType)
     when(bus2.cmd.writeEnable){
       tmp2 := bus2.cmd.write
     }
@@ -59,7 +59,7 @@ object InOutTester {
 
     cmd.writeEnable.setCompositeName(cmd,"writeenable")
     cmdbb.writeEnable.setCompositeName(cmdbb,"writeenable")
-    val tmp = analog(analogType)
+    val tmp = Analog(analogType)
     when(cmd.writeEnable){
       tmp := cmd.write
     }
@@ -88,7 +88,6 @@ class InOutTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "InOutTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/InOutTester"
   override def createToplevel: Component = new InOutTester.InOutTester
-  withWaveform = true
 }
 
 
@@ -96,7 +95,7 @@ object InOutTester2 {
   def analogType = UInt(8 bits)
   case class Bus() extends Bundle with IMasterSlave{
     val cmd = TriState(analogType)
-    val gpio = analog(analogType)
+    val gpio = Analog(analogType)
     cmd.writeEnable.setCompositeName(cmd,"writeenable")
     override def asMaster(): Unit = {
       master(cmd)
@@ -106,7 +105,7 @@ object InOutTester2 {
 
   class Sub extends Component{
     val bus2 = slave(Bus())
-    val tmp2 = analog(analogType)
+    val tmp2 = Analog(analogType)
     when(bus2.cmd.writeEnable){
       tmp2 := bus2.cmd.write
     }
@@ -127,7 +126,7 @@ object InOutTester2 {
 
     cmd.writeEnable.setCompositeName(cmd,"writeenable")
     cmdbb.writeEnable.setCompositeName(cmdbb,"writeenable")
-    val tmp = analog(analogType)
+    val tmp = Analog(analogType)
     when(cmd.writeEnable){
       tmp := cmd.write
     }
@@ -156,5 +155,47 @@ class InOutTester2CocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "InOutTester2"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/InOutTester2"
   override def createToplevel: Component = new InOutTester2.InOutTester2
+  
+}
+
+
+object InOutTester3 {
+  def analogType = Bits(8 bits)
+  case class Bus() extends Bundle with IMasterSlave{
+    val cmd = TriStateArray(8 bits)
+    val gpio = Analog(analogType)
+    cmd.writeEnable.setCompositeName(cmd,"writeenable")
+    override def asMaster(): Unit = {
+      master(cmd)
+      inout(gpio)
+    }
+  }
+
+  class Sub extends Component{
+    val bus2 = slave(Bus())
+    val tmp2 = Analog(analogType)
+    for(i <- bus2.gpio.range) {
+      when(bus2.cmd.writeEnable(i)) {
+        tmp2(i) := bus2.cmd.write(i)
+      }
+    }
+    bus2.cmd.read := tmp2
+
+    bus2.gpio := tmp2
+  }
+
+
+
+  class InOutTester3 extends Component {
+    val bus = slave(Bus())
+    val sub = new Sub()
+    sub.bus2 <> bus
+  }
+}
+
+class InOutTester3CocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "InOutTester3"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/InOutTester3"
+  override def createToplevel: Component = new InOutTester3.InOutTester3
   withWaveform = true
 }
