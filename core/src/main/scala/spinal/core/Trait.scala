@@ -546,7 +546,10 @@ object ScalaLocated {
 
 trait ScalaLocated extends GlobalDataUser {
   private[core] var scalaTrace = if (globalData != null && !globalData.scalaLocatedEnable) null else new Throwable()
-
+  def setScalaLocated(source : ScalaLocated) : this.type = {
+    scalaTrace = source.scalaTrace
+    this
+  }
   def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
   def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)
 }
@@ -656,6 +659,7 @@ trait SpinalTag {
 }
 
 object allowDirectionLessIoTag extends SpinalTag
+object unsetRegIfNoAssignementTag extends SpinalTag
 object allowAssignmentOverride extends SpinalTag
 object unusedTag extends SpinalTag
 object noCombinatorialLoopCheck extends SpinalTag

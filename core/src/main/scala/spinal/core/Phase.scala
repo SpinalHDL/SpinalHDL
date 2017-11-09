@@ -618,7 +618,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
     import pc._
 
     walkComponents(c => {
-      val cds = mutable.HashSet[ClockDomain]()
+      val cds = mutable.LinkedHashSet[ClockDomain]()
       c.dslBody.walkLeafStatements{
         case bt : BaseType if bt.isReg => {
           val cd = bt.clockDomain
@@ -1232,6 +1232,54 @@ class PhaseCheckHiearchy extends PhaseCheck{
     })
   }
 }
+class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+    walkStatements{
+      case bt : BaseType if bt.isReg && (bt.isVital || !bt.dlcIsEmpty) => {
+        var assignedBits = new AssignedBits(bt.getBitsWidth)
+        bt.foreachStatements{
+          case s : DataAssignmentStatement =>
+            s.target match {
+              case bt: BaseType => assignedBits.add(bt.getBitsWidth - 1, 0)
+              case e: BitVectorAssignmentExpression =>  assignedBits.add(e.getMaxAssignedBits)
+            }
+          case _ =>
+        }
+        if(!assignedBits.isFull){
+          if(assignedBits.isEmpty) {
+            var withInit = false
+            bt.foreachStatements{
+              case s : InitAssignmentStatement => withInit = true
+              case _ =>
+            }
+            if(bt.hasTag(unsetRegIfNoAssignementTag) && withInit){
+              bt.setAsComb()
+              val statements = ArrayBuffer[AssignmentStatement]()
+
+              bt.foreachStatements(statements += _)
+
+              statements.foreach{
+                case s : InitAssignmentStatement => {
+                  s.insertNext(DataAssignmentStatement(s.target, s.source).setScalaLocated(s))
+                  s.removeStatement()
+                }
+              }
+            }else {
+              PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
+            }
+          }else {
+            val unassignedBits = new AssignedBits(bt.getBitsWidth)
+            unassignedBits.add(bt.getBitsWidth - 1, 0)
+            unassignedBits.remove(assignedBits)
+            PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
   override def impl(pc : PhaseContext): Unit = {
@@ -1247,18 +1295,14 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           dst.add(src)
           ret
         }
-        def getOrEmptyAdd2(bt : BaseType, src : AssignedRange): Boolean = {
-          val dst = getOrEmpty(bt)
-          val ret = src.hi == dst.width-1 && src.lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignmentOverride)
-          dst.add(src)
-          ret
-        }
         def getOrEmptyAdd3(bt : BaseType, hi : Int, lo : Int): Boolean = {
           val dst = getOrEmpty(bt)
           val ret = hi == dst.width-1 && lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignmentOverride)
           dst.add(hi, lo)
           ret
         }
+        def getOrEmptyAdd2(bt : BaseType, src : AssignedRange): Boolean = getOrEmptyAdd3(bt,src.hi, src.lo)
+
         body.foreachStatements {
           case s: DataAssignmentStatement => { //Omit InitAssignmentStatement
             if(!s.finalTarget.isAnalog) {
@@ -1268,7 +1312,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
                 }
                 case e: BitVectorAssignmentExpression => {
                   val bt = e.finalTarget
-                  if (getOrEmptyAdd2(bt, e.getAssignedBits)) {
+                  if (getOrEmptyAdd2(bt, e.getMinAssignedBits)) {
                     PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                   }
                 }
@@ -1319,18 +1363,20 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           case s =>
          }
 
-        for((bt, assignedBits) <- assigneds if bt.isComb && (bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
-          val unassignedBits = new AssignedBits(bt.getBitsWidth)
-          unassignedBits.add(bt.getBitsWidth-1, 0)
-          unassignedBits.remove(assignedBits)
-          if (!unassignedBits.isEmpty) {
-            if(bt.dlcIsEmpty)
-              PendingError(s" signal $bt, defined at\n${bt.getScalaLocationLong}")
-            else if(unassignedBits.isFull)
-              PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
-            else
-              PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
-                s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+        for((bt, assignedBits) <- assigneds if (bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
+          if(bt.isComb) {
+            val unassignedBits = new AssignedBits(bt.getBitsWidth)
+            unassignedBits.add(bt.getBitsWidth - 1, 0)
+            unassignedBits.remove(assignedBits)
+            if (!unassignedBits.isEmpty) {
+              if (bt.dlcIsEmpty)
+                PendingError(s" signal $bt, defined at\n${bt.getScalaLocationLong}")
+              else if (unassignedBits.isFull)
+                PendingError(s"LATCH DETECTED from the combinatorial signal $bt, defined at\n${bt.getScalaLocationLong}")
+              else
+                PendingError(s"LATCH DETECTED from the combinatorial signal $bt, unassigned bit mask " +
+                  s"is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+            }
           }
         }
 
@@ -1558,6 +1604,7 @@ object SpinalVhdlBoot{
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
+    phases += new PhaseCheck_noRegisterAsLatch()
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 
@@ -1686,6 +1733,7 @@ object SpinalVerilogBoot{
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
+    phases += new PhaseCheck_noRegisterAsLatch()
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 

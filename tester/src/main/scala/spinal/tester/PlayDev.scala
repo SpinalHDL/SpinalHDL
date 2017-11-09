@@ -512,6 +512,19 @@ object PlayDevTriplify{
 object PlayDevMiaou{
 
   class TopLevel extends Component {
+
+    val a = Reg(UInt(8 bits))
+    a(3 downto 0) := 1
+//    a(7 downto 4) := 1
+
+//    val a, b = in Bool()
+//    val result = out UInt(4 bits)
+//
+//    for(i <- 0 to 3){
+//      result(i) := b
+//    }
+
+
 //    val a,b,c = in UInt(32 bits)
 //    val result = out UInt(32 bits)
 //
@@ -524,10 +537,10 @@ object PlayDevMiaou{
 
 //    val x = out UInt(32 bits)
 //    x := U"0101".resized
-    val a,b,c,d = Reg(UInt(32 bits)) init(0)
-    val sel = in UInt(2 bits)
-    val data = in UInt(32 bits)
-    Vec(a,b,c,d)(sel) := data
+//    val a,b,c,d = Reg(UInt(32 bits)) init(0)
+//    val sel = in UInt(2 bits)
+//    val data = in UInt(32 bits)
+//    Vec(a,b,c,d)(sel) := data
 
   }
 

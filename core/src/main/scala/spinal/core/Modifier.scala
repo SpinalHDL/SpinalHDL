@@ -744,7 +744,7 @@ class CastUIntToBits extends CastBitVectorToBitVector{
 }
 class CastBitsToUInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeUInt
-  override def opName: String = "b-> UInt"
+  override def opName: String = "Bits -> UInt"
 }
 class CastSIntToUInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeUInt
@@ -752,7 +752,7 @@ class CastSIntToUInt extends CastBitVectorToBitVector{
 }
 class CastBitsToSInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeSInt
-  override def opName: String = "b-> SInt"
+  override def opName: String = "Bits -> SInt"
 }
 class CastUIntToSInt extends CastBitVectorToBitVector{
   override def getTypeObject = TypeSInt
@@ -760,7 +760,7 @@ class CastUIntToSInt extends CastBitVectorToBitVector{
 }
 class CastBoolToBits extends Cast with Widthable{
   override def getTypeObject = TypeBits
-  override def opName: String = "B-> Bits"
+  override def opName: String = "Bits -> Bits"
   override private[core] def calcWidth: Int = 1
 }
 
@@ -773,7 +773,7 @@ class CastEnumToBits extends Cast with Widthable{
 
 class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl{
   override type T <: Expression with WidthProvider
-  override def opName: String = "b-> Enum"
+  override def opName: String = "Bits -> Enum"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
 
@@ -1492,7 +1492,8 @@ abstract class AssignmentExpression extends Expression {
   def finalTarget: BaseType
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit
-  def getAssignedBits: AssignedRange //Bit that are allwas assigned
+  def getMinAssignedBits: AssignedRange //Bit that are allwas assigned
+  def getMaxAssignedBits: AssignedRange //Bit that are allwas assigned
 //  def getScopeBits: AssignedRange //Bit tht could be assigned
 //  def getOutBaseType: BaseType
 //
@@ -1544,7 +1545,8 @@ class BitAssignmentFixed() extends BitVectorAssignmentExpression with ScalaLocat
   //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
   //    }
   //  }
-  override def getAssignedBits: AssignedRange = AssignedRange(bitId)
+  override def getMinAssignedBits: AssignedRange = AssignedRange(bitId)
+  override def getMaxAssignedBits: AssignedRange = AssignedRange(bitId)
   //  def getScopeBits: AssignedRange = getAssignedBits
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
   //    if(outHi >= bitId && bitId >= outLo)
@@ -1593,7 +1595,8 @@ class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthPr
 
 
 
-  override def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
+  override def getMinAssignedBits: AssignedRange = AssignedRange(hi, lo)
+  override def getMaxAssignedBits: AssignedRange = AssignedRange(hi, lo)
   //  def getScopeBits: AssignedRange = getAssignedBits
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
   //    val relativeLo = outLo-lo
@@ -1646,7 +1649,8 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression{
     }else
       this
   }
-  override def getAssignedBits: AssignedRange = AssignedRange()
+  override def getMinAssignedBits: AssignedRange = AssignedRange()
+  override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << bitId.getWidth)-1, 0)
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
 //
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -1721,7 +1725,8 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
 //
 //
 //
-  override def getAssignedBits: AssignedRange = AssignedRange()
+  override def getMinAssignedBits: AssignedRange = AssignedRange()
+  override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << offset.getWidth)-1 + bitCount - 1, 0)
 
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
