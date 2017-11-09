@@ -501,10 +501,10 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
     var hadNonLiteralKey = false
     elements.foreach(element => element.keys.foreach{
       case lit : EnumLiteral[_] => if(!coverage.allocate(lit.enum.position)){
-        PendingError(s"Condition duplication in the switch statement at \n" + this.getScalaLocationLong)
+        PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
       }
       case lit : Literal => if(!coverage.allocate(lit.getValue())){
-        PendingError(s"Condition duplication in the switch statement at \n" + this.getScalaLocationLong)
+        PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
       }
       case _ => hadNonLiteralKey = true
     })
@@ -513,7 +513,7 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
   }
 }
 
-class ScopeStatement(var parentStatement : TreeStatement){
+class ScopeStatement(var parentStatement : TreeStatement) {
   var component : Component = if(parentStatement != null) parentStatement.component else null
   var head, last : Statement = null
   def isEmpty = head == null

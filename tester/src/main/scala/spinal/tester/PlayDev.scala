@@ -512,9 +512,18 @@ object PlayDevTriplify{
 object PlayDevMiaou{
 
   class TopLevel extends Component {
+    val sel = Bits(2 bits)
+    val result = Bits(8 bits)
 
-    val a = Reg(UInt(8 bits))
-    a(3 downto 0) := 1
+    switch(sel){
+      is(0) { result := 0 }
+      is(1) { result := 1 }
+      is(2) { result := 2 }
+      is(3) { result := 3 }
+    }
+
+//    val a = Reg(UInt(8 bits))
+//    a(3 downto 0) := 1
 //    a(7 downto 4) := 1
 
 //    val a, b = in Bool()
@@ -546,6 +555,7 @@ object PlayDevMiaou{
 
   def main(args: Array[String]) {
     val toplevel = SpinalConfig().dumpWave(depth = 5, vcdPath = "miaou.vcd").generateVerilog(new TopLevel())
+    SpinalConfig().dumpWave(depth = 5, vcdPath = "miaou.vcd").generateVhdl(new TopLevel())
     print("done")
   }
 }

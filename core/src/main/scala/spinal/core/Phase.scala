@@ -1165,6 +1165,22 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
   }
 }
 
+class PhaseCompletSwitchCases extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+    walkStatements{
+      case s : SwitchStatement if s.isFullyCoveredWithoutDefault => {
+        if(s.defaultScope != null && !s.defaultScope.isEmpty){
+          PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
+        }
+        s.defaultScope = s.elements.last.scopeStatement
+        s.elements.remove(s.elements.length-1)
+      }
+      case _ =>
+    }
+  }
+}
+
 class PhaseCheckIoBundle extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1600,6 +1616,7 @@ object SpinalVhdlBoot{
     phases += new PhaseSimplifyNodes(pc)
 
 
+    phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
     phases += new PhaseRemoveIntermediateUnameds(false)
 
@@ -1729,6 +1746,7 @@ object SpinalVerilogBoot{
     phases += new PhaseSimplifyNodes(pc)
 
 
+    phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
     phases += new PhaseRemoveIntermediateUnameds(false)
 

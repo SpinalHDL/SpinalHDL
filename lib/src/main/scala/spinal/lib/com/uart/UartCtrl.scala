@@ -77,8 +77,11 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     //Manage config
     val uartConfigReg = Reg(io.config)
     uartConfigReg.clockDivider init(0)
-    if(config.initConfig != null)            config.initConfig.initReg(uartConfigReg)
-    if(config.busCanWriteClockDividerConfig) busCtrlWrapped.writeMultiWord(uartConfigReg.clockDivider,address = 8)
+    if(config.initConfig != null)config.initConfig.initReg(uartConfigReg)
+    if(config.busCanWriteClockDividerConfig)
+      busCtrlWrapped.writeMultiWord(uartConfigReg.clockDivider,address = 8)
+    else
+      uartConfigReg.clockDivider.unsetRegIfNoAssignement
     if(config.busCanWriteFrameConfig){
       busCtrlWrapped.write(uartConfigReg.frame.dataLength,address = 12,bitOffset = 0)
       busCtrlWrapped.write(uartConfigReg.frame.parity,address = 12,bitOffset = 8)
@@ -86,6 +89,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
         case 16 => busCtrlWrapped.write(uartConfigReg.frame.stop,address = 14,bitOffset = 0)
         case 32 => busCtrlWrapped.write(uartConfigReg.frame.stop,address = 12,bitOffset = 16)
       }
+    }else{
+      uartConfigReg.frame.unsetRegIfNoAssignement
     }
     io.config := uartConfigReg
 

@@ -853,15 +853,21 @@ end
     def onEachExpression(e : Expression) : Unit = {
       e match {
         case node: SubAccess => applyTo(node.getBitVector)
+        case node: Resize if node.size < node.input.getWidth => applyTo(node.input)
         case _ =>
       }
     }
     def onEachExpressionNotDrivingBaseType(e : Expression) : Unit = {
       onEachExpression(e)
       e match {
-        case node: Resize => applyTo(node)
     //    case node: Literal => applyTo(node)
-        case node if node.getTypeObject == TypeUInt || node.getTypeObject == TypeSInt => applyTo(node)
+        case node: Resize => applyTo(node)
+        case node if node.getTypeObject == TypeSInt => applyTo(node)
+        case node : Operator.UInt.Add => applyTo(node)
+        case node : Operator.UInt.Sub => applyTo(node)
+        case node : Operator.UInt.Mul => applyTo(node)
+        case node : Operator.UInt.Div => applyTo(node)
+        case node : Operator.UInt.Mod => applyTo(node)
         case node: Operator.BitVector.ShiftOperator => applyTo(node)
         case _ =>
       }
@@ -916,12 +922,18 @@ end
     emitExpression(func.input)
   }
 
-  def operatorImplAsNoTransformation(func: Resize): String = {
-    emitExpression(func.input)
+  def operatorImplResize(func: Resize): String = {
+    if(func.size < func.input.getWidth)
+      s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else
+      emitExpression(func.input)
   }
 
-  def operatorImplAsSigned(func: Resize): String = {
-    "$signed(" + emitExpression(func.input) + ")"
+  def operatorImplResizeSigned(func: Resize): String = {
+    if(func.size < func.input.getWidth)
+      s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else
+      "$signed(" + emitExpression(func.input) + ")"
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
@@ -1108,9 +1120,9 @@ end
 
 
     //misc
-    case  e : ResizeSInt => operatorImplAsSigned(e)
-    case  e : ResizeUInt => operatorImplAsNoTransformation(e)
-    case  e : ResizeBits => operatorImplAsNoTransformation(e)
+    case  e : ResizeSInt => operatorImplResizeSigned(e)
+    case  e : ResizeUInt => operatorImplResize(e)
+    case  e : ResizeBits => operatorImplResize(e)
 
     case  e : Multiplexer => operatorImplAsMux(e)
 
