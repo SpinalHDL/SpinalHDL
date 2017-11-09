@@ -1236,7 +1236,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
     walkStatements{
-      case bt : BaseType if bt.isReg && (bt.isVital || !bt.dlcIsEmpty) => {
+      case bt : BaseType if bt.isReg && (bt.isVital) => {
         var assignedBits = new AssignedBits(bt.getBitsWidth)
         bt.foreachStatements{
           case s : DataAssignmentStatement =>
