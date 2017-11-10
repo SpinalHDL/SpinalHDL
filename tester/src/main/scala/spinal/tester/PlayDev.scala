@@ -665,12 +665,8 @@ object PlayDevAnalog3{
 
 object PlayDevBug3{
   class TopLevel extends Component {
-    val a = (Bits(2 bits))
-    a(0) := True
-    a(1) := False
 
-
-    val b = out(RegNext(a))
+    val b ,c = out(Bool())
   }
 
   def main(args: Array[String]) {
