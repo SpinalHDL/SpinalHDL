@@ -804,6 +804,10 @@ object GlobalData {
   }
 }
 
+object Driver {
+  val startTime = System.currentTimeMillis()
+  def executionTime: Double = (System.currentTimeMillis - startTime)/1000.0
+}
 
 /**
   *

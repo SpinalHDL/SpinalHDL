@@ -1,8 +1,9 @@
-package spinal.core
+package spinal.core.internals
 
+import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 

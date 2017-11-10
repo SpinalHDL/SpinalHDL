@@ -1,4 +1,6 @@
-package spinal.core
+package spinal.core.internals
+
+import spinal.core.{AssertStatement, AssignmentStatement, BaseType, ClockDomain, Component, DataAssignmentStatement, DeclarationStatement, Expression, InitAssignmentStatement, LeafStatement, Mem, MemPortStatement, Nameable, RangedAssignmentFloating, ScopeStatement, Statement, SwitchStatement, TreeStatement, WhenStatement}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

@@ -1,11 +1,9 @@
-package spinal.core
+package spinal.core.internals
 
-
-import java.util.concurrent.ConcurrentHashMap
+import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-import scala.util.Random
+import scala.collection.mutable.ArrayBuffer
 
 
 
