@@ -81,7 +81,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     if(config.busCanWriteClockDividerConfig)
       busCtrlWrapped.writeMultiWord(uartConfigReg.clockDivider,address = 8)
     else
-      uartConfigReg.clockDivider.unsetRegIfNoAssignement
+      uartConfigReg.clockDivider.allowUnsetRegToAvoidLatch
     if(config.busCanWriteFrameConfig){
       busCtrlWrapped.write(uartConfigReg.frame.dataLength,address = 12,bitOffset = 0)
       busCtrlWrapped.write(uartConfigReg.frame.parity,address = 12,bitOffset = 8)
@@ -90,7 +90,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
         case 32 => busCtrlWrapped.write(uartConfigReg.frame.stop,address = 12,bitOffset = 16)
       }
     }else{
-      uartConfigReg.frame.unsetRegIfNoAssignement
+      uartConfigReg.frame.allowUnsetRegToAvoidLatch
     }
     io.config := uartConfigReg
 

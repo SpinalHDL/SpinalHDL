@@ -261,7 +261,7 @@ abstract class ComponentEmiter {
       }
       s.walkDrivingExpressions(_ match {
         case bt: BaseType => {
-          if (bt.component == component && bt.isOutput) { //TODO INOUT
+          if (bt.component == component && bt.isOutput) {
             outputsToBufferize += bt
           }
         }

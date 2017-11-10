@@ -323,13 +323,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(allowDirectionLessIoTag)
   }
 
-  def unsetRegIfNoAssignement : this.type = {
+  def allowUnsetRegToAvoidLatch : this.type = {
     addTag(unsetRegIfNoAssignementTag)
   }
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
-  //TODO INOUT
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
 
     def error(message : String) = {

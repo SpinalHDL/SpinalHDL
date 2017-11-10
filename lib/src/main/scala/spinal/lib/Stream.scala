@@ -417,7 +417,7 @@ class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(val arbitrationF
     val chosenOH = out Bits (portCount bit)
   }
 
-  val locked = RegInit(False).unsetRegIfNoAssignement
+  val locked = RegInit(False).allowUnsetRegToAvoidLatch
 
   val maskProposal = Vec(Bool,portCount)
   val maskLocked = Reg(Vec(Bool,portCount))
