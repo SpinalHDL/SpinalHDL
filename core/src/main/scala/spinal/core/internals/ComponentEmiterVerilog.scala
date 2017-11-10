@@ -323,10 +323,11 @@ class ComponentEmiterVerilog(val c : Component,
     )
   }
 
-
+  def emitAsyncronousAsAsign(process : AsyncProcess) =  process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
+//  def emitAsyncronousAsFunction(process : AsyncProcess) =  ! &&
   def emitAsyncronous(process: AsyncProcess): Unit = {
     process match {
-      case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
+      case _ if emitAsyncronousAsAsign(process) => process.leafStatements.head match {
         case s : AssignmentStatement =>
           logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
       }
@@ -344,11 +345,24 @@ class ComponentEmiterVerilog(val c : Component,
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node : BaseType => {
+              val funcName = "zz_" + emitReference(node, false)
+              declarations ++= s"  function automatic ${emitType(node)} $funcName(input dummy);\n"
+//              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
+              declarations ++= s"    begin\n"
               val statements = ArrayBuffer[LeafStatement]()
               node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
-              declarations ++= s"  initial begin\n"
-              emitLeafStatements(statements, 0, process.scope, "=", declarations, "    ")
-              declarations ++= s"  end\n"
+              val oldRef = referencesOverrides.getOrElse(node, null)
+              referencesOverrides(node) = funcName
+              emitLeafStatements(statements, 0, process.scope, "=", declarations, "      ")
+              if(oldRef != null) referencesOverrides(node) = oldRef else referencesOverrides.remove(node)
+//              declarations ++= s"      $funcName = ${emitReference(node, false)};\n"
+              declarations ++= s"    end\n"
+              declarations ++= s"  endfunction\n"
+
+              val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+              declarations ++= s"  wire ${emitType(node)} $name;\n"
+              logics ++= s"  assign $name = ${funcName}(1'b0);\n"
+              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
             }
           }
         }

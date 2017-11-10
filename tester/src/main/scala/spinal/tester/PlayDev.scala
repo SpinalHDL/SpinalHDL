@@ -661,3 +661,21 @@ object PlayDevAnalog3{
     print("done")
   }
 }
+
+
+object PlayDevBug3{
+  class TopLevel extends Component {
+    val a = (Bits(2 bits))
+    a(0) := True
+    a(1) := False
+
+
+    val b = out(RegNext(a))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
+    SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
