@@ -1,108 +1,17 @@
-package spinal.core
+package spinal.core.internals
 
+import spinal.core._
 
 import scala.collection.immutable.Iterable
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-//TODO IR :
-// Miaou
-
-
-trait BaseNode {
-  var algoInt, algoIncrementale = 0
-  private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
-  def toStringMultiLine() : String = this.toString
-}
-
-
-
-trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
-  def dlcParent : SC
-  var dlceLast, dlceNext : SE = null.asInstanceOf[SE]
-  def dlcRemove(): Unit = {
-    //super.removeStatement()
-
-    //Remove from BaseType
-    if(dlceLast != null){
-      dlceLast.dlceNext = dlceNext
-    } else {
-      dlcParent.dlcHead = dlceNext
-    }
-    if(dlceNext != null){
-      dlceNext.dlceLast = dlceLast
-    } else {
-      dlcParent.dlcLast = dlceLast
-    }
-    dlceLast = null.asInstanceOf[SE]
-    dlceNext = null.asInstanceOf[SE]
-  }
-}
-
-trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
-  var dlcHead, dlcLast : SE = null.asInstanceOf[SE]
-  def dlcHasOnlyOne = dlcHead == dlcLast && dlcHead != null
-  def dlcIsEmpty = dlcHead == null
-  //  def sizeIsOne = head != null && head == last
-  def dlcPrepend(that : SE) : this.type = {
-    if(dlcHead != null){
-      dlcHead.dlceLast = dlcHead
-    } else {
-      dlcLast = that
-    }
-    that.dlceNext = dlcHead
-    that.dlceLast = null.asInstanceOf[SE]
-
-    dlcHead = that
-
-    this
-  }
-
-  def dlcAppend(that : SE) : this.type = {
-    that.dlceNext = null.asInstanceOf[SE]
-    that.dlceLast = dlcLast
-    if(dlcLast != null){
-      dlcLast.dlceNext = that
-    } else {
-      dlcHead = that
-    }
-
-    dlcLast = that
-    this
-  }
-
-//  def dlcIterable = new Iterable[SE] {
-//    override def iterator: Iterator[SE] = iterator
-//  }
-//
-//  def dlcIterator = new Iterator[SE] {
-//    var ptr = dlcHead
-//    override def hasNext: Boolean = ptr != null
-//
-//    override def next(): SE = {
-//      val ret = ptr
-//      ptr = ret.dlceNext
-//      ret.asInstanceOf[SE]
-//    }
-//  }
-
-
-  def dlcForeach[T >: SE](func : T => Unit) : Unit = {
-    var ptr = dlcHead
-    while(ptr != null){
-      val current = ptr
-      ptr = ptr.dlceNext
-      func(current)
-    }
-  }
-}
 
 trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[SC, SE], SE <: Statement with DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainer[SC,SE]{
   def foreachStatements(func : SE => Unit) = dlcForeach(func)
   def hasOnlyOneStatement = dlcHasOnlyOne
   def head = dlcHead
-//  def statementsIterator = dlcIterator
-//  def statementsIterable = dlcIterable
+  //  def statementsIterator = dlcIterator
+  //  def statementsIterable = dlcIterable
 }
 
 trait StatementDoubleLinkedContainerElement[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainerElement[SC,SE]{
@@ -120,57 +29,123 @@ trait DeclarationStatement extends LeafStatement with Nameable {
 
 
 
-trait ExpressionContainer{
-  def normalizeInputs: Unit = {}
-  def remapExpressions(func : (Expression) => Expression) : Unit
-  def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
-  def foreachExpression(func : (Expression) => Unit) : Unit
-  def foreachDrivingExpression(func : (Expression) => Unit) : Unit = foreachExpression(func)
-//  def foreachDrivingExpressionWithDelay(func : (Expression, Int) => Unit) : Unit = foreachExpression(func(_,0))
+class ScopeStatement(var parentStatement : TreeStatement) {
+  var component : Component = if(parentStatement != null) parentStatement.component else null
+  var head, last : Statement = null
+  def isEmpty = head == null
+  def nonEmpty = head != null
 
-  def walkExpression(func : (Expression) => Unit) : Unit = {
-    foreachExpression(e => {
-      func(e)
-      e.walkExpression(func)
-    })
+  def push() = GlobalData.get.dslScope.push(this)
+  def pop() = GlobalData.get.dslScope.pop()
+
+  class SwapContext(cHead : Statement, cLast : Statement){
+    def appendBack() : Unit ={
+      if(nonEmpty){
+        last.nextScopeStatement = cHead
+        cHead.lastScopeStatement = last
+      } else {
+        head = cHead
+      }
+
+      if(cLast != null) {
+        last = cLast
+      }
+    }
   }
-  def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
-    foreachDrivingExpression(e => {
-      func(e)
-      e.walkDrivingExpressions(func)
-    })
+
+  def swap(): SwapContext ={
+    val ret = new SwapContext(head,last)
+    head = null
+    last = null
+    ret
   }
-  def walkRemapExpressions(func : (Expression) => Expression) : Unit = {
-    remapExpressions(func)
-    foreachExpression(e => {
-      e.walkRemapExpressions(func)
-    })
+
+
+  def prepend(that : Statement) : this.type = {
+    if(head != null){
+      head.lastScopeStatement = that
+    } else {
+      last = that
+    }
+    that.nextScopeStatement = head
+    that.lastScopeStatement = null
+    that.parentScope = this
+
+    head = that
+
+    this
   }
-  def walkRemapDrivingExpressions(func : (Expression) => Expression) : Unit = {
-    remapDrivingExpressions(func)
-    foreachDrivingExpression(e => {
-      e.walkRemapDrivingExpressions(func)
-    })
+
+  def append(that : Statement) : this.type = {
+    that.parentScope = this
+    that.nextScopeStatement = null
+    that.lastScopeStatement = last
+    if(last != null){
+      last.nextScopeStatement = that
+    } else {
+      head = that
+    }
+
+    last = that
+    this
+  }
+
+  def statementIterable = new Iterable[Statement] {
+    override def iterator: Iterator[Statement] = statementIterator
+  }
+
+  def statementIterator = new Iterator[Statement] {
+    var ptr = head
+    override def hasNext: Boolean = ptr != null
+
+    override def next(): Statement = {
+      val ret = ptr
+      ptr = ret.nextScopeStatement
+      ret
+    }
+  }
+
+
+  def foreachStatements(func : (Statement) => Unit) = {
+    var ptr = head
+    while(ptr != null){
+      val current = ptr
+      ptr = ptr.nextScopeStatement
+      func(current)
+    }
+  }
+
+
+  def walkStatements(func : Statement => Unit): Unit ={
+    foreachStatements{
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => func(s); s.walkStatements(func)
+    }
+  }
+
+  def walkLeafStatements(func : LeafStatement => Unit): Unit ={
+    foreachStatements {
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => s.walkLeafStatements(func)
+    }
+  }
+
+  def foreachDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case s =>
+    }
+  }
+
+  def walkDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case s : TreeStatement => s.walkDeclarations(func)
+      case s =>
+    }
   }
 }
 
-object TypeBool
-object TypeBits
-object TypeUInt
-object TypeSInt
-object TypeEnum
-
-trait Expression extends BaseNode with ExpressionContainer{
-  def opName : String
-  def simplifyNode: Expression = this
-  def getTypeObject : Any
-  private[core] def foreachDrivingExpression(outHi : Int, outLo : Int)(f : (Expression, Int,Int) => Unit) : Unit = foreachDrivingExpression{
-    case input : Expression with WidthProvider => f(input, input.getWidth-1,0)
-    case input => f(input, 0,0)
-  }
-
-  override def toString = opName
-}
 
 
 
@@ -370,7 +345,7 @@ class InitAssignmentStatement extends AssignmentStatement{
 class WhenStatement(var cond : Expression) extends TreeStatement{
   val whenTrue, whenFalse = new ScopeStatement(this)
 
-//  override def isConditionalStatement: Boolean = true
+  //  override def isConditionalStatement: Boolean = true
 
   override def normalizeInputs: Unit = {}
 
@@ -388,22 +363,7 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
   }
 }
 
-object SwitchStatementKeyBool{
-  def apply(cond : Expression): SwitchStatementKeyBool ={
-    val ret = new SwitchStatementKeyBool
-    ret.cond = cond
-    ret
-  }
-}
-class SwitchStatementKeyBool extends Expression{
-  var cond : Expression = null
 
-  override def opName: String = "is(b)"
-  override def getTypeObject: Any = TypeBool
-  override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
-  override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
-}
-class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
 class SwitchStatement(var value : Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope : ScopeStatement = null
@@ -513,160 +473,32 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
   }
 }
 
-class ScopeStatement(var parentStatement : TreeStatement) {
-  var component : Component = if(parentStatement != null) parentStatement.component else null
-  var head, last : Statement = null
-  def isEmpty = head == null
-  def nonEmpty = head != null
 
-  def push() = GlobalData.get.dslScope.push(this)
-  def pop() = GlobalData.get.dslScope.pop()
-
-  class SwapContext(cHead : Statement, cLast : Statement){
-    def appendBack() : Unit ={
-      if(nonEmpty){
-        last.nextScopeStatement = cHead
-        cHead.lastScopeStatement = last
-      } else {
-        head = cHead
-      }
-
-      if(cLast != null) {
-        last = cLast
-      }
-    }
+object AssertStatementHelper{
+  def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
+    val node = AssertStatement(cond, message,severity)
+    GlobalData.get.dslScope.head.append(node)
   }
-
-  def swap(): SwapContext ={
-    val ret = new SwapContext(head,last)
-    head = null
-    last = null
-    ret
-  }
-
-
-  def prepend(that : Statement) : this.type = {
-    if(head != null){
-      head.lastScopeStatement = that
-    } else {
-      last = that
-    }
-    that.nextScopeStatement = head
-    that.lastScopeStatement = null
-    that.parentScope = this
-
-    head = that
-
-    this
-  }
-
-  def append(that : Statement) : this.type = {
-    that.parentScope = this
-    that.nextScopeStatement = null
-    that.lastScopeStatement = last
-    if(last != null){
-      last.nextScopeStatement = that
-    } else {
-      head = that
-    }
-
-    last = that
-    this
-  }
-
-  def statementIterable = new Iterable[Statement] {
-    override def iterator: Iterator[Statement] = statementIterator
-  }
-
-  def statementIterator = new Iterator[Statement] {
-    var ptr = head
-    override def hasNext: Boolean = ptr != null
-
-    override def next(): Statement = {
-      val ret = ptr
-      ptr = ret.nextScopeStatement
-      ret
-    }
-  }
-
-
-  def foreachStatements(func : (Statement) => Unit) = {
-    var ptr = head
-    while(ptr != null){
-      val current = ptr
-      ptr = ptr.nextScopeStatement
-      func(current)
-    }
-  }
-
-
-  def walkStatements(func : Statement => Unit): Unit ={
-    foreachStatements{
-      case s : LeafStatement => func(s)
-      case s : TreeStatement => func(s); s.walkStatements(func)
-    }
-  }
-
-  def walkLeafStatements(func : LeafStatement => Unit): Unit ={
-    foreachStatements {
-      case s : LeafStatement => func(s)
-      case s : TreeStatement => s.walkLeafStatements(func)
-    }
-  }
-
-  def foreachDeclarations(func : DeclarationStatement => Unit): Unit ={
-    foreachStatements{
-      case s : DeclarationStatement => func(s)
-      case s =>
-    }
-  }
-
-  def walkDeclarations(func : DeclarationStatement => Unit): Unit ={
-    foreachStatements{
-      case s : DeclarationStatement => func(s)
-      case s : TreeStatement => s.walkDeclarations(func)
-      case s =>
-    }
-  }
+  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertStatementHelper(cond, List(message),severity)
 }
+//
 
 
-object GraphUtils{
-  def walkAllComponents(root : Component, func : Component => Unit) : Unit = {
-    func(root)
-    root.children.foreach(walkAllComponents(_, func))
-  }
-}
+case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
+  var clockDomain = globalData.dslClockDomain.head
 
 
-class DefaultTag(val that : BaseType) extends SpinalTag
-
-
-
-object Analog{
-  def apply[T <: Data](that : HardType[T]) : T = that().setAsAnalog()
-}
-
-abstract class AnalogDriver extends Expression{
-  type T <: Expression
-  var data  : T = null.asInstanceOf[T]
-  var enable : Expression = null
-
-  def foreachExpression(func : (Expression) => Unit) : Unit = {
-    func(data)
-    func(enable)
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(cond)
+    message.foreach(_ match {
+      case e : Expression => func(e)
+      case _ =>
+    })
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    data = func(data).asInstanceOf[T]
-    enable = func(enable)
+    cond = func(cond)
   }
 
-  override def toStringMultiLine() = {
-    s"""$this
-       |- data  operand : $data
-       |- enable operand : $enable
-       |""".stripMargin
-  }
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
-

@@ -19,7 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core.internals._
 /**
   * Created by PIC18F on 08.01.2015.
   */

@@ -18,6 +18,7 @@
 
 package spinal.lib
 
+import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 

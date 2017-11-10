@@ -19,7 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core.internals._
 
 object Data {
 

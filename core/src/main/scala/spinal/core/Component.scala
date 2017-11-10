@@ -24,7 +24,7 @@ package spinal.core
 import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core.internals._
 /**
   * Component companion
   */

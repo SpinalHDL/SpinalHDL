@@ -18,6 +18,8 @@
 //
 package spinal.core
 
+import spinal.core.internals._
+
 trait AttributeKind
 object COMMENT_ATTRIBUTE extends AttributeKind
 object DEFAULT_ATTRIBUTE extends AttributeKind

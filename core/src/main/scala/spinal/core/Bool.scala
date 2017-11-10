@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals._
+
 
 /**
   * Bool factory used for instance by the IODirection to create a in/out Bool

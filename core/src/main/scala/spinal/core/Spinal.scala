@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.internals._
+
 import java.text.SimpleDateFormat
 import java.util.Date
 

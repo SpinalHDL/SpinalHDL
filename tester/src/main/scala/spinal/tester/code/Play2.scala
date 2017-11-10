@@ -4,8 +4,9 @@ package spinal.tester.code
 import java.io.{PrintWriter, ByteArrayOutputStream}
 import java.util
 
-import spinal.core.Operator.UInt.Add
+import spinal.core.internals.Operator.UInt.Add
 import spinal.core._
+import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}

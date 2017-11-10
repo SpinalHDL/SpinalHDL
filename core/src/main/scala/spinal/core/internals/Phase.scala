@@ -1,7 +1,6 @@
-package spinal.core
-//
-import spinal.core.internals.{PhaseVerilog, PhaseVhdl}
+package spinal.core.internals
 
+import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._

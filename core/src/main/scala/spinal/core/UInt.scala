@@ -20,8 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-//import spinal.core.Operator.BitVector.AllByBool
-
+import spinal.core.internals._
 
 /**
   * UInt factory used for instance by the IODirection to create a in/out UInt

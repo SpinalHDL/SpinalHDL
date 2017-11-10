@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.internals._
+
 
 trait TypeFactory{
   def postTypeFactory[T <: Data](that: T) = that

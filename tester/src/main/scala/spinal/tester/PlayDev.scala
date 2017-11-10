@@ -1,6 +1,7 @@
 package spinal.tester
 
 import spinal.core._
+import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3Gpio
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}

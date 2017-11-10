@@ -1,31 +1,82 @@
+package spinal.core.internals
 
-///*
-// * SpinalHDL
-// * Copyright (c) Dolu, All rights reserved.
-// *
-// * This library is free software; you can redistribute it and/or
-// * modify it under the terms of the GNU Lesser General Public
-// * License as published by the Free Software Foundation; either
-// * version 3.0 of the License, or (at your option) any later version.
-// *
-// * This library is distributed in the hope that it will be useful,
-// * but WITHOUT ANY WARRANTY; without even the implied warranty of
-// * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// * Lesser General Public License for more details.
-// *
-// * You should have received a copy of the GNU Lesser General Public
-// * License along with this library.
-// */
-//
-package spinal.core
-
+import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
 
 
+trait Expression extends BaseNode with ExpressionContainer{
+  def opName : String
+  def simplifyNode: Expression = this
+  def getTypeObject : Any
+  private[core] def foreachDrivingExpression(outHi : Int, outLo : Int)(f : (Expression, Int,Int) => Unit) : Unit = foreachDrivingExpression{
+    case input : Expression with WidthProvider => f(input, input.getWidth-1,0)
+    case input => f(input, 0,0)
+  }
+
+  override def toString = opName
+}
+
+
+trait ExpressionContainer{
+  def normalizeInputs: Unit = {}
+  def remapExpressions(func : (Expression) => Expression) : Unit
+  def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
+  def foreachExpression(func : (Expression) => Unit) : Unit
+  def foreachDrivingExpression(func : (Expression) => Unit) : Unit = foreachExpression(func)
+  //  def foreachDrivingExpressionWithDelay(func : (Expression, Int) => Unit) : Unit = foreachExpression(func(_,0))
+
+  def walkExpression(func : (Expression) => Unit) : Unit = {
+    foreachExpression(e => {
+      func(e)
+      e.walkExpression(func)
+    })
+  }
+  def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
+    foreachDrivingExpression(e => {
+      func(e)
+      e.walkDrivingExpressions(func)
+    })
+  }
+  def walkRemapExpressions(func : (Expression) => Expression) : Unit = {
+    remapExpressions(func)
+    foreachExpression(e => {
+      e.walkRemapExpressions(func)
+    })
+  }
+  def walkRemapDrivingExpressions(func : (Expression) => Expression) : Unit = {
+    remapDrivingExpressions(func)
+    foreachDrivingExpression(e => {
+      e.walkRemapDrivingExpressions(func)
+    })
+  }
+}
 
 
 
+
+abstract class AnalogDriver extends Expression{
+  type T <: Expression
+  var data  : T = null.asInstanceOf[T]
+  var enable : Expression = null
+
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(data)
+    func(enable)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    data = func(data).asInstanceOf[T]
+    enable = func(enable)
+  }
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- data  operand : $data
+       |- enable operand : $enable
+       |""".stripMargin
+  }
+}
 
 
 abstract class Resize extends Expression with WidthProvider{
@@ -51,7 +102,7 @@ class ResizeBits extends Resize{
   override def getTypeObject = TypeBits
   override def opName: String = "resize(b,i)"
   override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
-//  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
+  //  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
 }
 class ResizeUInt extends Resize{
   override def getTypeObject = TypeUInt
@@ -123,10 +174,10 @@ abstract class BinaryOperator extends Operator{
     right = func(right).asInstanceOf[T]
   }
 
-//  override def toString(): String = {
-//    def inStr(that : T) = (if (that == null) "null" else that.toString())
-//    s"(${inStr(left)} $opName ${inStr(right)})"
-//  }
+  //  override def toString(): String = {
+  //    def inStr(that : T) = (if (that == null) "null" else that.toString())
+  //    s"(${inStr(left)} $opName ${inStr(right)})"
+  //  }
   override def toStringMultiLine() = {
     s"""$this
        |- Left  operand : $left
@@ -203,7 +254,7 @@ object Operator{
       override def opName: String = "Bool =/= Bool"
     }
   }
-//
+  //
   object BitVector{
     abstract class And extends BinaryOperatorWidthableInputs with Widthable{
       def resizeFactory : Resize
@@ -860,105 +911,6 @@ class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEn
   override def getTypeObject: Any = TypeEnum
 }
 
-object Mux {
-  def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
-    Multiplex.complexData(sel, whenTrue, whenFalse)
-  }
-  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
-    Multiplex.complexData(sel, whenTrue(), whenFalse())
-  }
-  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumCraft[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
-    Multiplex.complexData(sel, whenTrue, whenFalse())
-  }
-  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
-    Multiplex.complexData(sel, whenTrue(), whenFalse)
-  }
-}
-
-object Sel{
-  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
-  def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
-    val result = cloneOf(default)
-    result := default
-    for((cond,value) <- mappings.reverseIterator){
-      when(cond){
-        result := value
-      }
-    }
-    result
-  }
-}
-
-object SpinalMap {
-  def apply[K <: BaseType, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
-
-  def list[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
-    val result : T = weakCloneOf(mappings.head._2)
-
-    switch(addr){
-      for ((cond, value) <- mappings) {
-        cond match {
-          case product: Product => {
-            is.list(product.productIterator) {
-              result := value
-            }
-          }
-          case `default` => {
-            default {
-              result := value
-            }
-          }
-          case _ => {
-            is(cond) {
-              result := value
-            }
-          }
-        }
-      }
-    }
-    result
-  }
-}
-
-//TODO DOC
-object Select{
-  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
-  def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
-
-  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
-    val result : T = cloneOf(defaultValue)
-
-    var ptr : WhenContext = null
-
-    mappings.foreach{case (cond,that) => {
-      if(ptr == null){
-        ptr = when(cond){
-          result := that
-        }
-      }else{
-        ptr = ptr.elsewhen(cond){
-          result := that
-        }
-      }
-    }}
-
-    if(ptr == null){
-      result := defaultValue
-    }else{
-      ptr.otherwise{
-        result := defaultValue
-      }
-    }
-    result
-  }
-
-  def list[T <: Data](mappings: Seq[(Any, T)]): T = {
-    val defaultValue = mappings.find(_._1 == default)
-    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
-    val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
-    list(defaultValue.get._2,filterd)
-  }
-}
 
 private[spinal] object Multiplex {
 
@@ -995,7 +947,7 @@ private[spinal] object Multiplex {
 
 
 abstract class SubAccess extends Modifier{
-//  def finalTarget : NameableExpression
+  //  def finalTarget : NameableExpression
   def getBitVector: Expression
 }
 
@@ -1019,20 +971,20 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
     func(source)
   }
 
-//  override def checkInferedWidth: Unit = {
-//    if (bitId < 0 || bitId >= getBitVector.getWidth) {
-//      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
-//    }
-//  }
-//
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-//    case 0 =>
-//      if(outHi >= 0 && outLo == 0)
-//        (bitId, bitId)
-//      else
-//        (-1,0)
-//  }
-//  def getParameterNodes: List[Node] = Nil
+  //  override def checkInferedWidth: Unit = {
+  //    if (bitId < 0 || bitId >= getBitVector.getWidth) {
+  //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
+  //    }
+  //  }
+  //
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+  //    case 0 =>
+  //      if(outHi >= 0 && outLo == 0)
+  //        (bitId, bitId)
+  //      else
+  //        (-1,0)
+  //  }
+  //  def getParameterNodes: List[Node] = Nil
 }
 
 class BitsBitAccessFixed extends BitVectorBitAccessFixed{
@@ -1082,18 +1034,18 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   }
 
   //  def getParameterNodes: List[Node] = getInput(1) :: Nil
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-//    case 0 =>
-//      if(outHi >= 0 && outLo == 0)
-//        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
-//      else
-//        (-1,0)
-//    case 1 =>
-//      if(outHi >= 0 && outLo == 0)
-//        (getBitId.getWidth-1,0)
-//      else
-//        (-1,0)
-//  }
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+  //    case 0 =>
+  //      if(outHi >= 0 && outLo == 0)
+  //        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
+  //      else
+  //        (-1,0)
+  //    case 1 =>
+  //      if(outHi >= 0 && outLo == 0)
+  //        (getBitId.getWidth-1,0)
+  //      else
+  //        (-1,0)
+  //  }
 }
 
 class BitsBitAccessFloating extends BitVectorBitAccessFloating{
@@ -1138,9 +1090,9 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
   }
 
 
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-//    case 0 => (lo+outHi, lo+outLo)
-//  }
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+  //    case 0 => (lo+outHi, lo+outLo)
+  //  }
 }
 
 class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
@@ -1195,18 +1147,18 @@ abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvide
   }
 
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-//    case 0 =>
-//      if(outHi >= outLo) //Not exact
-//        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ size - 1), 0)
-//      else
-//        (-1,0)
-//    case 1 =>
-//      if(outHi >= outLo) //Not exact
-//        super.getOutToInUsage(inputId,outHi,outLo)
-//      else
-//        (-1,0)
-//    case 2 => (-1,0)
-//  }
+  //    case 0 =>
+  //      if(outHi >= outLo) //Not exact
+  //        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ size - 1), 0)
+  //      else
+  //        (-1,0)
+  //    case 1 =>
+  //      if(outHi >= outLo) //Not exact
+  //        super.getOutToInUsage(inputId,outHi,outLo)
+  //      else
+  //        (-1,0)
+  //    case 2 => (-1,0)
+  //  }
 }
 
 class BitsRangedAccessFloating extends BitVectorRangedAccessFloating{
@@ -1494,10 +1446,10 @@ abstract class AssignmentExpression extends Expression {
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit
   def getMinAssignedBits: AssignedRange //Bit that are allwas assigned
   def getMaxAssignedBits: AssignedRange //Bit that are allwas assigned
-//  def getScopeBits: AssignedRange //Bit tht could be assigned
-//  def getOutBaseType: BaseType
-//
-//  def clone(out : Node) : this.type
+  //  def getScopeBits: AssignedRange //Bit tht could be assigned
+  //  def getOutBaseType: BaseType
+  //
+  //  def clone(out : Node) : this.type
 }
 
 
@@ -1651,22 +1603,22 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression{
   }
   override def getMinAssignedBits: AssignedRange = AssignedRange()
   override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << bitId.getWidth)-1, 0)
-//  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
-//
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-//    case 0 =>
-//      if(outHi >= 0 && ((1 << Math.min(20,bitId.getWidth)) - 1) >= outLo)
-//        (0,0)
-//      else
-//        (-1,0)
-//    case 1 =>
-//      if(outHi >= 0 && ((1 << Math.min(20,bitId.getWidth)) - 1) >= outLo)
-//        super.getOutToInUsage(inputId,outHi,outLo)
-//      else
-//        (-1,0)
-//  }
-//  def getOutBaseType: BaseType = out
-//  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in_,bitId_).asInstanceOf[this.type]
+  //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
+  //
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+  //    case 0 =>
+  //      if(outHi >= 0 && ((1 << Math.min(20,bitId.getWidth)) - 1) >= outLo)
+  //        (0,0)
+  //      else
+  //        (-1,0)
+  //    case 1 =>
+  //      if(outHi >= 0 && ((1 << Math.min(20,bitId.getWidth)) - 1) >= outLo)
+  //        super.getOutToInUsage(inputId,outHi,outLo)
+  //      else
+  //        (-1,0)
+  //  }
+  //  def getOutBaseType: BaseType = out
+  //  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in_,bitId_).asInstanceOf[this.type]
 }
 
 object RangedAssignmentFloating{
@@ -1719,51 +1671,287 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
 
   override def opName: String = "x(hi:lo) <="
 
-//  override def normalizeInputs: Unit = {
-//    InputNormalize.resizedOrUnfixedLit(this,0,bitCount.value)
-//  }
-//
-//
-//
+  //  override def normalizeInputs: Unit = {
+  //    InputNormalize.resizedOrUnfixedLit(this,0,bitCount.value)
+  //  }
+  //
+  //
+  //
   override def getMinAssignedBits: AssignedRange = AssignedRange()
   override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << offset.getWidth)-1 + bitCount - 1, 0)
 
-//  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
-//  def getOutBaseType: BaseType = out
-//  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in_,offset_,bitCount).asInstanceOf[this.type]
+  //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
+  //  def getOutBaseType: BaseType = out
+  //  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in_,offset_,bitCount).asInstanceOf[this.type]
 }
 
 
-object AssertNode{
-  def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
-    val node = AssertStatement(cond, message,severity)
-    GlobalData.get.dslScope.head.append(node)
+
+
+object SwitchStatementKeyBool{
+  def apply(cond : Expression): SwitchStatementKeyBool ={
+    val ret = new SwitchStatementKeyBool
+    ret.cond = cond
+    ret
   }
-  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
 }
+
+class SwitchStatementKeyBool extends Expression{
+  var cond : Expression = null
+
+  override def opName: String = "is(b)"
+  override def getTypeObject: Any = TypeBool
+  override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
+}
+class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
+
+
+
+trait Literal extends Expression {
+  override def clone: this.type = ???
+  final override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  final override def remapExpressions(func: (Expression) => Expression): Unit = {}
+  private[core] def getBitsStringOn(bitCount : Int, poisonSymbol : Char) : String
+  private[core] def getBitsStringOnNoPoison(bitCount : Int) : String = {
+    require(!hasPoison)
+    getBitsStringOn(bitCount,'?')
+  }
+  def getValue() : BigInt
+  def hasPoison() : Boolean
+
+  //  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
+}
+
+object BitsLiteral {
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): BitsLiteral = {
+    val valueBitCount = value.bitLength
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
+    var bitCount = specifiedBitCount
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = minimalWidth
+    }
+    BitsLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T) : T ={
+    on.assignFrom(apply(value, null, specifiedBitCount))
+    on
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : BitsLiteral  = apply(value, null, specifiedBitCount)
+
+
+  def apply(value: BigInt, poisonMask : BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) = {
+    val ret = new BitsLiteral
+    ret.value = value
+    ret.poisonMask = poisonMask
+    ret.bitCount = bitCount
+    ret.hasSpecifiedBitCount = hasSpecifiedBitCount
+    ret
+  }
+}
+
+object UIntLiteral {
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): UIntLiteral = {
+    val valueBitCount = value.bitLength
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
+    var bitCount = specifiedBitCount
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = minimalWidth
+    }
+    UIntLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.assignFrom(apply(value, null, specifiedBitCount))
+    on
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : UIntLiteral  = apply(value, null, specifiedBitCount)
+
+
+  def apply(value: BigInt, poisonMask : BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) = {
+    val ret = new UIntLiteral
+    ret.value = value
+    ret.poisonMask = poisonMask
+    ret.bitCount = bitCount
+    ret.hasSpecifiedBitCount = hasSpecifiedBitCount
+    ret
+  }
+}
+
+object SIntLiteral{
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): SIntLiteral = {
+    val valueBitCount = value.bitLength + (if (value != 0) 1 else 0)
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
+    var bitCount = specifiedBitCount
+    if (bitCount != -1) {
+      if (minimalWidth > bitCount ) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = minimalWidth
+    }
+    SIntLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.assignFrom(apply(value,null,specifiedBitCount))
+    on
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : SIntLiteral = apply(value, null, specifiedBitCount)
+
+
+  def apply(value: BigInt, poisonMask : BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) = {
+    val ret = new SIntLiteral
+    ret.value = value
+    ret.poisonMask = poisonMask
+    ret.bitCount = bitCount
+    ret.hasSpecifiedBitCount = hasSpecifiedBitCount
+    ret
+  }
+}
+
+
+abstract class BitVectorLiteral() extends Literal with WidthProvider {
+  var value: BigInt = null
+  var poisonMask : BigInt = null
+  var bitCount: Int = -1
+  var hasSpecifiedBitCount : Boolean = true
+
+  override def getWidth: Int = bitCount
+  override def getValue(): BigInt = if(hasPoison) throw new Exception("Poisoned value") else value
+
+
+  override def hasPoison() = poisonMask != null && poisonMask != 0
+
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    def makeIt(fillWith : Boolean) : String = {
+      val str = new StringBuilder()
+      val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
+      val unsignedLength = unsignedValue.bitLength
+      val poisonLength = if(poisonMask != null) poisonMask.bitLength else 0
+
+      assert(bitCount >= unsignedLength)
+      assert(bitCount >= poisonLength)
+
+      val filling = if(fillWith) '1' else '0'
+      for(i <- 0 until bitCount-unsignedLength) str += filling
+
+      for(i <-  unsignedLength - 1 to 0 by - 1){
+        str += (if(unsignedValue.testBit(i)) '1' else '0')
+      }
+
+      for(i <- poisonLength-1 to 0 by -1 if(poisonMask.testBit(i))){
+        str(bitCount-i-1) = poisonSymbol
+      }
+
+      str.toString()
+    }
+
+    makeIt(isSignedKind && value < 0)
+  }
+
+
+  def minimalValueBitWidth : Int = {
+    val pureWidth = value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
+    if(hasPoison) Math.max(poisonMask.bitLength,pureWidth) else pureWidth
+  }
+
+  def isSignedKind : Boolean
+
+  override def toString: String =  s"${'"'}${getBitsStringOn(bitCount, 'x')}${'"'} $bitCount bits)"
+}
+
+class BitsLiteral extends BitVectorLiteral{
+  override def getTypeObject = TypeBits
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = BitsLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def opName: String = "B\"xxx\""
+  override def toString = "(B" + super.toString
+}
+
+class UIntLiteral extends BitVectorLiteral{
+  override def getTypeObject = TypeUInt
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = UIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def opName: String = "U\"xxx\""
+  override def toString = "(U" + super.toString
+}
+
+class SIntLiteral extends BitVectorLiteral{
+  override def getTypeObject = TypeSInt
+  override def isSignedKind: Boolean = true
+  override def clone(): this.type = SIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def opName: String = "S\"xxx\""
+  override def toString = "(S" + super.toString
+}
+
+//class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
+//  override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
+//  override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * bitCount
+//  override def getValue(): BigInt = if(value) (BigInt(1) << getWidth) - 1 else 0
+//}
 //
-trait AssertNodeSeverity
-object NOTE     extends AssertNodeSeverity
-object WARNING  extends AssertNodeSeverity
-object ERROR    extends AssertNodeSeverity
-object FAILURE  extends AssertNodeSeverity
-
-case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
-  var clockDomain = globalData.dslClockDomain.head
-
-
-  override def foreachExpression(func: (Expression) => Unit): Unit = {
-    func(cond)
-    message.foreach(_ match {
-      case e : Expression => func(e)
-      case _ =>
-    })
+//
+//
+object BoolLiteral {
+  def apply(value: Boolean, on: Bool): Bool = {
+    on.assignFrom(new BoolLiteral(value))
+    on
   }
-
-  override def remapExpressions(func: (Expression) => Expression): Unit = {
-    cond = func(cond)
-  }
-
-  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
+
+class BoolLiteral(val value: Boolean) extends Literal {
+  override def getTypeObject = TypeBool
+  override def opName: String = "Bool(x)"
+
+
+  override def normalizeInputs: Unit = {}
+
+  override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
+
+  override def getValue(): BigInt = if(value) 1 else 0
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    assert(bitCount == 1)
+    (if(value) "1" else "0")
+  }
+  override def hasPoison() = false
+}
+
+class BoolPoison() extends Literal {
+  override def getValue(): BigInt = throw new Exception("Poison have no values")
+  override def getTypeObject = TypeBool
+  override def opName: String = "Bool(?)"
+  override def hasPoison() = true
+  override def normalizeInputs: Unit = {}
+
+  override def clone(): this.type = new BoolPoison().asInstanceOf[this.type]
+
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    assert(bitCount == 1)
+    poisonSymbol.toString()
+  }
+}
+
+//
+//
+//
+//
+////class STime(value : Double){
+////  def decompose: (Double,String) = {
+////    if(value > 3600.0) return (value/3600.0,"hr")
+////    if(value > 60.0) return (value/60.0,"min")
+////    if(value > 1.0) return (value/1.0,"sec")
+////    if(value > 1.0e-3) return (value/1.0e-3,"ms")
+////    if(value > 1.0e-6) return (value/1.0e-6,"us")
+////    if(value > 1.0e-9) return (value/1.0e-9,"ns")
+////    if(value > 1.0e-12) return (value/1.0e-12,"ps")
+////    (value/1.0e-15,"fs")
+////  }
+////}
+//

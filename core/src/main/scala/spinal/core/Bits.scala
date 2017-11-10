@@ -19,33 +19,32 @@
 **    License along with this library.                                       **
 \*                                                                           */
 package spinal.core
-//
-//import spinal.core.Operator.BitVector.AllByBool
-//
-//
-///**
-//  * Bits factory used for instance by the IODirection to create a in/out Bits
-//  */
+
+import spinal.core.internals._
+
+/**
+  * Bits factory used for instance by the IODirection to create a in/out Bits
+  */
 trait BitsFactory {
   /** Create a new Bits */
   def Bits() = new Bits()
   /** Create a new Bits of a given width */
   def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
-//
-//
-///**
-//  * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
-//  *
-//  * @example {{{
-//  *     val myBits1 = Bits(32 bits)
-//  *     val myBits2 = B(25, 8 bits)
-//  *     val myBits3 = B"8'xFF"
-//  *     val myBits4 = B"1001_0011
-//  * }}}
-//  *
-//  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
-//  */
+
+
+/**
+  * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
+  *
+  * @example {{{
+  *     val myBits1 = Bits(32 bits)
+  *     val myBits2 = B(25, 8 bits)
+  *     val myBits3 = B"8'xFF"
+  *     val myBits4 = B"1001_0011
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
+  */
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
 

@@ -1,5 +1,7 @@
 package spinal
 
+
+import spinal.core.internals._
 import scala.annotation.elidable
 import scala.annotation.elidable._
 import scala.collection.immutable.Range
@@ -272,12 +274,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
-  def assert(assertion: Bool) = AssertNode(assertion,Nil,ERROR)
-  def assert(assertion: Bool,message : String) = AssertNode(assertion,message,ERROR)
-  def assert(assertion: Bool,message : Seq[Any]) = AssertNode(assertion,message,ERROR)
-  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,Nil,severity)
-  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
-  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion,Nil,ERROR)
+  def assert(assertion: Bool,message : String) = AssertStatementHelper(assertion,message,ERROR)
+  def assert(assertion: Bool,message : Seq[Any]) = AssertStatementHelper(assertion,message,ERROR)
+  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,Nil,severity)
+  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
+  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
   def report(message : String) = assert(True,message,NOTE)
   def report(message : Seq[Any]) = assert(True,message,NOTE)
   def report(message : String,severity: AssertNodeSeverity) = assert(True,message,severity)

@@ -21,6 +21,7 @@ package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
+import spinal.core.internals._
 
 case class BitCount(val value: Int) {
   def +(right : BitCount) = BitCount(this.value + right.value)
@@ -658,6 +659,7 @@ trait SpinalTag {
   def canSymplifyHost = false
 }
 
+class DefaultTag(val that : BaseType) extends SpinalTag
 object allowDirectionLessIoTag extends SpinalTag
 object unsetRegIfNoAssignementTag extends SpinalTag
 object allowAssignmentOverride extends SpinalTag
