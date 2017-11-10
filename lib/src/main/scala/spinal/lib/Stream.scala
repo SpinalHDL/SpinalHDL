@@ -397,14 +397,14 @@ object StreamArbiter {
     def transactionLock(core: StreamArbiter[_]) = new Area {
       import core._
       locked setWhen(io.output.valid)
-      locked.clearWhen(io.output.ready)
+      locked.clearWhen(io.output.fire)
     }
 
     def fragmentLock(core: StreamArbiter[_]) = new Area {
       val realCore = core.asInstanceOf[StreamArbiter[Fragment[_]]]
       import realCore._
       locked setWhen(io.output.valid)
-      locked.clearWhen(io.output.ready && io.output.last)
+      locked.clearWhen(io.output.fire && io.output.last)
     }
   }
 }

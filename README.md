@@ -147,7 +147,3 @@ class CounterWithParity(size : Int) extends Component{
 ## Why not Chisel ?
 For many reason : http://spinalhdl.github.io/SpinalDoc/chisel/
 
-Other consideration
-===============
-Intellij scala plugin has some syntax highlight bug. As far i know, Intellij 14.1 is the best version. 
-
