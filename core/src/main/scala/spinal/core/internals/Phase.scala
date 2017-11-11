@@ -1435,9 +1435,7 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignal
 //
 //      c.foreachReflectableNameables(obj => checkNameable(obj))
 //    }
-    if(!prunedSignals.isEmpty){
-      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
-    }
+
 
 
     val usedId = GlobalData.get.allocateAlgoIncrementale()
@@ -1582,22 +1580,22 @@ object SpinalVhdlBoot{
     val unusedSignals = mutable.Set[BaseType]()
 
 
-    SpinalProgress("Start elaboration")
+    SpinalProgress("Elaborate components")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
+    phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
 
 
-    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
+
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Transform connections"))
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
@@ -1610,7 +1608,6 @@ object SpinalVhdlBoot{
 
 
 
-    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
@@ -1635,6 +1632,8 @@ object SpinalVhdlBoot{
     }
 
     phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
+
+    phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += initVhdlBase(new PhaseVhdl(pc))
 
     for(inserter <-config.phasesInserters){
@@ -1644,11 +1643,13 @@ object SpinalVhdlBoot{
 
 
     for(phase <- phases){
-      SpinalProgress(phase.getClass.getName)
+//      SpinalProgress(phase.getClass.getName)
       pc.doPhase(phase)
     }
 
-
+    if(!prunedSignals.isEmpty){
+      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+    }
     pc.checkGlobalData()
 
 
@@ -1712,22 +1713,22 @@ object SpinalVerilogBoot{
     val unusedSignals = mutable.Set[BaseType]()
 
 
-    SpinalProgress("Start elaboration")
+    SpinalProgress("Elaborate components")
+
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
+    phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
 
 
-    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Transform connections"))
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
@@ -1740,7 +1741,6 @@ object SpinalVerilogBoot{
 
 
 
-    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
@@ -1760,6 +1760,7 @@ object SpinalVerilogBoot{
 
 
     phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
+    phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
 
 
@@ -1769,10 +1770,11 @@ object SpinalVerilogBoot{
     }
 
     for(phase <- phases){
-      SpinalProgress(phase.getClass.getName)
       pc.doPhase(phase)
     }
-
+    if(!prunedSignals.isEmpty){
+      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+    }
 
     pc.checkGlobalData()
 
