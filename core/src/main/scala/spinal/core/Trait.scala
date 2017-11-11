@@ -484,7 +484,10 @@ trait Nameable extends OwnableRef with ContextUser{
     this
   }
 
-  def unsetName() : Unit = setMode(Nameable.UNANMED)
+  def unsetName() : this.type = {
+    setMode(Nameable.UNANMED)
+    this
+  }
   def setName(name: String, weak: Boolean = false): this.type = {
     if (!weak || (mode == UNANMED)) {
       this.name = name

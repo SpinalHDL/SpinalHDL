@@ -5,7 +5,7 @@ import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3Gpio
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
-import spinal.lib.io.TriState
+import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 
 import scala.collection.mutable.ArrayBuffer
@@ -662,6 +662,27 @@ object PlayDevAnalog3{
   }
 }
 
+
+
+object PlayDevAnalog4{
+
+  class Toplevel extends Component{
+    val io = new Bundle {
+      val gpio = master(TriState(UInt(32 bits)))
+    }
+
+
+    val driver = TriState(UInt(32 bits))
+    driver.writeEnable := True
+    driver.write := 42
+    driver <> io.gpio
+  }
+  def main(args: Array[String]) {
+    SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
+    SpinalVhdl(InOutWrapper(new Toplevel))
+    print("done")
+  }
+}
 
 object PlayDevBug3{
   class TopLevel extends Component {
