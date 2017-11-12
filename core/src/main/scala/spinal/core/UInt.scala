@@ -20,8 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-import spinal.core.Operator.BitVector.AllByBool
-
+import spinal.core.internals._
 
 /**
   * UInt factory used for instance by the IODirection to create a in/out UInt
@@ -49,10 +48,8 @@ trait UIntFactory{
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
 
-  private[core] override def prefix: String = "u"
-
+  override def getTypeObject = TypeUInt
   override type T = UInt
-
   override def _data: UInt = this
 
   /**
@@ -62,8 +59,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @return a new UInt of width (w(this) + w(right))
     */
   def @@(that: UInt): UInt = U(this ## that)
-  /** Append a Bool to an UInt */
   def @@(that: Bool): UInt = U(this ## that)
+  override private[core] def resizeFactory: Resize = new ResizeUInt
+
+  override def opName: String = "UInt"
+
+  /** Append a Bool to an UInt */
 
   override def +(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Add)
   override def -(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Sub)
@@ -152,25 +153,23 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
 
-  private[core] override def isEquals(that: Any): Bool = {
-    that match {
-      case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
-      case that: MaskedLiteral  => that === this
-      case that: Int            => this === that
-      case that: BigInt         => this === that
-      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
-    }
+  private[core] override def isEquals(that: Any): Bool = that match {
+    case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
+    case that: MaskedLiteral  => that === this
+    case that: Int            => this === that
+    case that: BigInt         => this === that
+    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
-    that match {
-      case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
-      case that: MaskedLiteral  => that =/= this
-      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
-    }
+
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
+    case that: MaskedLiteral  => that === this
+    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
+
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeUInt
@@ -182,13 +181,15 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
+  override def setAll(): Unit = this := maxValue
+
   /**
     * Assign a mask to the output signal
     * @example {{{ output4 assignMask M"1111 }}}
     * @param maskedLiteral masked litteral value
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {
-    //TODO width assert
+    assert(maskedLiteral.width == this.getWidth)
     var (literal, careAbout) = (maskedLiteral.value, maskedLiteral.careAbout)
     var offset = 0
     var value = careAbout.testBit(0)
@@ -207,15 +208,20 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
-  override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromUInt)
-  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromUInt)
-  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new ExtractBitsVectorFixedFromUInt).setWidth(bitCount.value)
-  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new ExtractBitsVectorFloatingFromUInt).setWidth(bitCount.value)
+  override def apply(bitId: Int) : Bool = newExtract(bitId, new UIntBitAccessFixed)
+  override def apply(bitId: UInt): Bool = newExtract(bitId, new UIntBitAccessFloating)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new UIntRangedAccessFixed).setWidth(bitCount.value)
+  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new UIntRangedAccessFloating).setWidth(bitCount.value)
 
-  override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
-  protected override def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
+  override def getAllTrue: this.type = U(maxValue, this.getWidth bits).asInstanceOf[this.type]
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(UIntLiteral(BigInt(0), (BigInt(1) << this.getWidth)-1, widthOf(this)))
+    this
+  }
 }
 
 

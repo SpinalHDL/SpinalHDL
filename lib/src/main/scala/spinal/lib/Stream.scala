@@ -204,17 +204,17 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     that.ready := this.ready
   }
 
-  def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignement: (T, that.payload.type) => Unit): Stream[T] = {
+  def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignment: (T, that.payload.type) => Unit): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
-    dataAssignement(this.payload, that.payload)
+    dataAssignment(this.payload, that.payload)
     this
   }
 
 
 
-  def translateInto[T2 <: Data](into: Stream[T2])(dataAssignement: (T2, T) => Unit): Stream[T2] = {
-    into.translateFrom(this)(dataAssignement)
+  def translateInto[T2 <: Data](into: Stream[T2])(dataAssignment: (T2, T) => Unit): Stream[T2] = {
+    into.translateFrom(this)(dataAssignment)
     into
   }
 
@@ -417,7 +417,7 @@ class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(val arbitrationF
     val chosenOH = out Bits (portCount bit)
   }
 
-  val locked = RegInit(False)
+  val locked = RegInit(False).allowUnsetRegToAvoidLatch
 
   val maskProposal = Vec(Bool,portCount)
   val maskLocked = Reg(Vec(Bool,portCount))
@@ -687,18 +687,18 @@ class StreamFifoLowLatency[T <: Data](dataType: T, depth: Int, latency : Int = 0
 }
 
 object StreamFifoCC{
-  def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType,depth,pushClock,popClock)
+  def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
 class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
-  assert(isPow2(depth))
-  assert(depth >= 2)
+
+  assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
   val io = new Bundle {
-    val push = slave Stream (dataType)
-    val pop = master Stream (dataType)
-    val pushOccupancy = out UInt (log2Up(depth+1)  bit)
-    val popOccupancy = out UInt (log2Up(depth+1) bit)
+    val push          = slave  Stream(dataType)
+    val pop           = master Stream(dataType)
+    val pushOccupancy = out UInt(log2Up(depth + 1) bits)
+    val popOccupancy  = out UInt(log2Up(depth + 1) bits)
   }
 
   val ptrWidth = log2Up(depth) + 1
@@ -707,16 +707,17 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
 
   val ram = Mem(dataType, depth)
 
-  val popToPushGray = Bits(ptrWidth bit)
-  val pushToPopGray = Bits(ptrWidth bit)
+  val popToPushGray = Bits(ptrWidth bits)
+  val pushToPopGray = Bits(ptrWidth bits)
 
   val pushCC = new ClockingArea(pushClock) {
-    val pushPtr = Counter(depth << 1)
+    val pushPtr     = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext)) init(0)
-    val popPtrGray = BufferCC(popToPushGray, B(0,ptrWidth bit))
-    val full = isFull(pushPtrGray, popPtrGray)
+    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits))
+    val full        = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
+
     when(io.push.fire) {
       ram(pushPtr.resized) := io.push.payload
       pushPtr.increment()
@@ -726,13 +727,14 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
   }
 
   val popCC = new ClockingArea(popClock) {
-    val popPtr = Counter(depth << 1)
-    val popPtrGray = RegNext(toGray(popPtr.valueNext)) init(0)
-    val pushPtrGray = BufferCC(pushToPopGray, B(0,ptrWidth bit))
-    val empty = isEmpty(popPtrGray, pushPtrGray)
+    val popPtr      = Counter(depth << 1)
+    val popPtrGray  = RegNext(toGray(popPtr.valueNext)) init(0)
+    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
+    val empty       = isEmpty(popPtrGray, pushPtrGray)
 
-    io.pop.valid := !empty
-    io.pop.payload := ram.readSync(popPtr.valueNext.resized,clockCrossing = true)
+    io.pop.valid   := !empty
+    io.pop.payload := ram.readSync(popPtr.valueNext.resized, clockCrossing = true)
+
     when(io.pop.fire) {
       popPtr.increment()
     }

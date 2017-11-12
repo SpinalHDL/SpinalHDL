@@ -35,5 +35,6 @@ class I2cSlaveTester extends SpinalTesterCocotbBase {
     ret.io.bus.cmd.kind.fixEncoding(binarySequential)
     ret
   }
+
 }
 

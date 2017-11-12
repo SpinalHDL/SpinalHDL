@@ -156,21 +156,22 @@ class ZeroWidthTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/ZeroWidthTester"
 
   override def postTest: () => Unit = () => {
-    try {
+    if(!noVerilog){
       val iterator = Source.fromFile("ZeroWidthTester.v").getLines()
       for (line <- iterator) {
         assert(!line.contains("-1"))
       }
-    }catch{
-      case e : Exception =>
     }
-    try {
+    if(!noVhdl) {
       val iterator = Source.fromFile("ZeroWidthTester.vhd").getLines()
+      var wait = true
       for (line <- iterator) {
-        assert(!line.contains("-1"))
+        if(wait){
+          if(line == "entity ZeroWidthTester is") wait = false
+        }else {
+          assert(!line.contains("-1"))
+        }
       }
-    }catch{
-      case e : Exception =>
     }
   }
 }

@@ -21,6 +21,7 @@ package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
+import spinal.core.internals._
 
 case class BitCount(val value: Int) {
   def +(right : BitCount) = BitCount(this.value + right.value)
@@ -130,9 +131,9 @@ trait IODirection extends BaseTypeFactory {
 
 
 
-  //  object Vec extends VecFactory {
-  //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
-  //  }
+//  object Vec extends VecFactory {
+//    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
+//  }
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
@@ -142,6 +143,10 @@ object in extends IODirection {
 
 object out extends IODirection {
   override def applyIt[T <: Data](data: T): T = data.asOutput()
+}
+
+object inout extends IODirection {
+  override def applyIt[T <: Data](data: T): T = data.asInOut()
 }
 
 object inWithNull extends IODirection {
@@ -168,8 +173,9 @@ trait MinMaxProvider {
 
 
 trait ContextUser extends GlobalDataUser {
-  var component = Component.current(globalData)
-  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
+//  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
+  var parentScope = globalData.currentScope
+  def component : Component = if(parentScope != null) parentScope.component else null
   private[core] var instanceCounter = globalData.getInstanceCounter
 
   def getInstanceCounter = instanceCounter
@@ -200,109 +206,129 @@ object SyncNode {
   val getClockResetId: Int = 2
   val getClockSoftResetId: Int = 3
 }
+//
+//abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends Node {
+//  var clockDomain: ClockDomain = _clockDomain
+//  def setClockDomain(clockDomain: ClockDomain) : this.type = {
+//    this.clockDomain = clockDomain
+//    this
+//  }
+//
+//  var clock      : Bool = null
+//  var enable     : Bool = null
+//  var reset      : Bool = null
+//  var softReset  : Bool = null
+//
+//
+//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+//    doThat(clock,SyncNode.getClockInputId)
+//    if(isUsingEnableSignal)doThat(enable,SyncNode.getClockEnableId)
+//    if(isUsingResetSignal) doThat(reset,SyncNode.getClockResetId)
+//    if(isUsingSoftResetSignal) doThat(softReset,SyncNode.getClockSoftResetId)
+//  }
+//  override def onEachInput(doThat: (Node) => Unit): Unit = {
+//    doThat(clock)
+//    if(isUsingEnableSignal)doThat(enable)
+//    if(isUsingResetSignal) doThat(reset)
+//    if(isUsingSoftResetSignal) doThat(softReset)
+//  }
+//
+//  override def setInput(id: Int, node: Node): Unit = id match{
+//    case SyncNode.getClockInputId => clock = node.asInstanceOf[Bool]
+//    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
+//    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
+//    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
+//  }
+//
+//  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
+//  override def getInputs: Iterator[Node] = {
+//    val itr = (isUsingEnableSignal,isUsingResetSignal) match{
+//      case (false,false) => Iterator(clock             )
+//      case (false,true)  => Iterator(clock,       reset)
+//      case (true,false)  => Iterator(clock,enable      )
+//      case (true,true)   => Iterator(clock,enable,reset)
+//    }
+//    if(isUsingSoftResetSignal)
+//      itr ++ List(softReset)
+//    else
+//      itr
+//  }
+//
+//  override def getInput(id: Int): Node = id match{
+//    case SyncNode.getClockInputId => clock
+//    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable
+//    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset
+//    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset
+//  }
+//
+//
+//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+//    case SyncNode.getClockInputId =>  (0,0)
+//    case SyncNode.getClockEnableId => (0,0)
+//    case SyncNode.getClockResetId =>  (0,0)
+//    case SyncNode.getClockSoftResetId =>  (0,0)
+//  }
+//
+//  final def getLatency = 1 //if not final => update latencyAnalyser
+//
+//  def getSynchronousInputs = {
+//    var ret : List[Node] = Nil
+//    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
+//    if(isUsingEnableSignal) ret = getClockEnable :: ret
+//    if(isUsingSoftResetSignal) ret = getSoftReset :: ret
+//    ret
+//  }
+//
+//  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingResetSignal) getResetStyleInputs else Nil)
+//
+//  def getResetStyleInputs = List[Node](getReset)
+//
+//  def isUsingSoftResetSignal : Boolean
+//  def isUsingResetSignal: Boolean
+//  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
+//  def setUseReset = {
+//    reset = clockDomain.reset
+//  }
+//  def getClockDomain: ClockDomain = clockDomain
+//
+//  def getClock: Bool = clock
+//  def getClockEnable: Bool = enable
+//  def getReset: Bool = reset
+//  def getSoftReset: Bool = softReset
+//}
 
-abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  var clockDomain: ClockDomain = _clockDomain
-  def setClockDomain(clockDomain: ClockDomain) : this.type = {
-    this.clockDomain = clockDomain
-    this
-  }
-
-  var clock      : Bool = null
-  var enable     : Bool = null
-  var reset      : Bool = null
-  var softReset  : Bool = null
-
-
-  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,SyncNode.getClockInputId)
-    if(isUsingEnableSignal)doThat(enable,SyncNode.getClockEnableId)
-    if(isUsingResetSignal) doThat(reset,SyncNode.getClockResetId)
-    if(isUsingSoftResetSignal) doThat(softReset,SyncNode.getClockSoftResetId)
-  }
-  override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    if(isUsingEnableSignal)doThat(enable)
-    if(isUsingResetSignal) doThat(reset)
-    if(isUsingSoftResetSignal) doThat(softReset)
-  }
-
-  override def setInput(id: Int, node: Node): Unit = id match{
-    case SyncNode.getClockInputId => clock = node.asInstanceOf[Bool]
-    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
-    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
-    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
-  }
-
-  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
-  override def getInputs: Iterator[Node] = {
-    val itr = (isUsingEnableSignal,isUsingResetSignal) match{
-      case (false,false) => Iterator(clock             )
-      case (false,true)  => Iterator(clock,       reset)
-      case (true,false)  => Iterator(clock,enable      )
-      case (true,true)   => Iterator(clock,enable,reset)
-    }
-    if(isUsingSoftResetSignal)
-      itr ++ List(softReset)
-    else
-      itr
-  }
-
-  override def getInput(id: Int): Node = id match{
-    case SyncNode.getClockInputId => clock
-    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable
-    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset
-    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset
-  }
-
-
-  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-    case SyncNode.getClockInputId =>  (0,0)
-    case SyncNode.getClockEnableId => (0,0)
-    case SyncNode.getClockResetId =>  (0,0)
-    case SyncNode.getClockSoftResetId =>  (0,0)
-  }
-
-  final def getLatency = 1 //if not final => update latencyAnalyser
-
-  def getSynchronousInputs = {
-    var ret : List[Node] = Nil
-    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
-    if(isUsingEnableSignal) ret = getClockEnable :: ret
-    if(isUsingSoftResetSignal) ret = getSoftReset :: ret
-    ret
-  }
-
-  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingResetSignal) getResetStyleInputs else Nil)
-
-  def getResetStyleInputs = List[Node](getReset)
-
-  def isUsingSoftResetSignal : Boolean
-  def isUsingResetSignal: Boolean
-  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
-  def setUseReset = {
-    reset = clockDomain.reset
-  }
-  def getClockDomain: ClockDomain = clockDomain
-
-  def getClock: Bool = clock
-  def getClockEnable: Bool = enable
-  def getReset: Bool = reset
-  def getSoftReset: Bool = softReset
-}
+//trait Initable {
+//  var compositeInitable: Initable = null
+//
+//  final def initFrom(that: AnyRef): Unit = {
+//    if (compositeInitable != null) {
+//      compositeInitable.initFrom(that)
+//    } else {
+//      initFromImpl(that)
+//    }
+//  }
+//
+//  private[core] def initFromImpl(that: AnyRef): Unit
+//}
 
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+  /*private[core] */final def compositAssignFrom(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.assignFrom(that, conservative)
+      compositeAssign.compositAssignFrom(that, target, kind)
     } else {
-      assignFromImpl(that, conservative)
+      assignFromImpl(that, target, kind)
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
+  private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit
+
+  def getRealSourceNoRec : Any
+  def getRealSource : Any = compositeAssign match {
+    case null => this.getRealSourceNoRec
+    case that => that.getRealSource
+  }
 }
 
 object OwnableRef{
@@ -343,7 +369,11 @@ object Nameable{
   val NAMEABLE_REF_PREFIXED : Byte = 4
 }
 
-trait Nameable extends OwnableRef{
+//trait NameableComposite{
+//  def nameable : Nameable
+//}
+
+trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
   private var name : String = null
   private var nameableRef : Nameable = null
@@ -399,7 +429,14 @@ trait Nameable extends OwnableRef{
 
   override def toString(): String = name
 
-  private[core] def getNameElseThrow: String = getName(null)
+  private[core] def getNameElseThrow: String = {
+    getName(null) match {
+      case null =>
+        throw new Exception("Internal error")
+      case name =>
+        name
+    }
+  }
 
   def setCompositeName(nameable: Nameable) : this.type  = setCompositeName(nameable,false)
   def setCompositeName(nameable: Nameable,weak : Boolean) : this.type = {
@@ -447,7 +484,10 @@ trait Nameable extends OwnableRef{
     this
   }
 
-  def unsetName() : Unit = setMode(Nameable.UNANMED)
+  def unsetName() : this.type = {
+    setMode(Nameable.UNANMED)
+    this
+  }
   def setName(name: String, weak: Boolean = false): this.type = {
     if (!weak || (mode == UNANMED)) {
       this.name = name
@@ -459,7 +499,7 @@ trait Nameable extends OwnableRef{
 
   def setWeakName(name: String) : this.type = setName(name, true)
 
-  def forEachNameables(doThat : (Any) => Unit) : Unit = {
+  def foreachReflectableNameables(doThat : (Any) => Unit) : Unit = {
     Misc.reflect(this, (name, obj) => {
       doThat(obj)
     })
@@ -473,28 +513,26 @@ object ScalaLocated {
 
   def filterStackTrace(that : Array[StackTraceElement]) = that.filter(trace => {
     val className = trace.getClassName
-    !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    !(className.startsWith("scala.") || className.startsWith("spinal.core") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
   })
   def short(scalaTrace : Throwable) : String = {
     if(scalaTrace == null) return "???"
     filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
+  def filter(that : String) : Boolean = {
+    if(that.startsWith("sun.reflect")) return false
+    if(that.startsWith("java.lang.reflect")) return false
+    if(that.startsWith("java.lang.Class")) return false
+    if(that.startsWith("com.intellij")) return false
+    if(that.startsWith("org.scalatest")) return false
+
+    return true
+  }
 
   def long(scalaTrace : Throwable,tab : String = "    "): String = {
     if(scalaTrace == null) return "???"
-    def filter(that : String) : Boolean = {
-      if(that.startsWith("sun.reflect.NativeConstructorAccessorImpl.newInstance")) return false
-      if(that.startsWith("sun.reflect.DelegatingConstructorAccessorImpl.newInstance")) return false
-      if(that.startsWith("java.lang.reflect.Constructor.newInstance")) return false
-      if(that.startsWith("java.lang.Class.newInstance")) return false
-      if(that.startsWith("sun.reflect.NativeMethodAccessorImpl.invoke")) return false
-      if(that.startsWith("sun.reflect.DelegatingMethodAccessorImpl.invoke")) return false
-      if(that.startsWith("java.lang.reflect.Method.invoke")) return false
-      if(that.startsWith("com.intellij.rt.execution.application.AppMain.main")) return false
 
-      return true
-    }
 
     filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
@@ -512,7 +550,10 @@ object ScalaLocated {
 
 trait ScalaLocated extends GlobalDataUser {
   private[core] var scalaTrace = if (globalData != null && !globalData.scalaLocatedEnable) null else new Throwable()
-
+  def setScalaLocated(source : ScalaLocated) : this.type = {
+    scalaTrace = source.scalaTrace
+    this
+  }
   def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
   def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)
 }
@@ -621,6 +662,10 @@ trait SpinalTag {
   def canSymplifyHost = false
 }
 
+class DefaultTag(val that : BaseType) extends SpinalTag
+object allowDirectionLessIoTag extends SpinalTag
+object unsetRegIfNoAssignementTag extends SpinalTag
+object allowAssignmentOverride extends SpinalTag
 object unusedTag extends SpinalTag
 object noCombinatorialLoopCheck extends SpinalTag
 object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
@@ -628,7 +673,7 @@ object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
 object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{
   override def duplicative = true
-  override def canSymplifyHost: Boolean = true
+//  override def canSymplifyHost: Boolean = true
 }
 object tagTruncated extends SpinalTag{
   override def duplicative = true
@@ -764,33 +809,51 @@ object GlobalData {
   }
 }
 
+object Driver {
+  val startTime = System.currentTimeMillis()
+  def executionTime: Double = (System.currentTimeMillis - startTime)/1000.0
+}
 
 /**
   *
   */
 class GlobalData {
+  val dslScope = new Stack[ScopeStatement]()
+  val dslClockDomain = new Stack[ClockDomain]()
 
-  var algoId = 1
+  def currentComponent = dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope.component
+  }
 
-  def allocateAlgoId(): Int = {
-    algoId += 1
-    return algoId - 1
+  def currentScope = dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope
+  }
+
+  def currentClockDomain = dslClockDomain.headOption match {
+    case None => null
+    case Some(cd) => cd
+  }
+
+  private var algoIncrementale = 1
+
+  def allocateAlgoIncrementale(): Int = {
+    assert(algoIncrementale != Integer.MAX_VALUE)
+    algoIncrementale += 1
+    return algoIncrementale - 1
   }
 
   var anonymSignalPrefix : String = null
   var commonClockConfig = ClockDomainConfig()
-  var overridingAssignementWarnings = true
+//  var overridingAssignmentWarnings = true
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
   var nodeAreInferringEnumEncoding = false
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
-  /** Stack to store all clocDomain */
-  val clockDomainStack = new SafeStack[ClockDomain]
-  /** Stack to store all components */
-  val componentStack = new SafeStackWithStackable[Component]
-  val switchStack = new SafeStack[SwitchStack]
-  val conditionalAssignStack = new SafeStack[ConditionalContext]
+  val switchStack = Stack[SwitchContext]()
+
   var scalaLocatedEnable = false
   var instanceCounter = 0
   val pendingErrors = mutable.ArrayBuffer[() => String]()

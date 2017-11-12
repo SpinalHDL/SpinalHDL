@@ -60,6 +60,7 @@ class MixedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extend
   io.rsp.arbitrationFrom(divider.io.rsp)
   io.rsp.quotient := divider.io.rsp.quotient.twoComplement(divider.io.rsp.context(0)).asBits.resized
   io.rsp.remainder := divider.io.rsp.remainder.twoComplement(divider.io.rsp.context(1)).asBits.resized
+  io.rsp.error := divider.io.rsp.error
 }
 
 

@@ -44,7 +44,12 @@ class MentorDo {
           }
         }
         val components = getComponents(task.c, 0)
-        val nodes = components.map(_.nodes).reduce(_ ++ _).filter(_.isInstanceOf[Node with ContextUser]).map(_.asInstanceOf[Node with ContextUser]).sortBy(_.getInstanceCounter)
+        var nodes = ArrayBuffer[Nameable]()
+        components.foreach(c => c.dslBody.walkStatements{
+          case s : Nameable => nodes += s
+          case s =>
+        })
+        nodes = nodes.sortBy(_.getInstanceCounter)
         for (node <- nodes) node match {
           case node: BaseType => {
             val componentPath = node.getComponents().tail.mkString("/")

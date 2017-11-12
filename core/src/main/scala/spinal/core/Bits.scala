@@ -20,8 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-import spinal.core.Operator.BitVector.AllByBool
-
+import spinal.core.internals._
 
 /**
   * Bits factory used for instance by the IODirection to create a in/out Bits
@@ -48,18 +47,20 @@ trait BitsFactory {
   */
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
-  private[core] override def prefix: String = "b"
 
+  /** Set all bits */
+  override def getTypeObject = TypeBits
+  override def opName: String = "Bits"
   override type T = Bits
 
   private[spinal] override def _data: Bits = this
-
-  /**
-    * Concatenation between two Bits
-    * @example{{{ val myBits2 = bits1 ## bits2 }}}
-    * @param right a Bits to append
-    * @return a new Bits of width (w(this) + w(right))
-    */
+//
+//  /**
+//    * Concatenation between two Bits
+//    * @example{{{ val myBits2 = bits1 ## bits2 }}}
+//    * @param right a Bits to append
+//    * @return a new Bits of width (w(this) + w(right))
+//    */
   def ##(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Cat)
 
   override def |(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Or)
@@ -160,34 +161,32 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret
   }
 
-  private[core] override def isEquals(that: Any): Bool = {
-    that match {
-      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
-      case that: MaskedLiteral => that === this
-      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-    }
+  private[core] override def isEquals(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
+    case that: MaskedLiteral => that === this
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
-    that match {
-      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
-      case that: MaskedLiteral => that =/= this
-      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-    }
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
+    case that: MaskedLiteral => that =/= this
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
+//
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 
-  protected override def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
-
-  override def resize(width: Int): this.type = wrapWithWeakClone({
+  override def resize(width: Int): Bits = wrapWithWeakClone({
     val node = new ResizeBits
     node.input = this
     node.size = width
     node
   })
 
-  /**
+
+  override def resizeFactory: Resize = new ResizeBits
+
+    /**
     * Resize by keeping MSB at the same place
     * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
     * if the final size is smaller, only width MSB are kept
@@ -203,12 +202,21 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     }
   }
 
-  override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromBits)
-  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromBits)
-  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new ExtractBitsVectorFixedFromBits).setWidth(bitCount.value)
-  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
+  override def apply(bitId: Int) : Bool = newExtract(bitId, new BitsBitAccessFixed)
+  override def apply(bitId: UInt): Bool = newExtract(bitId, new BitsBitAccessFloating)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
+  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
 
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
+  override def getAllTrue: this.type = B((BigInt(1) << this.getWidth)-1, this.getWidth bits).asInstanceOf[this.type]
+  override def setAll(): Unit = this := (BigInt(1) << this.getWidth)-1
+
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(BitsLiteral(BigInt(0), (BigInt(1) << this.getWidth)-1, widthOf(this)))
+    this
+  }
+
 }

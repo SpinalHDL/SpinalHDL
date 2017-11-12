@@ -36,7 +36,7 @@ class JtagInstruction(tap: JtagTapAccess,val instructionId: Bits) extends Area {
   def doUpdate(): Unit = {}
   def doReset(): Unit = {}
 
-  val instructionHit = tap.getInstruction === instructionId
+  val instructionHit = tap.getInstruction === instructionId.resized
 
   Component.current.addPrePopTask(() => {
     when(instructionHit) {
@@ -119,7 +119,7 @@ class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instruct
 
   override def doReset(): Unit = {
     shifter := value
-    tap.setInstruction(instructionId)
+    tap.setInstruction(instructionId.resized)
   }
 }
 

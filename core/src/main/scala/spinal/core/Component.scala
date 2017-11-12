@@ -21,9 +21,10 @@
 
 package spinal.core
 
+import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core.internals._
 /**
   * Component companion
   */
@@ -34,8 +35,11 @@ object Component {
     * @param c new component to add
     */
   def push(c: Component): Unit = {
-    //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
-    GlobalData.get.componentStack.push(c)
+    if(c != null)
+      c.globalData.dslScope.push(c.dslBody)
+    else
+      GlobalData.get.dslScope.push(null)
+
   }
 
   /**
@@ -43,15 +47,22 @@ object Component {
     * @param c component to remove
     */
   def pop(c: Component): Unit = {
-    GlobalData.get.componentStack.pop(c)
+    val globalData = if(c != null) c.globalData else GlobalData.get
+    globalData.dslScope.pop()
   }
 
   /** Get the current component on the stack */
   def current: Component = current(GlobalData.get)
 
   /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.componentStack.head()
+  def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
+    case None => null
+    case Some(scope) => scope.component
+  }
 }
+
+
+
 
 
 /**
@@ -69,40 +80,41 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
+  val dslBody = new ScopeStatement(null)
+  dslBody.component = this
+
+  /** Contains all in/out signals of the component */
+  private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   /** Class used to create a task that must be executed after the creation of the component */
   case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-  /** Contains all in/out signals of the component */
-  private[core] val ioSet = mutable.Set[BaseType]()
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  private[core] val additionalNodesRoot = mutable.Set[Node]()
-  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
   /** Hierarchy level of the component */
-  private[core] val level = globalData.componentStack.size()
+  private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
   /** Reference owner type */
   override type RefOwnerType = Component
   /** Contains all nodes of the components */
-  var nodes: ArrayBuffer[Node] = null
+//  var nodes: ArrayBuffer[Node] = null
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
-  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
+//  def flyingNameableStatements = getAllIo.withFilter(_)
 
   /** Get the parent component (null if there is no parent)*/
-  val parent = Component.current
+  def parent : Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
 
@@ -230,66 +242,67 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   /**
     * Name allocation
     */
-  private[core] def allocateNames(globalScope : Scope): Unit = {
-    val localScope = globalScope.newChild
-    localScope.allocateName(globalData.anonymSignalPrefix)
-
-    for (node <- nodes) node match {
-      case nameable: Nameable =>
-        if (nameable.isUnnamed || nameable.getName() == "") {
-          nameable.unsetName()
-          nameable.setWeakName(globalData.anonymSignalPrefix)
-        }
-        if (nameable.isWeak)
-          nameable.setName(localScope.allocateName(nameable.getName()))
-        else
-          localScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
-      case _ =>
-    }
+  var localNamingScope : NamingScope = null
+  private[core] def allocateNames(globalScope : NamingScope): Unit = {
+    localNamingScope = globalScope.newChild
+    localNamingScope.allocateName(globalData.anonymSignalPrefix)
 
     for (child <- children) {
-      OwnableRef.proposal(child,this)
+      OwnableRef.proposal(child, this)
       if (child.isUnnamed) {
         var name = child.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName()
         child.setWeakName(name)
       }
-      child.setName(localScope.allocateName(child.getName()))
+      child.setName(localNamingScope.allocateName(child.getName()))
+    }
+
+    dslBody.walkStatements{
+      case nameable : Nameable =>
+        if (nameable.isUnnamed || nameable.getName() == "") {
+          nameable.unsetName()
+          nameable.setWeakName(globalData.anonymSignalPrefix)
+        }
+        if (nameable.isWeak)
+          nameable.setName(localNamingScope.allocateName(nameable.getName()))
+        else
+          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+      case _ =>
     }
   }
 
   /** Get a set of all IO available in the component */
   def getAllIo: mutable.Set[BaseType] = {
 
-    if (nodes == null) {
+//    if (nodes == null) {
       ioSet
-    } else {
-      val nodeIo = mutable.Set[BaseType]()
-      nodes.foreach {
-        case b: BaseType if (b.isIo) => nodeIo += b
-        case _ =>
-      }
-      nodeIo
-    }
+//    } else {
+//      val nodeIo = mutable.Set[BaseType]()
+//      nodes.foreach {
+//        case b: BaseType if (b.isIo) => nodeIo += b
+//        case _ =>
+//      }
+//      nodeIo
+//    }
 
   }
 
   /** Sort all IO regarding instanceCounter */
   def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
-
-
-  /** Get an array of all SyncNode of the Component */
-  private[core] def getDelays = {
-    val delays = new ArrayBuffer[SyncNode]()
-
-    nodes.foreach {
-      case delay: SyncNode => delays += delay
-      case _ =>
-    }
-
-    delays
-  }
+//
+//
+//  /** Get an array of all SyncNode of the Component */
+//  private[core] def getDelays = {
+//    val delays = new ArrayBuffer[SyncNode]()
+//
+//    nodes.foreach {
+//      case delay: SyncNode => delays += delay
+//      case _ =>
+//    }
+//
+//    delays
+//  }
 
   private[core] def userParentCalledDef: Unit = {}
 
@@ -330,12 +343,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   /** Rework the component */
   def rework[T](gen: => T) : T = {
+    ClockDomain.push(this.clockDomain)
     Component.push(this)
     val ret = gen
     prePop()
     Component.pop(this)
+    ClockDomain.pop(this.clockDomain)
     ret
   }
 }
-
-

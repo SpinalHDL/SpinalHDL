@@ -102,18 +102,20 @@ object SeqMux {
   }
 }
 
-class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends Assignable {
-  override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec : Vec[T]) extends Assignable {
+  override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        val thatSafe = that match {
-          case that: AssignementNode => that.clone(to)
+        val thatSafe = that /*match {
+          case that: AssignmentNode => that.clone(to)
           case _ => that
-        }
-        to.assignFrom(thatSafe, conservative)
+        }*/
+        to.compositAssignFrom(thatSafe, to, kind)
       }
     }
   }
+
+  override def getRealSourceNoRec: Any = vec
 }
 
 class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
@@ -187,14 +189,14 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
     val enables = (U(1) << address).asBools
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
-      accessE.compositeAssign = new VecAccessAssign(enables, to)
+      accessE.compositeAssign = new VecAccessAssign[T](enables, to, this)
     }
 
     accessMap += (key -> ret)
     ret
   }
 
-  //TODO sub element composite assignement, as well for indexed access (std)
+  //TODO sub element composite assignment, as well for indexed access (std)
   def oneHotAccess(oneHot: Bits): T = {
     if(elements.size == oneHot.getWidth){
       SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
@@ -207,26 +209,25 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
       }
     }
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        assert(!conservative)
+      override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
         for ((e, idx) <- vec.zipWithIndex) {
           when(oneHot(idx)) {
-            e := that.asInstanceOf[T]
+            e.compositAssignFrom(that, target,kind)
           }
         }
       }
+      override def getRealSourceNoRec: Any = Vec.this
     }
 
     ret
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-    assert(!conservative)
+  private[core] override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     that match {
       case that: Vec[T] => {
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
-          to.:=(from)
+          to.assignFromImpl(from, to, kind)
         }
       }
       case _ => throw new Exception("Undefined assignment")
@@ -251,4 +252,3 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   }
 //  println(elements)
 }
-

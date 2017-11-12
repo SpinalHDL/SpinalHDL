@@ -162,7 +162,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //       calculate if the "Thread" has rush a end condition (iteration > N, x*x+y*y + 4)
   val stage3 = RegFlow(new Context)
   stage3 assignAllByName stage2
-
+  stage3.allowOverride
   stage3.z.x := stage2.zXzX - stage2.zYzY + stage2.task.mandelbrotPosition.x
   stage3.z.y := ((stage2.zXzY << 1) + stage2.task.mandelbrotPosition.y).truncated
   when(!stage2.done) {

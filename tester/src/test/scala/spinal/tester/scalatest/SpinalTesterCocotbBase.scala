@@ -16,14 +16,14 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   var spinalMustPass = true
   var cocotbMustPass = true
   var genHdlSuccess = false
-  var waveDepth = 1
+  var waveDepth = 99
   def noVhdl = false
   def noVerilog = false
 
   def genVhdl: Unit ={
     try {
       val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = VHDL,dumpWave = DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
+      backendConfig(SpinalConfig(mode = VHDL)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -34,11 +34,12 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     }
     assert(spinalMustPass,"Spinal has not fail :(")
   }
+  def waveFolder = sys.env.getOrElse("WAVES_DIR",".")
 
   def genVerilog: Unit ={
     try {
-      val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
+
+      backendConfig(SpinalConfig(mode = Verilog,dumpWave = if(withWaveform) DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + "_verilog.vcd") else null)).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -60,9 +61,16 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     doCmd(Seq(
       s"rm -f $xmlPath"
     ))
+    val additionalArgs = ArrayBuffer[String]()
+    if(withWaveform && lang == Language.VHDL){
+      additionalArgs += s"SIM_ARGS=--vcd=${waveFolder + "/" + getName + "_vhdl.vcd"}"
+    }
+    if(withWaveform){
+      additionalArgs += "RANDOM_SEED=1377424946"
+    }
     val stdout = doCmd(Seq(
       s"cd $testPath",
-      s"make TOPLEVEL_LANG=${langString}"
+      s"make TOPLEVEL_LANG=${langString} ${additionalArgs.mkString(" ")}"
     ))
 //    val pass = getCocotbPass(xmlPath)
     val pass = stdout.contains("**                                 ERRORS : 0                                      **")
@@ -133,7 +141,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     return true
   }
 
-  def postTest: () => Unit = null
+  def postTest : () => Unit = null
 
   def backendConfig(config: SpinalConfig) : SpinalConfig = config
   def getName: String = this.getClass.getName()

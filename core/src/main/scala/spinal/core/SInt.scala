@@ -20,8 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-import spinal.core.Operator.BitVector.AllByBool
-
+import spinal.core.internals._
 
 /**
   * SInt factory used for instance by the IODirection to create a in/out SInt
@@ -46,8 +45,10 @@ trait SIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+  override def getTypeObject = TypeSInt
+  override private[core] def resizeFactory: Resize = new ResizeSInt
+  override def opName: String = "SInt"
 
-  private[core] override def prefix : String = "s"
 
   override type T = SInt
 
@@ -158,23 +159,21 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override def asBits: Bits = wrapCast(Bits(), new CastSIntToBits)
 
-  private[core] override def isEquals(that: Any): Bool = {
-    that match {
+  private[core] override def isEquals(that: Any): Bool = that match {
       case that: SInt           => wrapLogicalOperator(that,new Operator.SInt.Equal)
       case that: MaskedLiteral  => that === this
       case _                    => SpinalError(s"Don't know how compare $this with $that"); null
     }
+
+
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
+    case that: MaskedLiteral => that =/= this
+    case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
-    that match {
-      case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
-      case that: MaskedLiteral => that =/= this
-      case _                   => SpinalError(s"Don't know how compare $this with $that"); null
-    }
-  }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeSInt
@@ -185,14 +184,20 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
   override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
+  override def setAll(): Unit = this := (if(getWidth != 0) -1 else 0)
 
-  override def apply(bitId: Int): Bool = newExtract(bitId, new ExtractBoolFixedFromSInt)
-  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromSInt)
-  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset + bitCount.value - 1, offset, new ExtractBitsVectorFixedFromSInt).setWidth(bitCount.value)
-  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new ExtractBitsVectorFloatingFromSInt).setWidth(bitCount.value)
+  override def apply(bitId: Int): Bool = newExtract(bitId, new SIntBitAccessFixed)
+  override def apply(bitId: UInt): Bool = newExtract(bitId, new SIntBitAccessFloating)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset + bitCount.value - 1, offset, new SIntRangedAccessFixed).setWidth(bitCount.value)
+  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new SIntRangedAccessFloating).setWidth(bitCount.value)
 
   private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
-  protected override def getAllToBoolNode(): AllByBool = new Operator.SInt.AllByBool(this)
+  override def getAllTrue: this.type = S(if(getWidth != 0) -1 else 0, this.getWidth bits).asInstanceOf[this.type]
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(SIntLiteral(BigInt(0), (BigInt(1) << this.getWidth)-1, widthOf(this)))
+    this
+  }
 }

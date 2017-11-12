@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.internals._
+
 
 import java.lang.reflect.Field
 
@@ -52,6 +54,7 @@ object roundUp {
 object cloneOf {
   //Return a new data with the same data structure than the given parameter (including bit width)
   def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
+  def apply[T <: Data](that: HardType[T]): T = that()
 }
 
 object weakCloneOf {
@@ -67,7 +70,7 @@ object weakCloneOf {
 }
 
 object widthOf {
-  //Return the number of bit of the given data
+//  Return the number of bit of the given data
   def apply[T <: Data](that: T): Int = that.getBitsWidth
 }
 
@@ -81,7 +84,7 @@ class HardType[T <: Data](t : T){
 
 object signalCache {
   def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
-    val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
+    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
     cache.getOrElseUpdate(subKey, factory()).asInstanceOf[T]
   }
 }
@@ -96,124 +99,116 @@ object Cat {
 }
 
 
-object ScalaUniverse {
-  def isCaseClass(o: Any): Boolean = {
-    val clazz = o.getClass
-    clazz.getInterfaces.find(_ == classOf[scala.Product]).isDefined && clazz.getDeclaredMethods.find(_.getName == "copy").isDefined
+object Mux {
+  def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
+    Multiplex.complexData(sel, whenTrue, whenFalse)
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumCraft[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue, whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse)
   }
 }
 
-object Misc {
-
-  def addReflectionExclusion(o: Object) = reflectExclusion += o.getClass
-
-  val reflectExclusion = mutable.Set[Class[_]]()
-
-  addReflectionExclusion(new Bundle())
-  addReflectionExclusion(new Vec(Bool, Vector[Bool]()))
-  addReflectionExclusion(new Bool)
-  addReflectionExclusion(new Bits)
-  addReflectionExclusion(new UInt)
-  addReflectionExclusion(new SInt)
-  addReflectionExclusion(new Generic)
-  addReflectionExclusion(new SpinalEnum)
-  addReflectionExclusion(new SpinalEnumCraft(null))
-  addReflectionExclusion(new Area{})
-
-
-
-
-  def reflect(o: Object, onEach: (String, Object) => Unit, namePrefix: String = ""): Unit = {
-    val refs = mutable.Set[Object]()
-
-    def applyNameTo(name : String,fieldRef : Object): Unit ={
-      if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
-        fieldRef match {
-          case range : Range =>
-          case vec: Vec[_] =>
-          case seq: Seq[_] => {
-            for ((obj, i) <- seq.zipWithIndex) {
-              applyNameTo(name + "_" + i, obj.asInstanceOf[Object])
-              refs += fieldRef
-            }
-          }
-          case seq: Array[_] => {
-            for ((obj, i) <- seq.zipWithIndex) {
-              applyNameTo(name + "_" + i, obj.asInstanceOf[Object])
-              refs += fieldRef
-            }
-          }
-          case _ =>
-        }
-        onEach(name, fieldRef)
-        refs += fieldRef
+object Sel{
+  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
+  def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
+    val result = cloneOf(default)
+    result := default
+    for((cond,value) <- mappings.reverseIterator){
+      when(cond){
+        result := value
       }
     }
-
-    explore(o.getClass)
-    def explore(c: Class[_]): Unit = {
-      if (c == null) return
-      if (reflectExclusion.contains(c) || c.getName + "$" == Component.getClass.getName)
-        return
-      explore(c.getSuperclass)
-
-//      val fields = c.getDeclaredFields
-//      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType && ! AnnotationUtils.isDontName(fd)) //  && java.lang.reflect.Modifier.isPublic(fd.getModifiers )     && fd.isAnnotationPresent(Class[spinal.core.refOnly])
-//      val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
-//
-//
-      val methods = c.getDeclaredMethods
-      val fields = c.getDeclaredFields.filter(fd => methods.exists(_.getName == fd.getName) && ! AnnotationUtils.isDontName(fd))
-
-      for (field <- fields) {
-        field.setAccessible(true)
-        val fieldRef = field.get(o)
-        if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
-          val methodName = field.getName
-          val firstCharIndex = methodName.lastIndexOf('$')
-          val postFix = if(firstCharIndex == -1)
-            methodName
-          else
-            methodName.substring(firstCharIndex+1)
-          val name = namePrefix + postFix
-          applyNameTo(name,fieldRef)
-        }
-      }
-    }
+    result
   }
+}
 
-  def normalizeResize(to: Node, inputId: Integer, width: Int) {
-    val input = to.getInput(inputId)
-    if (input == null || input.asInstanceOf[WidthProvider].getWidth == width) return;
+object Analog{
+  def apply[T <: Data](that : HardType[T]) : T = that().setAsAnalog()
+}
 
-    input match{
-      case bitVector : BitVector => {
-        bitVector.getInput(0) match{
-          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
-            Component.push(input.component)
-            val sizedLit = lit.clone()
-            sizedLit.asInstanceOf[Widthable].inferredWidth = width
-            to.setInput(inputId,sizedLit)
-            Component.pop(input.component)
-            Misc.normalizeResize(to, inputId, Math.max(lit.minimalValueBitWidth,width)) //Allow resize on direct literal with unfixed values
+object SpinalMap {
+  def apply[K <: BaseType, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
 
+  def list[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result : T = weakCloneOf(mappings.head._2)
+
+    switch(addr){
+      for ((cond, value) <- mappings) {
+        cond match {
+          case product: Product => {
+            is.list(product.productIterator) {
+              result := value
+            }
           }
-
+          case `default` => {
+            default {
+              result := value
+            }
+          }
           case _ => {
-            val that = input.asInstanceOf[BitVector]
-            Component.push(that.component)
-            val resize = that.resize(width)
-            resize.inferredWidth = width
-            resize.input.asInstanceOf[Widthable].inferredWidth = width
-            to.setInput(inputId,resize)
-            Component.pop(that.component)
+            is(cond) {
+              result := value
+            }
           }
         }
       }
-      case _ =>
     }
+    result
   }
 }
+
+//TODO DOC
+object Select{
+  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
+  def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
+
+  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
+    val result : T = cloneOf(defaultValue)
+
+    var ptr : WhenContext = null
+
+    mappings.foreach{case (cond,that) => {
+      if(ptr == null){
+        ptr = when(cond){
+          result := that
+        }
+      }else{
+        ptr = ptr.elsewhen(cond){
+          result := that
+        }
+      }
+    }}
+
+    if(ptr == null){
+      result := defaultValue
+    }else{
+      ptr.otherwise{
+        result := defaultValue
+      }
+    }
+    result
+  }
+
+  def list[T <: Data](mappings: Seq[(Any, T)]): T = {
+    val defaultValue = mappings.find(_._1 == default)
+    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
+    val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
+    list(defaultValue.get._2,filterd)
+  }
+}
+
+
+trait AssertNodeSeverity
+object NOTE     extends AssertNodeSeverity
+object WARNING  extends AssertNodeSeverity
+object ERROR    extends AssertNodeSeverity
+object FAILURE  extends AssertNodeSeverity
 
 @deprecated("Use cloneable instead")
 object wrap{
@@ -231,7 +226,7 @@ object cloneable{
   }
 }
 
-class Scope(parent : Scope = null) {
+class NamingScope(parent : NamingScope = null) {
   var lock = false
   val map = mutable.Map[String, Int]()
   def allocateName(name: String): String = {
@@ -261,7 +256,7 @@ class Scope(parent : Scope = null) {
     assert(!lock)
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
-      SpinalError(errorMessage)
+      PendingError(errorMessage)
     map(lowerCase) = 1
   }
 
@@ -269,7 +264,7 @@ class Scope(parent : Scope = null) {
     this.lock = true
   }
 
-  def newChild = new Scope(this)
+  def newChild = new NamingScope(this)
 //  def copy() : Scope = {
 //    val cpy = new Scope
 //    map.foreach{case (n,i) => cpy.map.put(n,i)}
@@ -365,7 +360,9 @@ object SpinalWarning {
 class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).map(_ + "\n" + SpinalExit.errorsMessagesSeparator + "\n\n").mkString("") + "Design's errors are listed above.\nSpinalHDL compiler exit stack : \n");
 
 object PendingError {
-  def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)
+  def apply(error : => String) : Unit = {
+    GlobalData.get.pendingErrors += (() => error)
+  }
 }
 object LocatedPendingError {
   def apply(error : => String) = {
@@ -412,7 +409,6 @@ object ifGen {
 }
 
 object MaskedLiteral{
-
   def apply(str : String) : MaskedLiteral = {
     val strCleaned = str.replace("_","")
     for(c <- strCleaned) assert(c == '1' || c == '0' || c == '-', s"""M"$str" is not correctly formated.""")

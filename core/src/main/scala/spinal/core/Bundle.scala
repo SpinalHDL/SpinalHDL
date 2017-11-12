@@ -19,7 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core.internals._
 /**
   * Created by PIC18F on 08.01.2015.
   */
@@ -30,12 +30,18 @@ object Bundle {
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   var cloneFunc: () => Object = null
-  if(component != null) component.addPrePopTask(() => {
-    elements.foreach{case (n,e) => {
-      OwnableRef.proposal(e,this)
-      e.setPartialName(n,true)
-    }}
-  })
+  globalData.currentComponent match {
+    case null =>
+    case component => {
+      component.addPrePopTask(() => {
+        elements.foreach { case (n, e) => {
+          OwnableRef.proposal(e, this)
+          e.setPartialName(n, true)
+        }}
+      })
+    }
+  }
+
   override def clone: Bundle = {
     if (cloneFunc != null) {
       val ret = cloneFunc().asInstanceOf[this.type].asDirectionLess
@@ -49,7 +55,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other == null)
-        PendingError(s"Bundle assignement is not complete. Missing $name\n " + ScalaLocated.long)
+        PendingError(s"Bundle assignment is not complete. Missing $name\n " + ScalaLocated.long)
       else element match {
         case b: Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
         case _ => element := other
@@ -69,8 +75,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     }
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-    assert(!conservative)
+  private[core] override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     that match {
       case that: Bundle => {
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Bundles must have the same final class to" +
@@ -79,10 +84,10 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
           val other = that.find(name)
           if (other == null) {
             val trace = ScalaLocated.long
-            PendingError(s"Bundle assignement is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
+            PendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
           }
           else
-            element := other
+            element.compositAssignFrom(other,element,kind)
         }
       }
       case _ => throw new Exception("Undefined assignment")

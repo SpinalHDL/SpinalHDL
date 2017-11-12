@@ -123,7 +123,7 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
     copy.addTag(tagTruncated)
     copy.asInstanceOf[this.type]
   }
-  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+  override private[spinal] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     that match {
       case that if this.getClass.isAssignableFrom(that.getClass) => {
         val t = that.asInstanceOf[T]
@@ -135,11 +135,11 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
         }
         val difLsb = this.difLsb(t)
         if (difLsb > 0)
-          this.raw := (t.raw >> difLsb).resized
+          this.raw compositAssignFrom ((t.raw >> difLsb).resized, this.raw, kind)
         else if (difLsb < 0)
-          this.raw := (t.raw << -difLsb).resized
+          this.raw compositAssignFrom ( (t.raw << -difLsb).resized, this.raw, kind)
         else
-          this.raw := (t.raw).resized
+          this.raw compositAssignFrom ( (t.raw).resized, this.raw, kind)
       }
       case _ => SpinalError("Undefined assignment")
     }

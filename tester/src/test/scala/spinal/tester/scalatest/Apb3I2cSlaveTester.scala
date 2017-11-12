@@ -35,6 +35,5 @@ class Apb3I2cSlaveTester extends SpinalTesterCocotbBase {
       addressFilterCount = 4
     )
   ).setDefinitionName("Apb3I2cSlave")
-
 }
 

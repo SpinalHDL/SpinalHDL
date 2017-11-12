@@ -247,8 +247,10 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
     def cycleCounter(cycleMax : BigInt,assignCheck : Boolean = false) = new Area {
       val counter = Reg(UInt(log2Up(cycleMax) bits)) init(0)
       val busy = counter =/= 0
-      when(busy && rsp.ready){
-        counter := counter - 1
+      if(cycleMax > 1) {
+        when(busy && rsp.ready) {
+          counter := counter - 1
+        }
       }
       def setCycles(cycles : BigInt) = {
         assert(cycles <= cycleMax)

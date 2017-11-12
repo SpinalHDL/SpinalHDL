@@ -85,7 +85,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkNoPartialAssignement") {
+  test("checkNoPartialAssignment") {
     generationShouldPass(new Component{
       val cond = in Bool
       val input = in Bits(8 bits)
@@ -119,6 +119,43 @@ class ChecksTester extends FunSuite  {
     })
   }
 
+  test("checkNoMissingDefault") {
+    generationShouldPass(new Component{
+      val cond = in Bool
+      val input = in Bits(8 bits)
+      val output = out Bits(8 bits)
+      when(cond){
+        output := input
+      }otherwise{
+        when(cond) {
+          output := input
+          when(cond){
+            output := input
+          }
+        } otherwise {
+          output := input
+        }
+      }
+    })
+
+    generationShouldFaild(new Component{
+      val cond = in Bool
+      val input = in Bits(8 bits)
+      val output = out Bits(8 bits)
+      when(cond){
+        output := input
+      }otherwise{
+        when(cond) {
+          when(cond){
+            output := input
+          }
+        } otherwise {
+          output := input
+        }
+      }
+    })
+  }
+
   test("checkClockCrossing") {
     generationShouldFaild(new Component{
       val clockA = in Bool
@@ -138,7 +175,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkNoInputWrite") {
+  test("checkNoInputAssignement") {
     generationShouldFaild(new Component{
       val input = in Bool()
       val output = out Bool()
@@ -147,13 +184,65 @@ class ChecksTester extends FunSuite  {
     })
   }
 
+  test("checkNoSubOutputAssignement") {
+    generationShouldFaild(new Component{
+      val sub = new Component{
+        val output = out(True)
+      }
+      sub.output := False
+    })
+  }
+
+
+
+  test("checkNoSubSignalAssignement") {
+    generationShouldFaild(new Component{
+      val sub = new Component{
+        val tmp = True
+      }
+      sub.tmp := False
+    })
+  }
+
+  test("checkNoOverrides") {
+    generationShouldPass(new Component{
+      val a = Bool
+      a := True
+      when(True === True) {
+        a := False
+      }
+    })
+
+    generationShouldFaild(new Component{
+      val a = Bool
+      a := True
+      a := False
+    })
+    generationShouldFaild(new Component{
+      val a = Bool
+      a := True
+      when(True === True) {
+        a := False
+        a := True
+      }
+    })
+  }
 
   test("checkNoResetFail") {
     generationShouldFaild(new Component{
       ClockDomain(in Bool) {
-        val output = out(RegInit(False))
+        val output = out(RegInit(False)).setName("aaa")
       }
     })
+  }
+
+  test("checkOnlyIoInIoBundle") {
+    class CheckOnlyIoInBundle extends Component{
+      val io = new Bundle{
+        val x = Bool()
+      }
+    }
+    generationShouldFaild(new CheckOnlyIoInBundle)
   }
 
 

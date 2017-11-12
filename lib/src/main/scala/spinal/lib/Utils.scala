@@ -18,6 +18,7 @@
 
 package spinal.lib
 
+import spinal.core.internals._
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 
@@ -164,7 +165,7 @@ object fromGray {
 object GrayCounter {
   def apply(width: Int, enable: Bool): UInt = {
     val gray = RegInit(U(0, width bit))
-    var even = RegInit(True)
+    val even = RegInit(True)
     val word = Cat(True, gray(width - 3, 0), even)
     when(enable) {
       var found = False
@@ -270,7 +271,7 @@ class BitAggregator {
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
-    c.willIncrement.removeAssignements()
+    c.willIncrement.removeAssignments()
     c.increment()
     c
   }
@@ -303,8 +304,8 @@ object Counter {
 // start and end inclusive, up counter
 class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
   require(start <= end)
-  val willIncrement = False
-  val willClear = False
+  val willIncrement = False.allowOverride
+  val willClear = False.allowOverride
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
@@ -455,9 +456,9 @@ object CounterMultiRequest {
 
 object LatencyAnalysis {
   //Don't care about clock domain
-  def apply(paths: Node*): Integer = list(paths)
+  def apply(paths: Expression*): Integer = list(paths)
 
-  def list(paths: Seq[Node]): Integer = {
+  def list(paths: Seq[Expression]): Integer = {
     var stack = 0;
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
@@ -465,44 +466,151 @@ object LatencyAnalysis {
     stack
   }
 
-  def impl(from: Node, to: Node): Integer = {
-    val walked = mutable.Set[Node]()
-    var pendingStack = mutable.ArrayBuffer[Node](to)
-    var depth = 0;
-
-    while (pendingStack.size != 0) {
-      val iterOn = pendingStack
-      pendingStack = new mutable.ArrayBuffer[Node](10000)
-      for (start <- iterOn) {
-        if (walk(start)) return depth;
-      }
-      depth = depth + 1
-    }
-
-    def walk(that: Node, depth: Integer = 0): Boolean = {
-      if (that == null) return false
-      if (walked.contains(that)) return false
-      walked += that
-      if (that == from)
+  //TODO mather about clock and reset wire
+  def impl(from: Expression, to: Expression): Integer = {
+    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val pendingQueues = new Array[mutable.ArrayBuffer[BaseNode]](3)
+    for(i <- 0 until pendingQueues.length) pendingQueues(i) = new ArrayBuffer[BaseNode]
+    def walk(that: BaseNode): Boolean = {
+      if(that.algoIncrementale == walkedId)
+        return false
+      that.algoIncrementale = walkedId
+      if(that == from)
         return true
-      that match {
-        case delay: SyncNode => {
-          for (input <- delay.getAsynchronousInputs) {
-            if (walk(input)) return true
+
+      that match{
+        case that : Mem[_] => {
+          that.foreachStatements{
+            case port : MemWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
+            case port : MemReadWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
+            case port : MemReadSync =>
+            case port : MemReadAsync =>
+              //TODO other ports
           }
-          pendingStack ++= delay.getSynchronousInputs
+          return false
         }
-        case _ => {
-          that.onEachInput(input =>  {
-            if (walk(input)) return true
+        case that : BaseType => { //TODO IR when conds
+          def walkInputs(func : (BaseNode) => Unit) = {
+            that.foreachStatements(s => {
+              s.foreachDrivingExpression(input => {
+                func(input)
+              })
+              s.walkParentTreeStatementsUntilRootScope(tree => tree.walkDrivingExpressions(input => {
+                func(input)
+              }))
+            })
+          }
+          if(that.isReg){
+            walkInputs(input => pendingQueues(1) += input)
+            return false
+          } else {
+            walkInputs(input => {
+              if(walk(input))
+                return true
+            })
+          }
+          return false
+        }
+        case that : MemReadSync =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
           })
+          pendingQueues(1) += that.mem
+          return false
+        case that : MemReadWrite =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          pendingQueues(1) += that.mem
+          that.foreachDrivingExpression(input => {
+            pendingQueues(2) += input
+          })
+          return false
+        case that : MemReadAsync =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          if(walk(that.mem))
+            return true
+          return false
+        case that : Expression => {
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          return false
         }
       }
-      false
     }
+
+    var depth = 0
+    pendingQueues(0) += to
+    while(pendingQueues.exists(_.nonEmpty)){
+      pendingQueues(0).foreach(node => {
+        if(walk(node))
+          return depth
+      })
+
+
+      pendingQueues(0).clear()
+      pendingQueues(pendingQueues.length - 1) = pendingQueues(0)
+      for(i <- 0 until pendingQueues.length - 1){
+        pendingQueues(i) = pendingQueues(i + 1)
+      }
+
+      depth += 1
+    }
+
+
 
     SpinalError("latencyAnalysis don't find any path")
     -1
+//    val walked = mutable.Set[Expression]()
+//    var pendingStack = mutable.ArrayBuffer[Expression](to)
+//    var depth = 0;
+//
+//    while (pendingStack.size != 0) {
+//      val iterOn = pendingStack
+//      pendingStack = new mutable.ArrayBuffer[Expression](10000)
+//      for (start <- iterOn) {
+//        if (walk(start)) return depth;
+//      }
+//      depth = depth + 1
+//    }
+//
+//    def walk(that: Expression, depth: Integer = 0): Boolean = {
+//      if (that == null) return false
+//      if (walked.contains(that)) return false
+//      walked += that
+//      if (that == from)
+//        return true
+//      that match {
+//        case delay: SyncNode => {
+//          for (input <- delay.getAsynchronousInputs) {
+//            if (walk(input)) return true
+//          }
+//          pendingStack ++= delay.getSynchronousInputs
+//        }
+//        case _ => {
+//          that.onEachInput(input =>  {
+//            if (walk(input)) return true
+//          })
+//        }
+//      }
+//      false
+//    }
+//
+//    SpinalError("latencyAnalysis don't find any path")
+//    -1
   }
 }
 

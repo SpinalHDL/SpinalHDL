@@ -4,11 +4,11 @@ object SpinalVersion {
 
   val isSnapshot = false
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "0.10.16"
+  private val major = "0.11.0"
   val all         = s"$major$snapshot"
   val core        = s"$major$snapshot"
   val lib         = s"$major$snapshot"
-  val ip         = s"$major$snapshot"
+  val ip          = s"$major$snapshot"
   val debugger    = s"$major$snapshot"
   val demo        = s"$major$snapshot"
   val tester      = s"$major$snapshot"

@@ -1,5 +1,7 @@
 package spinal
 
+
+import spinal.core.internals._
 import scala.annotation.elidable
 import scala.annotation.elidable._
 import scala.collection.immutable.Range
@@ -19,7 +21,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def DoubleToBuilder(value: Double) : DoubleBuilder = new DoubleBuilder(value)
 
-  def enum(param: Symbol*): Any = macro MacroTest.enum_impl
+//  def enum(param: Symbol*): Any = macro MacroTest.enum_impl
   //def enum(param: Symbol*) = MacroTest.enum(param)
 
   implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T2])  = element.asInstanceOf[SpinalEnumElement[T]]
@@ -229,13 +231,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def DataPimped[T <: Data](that: T) : DataPimper[T] = new DataPimper(that)
 
-  // @TODO Should those be removed ?
-  // implicit def UIntToLitBuilder(sc: StringContext) = new UIntLitBuilder(sc)
-  // implicit def IntToUInt(that : Int) = UInt(that lit)
-  // implicit def BigIntToUInt(that : BigInt) = UInt(that lit)
-  // implicit def BooleanToBool(that : Boolean) = Bool(that)
-  // implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
-  // implicit def autoCast[T <: Data](that: T): T#SSelf = that.asInstanceOf[T#SSelf]
 
   implicit class SIntPimper(pimped: SInt) {
     def toSFix: SFix = {
@@ -279,12 +274,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
-  def assert(assertion: Bool) = AssertNode(assertion,null,ERROR)
-  def assert(assertion: Bool,message : String) = AssertNode(assertion,message,ERROR)
-  def assert(assertion: Bool,message : Seq[Any]) = AssertNode(assertion,message,ERROR)
-  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,null,severity)
-  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
-  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion,Nil,ERROR)
+  def assert(assertion: Bool,message : String) = AssertStatementHelper(assertion,message,ERROR)
+  def assert(assertion: Bool,message : Seq[Any]) = AssertStatementHelper(assertion,message,ERROR)
+  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,Nil,severity)
+  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
+  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
   def report(message : String) = assert(True,message,NOTE)
   def report(message : Seq[Any]) = assert(True,message,NOTE)
   def report(message : String,severity: AssertNodeSeverity) = assert(True,message,severity)

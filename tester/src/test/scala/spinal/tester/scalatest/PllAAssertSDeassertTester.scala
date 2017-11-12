@@ -47,6 +47,5 @@ class PllAAssertSDeassertTesterBoot extends SpinalTesterCocotbBase {
   override def createToplevel: Component = new PllAAssertSDeassertTester.PllAAssertSDeassertTester
 
   override def backendConfig(config: SpinalConfig): SpinalConfig = config
-    .dumpWave(vcdPath = config.dumpWave.vcdPath)
     .copy(defaultConfigForClockDomains = config.defaultConfigForClockDomains.copy(resetKind = SYNC))
 }

@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.internals._
+
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -35,7 +37,7 @@ case class Device(vendor : String = "?", family : String = "?", name : String = 
 trait MemBlackboxingPolicy{
   def translationInterest(topology: MemTopology) : Boolean
   def onUnblackboxable(topology: MemTopology,who : Any,message : String) : Unit
-  
+
   def generateUnblackboxableError(topology: MemTopology,who : Any,message : String) : Unit = {
     PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readRrite ports : ${topology.readWriteSync.size}\n  -> $message")
   }
@@ -58,7 +60,7 @@ object blackboxRequestedAndUninferable extends MemBlackboxingPolicy{
     if(topology.readsAsync.exists(_.readUnderWrite != writeFirst)) return true
     if(topology.readsSync.exists(_.readUnderWrite != readFirst)) return true
     if(topology.writeReadSameAddressSync.exists(_._2.readUnderWrite != readFirst)) return true
-    if(topology.readWriteSync.exists(_._2.readUnderWrite != readFirst)) return true
+//    if(topology.readWriteSync.exists(_._2.readUnderWrite != readFirst)) return true
     return false
   }
   override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
@@ -72,24 +74,25 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
 
 case class SpinalConfig(
   mode: SpinalMode = null,
-  debug: Boolean = false,
-  keepAll: Boolean = false,
+  debug : Boolean = false,
+  keepAll : Boolean = false,
   defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
-  onlyStdLogicVectorAtTopLevelIo: Boolean = false,
-  defaultClockDomainFrequency: IClockDomainFrequency = UnknownFrequency(),
-  targetDirectory: String = ".",
-  oneFilePerComponent: Boolean = false,
-  netlistFileName: String = null,
-  dumpWave: DumpWaveConfig = null,
-  globalPrefix: String = "",
-  anonymSignalPrefix: String = null,
+  onlyStdLogicVectorAtTopLevelIo : Boolean = false,
+  defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
+  targetDirectory : String = ".",
+  oneFilePerComponent : Boolean = false,
+  netlistFileName : String = null,
+  dumpWave : DumpWaveConfig = null,
+  globalPrefix : String = "",
+  anonymSignalPrefix : String = null,
   device: Device = Device(),
-  genVhdlPkg: Boolean = true,
-  phasesInserters: ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-  transformationPhases: ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers: ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
-  ){
-
+  genVhdlPkg : Boolean = true,
+  mergeAsyncProcess : Boolean = false,
+  asyncResetCombSensitivity : Boolean = false,
+  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+                         ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
@@ -101,10 +104,6 @@ case class SpinalConfig(
   def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
   def addTransformationPhase(phase : Phase): SpinalConfig = {
     transformationPhases += phase
-//    def inserter(p : ArrayBuffer[Phase]) : Unit = {
-//      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
-//    }
-//    phasesInserters += inserter
     this
   }
 
@@ -152,10 +151,8 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 
 object Spinal{
-
   def version = spinal.core.Info.version
-
-  def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] ={
+  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
@@ -173,15 +170,8 @@ object Spinal{
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
 
-    // check if netlistfilename contains an extension
-    if (config.netlistFileName != null) {
-      if(!config.netlistFileName.matches("""([^.]+)\.([^.]+)""")){
-        throw new Exception(s"""\"${config.netlistFileName}\" (netlistFileName parameter) must have an extension (e.g \"MyTopLevel.vhdl\") """)
-      }
-    }
-
     val report = config.mode match {
-      case `VHDL`    => SpinalVhdlBoot(config)(gen)
+      case `VHDL` => SpinalVhdlBoot(config)(gen)
       case `Verilog` => SpinalVerilogBoot(config)(gen)
     }
 

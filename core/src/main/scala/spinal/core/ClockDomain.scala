@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.internals._
+
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -120,14 +122,14 @@ object ClockDomain {
 
 
   def push(c: ClockDomain): Unit = {
-    GlobalData.get.clockDomainStack.push(c)
+    GlobalData.get.dslClockDomain.push(c)
   }
 
   def pop(c: ClockDomain): Unit = {
-    GlobalData.get.clockDomainStack.pop(c)
+    GlobalData.get.dslClockDomain.pop()
   }
 
-  def current = GlobalData.get.clockDomainStack.head()
+  def current : ClockDomain = GlobalData.get.dslClockDomain.head
 
   def isResetActive = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive
@@ -140,8 +142,8 @@ object ClockDomain {
     if (that.existsTag(_.isInstanceOf[ClockDomainBoolTag])) {
       that
     } else {
-      that.input match {
-        case input: Bool => getClockDomainDriver(input)
+      that.getSingleDriver match {
+        case Some(driver) => getClockDomainDriver(driver)
         case _ => null
       }
     }
@@ -169,9 +171,9 @@ trait DummyTrait
 class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null,dummyArg : DummyTrait = null,val softReset : Bool = null, val clockEnable: Bool = null, val frequency: IClockDomainFrequency = UnknownFrequency()) {
   assert(!(reset != null && config.resetKind == BOOT),"A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
   val instanceCounter = GlobalData.get.getInstanceCounter
-  clock.dontSimplifyIt()
-  if(reset != null)reset.dontSimplifyIt()
-  if(clockEnable != null)clockEnable.dontSimplifyIt()
+//  clock.dontSimplifyIt()
+//  if(reset != null)reset.dontSimplifyIt()
+//  if(clockEnable != null)clockEnable.dontSimplifyIt()
 
   clock.addTag(ClockTag(this))
   if (reset != null) reset.addTag(ResetTag(this))

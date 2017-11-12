@@ -20,25 +20,58 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals._
 import scala.collection.mutable.ArrayBuffer
 
 
 /**
-  * Base class for creating enumeration
+  * Definition of an element of the enumeration
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
-  *
-  * @example {{{
-  *         class MyEnum extends SpinalEnum(binarySequancial){
-  *           val s1, s2, s3, s4 = newElement()
-  *         }
-  *         }}}
-  *
-  * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
-  * hardware representation of the the element.
-  *
-  * @param defaultEncoding encoding of the enum
+  * @param spinalEnum parent of the element (SpinalEnum)
+  * @param position position of the element
   */
+class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
+
+  def ===(that: SpinalEnumCraft[T]): Bool = that === this
+  def =/=(that: SpinalEnumCraft[T]): Bool = that =/= this
+
+  def apply(): SpinalEnumCraft[T] = craft()
+  def apply(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = craft(encoding)
+
+  def craft(): SpinalEnumCraft[T] = {
+    val ret = spinalEnum.craft(inferred).asInstanceOf[SpinalEnumCraft[T]].setAsTypeNode()
+    ret.assignFrom(new EnumLiteral(this))
+    ret
+  }
+
+  def craft(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = {
+    val ret = spinalEnum.craft(encoding).asInstanceOf[SpinalEnumCraft[T]]
+    val lit = new EnumLiteral(this)
+    lit.fixEncoding(encoding)
+    ret.assignFrom(lit)
+    ret
+  }
+
+  def asBits: Bits = craft().asBits
+}
+
+
+/**
+ * Base class for creating enumeration
+ *
+ * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
+ *
+ * @example {{{
+ *         class MyEnum extends SpinalEnum(binarySequancial){
+ *           val s1, s2, s3, s4 = newElement()
+ *         }
+ *         }}}
+ *
+ * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
+ * hardware representation of the the element.
+ *
+ * @param defaultEncoding encoding of the enum
+ */
 class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
 
   assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
@@ -47,7 +80,7 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type E = SpinalEnumElement[this.type]
 
   /** Contains all elements of the enumeration */
-  val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
+  @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
 
 
   def apply() = craft()
@@ -75,43 +108,18 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 
 
 /**
-  * Definition of an element of the enumeration
-  *
-  * @param spinalEnum parent of the element (SpinalEnum)
-  * @param position position of the element
-  */
-class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
-
-  def ===(that: SpinalEnumCraft[T]): Bool = that === this
-  def =/=(that: SpinalEnumCraft[T]): Bool = that =/= this
-
-  def apply(): SpinalEnumCraft[T] = craft()
-  def apply(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = craft(encoding)
-
-  def craft(): SpinalEnumCraft[T] = {
-    val ret = spinalEnum.craft(inferred).asInstanceOf[SpinalEnumCraft[T]]
-    ret.input = new EnumLiteral(this)
-    ret
-  }
-
-  def craft(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = {
-    val ret = spinalEnum.craft(encoding).asInstanceOf[SpinalEnumCraft[T]]
-    val lit = new EnumLiteral(this)
-    lit.fixEncoding(encoding)
-    ret.input = lit
-    ret
-  }
-
-  def asBits: Bits = craft().asBits
-}
-
-
-/**
   * Hardware representation of an enumeration
   */
 class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl with DataPrimitives[SpinalEnumCraft[T]] {
 
+  override def getTypeObject: Any = TypeEnum
+
+  override def opName: String = "EnumCraft"
+
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = spinalEnum.defaultEncoding
+
+
+  override private[core] def canSymplifyIt = super.canSymplifyIt && (this.encodingChoice == InferableEnumEncodingImplChoiceUndone)
 
   override def getDefinition: SpinalEnum = spinalEnum
 
@@ -127,9 +135,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
 
-  private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
-    case that : SpinalEnumCraft[T] => super.assignFromImpl(that, conservative)
-    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
+  private[core] override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = that match{
+    case that : SpinalEnumCraft[T] => super.assignFromImpl(that, target, kind)
+    case that : Expression with EnumEncoded => super.assignFromImpl(that, target, kind)
+    //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
   }
 
   override def isEquals(that: Any): Bool = {
@@ -147,7 +156,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerEnum(spinalEnum))
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerEnum(spinalEnum))
 
   override def asBits: Bits = wrapCast(Bits(), new CastEnumToBits)
 
@@ -155,7 +164,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
     val c = cloneOf(this)
     val cast = new CastBitsToEnum(this.spinalEnum)
     cast.input = bits.asInstanceOf[cast.T]
-    c.input = cast
+    c.assignFrom(cast)
     this := c
   }
 
@@ -174,7 +183,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
   }
 
   def init(enumElement: SpinalEnumElement[T]): this.type = {
-    this.initImpl(enumElement())
+    this.init(enumElement()).asInstanceOf[this.type]
   }
 
   /** Return the name of the parent */
@@ -191,12 +200,12 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
     ret
   }
 
-  override private[core] def normalizeInputs: Unit = {
+  override def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
 
   override def assignDontCare(): this.type = {
-    this.assignFrom(new DontCareNodeEnum(spinalEnum), conservative=false)
+    this.assignFrom(new EnumPoison(spinalEnum))
     this
   }
 }
@@ -207,6 +216,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
   */
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal with InferableEnumEncodingImpl {
 
+  override def getTypeObject: Any = TypeEnum
+
+  override def opName: String = "E"
+
   override def clone: this.type = {
     val ret = new EnumLiteral(enum).asInstanceOf[this.type]
     ret.copyEncodingConfig(this)
@@ -216,14 +229,40 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 
   override def getValue(): BigInt = encoding.getValue(enum)
 
-  private[core] override def getBitsStringOn(bitCount: Int): String = {
+  private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
     val str = encoding.getValue(enum).toString(2)
     "0" * (bitCount - str.length) + str
   }
+  override def hasPoison() = false
 
   override def getDefinition: SpinalEnum = enum.spinalEnum
 
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.spinalEnum.defaultEncoding
+}
+
+
+class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
+  override def getTypeObject: Any = TypeEnum
+
+  override def opName: String = "E?"
+
+  override def clone: this.type = {
+    val ret = new EnumPoison(enum).asInstanceOf[this.type]
+    ret.copyEncodingConfig(this)
+    ret
+  }
+
+
+  override def getValue(): BigInt = throw new Exception("EnumPoison has no value")
+
+  private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    val str = poisonSymbol.toString * encoding.getWidth(enum)
+    "0" * (bitCount - str.length) + str
+  }
+
+  override def getDefinition: SpinalEnum = enum
+  override def hasPoison() = true
+  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.defaultEncoding
 }
 
 

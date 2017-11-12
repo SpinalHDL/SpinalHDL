@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals._
+
 
 /**
   * Bool factory used for instance by the IODirection to create a in/out Bool
@@ -28,7 +30,7 @@ trait BoolFactory {
   /** Create a new Bool */
   def Bool(): Bool = new Bool
   /** Create a new Bool initialized with a boolean value */
-  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool)
+  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool.setAsTypeNode())
 }
 
 
@@ -44,12 +46,15 @@ trait BoolFactory {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
 class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
-
+  override def getTypeObject = TypeBool
   override def getBitsWidth: Int = 1
+
+  override def opName: String = "Bool"
 
   private[spinal] override def _data: Bool = this
 
-  /**
+
+    /**
     * Logical AND
     * @example{{{ val result = myBool1 && myBool2 }}}
     * @return a Bool assign with the AND result
@@ -192,7 +197,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
 
   private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
   override def getZero: this.type = False.asInstanceOf[this.type]
@@ -219,6 +224,12 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   /** Conditional operation for Enumeration value */
   def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(new BoolPoison())
+    this
+  }
+
 }
 
 

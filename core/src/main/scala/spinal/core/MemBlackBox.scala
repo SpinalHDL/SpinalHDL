@@ -19,12 +19,12 @@ class Ram_1w_1ra(wordWidth: Int,
     val wordWidth = Ram_1w_1ra.this.wordWidth
     val technology = Ram_1w_1ra.this.technology.technologyKind
     val readUnderWrite = Ram_1w_1ra.this.readUnderWrite.readUnderWriteString
-    
+
     val wrAddressWidth = Ram_1w_1ra.this.wrAddressWidth
     val wrDataWidth = Ram_1w_1ra.this.wrDataWidth
     val wrMaskWidth = Ram_1w_1ra.this.wrMaskWidth
     val wrMaskEnable = Ram_1w_1ra.this.wrMaskEnable
-    
+
     val rdAddressWidth = Ram_1w_1ra.this.rdAddressWidth
     val rdDataWidth = Ram_1w_1ra.this.rdDataWidth
   }
@@ -34,7 +34,7 @@ class Ram_1w_1ra(wordWidth: Int,
 
     val wr = new Bundle {
       val en = in Bool
-      val mask = in Bits(wrMaskWidth bits)
+      val mask = in Bits (wrMaskWidth bits)
       val addr = in UInt (wrAddressWidth bit)
       val data = in Bits (wrDataWidth bit)
     }
@@ -69,22 +69,21 @@ class Ram_1w_1rs( wordWidth: Int,
                   rdClock : ClockDomain,
                   rdAddressWidth : Int,
                   rdDataWidth : Int) extends BlackBox {
-  
+
   val generic = new Generic {
     val wordCount = Ram_1w_1rs.this.wordCount
     val wordWidth = Ram_1w_1rs.this.wordWidth
     var clockCrossing = wrClock != rdClock
     val technology = Ram_1w_1rs.this.technology.technologyKind
     val readUnderWrite = Ram_1w_1rs.this.readUnderWrite.readUnderWriteString
-    
+
     val wrAddressWidth = Ram_1w_1rs.this.wrAddressWidth
     val wrDataWidth = Ram_1w_1rs.this.wrDataWidth
     val wrMaskWidth = Ram_1w_1rs.this.wrMaskWidth
     val wrMaskEnable = Ram_1w_1rs.this.wrMaskEnable
-    
+
     val rdAddressWidth = Ram_1w_1rs.this.rdAddressWidth
     val rdDataWidth = Ram_1w_1rs.this.rdDataWidth
-    var rdEnEnable = true
   }
 
   val io = new Bundle {
@@ -108,7 +107,7 @@ class Ram_1w_1rs( wordWidth: Int,
   mapClockDomain(rdClock,io.rd.clk)
   noIoPrefix()
 
-  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
+//  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
   //Following is not obligatory, just to describe blackbox logic
 //  val mem = Mem(io.wr.data, wordCount)
@@ -157,7 +156,7 @@ class Ram_2c_1w_1rs(wordWidth: Int,
   mapClockDomain(rdClock,io.rd.clk)
   noIoPrefix()
 
-  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
+//  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
   //Following is not obligatory, just to describe blackbox logic
 //  val mem = Mem(io.wr.data, wordCount)
@@ -197,7 +196,7 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePo
   mapCurrentClockDomain(io.clk)
   noIoPrefix()
 
-  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
+//  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)

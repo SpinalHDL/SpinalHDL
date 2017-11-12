@@ -169,7 +169,7 @@ object Axi4AxUnburstified{
         result.valid    := True
         result.last     := buffer.last
         result.fragment := buffer.transaction
-        result.addr.removeAssignements()
+        result.addr.removeAssignments()
         result.addr     := buffer.address
       }otherwise{
         stream.ready    := result.ready
@@ -320,6 +320,3 @@ object Axi4R{
     }
   }
 }
-
-
-

@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals._
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -37,7 +39,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 class Generic {
 
-  var flattenCache: ArrayBuffer[Any] = null
+  @dontName var flattenCache: ArrayBuffer[Any] = null
 
   def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {
@@ -92,9 +94,7 @@ class Generic {
   *   }
   * }}}
   */
-abstract class BlackBox extends Component with SpinalTagReady {
-
-  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+abstract class BlackBox extends Component{
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
