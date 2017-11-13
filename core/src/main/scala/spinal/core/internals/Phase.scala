@@ -1519,7 +1519,9 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
     import pc._
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
     defaultClockDomain.push()
-    binaryOneHot //Avoid unconstructable during phase
+    native //Avoid unconstructable during phase
+    binarySequential
+    binaryOneHot
     pc.topLevel = gen
     defaultClockDomain.pop()
     pc.checkGlobalData()

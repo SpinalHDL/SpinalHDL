@@ -83,8 +83,8 @@ object Data {
     //Fall path
     while(currentComponent != commonComponent){
       if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
-        currentComponent = currentComponent.parent
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
+        currentComponent = currentComponent.parent
       } else {
         if (currentData.component == currentComponent && currentData.isIo) {
           //nothing to do
