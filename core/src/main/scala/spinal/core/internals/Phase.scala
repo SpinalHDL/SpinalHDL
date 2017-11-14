@@ -1213,7 +1213,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case s : AssignmentStatement => {
             val bt = s.finalTarget
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              PendingError(s"HIERARCHY VIOLATION : $bt is drived by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
 

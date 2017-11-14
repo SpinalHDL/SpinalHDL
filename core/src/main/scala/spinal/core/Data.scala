@@ -330,72 +330,45 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
-
-    def error(message : String) = {
-      val locationString = ScalaLocated.long
-      globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
-    }
     def getTrueIoBaseType(that : Data) : Data = that.getRealSource.asInstanceOf[Data]
-
 
     val thisTrue = getTrueIoBaseType(this)
     val thatTrue = getTrueIoBaseType(that)
 
-    if (thisTrue.component == thatTrue.component) {
-      if (thisTrue.component == Component.current) {
-        sameFromInside
-      } else if (thisTrue.component.parent == Component.current) {
-        sameFromOutside
-      } else error("You cant autoconnect from here")
-    } else if (thisTrue.component.parent == thatTrue.component.parent) {
-      childAndChild
-    } else if (thisTrue.component == thatTrue.component.parent) {
-      parentAndChild(this, that)
-    } else if (thisTrue.component.parent == thatTrue.component) {
-      parentAndChild(that, this)
-    } else error("Don't know how autoconnect")
-
-
-
-    def sameFromOutside: Unit = {
-      (thisTrue.dir,thatTrue.dir) match {
-        case (`out`, `in`) => that := this
-        case (`in`, out) => this := that
-        case (`inout`, `inout`) => this := that
-        case (`inout`, `out`) => this := that
-        case (`out`, `inout`) => that := this
-        case (`inout`, `in`) => that := this
-        case (`in`, `inout`) => this := that
-        case _ => error("Bad input output specification for autoconnect")
+    val c = Component.current
+    if(thisTrue.component != c && thisTrue.component.parent != c){
+      val trace = ScalaLocated.long
+      PendingError(s"HIERARCHY VIOLATION, $thisTrue can't be used in $c at\n${trace}")
+    }else if(thatTrue.component != c && thatTrue.component.parent != c){
+      val trace = ScalaLocated.long
+      PendingError(s"HIERARCHY VIOLATION, $thatTrue can't be used in $c at\n${trace}")
+    } else {
+      def dirSolve(that : Data) : IODirection = {
+        if(that.component == c)
+          that.dir
+        else
+          that.dir match {
+            case `in` => out
+            case `out` => in
+            case `inout` => inout
+            case null => null
+          }
       }
-    }
+      val thisDir = dirSolve(thisTrue)
+      val thatDir = dirSolve(thatTrue)
 
-    def sameFromInside: Unit = {
-      (thisTrue.dir,thatTrue.dir) match {
+      (thisDir,thatDir) match {
         case (`out`,`in`) => this := that
         case (`out`,null) => this := that
-        case (null,`in`) => this := that
         case (`in`,`out`) => that := this
         case (`in`,null) => that := this
+        case (null,`in`) => this := that
         case (null,`out`) => that := this
-        case _ =>  if(this.isAnalog && that.isAnalog) this := that else error("Bad input output specification for autoconnect")
+        case _ if(this.isAnalog && that.isAnalog) => this := that
+        case _ =>
+          val trace = ScalaLocated.long
+          PendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that \n$trace")
       }
-    }
-
-    def childAndChild: Unit = {
-      if (thisTrue.isOutput && thatTrue.isInput) {
-        that := this
-      } else if (thisTrue.isInput && thatTrue.isOutput) {
-        this := that
-      } else error("Bad input output specification for autoconnect")
-    }
-
-    def parentAndChild(p: Data, k: Data): Unit = {
-      if (getTrueIoBaseType(k).isOutput) {
-        p := k
-      } else if (getTrueIoBaseType(k).isInput) {
-        k := p
-      } else  if(this.isAnalog && that.isAnalog) this := that else error("Bad input output specification for autoconnect")
     }
   }
 
