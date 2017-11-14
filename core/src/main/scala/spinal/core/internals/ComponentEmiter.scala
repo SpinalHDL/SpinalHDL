@@ -256,11 +256,15 @@ abstract class ComponentEmiter {
 
     //Get all component outputs which are read internaly
     //And also fill some expressionToWrap from switch(xx)
+
+    val clockDomains = mutable.LinkedHashSet[ClockDomain]()
     component.dslBody.walkStatements(s => {
+      s.foreachClockDomain(clockDomains += _)
       s match {
         case s : SwitchStatement => expressionToWrap += s.value
         case _ =>
       }
+
       s.walkDrivingExpressions(_ match {
         case bt: BaseType => {
           if (bt.component == component && bt.isOutput) {
@@ -269,6 +273,21 @@ abstract class ComponentEmiter {
         }
         case _ =>
       })
+    })
+
+    clockDomains.foreach(cd => {
+      def check(that : Bool) = {
+        if(that != null) {
+          val pulled = component.pulledDataCache.getOrElse(that, throw new Exception("???")).asInstanceOf[Bool]
+          if (that.component == component && that.isOutput) {
+            outputsToBufferize += that
+          }
+        }
+      }
+      check(cd.clock)
+      check(cd.reset)
+      check(cd.softReset)
+      check(cd.clockEnable)
     })
 
   }
