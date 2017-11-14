@@ -1252,8 +1252,10 @@ class PhaseCheckHiearchy extends PhaseCheck{
 class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
+    val regToComb = ArrayBuffer[BaseType]()
     walkStatements{
-      case bt : BaseType if bt.isReg && (bt.isVital) => {
+      case bt : BaseType if bt.isReg => {
         var assignedBits = new AssignedBits(bt.getBitsWidth)
         bt.foreachStatements{
           case s : DataAssignmentStatement =>
@@ -1270,18 +1272,8 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
               case s : InitAssignmentStatement => withInit = true
               case _ =>
             }
-            if(bt.hasTag(unsetRegIfNoAssignementTag) && withInit){
-              bt.setAsComb()
-              val statements = ArrayBuffer[AssignmentStatement]()
-
-              bt.foreachStatements(statements += _)
-
-              statements.foreach{
-                case s : InitAssignmentStatement => {
-                  s.insertNext(DataAssignmentStatement(s.target, s.source).setScalaLocated(s))
-                  s.removeStatement()
-                }
-              }
+            if((bt.hasTag(unsetRegIfNoAssignementTag) || !bt.isVital) && withInit){
+              regToComb += bt
             }else {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
@@ -1294,6 +1286,20 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
         }
       }
       case _ =>
+    }
+
+    for(bt <- regToComb){
+      bt.setAsComb()
+      val statements = ArrayBuffer[AssignmentStatement]()
+
+      bt.foreachStatements(statements += _)
+
+      statements.foreach{
+        case s : InitAssignmentStatement => {
+          s.insertNext(DataAssignmentStatement(s.target, s.source).setScalaLocated(s))
+          s.removeStatement()
+        }
+      }
     }
   }
 }
