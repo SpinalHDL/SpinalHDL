@@ -1274,7 +1274,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
             }
             if((bt.hasTag(unsetRegIfNoAssignementTag) || !bt.isVital) && withInit){
               regToComb += bt
-            }else {
+            }else if(bt.isVital) {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
           }else {
