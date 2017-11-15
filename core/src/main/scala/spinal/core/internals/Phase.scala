@@ -1412,16 +1412,17 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
 
-class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
-  override def impl(pc : PhaseContext): Unit = {
+class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int])(pc: PhaseContext) extends PhaseCheck{
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
 
 //    val targetAlgoId = GlobalData.get.algoId
 //    Node.walk(walkNodesDefautStack,node => {node.algoId = targetAlgoId})
     walkStatements{
-      case bt : BaseType if !bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed && !bt.getName().startsWith(globalData.anonymSignalPrefix) => {
+      case bt : BaseType if !bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed && !bt.getName().startsWith(globalData.anonymSignalPrefix) =>
         prunedSignals += bt
-      }
+      case bt: BaseType if bt.isVital && bt.isReg =>
+        counterRegisters.value += bt.getBitsWidth
       case _ =>
     }
 //    for(c <- components){
@@ -1584,8 +1585,9 @@ object SpinalVhdlBoot{
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
-    val prunedSignals = mutable.Set[BaseType]()
-    val unusedSignals = mutable.Set[BaseType]()
+    val prunedSignals   = mutable.Set[BaseType]()
+    val unusedSignals   = mutable.Set[BaseType]()
+    val counterRegister = Ref[Int](0)
 
 
     SpinalProgress("Elaborate components")
@@ -1639,7 +1641,7 @@ object SpinalVhdlBoot{
       base
     }
 
-    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += initVhdlBase(new PhaseVhdl(pc))
@@ -1660,13 +1662,14 @@ object SpinalVhdlBoot{
     }
     pc.checkGlobalData()
 
+    SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
     //pc.checkNoZeroWidth() for debug
-
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
+    report.counterRegister = counterRegister.value
 
     report
   }
@@ -1717,8 +1720,9 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
-    val prunedSignals = mutable.Set[BaseType]()
-    val unusedSignals = mutable.Set[BaseType]()
+    val prunedSignals   = mutable.Set[BaseType]()
+    val unusedSignals   = mutable.Set[BaseType]()
+    val counterRegister = Ref[Int](0)
 
 
     SpinalProgress("Elaborate components")
@@ -1767,7 +1771,7 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
 
 
-    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
 
@@ -1784,6 +1788,8 @@ object SpinalVerilogBoot{
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
 
+    SpinalInfo(s"Number of registers : ${counterRegister.value}")
+
     pc.checkGlobalData()
 
 
@@ -1793,6 +1799,7 @@ object SpinalVerilogBoot{
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
+    report.counterRegister = counterRegister.value
 
     report
   }

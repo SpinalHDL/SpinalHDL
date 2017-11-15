@@ -23,6 +23,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 
+case class Ref[T](var value: T)
+
 case class BitCount(val value: Int) {
   def +(right : BitCount) = BitCount(this.value + right.value)
   def -(right : BitCount) = BitCount(this.value - right.value)
