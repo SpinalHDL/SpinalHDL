@@ -1669,6 +1669,7 @@ object SpinalVhdlBoot{
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
+    report.counterRegister = counterRegister.value
 
     report
   }
@@ -1798,6 +1799,7 @@ object SpinalVerilogBoot{
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
+    report.counterRegister = counterRegister.value
 
     report
   }

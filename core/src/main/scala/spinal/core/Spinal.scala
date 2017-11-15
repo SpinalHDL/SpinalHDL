@@ -130,8 +130,9 @@ object SpinalConfig{
 }
 
 class SpinalReport[T <: Component](val toplevel: T) {
-  val prunedSignals = mutable.Set[BaseType]()
-  val unusedSignals = mutable.Set[BaseType]()
+  val prunedSignals   = mutable.Set[BaseType]()
+  val unusedSignals   = mutable.Set[BaseType]()
+  var counterRegister = 0
 
   def printUnused() : this.type = {
     unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
