@@ -538,7 +538,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   /** Get current component with all parents */
-  def getComponents: Seq[Component] = if(component == null) Nil else component.parents() ++ Seq(component)
+  def getComponents(): Seq[Component] = if(component == null) Nil else component.parents() ++ Seq(component)
 
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null
