@@ -1,30 +1,30 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import spinal.core.internals._
 
-
 trait TypeFactory{
   def postTypeFactory[T <: Data](that: T) = that
 }
-
 
 /**
   * Base type factory
@@ -33,74 +33,87 @@ trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with
 
 
 /**
-  *
+  * Base type Cast
   */
 trait BaseTypeCast extends SFixCast with UFixCast
 
 object BaseType{
-  final val isRegMask = 1
+  final val isRegMask      = 1
   final val isTypeNodeMask = 2
-  final val isVitalMask = 4
-  final val isAnalogMask = 8
+  final val isVitalMask    = 4
+  final val isAnalogMask   = 8
 }
 
 /**
   * Abstract base class of all Spinal types
   */
 abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignmentStatement] with Expression {
+
   globalData.currentScope match {
     case null =>
-    case scope =>  scope.append(this)
+    case scope => scope.append(this)
   }
 
-  //  if(component != null) component.append(this)
-  private var btFlags = 0
-  override def isAnalog = (btFlags & BaseType.isAnalogMask) != 0
-  override def isReg = (btFlags & BaseType.isRegMask) != 0
-  override def isComb = (btFlags & (BaseType.isRegMask | BaseType.isAnalogMask)) == 0
-  override def setAsAnalog() : this.type = {btFlags |= BaseType.isAnalogMask; this}
-  def setAsReg() : this.type = {btFlags |= BaseType.isRegMask; this}
-  def setAsComb() : this.type = {btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this}
-  def isTypeNode = (btFlags & BaseType.isTypeNodeMask) != 0
-  def setAsTypeNode() : this.type = {btFlags |= BaseType.isTypeNodeMask; this}
-  def isVital = (btFlags & BaseType.isVitalMask) != 0
-  def setAsVital() : this.type = {btFlags |= BaseType.isVitalMask; this}
-  def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
-  def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
   var clockDomain = globalData.currentClockDomain
 
+  /** Type of the base type */
+  private var btFlags = 0
 
-//  def isDrivedIn(c : Component) = dir match {
-//    case `in` => c.parent == component
-//  }
+  override def isAnalog = (btFlags & BaseType.isAnalogMask) != 0
+  override def isReg    = (btFlags & BaseType.isRegMask) != 0
+  override def isComb   = (btFlags & (BaseType.isRegMask | BaseType.isAnalogMask)) == 0
+
+  override def setAsAnalog(): this.type = {
+    btFlags |= BaseType.isAnalogMask; this
+  }
+
+  /** Set baseType to reg */
+  def setAsReg(): this.type = {
+    btFlags |= BaseType.isRegMask; this
+  }
+
+  /** Set baseType to Combinatorial */
+  def setAsComb(): this.type = {
+    btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this
+  }
+
+  /** Is the baseType a node */
+  def isTypeNode = (btFlags & BaseType.isTypeNodeMask) != 0
+
+  /** Set baseType to Node */
+  def setAsTypeNode(): this.type = {
+    btFlags |= BaseType.isTypeNodeMask; this
+  }
+
+  /** Check if the baseType is vital */
+  def isVital = (btFlags & BaseType.isVitalMask) != 0
+
+  /** Set the baseType to vital */
+  def setAsVital(): this.type = {
+    btFlags |= BaseType.isVitalMask; this
+  }
+
+  /** Is the basetype using reset signal */
+  def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
+
+  /** Is the basetype using soft reset signal  */
+  def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null && hasInit
 
   override def normalizeInputs: Unit = {}
 
-  def hasInit : Boolean = {
+  /** Does the base type have initial value */
+  def hasInit: Boolean = {
     require(isReg)
-    foreachStatements(s => if(s.isInstanceOf[InitAssignmentStatement]) return true)
-    return false
+    foreachStatements(s => if (s.isInstanceOf[InitAssignmentStatement]) return true)
+    false
   }
 
-  //
-//  var input: Node = null
-//
-//  var defaultValue: BaseType = null
-//
   private[core] var dontSimplify = false
-//  private[core] var dontCareAboutNameForSymplify = false
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = { assert(id == 0); this.input = node }
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = { assert(id == 0); input }
-//
+
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
-
-  def removeAssignments() : this.type = {
+  /** Remove all assignements of the base type */
+  def removeAssignments(): this.type = {
     foreachStatements(s => {
       s.removeStatement()
     })
@@ -117,25 +130,17 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     this
   }
 
-//  private[core] def getLiteral[T <: Literal]: T = input match {
-//    case lit: Literal => lit.asInstanceOf[T]
-//    case bt: BaseType => bt.getLiteral[T]
-//    case _            => null.asInstanceOf[T]
-//  }
-//
-
-
-  def getDrivingReg: this.type = if(isReg)
-    this
-  else
-    this.getSingleDriver match {
-      case Some(t) => t.getDrivingReg
-      case _ => SpinalError("Driver is not a register")
+  def getDrivingReg: this.type = {
+    if (isReg) {
+      this
+    } else {
+      this.getSingleDriver match {
+        case Some(t) => t.getDrivingReg
+        case _       => SpinalError("Driver is not a register")
+      }
     }
+  }
 
-
-//  def isDelay = input.isInstanceOf[SyncNode]
-//
   override def asInput(): this.type = {
     component.ioSet += this
     super.asInput()
@@ -157,13 +162,15 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     super.asDirectionLess()
   }
 
-  def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.head match {
-    case AssignmentStatement(target, driver : BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
-      Some(driver.asInstanceOf[this.type])
-    case _ => None
-  }else None
+  def getSingleDriver: Option[this.type] = {
+    if (this.hasOnlyOneStatement) this.head match {
+      case AssignmentStatement(target, driver: BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
+        Some(driver.asInstanceOf[this.type])
+      case _ => None
+    } else None
+  }
 
-  override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     def statement(that : Expression) = kind match {
       case `DataAssign` =>
         DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
@@ -172,6 +179,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
           LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
         InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
+
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
         globalData.dslScope.head.append(statement(that))
@@ -180,21 +188,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     }
   }
 
-
   override def removeStatement(): Unit = {
     if(!isDirectionLess) component.ioSet.remove(this)
     super.removeStatement()
   }
 
-  //
-//  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
-//
-//  override def assignDontCare(): this.type = {
-//    this.assignFrom(new DontCareNode(this))
-//    this
-//  }
-//
-//  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   override def flatten: Seq[BaseType] = Seq(this)
@@ -202,22 +200,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def flattenLocalName: Seq[String] = Seq("")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//
-//  def instanceAndSyncNodeAttributes : Iterable[Attribute] = {
-//    if(input.isInstanceOf[SyncNode])
-//      input.instanceAttributes ++ this.instanceAttributes
-//    else
-//      this.instanceAttributes
-//  }
-//
-//  def instanceAndSyncNodeAttributes(language: Language) : Iterable[Attribute] = {
-//    if(input.isInstanceOf[SyncNode])
-//      input.instanceAttributes(language) ++ this.instanceAttributes(language)
-//    else
-//      this.instanceAttributes(language)
-//  }
 
-//
   override def rootScopeStatement = if(isInput) component.parentScope else parentScope
 
   override def clone: this.type = {
@@ -225,14 +208,16 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     res
   }
 
+  /** Base fucntion to create mux */
   private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer
+
+  /** Create a multiplexer */
   final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]
     mux
   }
-
 
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
     val typeNode = weakClone.setAsTypeNode()
@@ -274,35 +259,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     op.right = right.asInstanceOf[op.T]
     wrapWithBool(op)
   }
-//
-//  private[core] def wrapMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): this.type = {
-//    mux.cond      = cond
-//    mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
-//    mux.whenFalse = whenFalse.asInstanceOf[mux.T]
-//    wrapWithWeakClone(mux)
-//  }
-//
-//
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
-//
-  //Create a new instance of the same datatype without any configuration (width, direction)
+
+  /** Create a new instance of the same datatype without any configuration (width, direction) */
   private[core] def weakClone: this.type
-
-//
-//
-//
-//  var assignmentThrowable: Throwable = null
-//
-//  override def getAssignmentContext(id: Int): Throwable = {
-//    assert(id == 0)
-//    assignmentThrowable
-//  }
-//
-//  override def setAssignmentContext(id: Int,that : Throwable): Unit =  {
-//    assert(id == 0)
-//    assignmentThrowable =that
-//  }
-
 
   def muxList[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
     SpinalMap.list(this,mappings)
@@ -318,10 +277,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
 
-  override def toString(): String = if(isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
-    s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${dirString} $getClassIdentifier)"
-  else
-    head.source.toString
-
-
+  override def toString: String = {
+    if (isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
+      s"(${(if (component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${dirString()} $getClassIdentifier)"
+    else
+      head.source.toString
+  }
 }
