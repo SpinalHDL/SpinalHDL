@@ -906,15 +906,15 @@ trait OverridedEqualsHashCode{
 trait Num[T <: Data] {
 
   /** Addition */
-  def +  (right: T): T
+  def + (right: T): T
   /** Substraction */
-  def -  (right: T): T
+  def - (right: T): T
   /** Multiplication */
-  def *  (right: T): T
+  def * (right: T): T
   /** Division */
-  def /  (right: T): T
+  def / (right: T): T
   /** Modulo */
-  def %  (right: T): T
+  def % (right: T): T
 
   /** Is less than right */
   def <  (right: T): Bool
@@ -926,9 +926,9 @@ trait Num[T <: Data] {
   def >= (right: T): Bool
 
   /** Logical left shift (w(T) = w(this) + shift)*/
-  def << (shift : Int) : T
+  def << (shift: Int): T
   /** Logical right shift (w(T) = w(this) - shift)*/
-  def >> (shift : Int) : T
+  def >> (shift: Int): T
 
   /** Return the minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
@@ -953,5 +953,5 @@ trait BitwiseOp[T <: Data]{
   def ^(right: T): T
 
   /** Inverse bitwise operator */
-  def unary_~ : T
+  def unary_~(): T
 }

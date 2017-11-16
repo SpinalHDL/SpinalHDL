@@ -22,7 +22,6 @@ package spinal.core
 
 import spinal.core.internals._
 
-
 /**
   * Bool factory used for instance by the IODirection to create a in/out Bool
   */
@@ -30,7 +29,7 @@ trait BoolFactory {
   /** Create a new Bool */
   def Bool(): Bool = new Bool
   /** Create a new Bool initialized with a boolean value */
-  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool.setAsTypeNode())
+  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool().setAsTypeNode())
 }
 
 
@@ -46,15 +45,16 @@ trait BoolFactory {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
 class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
+
   override def getTypeObject = TypeBool
+
   override def getBitsWidth: Int = 1
 
   override def opName: String = "Bool"
 
   private[spinal] override def _data: Bool = this
 
-
-    /**
+  /**
     * Logical AND
     * @example{{{ val result = myBool1 && myBool2 }}}
     * @return a Bool assign with the AND result
@@ -82,9 +82,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   override def unary_~(): Bool = ! this
 
   /** this is assigned to True */
-  def set() = this := True
+  def set(): Unit = this := True
   /** this is assigned to False */
-  def clear() = this := False
+  def clear(): Unit = this := False
 
   /**
     * this is assigned to True when cond is True
@@ -102,9 +102,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @param initAt the initial value
     * @return a Bool
     */
-  def rise(initAt: Bool) = this && ! RegNext(this).init(initAt)
+  def rise(initAt: Bool): Bool = this && ! RegNext(this).init(initAt)
   /** Rising edge detection */
-  def rise() = this && ! RegNext(this)
+  def rise(): Bool = this && ! RegNext(this)
 
   /**
     * Falling edge detection of this with an initial value
@@ -112,9 +112,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @param initAt the initial value
     * @return a Bool
     */
-  def fall(initAt: Bool) = ! this && RegNext(this).init(initAt)
+  def fall(initAt: Bool): Bool = ! this && RegNext(this).init(initAt)
   /** Falling edge detection */
-  def fall() = ! this && RegNext(this)
+  def fall(): Bool = ! this && RegNext(this)
 
   /**
     * Edge detection of this with an initial value
@@ -122,25 +122,41 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @param initAt the initial value
     * @return a Bool
     */
-  def edge(initAt: Bool) = this ^ RegNext(this).init(initAt)
+  def edge(initAt: Bool): Bool = this ^ RegNext(this).init(initAt)
   /** Edge detection */
-  def edge() = this ^ RegNext(this)
+  def edge(): Bool = this ^ RegNext(this)
 
-  def edges() : BoolEdges = {
+  /**
+    * Detect all edges (falling, rising, toogling)
+    * @example{{{
+    *         val res = myBool.edges()
+    *         when(res.fall){...}
+    *         when(res.rise){...}
+    *         when(res.toggle){...}
+    *         }}}
+    * @param initAt the initial value
+    * @return a BoolEdges
+    */
+  def edges(initAt: Bool): BoolEdges = {
     val ret = BoolEdges()
-    val old = RegNext(this)
-    ret.rise := !old && this
-    ret.fall := old && !this
+    val old = RegNext(this) init(initAt)
+
+    ret.rise   := !old && this
+    ret.fall   := old && !this
     ret.toogle := old =/= this
+
     ret
   }
 
-  def edges(initAt: Bool) : BoolEdges = {
+  /** Edge detection without intial value */
+  def edges(): BoolEdges = {
     val ret = BoolEdges()
-    val old = RegNext(this) init(initAt)
-    ret.rise := !old && this
-    ret.fall := old && !this
+    val old = RegNext(this)
+
+    ret.rise   := !old && this
+    ret.fall   := old && !this
     ret.toogle := old =/= this
+
     ret
   }
 
@@ -200,6 +216,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
 
   private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
+
   override def getZero: this.type = False.asInstanceOf[this.type]
 
   /**
@@ -219,11 +236,11 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @note implicit conversion is used to send SpinalEnumElement
     */
   case class MuxBuilderEnum[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]){
-    def |(whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T]   = Mux(Bool.this, whenTrue, whenFalse)
+    def |(whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = Mux(Bool.this, whenTrue, whenFalse)
   }
 
   /** Conditional operation for Enumeration value */
-  def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+  def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]) = MuxBuilderEnum(whenTrue)
 
   override def assignDontCare(): this.type = {
     this.assignFrom(new BoolPoison())
@@ -232,7 +249,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
 }
 
-
+/**
+  * Bundle for the edge detection
+  */
 case class BoolEdges() extends Bundle{
-  val rise, fall, toogle = Bool
+  val rise, fall, toogle = Bool()
 }
