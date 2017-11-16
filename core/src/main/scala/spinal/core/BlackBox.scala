@@ -41,12 +41,12 @@ class Generic {
 
   @dontName var flattenCache: ArrayBuffer[Any] = null
 
-  def genNames: Unit = {
+  def genNames(): Unit = {
     Misc.reflect(this, (name, obj) => {
       OwnableRef.proposal(obj,this)
       obj match {
         case obj: Nameable => obj.setWeakName(name)
-        case _ =>
+        case _             =>
       }
     })
   }
@@ -57,7 +57,7 @@ class Generic {
       Misc.reflect(this, (name, obj) => {
         obj match {
           case obj: Data => flattenCache ++= obj.flatten
-          case _         => flattenCache += Tuple2(name, obj)
+          case _         => flattenCache += (name, obj)
         }
       })
     }
@@ -94,15 +94,14 @@ class Generic {
   *   }
   * }}}
   */
-abstract class BlackBox extends Component{
+abstract class BlackBox extends Component {
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
     try {
-      val clazz = this.getClass
-      val m = clazz.getMethod("generic")
+      val m       = this.getClass.getMethod("generic")
       val generic = m.invoke(this).asInstanceOf[Generic]
-      return generic
+      generic
     } catch {
       case _: Throwable => new Generic
     }
@@ -168,6 +167,6 @@ abstract class BlackBoxULogic extends BlackBox {
 /**
   * Create a Ulogic tag used by Blackbox in order to transform std_logic into std_ulogic
   */
-object uLogic extends SpinalTag{
+object uLogic extends SpinalTag {
   override def moveToSyncNode = false
 }
