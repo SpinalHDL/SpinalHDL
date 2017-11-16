@@ -210,7 +210,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
-  override def getZeroUnconstrained(): this.type = B(0).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
   override def getAllTrue: this.type = B((BigInt(1) << this.getWidth) - 1, this.getWidth bits).asInstanceOf[this.type]
   override def setAll(): Unit = this := (BigInt(1) << this.getWidth) - 1
 
