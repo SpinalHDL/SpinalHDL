@@ -1,5 +1,9 @@
 package spinal.lib.eda.xilinx
 
+import java.io.File
+import java.nio.file.Paths
+
+import org.apache.commons.io.FileUtils
 import spinal.core._
 import spinal.lib.eda.bench.Report
 
@@ -26,23 +30,17 @@ object VivadoFlow {
 
   def apply(vivadoPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
-    val correctedWorkspacePath =  if(isWindows) workspacePath.replace("/","\\") else workspacePath
     val targetPeriod = (if(frequencyTarget != null) frequencyTarget else 400 MHz).toTime
 
+    val workspacePathFile = new File(workspacePath)
+    FileUtils.deleteDirectory(workspacePathFile)
+    workspacePathFile.mkdir()
+    FileUtils.copyFileToDirectory(new File(toplevelPath), workspacePathFile)
 
-    if(isWindows) {
-      doCmd(s"rmdir /S /Q $correctedWorkspacePath")
-      doCmd(s"mkdir $correctedWorkspacePath")
-      doCmd(s"copy $toplevelPath $correctedWorkspacePath")
-    } else {
-      doCmd(s"rm -rf $correctedWorkspacePath")
-      doCmd(s"mkdir $correctedWorkspacePath")
-      doCmd(s"cp $toplevelPath $correctedWorkspacePath")
-    }
 
     val isVhdl = toplevelPath.endsWith(".vhd") || toplevelPath.endsWith(".vhdl")
 
-    val tcl = new java.io.FileWriter(workspacePath + "/doit.tcl")
+    val tcl = new java.io.FileWriter(Paths.get(workspacePath,"doit.tcl").toFile)
     tcl.write(
 s"""read_${if(isVhdl) "vhdl" else "verilog"} $toplevelPath
 read_xdc doit.xdc
@@ -60,7 +58,7 @@ report_timing"""
     tcl.close();
 
 
-    val xdc = new java.io.FileWriter(workspacePath + "/doit.xdc")
+    val xdc = new java.io.FileWriter(Paths.get(workspacePath,"doit.xdc").toFile)
     xdc.write(s"""create_clock -period ${(targetPeriod*1e9) toBigDecimal} [get_ports clk]""")
 
     xdc.flush();
@@ -71,7 +69,7 @@ report_timing"""
     new Report{
       override def getFMax(): Double =  {
         import scala.io.Source
-        val report = Source.fromFile(workspacePath + "/doit.log").getLines.mkString
+        val report = Source.fromFile(Paths.get(workspacePath,"doit.log").toFile).getLines.mkString
         val intFind = "-?(\\d+\\.?)+".r
         val slack = try {
           (family match {
@@ -85,7 +83,7 @@ report_timing"""
       }
       override def getArea(): String =  {
         import scala.io.Source
-        val report = Source.fromFile(workspacePath + "/doit.log").getLines.mkString
+        val report = Source.fromFile(Paths.get(workspacePath,"doit.log").toFile).getLines.mkString
         val intFind = "(\\d+,?)+".r
         val leArea = try {
           family match {
@@ -103,9 +101,9 @@ report_timing"""
 
   def main(args: Array[String]) {
     val report = VivadoFlow(
-      vivadoPath="E:\\Xilinx\\Vivado\\2016.3\\bin",
-      workspacePath="E:/tmp/test1",
-      toplevelPath="fifo128.v",
+      vivadoPath="/eda/Xilinx/Vivado/2017.2/bin",
+      workspacePath="/home/spinalvm/tmp",
+      toplevelPath="TopLevel.vhd",
       family="Artix 7",
       device="xc7k70t-fbg676-3",
       frequencyTarget = 1 MHz
