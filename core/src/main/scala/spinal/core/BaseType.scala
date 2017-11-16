@@ -108,8 +108,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     false
   }
 
+  /** Don't remove/simplify this data during rtl generation */
   private[core] var dontSimplify = false
 
+  /** Can this data be simplified ?? */
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
   /** Remove all assignements of the base type */
