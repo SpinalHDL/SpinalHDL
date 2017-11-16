@@ -57,7 +57,7 @@ class Generic {
       Misc.reflect(this, (name, obj) => {
         obj match {
           case obj: Data => flattenCache ++= obj.flatten
-          case _         => flattenCache += (name, obj)
+          case _         => flattenCache += Tuple2(name, obj)
         }
       })
     }
