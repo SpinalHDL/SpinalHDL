@@ -36,7 +36,7 @@ import spinal.core.internals._
   *     }
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bundle]]
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bundle Bundle Documentation]]
   */
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
 
