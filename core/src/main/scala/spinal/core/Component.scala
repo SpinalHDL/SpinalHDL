@@ -21,31 +21,22 @@
 
 package spinal.core
 
-import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-/**
-  * Component companion
-  */
+
+
 object Component {
 
-  /**
-    * Push a new component on the stack
-    * @param c new component to add
-    */
+  /** Push a new component on the stack */
   def push(c: Component): Unit = {
     if(c != null)
       c.globalData.dslScope.push(c.dslBody)
     else
       GlobalData.get.dslScope.push(null)
-
   }
 
-  /**
-    * Remove component of the stack if it is the same as c
-    * @param c component to remove
-    */
+  /**  Remove component of the stack if it is the same as c */
   def pop(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
     globalData.dslScope.pop()
@@ -56,13 +47,10 @@ object Component {
 
   /** Get the current component on the stack of the given globalData*/
   def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
-    case None => null
+    case None        => null
     case Some(scope) => scope.component
   }
 }
-
-
-
 
 
 /**
@@ -81,13 +69,15 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
+
   val dslBody = new ScopeStatement(null)
+
   dslBody.component = this
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
-
-  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   /** Class used to create a task that must be executed after the creation of the component */
   case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
@@ -107,14 +97,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   val children = ArrayBuffer[Component]()
   /** Reference owner type */
   override type RefOwnerType = Component
-  /** Contains all nodes of the components */
-//  var nodes: ArrayBuffer[Node] = null
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
-//  def flyingNameableStatements = getAllIo.withFilter(_)
 
   /** Get the parent component (null if there is no parent)*/
-  def parent : Component = if(parentScope != null) parentScope.component else null
+  def parent: Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
 
@@ -129,7 +116,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   // Push component on the stack
   Component.push(this)
 
-
   def prePop(): Unit ={
     while(prePopTasks.nonEmpty){
       val prePopTasksToDo = prePopTasks
@@ -139,6 +125,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       }
     }
   }
+
   /** Initialization class delay */
   override def delayedInit(body: => Unit) = {
     body // evaluate the initialization code of body
@@ -155,7 +142,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task : () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
 
   /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
@@ -164,7 +151,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** No "io_" prefix in front of the in/out signals */
-  def noIoPrefix() : this.type = {
+  def noIoPrefix(): this.type = {
     val io = reflectIo
     if(io != null) {
       io.setName("")
@@ -188,8 +175,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     */
   private[core] def reflectIo: Data = {
     try {
-      val clazz = this.getClass
-      val m = clazz.getMethod("io")
+      val m = this.getClass.getMethod("io")
       m.invoke(this).asInstanceOf[Data]
     } catch {
       case _: Throwable => null
@@ -198,6 +184,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /** Name all Nameable object */
   def nameElements(): Unit = {
+
     val io = reflectIo
 
     if(io != null) {
@@ -213,7 +200,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     Misc.reflect(this, (name, obj) => {
       if(obj != io) {
         obj match {
-          case component: Component if (component.parent == this) =>
+          case component: Component if component.parent == this =>
               OwnableRef.proposal(obj, this)
               component.setWeakName(name)
 
@@ -243,7 +230,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     * Name allocation
     */
   var localNamingScope : NamingScope = null
-  private[core] def allocateNames(globalScope : NamingScope): Unit = {
+  private[core] def allocateNames(globalScope: NamingScope): Unit = {
+
     localNamingScope = globalScope.newChild
     localNamingScope.allocateName(globalData.anonymSignalPrefix)
 
@@ -273,38 +261,12 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Get a set of all IO available in the component */
-  def getAllIo: mutable.Set[BaseType] = {
-
-//    if (nodes == null) {
-      ioSet
-//    } else {
-//      val nodeIo = mutable.Set[BaseType]()
-//      nodes.foreach {
-//        case b: BaseType if (b.isIo) => nodeIo += b
-//        case _ =>
-//      }
-//      nodeIo
-//    }
-
-  }
+  def getAllIo: mutable.Set[BaseType] = ioSet
 
   /** Sort all IO regarding instanceCounter */
   def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
-//
-//
-//  /** Get an array of all SyncNode of the Component */
-//  private[core] def getDelays = {
-//    val delays = new ArrayBuffer[SyncNode]()
-//
-//    nodes.foreach {
-//      case delay: SyncNode => delays += delay
-//      case _ =>
-//    }
-//
-//    delays
-//  }
 
-  private[core] def userParentCalledDef: Unit = {}
+  private[core] def userParentCalledDef(): Unit = {}
 
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
@@ -324,22 +286,23 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     *
     * @example{{{ toplevel/[myComponent1]/[myComponent2] // Current component is myComponent2 }}}
     */
-  def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
-
+  def getPath(sep: String = "/"): String = (if (parent == null) "" else getParentsPath(sep) + sep) + this.getDisplayName()
 
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
-    val ret = mutable.Set[Data]()
+    val ret      = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
+
     def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+
     for (e <- getOrdredNodeIo) {
       ret += getRootParent(e)
     }
+
     ret.toSeq.sortBy(_.instanceCounter)
   }
 
   override def postPushEvent(): Unit = {}
   override def prePopEvent(): Unit = {}
-
 
   /** Rework the component */
   def rework[T](gen: => T) : T = {
