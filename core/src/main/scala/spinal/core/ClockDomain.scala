@@ -290,6 +290,13 @@ class ClockDomain(val config      : ClockDomainConfig,
 }
 
 
+trait IClockDomainFrequency {
+  def getValue: HertzNumber
+  def getMax:   HertzNumber
+  def getMin:   HertzNumber
+}
+
+
 case class UnknownFrequency() extends IClockDomainFrequency {
   def getValue: HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
   def getMax:   HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
@@ -304,8 +311,3 @@ case class FixedFrequency(value: HertzNumber) extends IClockDomainFrequency {
 }
 
 
-trait IClockDomainFrequency {
-  def getValue: HertzNumber
-  def getMax:   HertzNumber
-  def getMin:   HertzNumber
-}

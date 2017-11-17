@@ -28,6 +28,9 @@ import scala.collection.mutable.Stack
 import scala.reflect.ClassTag
 import scala.runtime.Nothing$
 
+/** Use to give value by reference to a function */
+case class Ref[T](var value: T)
+
 //case class valClone() extends scala.annotation.StaticAnnotation
 
 //Give number of bit to encode a given number of states
