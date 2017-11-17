@@ -232,7 +232,7 @@ object Axi4Priv{
 
     sink.addr := stream.addr.resized
     driveWeak(stream,sink,stream.id,sink.id,() => U(sink.id.range -> false),true,false)
-    driveWeak(stream,sink,stream.region,sink.region,() => B(sink.id.range -> false),false,true)
+    driveWeak(stream,sink,stream.region,sink.region,() => B(sink.region.range -> false),false,true)
     driveWeak(stream,sink,stream.len,sink.len,() => U(sink.len.range -> false),false,false)
     driveWeak(stream,sink,stream.size,sink.size,() => U(log2Up(sink.config.dataWidth/8)),false,false)
     driveWeak(stream,sink,stream.burst,sink.burst,() => Axi4.burst.INCR,false,false)
