@@ -134,7 +134,7 @@ abstract class MultiData extends Data {
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
-  
+
   private[core] def isNotEquals(that: Any): Bool = {
     that match {
       case that: MultiData => zippedMap(that, _ =/= _).reduce(_ || _)

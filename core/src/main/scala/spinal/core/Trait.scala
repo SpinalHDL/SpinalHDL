@@ -71,6 +71,13 @@ object outWithNull extends IODirection {
 }
 
 
+trait AssertNodeSeverity
+object NOTE     extends AssertNodeSeverity
+object WARNING  extends AssertNodeSeverity
+object ERROR    extends AssertNodeSeverity
+object FAILURE  extends AssertNodeSeverity
+
+
 /** Min max base function */
 trait MinMaxProvider {
   def minValue: BigInt
