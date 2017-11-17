@@ -46,7 +46,7 @@ object ConditionalContext {
     swap.appendBack()
 
     rootScope.pop()
-    
+
     cond := True
     cond
   }
