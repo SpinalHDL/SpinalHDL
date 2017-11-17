@@ -29,9 +29,8 @@ object MaskedLiteral{
     for(c <- strCleaned) assert(c == '1' || c == '0' || c == '-', s"""M"$str" is not correctly formated.""")
 
     val careAbout = strCleaned.map(c => if(c == '-') '0' else '1')
-    val value     = strCleaned.map(c => if(c == '-') '0' else c)
-
-    new MaskedLiteral(BigInt(value, 2), BigInt(careAbout, 2), strCleaned.length())
+    val value = strCleaned.map(c => if(c == '-') '0' else c)
+    new MaskedLiteral(BigInt(value, 2),BigInt(careAbout, 2), strCleaned.length())
   }
 }
 
@@ -81,7 +80,7 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
       case (true, false) => "0"
     }.reverse.mkString("")
 
-    s"M\"$maskStr\""
+    "M\"" + maskStr + "\""
   }
 }
 
