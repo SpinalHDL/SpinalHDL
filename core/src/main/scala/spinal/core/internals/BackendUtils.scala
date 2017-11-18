@@ -25,9 +25,11 @@ import java.util.Calendar
 
 import spinal.core._
 
+
 trait MemBitsMaskKind
 object MULTIPLE_RAM extends MemBitsMaskKind
 object SINGLE_RAM   extends MemBitsMaskKind
+
 
 object VhdlVerilogBase{
 
@@ -39,5 +41,6 @@ object VhdlVerilogBase{
        |
        |""".stripMargin
 }
+
 
 trait VhdlVerilogBase{}

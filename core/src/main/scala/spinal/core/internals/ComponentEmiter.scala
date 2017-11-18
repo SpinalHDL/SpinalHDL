@@ -1,3 +1,23 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.internals
 
 import spinal.core._
@@ -5,7 +25,9 @@ import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class ComponentEmiterTrace(val builders : Seq[mutable.StringBuilder], val strings : Seq[String]){
+
+class ComponentEmiterTrace(val builders: Seq[mutable.StringBuilder], val strings: Seq[String]) {
+
   var hash: Integer = null
 
   override def hashCode(): Int = {
@@ -16,136 +38,149 @@ class ComponentEmiterTrace(val builders : Seq[mutable.StringBuilder], val string
   }
 
   override def equals(obj: scala.Any): Boolean = {
-    if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
+    if (this.hashCode() != obj.hashCode()) return false //Collision into hashmap implementation don't check it XD
     obj match {
-      case that: ComponentEmiterTrace => {
+      case that: ComponentEmiterTrace =>
         return (this.builders, that.builders).zipped.map(_ == _).reduce(_ && _) && (this.strings, that.strings).zipped.map(_ == _).reduce(_ && _)
-      }
     }
   }
 
 }
 
+
 abstract class ComponentEmiter {
-  def component : Component
-  def algoIdIncrementalBase : Int
-  def mergeAsyncProcess : Boolean
+
+  def component: Component
+  def algoIdIncrementalBase: Int
+  def mergeAsyncProcess: Boolean
+
   val wrappedExpressionToName = mutable.HashMap[Expression, String]()
-  val referencesOverrides = mutable.HashMap[Nameable,Any]()
+  val referencesOverrides     = mutable.HashMap[Nameable,Any]()
   var algoIdIncrementalOffset = 0
 
   val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
-  val processes = mutable.LinkedHashSet[AsyncProcess]()
-  val analogs = ArrayBuffer[BaseType]()
-  val mems = ArrayBuffer[Mem[_]]()
-  val expressionToWrap = mutable.LinkedHashSet[Expression]()
+  val processes  = mutable.LinkedHashSet[AsyncProcess]()
+  val analogs    = ArrayBuffer[BaseType]()
+  val mems       = ArrayBuffer[Mem[_]]()
+
+  val expressionToWrap   = mutable.LinkedHashSet[Expression]()
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
   val subComponentInputToNotBufferize = mutable.HashSet[Any]()
   val openSubIo = mutable.HashSet[BaseType]()
 
-  def getOrDefault[X,Y](map : java.util.concurrent.ConcurrentHashMap[X,Y], key : X, default : Y) = map.get(key) match {
+  def getOrDefault[X,Y](map: java.util.concurrent.ConcurrentHashMap[X,Y], key: X, default: Y) = map.get(key) match {
     case null => default
-    case x => x
+    case x    => x
   }
 
+  def wrapSubInput(io: BaseType): Unit
 
-  def wrapSubInput(io: BaseType) : Unit
 
-  class AsyncProcess(val scope : ScopeStatement, val instanceCounter : Int){
-    val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
+  class AsyncProcess(val scope: ScopeStatement, val instanceCounter: Int) {
+    val leafStatements  = ArrayBuffer[LeafStatement]() //.length should be Oc
     var nameableTargets = List[DeclarationStatement]()
   }
 
-  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean, val instanceCounter : Int){
+
+  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit: Boolean, val instanceCounter: Int) {
     val initStatements = ArrayBuffer[LeafStatement]()
     val dataStatements = ArrayBuffer[LeafStatement]()
   }
 
-
-
-
-  def allocateAlgoIncrementale() : Int = {
+  def allocateAlgoIncrementale(): Int = {
     val ret = algoIdIncrementalBase + algoIdIncrementalOffset
     algoIdIncrementalOffset += 1
     ret
   }
 
-  def isSubComponentInputBinded(data : BaseType) = {
+  def isSubComponentInputBinded(data: BaseType) = {
     if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source.asInstanceOf[BaseType]
     else
       null
   }
 
-
-  def elaborate() ={
+  def elaborate() = {
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     //Sort all leaf statements into their nature (sync/async)
     var syncGroupInstanceCounter = 0
-    component.dslBody.walkLeafStatements(_ match {
-      case s : AssignmentStatement => s.finalTarget match {
-        case target : BaseType if target.isComb => asyncStatement += s
-        case target : BaseType if target.isReg  => {
-          val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
-          syncGroupInstanceCounter += 1
-          s match {
-            case s : InitAssignmentStatement => group.initStatements += s
-            case s : DataAssignmentStatement => group.dataStatements += s
-          }
+    component.dslBody.walkLeafStatements {
+      case s: AssignmentStatement =>
+        s.finalTarget match {
+          case target: BaseType if target.isComb => asyncStatement += s
+          case target: BaseType if target.isReg  =>
+            val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit), new SyncGroup(target.clockDomain, s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
+            syncGroupInstanceCounter += 1
+            s match {
+              case s: InitAssignmentStatement => group.initStatements += s
+              case s: DataAssignmentStatement => group.dataStatements += s
+            }
+          case target: BaseType if target.isAnalog =>
         }
-        case target : BaseType if target.isAnalog =>
-      }
-      case assertStatement : AssertStatement => {
-        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
+      case assertStatement: AssertStatement =>
+        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
         syncGroupInstanceCounter += 1
         group.dataStatements += assertStatement
-      }
-      case x : MemPortStatement =>
-      case x : Mem[_] => mems += x
-      case x : BaseType if x.isAnalog => analogs += x
-      case x : DeclarationStatement =>
-    })
+      case x: MemPortStatement       =>
+      case x: Mem[_]                 => mems += x
+      case x: BaseType if x.isAnalog => analogs += x
+      case x: DeclarationStatement   =>
+    }
 
     //Generate AsyncProcess per target
-    val asyncProcessFromNameableTarget = mutable.LinkedHashMap[Nameable,AsyncProcess]()
-    val rootTreeStatementPerAsyncProcess = mutable.LinkedHashMap[TreeStatement,AsyncProcess]()
-    var asyncGroupInstanceCounter = 0
+    val asyncProcessFromNameableTarget   = mutable.LinkedHashMap[Nameable, AsyncProcess]()
+    val rootTreeStatementPerAsyncProcess = mutable.LinkedHashMap[TreeStatement, AsyncProcess]()
+    var asyncGroupInstanceCounter        = 0
+
     for(s <- asyncStatement) s match{
-      case s : AssignmentStatement => {
+      case s: AssignmentStatement =>
         var rootTreeStatement: TreeStatement = null
-        var scopePtr = s.parentScope
+
+        var scopePtr    = s.parentScope
         val finalTarget = s.finalTarget
-        val rootScope = finalTarget.rootScopeStatement
+        val rootScope   = finalTarget.rootScopeStatement
 
         while (scopePtr != rootScope) {
           rootTreeStatement = scopePtr.parentStatement
           scopePtr = scopePtr.parentStatement.parentScope
         }
+
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
+          val preExistingTargetProcess   = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           val preExistingRootTreeProcess = if(mergeAsyncProcess) rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null) else null
+
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
+
             val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter)
             asyncGroupInstanceCounter += 1
             asyncProcessFromNameableTarget(finalTarget) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
-          } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
+
+          }else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
+
             val process = preExistingTargetProcess
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-          } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
+
+          }else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
+
             val process = preExistingRootTreeProcess
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
-          } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
+
+          }else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
+
             val process = preExistingRootTreeProcess
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
+
           }
-        } else {
+
+        }else {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
+
           if(preExistingTargetProcess == null) {
             //Create new process
             val process = new AsyncProcess(rootScope,asyncGroupInstanceCounter)
@@ -154,13 +189,12 @@ abstract class ComponentEmiter {
             process.nameableTargets = finalTarget :: process.nameableTargets
           }
         }
-      }
     }
 
     //Add statements into AsyncProcesses
     asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p)
     for(s <- asyncStatement) s match {
-      case s: AssignmentStatement => {
+      case s: AssignmentStatement =>
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
         if(process == null){
           process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter)
@@ -169,14 +203,12 @@ abstract class ComponentEmiter {
         }
         process.leafStatements += s
         processes += process
-      }
     }
 
     //identify duplicated expression due to `when` spliting/duplication
-
     {
       val whenCondOccurences = mutable.HashMap[Expression, Int]()
-      def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, algoId : Int): Int ={
+      def walker(statements: ArrayBuffer[LeafStatement], statementIndexInit: Int, scope: ScopeStatement, algoId: Int): Int ={
         var statementIndex = statementIndexInit
 
         while(statementIndex < statements.length){
@@ -188,36 +220,41 @@ abstract class ComponentEmiter {
           }
 
           val targetScope = statement.parentScope
+
           if(targetScope == scope){
             statementIndex += 1
-          } else {
+          }else {
             var scopePtr = targetScope
+
             while(scopePtr.parentStatement != null && scopePtr.parentStatement.parentScope != scope){
               scopePtr = scopePtr.parentStatement.parentScope
             }
+
             if(scopePtr.parentStatement == null) {
               return statementIndex
             }
+
             val treeStatement = scopePtr.parentStatement
+
             if(treeStatement.algoIncrementale != algoId) {
+
               treeStatement.algoIncrementale = algoId
+
               treeStatement match {
-                case w: WhenStatement => {
+                case w: WhenStatement =>
                   if (!w.cond.isInstanceOf[DeclarationStatement]) {
                     val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
                     if (counter < 2) {
                       whenCondOccurences(w.cond) = counter + 1
                     }
                   }
-                }
-                case s: SwitchStatement => {
+                case s: SwitchStatement =>
                   if (!s.value.isInstanceOf[DeclarationStatement]) {
                     val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
                     if (counter < 2) {
                       whenCondOccurences(s.value) = counter + 1
                     }
                   }
-                }
               }
             }
             statementIndex = walker(statements,statementIndex, scopePtr, algoId)
@@ -244,39 +281,40 @@ abstract class ComponentEmiter {
     for(sub <- component.children){
       for(io <- sub.getOrdredNodeIo if io.isInput){
         var subInputBinded = isSubComponentInputBinded(io)
+
         if(subInputBinded != null) {
           referencesOverrides(io) = subInputBinded
           subComponentInputToNotBufferize += io
-        } else {
+        }else {
           wrapSubInput(io)
         }
       }
     }
 
-
     //Get all component outputs which are read internaly
     //And also fill some expressionToWrap from switch(xx)
 
     val clockDomains = mutable.LinkedHashSet[ClockDomain]()
+
     component.dslBody.walkStatements(s => {
       s.foreachClockDomain(clockDomains += _)
       s match {
-        case s : SwitchStatement => expressionToWrap += s.value
-        case _ =>
+        case s: SwitchStatement => expressionToWrap += s.value
+        case _                  =>
       }
 
-      s.walkDrivingExpressions(_ match {
-        case bt: BaseType => {
+      s.walkDrivingExpressions{
+        case bt: BaseType =>
           if (bt.component == component && bt.isOutput) {
             outputsToBufferize += bt
           }
-        }
-        case _ =>
-      })
+        case _            =>
+      }
     })
 
     clockDomains.foreach(cd => {
-      def check(that : Bool) = {
+
+      def check(that: Bool) = {
         if(that != null) {
           val pulled = component.pulledDataCache.getOrElse(that, throw new Exception("???")).asInstanceOf[Bool]
           if (that.component == component && that.isOutput) {
@@ -284,6 +322,7 @@ abstract class ComponentEmiter {
           }
         }
       }
+
       check(cd.clock)
       check(cd.reset)
       check(cd.softReset)
@@ -291,6 +330,4 @@ abstract class ComponentEmiter {
     })
 
   }
-
-
 }
