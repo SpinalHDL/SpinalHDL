@@ -100,18 +100,18 @@ abstract class Resize extends Expression with WidthProvider{
 
 class ResizeBits extends Resize{
   override def getTypeObject = TypeBits
-  override def opName: String = "resize(b,i)"
+  override def opName: String = s"resize(Bits,$size bits)"
   override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
   //  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
 }
 class ResizeUInt extends Resize{
   override def getTypeObject = TypeUInt
-  override def opName: String = "resize(u,i)"
+  override def opName: String = s"resize(UInt,$size bits)"
   override def getLiteralFactory: (BigInt, Int) => Expression = UIntLiteral.apply
 }
 class ResizeSInt extends Resize{
   override def getTypeObject = TypeSInt
-  override def opName: String = "resize(s,i)"
+  override def opName: String = s"resize(SInt,$size bits)"
   override def getLiteralFactory: (BigInt, Int) => Expression = SIntLiteral.apply
 }
 

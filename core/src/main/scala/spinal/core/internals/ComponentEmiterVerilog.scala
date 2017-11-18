@@ -180,13 +180,13 @@ class ComponentEmiterVerilog(val c : Component,
 
       if (child.isInstanceOf[BlackBox]) {
         val bb = child.asInstanceOf[BlackBox]
-        val genericFlat = bb.getGeneric.flatten
+        val genericFlat = bb.genericElements
 
         if (genericFlat.size != 0) {
           logics ++= s"#( \n"
           for (e <- genericFlat) {
             e match {
-              case bt: BaseType => logics ++= s"    .${emitReference(bt, false)}(${emitExpression(bt.head.source)}),\n"
+              case (name : String,bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.head.source)}),\n"
               case (name : String,s : String) => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
               case (name : String,i : Int) => logics ++= s"    .${name}($i),\n"
               case (name : String,d : Double) => logics ++= s"    .${name}($d),\n"
@@ -194,7 +194,7 @@ class ComponentEmiterVerilog(val c : Component,
             }
           }
           logics.setCharAt(logics.size - 2, ' ')
-          logics ++= s") "
+          logics ++= s"  ) "
         }
       }
 

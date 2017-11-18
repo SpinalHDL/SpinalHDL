@@ -572,7 +572,20 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
       }
       c match {
         case bb: BlackBox => {
-          bb.getGeneric.genNames
+          val generic = bb.getGeneric
+          if(generic != null) {
+            Misc.reflect(generic, (name, obj) => {
+              OwnableRef.proposal(obj, this)
+              obj match {
+                case obj: Nameable => obj.setWeakName(name)
+                case _ =>
+              }
+              obj match {
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case _ => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
+              }
+            })
+          }
         }
         case _ =>
       }
@@ -1613,10 +1626,7 @@ object SpinalVhdlBoot{
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 
-
     phases += new PhasePullClockDomains(pc)
-
-
 
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
@@ -1748,10 +1758,7 @@ object SpinalVerilogBoot{
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 
-
     phases += new PhasePullClockDomains(pc)
-
-
 
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)

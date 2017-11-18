@@ -39,30 +39,6 @@ import scala.collection.mutable.ArrayBuffer
   */
 class Generic {
 
-  @dontName var flattenCache: ArrayBuffer[Any] = null
-
-  def genNames: Unit = {
-    Misc.reflect(this, (name, obj) => {
-      OwnableRef.proposal(obj,this)
-      obj match {
-        case obj: Nameable => obj.setWeakName(name)
-        case _ =>
-      }
-    })
-  }
-
-  def flatten = {
-    if (flattenCache == null) {
-      flattenCache = ArrayBuffer[Any]()
-      Misc.reflect(this, (name, obj) => {
-        obj match {
-          case obj: Data => flattenCache ++= obj.flatten
-          case _         => flattenCache += Tuple2(name, obj)
-        }
-      })
-    }
-    flattenCache
-  }
 }
 
 
@@ -95,6 +71,17 @@ class Generic {
   * }}}
   */
 abstract class BlackBox extends Component{
+  val genericElements = ArrayBuffer[(String, Any)]()
+
+  def addGeneric(name : String, that : Any) : Unit = that match {
+    case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))
+    case s: String => genericElements += Tuple2(name, s)
+    case i : Int => genericElements += Tuple2(name, i)
+    case i : BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)
+    case d: Double => genericElements += Tuple2(name, d)
+    case boolean: Boolean =>genericElements += Tuple2(name, boolean)
+    case t: TimeNumber => genericElements += Tuple2(name, t)
+  }
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
