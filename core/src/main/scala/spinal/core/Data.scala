@@ -345,6 +345,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(unsetRegIfNoAssignementTag)
   }
 
+  def noCombLoopCheck : this.type = {
+    addTag(spinal.core.noCombinatorialLoopCheck)
+  }
+
+  def noBackendCombMerge : this.type = {
+    addTag(spinal.core.noBackendCombMerge)
+  }
+
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
   private[core] def autoConnectBaseImpl(that: Data): Unit = {

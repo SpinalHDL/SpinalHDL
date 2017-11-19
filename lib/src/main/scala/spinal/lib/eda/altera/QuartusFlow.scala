@@ -1,5 +1,9 @@
 package spinal.lib.eda.altera
 
+import java.io.File
+import java.nio.file.Paths
+
+import org.apache.commons.io.FileUtils
 import spinal.core._
 import spinal.lib.eda.bench.Report
 
@@ -59,33 +63,28 @@ object QuartusFlow {
 
   def apply(quartusPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
-    val correctedWorkspacePath = if(isWindows) workspacePath.replace("/","\\") else workspacePath
 
     val targetPeriod = (if(frequencyTarget != null) frequencyTarget else 400 MHz).toTime
 
-    if(isWindows) {
-      doCmd(s"rmdir /S /Q $correctedWorkspacePath")
-      doCmd(s"mkdir $correctedWorkspacePath")
-      doCmd(s"copy $toplevelPath $correctedWorkspacePath")
-    } else {
-      doCmd(s"rm -rf $correctedWorkspacePath")
-      doCmd(s"mkdir $correctedWorkspacePath")
-      doCmd(s"cp $toplevelPath $correctedWorkspacePath")
-    }
-    doCmd(s"""$quartusPath/quartus_map $workspacePath/$projectName --family="$family" --part=$device --source=$workspacePath/$toplevelPath""")
-    doCmd(s"""$quartusPath/quartus_fit $workspacePath/$projectName --parallel=$processorCount""") // --fmax=${(if(frequencyTarget != null) frequencyTarget else 400 MHz).toBigDecimal*1e-6}mhz
-    doCmd(s"$quartusPath/quartus_sta $workspacePath/$projectName")
+    val workspacePathFile = new File(workspacePath)
+    FileUtils.deleteDirectory(workspacePathFile)
+    workspacePathFile.mkdir()
+    FileUtils.copyFileToDirectory(new File(toplevelPath), workspacePathFile)
+
+    doCmd(s"""${Paths.get(quartusPath,"quartus_map")} ${Paths.get(workspacePath,projectName)} --family="$family" --part=$device --source=${Paths.get(workspacePath,toplevelPath)}""")
+    doCmd(s"""${Paths.get(quartusPath,"quartus_fit")} ${Paths.get(workspacePath,projectName)} --parallel=$processorCount""") // --fmax=${(if(frequencyTarget != null) frequencyTarget else 400 MHz).toBigDecimal*1e-6}mhz
+    doCmd(s"${Paths.get(quartusPath,"quartus_sta")} ${Paths.get(workspacePath,projectName)}")
 
     new Report{
-      override def getFMax(): Double =  (QuartusFlow.getFMax(s"$correctedWorkspacePath/$projectName.sta.rpt"))
-      override def getArea(): String =  (QuartusFlow.getArea(s"$correctedWorkspacePath/$projectName.flow.rpt", family))
+      override def getFMax(): Double =  (QuartusFlow.getFMax(s"${Paths.get(workspacePath,s"$projectName.sta.rpt")}"))
+      override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}", family))
     }
   }
 
   def main(args: Array[String]) {
     val report = QuartusFlow(
-      quartusPath="D:/altera_lite/15.1/quartus/bin64",
-      workspacePath="E:/tmp/test1",
+      quartusPath="/eda/intelFPGA_lite/17.0/quartus/bin/",
+      workspacePath="/home/spinalvm/tmp",
       toplevelPath="TopLevel.vhd",
       family="Cyclone V",
       device="5CSEMA5F31C6",

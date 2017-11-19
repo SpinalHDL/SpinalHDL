@@ -75,9 +75,8 @@ abstract class ComponentEmiter {
 
   def wrapSubInput(io: BaseType): Unit
 
-
-  class AsyncProcess(val scope: ScopeStatement, val instanceCounter: Int) {
-    val leafStatements  = ArrayBuffer[LeafStatement]() //.length should be Oc
+  class AsyncProcess(val scope: ScopeStatement, val instanceCounter: Int, val allowMerge: Boolean){
+    val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
     var nameableTargets = List[DeclarationStatement]()
   }
 
@@ -139,32 +138,34 @@ abstract class ComponentEmiter {
 
         var scopePtr    = s.parentScope
         val finalTarget = s.finalTarget
-        val rootScope   = finalTarget.rootScopeStatement
-
+        val rootScope = finalTarget.rootScopeStatement
+        val allowMerge = !finalTarget.hasTag(noBackendCombMerge)
         while (scopePtr != rootScope) {
           rootTreeStatement = scopePtr.parentStatement
           scopePtr = scopePtr.parentStatement.parentScope
         }
 
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess   = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
-          val preExistingRootTreeProcess = if(mergeAsyncProcess) rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null) else null
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
+          val preExistingRootTreeProcess = if(mergeAsyncProcess && allowMerge) {
+            val process = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
+            if(process != null && process.allowMerge) process else null
+          } else {
+            null
+          }
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-
-            val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter)
+            val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter, allowMerge)
             asyncGroupInstanceCounter += 1
             asyncProcessFromNameableTarget(finalTarget) = process
-            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
+            if(allowMerge) rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
 
           }else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
 
             val process = preExistingTargetProcess
-            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-
-          }else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
-
+            if(allowMerge) rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
+          } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
@@ -177,13 +178,12 @@ abstract class ComponentEmiter {
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
 
           }
-
-        }else {
+        } else { //No when stuff
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
 
           if(preExistingTargetProcess == null) {
             //Create new process
-            val process = new AsyncProcess(rootScope,asyncGroupInstanceCounter)
+            val process = new AsyncProcess(rootScope,asyncGroupInstanceCounter, allowMerge)
             asyncGroupInstanceCounter += 1
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
@@ -196,8 +196,8 @@ abstract class ComponentEmiter {
     for(s <- asyncStatement) s match {
       case s: AssignmentStatement =>
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
-        if(process == null){
-          process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter)
+        if(process == null){ // ???
+          process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter,false)
           asyncGroupInstanceCounter += 1
           process.nameableTargets = s.finalTarget :: process.nameableTargets
         }

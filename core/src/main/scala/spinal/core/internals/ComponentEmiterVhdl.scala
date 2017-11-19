@@ -229,20 +229,19 @@ class ComponentEmiterVhdl(
 
       if (children.isInstanceOf[BlackBox]) {
         val bb = children.asInstanceOf[BlackBox]
-        val genericFlat = bb.getGeneric.flatten
+        val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
           logics ++= s"    generic map( \n"
 
           for (e <- genericFlat) {
             e match {
-              case bt : BaseType                    =>
-                logics ++= addULogicCast(bt, emitReference(bt, false), emitExpression(bt.head.source), in)
-              case (name: String, s: String)        => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case (name: String, i: Int)           => logics ++= s"      ${name} => $i,\n"
-              case (name: String, d: Double)        => logics ++= s"      ${name} => $d,\n"
+              case (name: String, bt: BaseType) => logics ++= addULogicCast(bt, name, emitExpression(bt.head.source), in)
+              case (name: String, s: String) => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name: String, i: Int) => logics ++= s"      ${name} => $i,\n"
+              case (name: String, d: Double) => logics ++= s"      ${name} => $d,\n"
               case (name: String, boolean: Boolean) => logics ++= s"      ${name} => $boolean,\n"
-              case (name: String, t: TimeNumber)    =>
+              case (name: String, t: TimeNumber) =>
                 val d = t.decompose
                 logics ++= s"      ${name} => ${d._1} ${d._2},\n"
             }
@@ -932,13 +931,13 @@ class ComponentEmiterVhdl(
 
   def emitBlackBoxComponent(component: BlackBox): Unit = {
     declarations ++= s"\n  component ${component.definitionName} is\n"
-    val genericFlat = component.getGeneric.flatten
-    if (genericFlat.nonEmpty) {
+    val genericFlat = component.genericElements
+    if (genericFlat.size != 0) {
       declarations ++= s"    generic( \n"
 
       for (e <- genericFlat) {
         e match {
-          case baseType: BaseType               => declarations ++= s"      ${emitReference(baseType, false)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
+          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxRemplaceULogic(component, emitDataType(bt, true))};\n"
           case (name: String, s: String)        => declarations ++= s"      $name : string;\n"
           case (name: String, i: Int)           => declarations ++= s"      $name : integer;\n"
           case (name: String, d: Double)        => declarations ++= s"      $name : real;\n"

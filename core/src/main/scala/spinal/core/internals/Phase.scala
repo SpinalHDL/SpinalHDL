@@ -593,8 +593,23 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       }
       c match {
-        case bb: BlackBox => bb.getGeneric.genNames()
-        case _            =>
+        case bb: BlackBox => {
+          val generic = bb.getGeneric
+          if(generic != null) {
+            Misc.reflect(generic, (name, obj) => {
+              OwnableRef.proposal(obj, this)
+              obj match {
+                case obj: Nameable => obj.setWeakName(name)
+                case _ =>
+              }
+              obj match {
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case _         => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
+              }
+            })
+          }
+        }
+        case _ =>
       }
     }
   }
