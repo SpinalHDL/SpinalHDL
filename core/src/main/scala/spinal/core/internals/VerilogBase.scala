@@ -1,27 +1,42 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.internals
 
 import spinal.core._
 
-/**
- * Created by PIC18F on 07.01.2015.
- */
-
 
 trait VerilogBase extends VhdlVerilogBase{
 
-  def emitExpressionWrap(e : Expression, name : String) : String = {
+  def emitExpressionWrap(e: Expression, name: String): String = {
     s"  wire ${emitType(e)} ${name};\n"
   }
 
-  def emitExpressionWrap(e : Expression, name : String, nature : String) : String = {
+  def emitExpressionWrap(e: Expression, name: String, nature: String): String = {
     s"  $nature ${emitType(e)} ${name};\n"
   }
-
 
   def emitClockEdge(clock: String, edgeKind: EdgeKind): String = {
     s"${
       edgeKind match {
-        case RISING => "posedge"
+        case RISING  => "posedge"
         case FALLING => "negedge"
       }
     } ${clock}"
@@ -31,7 +46,7 @@ trait VerilogBase extends VhdlVerilogBase{
     s"${
       polarity match {
         case HIGH => "posedge"
-        case LOW => "negedge"
+        case LOW  => "negedge"
       }
     } ${reset}"
   }
@@ -41,7 +56,9 @@ trait VerilogBase extends VhdlVerilogBase{
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
+
     if(values.isEmpty) return ""
+
     "(* " + values.reduce(_ + " , " + _) + " *) "
   }
 
@@ -50,25 +67,27 @@ trait VerilogBase extends VhdlVerilogBase{
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
+
     if(values.isEmpty) return ""
+
     "/* " + values.reduce(_ + " , " + _) + " */ "
   }
 
-  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
-    return prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.spinalEnum,enum.getEncoding,prefix)
-  def emitEnumType(enum : SpinalEnum,encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
-    return prefix + enum.getName() + "_" + encoding.getName() + "_type"
+
+  def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
+
+  def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+    prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
-
-
-  def emitType(e : Expression) : String = e.getTypeObject match {
+  def emitType(e: Expression): String = e.getTypeObject match {
     case `TypeBool` => ""
     case `TypeBits` => emitRange(e.asInstanceOf[WidthProvider])
     case `TypeUInt` => emitRange(e.asInstanceOf[WidthProvider])
@@ -78,19 +97,16 @@ trait VerilogBase extends VhdlVerilogBase{
     }
   }
 
-
-
   def emitDirection(baseType: BaseType) = baseType.dir match {
-    case `in` => "input "
-    case `out` => "output"
+    case `in`    => "input "
+    case `out`   => "output"
     case `inout` => "inout"
-    case _ => throw new Exception("Unknown direction"); ""
+    case _       => throw new Exception("Unknown direction"); ""
   }
-
 
   def emitRange(node: WidthProvider) = s"[${node.getWidth - 1}:0]"
 
-  def signalNeedProcess(baseType: BaseType) : Boolean = {
+  def signalNeedProcess(baseType: BaseType): Boolean = {
     if(baseType.isReg) return true
     if(baseType.dlcIsEmpty || baseType.isAnalog) return false
     if(!baseType.hasOnlyOneStatement || baseType.head.parentScope != baseType.rootScopeStatement) return true

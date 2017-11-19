@@ -75,21 +75,20 @@ abstract class BlackBox extends Component{
 
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))
-    case s: String => genericElements += Tuple2(name, s)
-    case i : Int => genericElements += Tuple2(name, i)
-    case i : BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)
-    case d: Double => genericElements += Tuple2(name, d)
-    case boolean: Boolean =>genericElements += Tuple2(name, boolean)
-    case t: TimeNumber => genericElements += Tuple2(name, t)
+    case s: String    => genericElements += Tuple2(name, s)
+    case i: Int       => genericElements += Tuple2(name, i)
+    case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)
+    case d: Double        => genericElements += Tuple2(name, d)
+    case boolean: Boolean => genericElements += Tuple2(name, boolean)
+    case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
     try {
-      val clazz = this.getClass
-      val m = clazz.getMethod("generic")
+      val m       = this.getClass.getMethod("generic")
       val generic = m.invoke(this).asInstanceOf[Generic]
-      return generic
+      generic
     } catch {
       case _: Throwable => new Generic
     }
@@ -155,6 +154,6 @@ abstract class BlackBoxULogic extends BlackBox {
 /**
   * Create a Ulogic tag used by Blackbox in order to transform std_logic into std_ulogic
   */
-object uLogic extends SpinalTag{
+object uLogic extends SpinalTag {
   override def moveToSyncNode = false
 }

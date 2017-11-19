@@ -1,26 +1,33 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
+
+/**
+  * Base class for multi data like Vec, Bundle
+  */
 abstract class MultiData extends Data {
+
   def elements: ArrayBuffer[(String, Data)]
 
   override def addTag(spinalTag: SpinalTag): this.type = {
@@ -58,21 +65,19 @@ abstract class MultiData extends Data {
 
   override def asInput(): this.type = {
     super.asInput()
-    elements.foreach(_._2.asInput());
-
+    elements.foreach(_._2.asInput())
     this
   }
 
-
   override def asOutput(): this.type = {
     super.asOutput()
-    elements.foreach(_._2.asOutput());
+    elements.foreach(_._2.asOutput())
     this
   }
 
   override def asInOut(): this.type = {
     super.asInOut()
-    elements.foreach(_._2.asInOut());
+    elements.foreach(_._2.asInOut())
     this
   }
 
@@ -85,6 +90,7 @@ abstract class MultiData extends Data {
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
+
   override def flattenLocalName: Seq[String] = {
     val result = ArrayBuffer[String]()
     for((localName,e) <- elements){
@@ -102,18 +108,21 @@ abstract class MultiData extends Data {
     }
   }
 
-  override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = {
     var offset = 0
     var bitsOffset = 0
+
     for ((_, e) <- elements) {
       val width = e.getBitsWidth
+      
       if (hi >= offset && lo < offset + width) {
         val high = Math.min(hi-offset,width-1)
-        val low = Math.max(lo-offset,0)
+        val low  = Math.max(lo-offset,0)
         val bitUsage = high - low + 1
         e.assignFromBits(bits(bitsOffset,bitUsage bit), high,low)
         bitsOffset += bitUsage
       }
+
       offset = offset + width
     }
 
@@ -121,29 +130,22 @@ abstract class MultiData extends Data {
 
   private[core] def isEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => {
-        zippedMap(that, _ === _).reduce(_ && _)
-      }
-      case _ => SpinalError(s"Function isEquals is not implemented between $this and $that")
+      case that: MultiData => zippedMap(that, _ === _).reduce(_ && _)
+      case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
-
   private[core] def isNotEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => {
-        zippedMap(that, _ =/= _).reduce(_ || _)
-      }
-      case _ => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
+      case that: MultiData => zippedMap(that, _ =/= _).reduce(_ || _)
+      case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
 
   private[core] override def autoConnect(that: Data): Unit = {
     that match {
-      case that: MultiData => {
-        zippedMap(that, _ autoConnect _)
-      }
-      case _ => SpinalError(s"Function autoConnect is not implemented between $this and $that")
+      case that: MultiData => zippedMap(that, _ autoConnect _)
+      case _               => SpinalError(s"Function autoConnect is not implemented between $this and $that")
     }
   }
 
@@ -166,14 +168,16 @@ abstract class MultiData extends Data {
     })
     ret.asInstanceOf[this.type]
   }
+
   override def flip(): this.type  = {
     for ((_,e) <- elements) {
       e.flip()
     }
+
     dir match {
-      case `in` => dir = out
+      case `in`  => dir = out
       case `out` => dir = in
-      case _ =>
+      case _     =>
     }
     this
   }

@@ -33,11 +33,8 @@ import scala.collection.mutable.ArrayBuffer
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
   */
-abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
-//
-//  /** Prefix that define the corresponding class (Currently not used) */
-//  private[core] def prefix: String
-//
+abstract class BitVector extends BaseType with Widthable {
+
   /** Width of the BitVector (-1 = undefined) */
   private[core] var fixedWidth = -1
 
@@ -75,7 +72,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
   def rotateLeft(that: UInt): T = {
     val thatWidth = widthOf(that)
     val thisWidth = widthOf(this)
-    require(thatWidth <= log2Up(thisWidth))
+
+    require(thatWidth <= log2Up(thisWidth), s"RotateLeft thatWidth($thatWidth) <= log2Up(thisWidth) (${log2Up(thisWidth)})")
+
     var result = cloneOf(this).asInstanceOf[T]
     result := this.asInstanceOf[T]
     for(i <- that.range){
@@ -88,11 +87,13 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
   def rotateRight(that: UInt): T = {
     val thatWidth = widthOf(that)
     val thisWidth = widthOf(this)
-    require(thatWidth <= log2Up(thisWidth))
+
+    require(thatWidth <= log2Up(thisWidth), s"RotateRight thatWidth($thatWidth) <= log2Up(thisWidth) (${log2Up(thisWidth)})")
+
     var result = cloneOf(this).asInstanceOf[T]
     result := this.asInstanceOf[T]
     for(i <- that.range){
-      result \= (that(i) ? result.rotateRight(1<<i).asInstanceOf[T] | result)
+      result \= (that(i) ? result.rotateRight(1 << i).asInstanceOf[T] | result)
     }
     result
   }
@@ -104,14 +105,14 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 
   private[core] def resizeFactory : Resize
 
-//  /** Return true if the BitVector has a fixed width */
+  /** Return true if the BitVector has a fixed width */
   private[core] def isFixedWidth = fixedWidth != -1
 
   /** Unfix the width of the BitVector */
   private[core] def unfixWidth() = {
-    fixedWidth = -1
+    fixedWidth           = -1
     widthWhenNotInferred = -1
-    inferredWidth = -1
+    inferredWidth        = -1
   }
 
   /**
@@ -150,46 +151,17 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
     var w = -1
-    foreachStatements(_ match{
-      case s : AssignmentStatement =>{
+    foreachStatements {
+      s: AssignmentStatement =>
         s.target match {
-          case target : BitVector => s.source match {
-            case e : WidthProvider => w = Math.max(w, e.getWidth)
+          case target: BitVector => s.source match {
+            case e: WidthProvider => w = Math.max(w, e.getWidth)
           }
-          case target : BitVectorAssignmentExpression => w = Math.max(w, target.minimalTargetWidth)
+          case target: BitVectorAssignmentExpression => w = Math.max(w, target.minimalTargetWidth)
         }
-      }
-    })
+    }
     w
   }
-
-
-
-//  override private[core] def assignFromImpl(that: AnyRef): Unit = {
-//    that match {
-//      case that : BaseType =>
-//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = new RefExpression(that), AssignmentKind.DATA))
-//      case that : Expression =>
-//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = that, AssignmentKind.DATA))
-//      case _ =>
-//        throw new Exception(s"Undefined assignment $this := $that")
-//    }
-//  }
-//
-//
-//  override private[core] def initFromImpl(that: AnyRef): Unit = {
-//    if(!isReg)
-//      LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
-//    else that match {
-//      case that : BaseType =>
-//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = new RefExpression(that), AssignmentKind.INIT))
-//      case that : Expression =>
-//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = that, AssignmentKind.INIT))
-//      case _ =>
-//        throw new Exception("Undefined assignment")
-//    }
-//  }
-
 
   /**
     * Cast the BitVector into a Vector of Bool
@@ -229,7 +201,8 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
   /** Extract a bit of the BitVector */
   def newExtract(bitId: Int, extract: BitVectorBitAccessFixed): Bool = {
     extract.source = this
-    extract.bitId = bitId
+    extract.bitId  = bitId
+
     val bool = wrapWithBool(extract)
 
     bool.compositeAssign = new Assignable {
@@ -262,8 +235,8 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     if (hi - lo + 1 != 0) {
       val access = accessFactory
       access.source = this
-      access.hi = hi
-      access.lo = lo
+      access.hi     = hi
+      access.lo     = lo
       access.checkHiLo
       val ret = wrapWithWeakClone(access)
       ret.compositeAssign = new Assignable {
@@ -280,14 +253,14 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       ret
     }
     else
-      getZeroUnconstrained()
+      getZeroUnconstrained
   }
 
   /** Extract a range of bits of the BitVector */
   def newExtract(offset: UInt, size: Int, extract : BitVectorRangedAccessFloating): this.type = {
     if (size != 0) {
       extract.source = this
-      extract.size = size
+      extract.size   = size
       extract.offset = offset
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
@@ -304,16 +277,16 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       ret
     }
     else
-      getZeroUnconstrained()
+      getZeroUnconstrained
   }
 
-  def getZeroUnconstrained() : this.type
+  def getZeroUnconstrained: this.type
   def getAllTrue: this.type
   /**
     * Return the bit at index bitId
     * @example{{{ val myBool = myBits(3) }}}
     */
-  def apply(bitId: Int) : Bool
+  def apply(bitId: Int): Bool
 
   /**
     * Return the bit at index bitId
@@ -352,24 +325,19 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
   def setAllTo(value: Bool): Unit = this := Mux(value, getAllTrue, getZero)
 
   /** Set all bits */
-  def setAll() : Unit
+  def setAll(): Unit
   /** Clear all bits */
-  def clearAll() : Unit = this := this.getZeroUnconstrained()
+  def clearAll(): Unit = this := this.getZeroUnconstrained
 
-
-//  /** Return the width */
+  /** Return the width */
   def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
-//
   def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
-
-
-  //override private[core] def canSymplifyIt = super.canSymplifyIt && (fixedWidth == -1 || inferredWidth != -1)
 
   override private[core] def canSymplifyIt = (inferredWidth != -1 || !isFixedWidth) && super.canSymplifyIt
 
   override def toString(): String = {
     if(isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
-      s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString} $getClassIdentifier[$getWidthStringNoInferation bits])"
+      s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else
       head.source.toString
   }

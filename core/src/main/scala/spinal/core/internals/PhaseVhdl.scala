@@ -1,3 +1,23 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.internals
 
 import spinal.core._
@@ -6,8 +26,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-
-class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
+class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
   import pc._
 
   var outFile: java.io.FileWriter = null
@@ -16,24 +35,29 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName))
     outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
     emitEnumPackage(outFile)
+
     if(pc.config.genVhdlPkg)
       emitPackage(outFile)
+
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
         SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
         compile(c)
       }
     }
-    outFile.flush();
-    outFile.close();
+
+    outFile.flush()
+    outFile.close()
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+
   def compile(component: Component): Unit = {
     val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, globalData.anonymSignalPrefix, emitedComponentRef)
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
+
     val text = if (oldComponent == null) {
       emitedComponent += (trace -> component)
       componentBuilderVhdl.result
@@ -45,17 +69,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     outFile.write(text)
   }
 
-
-
-
-  val emitedComponent = mutable.Map[ComponentEmiterTrace, Component]()
-  val emitedComponentRef = new java.util.concurrent.ConcurrentHashMap[Component,Component]()
-
-
+  val emitedComponent    = mutable.Map[ComponentEmiterTrace, Component]()
+  val emitedComponentRef = new java.util.concurrent.ConcurrentHashMap[Component, Component]()
 
 
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
-    val ret = new StringBuilder();
+    val ret = new StringBuilder()
     ret ++=
       s"""library IEEE;
          |use IEEE.STD_LOGIC_1164.ALL;
@@ -63,12 +82,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
          |
          |package $enumPackageName is
                                     |""".stripMargin
+
     for (enumDef <- enums.keys) {
       ret ++= s"  type ${enumDef.getName()} is (${enumDef.elements.map(_.getName()).reduce(_ + "," + _)});\n"
       //ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.elements.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
     }
 
     ret ++= "\n"
+
     for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
       ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
@@ -76,15 +97,19 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
       for (encoding <- encodings if !encoding.isNative) {
         val encodingName = encoding.getName()
-        val bitCount = encoding.getWidth(enumDef)
+        val bitCount     = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding)
+
         ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount - 1} downto 0);\n"
+
         for (element <- enumDef.elements) {
           ret ++= s"  constant ${emitEnumLiteral(element, encoding)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
         }
+
         ret ++= "\n"
         //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
       }
+
       for (encoding <- encodings) {
         if (!encoding.isNative){}
          // ret ++= s"  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)};\n"
@@ -104,9 +129,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       "\"" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str + "\""
     }
 
-
     ret ++= s"end $enumPackageName;\n\n"
-    if (enums.size != 0) {
+
+    if (enums.nonEmpty) {
       ret ++= s"package body $enumPackageName is\n"
       for ((enumDef, encodings) <- enums) {
         val enumName = enumDef.getName()
@@ -118,7 +143,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         ret ++= "      return zero;\n"
         ret ++= "    end if;\n"
         ret ++= "  end pkg_mux;\n\n"
-
 
 
         for (encoding <- encodings) {
@@ -153,7 +177,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           }
 
 
-
           for (targetEncoding <- encodings if targetEncoding != encoding) {
             ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
             ret ++= "  begin\n"
@@ -174,8 +197,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitPackage(out: java.io.FileWriter): Unit = {
 
-    def pkgExtractBool(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
+    def pkgExtractBool(kind: String): (String, String) = {
+      val ret = new StringBuilder()
       (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
         ret ++= "  begin\n"
         ret ++= "    return that(bitId);\n"
@@ -183,8 +206,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         ret.result()
       })
     }
-    def pkgExtract(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
+
+    def pkgExtract(kind: String): (String, String) = {
+      val ret = new StringBuilder()
+
       (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
         ret ++= "   constant elementCount : integer := (that'length-size)+1;\n"
         ret ++= s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
@@ -200,8 +225,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
 
-    def pkgCat(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
+    def pkgCat(kind: String): (String, String) = {
+      val ret = new StringBuilder()
+
       (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
         ret ++= s"    variable cat : $kind(a'length + b'length-1 downto 0);\n"
         ret ++= s"  begin\n"
@@ -214,16 +240,16 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
-    val funcs = ArrayBuffer[Tuple2[String, String]]()
+
+    val funcs = ArrayBuffer[(String, String)]()
+
     vectorTypes.foreach(kind => {
       funcs += pkgExtractBool(kind)
       funcs += pkgExtract(kind)
       funcs += pkgCat(kind)
     })
 
-
-
-    val ret = new StringBuilder();
+    val ret = new StringBuilder()
     ret ++= s"library IEEE;\n"
     ret ++= "use ieee.std_logic_1164.all;\n"
     ret ++= "use ieee.numeric_std.all;\n"

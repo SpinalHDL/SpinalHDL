@@ -1,30 +1,104 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 
+object DataAssign
+object InitAssign
+
+trait DataPrimitives[T <: Data]{
+
+  private[spinal] def _data : T
+
+  /** Comparison between two data */
+  def ===(that: T): Bool = _data isEquals that
+  def =/=(that: T): Bool = _data isNotEquals that
+
+  /** Assign a data to this */
+  def := (that: T): Unit = _data assignFrom that
+
+  /** Use as \= to have the same behavioral thant VHDL variable */
+  def \(that: T): T = {
+
+    val globalData = GlobalData.get
+
+    globalData.dslScope.push(_data.parentScope)
+
+    val swapContext = _data.parentScope.swap()
+    val ret = cloneOf(that)
+
+    ret := _data
+
+    swapContext.appendBack()
+    globalData.dslScope.pop()
+
+    ret.allowOverride
+    ret := that
+    ret
+  }
+
+  /** Auto connection between two data */
+  def <>(that: T): Unit = _data autoConnect that
+
+  /** Set inital value to a data */
+  def init(that: T): T = {
+    _data.initFrom(that)
+    _data
+  }
+
+  /** Set a default value to a data */
+  def default(that: => T): T = {
+    assert(_data.dir != inout)
+
+    val c = if (_data.dir == in) {
+      Component.current.parent
+    } else {
+      Component.current
+    }
+
+    if(c != null) {
+      Component.push(c)
+      _data.defaultImpl(that)
+      Component.pop(c)
+    }
+    _data
+  }
+}
+
+
+/**
+  * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
+  */
+class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
+}
+
+
 object Data {
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
+
     val startComponent = srcData.component
+
     if (useCache) {
       val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
       if (finalComponentCacheState != null)
@@ -36,10 +110,10 @@ object Data {
       return srcData
     }
 
-
     //Find commonComponent and fill the risePath
     val risePath = ArrayBuffer[Component]()
-    var commonComponent ={
+
+    val commonComponent = {
       var srcPtr = srcData.component
       var dstPtr = finalComponent
       if(dstPtr == null) {
@@ -52,33 +126,32 @@ object Data {
         null
       }else{
         while (srcPtr.level > dstPtr.level) srcPtr = srcPtr.parent
-        while (srcPtr.level < dstPtr.level) {
+        while (srcPtr.level < dstPtr.level){
           risePath += dstPtr
           dstPtr = dstPtr.parent
         }
         while (srcPtr != dstPtr) {
-          srcPtr = srcPtr.parent
+          srcPtr  = srcPtr.parent
           risePath += dstPtr
-          dstPtr = dstPtr.parent
+          dstPtr  = dstPtr.parent
         }
         srcPtr
       }
     }
 
-
-    def push(c : Component, scope : ScopeStatement) : Unit = {
+    def push(c: Component, scope: ScopeStatement): Unit = {
       c.globalData.dslScope.push(scope)
       c.globalData.dslClockDomain.push(c.clockDomain)
     }
 
-    def pop(c : Component) : Unit = {
+    def pop(c: Component): Unit = {
       assert(c.globalData.currentComponent == c)
       c.globalData.dslScope.pop()
       c.globalData.dslClockDomain.pop()
     }
 
-    var currentData : T = srcData
-    var currentComponent : Component = srcData.component
+    var currentData: T = srcData
+    var currentComponent: Component = srcData.component
 
     //Fall path
     while(currentComponent != commonComponent){
@@ -133,135 +206,81 @@ object Data {
   }
 }
 
-trait DataPrimitives[T <: Data]{
-  private[spinal] def _data : T
-
-  def ===(that: T): Bool = _data.isEquals(that)
-  def =/=(that: T): Bool = _data.isNotEquals(that)
-
-
-
-  def := (that: T): Unit = {
-    _data assignFrom(that)
-  }
-
-
-//    def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that)
-
-  //Use as \= to have the same behavioral than VHDL variable
-  def \(that: T) : T = {
-    val globalData = GlobalData.get
-    globalData.dslScope.push(_data.parentScope)
-    val swapContext = _data.parentScope.swap()
-    val ret = cloneOf(that)
-    ret := _data
-    swapContext.appendBack()
-    globalData.dslScope.pop()
-    ret.allowOverride
-    ret := that
-    ret
-  }
-
-  def <>(that: T): Unit = _data autoConnect that
-  def init(that: T): T = {
-    _data.initFrom(that)
-    _data
-  }
-  def default(that : => T) : T ={
-    assert(_data.dir != inout)
-    val c = if(_data.dir == in)
-      Component.current.parent
-    else
-      Component.current
-
-    if(c != null) {
-      Component.push(c)
-      _data.defaultImpl(that)
-      Component.pop(c)
-    }
-    _data
-  }
-
-}
-
-
-
-//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
-class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
-
-}
-
-object DataAssign
-object InitAssign
 
 trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
+
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
-  var parent : Data = null
-  def getRootParent : Data = if(parent == null) this else parent.getRootParent
+  var parent: Data = null
+  def getRootParent: Data = if(parent == null) this else parent.getRootParent
 
+  /** Set a data as input */
   def asInput(): this.type = {
     if(this.component != Component.current) {
-      val location = ScalaLocated.long
-      PendingError(s"You should not set $this as input outside it's own component.\n$location" )
+      PendingError(s"You should not set $this as input outside it's own component.\n${ScalaLocated.long}" )
     }else {
       dir = in
     }
     this
   }
+
+  /** Set a data as output */
   def asOutput(): this.type = {
     if(this.component != Component.current) {
-      val location = ScalaLocated.long
-      PendingError(s"You should not set $this as output outside it's own component.\n$location" )
+      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
     }else {
       dir = out
     }
     this
   }
+
+  /** set a data as inout */
   def asInOut(): this.type = {
     if(this.component != Component.current) {
-      val location = ScalaLocated.long
-      PendingError(s"You should not set $this as output outside it's own component.\n$location" )
+      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
     }else {
       dir = inout
     }
     this
   }
 
-  def asDirectionLess() : this.type = {
+  /** remove the direction (in,out,inout) to a data*/
+  def asDirectionLess(): this.type = {
     dir = null
     this
   }
 
-  def dirString() : String = dir match {
-    case `in` => "in"
-    case `out` => "out"
+  def dirString(): String = dir match {
+    case `in`    => "in"
+    case `out`   => "out"
     case `inout` => "inout"
-    case null => ""
+    case null    => ""
   }
- // def assignDontCare() : Unit = ???
 
   def isOutput: Boolean = dir == out
-  def isInput: Boolean = dir == in
-  def isInOut: Boolean = dir == inout
-  def isOutputOrInOut : Boolean = dir == out || dir == inout
-  def isInputOrInOut : Boolean = dir == in || dir == inout
+  def isInput:  Boolean = dir == in
+  def isInOut:  Boolean = dir == inout
+
+  def isOutputOrInOut: Boolean = dir == out || dir == inout
+  def isInputOrInOut:  Boolean = dir ==  in || dir == inout
   def isDirectionLess: Boolean = dir == null
+
+  /** flip the direction of the data */
   def flip(): this.type  = {
     dir match {
-      case `in` => dir = out
-      case `out` => dir = in
+      case `in`    => dir = out
+      case `out`   => dir = in
       case `inout` =>
-      case _ => SpinalError(s"Can't flip a data that is direction less $this")
+      case _       => SpinalError(s"Can't flip a data that is direction less $this")
     }
     this
   }
 
+  final def assignFrom(that: AnyRef, target: AnyRef = this) = compositAssignFrom(that, target, DataAssign)
 
-  final def assignFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,DataAssign)
-  final def initFrom(that : AnyRef, target : AnyRef = this) = (that, target) match {
-    case (init : Data, target : Data) if ! target.isReg => {
+  final def initFrom(that: AnyRef, target: AnyRef = this) = (that, target) match {
+    case (init: Data, target: Data) if ! target.isReg =>
       for ((e, initElement) <- (target.flatten, init.flatten).zipped) {
         def recursiveSearch(bt: BaseType): Unit = {
           if (bt.isReg)
@@ -273,34 +292,31 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         }
         recursiveSearch(e)
       }
-    }
     case _ => compositAssignFrom(that,target,InitAssign)
   }
 
   def asData = this.asInstanceOf[Data]
+
+  /** Create a data set to 0*/
   def getZero: this.type
 
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
 
-  def pull(): this.type = Data.doPull(this, Component.current, false, false)
+  /** Pull a signal to the top level (use for debugging) */
+  def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
 
-  //  def :-(that: => SSelf): this.type = {
-  //    val task = () => {
-  //      this := that
-  //    }
-  //    component.postCreationTask += task
-  //
-  //    this
-  //  }
-
+  /** Concatenation between two data */
   def ##(right: Data): Bits = this.asBits ## right.asBits
 
+  /** Cast data to Bits */
   def asBits: Bits
+
   def assignFromBits(bits: Bits): Unit
-  def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
-  def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
-  def assignDontCare() : this.type = {
+  def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
+  def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
+
+  def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
     this
   }
@@ -308,22 +324,24 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
 
-  def resized : this.type ={
+  /** Resized data regarding target */
+  def resized: this.type = {
     val ret = cloneOf(this)
     ret.assignFrom(this)
     ret.addTag(tagAutoResize)
     return ret.asInstanceOf[this.type]
   }
 
-  def allowOverride : this.type ={
+  /** Allow a data to be overrided */
+  def allowOverride: this.type = {
     addTag(allowAssignmentOverride)
   }
 
-  def allowDirectionLessIo : this.type = {
+  def allowDirectionLessIo: this.type = {
     addTag(allowDirectionLessIoTag)
   }
 
-  def allowUnsetRegToAvoidLatch : this.type = {
+  def allowUnsetRegToAvoidLatch: this.type = {
     addTag(unsetRegIfNoAssignementTag)
   }
 
@@ -338,48 +356,48 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
-    def getTrueIoBaseType(that : Data) : Data = that.getRealSource.asInstanceOf[Data]
+
+    def getTrueIoBaseType(that: Data): Data = that.getRealSource.asInstanceOf[Data]
 
     val thisTrue = getTrueIoBaseType(this)
     val thatTrue = getTrueIoBaseType(that)
 
     val c = Component.current
+
     if(thisTrue.component != c && thisTrue.component.parent != c){
-      val trace = ScalaLocated.long
-      PendingError(s"HIERARCHY VIOLATION, $thisTrue can't be used in $c at\n${trace}")
+      PendingError(s"HIERARCHY VIOLATION, $thisTrue can't be used in $c at\n${ScalaLocated.long}")
     }else if(thatTrue.component != c && thatTrue.component.parent != c){
-      val trace = ScalaLocated.long
-      PendingError(s"HIERARCHY VIOLATION, $thatTrue can't be used in $c at\n${trace}")
+      PendingError(s"HIERARCHY VIOLATION, $thatTrue can't be used in $c at\n${ScalaLocated.long}")
     } else {
-      def dirSolve(that : Data) : IODirection = {
+      def dirSolve(that: Data): IODirection = {
         if(that.component == c)
           that.dir
         else
           that.dir match {
-            case `in` => out
-            case `out` => in
+            case `in`    => out
+            case `out`   => in
             case `inout` => inout
-            case null => null
+            case null    => null
           }
       }
+
       val thisDir = dirSolve(thisTrue)
       val thatDir = dirSolve(thatTrue)
 
       (thisDir,thatDir) match {
-        case (`out`,`in`) => this := that
-        case (`out`,null) => this := that
-        case (`in`,`out`) => that := this
-        case (`in`,null) => that := this
-        case (null,`in`) => this := that
-        case (null,`out`) => that := this
-        case _ if(this.isAnalog && that.isAnalog) => this := that
-        case _ =>
-          val trace = ScalaLocated.long
-          PendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that \n$trace")
+        case (`out`,`in`)                         => this := that
+        case (`out`,null)                         => this := that
+        case (`in`,`out`)                         => that := this
+        case (`in`,null)                          => that := this
+        case (null,`in`)                          => this := that
+        case (null,`out`)                         => that := this
+        case _ if this.isAnalog && that.isAnalog  => this := that
+        case _                                    => PendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that \n${ScalaLocated.long}")
       }
     }
   }
 
+  /** Return the width of the data */
   def getBitsWidth: Int
 
   def keep(): this.type = {
@@ -392,6 +410,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     flatten.foreach(_.dontSimplifyIt())
     this
   }
+
   def allowSimplifyIt(): this.type = {
     flatten.foreach(_.allowSimplifyIt())
     this
@@ -402,99 +421,72 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
-  def isComb: Boolean = flatten.foldLeft(true)(_ && _.isComb)
-  def isAnalog: Boolean = flatten.foldLeft(true)(_ && _.isAnalog)
-  def setAsAnalog() : this.type = {flatten.foreach(_.setAsAnalog()); this}
+  def isReg:    Boolean = flatten.forall(_.isReg)
+  def isComb:   Boolean = flatten.forall(_.isComb)
+  def isAnalog: Boolean = flatten.forall(_.isAnalog)
+
+  def setAsAnalog(): this.type = {flatten.foreach(_.setAsAnalog()); this}
+
   override def getRealSourceNoRec: Any = this
-
-  /*private[core] */
-//  private[core] def initImpl(init: Data): this.type = {
-//    for ((e, initElement) <- (this.flatten, init.flatten).zipped) {
-//      def recursiveSearch(ptr: Node): Unit = {
-//        //if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
-//        ptr match {
-//          case bt: BaseType => {
-//            if (bt.isReg)
-//              bt.input.asInstanceOf[Reg].setInitialValue(initElement)
-//            else
-//              recursiveSearch(bt.input)
-//          }
-//          case _ => LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
-//        }
-//      }
-//
-//      //maybe need to restor commented ?
-//      //if (initElement.getInput(0) != null /* && initElement.getInput(0).getInput(0) != null*/ ) {
-//      recursiveSearch(e)
-//     // }
-//    }
-//    this
-//  }
-
-
 
   private[core] def defaultImpl(init: Data): this.type = {
     val regInit = clone()
     regInit := init
+
     for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
       e.addTag(new DefaultTag(initElement))
     }
+
     this
   }
 
-  /*private[core] */
-  //  def next(next: SSelf): this.type = {
-  //    if (!isReg) SpinalError(s"Try to set next value of a data that is not a register ($this)")
-  //    this := next
-  //    this
-  //  }
-
-  //Usefull for register that doesn't need a reset value in RTL, but need a randome value for simulation (avoid x-propagation)
+  /**
+    * Usefull for register that doesn't need a reset value in RTL,
+    * but need a randome value for simulation (avoid x-propagation)
+    */
   def randBoot(): this.type = {
     flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
 
-//  @deprecated("use allowPruning instead")
-//  def unused = allowPruning()
-
   def allowPruning() = {
     flatten.foreach(_.addTag(unusedTag))
   }
-
 
   override def getComponent(): Component = component
 
   override def clone: Data = {
     try {
-      val clazz = this.getClass
-      val constructor = clazz.getConstructors.head
-      val constrParamCount = constructor.getParameterTypes.size
+      val clazz            = this.getClass
+      val constructor      = clazz.getConstructors.head
+      val constrParamCount = constructor.getParameterTypes.length
+
       //No param =>
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
-      def cleanCopy[T <: Data](that : T) : T = {
+      def cleanCopy[T <: Data](that: T): T = {
         that.asDirectionLess()
-//        that.flatten.foreach(_.input = null)
         that
       }
 
       def constructorParamsAreVal: this.type = {
-        val outer = clazz.getFields.find(_.getName == "$outer")
-        val constructor = clazz.getDeclaredConstructors.head
-        val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
-        val fields = clazz.getDeclaredFields
+        val outer         = clazz.getFields.find(_.getName == "$outer")
+        val constructor   = clazz.getDeclaredConstructors.head
+        val argumentCount = constructor.getParameterTypes.length - (if (outer.isDefined) 1 else 0)
+        val fields        = clazz.getDeclaredFields
+
         val arguments = (0 until argumentCount) map { i =>
           val fieldName = fields(i).getName
-          val getter = clazz.getMethod(fieldName)
-          val arg = getter.invoke(this)
+          val getter    = clazz.getMethod(fieldName)
+          val arg       = getter.invoke(this)
+
           if(arg.isInstanceOf[Data]){
             cloneOf(arg.asInstanceOf[Data])
           } else{
             arg
           }
         }
+
         if (outer.isEmpty)
           return cleanCopy(constructor.newInstance(arguments: _*).asInstanceOf[this.type])
         else {
@@ -502,6 +494,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
           return cleanCopy(constructor.newInstance(args: _*).asInstanceOf[this.type])
         }
       }
+
       //Case class =>
       if (ScalaUniverse.isCaseClass(this)) {
         return cleanCopy(constructorParamsAreVal)
@@ -510,14 +503,18 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       //Inner class with no user parameters
       if (constrParamCount == 1) {
         var outerField = clazz.getFields.find(_.getName == "$outer")
-        if(!outerField.isDefined) outerField = clazz.getDeclaredFields.find(_.getName == "$outer")
+
+        if(outerField.isEmpty) outerField = clazz.getDeclaredFields.find(_.getName == "$outer")
+
         if(outerField.isDefined){
           val outer = outerField.get
           outer.setAccessible(true)
           return cleanCopy(constructor.newInstance(outer.get(this)).asInstanceOf[this.type])
         }
-        val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
+
+        val c  = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
         val pt = constructor.getParameterTypes.apply(0)
+
         if(c.getClass.isAssignableFrom(pt)){
           val copy =  constructor.newInstance(c).asInstanceOf[this.type]
           if(copy.isInstanceOf[Bundle])
@@ -542,14 +539,17 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
                                                      |*** You have two way to solve that :
                                                      |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
                                                      |*** Or override by your self the bundle clone function
-                                                     |*** The error is """.stripMargin + this.getScalaLocationLong);
+                                                     |*** The error is """.stripMargin + this.getScalaLocationLong)
       null
     }
     null
   }
-  def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
-  def genIf(cond : Boolean) : this.type = if(cond) this else null
+  /** Get current component with all parents */
+  def getComponents(): Seq[Component] = if(component == null) Nil else component.parents() ++ Seq(component)
+
+  /** Generate this if condition is true */
+  def genIf(cond: Boolean): this.type = if(cond) this else null
 
 }
 
@@ -567,21 +567,3 @@ trait DataWrapper extends Data{
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
 }
 
-//
-//abstract class CustomData extends Data{
-//  override def getBitsWidth: Int = flatten.map(_.getBitsWidth).reduce(_ + _)
-//  override def assignFromBits(bits: Bits): Unit = {
-//    var offset = 0
-//    for(e <- flatten){
-//      e.assignFromBits(bits(e.getBitsWidth + offset-1,offset))
-//      offset += e.getBitsWidth
-//    }
-//  }
-//  override def toBits: Bits = Cat(flatten.reverse.map(_.toBits))
-//  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-//    assert(!conservative)
-//    assert(that.getClass == this.getClass)
-//    val t = that.asInstanceOf[CustomData]
-//    (this.flatten,t.flatten).zipped.map(_.assignFromImpl(_,conservative))
-//  }
-//}

@@ -1,34 +1,38 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-//object Vec extends VecFactory{
-//
-//}
 
+/**
+  * Vec factory
+  */
 trait VecFactory {
+
   def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = {
     val vector = elements.toVector
-    if(vector.size != 0) {
+
+    if(vector.nonEmpty) {
       val vecType = vector.reduce((a, b) => {
         if (a.getClass.isAssignableFrom(b.getClass)) a
         else if (b.getClass.isAssignableFrom(a.getClass)) b
@@ -68,17 +72,19 @@ trait VecFactory {
 
 
 object SeqMux {
+
   def apply[T <: Data](elements: Seq[T], _address: UInt): T = {
-    var address = _address
+
+    var address   = _address
     val bitNeeded = log2Up(elements.size)
+
     if(bitNeeded < address.getWidth){
       if(address.hasTag(tagAutoResize)){
         address = _address.resize(bitNeeded)
       }else {
-        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of ${bitNeeded})\n at\n${ScalaLocated.long}")
+        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
       }
     }
-
 
     if (elements.size == 1) {
       val ret = cloneOf(elements.head)
@@ -86,24 +92,24 @@ object SeqMux {
       return ret
     }
 
-    val addressBools = address.asBools
-    val addressWidth = address.getWidth
     def stage(elements: Seq[T], level: Int): T = {
       elements.size match {
         case 0 => throw new Exception("Can't mux a Vec of size zero")
-        case 1 => elements(0)
-        case _ => {
-          val muxs = (0 until elements.length/2).map(i => Mux(address(level), elements(2*i + 1), elements(2*i)))
-          stage(muxs ++ elements.slice(elements.length/2*2, elements.length), level + 1)
-        }
+        case 1 => elements.head
+        case _ =>
+          val muxs = (0 until elements.length / 2).map(i => Mux(address(level), elements(2 * i + 1), elements(2 * i)))
+          stage(muxs ++ elements.slice(elements.length / 2 * 2, elements.length), level + 1)
       }
     }
+
     stage(elements, 0)
   }
 }
 
-class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec : Vec[T]) extends Assignable {
-  override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
+
+class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Vec[T]) extends Assignable {
+
+  override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
         val thatSafe = that /*match {
@@ -118,62 +124,72 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec : V
   override def getRealSourceNoRec: Any = vec
 }
 
+
+/**
+  * The Vec is a composite type that defines a group of indexed signals (of any SpinalHDL basic type) under a single name
+  *
+  * @example {{{
+  *     val myVecOfSInt = Vec(SInt(8 bits), 2)
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
+  */
 class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
+
   if(component != null) component.addPrePopTask(() => {
-    for(i <- 0 until elements.length){
+    for(i <- elements.indices){
       val e = elements(i)._2
-      OwnableRef.proposal(e,this)
-      e.setPartialName(i.toString,true)
+      OwnableRef.proposal(e, this)
+      e.setPartialName(i.toString, weak = true)
     }
   })
+
   def dataType = cloneOf(_dataType)
 
-  def range = 0 until vec.length
+  def range = vec.indices
+
+  override def length: Int = vec.size
 
   override def equals(that: Any): Boolean = that match {
     case that: Vec[_] => instanceCounter == that.instanceCounter
-    case _ => false
+    case _            => false
   }
 
   override def hashCode(): Int = instanceCounter
 
   private[core] val accessMap = mutable.Map[(Component, UInt), T]()
-  private[core] val readMap = mutable.Map[(Component, UInt), T]()
+  private[core] val readMap   = mutable.Map[(Component, UInt), T]()
   private[core] var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
   private[core] def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
       vecTransposedCache = new ArrayBuffer[ArrayBuffer[BaseType]]()
       val size = dataType.flatten.size
+
       for (i <- 0 until size)
         vecTransposedCache += ArrayBuffer[BaseType]()
 
       for (vecElement <- vec) {
         for ((e, i) <- vecElement.flatten.zipWithIndex) {
-          vecTransposedCache(i) += e;
+          vecTransposedCache(i) += e
         }
       }
     }
     vecTransposedCache
   }
 
-  override def length: Int = vec.size
-
-
-  def apply(idx: Int): T = {
+  /** Access an element of the vector by an Int index */
+  override def apply(idx: Int): T = {
     if (idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
     vec(idx)
   }
 
-
-  def apply(address: UInt): T = {
-    access(address)
-  }
+  /** Access an element of the vector by an UInt index */
+  def apply(address: UInt): T = access(address)
 
   def read(address: UInt): T = {
     val key = (Component.current, address)
     if (readMap.contains(key)) return accessMap(key)
-
 
     val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
 
@@ -185,9 +201,9 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     val key = (Component.current, address)
     if (accessMap.contains(key)) return accessMap(key)
 
-
-    val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
+    val ret     = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
     val enables = (U(1) << address).asBools
+
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign[T](enables, to, this)
     }
@@ -197,19 +213,24 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   }
 
   //TODO sub element composite assignment, as well for indexed access (std)
+  /** Access an element of the bector by a oneHot value */
   def oneHotAccess(oneHot: Bits): T = {
+
     if(elements.size == oneHot.getWidth){
       SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
     }
+
     val ret = cloneOf(dataType)
     ret := ret.getZero
+
     for ((e, idx) <- vec.zipWithIndex) {
       when(oneHot(idx)) {
         ret := e
       }
     }
+
     ret.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
         for ((e, idx) <- vec.zipWithIndex) {
           when(oneHot(idx)) {
             e.compositAssignFrom(that, target,kind)
@@ -222,22 +243,20 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     ret
   }
 
-  private[core] override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
-      case that: Vec[T] => {
+      case that: Vec[T] =>
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
           to.assignFromImpl(from, to, kind)
         }
-      }
-      case _ => throw new Exception("Undefined assignment")
+      case _            => throw new Exception("Undefined assignment")
     }
   }
 
-
   private var elementsCache: ArrayBuffer[(String, Data)] = null
 
-  def elements = {
+  override def elements = {
     if (elementsCache == null) {
       elementsCache = ArrayBuffer[(String, Data)]()
       for ((e, i) <- vec.zipWithIndex) {
@@ -247,8 +266,6 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     elementsCache
   }
 
-  override def clone: this.type = {
-    new Vec[T](dataType, vec.map(cloneOf(_))).asInstanceOf[this.type]
-  }
-//  println(elements)
+  override def clone: this.type = new Vec[T](dataType, vec.map(cloneOf(_))).asInstanceOf[this.type]
+
 }
