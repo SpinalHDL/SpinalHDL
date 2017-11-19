@@ -74,7 +74,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
-    val ret = new StringBuilder();
+    val ret = new StringBuilder()
     ret ++=
       s"""library IEEE;
          |use IEEE.STD_LOGIC_1164.ALL;
@@ -131,7 +131,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
 
     ret ++= s"end $enumPackageName;\n\n"
 
-    if (enums.size != 0) {
+    if (enums.nonEmpty) {
       ret ++= s"package body $enumPackageName is\n"
       for ((enumDef, encodings) <- enums) {
         val enumName = enumDef.getName()
@@ -206,7 +206,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
         ret.result()
       })
     }
-    8
+
     def pkgExtract(kind: String): (String, String) = {
       val ret = new StringBuilder()
 
@@ -241,7 +241,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
 
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
 
-    val funcs = ArrayBuffer[Tuple2[String, String]]()
+    val funcs = ArrayBuffer[(String, String)]()
 
     vectorTypes.foreach(kind => {
       funcs += pkgExtractBool(kind)

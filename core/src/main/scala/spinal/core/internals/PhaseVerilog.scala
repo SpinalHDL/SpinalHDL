@@ -47,8 +47,8 @@ class PhaseVerilog(pc: PhaseContext) extends PhaseMisc with VerilogBase {
       }
     }
 
-    outFile.flush();
-    outFile.close();
+    outFile.flush()
+    outFile.close()
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
@@ -117,7 +117,7 @@ class PhaseVerilog(pc: PhaseContext) extends PhaseMisc with VerilogBase {
   def emitFunctions(component: Component, ret: StringBuilder): Unit = {
     val alreadyEmitted = mutable.Set[String]()
     component.dslBody.walkStatements(s => s.walkExpression {
-      case node: CastEnumToEnum => {
+      case node: CastEnumToEnum =>
         val encodingSrc = node.input.getEncoding
         val enumDef     = node.getDefinition
         val encodingDst = node.getEncoding
@@ -136,7 +136,6 @@ class PhaseVerilog(pc: PhaseContext) extends PhaseMisc with VerilogBase {
           ret ++= "  end\n"
           ret ++= "  endfunction\n\n"
         }
-      }
       case _ =>
     })
   }
