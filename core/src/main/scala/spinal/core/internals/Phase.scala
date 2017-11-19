@@ -1,21 +1,40 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.internals
 
 import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
-//
-///**
-// * Created by PIC32F_USER on 05/06/2016.
-// */
-//
-class PhaseContext(val config : SpinalConfig){
+
+
+class PhaseContext(val config: SpinalConfig) {
+
   var globalData = GlobalData.reset
   config.applyToGlobalData(globalData)
-  val globalScope = new NamingScope()
+
+  val globalScope         = new NamingScope()
   var topLevel: Component = null
-  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
-  val reservedKeyWords = mutable.Set[String](
+  val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+  val reservedKeyWords    = mutable.Set[String](
     //VHDL
     "abs", "access", "after", "alias", "all",
     "and", "architecture", "array", "assert",
@@ -84,48 +103,49 @@ class PhaseContext(val config : SpinalConfig){
     "xnor","xor"
   )
 
-
   reservedKeyWords.foreach(globalScope.allocateName(_))
 
   def components(): ArrayBuffer[Component] ={
     val ret = ArrayBuffer[Component]()
     ret.clear()
+
     def walk(c: Component): Unit = {
       ret += c
       c.children.foreach(walk(_))
     }
+
     walk(topLevel)
+
     ret
   }
-  def sortedComponents = components.sortWith(_.level > _.level)
 
-  def walkStatements(func : Statement => Unit): Unit ={
+  def sortedComponents = components().sortWith(_.level > _.level)
+
+  def walkStatements(func: Statement => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(func))
   }
 
-  def walkExpression(func : Expression => Unit): Unit ={
+  def walkExpression(func: Expression => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
-
-  def walkDeclarations(func : DeclarationStatement => Unit) : Unit = {
+  def walkDeclarations(func: DeclarationStatement => Unit): Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
 
-
-  def walkRemapExpressions(func : Expression => Expression): Unit ={
+  def walkRemapExpressions(func: Expression => Expression): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapExpressions(func)))
   }
 
-  def walkDrivingExpression(func : Expression => Unit): Unit ={
+  def walkDrivingExpression(func: Expression => Unit): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkDrivingExpressions(func)))
   }
 
-  def walkComponents(func : Component => Unit): Unit ={
+  def walkComponents(func: Component => Unit): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => func(c))
   }
 
-  def walkBaseNodes(func : BaseNode => Unit): Unit ={
+  def walkBaseNodes(func: BaseNode => Unit): Unit ={
     walkStatements(s => {
       func(s)
       s.walkExpression(e => {
@@ -134,146 +154,141 @@ class PhaseContext(val config : SpinalConfig){
     })
   }
 
-
-  def checkGlobalData() : Unit = {
-    if (!GlobalData.get.dslScope.isEmpty) SpinalError("dslScope stack is not empty :(")
-    if (!GlobalData.get.dslClockDomain.isEmpty) SpinalError("dslClockDomain stack is not empty :(")
+  def checkGlobalData(): Unit = {
+    if (GlobalData.get.dslScope.nonEmpty) SpinalError("dslScope stack is not empty :(")
+    if (GlobalData.get.dslClockDomain.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
-  def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
-
-
+  def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty) SpinalError()
 
   def doPhase(phase: Phase): Unit ={
     phase.impl(this)
     checkPendingErrors()
   }
-
 }
 
-trait Phase{
+
+trait Phase {
   def impl(pc: PhaseContext): Unit
-  def hasNetlistImpact : Boolean
+  def hasNetlistImpact: Boolean
 }
 
-trait PhaseNetlist extends Phase{
+
+trait PhaseNetlist extends Phase {
   override def hasNetlistImpact: Boolean = true
 }
 
-trait PhaseMisc extends Phase{
-  override def hasNetlistImpact : Boolean = false
-}
 
-trait PhaseCheck extends Phase{
-  override def hasNetlistImpact : Boolean = false
+trait PhaseMisc extends Phase {
+  override def hasNetlistImpact: Boolean = false
 }
 
 
+trait PhaseCheck extends Phase {
+  override def hasNetlistImpact: Boolean = false
+}
 
 
 class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
-  override def impl(pc : PhaseContext): Unit = {
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
-    walkDeclarations(e => {
-      e match{
-        case node : BaseType if node.dlcIsEmpty => node.getTag(classOf[DefaultTag]) match {
-          case Some(defaultValue) => {
-            val c = node.dir match {
-              case `in` => node.component
-              case `out` => if(node.component.parent != null)
-                node.component.parent
-              else
-                null
-              case _ => node.component
-            }
-            if(c != null) {
-              node.dir match{
-                case `in` =>  {
-                  Component.push(c.parent)
-                  node.assignFrom(defaultValue.that)
-                  Component.pop(c.parent)
-                }
-                case _ => {
-                  Component.push(c)
-                  node.assignFrom(defaultValue.that)
-                  Component.pop(c)
-                }
-              }
+
+    walkDeclarations {
+      case node: BaseType if node.dlcIsEmpty => node.getTag(classOf[DefaultTag]) match {
+        case Some(defaultValue) =>
+
+          val c = node.dir match {
+            case `in` => node.component
+            case `out` => if (node.component.parent != null)
+              node.component.parent
+            else
+              null
+            case _ => node.component
+          }
+
+          if (c != null) {
+            node.dir match {
+              case `in` =>
+                Component.push(c.parent)
+                node.assignFrom(defaultValue.that)
+                Component.pop(c.parent)
+              case _ =>
+                Component.push(c)
+                node.assignFrom(defaultValue.that)
+                Component.pop(c)
             }
           }
-          case _ =>
-        }
         case _ =>
       }
-    })
+      case _ =>
+    }
   }
 }
 
 
+
 class PhaseAnalog extends PhaseNetlist{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     //Be sure that sub io assign parent component stuff
     walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
-      io.foreachStatements(s => s match {
-        case AssignmentStatement(_ : BaseType, x: BaseType) if (x.isAnalog && x.component == c.parent) => {
+      io.foreachStatements {
+        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
           s.dlcRemove()
           x.dlcAppend(s)
           s.target = x
           s.source = io
-        }
         case _ =>
-      })
+      }
     }))
 
-    val analogs = ArrayBuffer[BaseType]()
-    val islands = mutable.LinkedHashSet[mutable.LinkedHashSet[BaseType]]()
+    val analogs        = ArrayBuffer[BaseType]()
+    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[BaseType]]()
     val analogToIsland = mutable.HashMap[BaseType,mutable.LinkedHashSet[BaseType]]()
 
-    def addToIsland(that : BaseType, island : mutable.LinkedHashSet[BaseType]) : Unit = {
+    def addToIsland(that: BaseType, island: mutable.LinkedHashSet[BaseType]): Unit = {
       island += that
       analogToIsland(that) = island
     }
 
+    //val wrapped = mutable.HashMap[BaseType, BaseType]()
 
-
-    val wrapped = mutable.HashMap[BaseType,BaseType]()
     walkStatements{
-      case bt : BaseType if bt.isAnalog => {
+      case bt: BaseType if bt.isAnalog =>
         analogs += bt
 
         //Manage islands
-        bt.foreachStatements(s =>  s match{
-          case AssignmentStatement(x, y: BaseType) if (y.isAnalog) =>
-            if(s.finalTarget.component == y.component) {
+        bt.foreachStatements {
+          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
+            if (s.finalTarget.component == y.component) {
               (analogToIsland.get(bt), analogToIsland.get(y)) match {
                 case (None, None) =>
                   val island = mutable.LinkedHashSet[BaseType]()
-                  addToIsland(bt,island)
-                  addToIsland(y,island)
+                  addToIsland(bt, island)
+                  addToIsland(y, island)
                   islands += island
                 case (None, Some(island)) =>
-                  addToIsland(bt,island)
+                  addToIsland(bt, island)
                 case (Some(island), None) =>
-                  addToIsland(y,island)
+                  addToIsland(y, island)
                 case (Some(islandBt), Some(islandY)) =>
                   islandY.foreach(addToIsland(_, islandBt))
                   islands.remove(islandY)
               }
             }
-          case AssignmentStatement(x, y: BaseType) if (!y.isAnalog) =>
-        })
+          case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
+        }
 
         if(!analogToIsland.contains(bt)){
           val island = mutable.LinkedHashSet[BaseType]()
           addToIsland(bt,island)
           islands += island
         }
-      }
       case _ =>
     }
-
 
     islands.foreach(island => {
 //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
@@ -284,28 +299,28 @@ class PhaseAnalog extends PhaseNetlist{
         }
 
         //Remove target analog assignements
-        target.foreachStatements(s =>  s match {
-          case AssignmentStatement(x, y: BaseType) if (y.isAnalog && y.component == target.component) => s.removeStatement()
+        target.foreachStatements {
+          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
           case _ =>
-        })
+        }
 
         //redirect island assignements to target
         //drive isllands analogs from target as comb signal
         for(bt <- island if bt != target){
           val btStatements = ArrayBuffer[AssignmentStatement]()
           bt.foreachStatements(btStatements += _)
-          btStatements.foreach(s => s match {
-              case AssignmentStatement(_, x: BaseType) if (!x.isAnalog) => //analog driver
-                s.dlcRemove()
-                target.dlcAppend(s)
-                s.walkRemapExpressions(e => if(e == bt) target else e)
-              case AssignmentStatement(_, x: BaseType) if (x.isAnalog && x.component.parent == bt.component) => //analog connection
-                s.dlcRemove()
-                target.dlcAppend(s)
-                s.walkRemapExpressions(e => if(e == bt) target else e)
-              case _ =>
-            }
-          )
+          btStatements.foreach {
+            case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
+              s.dlcRemove()
+              target.dlcAppend(s)
+              s.walkRemapExpressions(e => if (e == bt) target else e)
+            case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == bt.component => //analog connection
+              s.dlcRemove()
+              target.dlcAppend(s)
+              s.walkRemapExpressions(e => if (e == bt) target else e)
+            case _ =>
+          }
+
           bt.removeAssignments()
           bt.setAsComb()
           bt.rootScopeStatement.push()
@@ -317,7 +332,7 @@ class PhaseAnalog extends PhaseNetlist{
         target.foreachStatements(s => {
           s.source match {
             case btSource: BaseType if btSource.isAnalog =>
-            case btSource => {
+            case btSource =>
               s.parentScope.push()
               val enable = ConditionalContext.isTrue(target.rootScopeStatement)
               s.parentScope.pop()
@@ -330,10 +345,9 @@ class PhaseAnalog extends PhaseNetlist{
                 case `TypeSInt` => new AnalogDriverSInt
                 case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
               }
-              driver.data = s.source.asInstanceOf[driver.T]
+              driver.data   = s.source.asInstanceOf[driver.T]
               driver.enable = enable
-              s.source = driver
-            }
+              s.source      = driver
           }
         })
 //      }
@@ -341,50 +355,55 @@ class PhaseAnalog extends PhaseNetlist{
   }
 }
 
+
 class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
-  val writes = ArrayBuffer[MemWrite]()
-  val readsAsync = ArrayBuffer[MemReadAsync]()
-  val readsSync = ArrayBuffer[MemReadSync]()
-  val readWriteSync = ArrayBuffer[MemReadWrite]()
+  val writes                   = ArrayBuffer[MemWrite]()
+  val readsAsync               = ArrayBuffer[MemReadAsync]()
+  val readsSync                = ArrayBuffer[MemReadSync]()
+  val readWriteSync            = ArrayBuffer[MemReadWrite]()
   val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]() //DISABLED
 
   var portCount = 0
   mem.foreachStatements(s => {
     portCount += 1
     s match {
-      case p: MemWrite => writes += p
+      case p: MemWrite     => writes += p
       case p: MemReadAsync => readsAsync += p
-      case p: MemReadSync => readsSync += p
+      case p: MemReadSync  => readsSync += p
       case p: MemReadWrite => readWriteSync += p
     }
   })
 }
 
 
-trait PhaseMemBlackboxing extends PhaseNetlist{
+trait PhaseMemBlackboxing extends PhaseNetlist {
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     val consumers = mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]()
-    val mems = mutable.LinkedHashSet[Mem[_]]()
+    val mems      = mutable.LinkedHashSet[Mem[_]]()
+
     walkBaseNodes{
-      case mem : Mem[_] => mems += mem
-      case ec : ExpressionContainer => {
+      case mem: Mem[_] => mems += mem
+      case ec: ExpressionContainer =>
         ec.foreachExpression{
-          case port : MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec
+          case port: MemPortStatement => consumers.getOrElseUpdate(port, ArrayBuffer[ExpressionContainer]()) += ec
           case _ =>
         }
-      }
       case _ =>
     }
     mems.foreach(mem => doBlackboxing(pc, new MemTopology(mem, consumers)))
   }
 
-  def doBlackboxing(pc: PhaseContext, typo : MemTopology) : Unit
+  def doBlackboxing(pc: PhaseContext, typo: MemTopology): Unit
 }
 
-abstract class PhaseMemBlackBoxingWithPolicy(policy : MemBlackboxingPolicy) extends PhaseMemBlackboxing{
-  override def doBlackboxing(pc: PhaseContext, typo : MemTopology): Unit = {
-    import pc._
+
+abstract class PhaseMemBlackBoxingWithPolicy(policy: MemBlackboxingPolicy) extends PhaseMemBlackboxing{
+
+  override def doBlackboxing(pc: PhaseContext, typo: MemTopology): Unit = {
+
     if(policy.translationInterest(typo)) {
       val message = doBlackboxing(typo)
       if(message != null) policy.onUnblackboxable(typo,this,message)
@@ -396,25 +415,24 @@ abstract class PhaseMemBlackBoxingWithPolicy(policy : MemBlackboxingPolicy) exte
 }
 
 
-class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
-  def doBlackboxing(topo: MemTopology) : String = {
+class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
+  def doBlackboxing(topo: MemTopology): String = {
     val mem = topo.mem
-    def wrapBool(that : Expression): Bool = that match {
-      case that : Bool => that
-      case that => {
+    def wrapBool(that: Expression): Bool = that match {
+      case that: Bool => that
+      case that       =>
         val ret = Bool()
         ret.assignFrom(that)
         ret
-      }
     }
 
-    def wrapConsumers(oldSource : Expression, newSource : Expression): Unit ={
+    def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
       topo.consumers.get(oldSource) match {
-        case None =>
+        case None        =>
         case Some(array) => array.foreach(ec => {
           ec.remapExpressions{
             case e if e == oldSource => newSource
-            case e => e
+            case e                   => e
           }
         })
       }
@@ -427,39 +445,38 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
     
     mem.component.rework {
       if (mem.initialContent != null) {
-        return "Can't blackbox ROM"//TODO
+        return "Can't blackbox ROM"  //TODO
 //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
-        } else if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+        } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
         val wr = topo.writes(0)
         for (rd <- topo.readsAsync) {
           val clockDomain = wr.clockDomain
           clockDomain.push()
 
           val ram = new Ram_1w_1ra(
-            wordWidth = mem.getWidth,
-            wordCount = mem.wordCount,
+            wordWidth      = mem.getWidth,
+            wordCount      = mem.wordCount,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth = wr.data.getWidth,
+            wrDataWidth    = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth = rd.getWidth,
-            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable = wr.mask != null,
+            rdDataWidth    = rd.getWidth,
+            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable   = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology = mem.technology
+            technology     = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && clockDomain.isClockEnableActive
           ram.io.wr.addr.assignFrom(wr.address)
           ram.io.wr.data.assignFrom(wr.data)
+
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
             ram.io.wr.mask := "1"
 
-
           ram.io.rd.addr.assignFrom(rd.address)
           wrapConsumers(rd, ram.io.rd.data)
-
 
           ram.setName(mem.getName())
           clockDomain.pop()
@@ -467,28 +484,28 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
 
         for (rd <- topo.readsSync) {
           val ram = new Ram_1w_1rs(
-            wordWidth = mem.getWidth,
-            wordCount = mem.wordCount,
-            wrClock = wr.clockDomain,
-            rdClock = rd.clockDomain,
+            wordWidth      = mem.getWidth,
+            wordCount      = mem.wordCount,
+            wrClock        = wr.clockDomain,
+            rdClock        = rd.clockDomain,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth = wr.data.getWidth,
+            wrDataWidth    = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth = rd.getWidth,
-            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable = wr.mask != null,
+            rdDataWidth    = rd.getWidth,
+            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable   = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology = mem.technology
+            technology     = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && wr.clockDomain.isClockEnableActive
           ram.io.wr.addr.assignFrom(wr.address)
           ram.io.wr.data.assignFrom(wr.data)
+
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
             ram.io.wr.mask := "1"
-
 
           ram.io.rd.en := wrapBool(rd.readEnable) && rd.clockDomain.isClockEnableActive
           ram.io.rd.addr.assignFrom(rd.address)
@@ -499,6 +516,7 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
 
         removeMem()
       } else if (topo.portCount == 1 && topo.readWriteSync.size == 1) {
+
         val port = topo.readWriteSync.head
 
         val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, dontCare)
@@ -512,28 +530,28 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
 
         ram.setName(mem.getName())
         removeMem()
+
       } else if (topo.portCount == 2 && topo.readWriteSync.size == 2) {
+
         val portA = topo.readWriteSync(0)
         val portB = topo.readWriteSync(1)
 
         val ram = new Ram_2wrs(
-          wordWidth = mem.getWidth,
-          wordCount = mem.wordCount,
-          technology = mem.technology,
-
+          wordWidth            = mem.getWidth,
+          wordCount            = mem.wordCount,
+          technology           = mem.technology,
           portA_readUnderWrite = dontCare,
-          portA_clock = portA.clockDomain,
-          portA_addressWidth = portA.address.getWidth,
-          portA_dataWidth  = portA.getWidth,
-          portA_maskWidth  = if(portA.mask != null) portA.mask.getWidth else 1,
-          portA_maskEnable  = portA.mask != null,
-
+          portA_clock          = portA.clockDomain,
+          portA_addressWidth   = portA.address.getWidth,
+          portA_dataWidth      = portA.getWidth,
+          portA_maskWidth      = if(portA.mask != null) portA.mask.getWidth else 1,
+          portA_maskEnable     = portA.mask != null,
           portB_readUnderWrite = dontCare,
-          portB_clock = portB.clockDomain,
-          portB_addressWidth = portB.address.getWidth,
-          portB_dataWidth  = portB.getWidth,
-          portB_maskWidth  = if(portB.mask != null) portB.mask.getWidth else 1,
-          portB_maskEnable  = portB.mask != null
+          portB_clock          = portB.clockDomain,
+          portB_addressWidth   = portB.address.getWidth,
+          portB_dataWidth      = portB.getWidth,
+          portB_maskWidth      = if(portB.mask != null) portB.mask.getWidth else 1,
+          portB_maskEnable     = portB.mask != null
         )
 
         ram.io.portA.addr.assignFrom(portA.address)
@@ -553,42 +571,47 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         ram.setName(mem.getName())
         removeMem()
       } else {
-        return "Unblackboxable memory topology"//TODO
+        return "Unblackboxable memory topology" //TODO
       }
     }
     return null
   }
 }
 
+
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
+
     globalData.nodeAreNamed = true
+
     if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+
     for (c <- sortedComponents) {
       c.nameElements()
       if(c.definitionName == null) {
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       }
       c match {
-        case bb: BlackBox => {
-          bb.getGeneric.genNames
-        }
-        case _ =>
+        case bb: BlackBox => bb.getGeneric.genNames()
+        case _            =>
       }
     }
   }
 }
 
+
 class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
+
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-    walkDeclarations(e => e match{
-      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
+    walkDeclarations {
+      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum, null) //Encodings will be added later
       case _ =>
-    })
+    }
 
     val scope = pc.globalScope.newChild
+
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
         e.getName()
@@ -605,6 +628,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
           case _ =>
         }
       })
+
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
           e.setWeakName(scope.getUnusedName("e" + e.position))
@@ -614,28 +638,29 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
+
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
+
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
     walkComponents(c => {
       val cds = mutable.LinkedHashSet[ClockDomain]()
       c.dslBody.walkLeafStatements{
-        case bt : BaseType if bt.isReg => {
+        case bt : BaseType if bt.isReg =>
           val cd = bt.clockDomain
           if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
             SpinalError(s"MISSING RESET SIGNAL in the ClockDomain used by $bt\n${bt.getScalaLocationLong}")
 
           cds += cd
-        }
         case ls => ls.foreachClockDomain(cd => cds += cd)
       }
 
       c.rework{
         for(cd <- cds){
           cd.readClockWire
-          if(cd.hasResetSignal) cd.readResetWire
-          if(cd.hasSoftResetSignal) cd.readSoftResetWire
+          if(cd.hasResetSignal)       cd.readResetWire
+          if(cd.hasSoftResetSignal)   cd.readSoftResetWire
           if(cd.hasClockEnableSignal) cd.readClockEnableWire
         }
       }
@@ -644,50 +669,57 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 }
 
 
+class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
 
-class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
-  override def impl(pc : PhaseContext): Unit = {
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
-    globalData.nodeAreInferringEnumEncoding = true
-    val nodes = ArrayBuffer[Expression with EnumEncoded]()
-    val nodesInferrable = ArrayBuffer[Expression with InferableEnumEncoding]()
-    val consumers = mutable.HashMap[Expression , ArrayBuffer[Expression]]()
-    var algo = globalData.allocateAlgoIncrementale()
 
-    def walkExpression(node : Expression): Unit ={
+    globalData.nodeAreInferringEnumEncoding = true
+
+    val nodes           = ArrayBuffer[Expression with EnumEncoded]()
+    val nodesInferrable = ArrayBuffer[Expression with InferableEnumEncoding]()
+    val consumers       = mutable.HashMap[Expression , ArrayBuffer[Expression]]()
+    var algo            = globalData.allocateAlgoIncrementale()
+
+    def walkExpression(node: Expression): Unit ={
       if(node.algoIncrementale != algo) {
         node.algoIncrementale = algo
+
         if (node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Expression with EnumEncoded]
+
         if (node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Expression with InferableEnumEncoding]
+
         node.foreachDrivingExpression(input => input match {
           case input: Expression with EnumEncoded => consumers.getOrElseUpdate(input, ArrayBuffer[Expression]()) += node
           case _ =>
         })
+
         node.foreachDrivingExpression(input => walkExpression(input))
       }
     }
 
-
     //Fill consumers
-    walkStatements(s => s match {
-      case s : AssignmentStatement =>
+    walkStatements {
+      case s: AssignmentStatement =>
         val finalTarget = s.finalTarget
         s.source match {
-          case source : Expression with EnumEncoded => consumers.getOrElseUpdate(source,ArrayBuffer[Expression]()) += finalTarget
+          case source: Expression with EnumEncoded => consumers.getOrElseUpdate(source, ArrayBuffer[Expression]()) += finalTarget
           case _ =>
         }
         s.foreachDrivingExpression(e => walkExpression(e))
-      case s : SwitchStatement if s.value.getTypeObject == TypeEnum =>
-        s.elements.foreach(_.keys.foreach{
-          case key if key.getTypeObject == TypeEnum =>  consumers.getOrElseUpdate(s.value,ArrayBuffer[Expression]()) += key
+      case s: SwitchStatement if s.value.getTypeObject == TypeEnum =>
+        s.elements.foreach(_.keys.foreach {
+          case key if key.getTypeObject == TypeEnum => consumers.getOrElseUpdate(s.value, ArrayBuffer[Expression]()) += key
         })
         s.foreachDrivingExpression(e => walkExpression(e))
-      case _ =>
+      case s =>
         s.foreachDrivingExpression(e => walkExpression(e))
-    })
+    }
 
-
-    walkDeclarations{case e : Expression => walkExpression(e) case _ => }
+    walkDeclarations{
+      case e: Expression => walkExpression(e)
+      case _             =>
+    }
 
     //Prepear the feild
     nodesInferrable.foreach(node => {
@@ -699,16 +731,20 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
     })
 
     algo = globalData.allocateAlgoIncrementale()
+
     nodes.foreach(enum => {
       if(enum.propagateEncoding){
+
         def propagateOn(that : Expression): Unit = {
           that match {
-            case that : InferableEnumEncoding => {
+            case that: InferableEnumEncoding =>
               if(that.algoIncrementale == algo) return
+
               that.algoIncrementale = algo
+
               if(that.encodingProposal(enum.getEncoding)) {
                 that match {
-                  case that : SpinalEnumCraft[_] =>
+                  case that: SpinalEnumCraft[_] =>
                     that.dlcForeach(s => propagateOn(s.source))
                     consumers.getOrElse(that, Nil).foreach(propagateOn(_))
                   case _ =>
@@ -716,10 +752,10 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
                     consumers.getOrElse(that, Nil).foreach(propagateOn(_))
                 }
               }
-            }
             case _ =>
           }
         }
+
         enum match {
           case enum : SpinalEnumCraft[_] =>
             enum.dlcForeach(s => propagateOn(s.source))
@@ -737,7 +773,6 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-
     //give a name to unamed encodings
     val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
 
@@ -745,10 +780,12 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
     for((enum,encodings) <- enums){
       for(encoding <- encodings) {
         val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
+
         for(element <- enum.elements){
           val key = encoding.getValue(element)
           reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
         }
+
         for((key,elements) <- reserveds){
           if(elements.length != 1){
             PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
@@ -761,43 +798,43 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
 
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
-  override def impl(pc : PhaseContext): Unit = {
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
     globalData.nodeAreInferringWidth = true
 
-
-
-
     var iterationCounter = 0
+
     while (true) {
       var somethingChange = false
 
       //Infer width on all expressions
-      walkExpression(e => e match {
-        case e : DeclarationStatement =>
-        case e : Widthable =>
+      walkExpression {
+        case e: DeclarationStatement =>
+        case e: Widthable =>
           val hasChange = e.inferWidth
           somethingChange = somethingChange || hasChange
         case _ =>
-      })
+      }
 
       //Infer width on all nameable expression (BitVector)
-      walkDeclarations(e => e match{
-        case e : Widthable =>
+      walkDeclarations {
+        case e: Widthable =>
           val hasChange = e.inferWidth
           somethingChange = somethingChange || hasChange
         case _ =>
-      })
+      }
 
       //Check in the width inferation is done, then check it and generate errors
       if (!somethingChange || iterationCounter == 10000) {
         val errors = mutable.ArrayBuffer[String]()
 
-        def widthableCheck(e : Widthable) : Unit = {
+        def widthableCheck(e: Widthable): Unit = {
           if (e.inferWidth) {
             //Don't care about Reg width inference
             errors += s"Can't infer width on ${e.getScalaLocationLong}"
           }
+
           if (e.widthWhenNotInferred != -1 &&
             e.widthWhenNotInferred != e.getWidth) {
             errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
@@ -808,19 +845,20 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
           }
         }
 
-        walkExpression(e => e match {
-          case e : DeclarationStatement =>
-          case e : Widthable => widthableCheck(e)
-          case e : WidthProvider => if(e.getWidth < 0){
-            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
-          }
+        walkExpression {
+          case e: DeclarationStatement =>
+          case e: Widthable => widthableCheck(e)
+          case e: WidthProvider =>
+            if (e.getWidth < 0) {
+              errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+            }
           case _ =>
-        })
+        }
 
-        walkDeclarations(e => e match{
-          case e : Widthable => widthableCheck(e)
+        walkDeclarations {
+          case e: Widthable => widthableCheck(e)
           case _ =>
-        })
+        }
 
         if (errors.nonEmpty)
           SpinalError(errors)
@@ -833,18 +871,19 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
 
 class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
+
   override def impl(pc : PhaseContext): Unit = {
     import pc._
+
     val toRemove = mutable.ArrayBuffer[Statement]()
+
     walkStatements{
-      case s : BitVector if s.getWidth == 0 => {
+      case s: BitVector if s.getWidth == 0 =>
         s.foreachStatements(toRemove += _)
         s.removeStatement()
-      }
-      case s : Mem[_] if s.getWidth == 0 => {
+      case s: Mem[_] if s.getWidth == 0 =>
         s.foreachStatements(toRemove += _)
         s.removeStatement()
-      }
       case s => s.walkRemapExpressions(_.simplifyNode)
     }
 
@@ -852,8 +891,10 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
+
 class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
-  override def impl(pc : PhaseContext): Unit = {
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     walkStatements(s => {
@@ -864,65 +905,67 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
     })
 
     walkComponents(c => {
-      c.dslBody.walkDeclarations(n => n match {
-        case n : BitVector => n.removeTag(tagAutoResize)
+      c.dslBody.walkDeclarations {
+        case n: BitVector => n.removeTag(tagAutoResize)
         case _ =>
-      })
+      }
     })
   }
 }
 
-class PhaseCheckCombinationalLoops() extends PhaseCheck{
-  override def impl(pc : PhaseContext): Unit = {
-    import pc._
-    val walkingId = GlobalData.get.allocateAlgoIncrementale()
-    val okId = GlobalData.get.allocateAlgoIncrementale()
 
-    def walk(path : List[(BaseNode)],
-             node: BaseNode): Unit = {
+class PhaseCheckCombinationalLoops() extends PhaseCheck{
+
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+
+    val walkingId = GlobalData.get.allocateAlgoIncrementale()
+    val okId      = GlobalData.get.allocateAlgoIncrementale()
+
+    def walk(path : List[(BaseNode)], node: BaseNode): Unit = {
       val newPath = node :: path
+
       if (node.algoIncrementale == walkingId) {
-        val ordred = newPath.reverseIterator
+        val ordred  = newPath.reverseIterator
         val filtred = ordred.dropWhile((e) => (e != node)).drop(1).toArray
+
         if (!filtred.exists(e => e.isInstanceOf[SpinalTagReady] && e.asInstanceOf[SpinalTagReady].hasTag(noCombinatorialLoopCheck))) {
           val wellNameLoop = new StringBuilder()
+
           for(n <- filtred.reverseIterator) n match{
-            case n : DeclarationStatement => wellNameLoop ++= s"    >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
-            case _ =>
+            case n: DeclarationStatement => wellNameLoop ++= s"    >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+            case _                       =>
           }
+
           val multiLineLoop = filtred.reverseIterator.filter(!_.isInstanceOf[AssignmentStatement]).map(n => "    " + n.toString).foldLeft("")(_ + "\n" + _)
           PendingError(s"COMBINATORIAL LOOP :\n  Partial chain :\n${wellNameLoop}\n  Full chain :${multiLineLoop}")
         }
+
       }else if (node.algoIncrementale != okId) {
         node.algoIncrementale = walkingId
         node match {
-          case node: BaseType => {
+          case node: BaseType =>
             if(node.isComb) {
               node.algoIncrementale = walkingId
               node.foreachStatements(s => walk(newPath, s))
               node.algoIncrementale = okId
             }
-          }
-          case node: AssignmentStatement => {
+          case node: AssignmentStatement =>
             node.foreachDrivingExpression(e => walk(newPath, e))
             node.walkParentTreeStatementsUntilRootScope(s => walk(newPath, s))
-          }
-          case node: TreeStatement => {
+          case node: TreeStatement =>
             if (node.algoIncrementale != okId) {
               node.foreachDrivingExpression(e => walk(newPath, e))
               node.algoIncrementale = okId
             }
-          }
-          case node: Mem[_] =>
-          case node: MemReadSync =>
+          case node: Mem[_]       =>
+          case node: MemReadSync  =>
           case node: MemReadWrite =>
-          case node: MemWrite =>
-          case node: Expression => {
+          case node: MemWrite     =>
+          case node: Expression   =>
             node.foreachDrivingExpression(e => walk(newPath, e))
-          }
-          case node : AssertStatement => {
+          case node: AssertStatement =>
             node.foreachDrivingExpression(e => walk(newPath, e))
-          }
         }
       }
       node.algoIncrementale = okId
@@ -938,37 +981,42 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
 
 
 class PhaseCheckCrossClock() extends PhaseCheck{
+
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-
 
     walkStatements(s => {
       var walked = 0
 
-      def walk(node: BaseNode, path : List[(BaseNode)], clockDomain: ClockDomain): Unit = {
+      def walk(node: BaseNode, path: List[(BaseNode)], clockDomain: ClockDomain): Unit = {
         if(node.algoIncrementale == walked) return
+
         node.algoIncrementale = walked
+
         val newPath = node :: path
 
-        def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain : ClockDomain): Unit ={
-            val wellNameLoop = new StringBuilder()
-            for(n <- newPath) n match{
-              case n : DeclarationStatement => wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
-              case _ =>
-            }
-            val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
-            PendingError(
-              s"""CLOCK CROSSING VIOLATION from ${syncDriver} to ${s}.
-                 |- Register declaration at
-                 |${s.getScalaLocationLong}- through
-                 |${wellNameLoop}"
-               """.stripMargin
-            )
+        def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain: ClockDomain): Unit = {
+          val wellNameLoop = new StringBuilder()
+
+          for(n <- newPath) n match{
+            case n: DeclarationStatement =>
+              wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+            case _  =>
+          }
+          val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
+
+          PendingError(
+            s"""CLOCK CROSSING VIOLATION from ${syncDriver} to ${s}.
+               |- Register declaration at
+               |${s.getScalaLocationLong}- through
+               |${wellNameLoop}"
+             """.stripMargin
+          )
         }
 
         node match {
-          case node : SpinalTagReady if node.hasTag(crossClockDomain) =>
-          case node: BaseType => {
+          case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
+          case node: BaseType =>
             if (node.isReg) {
               if(!node.clockDomain.isSyncronousWith(clockDomain)) {
                 issue(node, node.clockDomain)
@@ -976,59 +1024,57 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             } else {
               node.foreachStatements(s => walk(s, newPath, clockDomain))
             }
-          }
-          case node : AssignmentStatement => {
+          case node: AssignmentStatement =>
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
             node.walkParentTreeStatementsUntilRootScope(s => walk(s, newPath, clockDomain))
-          }
-          case node : TreeStatement => {
+          case node: TreeStatement =>
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
-          }
-          case node : Mem[_] =>
-          case node : MemReadSync => {
+          case node: Mem[_] =>
+          case node: MemReadSync =>
             if(!node.clockDomain.isSyncronousWith(clockDomain)) {
               issue(node, node.clockDomain)
             }
-          }
-          case node : MemReadWrite =>
+          case node: MemReadWrite =>
             if(!node.clockDomain.isSyncronousWith(clockDomain)) {
               issue(node, node.clockDomain)
             }
-          case node: Expression => {
+          case node: Expression =>
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
-          }
         }
       }
+
       s match {
-        case s: BaseType if (s.isReg && !s.hasTag(crossClockDomain)) => {
+        case s: BaseType if s.isReg && !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
-        }
-        case s: MemReadWrite if (!s.hasTag(crossClockDomain)) => {
+        case s: MemReadWrite if !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
-        }
-        case s: MemWrite if (!s.hasTag(crossClockDomain)) => {
+        case s: MemWrite if !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
-        }
         case _ =>
       }
     })
   }
 }
 
-class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) extends PhaseNetlist{
+
+class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) extends PhaseNetlist {
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(root: Statement, vital : Boolean): Unit = {
+    def propagate(root: Statement, vital: Boolean): Unit = {
       if(root.algoIncrementale == okId) return
+
       root.algoIncrementale = okId
+
       val pending = mutable.ArrayStack[Statement](root)
-      def propagate(s : Statement) = {
+
+      def propagate(s: Statement) = {
         if(s.algoIncrementale != okId) {
           s.algoIncrementale = okId
           pending.push(s)
@@ -1054,45 +1100,36 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
         }
 
         s match {
-          case s: BaseType => {
+          case s: BaseType =>
             if(vital)
               s.setAsVital()
             s.foreachStatements(propagate)
-          }
-          case s: AssignmentStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          case s: AssignmentStatement =>
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
             s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
+          case s: WhenStatement =>
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: SwitchStatement =>
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: AssertStatement =>
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: Mem[_] => s.foreachStatements{
+            case p: MemWrite     => propagate(p)
+            case p: MemReadWrite => propagate(p)
+            case p: MemReadSync  =>
+            case p: MemReadAsync =>
           }
-          case s : WhenStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : SwitchStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : AssertStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : Mem[_] => s.foreachStatements{
-            case p : MemWrite => propagate(p)
-            case p : MemReadWrite => propagate(p)
-            case p : MemReadSync =>
-            case p : MemReadAsync =>
-          }
-          case s : MemWrite => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : MemReadWrite => {
+          case s: MemWrite =>
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: MemReadWrite =>
             propagate(s.mem)
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : MemReadSync => {
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: MemReadSync =>
             propagate(s.mem)
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : MemReadAsync => {
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
+          case s: MemReadAsync =>
             propagate(s.mem)
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
+            s.walkExpression{ case e: Statement => propagate(e) case _ => }
         }
       }
     }
@@ -1100,19 +1137,19 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
     topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
-      case c : BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
+      case c: BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
     walkStatements{
-      case s : DeclarationStatement => if(s.isNamed) propagate(s, false)
-      case s : AssertStatement => propagate(s, false)
-      case s : TreeStatement =>
-      case s : AssignmentStatement =>
-      case s : MemWrite =>
-      case s : MemReadWrite =>
-      case s : MemReadSync =>
-      case s : MemReadAsync =>
+      case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
+      case s: AssertStatement      => propagate(s, false)
+      case s: TreeStatement        =>
+      case s: AssignmentStatement  =>
+      case s: MemWrite             =>
+      case s: MemReadWrite         =>
+      case s: MemReadSync          =>
+      case s: MemReadAsync         =>
     }
 
     walkStatements(s => {
@@ -1124,26 +1161,27 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
 }
 
 
-class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlist{
+class PhaseRemoveIntermediateUnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     val koId = globalData.allocateAlgoIncrementale()
 
     walkDeclarations(e => e.algoInt = 0)
 
     //Count the number of driving reference done on each ref.source
-    walkDrivingExpression(e => e match {
-      case ref : DeclarationStatement => {
+    walkDrivingExpression {
+      case ref: DeclarationStatement =>
         ref.algoInt += 1
-      }
       case _ =>
-    })
-
+    }
 
     walkStatements(s => if(s.algoIncrementale != koId){
-      s.walkRemapDrivingExpressions(e => e match {
-        case ref : BaseType => {
-          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt  && Statement.isSomethingToFullStatement(ref) /*&& ref != excepted*/){ //TODO IR keep it
+      s.walkRemapDrivingExpressions {
+        case ref: BaseType =>
+          if (ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt && Statement.isSomethingToFullStatement(ref) /*&& ref != excepted*/ ) {
+            //TODO IR keep it
             ref.algoInt = 0
             val head = ref.head
             ref.algoIncrementale = koId
@@ -1152,11 +1190,9 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
           } else {
             ref
           }
-        }
         case e => e
-      })
+      }
     })
-
 
     walkStatements{
       case s if s.algoIncrementale == koId =>
@@ -1166,25 +1202,30 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
   }
 }
 
+
 class PhaseCompletSwitchCases extends PhaseNetlist{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     walkStatements{
-      case s : SwitchStatement if s.isFullyCoveredWithoutDefault => {
+      case s: SwitchStatement if s.isFullyCoveredWithoutDefault =>
         if(s.defaultScope != null && !s.defaultScope.isEmpty){
           PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
         }
         s.defaultScope = s.elements.last.scopeStatement
         s.elements.remove(s.elements.length-1)
-      }
       case _ =>
     }
   }
 }
 
+
 class PhaseCheckIoBundle extends PhaseCheck{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     walkComponents(c => {
       try{
         val io = c.reflectIo
@@ -1202,6 +1243,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
 
 
 class PhaseCheckHiearchy extends PhaseCheck{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
@@ -1209,17 +1251,19 @@ class PhaseCheckHiearchy extends PhaseCheck{
     walkComponents(c => {
       c.dslBody.walkStatements(s => {
         var error = false
+
         s match {
-          case s : AssignmentStatement => {
+          case s: AssignmentStatement =>
             val bt = s.finalTarget
+
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
               PendingError(s"HIERARCHY VIOLATION : $bt is drived by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
 
-            if(!error && !(bt.isInOut)){
+            if(!error && !bt.isInOut){
               val rootScope = s.rootScopeStatement
-              var ptr = s.parentScope
+              var ptr       = s.parentScope
 
               while(ptr.parentStatement != null && ptr != rootScope){
                 ptr = ptr.parentStatement.parentScope
@@ -1229,17 +1273,16 @@ class PhaseCheckHiearchy extends PhaseCheck{
                 PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
               }
             }
-          }
           case _ =>
         }
-        if(!error) s.walkExpression(e => e match{
-          case bt : BaseType => {
-            if(!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)){
+
+        if(!error) s.walkExpression {
+          case bt: BaseType =>
+            if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
               PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
             }
-          }
           case _ =>
-        })
+        }
       })
 
       //Check register defined as component inputs
@@ -1249,14 +1292,19 @@ class PhaseCheckHiearchy extends PhaseCheck{
     })
   }
 }
+
+
 class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     val regToComb = ArrayBuffer[BaseType]()
+
     walkStatements{
-      case bt : BaseType if bt.isReg => {
+      case bt: BaseType if bt.isReg =>
         var assignedBits = new AssignedBits(bt.getBitsWidth)
+
         bt.foreachStatements{
           case s : DataAssignmentStatement =>
             s.target match {
@@ -1265,6 +1313,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
             }
           case _ =>
         }
+
         if(!assignedBits.isFull){
           if(assignedBits.isEmpty) {
             var withInit = false
@@ -1284,7 +1333,6 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
             PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
           }
         }
-      }
       case _ =>
     }
 
@@ -1295,56 +1343,60 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
       bt.foreachStatements(statements += _)
 
       statements.foreach{
-        case s : InitAssignmentStatement => {
+        case s: InitAssignmentStatement =>
           s.insertNext(DataAssignmentStatement(s.target, s.source).setScalaLocated(s))
           s.removeStatement()
-        }
       }
     }
   }
 }
 
+
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
+
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
     walkComponents(c => {
-      def walkBody(body : ScopeStatement) : mutable.HashMap[BaseType, AssignedBits] = {
+      def walkBody(body: ScopeStatement): mutable.HashMap[BaseType, AssignedBits] = {
         val assigneds = mutable.HashMap[BaseType, AssignedBits]()
-        def getOrEmpty(bt : BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
-        def getOrEmptyAdd(bt : BaseType, src : AssignedBits): Boolean = {
+
+        def getOrEmpty(bt: BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
+
+        def getOrEmptyAdd(bt: BaseType, src: AssignedBits): Boolean = {
           val dst = getOrEmpty(bt)
           val ret = src.isFull && !dst.isEmpty && !bt.hasTag(allowAssignmentOverride)
           dst.add(src)
           ret
         }
-        def getOrEmptyAdd3(bt : BaseType, hi : Int, lo : Int): Boolean = {
+
+        def getOrEmptyAdd3(bt: BaseType, hi: Int, lo: Int): Boolean = {
           val dst = getOrEmpty(bt)
           val ret = hi == dst.width-1 && lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignmentOverride)
           dst.add(hi, lo)
           ret
         }
-        def getOrEmptyAdd2(bt : BaseType, src : AssignedRange): Boolean = getOrEmptyAdd3(bt,src.hi, src.lo)
+
+        def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
 
         body.foreachStatements {
-          case s: DataAssignmentStatement => { //Omit InitAssignmentStatement
+          case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
             if(!s.finalTarget.isAnalog) {
               s.target match {
                 case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)) {
                   PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                 }
-                case e: BitVectorAssignmentExpression => {
+                case e: BitVectorAssignmentExpression =>
                   val bt = e.finalTarget
                   if (getOrEmptyAdd2(bt, e.getMinAssignedBits)) {
                     PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                   }
-                }
               }
             }
-          }
-          case s: WhenStatement => {
-            val whenTrue = walkBody(s.whenTrue)
+          case s: WhenStatement =>
+            val whenTrue  = walkBody(s.whenTrue)
             val whenFalse = walkBody(s.whenFalse)
+
             for ((bt, assigned) <- whenTrue) {
               whenFalse.get(bt) match {
                 case Some(otherBt) => if(getOrEmptyAdd(bt,assigned.intersect(otherBt))){
@@ -1353,8 +1405,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
                 case None =>
               }
             }
-          }
-          case s: SwitchStatement => {
+          case s: SwitchStatement =>
             val stuffs = if(s.isFullyCoveredWithoutDefault){
               s.elements.map(e => walkBody(e.scopeStatement))
             } else if(s.defaultScope != null){
@@ -1362,13 +1413,14 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
             } else {
               null
             }
+
             if(stuffs != null) {
               val head = stuffs.head
               for (tailStuff <- stuffs.tail) {
                 for ((bt, assigned) <- head) {
                   tailStuff.get(bt) match {
                     case Some(otherBt) => assigned.intersect(otherBt)
-                    case None => assigned.clear()
+                    case None          => assigned.clear()
                   }
                 }
               }
@@ -1379,18 +1431,18 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
                 }
               }
             }
-          }
-          case signal : BaseType if !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput)  => {
+          case signal: BaseType if !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput)  =>
             getOrEmpty(signal)
-          }
           case s =>
          }
 
         for((bt, assignedBits) <- assigneds if (bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
           if(bt.isComb) {
             val unassignedBits = new AssignedBits(bt.getBitsWidth)
+
             unassignedBits.add(bt.getBitsWidth - 1, 0)
             unassignedBits.remove(assignedBits)
+
             if (!unassignedBits.isEmpty) {
               if (bt.dlcIsEmpty)
                 PendingError(s"NO DRIVER ON $bt, defined at\n${bt.getScalaLocationLong}")
@@ -1412,14 +1464,15 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
 
-class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int])(pc: PhaseContext) extends PhaseCheck{
+class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int])(pc: PhaseContext) extends PhaseCheck {
+
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
 //    val targetAlgoId = GlobalData.get.algoId
 //    Node.walk(walkNodesDefautStack,node => {node.algoId = targetAlgoId})
     walkStatements{
-      case bt : BaseType if !bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed && !bt.getName().startsWith(globalData.anonymSignalPrefix) =>
+      case bt: BaseType if !bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed && !bt.getName().startsWith(globalData.anonymSignalPrefix) =>
         prunedSignals += bt
       case bt: BaseType if bt.isVital && bt.isReg =>
         counterRegisters.value += bt.getBitsWidth
@@ -1443,13 +1496,12 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
 //      c.foreachReflectableNameables(obj => checkNameable(obj))
 //    }
 
-
-
     val usedId = GlobalData.get.allocateAlgoIncrementale()
+
     walkStatements(s => {
       s.walkDrivingExpressions(e => e.algoIncrementale = usedId)
       s match {
-        case s: MemReadSync => s.algoIncrementale = usedId
+        case s: MemReadSync  => s.algoIncrementale = usedId
         case s: MemReadAsync => s.algoIncrementale = usedId
         case s: MemReadWrite => s.algoIncrementale = usedId
         case s =>
@@ -1464,22 +1516,26 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
   }
 }
 
+
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
-  override def impl(pc : PhaseContext): Unit = {
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     for (enumDef <- enums.keys) {
       if (enumDef.isWeak)
-        enumDef.setName(globalScope.allocateName(enumDef.getName()));
+        enumDef.setName(globalScope.allocateName(enumDef.getName()))
       else
         globalScope.iWantIt(enumDef.getName(),s"Reserved name ${enumDef.getName()} is not free for ${enumDef.toString()}")
     }
 
 
-    for((enum,encodings) <- enums;
-       encodingsScope = new NamingScope();
-       encoding <- encodings){
+    for((enum, encodings) <- enums;
+         encodingsScope = new NamingScope();
+         encoding <- encodings){
+
       if (encoding.isWeak)
-        encoding.setName(encodingsScope.allocateName(encoding.getName()));
+        encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else
         encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
     }
@@ -1521,10 +1577,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 //  }
 //}
 //
-class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNetlist{
-  override def impl(pc : PhaseContext): Unit = {
+
+
+class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNetlist{
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
+
     defaultClockDomain.push()
     native //Avoid unconstructable during phase
     binarySequential
@@ -1535,6 +1596,7 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
   }
 }
 
+
 class PhaseDummy(doThat : => Unit) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     doThat
@@ -1543,11 +1605,12 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
 
 
 object SpinalVhdlBoot{
+
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     try {
       singleShot(config)(gen)
     } catch {
-      case e : NullPointerException if config.debug=> {
+      case e: NullPointerException if config.debug =>
         println(
           """
             |ERROR !
@@ -1560,8 +1623,7 @@ object SpinalVhdlBoot{
           """.stripMargin)
         System.out.flush()
         throw e
-      }
-      case e: Throwable => {
+      case e: Throwable =>
         if(!config.debug){
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
@@ -1578,20 +1640,19 @@ object SpinalVhdlBoot{
           System.out.flush()
           throw e
         }
-      }
     }
   }
 
-  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
     val pc = new PhaseContext(config)
+
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
+
     val prunedSignals   = mutable.Set[BaseType]()
     val unusedSignals   = mutable.Set[BaseType]()
     val counterRegister = Ref[Int](0)
 
-
     SpinalProgress("Elaborate components")
-
 
     val phases = ArrayBuffer[Phase]()
 
@@ -1601,11 +1662,8 @@ object SpinalVhdlBoot{
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
 
-
-
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
-
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
@@ -1613,16 +1671,12 @@ object SpinalVhdlBoot{
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 
-
     phases += new PhasePullClockDomains(pc)
-
-
 
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)
-
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
@@ -1635,7 +1689,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    def initVhdlBase[T <: VhdlBase](base : T) = {
+    def initVhdlBase[T <: VhdlBase](base: T) = {
       base.packageName     = pc.config.globalPrefix + base.packageName
       base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
       base
@@ -1650,16 +1704,15 @@ object SpinalVhdlBoot{
       inserter(phases)
     }
 
-
-
     for(phase <- phases){
 //      SpinalProgress(phase.getClass.getName)
       pc.doPhase(phase)
     }
 
-    if(!prunedSignals.isEmpty){
+    if(prunedSignals.nonEmpty){
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
+
     pc.checkGlobalData()
 
     SpinalInfo(s"Number of registers : ${counterRegister.value}")
@@ -1678,11 +1731,12 @@ object SpinalVhdlBoot{
 
 
 object SpinalVerilogBoot{
-  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+
+  def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] ={
     try {
       singleShot(config)(gen)
     } catch {
-      case e : NullPointerException if config.debug=> {
+      case e: NullPointerException if config.debug =>
         println(
           """
             |ERROR !
@@ -1695,8 +1749,7 @@ object SpinalVerilogBoot{
           """.stripMargin)
         System.out.flush()
         throw e
-      }
-      case e: Throwable => {
+      case e: Throwable =>
         if(!config.debug){
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
@@ -1713,21 +1766,19 @@ object SpinalVerilogBoot{
           System.out.flush()
           throw e
         }
-      }
     }
   }
 
-  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
+
     val pc = new PhaseContext(config)
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
+
     val prunedSignals   = mutable.Set[BaseType]()
     val unusedSignals   = mutable.Set[BaseType]()
     val counterRegister = Ref[Int](0)
 
-
     SpinalProgress("Elaborate components")
-
-
 
     val phases = ArrayBuffer[Phase]()
 
@@ -1737,10 +1788,8 @@ object SpinalVerilogBoot{
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
 
-
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
-
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
@@ -1748,16 +1797,12 @@ object SpinalVerilogBoot{
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true)
 
-
     phases += new PhasePullClockDomains(pc)
-
-
 
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)
-
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
@@ -1770,12 +1815,9 @@ object SpinalVerilogBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
-
-
 
     for(inserter <-config.phasesInserters){
       inserter(phases)
@@ -1784,7 +1826,8 @@ object SpinalVerilogBoot{
     for(phase <- phases){
       pc.doPhase(phase)
     }
-    if(!prunedSignals.isEmpty){
+
+    if(prunedSignals.nonEmpty){
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
 
@@ -1792,9 +1835,7 @@ object SpinalVerilogBoot{
 
     pc.checkGlobalData()
 
-
     //pc.checkNoZeroWidth() for debug
-
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
