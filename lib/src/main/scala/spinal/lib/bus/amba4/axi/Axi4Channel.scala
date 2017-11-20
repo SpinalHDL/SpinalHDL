@@ -240,7 +240,7 @@ object Axi4Priv{
     driveWeak(stream,sink,stream.cache,sink.cache,() => B"0000",false,true)
     driveWeak(stream,sink,stream.qos,sink.qos,() => B"0000",false,true)
     driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),true,true)
-    driveWeak(stream,sink,stream.prot,sink.prot,null,false,true)
+    driveWeak(stream,sink,stream.prot,sink.prot,() => B"010",false,true)
   }
 
 }

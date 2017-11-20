@@ -33,6 +33,25 @@ case class Axi4Shared(config: Axi4Config) extends Bundle with IMasterSlave with 
     sink
   }
 
+  def toAxi4() : Axi4 = {
+    val ret = Axi4(config)
+    ret.ar.payload.assignSomeByName(this.arw.payload)
+    ret.aw.payload.assignSomeByName(this.arw.payload)
+    ret.ar.valid := this.arw.valid && !this.arw.write
+    ret.aw.valid := this.arw.valid && this.arw.write
+    this.arw.ready := this.arw.write ? ret.aw.ready | ret.ar.ready
+    this.w >> ret.w
+    this.r << ret.r
+    this.b << ret.b
+    ret
+  }
+
+  def toFullConfig(): Axi4Shared = {
+    val ret = Axi4Shared(config.toFullConfig())
+    ret << this
+    ret
+  }
+
   override def asMaster(): Unit = {
     master(arw,w)
     slave(b,r)

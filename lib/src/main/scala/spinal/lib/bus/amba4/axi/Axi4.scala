@@ -74,6 +74,23 @@ case class Axi4Config(addressWidth : Int,
   def bytePerWord = dataWidth/8
   def symbolRange = log2Up(bytePerWord)-1 downto 0
   def wordRange    = addressWidth-1 downto log2Up(bytePerWord)
+  def toFullConfig(defaultIdWidth : Int = 1) : Axi4Config = {
+    this.copy(
+      idWidth = if(this.useId) this.idWidth else defaultIdWidth,
+      useId = true,
+      useRegion = true,
+      useBurst = true,
+      useLock = true,
+      useCache = true,
+      useSize = true,
+      useQos = true,
+      useLen = true,
+      useLast = true,
+      useResp = true,
+      useProt = true,
+      useStrb = true
+    )
+  }
 }
 
 
@@ -143,6 +160,16 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
 
   def toWriteOnly(): Axi4WriteOnly ={
     val ret = Axi4WriteOnly(config)
+    ret << this
+    ret
+  }
+
+  def toShared() : Axi4Shared = {
+    Axi4ToAxi4Shared(this)
+  }
+
+  def toFullConfig(): Axi4= {
+    val ret = Axi4(config.toFullConfig())
     ret << this
     ret
   }
