@@ -90,6 +90,8 @@ case class SdramCtrlBus[T <: Data](c : SdramLayout, contextType : T) extends Bun
     axi.writeData.ready :=  axiSharedCmd.valid && axiSharedCmd.write  && axiCmd.ready
     rsp.ready           := axi.readRsp.ready
     axiCmd.ready        := cmd.ready && !(axiCmd.write && !writeRsp.ready)
+
+    axiSharedCmd.ready.noBackendCombMerge //Verilator Perf
   }
 }
 

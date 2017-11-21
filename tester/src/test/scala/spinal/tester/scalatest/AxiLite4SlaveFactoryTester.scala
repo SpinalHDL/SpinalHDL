@@ -30,8 +30,9 @@ object AxiLite4SlaveFactoryTester{
   }
 }
 
-class AxiLite4SlaveFactoryTesterCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "AxiLite4SlaveFactoryTester"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/AxiLite4SlaveFactoryTester"
-  override def createToplevel: Component = new AxiLite4SlaveFactoryTester.AxiLite4SlaveFactoryTester
-}
+//class AxiLite4SlaveFactoryTesterCocotbBoot extends SpinalTesterCocotbBase {
+//  override def getName: String = "AxiLite4SlaveFactoryTester"
+//  override def pythonTestLocation: String = "tester/src/test/python/spinal/AxiLite4SlaveFactoryTester"
+//  override def createToplevel: Component = new AxiLite4SlaveFactoryTester.AxiLite4SlaveFactoryTester
+//  withWaveform = true
+//}

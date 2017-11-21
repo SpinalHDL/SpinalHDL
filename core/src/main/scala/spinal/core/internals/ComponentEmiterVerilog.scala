@@ -361,7 +361,7 @@ class ComponentEmiterVerilog(
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
               val funcName = "zz_" + emitReference(node, false)
-              declarations ++= s"  function automatic ${emitType(node)} $funcName(input dummy);\n"
+              declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
 //              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
               declarations ++= s"    begin\n"
 

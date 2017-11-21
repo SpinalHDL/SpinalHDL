@@ -3,7 +3,8 @@ package spinal.tester
 import spinal.core._
 import spinal.core.internals._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.Apb3Gpio
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
+import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -685,14 +686,155 @@ object PlayDevAnalog4{
 }
 
 object PlayDevBug3{
-  class TopLevel extends Component {
+  case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
+    addGeneric("io_width", U(io_width, 32 bits))
+    addGeneric("default_value", U(default_value, io_width bits))
 
-    val b ,c = out(Bool())
+    val io = new Bundle {
+      val clk = in Bool
+      val a   = in Bits(io_width bits)
+      val z   = out Bits(io_width bits)
+    }
+    mapClockDomain(clock=io.clk)
+    noIoPrefix()
+  }
+
+  // Instance
+  class TopLevel extends Component {
+    val bboxedm_inst = bboxedm (io_width = 256, default_value = BigInt("FFFFFF",16))
   }
 
   def main(args: Array[String]) {
     SpinalConfig().generateVhdl(new TopLevel())
     SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
+
+
+
+object PlayDevNoMerge{
+
+
+  // Instance
+  class TopLevel extends Component {
+    val x,y, z = False
+    z.noBackendCombMerge
+    when(in(Bool)){
+      x := True
+      y := True
+    } otherwise {
+      z := True
+    }
+
+
+    when(x && y && z){
+
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
+    SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
+
+
+
+
+
+object PlayDevBusMem{
+
+
+  // Instance
+  class TopLevel extends Component {
+    val bus = slave(Apb3(16, 32))
+    val factory = Apb3SlaveFactory(bus)
+    val mem = Mem(Bits(12 bits), 256)
+    factory.readSyncMemWordAligned(mem, addressOffset = 512)
+//    factory.writeMemWordAligned(mem, addressOffset = 512)
+    val xx = mem.writePort
+    xx.valid := True
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
+    SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
+
+
+
+object PlayDevAxi{
+
+
+  // Instance
+  class TopLevel extends Component {
+    val smallConfig = Axi4Config(
+      addressWidth = 16,
+      dataWidth    = 32,
+      useId        = false,
+      useRegion    = false,
+      useBurst     = false,
+      useLock      = false,
+      useCache     = false,
+      useSize      = false,
+      useQos       = false,
+      useLen       = false,
+      useLast      = true,
+      useResp      = false,
+      useProt      = false,
+      useStrb      = false
+    )
+    val axiA = slave(Axi4Shared(smallConfig))
+    val axiB = axiA.toAxi4()
+    val axiC = master(axiB.toFullConfig())
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+object PlayDevDefault{
+
+  class Sub extends Component{
+    val sa,sb = in Bool() default(False)
+    val sresult = out Bool() default(False)
+    val stmp = Bool() default(False)
+  }
+  // Instance
+  class TopLevel extends Component {
+   val sub = new Sub()
+
+
+    val a,b = in Bool() default(False)
+    val result = out Bool() default(False)
+    val tmp = Bool() default(False)
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+
+object PlayDevMessages{
+
+  class TopLevel extends Component {
+    val a = UInt(8 bits)
+    val b = UInt(2 bits)
+    b := a >> 1
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel())
     print("done")
   }
 }

@@ -73,7 +73,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   var stateReg  : enumDefinition.C = null
   var stateNext : enumDefinition.C = null
   var stateBoot : State = null
-  val wantExit = False
+  val wantExit = False.allowPruning()
   var autoStart = true
   @dontName var parentStateMachine : StateMachineAccessor = null
   @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()

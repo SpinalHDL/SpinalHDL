@@ -7,52 +7,60 @@ import spinal.lib.bus.misc._
 
 class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
 
+  val readHaltRequest = False
+  val writeHaltRequest = False
+
   val writeJoinEvent = StreamJoin.arg(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLite4B(bus.config)
-  bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp)
+  bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp).haltWhen(writeHaltRequest)
 
   val readDataStage = bus.readCmd.stage()
   val readRsp = AxiLite4R(bus.config)
-  bus.readRsp << readDataStage.translateWith(readRsp)
+  bus.readRsp << readDataStage.haltWhen(readHaltRequest).translateWith(readRsp)
 
 
   writeRsp.setOKAY()
   readRsp.setOKAY()
   readRsp.data := 0
 
+  def readAdress() : UInt = readDataStage.addr
+  def writeAddress() : UInt = bus.writeCmd.addr
+
+  override def readHalt(): Unit = readHaltRequest := True
+  override def writeHalt(): Unit = writeHaltRequest := True
+
+  val writeOccur = writeJoinEvent.fire
+  val readOccur = bus.readRsp.fire
+
   override def build(): Unit = {
+    super.doNonStopWrite(bus.writeData.data)
 
-    for(element <- elements) element match {
-      case element: BusSlaveFactoryNonStopWrite =>  element.that.assignFromBits(bus.writeData.data(element.bitOffset, element.that.getBitsWidth bits))
-      case _ =>
-    }
-
-    val writeOccur = writeJoinEvent.fire
-    val readOccur = bus.readRsp.fire
-
-    for((address,jobs) <- elementsPerAddress){
-      when(bus.writeCmd.addr === address) {
-        when(writeOccur) {
-          //TODO writeRsp.resp := OKAY
-          for (element <- jobs) element match {
-            case element: BusSlaveFactoryWrite   =>  element.that.assignFromBits(bus.writeData.data(element.bitOffset, element.that.getBitsWidth bits))
-            case element: BusSlaveFactoryOnWriteAtAddress => element.doThat()
-            case _ =>
-          }
+    switch(bus.writeCmd.addr) {
+      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
+        is(address.asInstanceOf[SingleMapping].address) {
+          doMappedWriteElements(jobs,writeJoinEvent.valid, writeOccur, bus.writeData.data)
         }
       }
-      when(readDataStage.addr === address) {
-        //TODO readRsp.resp := OKAY
-        for(element <- jobs) element match{
-          case element: BusSlaveFactoryRead =>  readRsp.data(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
-          case _ =>
+    }
+
+    for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
+      when(address.hit(bus.writeCmd.addr)){
+        doMappedWriteElements(jobs,writeJoinEvent.valid, writeOccur, bus.writeData.data)
+      }
+    }
+
+
+    switch(readDataStage.addr) {
+      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
+        is(address.asInstanceOf[SingleMapping].address) {
+          doMappedReadElements(jobs,writeJoinEvent.valid, readOccur, readRsp.data)
         }
-        when(readOccur) {
-          for (element <- jobs) element match {
-            case element: BusSlaveFactoryOnReadAtAddress => element.doThat()
-            case _ =>
-          }
-        }
+      }
+    }
+
+    for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
+      when(address.hit(readDataStage.addr)){
+        doMappedReadElements(jobs,writeJoinEvent.valid, readOccur, readRsp.data)
       }
     }
   }

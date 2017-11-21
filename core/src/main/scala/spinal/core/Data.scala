@@ -449,8 +449,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def allowPruning() = {
+  def allowPruning() : this.type = {
     flatten.foreach(_.addTag(unusedTag))
+    this
   }
 
   override def getComponent(): Component = component

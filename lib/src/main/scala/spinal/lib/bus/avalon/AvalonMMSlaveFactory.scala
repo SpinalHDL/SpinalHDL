@@ -12,7 +12,7 @@ object AvalonMMSlaveFactory{
       dataWidth = dataWidth
     ).copy(
       useByteEnable = false,
-      useWaitRequestn = false
+      useWaitRequestn = true
     )
   }
 
@@ -23,8 +23,15 @@ object AvalonMMSlaveFactory{
 class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth, bus.config.dataWidth))
 
+  bus.waitRequestn := True
+
   val readAtCmd = Flow(Bits(bus.config.dataWidth bits))
   val readAtRsp = readAtCmd.stage()
+
+  def askWrite =bus.write
+  def askRead = !bus.read
+  val doWrite = bus.waitRequestn &&  bus.write
+  val doRead  = bus.waitRequestn && !bus.read
 
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload
@@ -32,30 +39,36 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   readAtCmd.valid := bus.read
   readAtCmd.payload := 0
 
+  def readAdress() : UInt = bus.address
+  def writeAddress() : UInt = bus.address
+
+  override def readHalt(): Unit = bus.waitRequestn := False
+  override def writeHalt(): Unit = bus.waitRequestn := False
+
   override def build(): Unit = {
-    for(element <- elements) element match {
-      case element: BusSlaveFactoryNonStopWrite => element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
-      case _ =>
+    super.doNonStopWrite(bus.writeData)
+
+    def doMappedElements(jobs : Seq[BusSlaveFactoryElement]) = super.doMappedElements(
+      jobs = jobs,
+      askWrite = askWrite,
+      askRead = askRead,
+      doWrite = doWrite,
+      doRead = doRead,
+      writeData = bus.writeData,
+      readData = bus.readData
+    )
+
+    switch(bus.address) {
+      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
+        is(address.asInstanceOf[SingleMapping].address) {
+          doMappedElements(jobs)
+        }
+      }
     }
 
-    for((address, jobs) <- elementsPerAddress){
-      when(bus.address === address){
-
-        when(bus.write){
-          for(element <- jobs) element match{
-            case element: BusSlaveFactoryWrite   => element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
-            case element: BusSlaveFactoryOnWriteAtAddress => element.doThat()
-            case _ =>
-          }
-        }
-
-        when(bus.read){
-          for(element <- jobs) element match{
-            case element: BusSlaveFactoryRead   => readAtCmd.payload(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
-            case element: BusSlaveFactoryOnReadAtAddress => element.doThat()
-            case _ =>
-          }
-        }
+    for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
+      when(address.hit(bus.address)){
+        doMappedElements(jobs)
       }
     }
   }

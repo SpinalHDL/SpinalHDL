@@ -1135,7 +1135,6 @@ object PlayWithBusSlaveFacotry{
     io.toto := regToto
 
     val cnt = Reg(UInt(32 bits)) init(0)
-    factory.onWrite{ cnt := cnt + 1 }
     io.cnt := cnt
 
     factory.readStreamNonBlocking(io.myStream, 0x0l)

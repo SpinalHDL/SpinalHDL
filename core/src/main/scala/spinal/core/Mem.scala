@@ -99,6 +99,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
   val width   = _widths.reduce(_ + _)
 
   def wordType: T = cloneOf(_wordType)
+  def byteCount = ((width+7)/8)*wordCount
 
   var technology: MemTechnologyKind = auto
   def setTechnology(tech: MemTechnologyKind) = this.technology = tech
@@ -538,6 +539,7 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def opName = "Mem.readSync(x)"
+
 
   override def getTypeObject = TypeBits
 

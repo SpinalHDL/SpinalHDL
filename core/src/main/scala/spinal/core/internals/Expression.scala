@@ -189,8 +189,6 @@ abstract class BinaryOperator extends Operator{
 
 abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
   override type T = Expression with WidthProvider
-
-  override def toString() = super.toString()
 }
 
 
@@ -264,6 +262,7 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Or extends BinaryOperatorWidthableInputs with Widthable{
@@ -274,6 +273,7 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Xor extends BinaryOperatorWidthableInputs with Widthable {
@@ -284,6 +284,7 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable{
@@ -294,6 +295,8 @@ object Operator{
         left = InputNormalize.resize(left, targetWidth, resizeFactory)
         right = InputNormalize.resize(right, targetWidth, resizeFactory)
       }
+
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Sub extends BinaryOperatorWidthableInputs with Widthable{
@@ -304,20 +307,24 @@ object Operator{
         left = InputNormalize.resize(left, targetWidth, resizeFactory)
         right = InputNormalize.resize(right, targetWidth, resizeFactory)
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Mul extends BinaryOperatorWidthableInputs with Widthable{
       def getLiteralFactory : (BigInt, Int) => Expression
       override def calcWidth(): Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Div extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = left.getWidth
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Mod extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = left.getWidth
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class Equal extends BinaryOperatorWidthableInputs with ScalaLocated{
@@ -336,12 +343,14 @@ object Operator{
     abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
 
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
@@ -355,6 +364,7 @@ object Operator{
           this
         }
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
@@ -369,30 +379,34 @@ object Operator{
           this
         }
       }
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
 
     abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = source.getWidth
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
 
     abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = source.getWidth
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
 
     }
 
     abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+      override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
   }
 
   object Bits{
     class Cat extends BinaryOperatorWidthableInputs with Widthable{
       override def getTypeObject = TypeBits
-      override def opName: String = "Bits ## Bits"
+      override def opName: String = s"Bits ## Bits"
       override def calcWidth(): Int = left.getWidth + right.getWidth
       override def simplifyNode: Expression = {SymplifyNode.binaryTakeOther(this)}
     }

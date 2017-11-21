@@ -56,6 +56,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int)
   io.axi.writeRsp.id := stage1.id
   if(axiConfig.useBUser) io.axi.writeRsp.user := stage1.user
 
+  io.axi.arw.ready.noBackendCombMerge //Verilator perf
 }
 
 
