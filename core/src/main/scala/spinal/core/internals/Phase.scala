@@ -197,27 +197,18 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
     walkDeclarations {
       case node: BaseType if node.dlcIsEmpty => node.getTag(classOf[DefaultTag]) match {
         case Some(defaultValue) =>
-
           val c = node.dir match {
-            case `in` => node.component
-            case `out` => if (node.component.parent != null)
-              node.component.parent
-            else
-              null
+            case `in` => node.component.parent
+            case `out` => node.component
+            case `inout` => PendingError(s"DEFAULT INOUT isn't allowed on $node at\n${node.getScalaLocationLong}")
             case _ => node.component
           }
 
           if (c != null) {
-            node.dir match {
-              case `in` =>
-                Component.push(c.parent)
-                node.assignFrom(defaultValue.that)
-                Component.pop(c.parent)
-              case _ =>
-                Component.push(c)
-                node.assignFrom(defaultValue.that)
-                Component.pop(c)
-            }
+            val scope = node.rootScopeStatement
+            scope.push()
+            node.assignFrom(defaultValue.that)
+            scope.pop()
           }
         case _ =>
       }
