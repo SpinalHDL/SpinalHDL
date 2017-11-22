@@ -964,6 +964,8 @@ end
   def operatorImplResize(func: Resize): String = {
     if(func.size < func.input.getWidth)
       s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else if(func.size > func.input.getWidth)
+      s"{${func.size - func.input.getWidth}'d0, ${emitExpression(func.input)}}"
     else
       emitExpression(func.input)
   }
@@ -971,8 +973,10 @@ end
   def operatorImplResizeSigned(func: Resize): String = {
     if(func.size < func.input.getWidth)
       s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else if(func.size > func.input.getWidth)
+      s"{{${func.size - func.input.getWidth}{${emitExpression(func.input)}[${func.input.getWidth-1}]}}, ${emitExpression(func.input)}}"
     else
-      "$signed(" + emitExpression(func.input) + ")"
+      emitExpression(func.input)
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
