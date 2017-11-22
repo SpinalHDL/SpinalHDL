@@ -512,9 +512,10 @@ trait BusSlaveFactory extends Area{
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
                                      bitOffset     : Int = 0) : Mem[T] = {
-    val mapping = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth/8))
-    val memAddress = writeAddress(mapping) >> log2Up(busDataWidth/8)
-    val port = mem.writePort
+    val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
+    val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
+    val port       = mem.writePort
+
     port.address := memAddress
     port.valid := False
     onWritePrimitive(mapping,true, null){
@@ -781,7 +782,7 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) e
   override def nonStopWrite[T <: Data](that: T, bitOffset: Int, documentation: String): T = f.nonStopWrite(that, bitOffset, documentation)
   override def wordAddressInc: Int = f.wordAddressInc
   override def getConfig = f.getConfig
-  override def setConfig(value : BusSlaveFactoryConfig) : this.type = {
+  override def setConfig(value : BusSlaveFactoryConfig): this.type = {
     f.setConfig(value)
     this
   }

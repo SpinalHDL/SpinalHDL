@@ -1245,33 +1245,3 @@ object PlayNetlistFileName{
     ).generate(new FakeNetlist)
   }
 }
-
-object PlaySimpleBus {
-
-  class MyTopLevel extends Component{
-    val io = new Bundle{
-      val bus = slave(SimpleBus(SimpleBusConfig(32, 8)))
-      val sel = in UInt(2 bits)
-      val d32 = out Bits(32 bits)
-      val d128 = in  Bits(128 bits)
-    }
-    val reg1 = Reg(Bits(32 bits))
-    val reg2 = Reg(Bits(32 bits))
-
-    val factory = new SimpleBusFactory(io.bus)
-
-    factory.write(reg1, 0x00, documentation = "write reg 1 :)")
-    factory.read(reg1, 0x00, documentation = "read reg 1 :)" )
-
-    factory.readAndWrite(reg2, 0x20, documentation = "register 2")
-
-    //factory.printDataModel()
-
-    io.d32 := io.d128.subdivideIn(32 bits).reverse(io.sel)
-
-  }
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new MyTopLevel)
-  }
-}

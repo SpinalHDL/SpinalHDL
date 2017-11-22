@@ -29,7 +29,7 @@ class AsyncMemoryBusFactory(bus: AsyncMemoryBus, incAddress: Int = 0) extends Bu
   override def readHalt  = bus.ready := False
   override def writeHalt = bus.ready := False
 
-  override def readAddress()   = bus.address
+  override def readAddress()  = bus.address
   override def writeAddress() = bus.address
 
   override def busDataWidth: Int   = bus.writeData.getWidth

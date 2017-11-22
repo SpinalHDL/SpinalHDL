@@ -23,7 +23,7 @@ package spinal.lib.bus.simple
 import spinal.core._
 import spinal.lib.bus.misc._
 
-
+/*
 class SimpleBusFactory(bus: SimpleBus, incAddress: Int = 0) extends BusSlaveFactoryDelayed {
 
   override def readHalt  = bus.cmd.ready := False
@@ -43,8 +43,8 @@ class SimpleBusFactory(bus: SimpleBus, incAddress: Int = 0) extends BusSlaveFact
     val doRead   = bus.cmd.valid & !bus.cmd.write & bus.rsp.valid
 
 
-   // val readValue  = Bits(bus.config.dataWidth  bits)
-    bus.rsp.data  := 0 // RegNext(readValue)
+    val readValue  = B(0, bus.config.dataWidth  bits)
+    bus.rsp.data  := RegNext(readValue)
     bus.rsp.valid := RegNext(bus.cmd.fire) init(False)
     bus.cmd.ready := True
 
@@ -55,7 +55,7 @@ class SimpleBusFactory(bus: SimpleBus, incAddress: Int = 0) extends BusSlaveFact
       doWrite   = doWrite,
       doRead    = doRead,
       writeData = bus.cmd.data,
-      readData  = bus.rsp.data // readValue
+      readData  = readValue
     )
 
     switch(bus.cmd.address) {
@@ -73,3 +73,4 @@ class SimpleBusFactory(bus: SimpleBus, incAddress: Int = 0) extends BusSlaveFact
     }
   }
 }
+*/
