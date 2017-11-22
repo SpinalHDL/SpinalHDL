@@ -23,7 +23,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
   readRsp.setOKAY()
   readRsp.data := 0
 
-  def readAdress() : UInt = readDataStage.addr
+  def readAddress() : UInt = readDataStage.addr
   def writeAddress() : UInt = bus.writeCmd.addr
 
   override def readHalt(): Unit = readHaltRequest := True

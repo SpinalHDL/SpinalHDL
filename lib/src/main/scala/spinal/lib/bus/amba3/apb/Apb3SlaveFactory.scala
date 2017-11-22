@@ -18,7 +18,7 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int) extends BusSlaveFactoryDelayed{
   val doRead  = bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE
 
 
-  def readAdress() : UInt = bus.PADDR
+  def readAddress() : UInt = bus.PADDR
   def writeAddress() : UInt = bus.PADDR
 
   override def readHalt(): Unit = bus.PREADY := False
