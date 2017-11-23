@@ -176,6 +176,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node
   })
 
+  override def resize(width: BitCount) = resize(width.value)
+
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 

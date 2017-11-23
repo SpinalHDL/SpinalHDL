@@ -895,7 +895,7 @@ end
     def onEachExpression(e: Expression): Unit = {
       e match {
         case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize if node.size < node.input.getWidth => applyTo(node.input)
+        case node: Resize => applyTo(node.input)
         case _               =>
       }
     }

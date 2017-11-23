@@ -184,6 +184,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node
   })
 
+  override def resize(width: BitCount) = resize(width.value)
+
   override def resizeFactory: Resize = new ResizeBits
 
   /**
