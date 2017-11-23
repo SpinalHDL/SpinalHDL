@@ -39,7 +39,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   readAtCmd.valid := bus.read
   readAtCmd.payload := 0
 
-  def readAdress() : UInt = bus.address
+  def readAddress() : UInt = bus.address
   def writeAddress() : UInt = bus.address
 
   override def readHalt(): Unit = bus.waitRequestn := False

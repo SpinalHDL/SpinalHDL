@@ -5,7 +5,8 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryConfig}
+import spinal.lib.bus.misc._
+import spinal.lib.bus.simple._
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1244,4 +1245,3 @@ object PlayNetlistFileName{
     ).generate(new FakeNetlist)
   }
 }
-
