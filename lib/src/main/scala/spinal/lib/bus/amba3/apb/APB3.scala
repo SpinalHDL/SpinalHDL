@@ -1,55 +1,84 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.bus.amba3.apb
 
 import spinal.core._
 import spinal.lib._
 
+
 case class Apb3Config(
-  addressWidth: Int,
-  dataWidth: Int,
-  selWidth : Int = 1,
+  addressWidth  : Int,
+  dataWidth     : Int,
+  selWidth      : Int = 1,
   useSlaveError : Boolean = true
 )
 
+
 object Apb3{
-  def apply( addressWidth: Int,
-             dataWidth: Int) = {
-    new Apb3(
-      Apb3Config(
-        addressWidth = addressWidth,
-        dataWidth = dataWidth
-      )
-    )
-  }
+
+  def apply(addressWidth: Int, dataWidth: Int) = new Apb3(Apb3Config(addressWidth = addressWidth, dataWidth = dataWidth))
 }
 
+
+/**
+  * AMBA 3 APB Protocol interface
+  */
 case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
-  val PADDR      = UInt(config.addressWidth bit)
+
+  val PADDR      = UInt(config.addressWidth bits)
   val PSEL       = Bits(config.selWidth bits)
   val PENABLE    = Bool
   val PREADY     = Bool
   val PWRITE     = Bool 
-  val PWDATA     = Bits(config.dataWidth bit)
-  val PRDATA     = Bits(config.dataWidth bit)
+  val PWDATA     = Bits(config.dataWidth bits)
+  val PRDATA     = Bits(config.dataWidth bits)
   val PSLVERROR  = if(config.useSlaveError) Bool else null
+
   override def asMaster(): Unit = {
-    out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
-    in(PREADY,PRDATA)
+    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
+    in(PREADY, PRDATA)
     if(config.useSlaveError) in(PSLVERROR)
   }
 
-  def << (sink : Apb3) : Unit = sink >> this
-  def >> (sink : Apb3): Unit ={
-    assert(this.config.addressWidth >= sink.config.addressWidth)
-    assert(this.config.selWidth == sink.config.selWidth)
+  def << (sink: Apb3): Unit = sink >> this
 
-    sink.PADDR := this.PADDR.resized
-    sink.PSEL := this.PSEL
+  def >> (sink: Apb3): Unit = {
+    assert(this.config.addressWidth >= sink.config.addressWidth, "APB3 mismatch width address")
+    assert(this.config.selWidth == sink.config.selWidth, "APB3 mismatch sel width")
+
+    sink.PADDR   := this.PADDR.resized
+    sink.PSEL    := this.PSEL
     sink.PENABLE := this.PENABLE
-    this.PREADY := sink.PREADY
-    sink.PWRITE := this.PWRITE
-    sink.PWDATA := this.PWDATA
-    this.PRDATA := sink.PRDATA
-    if(PSLVERROR != null)
-      this.PSLVERROR := (if(sink.PSLVERROR != null) sink.PSLVERROR else False)
+    this.PREADY  := sink.PREADY
+    sink.PWRITE  := this.PWRITE
+    sink.PWDATA  := this.PWDATA
+    this.PRDATA  := sink.PRDATA
+
+    if(PSLVERROR != null) {
+      this.PSLVERROR := (if (sink.PSLVERROR != null) sink.PSLVERROR else False)
+    }
   }
 }
