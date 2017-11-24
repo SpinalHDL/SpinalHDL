@@ -112,7 +112,9 @@ case class Axi4SharedToApb3Bridge(addressWidth: Int, dataWidth: Int, idWidth: In
         }
       }otherwise {
         io.axi.readRsp.valid := True
-        phase := SETUP
+        when(io.axi.readRsp.ready){
+          phase := SETUP
+        }
       }
     }
   }
