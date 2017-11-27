@@ -680,7 +680,7 @@ object PlayDevAnalog4{
   }
   def main(args: Array[String]) {
     SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
-    SpinalVhdl(InOutWrapper(new Toplevel))
+//    SpinalVhdl(InOutWrapper(new Toplevel))
     print("done")
   }
 }
@@ -827,14 +827,34 @@ object PlayDevDefault{
 
 object PlayDevMessages{
 
+  class RGB(width : Int) extends Bundle{
+    val r,g,b = UInt(width bits)
+  }
+
   class TopLevel extends Component {
-    val a = UInt(8 bits)
-    val b = UInt(2 bits)
-    b := a >> 1
+    val myUIntOf_8bit = UInt(8 bits)
+    myUIntOf_8bit := (2 -> false, default -> true)
   }
 
   def main(args: Array[String]) {
     SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+object PlayDevSynthesis{
+
+
+
+  class TopLevel extends Component {
+    val inputs = in(Vec(Bool, 16))
+    val sel = in(UInt(4 bits))
+    val output = out(inputs(sel))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVerilog(new TopLevel())
     print("done")
   }
 }
