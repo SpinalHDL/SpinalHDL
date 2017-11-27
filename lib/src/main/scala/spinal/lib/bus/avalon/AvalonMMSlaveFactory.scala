@@ -28,10 +28,10 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   val readAtCmd = Flow(Bits(bus.config.dataWidth bits))
   val readAtRsp = readAtCmd.stage()
 
-  def askWrite =bus.write
-  def askRead = !bus.read
-  val doWrite = bus.waitRequestn &&  bus.write
-  val doRead  = bus.waitRequestn && !bus.read
+  val askWrite = (bus.write).allowPruning()
+  val askRead  = (!bus.read).allowPruning()
+  val doWrite  = (bus.waitRequestn &&  bus.write).allowPruning()
+  val doRead   = (bus.waitRequestn && !bus.read).allowPruning()
 
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload
