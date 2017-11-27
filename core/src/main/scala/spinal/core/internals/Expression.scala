@@ -1683,6 +1683,8 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
     offset = func(offset).asInstanceOf[Expression with WidthProvider]
   }
 
+
+  override def toString(): String = s"${out.toString()}[$offset over $bitCount bits]"
   override def opName: String = "x(hi:lo) <="
 
   //  override def normalizeInputs: Unit = {

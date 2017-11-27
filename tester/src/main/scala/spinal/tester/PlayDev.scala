@@ -564,19 +564,17 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-//    val vec = out(Vec(Reg(Bits(32 bits)), 4))
-//    val sel = in(UInt(2 bits))
-//
-//    vec(sel) := 0
 
-    val a,b = out(Bits(32 bits))
-    val x = B(0).resized
-    a := x
-    b := x
+    val reg = Reg(Bits(32 bits))
+    val sel = in UInt(2 bits)
+    reg := 0
+//    reg(12 downto 1)(9 downto 2) := B"x00"
+    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
+//    reg(16 downto 4)(5) := True
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig().generateVhdl(new TopLevel())
+    val toplevel = SpinalConfig(debug  = true).generateVhdl(new TopLevel())
     print("done")
   }
 }
