@@ -37,10 +37,10 @@ class AsyncMemoryBusFactory(bus: AsyncMemoryBus, incAddress: Int = 0) extends Bu
 
   def build(): Unit = {
 
-    val askWrite = bus.valid & !bus.rwn
-    val doWrite  = bus.valid & !bus.rwn & bus.ready
-    val askRead  = bus.valid & bus.rwn
-    val doRead   = bus.valid & bus.rwn & bus.ready
+    val askWrite = (bus.valid & !bus.rwn).allowPruning()
+    val doWrite  = (bus.valid & !bus.rwn & bus.ready).allowPruning()
+    val askRead  = (bus.valid & bus.rwn).allowPruning()
+    val doRead   = (bus.valid & bus.rwn & bus.ready).allowPruning()
 
     bus.readData := 0
     bus.ready := True
