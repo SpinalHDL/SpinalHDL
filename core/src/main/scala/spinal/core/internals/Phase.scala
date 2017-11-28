@@ -1572,13 +1572,13 @@ class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
         val newIO = Bits(io.getWidth bits)
 
         newIO.setName(io.getName())
-        io.setName(s"s_${io.getName()}")
+        io.unsetName()
 
-        io.isInput match{
-          case true  =>
+        io.dir match {
+          case `in`  =>
             in(newIO)
             io.assignFromBits(newIO)
-          case false =>
+          case `out` =>
             out(newIO)
             newIO := B(io)
         }
@@ -1586,7 +1586,7 @@ class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
         io.asDirectionLess().allowDirectionLessIo
       }
 
-      val ioList = pc.topLevel.getAllIo.clone()
+      val ioList = pc.topLevel.getAllIo.toArray
 
       ioList.foreach {
         case io: UInt if io.isInput | io.isOutput => wrapIO(io)
