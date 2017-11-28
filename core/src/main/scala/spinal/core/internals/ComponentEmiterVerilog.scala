@@ -269,8 +269,7 @@ class ComponentEmiterVerilog(
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
-    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")})\n"
-    b ++= s"${tabStr}begin\n"
+    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")}) begin\n"
 
     inc
 
@@ -354,8 +353,8 @@ class ComponentEmiterVerilog(
         emitLeafStatements(process.leafStatements, 0, process.scope, "=", tmp, "    ")
 
         if (referenceSetSorted().nonEmpty) {
-          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
-          logics ++= "  begin\n"
+//          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
+          logics ++= s"  always @ (*) begin\n"
           logics ++= tmp.toString()
           logics ++= "  end\n\n"
         } else {
@@ -382,7 +381,8 @@ class ComponentEmiterVerilog(
               val name = component.localNamingScope.allocateName(anonymSignalPrefix)
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
-              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
+//              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
+              logics ++= s"  always @ (*) ${emitReference(node, false)} = $name;\n"
           }
         }
     }
@@ -807,7 +807,8 @@ end
             symboleReadDataName
           }
 
-          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+//          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+          logics ++= s"  always @ (*) begin\n"
           logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
           logics ++= s"  end\n"
         }
