@@ -1561,6 +1561,43 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
+class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
+
+  override def impl(pc: PhaseContext): Unit = {
+
+    pc.topLevel.rework {
+
+      def wrapIO[T <: BitVector](io: T): Unit = {
+
+        val newIO = Bits(io.getWidth bits)
+
+        newIO.setName(io.getName())
+        io.setName(s"s_${io.getName()}")
+
+        io.isInput match{
+          case true  =>
+            in(newIO)
+            io.assignFromBits(newIO)
+          case false =>
+            out(newIO)
+            newIO := B(io)
+        }
+
+        io.asDirectionLess().allowDirectionLessIo
+      }
+
+      val ioList = pc.topLevel.getAllIo.clone()
+
+      ioList.foreach {
+        case io: UInt if io.isInput | io.isOutput => wrapIO(io)
+        case io: SInt if io.isInput | io.isOutput => wrapIO(io)
+        case _ =>
+      }
+
+    }
+  }
+}
+
 //class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetlist{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1666,6 +1703,9 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
+    if(config.onlyStdLogicVectorAtTopLevelIo){
+      phases += new PhaseStdLogicVectorAtTopLevelIo()
+    }
     phases += new PhaseApplyIoDefault(pc)
 
     phases += new PhaseNameNodesByReflection(pc)
