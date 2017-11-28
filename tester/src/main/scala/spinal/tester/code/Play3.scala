@@ -1224,7 +1224,10 @@ object PlayWithMuxListDefault{
   }
 
   def main(args: Array[String]): Unit ={
-    SpinalVhdl(new TopLevel)
+    SpinalConfig(
+      mode = VHDL,
+      onlyStdLogicVectorAtTopLevelIo =  true
+    ).generate(new TopLevel)
   }
 }
 
