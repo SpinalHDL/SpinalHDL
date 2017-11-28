@@ -257,17 +257,19 @@ class ComponentEmiterVerilog(
 
     referenceSetAdd(emitClockEdge(emitReference(clock,false),clockDomain.config.clockEdge))
 
+
     if(withReset) {
-      if(!asyncResetCombSensitivity) referenceSetPause()
+      val initSensitivity = asyncResetCombSensitivity && asyncReset
+      if(!initSensitivity) referenceSetPause()
       emitRegsInitialValue("      ", initialStatlementsGeneration)
-      if(!asyncResetCombSensitivity) referenceSetResume()
+      if(!initSensitivity) referenceSetResume()
     }
 
     if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
-    b ++= s"${tabStr}always @ (${referehceSetSorted().mkString(" or ")})\n"
+    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")})\n"
     b ++= s"${tabStr}begin\n"
 
     inc
@@ -351,8 +353,8 @@ class ComponentEmiterVerilog(
         referenceSetStart()
         emitLeafStatements(process.leafStatements, 0, process.scope, "=", tmp, "    ")
 
-        if (referehceSetSorted().nonEmpty) {
-          logics ++= s"  always @ (${referehceSetSorted().mkString(" or ")})\n"
+        if (referenceSetSorted().nonEmpty) {
+          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
           logics ++= "  begin\n"
           logics ++= tmp.toString()
           logics ++= "  end\n\n"
@@ -571,7 +573,7 @@ class ComponentEmiterVerilog(
     }
   }
 
-  def referehceSetSorted() = _referenceSet
+  def referenceSetSorted() = _referenceSet
 
   var _referenceSetEnabled = false
   val _referenceSet        = mutable.LinkedHashSet[String]()

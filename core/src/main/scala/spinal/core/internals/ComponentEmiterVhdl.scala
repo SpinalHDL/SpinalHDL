@@ -32,6 +32,7 @@ class ComponentEmiterVhdl(
   vhdlBase                           : VhdlBase,
   override val algoIdIncrementalBase : Int,
   override val mergeAsyncProcess     : Boolean,
+  asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component]
 ) extends ComponentEmiter{
@@ -291,7 +292,14 @@ class ComponentEmiterVhdl(
 
     referenceSetStart()
 
-    if (withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
+    if (withReset) {
+      val initSensitivity = asyncResetCombSensitivity && asyncReset
+      if(!initSensitivity) referenceSetPause()
+      emitRegsInitialValue("      ", initialStatlementsGeneration)
+      if(!initSensitivity) referenceSetResume()
+    }
+
+
 
     referenceSetAdd(emitReference(clock, false))
 
@@ -299,7 +307,7 @@ class ComponentEmiterVhdl(
       referenceSetAdd(emitReference(reset, false))
     }
 
-    b ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
+    b ++= s"${tabStr}process(${referenceSetSorted.mkString(", ")})\n"
     b ++= s"${tabStr}begin\n"
     inc
 
@@ -385,8 +393,8 @@ class ComponentEmiterVhdl(
 
         emitLeafStatements(process.leafStatements, 0, process.scope, "<=", tmp, "    ")
 
-        if (referehceSetSorted.nonEmpty) {
-          logics ++= s"  process(${referehceSetSorted.mkString(",")})\n"
+        if (referenceSetSorted.nonEmpty) {
+          logics ++= s"  process(${referenceSetSorted.mkString(",")})\n"
           logics ++= "  begin\n"
           logics ++= tmp.toString()
           logics ++= "  end process;\n\n"
@@ -580,13 +588,21 @@ class ComponentEmiterVhdl(
     _referenceSet.clear()
   }
 
+  def referenceSetPause(): Unit ={
+    _referenceSetEnabled = false
+  }
+
+  def referenceSetResume(): Unit ={
+    _referenceSetEnabled = true
+  }
+
   def referenceSetAdd(str : String): Unit ={
     if(_referenceSetEnabled) {
       _referenceSet.add(str)
     }
   }
 
-  def referehceSetSorted() = _referenceSet
+  def referenceSetSorted() = _referenceSet
 
   var _referenceSetEnabled = false
   val _referenceSet        = mutable.LinkedHashSet[String]()

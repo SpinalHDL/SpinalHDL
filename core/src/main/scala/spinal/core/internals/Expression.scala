@@ -341,7 +341,10 @@ object Operator{
 
     trait ShiftOperator
     abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-      assert(shift >= 0)
+      if(shift < 0) {
+        val trace = ScalaLocated.long
+        PendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at\n${trace}")
+      }
       override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
@@ -354,7 +357,10 @@ object Operator{
     }
 
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-      assert(shift >= 0)
+      if(shift < 0) {
+        val trace = ScalaLocated.long
+        PendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at\n${trace}")
+      }
       override def calcWidth(): Int = source.getWidth + shift
       def getLiteralFactory : (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {

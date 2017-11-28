@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+
 import spinal.core.internals._
 
 import java.text.SimpleDateFormat
@@ -28,6 +29,9 @@ import java.util.Date
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+
+//TODO
+// ?
 
 trait SpinalMode
 object VHDL    extends SpinalMode

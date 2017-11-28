@@ -564,17 +564,30 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
+    val x = U"0000000" >> -1
+//    case class MyReg() extends Bundle {
+//      val reg = UInt(32 bits)
+//
+//      def byteCount = reg(12 downto 0)
+//    }
+//
+//
+//    val reg = Reg(MyReg())
+//
+//
+//    reg.byteCount(7 downto 0).assignFromBits(B"x42")
 
-    val reg = Reg(Bits(32 bits))
-    val sel = in UInt(2 bits)
-    reg := 0
-//    reg(12 downto 1)(9 downto 2) := B"x00"
-    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
-//    reg(16 downto 4)(5) := True
+//
+//    val reg = Reg(Bits(32 bits))
+//    val sel = in UInt(2 bits)
+//    reg := 0
+////    reg(12 downto 1)(9 downto 2) := B"x00"
+//    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
+////    reg(16 downto 4)(5) := True
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(debug  = true).generateVhdl(new TopLevel())
+    val toplevel = SpinalConfig(debug  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
     print("done")
   }
 }
