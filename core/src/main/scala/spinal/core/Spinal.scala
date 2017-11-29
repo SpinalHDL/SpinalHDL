@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 //TODO
-// ?
+// - Left  operand : UInt -> SInt
 
 trait SpinalMode
 object VHDL    extends SpinalMode

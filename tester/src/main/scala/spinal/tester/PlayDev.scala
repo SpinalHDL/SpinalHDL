@@ -564,7 +564,13 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-    val x = U"0000000" >> -1
+    val x = UInt(8 bits)
+    val y = SInt(6 bits)
+    y := x.asSInt
+//    val outputs = Vec(Vec(out(Reg(Bool)),3), 2)
+//
+//    outputs.foreach(_.foreach(_ := False))
+//    val x = U"0000000" >> -1
 //    case class MyReg() extends Bundle {
 //      val reg = UInt(32 bits)
 //

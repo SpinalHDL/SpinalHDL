@@ -45,29 +45,32 @@ trait VecFactory {
     }
   }
 
-  def Vec[T <: Data](gen: => T, size: Int): Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
 
-  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
+//  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
 
-  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
+//  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
 
   @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = Vec.fill(size)(gen)
 
   @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = Vec.tabulate(size)(gen)
 
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
-  def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
-    Vec((0 until size).map(gen(_)))
-  }
+  class VecBuilder{
+    def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
+      Vec((0 until size).map(gen(_)))
+    }
 
-  def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
-    tabulate(size)(_ => gen)
+    def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
+      tabulate(size)(_ => gen)
+    }
   }
+  val Vec = new VecBuilder()
 }
 
 

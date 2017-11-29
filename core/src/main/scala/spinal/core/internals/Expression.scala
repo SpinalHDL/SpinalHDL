@@ -803,6 +803,8 @@ abstract class Cast extends Modifier {
 abstract class CastBitVectorToBitVector extends Cast with Widthable{
   override type T <: Expression with WidthProvider
   override private[core] def calcWidth: Int = input.getWidth
+
+  override def toString = s"($opName of $getWidth bits)"
 }
 
 class CastSIntToBits extends CastBitVectorToBitVector{
