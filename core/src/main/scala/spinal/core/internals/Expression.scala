@@ -208,9 +208,22 @@ object InferWidth{
     }
   }
 
-  def notResizableElseMax(op : MultiplexedWidthable) : Int = {
+  def notResizableElseMax(op : MultiplexerWidthable) : Int = {
     var resizableMax, notResizableMax = -1
     op.inputs.foreach{
+      case e if canBeResized(e) => resizableMax = Math.max(resizableMax, e.getWidth)
+      case e => notResizableMax = Math.max(notResizableMax, e.getWidth)
+    }
+    if(notResizableMax != -1)
+      notResizableMax
+    else
+      resizableMax
+  }
+
+
+  def notResizableElseMax(op : BinaryMultiplexerWidthable) : Int = {
+    var resizableMax, notResizableMax = -1
+    List(op.whenTrue, op.whenFalse).foreach{
       case e if canBeResized(e) => resizableMax = Math.max(resizableMax, e.getWidth)
       case e => notResizableMax = Math.max(notResizableMax, e.getWidth)
     }
@@ -893,18 +906,20 @@ abstract class Multiplexer extends Modifier {
   }
 }
 
-abstract class MultiplexedWidthable extends Multiplexer with Widthable{
+abstract class MultiplexerWidthable extends Multiplexer with Widthable{
   override type T = Expression with WidthProvider
   override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+
+  override def toString = super.toString + s"[$getWidth bits]"
 }
 
 class MultiplexerBool extends Multiplexer{
   override def getTypeObject: Any = TypeBool
-  override def opName: String = "mux(U,B,B)"
+  override def opName: String = "mux of Bool"
 }
-class MultiplexerBits extends MultiplexedWidthable {
+class MultiplexerBits extends MultiplexerWidthable {
   override def getTypeObject: Any = TypeBits
-  override def opName: String = "mux(U,b,b)"
+  override def opName: String = s"mux of Bits"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     var idx = inputs.length
@@ -917,9 +932,9 @@ class MultiplexerBits extends MultiplexedWidthable {
     }
   }
 }
-class MultiplexerUInt extends MultiplexedWidthable{
+class MultiplexerUInt extends MultiplexerWidthable{
   override def getTypeObject: Any = TypeUInt
-  override def opName: String = "mux(U,u,u)"
+  override def opName: String = s"mux of UInt"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     var idx = inputs.length
@@ -932,9 +947,9 @@ class MultiplexerUInt extends MultiplexedWidthable{
     }
   }
 }
-class MultiplexerSInt extends MultiplexedWidthable{
+class MultiplexerSInt extends MultiplexerWidthable{
   override def getTypeObject: Any = TypeSInt
-  override def opName: String = "mux(U,s,s)"
+  override def opName: String = s"mux of SInt"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     var idx = inputs.length
@@ -950,7 +965,77 @@ class MultiplexerSInt extends MultiplexedWidthable{
 
 class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
   override type T = Expression with EnumEncoded
-  override def opName: String = "mux(U,e,e)"
+  override def opName: String = s"mux of Enum"
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
+  }
+  override def getTypeObject: Any = TypeEnum
+}
+
+
+
+
+
+
+abstract class BinaryMultiplexer extends Modifier {
+  type T <: Expression
+  var cond      : Expression = null
+  var whenTrue  : T = null.asInstanceOf[T]
+  var whenFalse : T = null.asInstanceOf[T]
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    cond = func(cond)
+    whenTrue = func(whenTrue).asInstanceOf[T]
+    whenFalse = func(whenFalse).asInstanceOf[T]
+  }
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(cond)
+    func(whenTrue)
+    func(whenFalse)
+  }
+}
+
+abstract class BinaryMultiplexerWidthable extends BinaryMultiplexer with Widthable{
+  override type T = Expression with WidthProvider
+  override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+}
+
+class BinaryMultiplexerBool extends BinaryMultiplexer{
+  override def getTypeObject: Any = TypeBool
+  override def opName: String = "Bool ? Bool | Bool"
+}
+class BinaryMultiplexerBits extends BinaryMultiplexerWidthable {
+  override def getTypeObject: Any = TypeBits
+  override def opName: String =  "Bool ? Bits | Bits"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resizedOrUnfixedLit(whenTrue, targetWidth, new ResizeBits, this, this)
+    whenFalse = InputNormalize.resizedOrUnfixedLit(whenFalse, targetWidth, new ResizeBits, this, this)
+  }
+}
+class BinaryMultiplexerUInt extends BinaryMultiplexerWidthable{
+  override def getTypeObject: Any = TypeUInt
+  override def opName: String = "Bool ? UInt | UInt"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeUInt)
+    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeUInt)
+  }
+}
+class BinaryMultiplexerSInt extends BinaryMultiplexerWidthable{
+  override def getTypeObject: Any = TypeSInt
+  override def opName: String = "Bool ? Bits | Bits"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeSInt)
+    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeSInt)
+  }
+}
+class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl{
+  override type T = Expression with EnumEncoded
+  override def opName: String = "Bool ? Bits | Bits"
   override def getDefinition: SpinalEnum = enumDef
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
@@ -966,10 +1051,9 @@ class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEn
 
 private[spinal] object Multiplex {
 
-  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
-    whenTrue.newMultiplexer(sel.asUInt, ArrayBuffer(whenFalse, whenTrue))
+  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): BinaryMultiplexer = {
+    whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
   }
-
 
   def complexData[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     val outType = if (whenTrue.getClass.isAssignableFrom(whenFalse.getClass)) whenTrue

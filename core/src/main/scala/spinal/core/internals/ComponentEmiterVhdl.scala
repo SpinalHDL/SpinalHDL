@@ -1051,9 +1051,9 @@ class ComponentEmiterVhdl(
     s"$vhd(${emitExpression(e.left)},${emitExpression(e.right)})"
   }
 
-//  def muxImplAsFunction(vhd: String)(e: Multiplexer): String = {
-//    s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
-//  }
+  def muxImplAsFunction(vhd: String)(e: BinaryMultiplexer): String = {
+    s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
+  }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
     s"pkg_shiftRight(${emitExpression(e.source)},${e.shift})"
@@ -1296,7 +1296,7 @@ class ComponentEmiterVhdl(
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
 
-//    case  e: Multiplexer                             => muxImplAsFunction("pkg_mux")(e)
+    case  e: BinaryMultiplexer                       => muxImplAsFunction("pkg_mux")(e)
 
     case  e: BitVectorBitAccessFixed                 => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating              => accessBoolFloating(e)

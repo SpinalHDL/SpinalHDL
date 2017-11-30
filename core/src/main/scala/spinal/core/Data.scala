@@ -321,6 +321,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
+  def removeAssignments(): this.type = {
+    flatten.foreach(_.removeStatement())
+    this
+  }
+
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
 

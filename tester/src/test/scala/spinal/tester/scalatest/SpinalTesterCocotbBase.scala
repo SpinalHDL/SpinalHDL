@@ -17,7 +17,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   var cocotbMustPass = true
   var genHdlSuccess = false
   var waveDepth = 99
-  def noVhdl = true
+  def noVhdl = false
   def noVerilog = false
 
   def genVhdl: Unit ={

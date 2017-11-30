@@ -170,6 +170,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerUInt
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerUInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeUInt

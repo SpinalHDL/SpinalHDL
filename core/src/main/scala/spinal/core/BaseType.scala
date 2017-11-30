@@ -117,7 +117,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
   /** Remove all assignements of the base type */
-  def removeAssignments(): this.type = {
+  override def removeAssignments(): this.type = {
     foreachStatements(s => {
       s.removeStatement()
     })
@@ -224,6 +224,20 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     mux.inputs  = inputs.asInstanceOf[ArrayBuffer[mux.T]]
     mux
   }
+
+  private[core] def newBinaryMultiplexerExpression() : BinaryMultiplexer
+  /** Base fucntion to create mux */
+  private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): BinaryMultiplexer = newMultiplexer(sel,whenTrue, whenFalse, newBinaryMultiplexerExpression())
+
+  /** Create a multiplexer */
+  final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: BinaryMultiplexer): BinaryMultiplexer = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
+    mux.whenFalse = whenFalse.asInstanceOf[mux.T]
+    mux
+  }
+
+
 
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
     val typeNode = weakClone.setAsTypeNode()

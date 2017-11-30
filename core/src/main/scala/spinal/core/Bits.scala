@@ -176,6 +176,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerBits
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBits
 
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits

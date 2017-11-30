@@ -978,9 +978,9 @@ end
     s"($verilog ${emitExpression(e.source)})"
   }
 
-//  def operatorImplAsMux(e: Multiplexer): String = {
-//    s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
-//  }
+  def operatorImplAsMux(e: BinaryMultiplexer): String = {
+    s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
+  }
 
   def shiftRightSignedByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
     s"($$signed(${emitExpression(e.source)}) >>> ${e.shift})"
@@ -1187,7 +1187,7 @@ end
     case  e: ResizeUInt                               => operatorImplResize(e)
     case  e: ResizeBits                               => operatorImplResize(e)
 
-//    case  e: Multiplexer                              => operatorImplAsMux(e)
+    case  e: BinaryMultiplexer                        => operatorImplAsMux(e)
 
     case  e: BitVectorBitAccessFixed                  => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating               => accessBoolFloating(e)

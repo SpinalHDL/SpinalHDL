@@ -175,6 +175,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerSInt
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerSInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt
