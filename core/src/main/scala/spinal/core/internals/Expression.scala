@@ -873,11 +873,11 @@ class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodi
 
 abstract class Multiplexer extends Modifier {
   type T <: Expression
-  var select  : Expression  with Widthable = null
+  var select  : Expression  with WidthProvider = null
   var inputs  : ArrayBuffer[T] = null.asInstanceOf[ArrayBuffer[T]]
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    select = func(select).asInstanceOf[Expression  with Widthable]
+    select = func(select).asInstanceOf[Expression  with WidthProvider]
     var idx = inputs.length
     while(idx != 0){
       idx -= 1

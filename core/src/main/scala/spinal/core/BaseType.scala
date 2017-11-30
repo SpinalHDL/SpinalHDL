@@ -215,11 +215,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   private[core] def newMultiplexerExpression() : Multiplexer
   /** Base fucntion to create mux */
-  private[core] def newMultiplexer[T <: Expression](select: UInt with Widthable, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
+  private[core] def newMultiplexer[T <: Expression](select: UInt, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
 
 
   /** Create a multiplexer */
-  final private[core] def newMultiplexer[T <: Expression](select: Expression with Widthable, inputs : ArrayBuffer[T], mux: Multiplexer): Multiplexer = {
+  final private[core] def newMultiplexer[T <: Expression](select: Expression with WidthProvider, inputs : ArrayBuffer[T], mux: Multiplexer): Multiplexer = {
     mux.select    = select
     mux.inputs  = inputs.asInstanceOf[ArrayBuffer[mux.T]]
     mux
