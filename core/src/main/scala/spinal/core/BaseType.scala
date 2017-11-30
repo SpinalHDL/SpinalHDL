@@ -22,6 +22,8 @@ package spinal.core
 
 import spinal.core.internals._
 
+import scala.collection.mutable.ArrayBuffer
+
 trait TypeFactory{
   def postTypeFactory[T <: Data](that: T) = that
 }
@@ -210,14 +212,16 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     res
   }
 
+
+  private[core] def newMultiplexerExpression() : Multiplexer
   /** Base fucntion to create mux */
-  private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer
+  private[core] def newMultiplexer[T <: Expression](select: UInt with Widthable, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
+
 
   /** Create a multiplexer */
-  final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
-    mux.cond      = cond
-    mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
-    mux.whenFalse = whenFalse.asInstanceOf[mux.T]
+  final private[core] def newMultiplexer[T <: Expression](select: Expression with Widthable, inputs : ArrayBuffer[T], mux: Multiplexer): Multiplexer = {
+    mux.select    = select
+    mux.inputs  = inputs.asInstanceOf[ArrayBuffer[mux.T]]
     mux
   }
 

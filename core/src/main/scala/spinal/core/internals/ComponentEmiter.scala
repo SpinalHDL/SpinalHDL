@@ -62,6 +62,7 @@ abstract class ComponentEmiter {
   val processes  = mutable.LinkedHashSet[AsyncProcess]()
   val analogs    = ArrayBuffer[BaseType]()
   val mems       = ArrayBuffer[Mem[_]]()
+  val multiplexersPerSelect = mutable.LinkedHashMap[(Expression with Widthable,Int), ArrayBuffer[Multiplexer]]()
 
   val expressionToWrap   = mutable.LinkedHashSet[Expression]()
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
@@ -290,6 +291,15 @@ abstract class ComponentEmiter {
         }
       }
     }
+
+    //Fill multiplexersPerSelect
+    component.dslBody.walkStatements(s => {
+      s.walkDrivingExpressions{
+        case e : Multiplexer =>
+          multiplexersPerSelect.getOrElseUpdate((e.select, e.inputs.length), new ArrayBuffer[Multiplexer]) += e
+        case _ =>
+      }
+    })
 
     //Get all component outputs which are read internaly
     //And also fill some expressionToWrap from switch(xx)

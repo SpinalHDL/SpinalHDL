@@ -98,17 +98,14 @@ class ComponentEmiterVerilog(
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadAsync =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadWrite =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemWrite    =>
         }
       })
@@ -121,6 +118,16 @@ class ComponentEmiterVerilog(
       referencesOverrides(output) = name
     }
 
+    for((select, muxes) <- multiplexersPerSelect){
+      expressionToWrap += select._1
+      for(mux <- muxes) {
+        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+        declarations ++= s"  reg ${emitType(mux)} $name;\n"
+        wrappedExpressionToName(mux) = name
+        //        expressionToWrap ++= mux.inputs
+      }
+    }
+
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= emitExpressionWrap(io, name)
@@ -128,6 +135,7 @@ class ComponentEmiterVerilog(
     }))
 
     //Wrap expression which need it
+    expressionToWrap --= wrappedExpressionToName.keysIterator
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= emitExpressionWrap(e, name)
@@ -152,6 +160,7 @@ class ComponentEmiterVerilog(
     emitMems(mems)
     emitSubComponents(openSubIo)
     emitAnalogs()
+    emitMuxes()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -336,6 +345,27 @@ class ComponentEmiterVerilog(
       clockDomain          = group.clockDomain,
       withReset            = withReset
     )
+  }
+
+  def emitMuxes(): Unit ={
+    for(((select, length), muxes) <- multiplexersPerSelect){
+      logics ++= s"  always @(*) begin\n"
+      logics ++= s"    case(${emitExpression(select)})\n"
+      for(i <- 0 until length){
+        val key = Integer.toBinaryString(i)
+        if(i != length-1)
+          logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
+        else
+          logics ++= s"      default : begin\n"
+
+        for(mux <- muxes){
+          logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+        }
+        logics ++= s"      end\n"
+      }
+      logics ++= s"    endcase\n"
+      logics ++= s"  end\n\n"
+    }
   }
 
   def emitAsyncronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
@@ -948,9 +978,9 @@ end
     s"($verilog ${emitExpression(e.source)})"
   }
 
-  def operatorImplAsMux(e: Multiplexer): String = {
-    s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
-  }
+//  def operatorImplAsMux(e: Multiplexer): String = {
+//    s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
+//  }
 
   def shiftRightSignedByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
     s"($$signed(${emitExpression(e.source)}) >>> ${e.shift})"
@@ -1157,7 +1187,7 @@ end
     case  e: ResizeUInt                               => operatorImplResize(e)
     case  e: ResizeBits                               => operatorImplResize(e)
 
-    case  e: Multiplexer                              => operatorImplAsMux(e)
+//    case  e: Multiplexer                              => operatorImplAsMux(e)
 
     case  e: BitVectorBitAccessFixed                  => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating               => accessBoolFloating(e)

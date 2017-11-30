@@ -564,9 +564,14 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-    val x = UInt(8 bits)
-    val y = SInt(6 bits)
-    y := x.asSInt
+    val sel = in UInt(2 bits)
+    val inputsA = in Vec(Bool, 4)
+    val inputsB = in Vec(Bool, 4)
+    val outputA = out(inputsA(sel))
+    val outputB = out(inputsB(sel))
+//    val x = UInt(8 bits)
+//    val y = SInt(6 bits)
+//    y := x.asSInt
 //    val outputs = Vec(Vec(out(Reg(Bool)),3), 2)
 //
 //    outputs.foreach(_.foreach(_ := False))

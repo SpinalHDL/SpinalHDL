@@ -3,7 +3,7 @@ from cocotb.result import TestFailure
 from cocotb.triggers import Timer
 
 from cocotblib.misc import randSignal, truncUInt, sint, truncSInt
-
+import random
 
 def check(signal,bitCount,value):
     if len(signal) != bitCount or int(signal) != truncUInt(value, bitCount):
@@ -19,6 +19,12 @@ def notZero(x):
     else:
         return x
 
+def randSignalNotZero(that):
+    value = random.getrandbits(len(that))
+    if(value == 0):
+        value += 1
+    that <= value
+
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
@@ -31,9 +37,13 @@ def test1(dut):
     for i in range(0,2000):
         randSignal(dut.uint4)
         randSignal(dut.uint8)
+        randSignalNotZero(dut.uint4NotZero)
+        randSignalNotZero(dut.uint8NotZero)
         randSignal(dut.uint32)
         randSignal(dut.sint4)
         randSignal(dut.sint8)
+        randSignalNotZero(dut.sint4NotZero)
+        randSignalNotZero(dut.sint8NotZero)
         randSignal(dut.sint32)
         randSignal(dut.bits4)
         randSignal(dut.bits8)
@@ -54,6 +64,10 @@ def test1(dut):
         boolA = int(dut.boolA)
         boolB = int(dut.boolB)
         boolC = int(dut.boolC)
+        uint4NotZero =  int(dut.uint4NotZero)
+        uint8NotZero =  int(dut.uint8NotZero)
+        sint4NotZero = sint(dut.sint4NotZero)
+        sint8NotZero = sint(dut.sint8NotZero)
 
 
 
@@ -107,9 +121,9 @@ def test1(dut):
         check(dut.uintSbAdd, 8, uint4 + uint8)
         check(dut.uintSbSub, 8, uint4 - uint8)
         check(dut.uintSbMul, 12, uint4 * uint8)
-        if uint8 != 0:
-            check(dut.uintSbDiv, 4, uint4 / notZero(uint8))
-            check(dut.uintSbRem, 4, uint4 % notZero(uint8))
+        if uint8NotZero != 0:
+            check(dut.uintSbDiv, 4, uint4 / uint8NotZero)
+            check(dut.uintSbRem, 4, uint4 % uint8NotZero)
         check(dut.uintSbAnd, 8, uint4 & uint8)
         check(dut.uintSbOr , 8, uint4 | uint8)
         check(dut.uintSbXor, 8, uint4 ^ uint8)
@@ -128,9 +142,9 @@ def test1(dut):
         checkSigned(dut.sintSbAdd, 8, sint4 + sint8)
         checkSigned(dut.sintSbSub, 8, sint4 - sint8)
         checkSigned(dut.sintSbMul, 12, sint4 * sint8)
-        if sint8 != 0 and sint4 > 0 and sint8 > 0:
-            checkSigned(dut.sintSbDiv, 4,  int(sint4//notZero(sint8)))
-            checkSigned(dut.sintSbRem, 4,  int(sint4%notZero(sint8)))
+        if sint8NotZero != 0 and sint4 > 0 and sint8NotZero > 0:
+            checkSigned(dut.sintSbDiv, 4,  int(sint4//sint8NotZero))
+            checkSigned(dut.sintSbRem, 4,  int(sint4% sint8NotZero))
 
         checkSigned(dut.sintSbAnd, 8, sint4 & sint8)
         checkSigned(dut.sintSbOr, 8, sint4 | sint8)
@@ -164,9 +178,9 @@ def test1(dut):
         check(dut.uintBsAdd, 8, uint8 + uint4)
         check(dut.uintBsSub, 8, uint8 - uint4)
         check(dut.uintBsMul, 12, uint8 * uint4)
-        if uint4 != 0:
-            check(dut.uintBsDiv, 8, uint8 / notZero(uint4))
-            check(dut.uintBsRem, 8, uint8 % notZero(uint4))
+        if uint4NotZero != 0:
+            check(dut.uintBsDiv, 8, uint8 / uint4NotZero)
+            check(dut.uintBsRem, 8, uint8 % uint4NotZero)
         check(dut.uintBsAnd, 8, uint8 & uint4)
         check(dut.uintBsOr , 8, uint8 | uint4)
         check(dut.uintBsXor, 8, uint8 ^ uint4)
@@ -185,9 +199,9 @@ def test1(dut):
         checkSigned(dut.sintBsAdd, 8, sint8 + sint4)
         checkSigned(dut.sintBsSub, 8, sint8 - sint4)
         checkSigned(dut.sintBsMul, 12, sint8 * sint4)
-        if sint4 != 0 and sint8 > 0 and sint4 > 0:
-            checkSigned(dut.sintBsDiv, 8,  int(sint8//notZero(sint4)))
-            checkSigned(dut.sintBsRem, 8,  int(sint8%notZero(sint4)))
+        if sint4NotZero != 0 and sint8 > 0 and sint4NotZero > 0:
+            checkSigned(dut.sintBsDiv, 8,  int(sint8// sint4NotZero))
+            checkSigned(dut.sintBsRem, 8,  int(sint8%  sint4NotZero))
 
         checkSigned(dut.sintBsAnd, 8, sint8 & sint4)
         checkSigned(dut.sintBsOr, 8, sint8 | sint4)

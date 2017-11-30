@@ -22,6 +22,8 @@ package spinal.core
 
 import spinal.core.internals._
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * UInt factory used for instance by the IODirection to create a in/out UInt
   */
@@ -167,7 +169,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case _                    => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
+  private[core] override def newMultiplexerExpression() = new MultiplexerUInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeUInt

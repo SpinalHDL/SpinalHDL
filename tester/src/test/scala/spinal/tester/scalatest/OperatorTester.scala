@@ -39,10 +39,14 @@ object OperatorTester {
     val bits8 = in Bits(8 bits)
     val bits32 = in Bits(32 bits)
     val boolA,boolB,boolC = in Bool
+    val uint4NotZero = in UInt(4 bits)
+    val uint8NotZero = in UInt(8 bits)
+    val sint4NotZero = in SInt(4 bits)
+    val sint8NotZero = in SInt(8 bits)
 
 
-    def notZero(x : UInt) = ((x === 0) ? (x + 1) | x)
-    def notZero(x : SInt) = ((x === 0) ? (x + 1) | x)
+//    def notZero(x : UInt) = ((x === 0) ? (x + 1) | x)
+//    def notZero(x : SInt) = ((x === 0) ? (x + 1) | x)
 
 
     val boolMux = out(Mux(boolC,boolA,boolB))
@@ -92,8 +96,8 @@ object OperatorTester {
     val uintSbAdd = out(uint4 + uint8)
     val uintSbSub = out(uint4 - uint8)
     val uintSbMul = out(uint4 * uint8)
-    val uintSbDiv = out(uint4 / notZero(uint8))
-    val uintSbRem = out(uint4 % notZero(uint8))
+    val uintSbDiv = out(uint4 / uint8NotZero)
+    val uintSbRem = out(uint4 % uint8NotZero)
 
     val uintSbAnd = out(uint4.resized & uint8)
     val uintSbOr = out(uint4.resized  | uint8)
@@ -110,8 +114,8 @@ object OperatorTester {
     val sintSbAdd = out(sint4 + sint8)
     val sintSbSub = out(sint4 - sint8)
     val sintSbMul = out(sint4 * sint8)
-    val sintSbDiv = out(sint4 / notZero(sint8))
-    val sintSbRem = out(sint4 % notZero(sint8))
+    val sintSbDiv = out(sint4 / sint8NotZero)
+    val sintSbRem = out(sint4 % sint8NotZero)
 
     val sintSbAnd = out(sint4.resized & sint8)
     val sintSbOr = out(sint4.resized | sint8)
@@ -139,8 +143,8 @@ object OperatorTester {
     val uintBsAdd = out(uint8 + uint4)
     val uintBsSub = out(uint8 - uint4)
     val uintBsMul = out(uint8 * uint4)
-    val uintBsDiv = out(uint8 / notZero(uint4))
-    val uintBsRem = out(uint8 % notZero(uint4))
+    val uintBsDiv = out(uint8 / uint4NotZero)
+    val uintBsRem = out(uint8 % uint4NotZero)
 
     val uintBsAnd = out(uint8 & uint4.resized)
     val uintBsOr = out(uint8 | uint4.resized)
@@ -158,8 +162,8 @@ object OperatorTester {
     val sintBsAdd = out(sint8 + sint4)
     val sintBsSub = out(sint8 - sint4)
     val sintBsMul = out(sint8 * sint4)
-    val sintBsDiv = out(sint8 / notZero(sint4))
-    val sintBsRem = out(sint8 % notZero(sint4))
+    val sintBsDiv = out(sint8 / sint4NotZero)
+    val sintBsRem = out(sint8 % sint4NotZero)
 
     val sintBsAnd = out(sint8 & sint4.resized)
     val sintBsOr = out(sint8 | sint4.resized)

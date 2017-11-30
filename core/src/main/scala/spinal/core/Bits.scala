@@ -175,7 +175,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
+  private[core] override def newMultiplexerExpression() = new MultiplexerBits
 
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits

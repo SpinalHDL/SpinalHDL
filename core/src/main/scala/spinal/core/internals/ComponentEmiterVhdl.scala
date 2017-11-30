@@ -45,6 +45,8 @@ class ComponentEmiterVhdl(
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
+
+
   def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
 
   def result: String = {
@@ -104,17 +106,14 @@ class ComponentEmiterVhdl(
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadAsync =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadWrite =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemWrite =>
         }
       })
@@ -125,6 +124,17 @@ class ComponentEmiterVhdl(
       declarations ++= s"  signal $name : ${emitDataType(output)}${getBaseTypeSignalInitialisation(output)};\n"
       logics ++= s"  ${emitReference(output, false)} <= $name;\n"
       referencesOverrides(output) = name
+    }
+
+    for((select, muxes) <- multiplexersPerSelect){
+      expressionToWrap += select._1
+      for(mux <- muxes) {
+        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+        declarations ++= s"  signal $name : ${emitType(mux)};\n"
+        wrappedExpressionToName(mux) = name
+//        expressionToWrap ++= mux.inputs
+      }
+
     }
 
     component.children.foreach(sub =>
@@ -138,6 +148,7 @@ class ComponentEmiterVhdl(
     )
 
     //Wrap expression which need it
+    expressionToWrap --= wrappedExpressionToName.keysIterator
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= s"  signal $name : ${emitType(e)};\n"
@@ -164,6 +175,7 @@ class ComponentEmiterVhdl(
     emitMems(mems)
     emitSubComponents(openSubIo)
     emitAnalogs()
+    emitMuxes()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty) {
@@ -378,6 +390,34 @@ class ComponentEmiterVhdl(
       clockDomain          = group.clockDomain,
       withReset            = withReset
     )
+  }
+
+
+  def emitMuxes(): Unit ={
+    val tmp = new StringBuilder()
+    for(((select, length), muxes) <- multiplexersPerSelect){
+      referenceSetStart()
+      tmp.clear()
+      tmp ++= s"  begin\n"
+      tmp ++= s"    case ${emitExpression(select)} is\n"
+      for(i <- 0 until length){
+        val key = Integer.toBinaryString(i)
+        if(i != length-1)
+          tmp ++= s"""      when "${"0" * (select.getWidth - key.length)}${key}" =>\n"""
+        else
+          tmp ++= s"      when others =>\n"
+
+        for(mux <- muxes){
+          tmp ++= s"        ${wrappedExpressionToName(mux)} <= ${emitExpression(mux.inputs(i))};\n"
+        }
+      }
+      tmp ++= s"    end case;\n"
+      tmp ++= s"  end process;\n\n"
+
+      logics ++= s"  process(${referenceSetSorted.mkString(",")})\n"
+      logics ++= tmp
+    }
+    referenceSetStop()
   }
 
   def emitAsyncronous(process: AsyncProcess): Unit = {
@@ -982,6 +1022,7 @@ class ComponentEmiterVhdl(
     declarations ++= s"  \n"
   }
 
+
   def refImpl(e: BaseType): String = emitReference(e, true)
 
   def operatorImplAsBinaryOperator(vhd: String)(e: BinaryOperator): String = {
@@ -1010,9 +1051,9 @@ class ComponentEmiterVhdl(
     s"$vhd(${emitExpression(e.left)},${emitExpression(e.right)})"
   }
 
-  def muxImplAsFunction(vhd: String)(e: Multiplexer): String = {
-    s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
-  }
+//  def muxImplAsFunction(vhd: String)(e: Multiplexer): String = {
+//    s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
+//  }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
     s"pkg_shiftRight(${emitExpression(e.source)},${e.shift})"
@@ -1255,7 +1296,7 @@ class ComponentEmiterVhdl(
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
 
-    case  e: Multiplexer                             => muxImplAsFunction("pkg_mux")(e)
+//    case  e: Multiplexer                             => muxImplAsFunction("pkg_mux")(e)
 
     case  e: BitVectorBitAccessFixed                 => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating              => accessBoolFloating(e)

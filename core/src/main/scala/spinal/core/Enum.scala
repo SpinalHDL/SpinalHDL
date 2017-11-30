@@ -152,7 +152,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerEnum(spinalEnum))
+  private[core] override def newMultiplexerExpression() = new MultiplexerEnum(spinalEnum)
 
   override def asBits: Bits = wrapCast(Bits(), new CastEnumToBits)
 

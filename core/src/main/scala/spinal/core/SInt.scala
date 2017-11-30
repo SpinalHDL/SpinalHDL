@@ -174,7 +174,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+  private[core] override def newMultiplexerExpression() = new MultiplexerSInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt

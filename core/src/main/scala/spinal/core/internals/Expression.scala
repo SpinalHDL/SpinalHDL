@@ -2,6 +2,7 @@ package spinal.core.internals
 
 import spinal.core._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -208,13 +209,15 @@ object InferWidth{
   }
 
   def notResizableElseMax(op : MultiplexedWidthable) : Int = {
-    val leftR = canBeResized(op.whenTrue)
-    val rightR = canBeResized(op.whenFalse)
-    if(leftR != rightR){
-      if(leftR) op.whenFalse.getWidth else op.whenTrue.getWidth
-    } else {
-      Math.max(op.whenTrue.getWidth, op.whenFalse.getWidth)
+    var resizableMax, notResizableMax = -1
+    op.inputs.foreach{
+      case e if canBeResized(e) => resizableMax = Math.max(resizableMax, e.getWidth)
+      case e => notResizableMax = Math.max(notResizableMax, e.getWidth)
     }
+    if(notResizableMax != -1)
+      notResizableMax
+    else
+      resizableMax
   }
 }
 
@@ -870,19 +873,23 @@ class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodi
 
 abstract class Multiplexer extends Modifier {
   type T <: Expression
-  var cond      : Expression = null
-  var whenTrue  : T = null.asInstanceOf[T]
-  var whenFalse : T = null.asInstanceOf[T]
+  var select  : Expression  with Widthable = null
+  var inputs  : ArrayBuffer[T] = null.asInstanceOf[ArrayBuffer[T]]
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    cond = func(cond)
-    whenTrue = func(whenTrue).asInstanceOf[T]
-    whenFalse = func(whenFalse).asInstanceOf[T]
+    select = func(select).asInstanceOf[Expression  with Widthable]
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = func(old)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
   }
   override def foreachExpression(func: (Expression) => Unit): Unit = {
-    func(cond)
-    func(whenTrue)
-    func(whenFalse)
+    func(select)
+    inputs.foreach(func(_))
   }
 }
 
@@ -893,38 +900,57 @@ abstract class MultiplexedWidthable extends Multiplexer with Widthable{
 
 class MultiplexerBool extends Multiplexer{
   override def getTypeObject: Any = TypeBool
-  override def opName: String = "mux(B,B,B)"
+  override def opName: String = "mux(U,B,B)"
 }
 class MultiplexerBits extends MultiplexedWidthable {
   override def getTypeObject: Any = TypeBits
-  override def opName: String = "mux(B,b,b)"
+  override def opName: String = "mux(U,b,b)"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
-    whenTrue = InputNormalize.resizedOrUnfixedLit(whenTrue, targetWidth, new ResizeBits, this, this)
-    whenFalse = InputNormalize.resizedOrUnfixedLit(whenFalse, targetWidth, new ResizeBits, this, this)
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resizedOrUnfixedLit(old, targetWidth, new ResizeBits, this, this)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
   }
 }
 class MultiplexerUInt extends MultiplexedWidthable{
   override def getTypeObject: Any = TypeUInt
-  override def opName: String = "mux(B,u,u)"
+  override def opName: String = "mux(U,u,u)"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
-    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeUInt)
-    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeUInt)
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resize(old, targetWidth, new ResizeUInt)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
   }
 }
 class MultiplexerSInt extends MultiplexedWidthable{
   override def getTypeObject: Any = TypeSInt
-  override def opName: String = "mux(B,s,s)"
+  override def opName: String = "mux(U,s,s)"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
-    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeSInt)
-    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeSInt)
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resize(old, targetWidth, new ResizeSInt)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
   }
 }
+
 class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
   override type T = Expression with EnumEncoded
-  override def opName: String = "mux(B,e,e)"
+  override def opName: String = "mux(U,e,e)"
   override def getDefinition: SpinalEnum = enumDef
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
@@ -934,10 +960,14 @@ class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEn
 }
 
 
+
+
+
+
 private[spinal] object Multiplex {
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
-    whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
+    whenTrue.newMultiplexer(sel.asUInt, ArrayBuffer(whenFalse, whenTrue))
   }
 
 
