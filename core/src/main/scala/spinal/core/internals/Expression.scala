@@ -1000,6 +1000,7 @@ abstract class BinaryMultiplexer extends Modifier {
 abstract class BinaryMultiplexerWidthable extends BinaryMultiplexer with Widthable{
   override type T = Expression with WidthProvider
   override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+  override def toString = s"(${super.toString })[$getWidth bits]"
 }
 
 class BinaryMultiplexerBool extends BinaryMultiplexer{
