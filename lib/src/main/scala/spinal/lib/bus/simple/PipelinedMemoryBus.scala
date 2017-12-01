@@ -24,10 +24,10 @@ import spinal.core._
 import spinal.lib._
 
 
-case class SimpleBusConfig(dataWidth: Int, addressWidth: Int)
+case class PipelinedMemoryBusConfig(dataWidth: Int, addressWidth: Int)
 
 
-case class SimpleBusCmd(config: SimpleBusConfig) extends Bundle {
+case class PipelinedMemoryBusCmd(config: PipelinedMemoryBusConfig) extends Bundle {
   val write    = Bool
   val address  = UInt(config.addressWidth bits)
   val data     = Bits(config.dataWidth bits)
@@ -35,15 +35,15 @@ case class SimpleBusCmd(config: SimpleBusConfig) extends Bundle {
 }
 
 
-case class SimpleBusRsp(config: SimpleBusConfig) extends Bundle {
+case class PipelinedMemoryBusRsp(config: PipelinedMemoryBusConfig) extends Bundle {
   val data = Bits(config.dataWidth bits)
 }
 
 
-case class SimpleBus(config: SimpleBusConfig) extends Bundle with IMasterSlave {
+case class PipelinedMemoryBus(config: PipelinedMemoryBusConfig) extends Bundle with IMasterSlave {
 
-  val cmd = Stream(SimpleBusCmd(config))
-  val rsp = Flow(SimpleBusRsp(config))
+  val cmd = Stream(PipelinedMemoryBusCmd(config))
+  val rsp = Flow(PipelinedMemoryBusRsp(config))
 
   override def asMaster(): Unit = {
     master(cmd)
