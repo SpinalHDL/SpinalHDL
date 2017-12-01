@@ -1364,6 +1364,9 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
     import pc._
 
     walkComponents(c => {
+      val subInputsPerScope = mutable.HashMap[ScopeStatement, ArrayBuffer[BaseType]]()
+      c.children.foreach(_.getAllIo.withFilter(_.isInput).foreach(input => subInputsPerScope.getOrElseUpdate(input.rootScopeStatement, ArrayBuffer[BaseType]()) += input))
+
       def walkBody(body: ScopeStatement): mutable.HashMap[BaseType, AssignedBits] = {
         val assigneds = mutable.HashMap[BaseType, AssignedBits]()
 
@@ -1384,6 +1387,11 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         }
 
         def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
+
+        subInputsPerScope.get(body) match {
+          case Some(inputs) => inputs.foreach(getOrEmpty(_))
+          case _ =>
+        }
 
         body.foreachStatements {
           case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
