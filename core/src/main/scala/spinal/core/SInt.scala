@@ -151,7 +151,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi downto lo).assignFromBits(bits)
 
   /**
     * Cast a SInt into an UInt

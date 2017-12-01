@@ -77,14 +77,14 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eCheck0) {
         io.output.valid := True
-        io.output.bits := B(checksum(7, 0))
+        io.output.bits := B(checksum(7 downto 0))
         when(io.output.ready) {
           state := eCheck1
         }
       }
       is(eCheck1) {
         io.output.valid := True
-        io.output.bits := B(checksum(15, 8))
+        io.output.bits := B(checksum(15 downto 8))
         when(io.output.ready) {
           state := eStart
         }
@@ -199,7 +199,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val pushFlag = False
     val flushFlag = False
 
-    val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
+    val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1 downto 0), pushFlag)
 
     when(pushFlag || flushFlag) {
       ram((writePtr - U(flushFlag)).resized) := (Mux(pushFlag, io.input.bits.resized, True ## lastWriteData)).resized
@@ -253,14 +253,14 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
             overflow := overflow | !buffer.push
           }
           is(eCheck0) {
-            when(io.input.bits === B(buffer.checksum(7, 0))) {
+            when(io.input.bits === B(buffer.checksum(7 downto 0))) {
               state := eCheck1
             } otherwise {
               state := eIdle
             }
           }
           is(eCheck1) {
-            when(!overflow && io.input.bits === B(buffer.checksum(15, 8))) {
+            when(!overflow && io.input.bits === B(buffer.checksum(15 downto 8))) {
               buffer.flush
             }
             state := eIdle

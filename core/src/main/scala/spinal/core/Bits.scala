@@ -129,7 +129,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi downto lo).assignFromBits(bits)
 
   /**
     * Cast a Bits to a SInt

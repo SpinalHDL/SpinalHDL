@@ -368,9 +368,9 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
 
       when(pimped.fire) {
         when(pimped.last) {
-          buffer(buffer.high, bufferLowWidth) := pimped.fragment
+          buffer(buffer.high downto bufferLowWidth) := pimped.fragment
         } otherwise {
-          buffer(bufferLowWidth - 1, 0) := pimped.fragment ## buffer(bufferLowWidth - 1, fromWidth)
+          buffer(bufferLowWidth - 1 downto 0) := pimped.fragment ## buffer(bufferLowWidth - 1 downto fromWidth)
         }
       }
 

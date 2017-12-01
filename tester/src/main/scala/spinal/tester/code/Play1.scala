@@ -617,7 +617,7 @@ object Play7 {
   def grayCounter(n: Int, enable: Bool): UInt = {
     val gray = RegInit(U(0, n bit))
     var even = RegInit(True)
-    val word = Cat(True, gray(n - 3, 0), even)
+    val word = Cat(True, gray(n - 3 downto  0), even)
     when(enable) {
       var found = False
       for (i <- 0 until n) {
@@ -2452,8 +2452,8 @@ object PlayMaskAssign {
   class TopLevel extends Component {
     val input = in(UInt(4 bit))
     val output = out(UInt(4 bit))
-    output(3, 2) := input(1, 0)
-    output(1, 0) := input(3, 2)
+    output(3 downto 2) := input(1 downto 0)
+    output(1 downto 0) := input(3 downto 2)
   }
 
   def main(args: Array[String]) {
