@@ -156,10 +156,10 @@ class SlowArea(factor: BigInt) extends ClockingArea(ClockDomain.current.newClock
   */
 class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
 
-  val newReset: Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH) {
-    if(cumulative) (ClockDomain.current.readResetWire & reset) else reset
+  val newReset: Bool = if (ClockDomain.current.config.resetActiveLevel == LOW) {
+    if(cumulative) (ClockDomain.current.readResetWire & !reset) else !reset
   }else {
-    if(cumulative) (ClockDomain.current.readResetWire | !reset) else reset
+    if(cumulative) (ClockDomain.current.readResetWire | reset) else reset
   }
 
   val clockDomain = ClockDomain.current.clone(reset = newReset)
