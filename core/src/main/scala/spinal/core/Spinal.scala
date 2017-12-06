@@ -171,10 +171,13 @@ object SpinalConfig{
 /**
  * Spinal report give after the generation of the RTL
  */
-class SpinalReport[T <: Component](val toplevel: T) {
+class SpinalReport[T <: Component]() {
+  var toplevel: T = null.asInstanceOf[T]
   val prunedSignals   = mutable.Set[BaseType]()
   val unusedSignals   = mutable.Set[BaseType]()
   var counterRegister = 0
+  var rtlSourcesPaths = ArrayBuffer[String]()
+  var toplevelName : String = null
 
   def printUnused() : this.type = {
     unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))

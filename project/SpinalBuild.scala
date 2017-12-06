@@ -12,15 +12,27 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core, lib, debugger, tester)
+    aggregate = Seq(sim, core, lib, debugger, tester)
   )
 
   import sys.process._
   def gitHash = (try {
-      "git rev-parse HEAD".!!
-    } catch{
-      case e : java.io.IOException => "???"
-    }).linesIterator.next()
+    "git rev-parse HEAD".!!
+  } catch{
+    case e : java.io.IOException => "???"
+  }).linesIterator.next()
+
+
+  lazy val sim = Project(
+    id = "SpinalHDL-sim",
+    base = file("sim"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL Sim",
+      version := SpinalVersion.sim,
+      libraryDependencies += "com.github.jnr" % "jnr-ffi" % "2.1.7"
+    )
+  )
+
 
   lazy val core = Project(
     id = "SpinalHDL-core",
@@ -43,7 +55,7 @@ object SpinalBuild extends Build {
         Seq(file)
       }
     )
-  )
+  ) dependsOn (sim)
 
 
   lazy val lib = Project(
@@ -88,6 +100,7 @@ object SpinalBuild extends Build {
       name := "SpinalHDL tester",
       version := SpinalVersion.tester,
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+      libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
       //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
       publishTo := None
     )

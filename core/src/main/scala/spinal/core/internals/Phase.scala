@@ -1750,9 +1750,9 @@ object SpinalVhdlBoot{
     }
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
-
+    val report = new SpinalReport[T]()
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
-    phases += initVhdlBase(new PhaseVhdl(pc))
+    phases += initVhdlBase(new PhaseVhdl(pc, report))
 
     for(inserter <-config.phasesInserters){
       inserter(phases)
@@ -1771,9 +1771,8 @@ object SpinalVhdlBoot{
 
     SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
-    //pc.checkNoZeroWidth() for debug
 
-    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.toplevel = pc.topLevel.asInstanceOf[T]
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
@@ -1871,7 +1870,9 @@ object SpinalVerilogBoot{
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
-    phases += new PhaseVerilog(pc)
+
+    val report = new SpinalReport[T]()
+    phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){
       inserter(phases)
@@ -1888,14 +1889,10 @@ object SpinalVerilogBoot{
     SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
     pc.checkGlobalData()
-
-    //pc.checkNoZeroWidth() for debug
-
-    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.toplevel = pc.topLevel.asInstanceOf[T]
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
-
     report
   }
 }
