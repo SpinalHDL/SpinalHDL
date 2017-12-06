@@ -5,9 +5,11 @@ import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
+import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -798,25 +800,8 @@ object PlayDevAxi{
 
   // Instance
   class TopLevel extends Component {
-    val smallConfig = Axi4Config(
-      addressWidth = 16,
-      dataWidth    = 32,
-      useId        = false,
-      useRegion    = false,
-      useBurst     = false,
-      useLock      = false,
-      useCache     = false,
-      useSize      = false,
-      useQos       = false,
-      useLen       = false,
-      useLast      = true,
-      useResp      = false,
-      useProt      = false,
-      useStrb      = false
-    )
-    val axiA = slave(Axi4Shared(smallConfig))
-    val axiB = axiA.toAxi4()
-    val axiC = master(axiB.toFullConfig())
+    val M00_AXI = AxiLite4(addressWidth = 32, dataWidth = 32)
+    AxiLite4SpecRenamer(M00_AXI)
   }
 
   def main(args: Array[String]) {

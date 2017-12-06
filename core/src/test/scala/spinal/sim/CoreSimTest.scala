@@ -1,5 +1,6 @@
 package spinal.sim
 
+
 import spinal.core._
 
 
@@ -9,22 +10,31 @@ object CoreSimTest {
       val a,b,c = in UInt(8 bits)
       val result = out UInt(8 bits)
     }
-    io.result := io.a + io.b - io.c
+    val tmp = (0 until 1).map(i => RegNext(io.a + io.b - io.c)).reduceLeft(_ | _)
+    io.result := tmp
   }
 
   def main(args: Array[String]): Unit = {
-    val sim = VerilatorSim(new Dut)
+    val sim = SimVerilator(new Dut)
+    SpinalProgress("Sim")
     import sim._
-    var counter = 0
-    var idx = 1000000
-    while (idx != 0) {
-      idx -= 1
-      poke(sim.dut.io.a, 3)
-      poke(sim.dut.io.b, 5)
-      poke(sim.dut.io.c, 1)
-      step()
-      counter += peak(sim.dut.io.result)
+    Bench {
+      var counter = 0l
+      var idx = 1000000
+
+
+      while (idx != 0) {
+        idx -= 1
+        counter += dut.io.result.toLong
+        dut.io.a :<< dut.io.a.toLong + 1
+        dut.io.b :<< 5
+        dut.io.c :<< 1
+        sleep(5); dut.clockDomain.fallingEdge;eval()
+        sleep(5); dut.clockDomain.risingEdge ;eval()
+      }
+      println(counter)
+      SpinalProgress("Done")
     }
-    println(counter)
+    end()
   }
 }
