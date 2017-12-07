@@ -29,12 +29,22 @@ import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
 
-
+/**
+  * This trait indicate the entry point of the state machine
+  */
 trait EntryPoint
 
-trait StateCompletionTrait
-{
- val whenCompletedTasks = ArrayBuffer[() => Unit]()
+
+/**
+  * Define the Entry point state
+  */
+object StateEntryPoint {
+  def apply()(implicit stateMachineAccessor: StateMachineAccessor): State = new State with EntryPoint
+}
+
+
+trait StateCompletionTrait {
+  val whenCompletedTasks = ArrayBuffer[() => Unit]()
 
   def whenCompleted(doThat: => Unit): this.type = {
     whenCompletedTasks += (() => doThat)
@@ -50,11 +60,9 @@ object State{
 }
 
 
-object StateEntryPoint{
-  def apply()(implicit stateMachineAccessor: StateMachineAccessor): State = new State with EntryPoint
-}
-
-
+/**
+  * State
+  */
 class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area with ScalaLocated {
 
   val onEntryTasks       = ArrayBuffer[() => Unit]()
@@ -103,7 +111,9 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
 }
 
 
-
+/**
+  * Use to execute a State machine into a stateMachine
+  */
 class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
 
   onEntry{
@@ -122,7 +132,11 @@ class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAcce
 }
 
 
+/**
+  * Run several state machine in Serie
+  */
 object StatesSerialFsm {
+
   def apply(fsms:  StateMachineAccessor*)(doWhenCompleted: (State) =>  Unit)(implicit stateMachineAccessor: StateMachineAccessor): Seq[State] = {
     var nextState: State = null
 
@@ -141,7 +155,10 @@ object StatesSerialFsm {
 }
 
 
-class StateParallelFsm(val fsms:  StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+/**
+  * Run several state machine in parallel
+  */
+class StateParallelFsm(val fsms: StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
 
   onEntry{
     fsms.foreach(_.startFsm())
@@ -176,8 +193,25 @@ class StateMachineSharableRegUInt {
 }
 
 
+/**
+  * State Delay
+  *
+  * @example {{{
+  *   val fsm = new StateMachine {
+  *      ...
+  *     val sDelay: State = new StateDelay(10 us){
+  *       whenCompleted {
+  *         goto(sIdle)
+  *       }
+  *     }
+  *     ...
+  *   }
+  * }}}
+  *
+  */
 class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
 
+  /** Create a StateDelay with an TimeNumber */
   def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor){
     this((time * ClockDomain.current.frequency.getValue).toBigInt())
   }

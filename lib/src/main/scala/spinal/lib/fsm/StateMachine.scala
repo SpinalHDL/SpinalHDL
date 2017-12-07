@@ -87,6 +87,23 @@ class StateBoot(autoStart: Boolean)(implicit stateMachineAccessor: StateMachineA
 class StateMachineEnum extends SpinalEnum
 
 
+/**
+  * State machine
+  *
+  * @example {{{
+  *   val fsm = new StateMachine {
+  *     val sIdle: State = StateEntryPoint{
+  *       ...
+  *     }
+  *     val sState1: State = new State {
+  *       whenIsActive{
+  *         goto(sIdle)
+  *       }
+  *     }
+  *     ...
+  *   }
+  * }}}
+  */
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   var inGeneration = false
