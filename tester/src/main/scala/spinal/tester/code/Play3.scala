@@ -11,9 +11,12 @@ import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
+import spinal.lib.fsm._
+
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -1246,5 +1249,43 @@ object PlayNetlistFileName{
       mode = Verilog,
       netlistFileName = "FakeNetlist."
     ).generate(new FakeNetlist)
+  }
+}
+
+
+
+object PlayStateMachineDelay{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val a = in Bool
+      val c = out Bool
+    }
+
+    io.c := False
+
+    val fsm = new StateMachine{
+      val sIdle: State = new State with EntryPoint {
+        whenIsActive{
+          when(io.a){
+            goto(sIdle)
+          }
+        }
+      }
+      val sWait: State = new StateDelay(10 us){
+        whenCompleted{
+          io.c := True
+          goto(sIdle)
+        }
+      }
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(
+      mode = VHDL,
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
+    ).generate(new TopLevel)
   }
 }
