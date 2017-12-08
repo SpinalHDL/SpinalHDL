@@ -18,7 +18,7 @@ class SimVerilator[T <: Component](dut : T, backend : VerilatorBackend, handle :
   override def eval() = backend.native.wrapperEval(handle)
   override def sleep(cycles : Long) = backend.native.wrapperSleep(handle, cycles)
   override def end() = backend.native.wrapperDeleteHandle(handle)
-  override protected def getClock(cd: ClockDomain): Bool = dut.pulledDataCache(cd.clock).asInstanceOf[Bool]
+  override def getClock(cd: ClockDomain): Bool = dut.pulledDataCache(cd.clock).asInstanceOf[Bool]
 }
 
 object SimVerilator{
