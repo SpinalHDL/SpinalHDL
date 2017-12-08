@@ -48,20 +48,23 @@ object SimManagedContext{
   def peak(bt : BaseType) : Long = current.manager.peak(bt)
   def poke(bt : BaseType, value : Long)= current.manager.poke(bt, value)
   def sleep(cycles : Long) : Unit@suspendable = current.thread.sleep(cycles)
-  def fork(body : => Unit@suspendable) = current.manager.newThread(body)
+  def fork(body : => Unit@suspendable) : SimThread@suspendable = current.manager.newThread(body)
 
   implicit class BaseTypePimper(bt : BaseType) {
     def toLong = current.manager.peak(bt)
     def :<< (value : Long) = current.manager.poke(bt, value)
   }
 
-//  implicit class ClockDomainPimper(cd : ClockDomain) {
-//    def fallingEdge = manager.fallingEdge
-//    def risingEdge = {
-//      val current = SimRaw.current
-//      current.poke(current.getClock(cd), 1)
-//    }
-//  }
+  implicit class ClockDomainPimper(cd : ClockDomain) {
+    def fallingEdge = {
+      val current = SimManagedContext.current.manager
+      current.poke(current.getClock(cd), 0)
+    }
+    def risingEdge = {
+      val current = SimRaw.current
+      current.poke(current.getClock(cd), 1)
+    }
+  }
 
 }
 
@@ -72,19 +75,23 @@ class SimManagedContext{
 
 
 
-class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator[Any]*/ {
-//  private var nextValue: Any = null
+class SimThread(body :  => Unit@suspendable, var time : Long){
+  private val manager = SimManagedContext.current.manager
   private var nextStep: Unit => Unit = null
   var waitingThreads = ArrayBuffer[SimThread]()
 
-  def join(): Unit ={
+  def join(): Unit@suspendable ={
     val thread = SimManagedContext.current.thread
     assert(thread != this)
-    waitingThreads += thread
+    if(!this.isDone) {
+      waitingThreads += thread
+      thread.suspend()
+    }
   }
 
   def sleep(cycles : Long): Unit@suspendable ={
     time += cycles
+    manager.scheduleThread(this)
     suspend()
   }
 
@@ -102,7 +109,7 @@ class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator
     * Call this from your main code.
     */
   def isDone: Boolean = {
-    nextStep != null
+    nextStep == null
   }
 
   /** Save our continuation to resume later. */
@@ -119,6 +126,12 @@ class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator
       val back = nextStep
       nextStep = null
       if(back != null) back()
+    }
+    if(isDone){
+      waitingThreads.foreach(thread => {
+        thread.time = time
+        SimManagedContext.current.manager.scheduleThread(thread)
+      })
     }
   }
 }

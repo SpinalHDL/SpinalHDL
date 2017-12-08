@@ -1,6 +1,5 @@
 package spinal.sim
 
-import SimManagedContext._
 import spinal.sim.CoreSimTest.Dut
 import SimManagedContext._
 
@@ -10,7 +9,7 @@ object SimManagedTest {
 //    Bench(times) {
       val sim = SimVerilator(new Dut)
       val manager = new SimManaged(sim).run{
-        fork {
+        val t1 = fork {
           var idx = 0
           while (idx < 20) {
             sim.dut.io.a :<< sim.dut.io.a.toLong + 1
@@ -20,7 +19,7 @@ object SimManagedTest {
           }
         }
 
-        fork{
+        val t2 = fork{
           var idx = 0
           while(idx < 20){
             sim.dut.io.b :<< sim.dut.io.b.toLong + 1
@@ -29,7 +28,9 @@ object SimManagedTest {
           }
         }
 
-        fork{
+        t1.join()
+
+        val t3 = fork{
           var idx = 0
           while(idx < 20){
             sim.dut.io.c :<< sim.dut.io.c.toLong + 1

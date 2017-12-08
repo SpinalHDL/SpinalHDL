@@ -11,7 +11,7 @@ class ThreadHandle(val thread : SimThread){
 }
 
 
-class SimManaged(raw : SimRaw[_]) {
+class SimManaged(val raw : SimRaw[_]) {
   val threads = mutable.ArrayBuffer[SimThread]()
   var schedulingOffset = 0
   var time = 0l
@@ -23,22 +23,22 @@ class SimManaged(raw : SimRaw[_]) {
 
   def peak(bt : BaseType) : Long = raw.peak(bt)
   def poke(bt : BaseType, value : Long)= raw.poke(bt, value)
-
+  def getClock(clockDomain: ClockDomain) = raw.getClock(clockDomain)
   def scheduleThread(thread : SimThread): Unit ={
-    threads.indexWhere(thread.time < _.time,schedulingOffset) match {
+    threads.indexWhere(thread.time < _.time, schedulingOffset) match {
       case -1 => threads += thread
       case idx => threads.insert(idx, thread)
     }
   }
 
-  def newThread(body : => Unit@suspendable): Unit ={
+  def newThread(body : => Unit@suspendable): SimThread@suspendable ={
     val thread = new SimThread(body, time)
     scheduleThread(thread)
     thread
   }
 
   def run(body : => Unit@suspendable): Unit ={
-    newThread(body)
+    scheduleThread(new SimThread(body, time))
     run()
   }
   def run(): Unit ={
@@ -61,10 +61,7 @@ class SimManaged(raw : SimRaw[_]) {
       while(threadId != threadsToRunCount){
         val thread = threads(threadId)
         context.thread = thread
-        if(thread.isDone){
-          thread.resume()
-          scheduleThread(thread)
-        }
+        thread.resume()
         threadId += 1
       }
       raw.eval()

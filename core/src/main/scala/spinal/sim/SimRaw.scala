@@ -45,7 +45,7 @@ abstract class SimRaw[T <: Component](val dut : T){
     def :<< (value : Long) = poke(bt, value)
   }
 
-  protected def getClock(cd : ClockDomain) : Bool
+  def getClock(cd : ClockDomain) : Bool
   implicit class ClockDomainPimper2(cd : ClockDomain) {
     def fallingEdge = poke(getClock(cd), 0)
     def risingEdge = poke(getClock(cd), 1)
