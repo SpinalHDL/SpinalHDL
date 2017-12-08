@@ -10,7 +10,7 @@ class BackendConfig {
   val rtlSourcesPaths = ArrayBuffer[String]()
   var toplevelName: String = null
   var workspacePath: String = null
-  var withWave = false
+  var withWave = true
 }
 case class VerilatorSignal(path : Seq[String], dataType : String){
 

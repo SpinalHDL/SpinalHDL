@@ -5,6 +5,7 @@ package spinal.sim
 import spinal.core.{BaseType, ClockDomain}
 
 import scala.collection.Iterator
+import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations._
 
 
@@ -46,7 +47,7 @@ object SimManagedContext{
 
   def peak(bt : BaseType) : Long = current.manager.peak(bt)
   def poke(bt : BaseType, value : Long)= current.manager.poke(bt, value)
-  def sleep(cycles : Long) = current.thread.sleep(cycles)
+  def sleep(cycles : Long) : Unit@suspendable = current.thread.sleep(cycles)
   def fork(body : => Unit@suspendable) = current.manager.newThread(body)
 
   implicit class BaseTypePimper(bt : BaseType) {
@@ -72,12 +73,19 @@ class SimManagedContext{
 
 
 class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator[Any]*/ {
-  private var nextValue: Any = null
+//  private var nextValue: Any = null
   private var nextStep: Unit => Unit = null
+  var waitingThreads = ArrayBuffer[SimThread]()
+
+  def join(): Unit ={
+    val thread = SimManagedContext.current.thread
+    assert(thread != this)
+    waitingThreads += thread
+  }
 
   def sleep(cycles : Long): Unit@suspendable ={
     time += cycles
-    yld(0)
+    suspend()
   }
 
   /** Subclass calls this method to generate values.
@@ -85,40 +93,20 @@ class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator
     * @param body The code for your generator.
     */
   reset {
-    suspend
+    suspend()
     body
   }
 
-  /** Yield the next generated value.
-    * Call this code from your generator to deliver the next value.
-    */
-  def yld(x: Any): Unit@suspendable = {
-    nextValue = (x)
-    suspend
-  }
-
-  /** Retrieve the next generated value.
-    * Call this from your main code.
-    */
-  def next: Any = {
-    step
-    nextValue match {
-      case null => throw new NoSuchElementException("next on empty generator")
-      //make it similar to the equivalent Iterator exception
-      case (x) => nextValue = null; x
-    }
-  }
 
   /** True if there is another value to retrieve.
     * Call this from your main code.
     */
-  def hasNext: Boolean = {
-    step
-    nextValue != null
+  def isDone: Boolean = {
+    nextStep != null
   }
 
   /** Save our continuation to resume later. */
-  def suspend: Unit@suspendable = {
+  def suspend(): Unit@suspendable = {
     shift { k: (Unit => Unit) =>
       nextStep = k
     }
@@ -126,24 +114,11 @@ class SimThread(body :  => Unit@suspendable, var time : Long) /*extends Iterator
 
   /** If we have a next step but we don't have a value queued up,
     * run the generator until it calls yld or completes. */
-  private def step = {
-    if (nextValue == null) {
+  def resume() = {
+    if (nextStep != null) {
       val back = nextStep
       nextStep = null
       if(back != null) back()
-    }
-  }
-
-  //
-  /** This method is useful for nested executions of the stored continuation,
-    * such as from NonDetEval. */
-  def stepUntilDone: Unit@suspendable = {
-    //Use of var for saveStep is workaround for Scala bug #3501
-    var saveStep: (Unit => Unit) = null
-    while (nextStep != null) {
-      saveStep = nextStep
-      suspend //sets nextStep to point here
-      saveStep()
     }
   }
 }

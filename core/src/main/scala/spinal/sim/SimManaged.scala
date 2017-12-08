@@ -6,7 +6,9 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations._
 
+class ThreadHandle(val thread : SimThread){
 
+}
 
 
 class SimManaged(raw : SimRaw[_]) {
@@ -30,9 +32,15 @@ class SimManaged(raw : SimRaw[_]) {
   }
 
   def newThread(body : => Unit@suspendable): Unit ={
-    scheduleThread(new SimThread(body, time))
+    val thread = new SimThread(body, time)
+    scheduleThread(thread)
+    thread
   }
 
+  def run(body : => Unit@suspendable): Unit ={
+    newThread(body)
+    run()
+  }
   def run(): Unit ={
     while(threads.nonEmpty){
       val nextTime = threads.head.time
@@ -53,8 +61,8 @@ class SimManaged(raw : SimRaw[_]) {
       while(threadId != threadsToRunCount){
         val thread = threads(threadId)
         context.thread = thread
-        if(thread.hasNext){
-          thread.next
+        if(thread.isDone){
+          thread.resume()
           scheduleThread(thread)
         }
         threadId += 1
