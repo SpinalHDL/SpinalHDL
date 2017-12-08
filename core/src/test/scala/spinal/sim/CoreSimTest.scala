@@ -4,6 +4,7 @@ package spinal.sim
 import spinal.core._
 
 
+import SimRaw._
 object CoreSimTest {
   class Dut extends Component{
     val io = new Bundle{
@@ -16,9 +17,9 @@ object CoreSimTest {
 
   def main(args: Array[String]): Unit = {
     val sim = SimVerilator(new Dut)
+    import sim.dut
     SpinalProgress("Sim")
-    import sim._
-    Bench {
+    Bench(1000000) {
       var counter = 0l
       var idx = 1000000
 
@@ -29,8 +30,8 @@ object CoreSimTest {
         dut.io.a :<< dut.io.a.toLong + 1
         dut.io.b :<< 5
         dut.io.c :<< 1
-        sleep(5); dut.clockDomain.fallingEdge;eval()
-        sleep(5); dut.clockDomain.risingEdge ;eval()
+        sleep(5); sim.dut.clockDomain.fallingEdge;eval()
+        sleep(5); sim.dut.clockDomain.risingEdge ;eval()
       }
       println(counter)
       SpinalProgress("Done")

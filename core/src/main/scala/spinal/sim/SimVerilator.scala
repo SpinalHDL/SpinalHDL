@@ -3,26 +3,10 @@ package spinal.sim
 import spinal.core._
 import spinal.core.internals.GraphUtils
 
-abstract class Sim[T <: Component](val dut : T){
-  def peak(bt : BaseType) : Long
-  def poke(bt : BaseType, value : Long)
-  def eval()
-  def sleep(cycles : Long)
-  def end()
 
-  implicit class BaseTypePimper(bt : BaseType) {
-    def toLong = peak(bt)
-    def :<< (value : Long) = poke(bt, value)
-  }
 
-  protected def getClock(cd : ClockDomain) : Bool
-  implicit class ClockDomainPimper(cd : ClockDomain) {
-    def fallingEdge = poke(getClock(cd), 0)
-    def risingEdge = poke(getClock(cd), 1)
-  }
-}
 
-class SimVerilator[T <: Component](dut : T, backend : VerilatorBackend, handle : Long) extends Sim(dut){
+class SimVerilator[T <: Component](dut : T, backend : VerilatorBackend, handle : Long) extends SimRaw(dut){
   override def peak(bt : BaseType) : Long = {
     assert(bt.algoInt != -1, "You can't access this signal in the simulation, as it isn't public")
     backend.native.wrapperGetU64(handle, bt.algoInt)
@@ -57,6 +41,8 @@ object SimVerilator{
       signalId += 1
     }
     val backend = new VerilatorBackend(config,vConfig)
-    new SimVerilator(report.toplevel, backend, backend.instanciate())
+    val sim = new SimVerilator(report.toplevel, backend, backend.instanciate())
+    SimRaw.threadLocal.set(sim)
+    sim
   }
 }

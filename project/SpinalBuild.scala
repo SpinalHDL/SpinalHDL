@@ -41,6 +41,11 @@ object SpinalBuild extends Build {
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
       libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+
+      addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
+      libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
+      scalacOptions += "-P:continuations:enable",
+
       resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core,
       sourceGenerators in Compile <+= (sourceManaged in Compile, version, name) map { (d, v, n) =>
