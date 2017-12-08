@@ -1,44 +1,63 @@
 package spinal.sim
 
-import spinal.sim.CoreSimTest.Dut
-import SimManagedContext._
+import spinal.sim.SimManagerApi._
+import spinal.core._
+import scala.util.continuations.suspendable
+
 
 object SimManagedTest {
+  class Dut extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+    }
+    io.result := RegNext(io.a + io.b - io.c)
+  }
+
   def main(args: Array[String]): Unit = {
-//    val times = 4000000
-//    Bench(times) {
-      val sim = SimVerilator(new Dut)
-      val manager = new SimManaged(sim).run{
-        val t1 = fork {
-          var idx = 0
-          while (idx < 20) {
-            sim.dut.io.a :<< sim.dut.io.a.toLong + 1
-            sleep(10)
-            println(idx)
-            idx += 1
-          }
-        }
-
-        val t2 = fork{
-          var idx = 0
-          while(idx < 20){
-            sim.dut.io.b :<< sim.dut.io.b.toLong + 1
-            sleep(20)
-            idx += 1
-          }
-        }
-
-        t1.join()
-
-        val t3 = fork{
-          var idx = 0
-          while(idx < 20){
-            sim.dut.io.c :<< sim.dut.io.c.toLong + 1
-            sleep(30)
-            idx += 1
-          }
+    SimVerilatorManaged(new Dut) { dut =>
+      val t1 = fork {
+        var idx = 0
+        while (idx < 20) {
+          dut.io.a :<< dut.io.a.toLong + 1
+          sleep(10)
+          println(idx)
+          idx += 1
         }
       }
-//    }
+
+      val t2 = fork {
+        var idx = 0
+        while (idx < 20) {
+          dut.io.b :<< dut.io.b.toLong + 1
+          sleep(20)
+          idx += 1
+        }
+      }
+
+      val t3 = fork {
+        var idx = 0
+        while (idx < 20) {
+          dut.io.c :<< dut.io.c.toLong + 1
+          sleep(30)
+          idx += 1
+        }
+      }
+
+
+      t1.join()
+      sleep(50)
+      dut.io.a :<< 42
+      sleep(10)
+
+      def doStuff(bt: UInt, value : Int): Long@suspendable = {
+        bt :<< value
+        sleep(40)
+        bt.toLong + 1
+      }
+
+      println(doStuff(dut.io.a, 66))
+      println(doStuff(dut.io.a, 88))
+    }
   }
 }

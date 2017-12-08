@@ -3,22 +3,18 @@ package spinal.sim
 import spinal.core.{BaseType, ClockDomain}
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations._
 
-class ThreadHandle(val thread : SimThread){
-
-}
 
 
-class SimManaged(val raw : SimRaw[_]) {
+class SimManager(val raw : SimRaw[_]) {
   val threads = mutable.ArrayBuffer[SimThread]()
   var schedulingOffset = 0
   var time = 0l
 
-  val context = new SimManagedContext()
+  val context = new SimManagerApi()
   context.manager = this
-  SimManagedContext.threadLocal.set(context)
+  SimManagerApi.threadLocal.set(context)
 
 
   def peak(bt : BaseType) : Long = raw.peak(bt)
@@ -42,7 +38,8 @@ class SimManaged(val raw : SimRaw[_]) {
     run()
   }
   def run(): Unit ={
-    while(threads.nonEmpty){
+    var continue = true
+    while(continue){
       val nextTime = threads.head.time
       val delta = nextTime - time
       time = nextTime
@@ -67,6 +64,10 @@ class SimManaged(val raw : SimRaw[_]) {
       raw.eval()
       threads.remove(0, threadsToRunCount)
       schedulingOffset = 0
+
+      if(threads.isEmpty){
+        continue = false
+      }
     }
 
     raw.end()

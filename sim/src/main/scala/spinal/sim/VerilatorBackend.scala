@@ -82,6 +82,7 @@ ${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
       }
 
       #ifdef TRACE
+      tfp.dump(time);
       tfp.close();
       tfp.dump(time);
       #endif
