@@ -33,9 +33,7 @@ object SimVerilator{
     GraphUtils.walkAllComponents(report.toplevel, c => c.dslBody.walkStatements(_.algoInt = -1))
     var signalId = 0
     for(io <- report.toplevel.getAllIo){
-      val dataType = if(io.getBitsWidth <= 8) "CData"
-      else SpinalError("???")
-      vConfig.signals += VerilatorSignal(List(io.getName()),dataType)
+      vConfig.signals += VerilatorSignal(List(io.getName()),io.getBitsWidth)
 
       io.algoInt = signalId
       signalId += 1

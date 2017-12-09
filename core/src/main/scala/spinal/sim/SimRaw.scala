@@ -8,8 +8,6 @@ import scala.util.continuations._
 object SimRaw {
   val threadLocal = new ThreadLocal[SimRaw[_]]
   def current = threadLocal.get()
-
-
   def peak(bt : BaseType) : Long = current.peak(bt)
   def poke(bt : BaseType, value : Long)= current.poke(bt, value)
   def eval() = current.eval

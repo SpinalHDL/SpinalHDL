@@ -18,8 +18,8 @@ object SimManagerApi{
   private[sim]def current = threadLocal.get()
   private[sim]def reset() = threadLocal.set(new SimManagerApi)
 
-  def peak(bt : BaseType) : Long = current.manager.peak(bt)
-  def poke(bt : BaseType, value : Long)= current.manager.poke(bt, value)
+//  def peak(bt : BaseType) : Long = current.manager.peak(bt)
+//  def poke(bt : BaseType, value : Long)= current.manager.poke(bt, value)
   def sleep(cycles : Long) : Unit@suspendable = current.thread.sleep(cycles)
   def fork(body : => Unit@suspendable) : SimThread@suspendable = current.manager.newThread(body)
 

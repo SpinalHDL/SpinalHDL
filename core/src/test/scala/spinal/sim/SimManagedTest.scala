@@ -26,6 +26,19 @@ object SimManagedTest {
         }
       }
 
+
+      val clkGen = fork {
+        var idx = 0
+        while (idx < 200) {
+          dut.clockDomain.fallingEdge
+          sleep(10)
+          dut.clockDomain.risingEdge
+          sleep(10)
+          idx += 1
+        }
+      }
+
+
       val t2 = fork {
         var idx = 0
         while (idx < 20) {

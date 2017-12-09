@@ -12,7 +12,7 @@ class BackendConfig {
   var workspacePath: String = null
   var withWave = true
 }
-case class VerilatorSignal(path : Seq[String], dataType : String){
+case class VerilatorSignal(path : Seq[String], width : Int){
 
 }
 
@@ -55,6 +55,57 @@ public:
     void setU64(uint64_t value)  {*raw = value; }
 };
 
+
+class  SDataSignalAccess : public ISignalAccess{
+public:
+    SData *raw;
+    SDataSignalAccess(SData *raw) : raw(raw){
+
+    }
+    uint64_t getU64() {return *raw;}
+    void setU64(uint64_t value)  {*raw = value; }
+};
+
+
+class  IDataSignalAccess : public ISignalAccess{
+public:
+    IData *raw;
+    IDataSignalAccess(IData *raw) : raw(raw){
+
+    }
+    uint64_t getU64() {return *raw;}
+    void setU64(uint64_t value)  {*raw = value; }
+};
+
+
+class  QDataSignalAccess : public ISignalAccess{
+public:
+    QData *raw;
+    QDataSignalAccess(QData *raw) : raw(raw){
+
+    }
+    uint64_t getU64() {return *raw;}
+    void setU64(uint64_t value)  {*raw = value; }
+};
+
+
+
+class  WDataSignalAccess : public ISignalAccess{
+public:
+    QData *raw;
+    uint32_t wordsCount;
+    WDataSignalAccess(WData *raw, uint32_t wordsCount) : raw((QData*)raw), wordsCount(wordsCount){
+
+    }
+    uint64_t getU64() {return raw[0];}
+    void setU64(uint64_t value)  {
+        raw[0] = value;
+        for(uint32_t idx = 1;idx < wordsCount;idx++){
+          raw[idx] = 0;
+        }
+    }
+};
+
 class Wrapper{
 public:
     uint64_t time;
@@ -67,7 +118,11 @@ public:
     Wrapper(){
       time = 0;
 ${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
-      yield s"        signalAccess[$id] = new ${signal.dataType}SignalAccess(&top.${signal.path.mkString(".")});\n"
+      yield s"      signalAccess[$id] = new ${if(signal.width <= 8) "CData"
+      else if(signal.width <= 16) "SData"
+      else if(signal.width <= 32) "IData"
+      else if(signal.width <= 64) "QData"
+      else "WData"}SignalAccess(${if(signal.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.width > 64) s", ${(signal.width+63)/64}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);
