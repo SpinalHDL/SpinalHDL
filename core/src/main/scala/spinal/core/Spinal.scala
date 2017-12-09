@@ -37,6 +37,7 @@ object Verilog extends SpinalMode
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
 
 
+
 /**
  * target device
  */
@@ -114,7 +115,8 @@ case class SpinalConfig(
   asyncResetCombSensitivity      : Boolean = false,
   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
   transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
+  mergeBlackBoxRTL               : Boolean = false
 ){
 
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)

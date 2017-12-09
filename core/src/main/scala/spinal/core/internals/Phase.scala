@@ -20,10 +20,15 @@
 \*                                                                           */
 package spinal.core.internals
 
+import java.io.{FileWriter, BufferedWriter, File}
+import scala.collection.mutable.ListBuffer
+
 import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+
+import scala.io.Source
 
 
 class PhaseContext(val config: SpinalConfig) {
@@ -1596,8 +1601,64 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
   }
 }
 
+/**
+  * Merge all rtl path of all BlackBox
+  */
+class PhaseMergeRTLBlackBox(pc: PhaseContext) extends PhaseMisc {
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
 
-class PhaseDummy(doThat : => Unit) extends PhaseMisc{
+    val bb_vhdl    = new ListBuffer[String]()
+    val bb_verilog = new ListBuffer[String]()
+
+    /** Retrive all rtl path */
+    walkComponents{
+      case bb: BlackBox =>
+        for(file <- bb.listRLTPath){
+
+          val vhdl_regex    = """.*\.(vhdl|vhd)""".r
+          val verilog_regex = """.*\.(v)""".r
+
+          file.toLowerCase match {
+            case vhdl_regex(f)    => if(!bb_vhdl.contains(file))   { bb_vhdl += file    }
+            case verilog_regex(f) => if(!bb_verilog.contains(file)){ bb_verilog += file }
+            case _                => SpinalWarning(s"BlackBox merging file : Extension file not supported (${file})")
+          }
+        }
+      case _ =>
+    }
+
+
+    /**
+      * Merge a list of path into one file
+      */
+    def mergeFile(listPath: List[String], fileName: String) {
+      val bw   = new BufferedWriter(new FileWriter(new File(fileName)))
+
+      for(path <- listPath){
+
+        if( new File(path).exists ) {
+          Source.fromFile(path).getLines.foreach{
+            line => bw.write(line + "\n")
+          }
+        }else{
+          SpinalWarning(s"BlackBox merging files : Path (${path}) not found ")
+        }
+
+      }
+
+      bw.close()
+    }
+
+    // Merge vhdl/verilog file
+    if(bb_vhdl.length > 0){ mergeFile(bb_vhdl.toList, s"${pc.topLevel.definitionName}_bb.vhd") }
+    if(bb_verilog.length > 0){ mergeFile(bb_verilog.toList, s"${pc.topLevel.definitionName}_bb.v") }
+
+  }
+}
+
+
+class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
     doThat
   }
@@ -1696,6 +1757,10 @@ object SpinalVhdlBoot{
     }
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
+    if(config.mergeBlackBoxRTL){
+      phases += new PhaseMergeRTLBlackBox(pc)
+    }
+
 
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += initVhdlBase(new PhaseVhdl(pc))
@@ -1816,6 +1881,10 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
+    if(config.mergeBlackBoxRTL){
+      phases += new PhaseMergeRTLBlackBox(pc)
+    }
+
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
 

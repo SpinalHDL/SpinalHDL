@@ -1246,3 +1246,60 @@ object PlayNetlistFileName{
   }
 }
 
+
+object PlayWithBlackBoxPath{
+
+  class MyBlackBox extends BlackBox{
+    val io = new Bundle{
+      val clk   = in Bool
+      val rstn  = in Bool
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+    }
+
+    addRTLPath("./Pinsec.v")
+    addRTLPath("./OperatorTester.vhd")
+    addRTLPath("./StreamTester2.v")
+
+
+    mapCurrentClockDomain(io.clk, io.rstn)
+  }
+
+  class MyBlackBox2 extends BlackBox {
+    val io = new Bundle {
+      val din  = in UInt(32 bits)
+      val dout = out UInt(32 bits)
+    }
+
+    addRTLPath("./OperatorTestessr.vhd")
+    addRTLPath("./OperatorTestessr.vhdas")
+
+  }
+
+  class MyTopLevel extends Component{
+    val io = new Bundle{
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+      val dout2 = out UInt(32 bits)
+    }
+
+    val bb = new MyBlackBox()
+    bb.io.store := io.store
+    bb.io.din   := io.din
+    io.dout     := bb.io.dout
+
+    val bb1 = new MyBlackBox2()
+    io.dout2 := bb1.io.dout
+    bb1.io.din := io.din.asUInt
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = VHDL,
+      mergeBlackBoxRTL = true
+    ).generate(new MyTopLevel)
+  }
+}

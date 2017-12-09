@@ -20,9 +20,10 @@
 \*                                                                           */
 package spinal.core
 
+
 import spinal.core.internals._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 /**
@@ -95,6 +96,11 @@ class Generic {
   * }}}
   */
 abstract class BlackBox extends Component {
+
+  val listRLTPath = new ListBuffer[String]()
+
+  /** Add the path of the rtl file */
+  def addRTLPath(path: String) = listRLTPath += path
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
