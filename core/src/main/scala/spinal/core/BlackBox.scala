@@ -23,7 +23,7 @@ package spinal.core
 
 import spinal.core.internals._
 
-import scala.collection.mutable.{ArrayBuffer, ListBuffer}
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 
 
 /**
@@ -84,7 +84,7 @@ abstract class BlackBox extends Component{
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
 
-  val listRLTPath = new ListBuffer[String]()
+  val listRLTPath = new LinkedHashSet[String]()
 
   /** Add the path of the rtl file */
   def addRTLPath(path: String) = listRLTPath += path
