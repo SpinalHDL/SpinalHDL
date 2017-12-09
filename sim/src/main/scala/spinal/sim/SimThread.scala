@@ -41,6 +41,7 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
   }
 
   def isDone: Boolean = nextStep == null
+  def nonDone: Boolean = nextStep != null
 
   def suspend(): Unit@suspendable = {
     shift { k: (Unit => Unit) =>

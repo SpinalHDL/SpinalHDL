@@ -16,6 +16,7 @@ trait SimManagerSensitive{
 class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
+  val commandBuffer = mutable.ArrayBuffer[() => Unit]()
   var schedulingOffset = 0
   var time = 0l
   var userData : Any = null
@@ -25,7 +26,9 @@ class SimManager(val raw : SimRaw) {
 
 
   def getLong(bt : Signal) : Long = raw.getLong(bt)
-  def setLong(bt : Signal, value : Long)= raw.setLong(bt, value)
+  def setLong(bt : Signal, value : Long)= {
+    commandBuffer += (() => raw.setLong(bt, value))
+  }
   def scheduleThread(thread : SimThread): Unit = {
     if(thread.time < time) thread.time = time
     threads.indexWhere(thread.time < _.time, schedulingOffset) match {
@@ -41,13 +44,17 @@ class SimManager(val raw : SimRaw) {
   }
 
   def run(body : => Unit@suspendable): Unit ={
-    scheduleThread(new SimThread(body, time))
-    run()
+    val startAt = System.nanoTime()
+    val tRoot = new SimThread(body, time)
+    scheduleThread(tRoot)
+    runWhile(tRoot.nonDone)
+    val endAt = System.nanoTime()
+    val duration = (endAt - startAt)*1e-9
+    println(f"""[Progress] Simulation done in ${duration*1e3}%1.3f ms""")
   }
 
-  def run(): Unit ={
-    var continue = true
-    while(continue){
+  def runWhile(continueWhile : => Boolean = true): Unit ={
+    while(continueWhile && threads.nonEmpty){
       val nextTime = threads.head.time
       val delta = nextTime - time
       time = nextTime
@@ -69,7 +76,8 @@ class SimManager(val raw : SimRaw) {
         thread.resume()
         threadId += 1
       }
-
+      commandBuffer.foreach(_())
+      commandBuffer.clear()
       raw.eval()
 
       var sensitivitiesCount = sensitivities.length
@@ -87,10 +95,6 @@ class SimManager(val raw : SimRaw) {
 
       threads.remove(0, threadsToRunCount)
       schedulingOffset = 0
-
-      if(threads.isEmpty){
-        continue = false
-      }
     }
 
     raw.end()

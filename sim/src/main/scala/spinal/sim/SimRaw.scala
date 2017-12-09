@@ -19,4 +19,5 @@ abstract class SimRaw(){
   def eval()
   def sleep(cycles : Long)
   def end()
+  def isBufferedWrite : Boolean
 }

@@ -25,7 +25,7 @@ object SpinalSimManagedApi{
 
   implicit class BaseTypePimper(bt : BaseType) {
     def toLong = getLong(bt)
-    def :<< (value : Long) = setLong(bt, value)
+    def :=(value : Long) = setLong(bt, value)
   }
 
   implicit class ClockDomainPimper(cd : ClockDomain) {

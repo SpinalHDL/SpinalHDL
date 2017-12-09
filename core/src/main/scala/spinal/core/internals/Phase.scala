@@ -581,7 +581,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       c.nameElements()
       if(c.definitionName == null) {
-        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
+        c.definitionName = pc.config.globalPrefix + c.getClass.getName.replace("$",".").split("\\.").last
       }
       c match {
         case bb: BlackBox => {
