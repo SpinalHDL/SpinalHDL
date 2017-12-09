@@ -21,13 +21,17 @@
 package spinal.core
 
 
+import java.io.{File, FileWriter, BufferedWriter}
+
 import spinal.core.internals._
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.io.Source
+import scala.util.matching.Regex
 
 
 //TODO
@@ -39,6 +43,7 @@ object Verilog extends SpinalMode
 
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
+
 
 
 /**
@@ -118,7 +123,7 @@ case class SpinalConfig(
   asyncResetCombSensitivity      : Boolean = false,
   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
   transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
 ){
 
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
@@ -174,6 +179,7 @@ object SpinalConfig{
 class SpinalReport[T <: Component](val toplevel: T) {
   val prunedSignals   = mutable.Set[BaseType]()
   val unusedSignals   = mutable.Set[BaseType]()
+  var rtlSourcesPaths = mutable.LinkedHashSet[String]()
   var counterRegister = 0
 
   def printUnused() : this.type = {
@@ -189,6 +195,47 @@ class SpinalReport[T <: Component](val toplevel: T) {
   def printPrunedIo() : this.type = {
     prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
     this
+  }
+
+
+  def mergeRTLSource(fileName: String = null): Unit = {
+
+    val bb_vhdl    = new mutable.LinkedHashSet[String]()
+    val bb_verilog = new mutable.LinkedHashSet[String]()
+
+    /** Split verilog/vhdl path */
+    rtlSourcesPaths.foreach{ path =>
+      val vhdl_regex    = """.*\.(vhdl|vhd)""".r
+      val verilog_regex = """.*\.(v)""".r
+
+      path.toLowerCase match {
+        case vhdl_regex(f)    => bb_vhdl    += path
+        case verilog_regex(f) => bb_verilog += path
+        case _                => SpinalWarning(s"Merging blackbox sources : Extension file not supported (${path})")
+      }
+    }
+
+
+    /** Merge a list of path into one file */
+    def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
+      val bw = new BufferedWriter(new FileWriter(new File(fileName)))
+
+      listPath.foreach{ path =>
+        if( new File(path).exists ) {
+          Source.fromFile(path).getLines.foreach{ line => bw.write(line + "\n") }
+        }else{
+          SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
+        }
+      }
+
+      bw.close()
+    }
+
+    // Merge vhdl/verilog file
+    val nameFile = if(fileName == null) toplevel.definitionName else fileName
+    if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}_bb.vhd") }
+    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}_bb.v") }
+
   }
 }
 

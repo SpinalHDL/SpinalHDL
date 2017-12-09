@@ -1139,6 +1139,7 @@ object PlayWithBusSlaveFacotry{
     io.toto := regToto
 
     val cnt = Reg(UInt(32 bits)) init(0)
+    factory.onWrite(0x10){ cnt := cnt + 1 }
     io.cnt := cnt
 
     factory.readStreamNonBlocking(io.myStream, 0x0l)
@@ -1227,10 +1228,7 @@ object PlayWithMuxListDefault{
   }
 
   def main(args: Array[String]): Unit ={
-    SpinalConfig(
-      mode = VHDL,
-      onlyStdLogicVectorAtTopLevelIo =  true
-    ).generate(new TopLevel)
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -1287,5 +1285,65 @@ object PlayStateMachineDelay{
       mode = VHDL,
       defaultClockDomainFrequency = FixedFrequency(50 MHz)
     ).generate(new TopLevel)
+  }
+}
+
+
+object PlayWithBlackBoxPath{
+
+  class MyBlackBox extends BlackBox{
+    val io = new Bundle{
+      val clk   = in Bool
+      val rstn  = in Bool
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+    }
+
+    addRTLPath("./Pinsec.v")
+    addRTLPath("./OperatorTester.vhd")
+    addRTLPath("./StreamTester2.v")
+
+
+    mapCurrentClockDomain(io.clk, io.rstn)
+  }
+
+  class MyBlackBox2 extends BlackBox {
+    val io = new Bundle {
+      val din  = in UInt(32 bits)
+      val dout = out UInt(32 bits)
+    }
+
+    addRTLPath("./Pinsec.v")
+    addRTLPath("./OperatorTestessr.vhd")
+    addRTLPath("./OperatorTestessr.vhdas")
+
+  }
+
+  class EssaiBlackBox extends Component{
+    val io = new Bundle{
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+      val dout2 = out UInt(32 bits)
+    }
+
+    val bb = new MyBlackBox()
+    bb.io.store := io.store
+    bb.io.din   := io.din
+    io.dout     := bb.io.dout
+
+    val bb1 = new MyBlackBox2()
+    io.dout2   := bb1.io.dout
+    bb1.io.din := io.din.asUInt
+
+  }
+
+  def main(args: Array[String]) {
+    val report = SpinalConfig(
+      mode = VHDL
+    ).generate(new EssaiBlackBox)
+
+    report.mergeRTLSource()
   }
 }

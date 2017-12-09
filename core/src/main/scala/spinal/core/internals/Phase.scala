@@ -20,10 +20,15 @@
 \*                                                                           */
 package spinal.core.internals
 
+import java.io.{FileWriter, BufferedWriter, File}
+import scala.collection.mutable.ListBuffer
+
 import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+
+import scala.io.Source
 
 
 class PhaseContext(val config: SpinalConfig) {
@@ -1478,7 +1483,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
 
-class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int])(pc: PhaseContext) extends PhaseCheck {
+class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], rtlSourcesPath: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1492,23 +1497,11 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
         counterRegisters.value += bt.getBitsWidth
       case _ =>
     }
-//    for(c <- components){
-//      def checkNameable(that : Any) : Unit = that match {
-//        case area : Area => {
-//          area.foreachReflectableNameables(obj => checkNameable(obj))
-//        }
-//        case data : Data =>  {
-//          data.flatten.foreach(bt => {
-//            if(!bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed){
-//              prunedSignals += bt
-//            }
-//          })
-//        }
-//        case _ =>
-//      }
-//
-//      c.foreachReflectableNameables(obj => checkNameable(obj))
-//    }
+
+    walkComponents{
+      case bb: BlackBox => bb.listRLTPath.foreach(path => rtlSourcesPath += path)
+      case _            =>
+    }
 
     val usedId = GlobalData.get.allocateAlgoIncrementale()
 
@@ -1648,7 +1641,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 }
 
 
-class PhaseDummy(doThat : => Unit) extends PhaseMisc{
+class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
     doThat
   }
@@ -1701,6 +1694,7 @@ object SpinalVhdlBoot{
 
     val prunedSignals   = mutable.Set[BaseType]()
     val unusedSignals   = mutable.Set[BaseType]()
+    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
     val counterRegister = Ref[Int](0)
 
     SpinalProgress("Elaborate components")
@@ -1749,7 +1743,8 @@ object SpinalVhdlBoot{
       base
     }
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
+
 
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += initVhdlBase(new PhaseVhdl(pc))
@@ -1777,6 +1772,7 @@ object SpinalVhdlBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
+    report.rtlSourcesPaths ++= rtlSourcesPaths
 
     report
   }
@@ -1828,9 +1824,10 @@ object SpinalVerilogBoot{
     val pc = new PhaseContext(config)
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
-    val prunedSignals   = mutable.Set[BaseType]()
-    val unusedSignals   = mutable.Set[BaseType]()
-    val counterRegister = Ref[Int](0)
+    val prunedSignals    = mutable.Set[BaseType]()
+    val unusedSignals    = mutable.Set[BaseType]()
+    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
+    val counterRegister  = Ref[Int](0)
 
     SpinalProgress("Elaborate components")
 
@@ -1869,7 +1866,8 @@ object SpinalVerilogBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
+
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
 
@@ -1895,6 +1893,7 @@ object SpinalVerilogBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
+    report.rtlSourcesPaths ++= rtlSourcesPaths
 
     report
   }

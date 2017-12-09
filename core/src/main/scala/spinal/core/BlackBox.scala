@@ -20,9 +20,10 @@
 \*                                                                           */
 package spinal.core
 
+
 import spinal.core.internals._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 
 
 /**
@@ -82,6 +83,11 @@ abstract class BlackBox extends Component{
     case boolean: Boolean => genericElements += Tuple2(name, boolean)
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
+
+  val listRLTPath = new LinkedHashSet[String]()
+
+  /** Add the path of the rtl file */
+  def addRTLPath(path: String) = listRLTPath += path
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
