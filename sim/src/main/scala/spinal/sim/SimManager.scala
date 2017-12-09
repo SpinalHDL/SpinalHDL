@@ -1,12 +1,21 @@
 package spinal.sim
 
+import scala.collection.convert.WrapAsJava.asJavaIterator
 import scala.collection.mutable
 import scala.util.continuations._
 
 
+trait SimThreadBlocker{
+  def check() : Boolean
+}
+
+trait SimManagerSensitive{
+  def update() : Boolean
+}
 
 class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
+  val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   var schedulingOffset = 0
   var time = 0l
   var userData : Any = null
@@ -17,8 +26,8 @@ class SimManager(val raw : SimRaw) {
 
   def getLong(bt : Signal) : Long = raw.getLong(bt)
   def setLong(bt : Signal, value : Long)= raw.setLong(bt, value)
-//  def getClock(clockDomain: ClockDomain) = raw.getClock(clockDomain)
-  def scheduleThread(thread : SimThread): Unit ={
+  def scheduleThread(thread : SimThread): Unit = {
+    if(thread.time < time) thread.time = time
     threads.indexWhere(thread.time < _.time, schedulingOffset) match {
       case -1 => threads += thread
       case idx => threads.insert(idx, thread)
@@ -35,6 +44,7 @@ class SimManager(val raw : SimRaw) {
     scheduleThread(new SimThread(body, time))
     run()
   }
+
   def run(): Unit ={
     var continue = true
     while(continue){
@@ -59,7 +69,22 @@ class SimManager(val raw : SimRaw) {
         thread.resume()
         threadId += 1
       }
+
       raw.eval()
+
+      var sensitivitiesCount = sensitivities.length
+      var sensitivitiesId = 0
+      while(sensitivitiesId < sensitivitiesCount){
+        if(!sensitivities(sensitivitiesId).update()){
+          sensitivitiesCount-=1
+          sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
+          sensitivities.remove(sensitivitiesCount)
+        }else{
+          sensitivitiesId += 1
+        }
+      }
+
+
       threads.remove(0, threadsToRunCount)
       schedulingOffset = 0
 

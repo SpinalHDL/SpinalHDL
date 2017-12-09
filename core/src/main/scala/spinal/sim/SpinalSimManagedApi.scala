@@ -20,6 +20,7 @@ object SpinalSimManagedApi{
     manager.setLong(signal, value)
   }
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
+  def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread@suspendable = SimManagerContext.current.manager.newThread(body)
 
   implicit class BaseTypePimper(bt : BaseType) {
@@ -28,17 +29,27 @@ object SpinalSimManagedApi{
   }
 
   implicit class ClockDomainPimper(cd : ClockDomain) {
-    def fallingEdge = {
+    private def getClockSignal(manager : SimManager): Signal ={
       val manager = SimManagerContext.current.manager
       val bt = manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
-      val signal = btToSignal(manager, bt)
+      btToSignal(manager, bt)
+    }
+    def fallingEdge = {
+      val manager = SimManagerContext.current.manager
+      val signal = getClockSignal(manager)
       manager.setLong(signal, 0)
     }
     def risingEdge = {
       val manager = SimManagerContext.current.manager
-      val bt = manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
-      val signal = btToSignal(manager, bt)
+      val signal = getClockSignal(manager)
       manager.setLong(signal, 1)
+    }
+
+    def waitRisingEdge: Unit@suspendable  ={
+      val manager = SimManagerContext.current.manager
+      val signal = getClockSignal(manager)
+      waitUntil(manager.getLong(signal) == 0)
+      waitUntil(manager.getLong(signal) == 1)
     }
   }
 }

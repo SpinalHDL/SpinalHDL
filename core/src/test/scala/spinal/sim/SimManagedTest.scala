@@ -18,6 +18,7 @@ object SimManagedTest {
     SpinalSimManagedVerilator(new Dut) { dut =>
       val t1 = fork {
         var idx = 0
+        sleep(2)
         while (idx < 20) {
           dut.io.a :<< dut.io.a.toLong + 1
           sleep(10)
@@ -38,17 +39,17 @@ object SimManagedTest {
         }
       }
 
-
       val t2 = fork {
         var idx = 0
         while (idx < 20) {
+          dut.clockDomain.waitRisingEdge
           dut.io.b :<< dut.io.b.toLong + 1
-          sleep(20)
           idx += 1
         }
       }
 
       val t3 = fork {
+        sleep(2)
         var idx = 0
         while (idx < 20) {
           dut.io.c :<< dut.io.c.toLong + 1
@@ -57,6 +58,13 @@ object SimManagedTest {
         }
       }
 
+      val t4 = fork{
+        waitUntil(dut.io.a.toLong == 66)
+        dut.io.b :<< 77
+        waitUntil(dut.io.a.toLong == 88)
+        dut.io.b :<< 99
+        sleep(10)
+      }
 
       t1.join()
       sleep(50)
@@ -69,6 +77,7 @@ object SimManagedTest {
         bt.toLong + 1
       }
 
+      t3.join()
       println(doStuff(dut.io.a, 66))
       println(doStuff(dut.io.a, 88))
     }
