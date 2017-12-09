@@ -24,9 +24,9 @@ class SimManager(val raw : SimRaw) {
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
-
+  def getInt(bt : Signal) : Int = raw.getInt(bt)
   def getLong(bt : Signal) : Long = raw.getLong(bt)
-  def setLong(bt : Signal, value : Long)= {
+  def setLong(bt : Signal, value : Long): Unit = {
     commandBuffer += (() => raw.setLong(bt, value))
   }
   def scheduleThread(thread : SimThread): Unit = {

@@ -1,7 +1,6 @@
 package spinal.sim
 
 import SpinalSimManagedApi._
-import spinal.core.UInt
 
 import scala.util.continuations.suspendable
 

@@ -2,6 +2,10 @@ package spinal.sim
 
 
 class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
+  override def getInt(signal : Signal) : Int = {
+    assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
+    signal.dataType.raw64ToInt(backend.native.wrapperGetU64(handle, signal.id))
+  }
   override def getLong(signal : Signal) : Long = {
     assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
     signal.dataType.raw64ToLong(backend.native.wrapperGetU64(handle, signal.id))

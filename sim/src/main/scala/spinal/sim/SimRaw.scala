@@ -14,6 +14,7 @@ import scala.util.continuations._
 
 abstract class SimRaw(){
   var userData : Any = null
+  def getInt(bt : Signal) : Int
   def getLong(bt : Signal) : Long
   def setLong(bt : Signal, value : Long)
   def eval()

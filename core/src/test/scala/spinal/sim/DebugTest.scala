@@ -5,8 +5,8 @@ object DebugTest {
     import spinal.core._
     class Dut extends Component {
       val io = new Bundle {
-        val a, b, c = in UInt (8 bits)
-        val result = out UInt (8 bits)
+        val a, b, c = in UInt (7 bits)
+        val result = out UInt (7 bits)
       }
       io.result := RegNext(io.a + io.b - io.c)
     }
