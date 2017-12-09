@@ -1483,7 +1483,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
 
-class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int])(pc: PhaseContext) extends PhaseCheck {
+class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], rtlSourcesPath: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1497,23 +1497,11 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
         counterRegisters.value += bt.getBitsWidth
       case _ =>
     }
-//    for(c <- components){
-//      def checkNameable(that : Any) : Unit = that match {
-//        case area : Area => {
-//          area.foreachReflectableNameables(obj => checkNameable(obj))
-//        }
-//        case data : Data =>  {
-//          data.flatten.foreach(bt => {
-//            if(!bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed){
-//              prunedSignals += bt
-//            }
-//          })
-//        }
-//        case _ =>
-//      }
-//
-//      c.foreachReflectableNameables(obj => checkNameable(obj))
-//    }
+
+    walkComponents{
+      case bb: BlackBox => bb.listRLTPath.foreach(path => rtlSourcesPath += path)
+      case _            =>
+    }
 
     val usedId = GlobalData.get.allocateAlgoIncrementale()
 
@@ -1652,62 +1640,6 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
   }
 }
 
-/**
-  * Merge all rtl path of all BlackBox
-  */
-class PhaseMergeRTLBlackBox(pc: PhaseContext) extends PhaseMisc {
-  override def impl(pc : PhaseContext): Unit = {
-    import pc._
-
-    val bb_vhdl    = new ListBuffer[String]()
-    val bb_verilog = new ListBuffer[String]()
-
-    /** Retrive all rtl path */
-    walkComponents{
-      case bb: BlackBox =>
-        for(file <- bb.listRLTPath){
-
-          val vhdl_regex    = """.*\.(vhdl|vhd)""".r
-          val verilog_regex = """.*\.(v)""".r
-
-          file.toLowerCase match {
-            case vhdl_regex(f)    => if(!bb_vhdl.contains(file))   { bb_vhdl += file    }
-            case verilog_regex(f) => if(!bb_verilog.contains(file)){ bb_verilog += file }
-            case _                => SpinalWarning(s"BlackBox merging file : Extension file not supported (${file})")
-          }
-        }
-      case _ =>
-    }
-
-
-    /**
-      * Merge a list of path into one file
-      */
-    def mergeFile(listPath: List[String], fileName: String) {
-      val bw   = new BufferedWriter(new FileWriter(new File(fileName)))
-
-      for(path <- listPath){
-
-        if( new File(path).exists ) {
-          Source.fromFile(path).getLines.foreach{
-            line => bw.write(line + "\n")
-          }
-        }else{
-          SpinalWarning(s"BlackBox merging files : Path (${path}) not found ")
-        }
-
-      }
-
-      bw.close()
-    }
-
-    // Merge vhdl/verilog file
-    if(bb_vhdl.length > 0){ mergeFile(bb_vhdl.toList, s"${pc.topLevel.definitionName}_bb.vhd") }
-    if(bb_verilog.length > 0){ mergeFile(bb_verilog.toList, s"${pc.topLevel.definitionName}_bb.v") }
-
-  }
-}
-
 
 class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
@@ -1762,6 +1694,7 @@ object SpinalVhdlBoot{
 
     val prunedSignals   = mutable.Set[BaseType]()
     val unusedSignals   = mutable.Set[BaseType]()
+    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
     val counterRegister = Ref[Int](0)
 
     SpinalProgress("Elaborate components")
@@ -1810,10 +1743,7 @@ object SpinalVhdlBoot{
       base
     }
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
-    if(config.mergeBlackBoxRTL){
-      phases += new PhaseMergeRTLBlackBox(pc)
-    }
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
 
 
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
@@ -1842,6 +1772,7 @@ object SpinalVhdlBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
+    report.rtlSourcesPaths ++= rtlSourcesPaths
 
     report
   }
@@ -1893,9 +1824,10 @@ object SpinalVerilogBoot{
     val pc = new PhaseContext(config)
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
-    val prunedSignals   = mutable.Set[BaseType]()
-    val unusedSignals   = mutable.Set[BaseType]()
-    val counterRegister = Ref[Int](0)
+    val prunedSignals    = mutable.Set[BaseType]()
+    val unusedSignals    = mutable.Set[BaseType]()
+    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
+    val counterRegister  = Ref[Int](0)
 
     SpinalProgress("Elaborate components")
 
@@ -1934,10 +1866,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister)(pc)
-    if(config.mergeBlackBoxRTL){
-      phases += new PhaseMergeRTLBlackBox(pc)
-    }
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
     phases += new PhaseVerilog(pc)
@@ -1964,6 +1893,7 @@ object SpinalVerilogBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
+    report.rtlSourcesPaths ++= rtlSourcesPaths
 
     report
   }

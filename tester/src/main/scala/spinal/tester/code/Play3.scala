@@ -1314,12 +1314,13 @@ object PlayWithBlackBoxPath{
       val dout = out UInt(32 bits)
     }
 
+    addRTLPath("./Pinsec.v")
     addRTLPath("./OperatorTestessr.vhd")
     addRTLPath("./OperatorTestessr.vhdas")
 
   }
 
-  class MyTopLevel extends Component{
+  class EssaiBlackBox extends Component{
     val io = new Bundle{
       val store = in Bool
       val din   = in Bits(32 bits)
@@ -1333,15 +1334,16 @@ object PlayWithBlackBoxPath{
     io.dout     := bb.io.dout
 
     val bb1 = new MyBlackBox2()
-    io.dout2 := bb1.io.dout
+    io.dout2   := bb1.io.dout
     bb1.io.din := io.din.asUInt
 
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(
-      mode = VHDL,
-      mergeBlackBoxRTL = true
-    ).generate(new MyTopLevel)
+    val report = SpinalConfig(
+      mode = VHDL
+    ).generate(new EssaiBlackBox)
+
+    report.mergeRTLSource()
   }
 }
