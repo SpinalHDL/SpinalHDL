@@ -45,66 +45,34 @@ trait VecFactory {
     }
   }
 
-  def Vec[T <: Data](gen: => T, size: Int): Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
 
-  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
+//  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
 
-  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
+//  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
 
   @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = Vec.fill(size)(gen)
 
   @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = Vec.tabulate(size)(gen)
 
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
-  def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
-    Vec((0 until size).map(gen(_)))
-  }
+  class VecBuilder{
+    def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
+      Vec((0 until size).map(gen(_)))
+    }
 
-  def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
-    tabulate(size)(_ => gen)
+    def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
+      tabulate(size)(_ => gen)
+    }
   }
+  val Vec = new VecBuilder()
 }
 
-
-object SeqMux {
-
-  def apply[T <: Data](elements: Seq[T], _address: UInt): T = {
-
-    var address   = _address
-    val bitNeeded = log2Up(elements.size)
-
-    if(bitNeeded < address.getWidth){
-      if(address.hasTag(tagAutoResize)){
-        address = _address.resize(bitNeeded)
-      }else {
-        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
-      }
-    }
-
-    if (elements.size == 1) {
-      val ret = cloneOf(elements.head)
-      ret := elements.head
-      return ret
-    }
-
-    def stage(elements: Seq[T], level: Int): T = {
-      elements.size match {
-        case 0 => throw new Exception("Can't mux a Vec of size zero")
-        case 1 => elements.head
-        case _ =>
-          val muxs = (0 until elements.length / 2).map(i => Mux(address(level), elements(2 * i + 1), elements(2 * i)))
-          stage(muxs ++ elements.slice(elements.length / 2 * 2, elements.length), level + 1)
-      }
-    }
-
-    stage(elements, 0)
-  }
-}
 
 
 class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Vec[T]) extends Assignable {
@@ -187,11 +155,42 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   /** Access an element of the vector by an UInt index */
   def apply(address: UInt): T = access(address)
 
+  private def readEmu(address : UInt): T = {
+    if(elements.size == 0){
+      throw new Exception("Can't mux a Vec of size zero")
+    }
+    if (elements.size == 1) {
+      val ret = cloneOf(vec.head)
+      ret := vec.head
+      return ret
+    }
+    //    val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
+    var finalAddress   = address
+    val bitNeeded = log2Up(elements.size)
+
+    if(bitNeeded < finalAddress.getWidth){
+      if(finalAddress.hasTag(tagAutoResize)){
+        finalAddress = address.resize(bitNeeded)
+      }else {
+        SpinalError(s"To many bit to address the vector (${finalAddress.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
+      }
+    }
+
+
+    val ret = cloneOf(_dataType)
+    val retFlatten = ret.flatten
+    for(i <- 0 until vecTransposed.length){
+      val target = retFlatten(i)
+      target.assignFrom(target.newMultiplexer(finalAddress, vecTransposed(i)))
+    }
+    ret
+  }
+
   def read(address: UInt): T = {
     val key = (Component.current, address)
-    if (readMap.contains(key)) return accessMap(key)
+    if (readMap.contains(key)) return readMap(key)
 
-    val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
+    val ret = readEmu(address)
 
     readMap += (key -> ret)
     ret
@@ -201,7 +200,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     val key = (Component.current, address)
     if (accessMap.contains(key)) return accessMap(key)
 
-    val ret     = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
+    val ret     = readEmu(address)
     val enables = (U(1) << address).asBools
 
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {

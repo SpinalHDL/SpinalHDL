@@ -213,7 +213,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
+  private[core] override def newMultiplexerExpression() = new MultiplexerBool
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBool
 
   private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
 

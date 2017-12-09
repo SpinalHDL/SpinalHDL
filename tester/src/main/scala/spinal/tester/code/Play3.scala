@@ -5,14 +5,18 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryConfig}
+import spinal.lib.bus.misc._
+import spinal.lib.bus.simple._
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
+import spinal.lib.fsm._
+
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -1135,7 +1139,7 @@ object PlayWithBusSlaveFacotry{
     io.toto := regToto
 
     val cnt = Reg(UInt(32 bits)) init(0)
-    factory.onWrite{ cnt := cnt + 1 }
+    factory.onWrite(0x10){ cnt := cnt + 1 }
     io.cnt := cnt
 
     factory.readStreamNonBlocking(io.myStream, 0x0l)
@@ -1243,6 +1247,44 @@ object PlayNetlistFileName{
       mode = Verilog,
       netlistFileName = "FakeNetlist."
     ).generate(new FakeNetlist)
+  }
+}
+
+
+
+object PlayStateMachineDelay{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val a = in Bool
+      val c = out Bool
+    }
+
+    io.c := False
+
+    val fsm = new StateMachine{
+      val sIdle: State = new State with EntryPoint {
+        whenIsActive{
+          when(io.a){
+            goto(sIdle)
+          }
+        }
+      }
+      val sWait: State = new StateDelay(10 us){
+        whenCompleted{
+          io.c := True
+          goto(sIdle)
+        }
+      }
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(
+      mode = VHDL,
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
+    ).generate(new TopLevel)
   }
 }
 

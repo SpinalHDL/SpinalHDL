@@ -152,7 +152,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
     val popCmdGray  = BufferCC(frameClockArea.popCmdGray)
     val pushCmdGray = GrayCounter(grayWidth,io.mem.cmd.fire)
 
-    toManyPendingRsp :=  pushCmdGray(grayWidth - 1, grayWidth - 2) === ~popCmdGray(grayWidth - 1, grayWidth - 2) && pushCmdGray(grayWidth - 3, 0) === popCmdGray(grayWidth - 3, 0)
+    toManyPendingRsp :=  pushCmdGray(grayWidth - 1 downto grayWidth - 2) === ~popCmdGray(grayWidth - 1 downto grayWidth - 2) && pushCmdGray(grayWidth - 3 downto 0) === popCmdGray(grayWidth - 3 downto 0)
   }
 
   val fifoPopArea = new ClockingArea(frameClock){

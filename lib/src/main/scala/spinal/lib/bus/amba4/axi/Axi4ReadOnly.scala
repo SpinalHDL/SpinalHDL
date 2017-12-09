@@ -31,6 +31,12 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
   }
 
 
+  def toFullConfig(): Axi4ReadOnly = {
+    val ret = Axi4ReadOnly(config.toFullConfig())
+    ret << this
+    ret
+  }
+
   override def asMaster(): Unit = {
     master(ar)
     slave(r)

@@ -151,7 +151,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi downto lo).assignFromBits(bits)
 
   /**
     * Cast a SInt into an UInt
@@ -174,7 +174,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+  private[core] override def newMultiplexerExpression() = new MultiplexerSInt
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerSInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt
@@ -182,6 +183,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     node.size  = width
     node
   })
+
+  override def resize(width: BitCount) = resize(width.value)
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
   override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1

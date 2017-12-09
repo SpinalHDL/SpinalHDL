@@ -147,6 +147,7 @@ abstract class BitVector extends BaseType with Widthable {
     * @return a resized bitVector
     */
   def resize(width: Int): BitVector
+  def resize(width: BitCount): BitVector
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -243,10 +244,10 @@ abstract class BitVector extends BaseType with Widthable {
         override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = target match {
           case x: BitVector                => BitVector.this.compositAssignFrom(that, RangedAssignmentFixed(BitVector.this, hi, lo), kind)
 //          case x: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
-          case x: BitAssignmentFixed       => BitVector.this.apply(lo + x.bitId).compositAssignFrom(that, target, kind)
-          case x: BitAssignmentFloating    => BitVector.this.apply(lo + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, target, kind)
-          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).compositAssignFrom(that, target, kind)
-          case x: RangedAssignmentFloating => BitVector.this.apply(lo + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, target, kind)
+          case x: BitAssignmentFixed       => BitVector.this.apply(lo + x.bitId).compositAssignFrom(that, BitVector.this, kind)
+          case x: BitAssignmentFloating    => BitVector.this.apply(lo + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, BitVector.this, kind)
+          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi downto lo + x.lo).compositAssignFrom(that,BitVector.this, kind)
+          case x: RangedAssignmentFloating => BitVector.this.apply(lo + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, BitVector.this, kind)
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
@@ -264,13 +265,13 @@ abstract class BitVector extends BaseType with Widthable {
       extract.offset = offset
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
-        override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef): Unit = that match {
+        override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef): Unit = target match {
           case x: BitVector                => BitVector.this.compositAssignFrom(that,RangedAssignmentFloating(BitVector.this, offset, size), kind)
 //          case x: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
-          case x: BitAssignmentFixed       => BitVector.this.apply(offset + x.bitId).compositAssignFrom(that, target, kind)
-          case x: BitAssignmentFloating    => BitVector.this.apply(offset + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, target, kind)
-          case x: RangedAssignmentFixed    => BitVector.this.apply(offset + x.lo, x.hi - x.lo + 1 bits).compositAssignFrom(that, target, kind)
-          case x: RangedAssignmentFloating => BitVector.this.apply(offset + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, target, kind)
+          case x: BitAssignmentFixed       => BitVector.this.apply(offset + x.bitId).compositAssignFrom(that, BitVector.this, kind)
+          case x: BitAssignmentFloating    => BitVector.this.apply(offset + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, BitVector.this, kind)
+          case x: RangedAssignmentFixed    => BitVector.this.apply(offset + x.lo, x.hi - x.lo + 1 bits).compositAssignFrom(that, BitVector.this, kind)
+          case x: RangedAssignmentFloating => BitVector.this.apply(offset + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, BitVector.this, kind)
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
@@ -307,16 +308,10 @@ abstract class BitVector extends BaseType with Widthable {
   def apply(offset: UInt, bitCount: BitCount): this.type
 
   /**
-    * Return a range of bits form hi index to lo index
-    * @example{{{ val myBool = myBits(3, 1) }}}
-    */
-  def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi - lo + 1 bits)
-
-  /**
     * Return a range of bits
     * @example{{{ val myBool = myBits(3 downto 1) }}}
     */
-  def apply(range: Range): this.type = this.apply(range.high, range.low)
+  def apply(range: Range): this.type = this.apply(range.low, range.high - range.low + 1 bits)
 
   /** Set all bits to value */
   def setAllTo(value: Boolean): Unit = if(value) setAll() else clearAll()

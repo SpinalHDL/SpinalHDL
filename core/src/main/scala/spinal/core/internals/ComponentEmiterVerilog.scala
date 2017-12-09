@@ -98,17 +98,14 @@ class ComponentEmiterVerilog(
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadAsync =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadWrite =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemWrite    =>
         }
       })
@@ -121,6 +118,16 @@ class ComponentEmiterVerilog(
       referencesOverrides(output) = name
     }
 
+    for((select, muxes) <- multiplexersPerSelect){
+      expressionToWrap += select._1
+      for(mux <- muxes) {
+        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+        declarations ++= s"  reg ${emitType(mux)} $name;\n"
+        wrappedExpressionToName(mux) = name
+        //        expressionToWrap ++= mux.inputs
+      }
+    }
+
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= emitExpressionWrap(io, name)
@@ -128,6 +135,7 @@ class ComponentEmiterVerilog(
     }))
 
     //Wrap expression which need it
+    expressionToWrap --= wrappedExpressionToName.keysIterator
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= emitExpressionWrap(e, name)
@@ -152,6 +160,7 @@ class ComponentEmiterVerilog(
     emitMems(mems)
     emitSubComponents(openSubIo)
     emitAnalogs()
+    emitMuxes()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -200,21 +209,21 @@ class ComponentEmiterVerilog(
 
       if (child.isInstanceOf[BlackBox]) {
         val bb = child.asInstanceOf[BlackBox]
-        val genericFlat = bb.getGeneric.flatten
+        val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
           logics ++= s"#( \n"
           for (e <- genericFlat) {
             e match {
-              case bt: BaseType               => logics ++= s"    .${emitReference(bt, false)}(${emitExpression(bt.head.source)}),\n"
-              case (name: String, s: String)  => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case (name: String, i: Int)     => logics ++= s"    .${name}($i),\n"
-              case (name: String, d: Double)  => logics ++= s"    .${name}($d),\n"
-              case (name: String, b: Boolean) => logics ++= s"    .${name}($b),\n"
+              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.head.source)}),\n"
+              case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
+              case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
+              case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
+              case (name: String, b: Boolean)   => logics ++= s"    .${name}($b),\n"
             }
           }
           logics.setCharAt(logics.size - 2, ' ')
-          logics ++= s") "
+          logics ++= s"  ) "
         }
       }
 
@@ -257,18 +266,19 @@ class ComponentEmiterVerilog(
 
     referenceSetAdd(emitClockEdge(emitReference(clock,false),clockDomain.config.clockEdge))
 
+
     if(withReset) {
-      if(!asyncResetCombSensitivity) referenceSetPause()
+      val initSensitivity = asyncResetCombSensitivity && asyncReset
+      if(!initSensitivity) referenceSetPause()
       emitRegsInitialValue("      ", initialStatlementsGeneration)
-      if(!asyncResetCombSensitivity) referenceSetResume()
+      if(!initSensitivity) referenceSetResume()
     }
 
     if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
-    b ++= s"${tabStr}always @ (${referehceSetSorted().mkString(" or ")})\n"
-    b ++= s"${tabStr}begin\n"
+    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")}) begin\n"
 
     inc
 
@@ -337,6 +347,27 @@ class ComponentEmiterVerilog(
     )
   }
 
+  def emitMuxes(): Unit ={
+    for(((select, length), muxes) <- multiplexersPerSelect){
+      logics ++= s"  always @(*) begin\n"
+      logics ++= s"    case(${emitExpression(select)})\n"
+      for(i <- 0 until length){
+        val key = Integer.toBinaryString(i)
+        if(i != length-1)
+          logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
+        else
+          logics ++= s"      default : begin\n"
+
+        for(mux <- muxes){
+          logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+        }
+        logics ++= s"      end\n"
+      }
+      logics ++= s"    endcase\n"
+      logics ++= s"  end\n\n"
+    }
+  }
+
   def emitAsyncronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
 
   def emitAsyncronous(process: AsyncProcess): Unit = {
@@ -351,9 +382,9 @@ class ComponentEmiterVerilog(
         referenceSetStart()
         emitLeafStatements(process.leafStatements, 0, process.scope, "=", tmp, "    ")
 
-        if (referehceSetSorted().nonEmpty) {
-          logics ++= s"  always @ (${referehceSetSorted().mkString(" or ")})\n"
-          logics ++= "  begin\n"
+        if (referenceSetSorted().nonEmpty) {
+//          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
+          logics ++= s"  always @ (*) begin\n"
           logics ++= tmp.toString()
           logics ++= "  end\n\n"
         } else {
@@ -361,7 +392,7 @@ class ComponentEmiterVerilog(
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
               val funcName = "zz_" + emitReference(node, false)
-              declarations ++= s"  function automatic ${emitType(node)} $funcName(input dummy);\n"
+              declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
 //              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
               declarations ++= s"    begin\n"
 
@@ -380,7 +411,8 @@ class ComponentEmiterVerilog(
               val name = component.localNamingScope.allocateName(anonymSignalPrefix)
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
-              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
+//              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
+              logics ++= s"  always @ (*) ${emitReference(node, false)} = $name;\n"
           }
         }
     }
@@ -571,7 +603,7 @@ class ComponentEmiterVerilog(
     }
   }
 
-  def referehceSetSorted() = _referenceSet
+  def referenceSetSorted() = _referenceSet
 
   var _referenceSetEnabled = false
   val _referenceSet        = mutable.LinkedHashSet[String]()
@@ -805,7 +837,8 @@ end
             symboleReadDataName
           }
 
-          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+//          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+          logics ++= s"  always @ (*) begin\n"
           logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
           logics ++= s"  end\n"
         }
@@ -895,7 +928,7 @@ end
     def onEachExpression(e: Expression): Unit = {
       e match {
         case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize if node.size < node.input.getWidth => applyTo(node.input)
+        case node: Resize => applyTo(node.input)
         case _               =>
       }
     }
@@ -945,7 +978,7 @@ end
     s"($verilog ${emitExpression(e.source)})"
   }
 
-  def operatorImplAsMux(e: Multiplexer): String = {
+  def operatorImplAsMux(e: BinaryMultiplexer): String = {
     s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
   }
 
@@ -964,6 +997,8 @@ end
   def operatorImplResize(func: Resize): String = {
     if(func.size < func.input.getWidth)
       s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else if(func.size > func.input.getWidth)
+      s"{${func.size - func.input.getWidth}'d0, ${emitExpression(func.input)}}"
     else
       emitExpression(func.input)
   }
@@ -971,8 +1006,10 @@ end
   def operatorImplResizeSigned(func: Resize): String = {
     if(func.size < func.input.getWidth)
       s"${emitExpression(func.input)}[${func.size-1}:0]"
+    else if(func.size > func.input.getWidth)
+      s"{{${func.size - func.input.getWidth}{${emitExpression(func.input)}[${func.input.getWidth-1}]}}, ${emitExpression(func.input)}}"
     else
-      "$signed(" + emitExpression(func.input) + ")"
+      emitExpression(func.input)
   }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
@@ -1150,7 +1187,7 @@ end
     case  e: ResizeUInt                               => operatorImplResize(e)
     case  e: ResizeBits                               => operatorImplResize(e)
 
-    case  e: Multiplexer                              => operatorImplAsMux(e)
+    case  e: BinaryMultiplexer                        => operatorImplAsMux(e)
 
     case  e: BitVectorBitAccessFixed                  => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating               => accessBoolFloating(e)

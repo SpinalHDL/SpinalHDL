@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+
 import spinal.core.internals._
 
 import java.text.SimpleDateFormat
@@ -28,6 +29,9 @@ import java.util.Date
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+
+//TODO
+// undefined
 
 trait SpinalMode
 object VHDL    extends SpinalMode
@@ -111,7 +115,7 @@ case class SpinalConfig(
   anonymSignalPrefix             : String = null,
   device                         : Device = Device(),
   genVhdlPkg                     : Boolean = true,
-  mergeAsyncProcess              : Boolean = false,
+  mergeAsyncProcess              : Boolean = true,
   asyncResetCombSensitivity      : Boolean = false,
   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
   transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
@@ -123,7 +127,11 @@ case class SpinalConfig(
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
 
-  def apply[T <: Component](gen : => T): SpinalReport[T] = Spinal(this)(gen)
+  def apply[T <: Component](gen : => T): SpinalReport[T] = {
+    if(memBlackBoxers.isEmpty)
+      addStandardMemBlackboxing(blackboxOnlyIfRequested)
+    Spinal(this)(gen)
+  }
 
   def applyToGlobalData(globalData: GlobalData): Unit = {
     globalData.scalaLocatedEnable = debug

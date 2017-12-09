@@ -43,9 +43,9 @@ class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends
     pixelStream.valid := dma.io.ctrl.rsp.valid
     pixelStream.last :=  dma.io.ctrl.rsp.last && high
     val halfSelect = Mux(high,dma.io.ctrl.rsp.fragment(31 downto 16),dma.io.ctrl.rsp.fragment(15 downto 0))
-    pixelStream.fragment.r := halfSelect(15,11).asUInt << 3
-    pixelStream.fragment.g := halfSelect(10,5).asUInt << 2
-    pixelStream.fragment.b := halfSelect(4,0).asUInt << 3
+    pixelStream.fragment.r := halfSelect(15 downto 11).asUInt << 3
+    pixelStream.fragment.g := halfSelect(10 downto 5).asUInt << 2
+    pixelStream.fragment.b := halfSelect(4 downto 0).asUInt << 3
     dma.io.ctrl.rsp.ready := pixelStream.ready && high
 
 

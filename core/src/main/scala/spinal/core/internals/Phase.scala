@@ -202,27 +202,18 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
     walkDeclarations {
       case node: BaseType if node.dlcIsEmpty => node.getTag(classOf[DefaultTag]) match {
         case Some(defaultValue) =>
-
           val c = node.dir match {
-            case `in` => node.component
-            case `out` => if (node.component.parent != null)
-              node.component.parent
-            else
-              null
+            case `in` => node.component.parent
+            case `out` => node.component
+            case `inout` => PendingError(s"DEFAULT INOUT isn't allowed on $node at\n${node.getScalaLocationLong}")
             case _ => node.component
           }
 
           if (c != null) {
-            node.dir match {
-              case `in` =>
-                Component.push(c.parent)
-                node.assignFrom(defaultValue.that)
-                Component.pop(c.parent)
-              case _ =>
-                Component.push(c)
-                node.assignFrom(defaultValue.that)
-                Component.pop(c)
-            }
+            val scope = node.rootScopeStatement
+            scope.push()
+            node.assignFrom(defaultValue.that)
+            scope.pop()
           }
         case _ =>
       }
@@ -598,8 +589,23 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       }
       c match {
-        case bb: BlackBox => bb.getGeneric.genNames()
-        case _            =>
+        case bb: BlackBox => {
+          val generic = bb.getGeneric
+          if(generic != null) {
+            Misc.reflect(generic, (name, obj) => {
+              OwnableRef.proposal(obj, this)
+              obj match {
+                case obj: Nameable => obj.setWeakName(name)
+                case _ =>
+              }
+              obj match {
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case _         => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
+              }
+            })
+          }
+        }
+        case _ =>
       }
     }
   }
@@ -1363,6 +1369,9 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
     import pc._
 
     walkComponents(c => {
+      val subInputsPerScope = mutable.HashMap[ScopeStatement, ArrayBuffer[BaseType]]()
+      c.children.foreach(_.getAllIo.withFilter(_.isInput).foreach(input => subInputsPerScope.getOrElseUpdate(input.rootScopeStatement, ArrayBuffer[BaseType]()) += input))
+
       def walkBody(body: ScopeStatement): mutable.HashMap[BaseType, AssignedBits] = {
         val assigneds = mutable.HashMap[BaseType, AssignedBits]()
 
@@ -1383,6 +1392,11 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         }
 
         def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
+
+        subInputsPerScope.get(body) match {
+          case Some(inputs) => inputs.foreach(getOrEmpty(_))
+          case _ =>
+        }
 
         body.foreachStatements {
           case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
@@ -1560,6 +1574,43 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
+class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
+
+  override def impl(pc: PhaseContext): Unit = {
+
+    pc.topLevel.rework {
+
+      def wrapIO[T <: BitVector](io: T): Unit = {
+
+        val newIO = Bits(io.getWidth bits)
+
+        newIO.setName(io.getName())
+        io.unsetName()
+
+        io.dir match {
+          case `in`  =>
+            in(newIO)
+            io.assignFromBits(newIO)
+          case `out` =>
+            out(newIO)
+            newIO := B(io)
+        }
+
+        io.asDirectionLess().allowDirectionLessIo
+      }
+
+      val ioList = pc.topLevel.getAllIo.toArray
+
+      ioList.foreach {
+        case io: UInt if io.isInput | io.isOutput => wrapIO(io)
+        case io: SInt if io.isInput | io.isOutput => wrapIO(io)
+        case _ =>
+      }
+
+    }
+  }
+}
+
 //class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetlist{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1721,6 +1772,9 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
+    if(config.onlyStdLogicVectorAtTopLevelIo){
+      phases += new PhaseStdLogicVectorAtTopLevelIo()
+    }
     phases += new PhaseApplyIoDefault(pc)
 
     phases += new PhaseNameNodesByReflection(pc)

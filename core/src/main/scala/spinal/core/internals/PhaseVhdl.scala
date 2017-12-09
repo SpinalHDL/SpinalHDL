@@ -53,7 +53,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)

@@ -59,8 +59,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     }
 
     //Capacity flags
-    val empty = writePtr(log2Up(bufferSize), 0) === readPtr(log2Up(bufferSize), 0)
-    val full = writePtr(log2Up(bufferSize), 0) === (readPtr(log2Up(bufferSize), 0) ^ bufferSize)
+    val empty = writePtr(log2Up(bufferSize) downto  0) === readPtr(log2Up(bufferSize) downto  0)
+    val full = writePtr(log2Up(bufferSize) downto  0) === (readPtr(log2Up(bufferSize) downto  0) ^ bufferSize)
 
     //Fill the buffer from upper layer data
     io.input.ready := !full
@@ -151,8 +151,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMyPtr0) {
         io.output.valid := True
-        io.output.fragment := B(io.rxToTx.rxPtr(7, 0))
-        dataBuffer := B(io.rxToTx.rxPtr(15, 8))
+        io.output.fragment := B(io.rxToTx.rxPtr(7 downto  0))
+        dataBuffer := B(io.rxToTx.rxPtr(15 downto  8))
         when(io.output.ready) {
           state := eMyPtr1
         }
@@ -173,14 +173,14 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMessagePtr0) {
         io.output.valid := True
-        io.output.fragment := B(buffer.readPtr(7, 0))
+        io.output.fragment := B(buffer.readPtr(7 downto  0))
         when(io.output.ready) {
           state := eMessagePtr1
         }
       }
       is(eMessagePtr1) {
         io.output.valid := True
-        io.output.fragment := B(buffer.readPtr(15, 8))
+        io.output.fragment := B(buffer.readPtr(15 downto  8))
 
         when(buffer.empty || txDataLeftIsZero) {
           io.output.last := True
@@ -279,7 +279,7 @@ class SerialLinkRx extends Component {
         state := eMessagePtr0
       }
       is(eMessagePtr0) {
-        when(rxPtr(7, 0) =/= U(data)) {
+        when(rxPtr(7 downto 0) =/= U(data)) {
           keepData := False
           io.rxToTx.miss := True
         }
@@ -287,7 +287,7 @@ class SerialLinkRx extends Component {
         io.input.ready := True
       }
       is(eMessagePtr1) {
-        when(rxPtr(15, 8) =/= U(data)) {
+        when(rxPtr(15 downto 8) =/= U(data)) {
           keepData := False
           io.rxToTx.miss := keepData
         }

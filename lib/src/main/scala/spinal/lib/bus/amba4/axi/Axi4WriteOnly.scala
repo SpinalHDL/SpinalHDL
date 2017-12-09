@@ -37,6 +37,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     sink
   }
 
+  def toFullConfig(): Axi4WriteOnly = {
+    val ret = Axi4WriteOnly(config.toFullConfig())
+    ret << this
+    ret
+  }
 
   override def asMaster(): Unit = {
     master(aw, w)

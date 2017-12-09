@@ -22,6 +22,8 @@ package spinal.core
 
 import spinal.core.internals._
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * UInt factory used for instance by the IODirection to create a in/out UInt
   */
@@ -142,7 +144,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
-  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi downto lo).assignFromBits(bits)
 
   /**
     * Cast an UInt to a SInt
@@ -167,7 +169,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case _                    => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
+  private[core] override def newMultiplexerExpression() = new MultiplexerUInt
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerUInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeUInt
@@ -175,6 +178,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node.size  = width
     node
   })
+
+  override def resize(width: BitCount) = resize(width.value)
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1

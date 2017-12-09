@@ -321,6 +321,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
+  def removeAssignments(): this.type = {
+    flatten.foreach(_.removeStatement())
+    this
+  }
+
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
 
@@ -343,6 +348,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def allowUnsetRegToAvoidLatch: this.type = {
     addTag(unsetRegIfNoAssignementTag)
+  }
+
+  def noCombLoopCheck : this.type = {
+    addTag(spinal.core.noCombinatorialLoopCheck)
+  }
+
+  def noBackendCombMerge : this.type = {
+    addTag(spinal.core.noBackendCombMerge)
   }
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
@@ -441,8 +454,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  def allowPruning() = {
+  def allowPruning() : this.type = {
     flatten.foreach(_.addTag(unusedTag))
+    this
   }
 
   override def getComponent(): Component = component

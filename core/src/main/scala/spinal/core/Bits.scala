@@ -129,7 +129,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi downto lo).assignFromBits(bits)
 
   /**
     * Cast a Bits to a SInt
@@ -175,7 +175,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
+  private[core] override def newMultiplexerExpression() = new MultiplexerBits
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBits
 
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits
@@ -183,6 +184,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node.size  = width
     node
   })
+
+  override def resize(width: BitCount) = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits
 
