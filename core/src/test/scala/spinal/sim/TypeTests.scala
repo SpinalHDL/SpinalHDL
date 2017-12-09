@@ -1,9 +1,16 @@
 
 package spinal.sim
 
-import spinal.sim.SimManagerApi._
 import spinal.core._
+import spinal.core.internals.GraphUtils
+
+import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations.suspendable
+
+
+
+
+
 
 
 object TypeTests {
@@ -18,16 +25,28 @@ object TypeTests {
       val u64 = in UInt (64 bits)
       val u128 = in UInt (128 bits)
 
+      val u8_o = out UInt (8 bits)
 
-      val s4 = out SInt (4 bits)
+//      val s4 = out SInt (4 bits)
     }
-    io.s4 := -2
+
+    io.u8_o := 42
+//    io.s4 := -2
   }
 
+  import SpinalSimManagedApi._
   def main(args: Array[String]): Unit = {
-    SimVerilatorManaged(new Dut) { dut =>
+//    val (sim, dut) = SpinalSimVerilator(new Dut)
+//    val manager = new SimManager(sim)
+//    manager.run{
+//      sleep(10)
+//      sleep(10)
+//      println(peak(dut.io.u8_o))
+//    }
+
+    SpinalSimManagedVerilator(new Dut) { dut =>
       sleep(10)
-      println(dut.io.s4.toLong)
+      println(getLong(dut.io.u8_o))
     }
   }
 }

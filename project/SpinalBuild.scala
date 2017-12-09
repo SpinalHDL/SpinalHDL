@@ -12,7 +12,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(sim, core, lib, debugger, tester)
+    aggregate = Seq(sim, core/*, lib, debugger, tester*/)
   )
 
   import sys.process._
@@ -41,11 +41,6 @@ object SpinalBuild extends Build {
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
       libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
-
-      addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
-      libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
-      scalacOptions += "-P:continuations:enable",
-
       resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core,
       sourceGenerators in Compile <+= (sourceManaged in Compile, version, name) map { (d, v, n) =>
@@ -62,7 +57,7 @@ object SpinalBuild extends Build {
     )
   ) dependsOn (sim)
 
-
+/*
   lazy val lib = Project(
     id = "SpinalHDL-lib",
     base = file("lib"),
@@ -110,7 +105,7 @@ object SpinalBuild extends Build {
       publishTo := None
     )
   ) dependsOn(core, lib, debugger,demo)
-
+*/
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
@@ -119,6 +114,9 @@ object SpinalBuild extends Build {
     scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
     javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
     baseDirectory in test := file("/out/"),
+    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
+    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
+    scalacOptions += "-P:continuations:enable",
     profileName := "Dolu1990",
     publishMavenStyle := true,
     publishArtifact in Test := false,

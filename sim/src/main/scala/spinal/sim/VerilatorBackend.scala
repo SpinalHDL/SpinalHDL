@@ -12,12 +12,9 @@ class BackendConfig {
   var workspacePath: String = null
   var withWave = true
 }
-case class VerilatorSignal(path : Seq[String], width : Int){
-
-}
 
 class VerilatorBackendConfig{
-  var signals = ArrayBuffer[VerilatorSignal]()
+  var signals = ArrayBuffer[Signal]()
 }
 
 class VerilatorBackend(config: BackendConfig, vConfig : VerilatorBackendConfig) {
@@ -118,11 +115,11 @@ public:
     Wrapper(){
       time = 0;
 ${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
-      yield s"      signalAccess[$id] = new ${if(signal.width <= 8) "CData"
-      else if(signal.width <= 16) "SData"
-      else if(signal.width <= 32) "IData"
-      else if(signal.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.width > 64) s", ${(signal.width+63)/64}" else ""});\n"
+      yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
+      else if(signal.dataType.width <= 16) "SData"
+      else if(signal.dataType.width <= 32) "IData"
+      else if(signal.dataType.width <= 64) "QData"
+      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.dataType.width > 64) s", ${(signal.dataType.width+63)/64}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);

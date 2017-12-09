@@ -27,7 +27,7 @@ object Test2 {
     config.workspacePath = "yolo"
 
     val vConfig = new VerilatorBackendConfig
-    vConfig.signals ++= List("io_a", "io_b", "io_result").map(name => new VerilatorSignal(List(name),8))
+//    vConfig.signals ++= List("io_a", "io_b", "io_result").map(name => new VerilatorSignal(List(name),8))
     val backend = new VerilatorBackend(config,vConfig)
     val wrapper = backend.instanciate()
 

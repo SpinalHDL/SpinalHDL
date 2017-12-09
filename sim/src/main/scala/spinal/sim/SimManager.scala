@@ -1,25 +1,23 @@
 package spinal.sim
 
-import spinal.core.{BaseType, ClockDomain}
-
 import scala.collection.mutable
 import scala.util.continuations._
 
 
 
-class SimManager(val raw : SimRaw[_]) {
+class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
   var schedulingOffset = 0
   var time = 0l
-
-  val context = new SimManagerApi()
+  var userData : Any = null
+  val context = new SimManagerContext()
   context.manager = this
-  SimManagerApi.threadLocal.set(context)
+  SimManagerContext.threadLocal.set(context)
 
 
-  def peak(bt : BaseType) : Long = raw.peak(bt)
-  def poke(bt : BaseType, value : Long)= raw.poke(bt, value)
-  def getClock(clockDomain: ClockDomain) = raw.getClock(clockDomain)
+  def getLong(bt : Signal) : Long = raw.getLong(bt)
+  def setLong(bt : Signal, value : Long)= raw.setLong(bt, value)
+//  def getClock(clockDomain: ClockDomain) = raw.getClock(clockDomain)
   def scheduleThread(thread : SimThread): Unit ={
     threads.indexWhere(thread.time < _.time, schedulingOffset) match {
       case -1 => threads += thread

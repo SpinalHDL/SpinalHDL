@@ -1,6 +1,6 @@
 package spinal.sim
 
-import spinal.sim.SimManagerApi._
+import SpinalSimManagedApi._
 import spinal.core._
 import scala.util.continuations.suspendable
 
@@ -15,7 +15,7 @@ object SimManagedTest {
   }
 
   def main(args: Array[String]): Unit = {
-    SimVerilatorManaged(new Dut) { dut =>
+    SpinalSimManagedVerilator(new Dut) { dut =>
       val t1 = fork {
         var idx = 0
         while (idx < 20) {

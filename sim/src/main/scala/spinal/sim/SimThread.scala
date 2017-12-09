@@ -1,21 +1,17 @@
 package spinal.sim
 
-
-
-import spinal.core.{BaseType, ClockDomain}
-
 import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations._
 
 
 
 class SimThread(body :  => Unit@suspendable, var time : Long){
-  private val manager = SimManagerApi.current.manager
+  private val manager = SimManagerContext.current.manager
   private var nextStep: Unit => Unit = null
   var waitingThreads = ArrayBuffer[SimThread]()
 
   def join(): Unit@suspendable ={
-    val thread = SimManagerApi.current.thread
+    val thread = SimManagerContext.current.thread
     assert(thread != this)
     if(!this.isDone) {
       waitingThreads += thread
@@ -46,7 +42,7 @@ class SimThread(body :  => Unit@suspendable, var time : Long){
     if(isDone){
       waitingThreads.foreach(thread => {
         thread.time = time
-        SimManagerApi.current.manager.scheduleThread(thread)
+        SimManagerContext.current.manager.scheduleThread(thread)
       })
     }
   }
