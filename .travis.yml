@@ -26,7 +26,7 @@ before_install:
   - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
   - cat /etc/hosts # optionally check the content *after*
   - cd ..
-  
+
   # GHDL
   #- sudo add-apt-repository -y ppa:pgavin/ghdl
   #- sudo apt-get update
@@ -62,7 +62,6 @@ before_install:
   # Verilator
   - sudo apt-get install git make autoconf g++ flex bison -y  # First time prerequisites
   - git clone http://git.veripool.org/git/verilator   # Only first time
-  - unsetenv VERILATOR_ROOT  # For csh; ignore error if on bash
   - unset VERILATOR_ROOT  # For bash
   - cd verilator
   - git pull        # Make sure we're up-to-date
