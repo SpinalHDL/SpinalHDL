@@ -44,6 +44,10 @@ object SpinalSimManagedApi{
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
   def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread@suspendable = SimManagerContext.current.manager.newThread(body)
+  def forkJoin(bodys : (()=> Unit@suspendable)*) : Unit@suspendable = {
+    val threads = bodys.mapSim(body => fork(body()))
+    threads.foreachSim(thread => thread.join())
+  }
 
   implicit class BoolPimper(bt : Bool) {
     def toBoolean = if(getLong(bt) != 0) true else false

@@ -246,7 +246,6 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
   }
 
 
-
   clean()
   compile()
   val native = LibraryLoader.create(classOf[IVerilatorNative]).load(s"${config.workspacePath}/V${config.toplevelName}")

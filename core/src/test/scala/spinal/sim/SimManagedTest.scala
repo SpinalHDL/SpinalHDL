@@ -18,6 +18,27 @@ object SimManagedTest {
 
   def main(args: Array[String]): Unit = {
     SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
+      fork {
+        var counter = 0l
+        var lastTime = System.nanoTime()
+        while(true) {
+          dut.clockDomain.waitActiveEdge()
+          counter += 1
+          if((counter & 0x1000) == 0){
+            val newTime = System.nanoTime()
+            val deltaTime = newTime - lastTime
+            if(deltaTime > 1000000000){
+              lastTime = newTime;
+              println(f"[INFO] Simulation speed : ${counter / (deltaTime*1e-9) * 1e-3}%5.0f kHz/sec")
+              counter = 0
+            }
+          }
+        }
+      }
+
+
+
+
       val t1 = fork {
         var idx = 0
         sleep(2)
@@ -32,7 +53,7 @@ object SimManagedTest {
 
       val clkGen = fork {
         var idx = 0
-        while (idx < 200) {
+        while (idx < 2000000) {
           dut.clockDomain.fallingEdge
           sleep(10)
           dut.clockDomain.risingEdge
@@ -82,6 +103,8 @@ object SimManagedTest {
       t3.join()
       println(doStuff(dut.io.a, 66))
       println(doStuff(dut.io.a, 88))
+
+      clkGen.join()
     }
   }
 }

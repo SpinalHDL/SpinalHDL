@@ -3,6 +3,7 @@ package spinal.sim
 
 
 
+import scala.util.Random
 import scala.util.continuations.suspendable
 
 
@@ -26,6 +27,7 @@ object ReadWriteChecks {
         val s1  = in SInt (1 bits)
         val s8  = in SInt (8 bits)
         val s16 = in SInt (16 bits)
+        val s31 = in SInt (31 bits)
         val s32 = in SInt (32 bits)
         val s63 = in SInt (63 bits)
         val s64 = in SInt (64 bits)
@@ -63,8 +65,6 @@ object ReadWriteChecks {
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)
       }
-
-
 
 
       (0 to 3).foreachSim {e =>
@@ -107,24 +107,41 @@ object ReadWriteChecks {
         List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreachSim(value => checkBigInt(value, dut.io.s32))
         List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreachSim(value => checkBigInt(value, dut.io.s64))
 
+        forkJoin(
+          () => Random.shuffle((0 to 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u1)),
+          () => Random.shuffle((0 to 8 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u8)),
+          () => Random.shuffle((0 to 16 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u16)),
+          () => Random.shuffle((0 to 31 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u31)),
+          () => Random.shuffle((0 to 32 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u32)),
+          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u63)),
+          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u64)),
+          () => Random.shuffle((0 to 65)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u65)),
+          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u127)),
+          () => Random.shuffle((0 to 128)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u128)),
+          () => Random.shuffle((0 to 1  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s1)),
+          () => Random.shuffle((0 to 8  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s8)),
+          () => Random.shuffle((0 to 16 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s16)),
+          () => Random.shuffle((0 to 31 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s31)),
+          () => Random.shuffle((0 to 32 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s32)),
+          () => Random.shuffle((0 to 62)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s63)),
+          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s64)),
+          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s65)),
+          () => Random.shuffle((0 to 126)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s127)),
+          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s128))
+        )
 
-        (0 to 63).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u63))
-        (0 to 64).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u64))
-        (0 to 65).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u65))
-        (0 to 127).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u127))
-        (0 to 128).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u128))
-
-        (0 to 62).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s63))
-        (0 to 63).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s64))
-        (0 to 64).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s65))
-        (0 to 126).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s127))
-        (0 to 127).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s128))
-
-        (0 to 62).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s63))
-        (0 to 63).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s64))
-        (0 to 64).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s65))
-        (0 to 126).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s127))
-        (0 to 127).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s128))
+        forkJoin(
+          () => Random.shuffle((0 to 1  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s1 )),
+          () => Random.shuffle((0 to 8  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s8 )),
+          () => Random.shuffle((0 to 16 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s16)),
+          () => Random.shuffle((0 to 31 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s31)),
+          () => Random.shuffle((0 to 32 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s32)),
+          () => Random.shuffle((0 to 62)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s63)),
+          () => Random.shuffle((0 to 63)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s64)),
+          () => Random.shuffle((0 to 64)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s65)),
+          () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s127)),
+          () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s128))
+        )
       }
     }
   }

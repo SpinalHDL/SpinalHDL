@@ -1,5 +1,6 @@
 package spinal
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations.suspendable
 
 package object sim {
@@ -9,6 +10,14 @@ package object sim {
       while(i.hasNext){
         f(i.next())
       }
+    }
+    def mapSim[R](f: T => R@suspendable): Seq[R]@suspendable ={
+      val i = pimped.toIterator
+      val ret = ArrayBuffer[R]()
+      while(i.hasNext){
+        ret += f(i.next())
+      }
+      ret
     }
   }
 }
