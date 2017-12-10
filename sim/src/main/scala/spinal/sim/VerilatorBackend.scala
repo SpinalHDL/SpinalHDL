@@ -215,19 +215,6 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
   handle->time += cycles;
 }
 
-uint64_t miaou[] = {11,22,33,44};
-void wrapperTest(uint32_t *arg){
-  arg[0] = 55;
-  arg[1] = 66;
-  //return miaou;
-}
-
-
-void wrapperTest2(uint32_t *arg){
-  arg[0] = 111;
-  //return miaou;
-}
-
 #ifdef __cplusplus
 }
 #endif
@@ -238,7 +225,10 @@ void wrapperTest2(uint32_t *arg){
     outFile.close()
   }
 
-
+  class Logger extends ProcessLogger {override def err(s: => String): Unit = {println(s)}
+    override def out(s: => String): Unit = {}
+    override def buffer[T](f: => T) = f
+  }
 
   def compile(): Unit = {
     s"""verilator
@@ -248,11 +238,11 @@ void wrapperTest2(uint32_t *arg){
        |--Mdir ${config.workspacePath}
        |--top-module ${config.toplevelName}
        |-cc ${config.rtlSourcesPaths.mkString(" ")}
-       |--exe $wrapperCppPath""".stripMargin.!
+       |--exe $wrapperCppPath""".stripMargin.!(new Logger())
 
     genWrapperCpp()
-    s"make -j -C ${config.workspacePath} -f V${config.toplevelName}.mk V${config.toplevelName}".!
-    s"cp ${config.workspacePath}/V${config.toplevelName} ${config.workspacePath}/libV${config.toplevelName}.so".!
+    s"make -j -C ${config.workspacePath} -f V${config.toplevelName}.mk V${config.toplevelName}".!(new Logger())
+    s"cp ${config.workspacePath}/V${config.toplevelName} ${config.workspacePath}/libV${config.toplevelName}.so".!(new Logger())
   }
 
 

@@ -35,7 +35,7 @@ object SpeedTest {
           var idx = 0
           while (idx < times) {
             dut.clockDomain.waitRisingEdge
-            dut.io.b \= (dut.io.b.toLong + 1) & 0xFF
+            dut.io.b #= (dut.io.b.toLong + 1) & 0xFF
             idx += 1
           }
         }

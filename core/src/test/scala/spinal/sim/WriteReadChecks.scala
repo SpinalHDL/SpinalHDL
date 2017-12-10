@@ -41,25 +41,25 @@ object ReadWriteChecks {
     import SpinalSimManagedApi._
     SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
-        that := value
+        that #= value
         sleep(1)
         assert(that.toBoolean == value, that.getName() + " " + value)
       }
 
       def checkInt(value : Int, that : BitVector): Unit@suspendable ={
-        that \= value
+        that #= value
         sleep(1)
         assert(that.toInt == value, that.getName() + " " + value)
       }
 
       def checkLong(value : Long, that : BitVector): Unit@suspendable ={
-        that \= value
+        that #= value
         sleep(1)
         assert(that.toLong == value, that.getName() + " " + value)
       }
 
       def checkBigInt(value : BigInt, that : BitVector): Unit@suspendable ={
-        that \= value
+        that #= value
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)
       }

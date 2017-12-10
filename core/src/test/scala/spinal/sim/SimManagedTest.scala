@@ -22,7 +22,7 @@ object SimManagedTest {
         var idx = 0
         sleep(2)
         while (idx < 20) {
-          dut.io.a \= dut.io.a.toLong + 1
+          dut.io.a #= dut.io.a.toLong + 1
           sleep(10)
           println(idx)
           idx += 1
@@ -45,7 +45,7 @@ object SimManagedTest {
         var idx = 0
         while (idx < 20) {
           dut.clockDomain.waitRisingEdge
-          dut.io.b \= dut.io.b.toLong + 1
+          dut.io.b #= dut.io.b.toLong + 1
           idx += 1
         }
       }
@@ -54,7 +54,7 @@ object SimManagedTest {
         sleep(2)
         var idx = 0
         while (idx < 20) {
-          dut.io.c \= dut.io.c.toLong + 1
+          dut.io.c #= dut.io.c.toLong + 1
           sleep(30)
           idx += 1
         }
@@ -62,19 +62,19 @@ object SimManagedTest {
 
       val t4 = fork{
         waitUntil(dut.io.a.toLong == 66)
-        dut.io.b \= 77l
+        dut.io.b #= 77l
         waitUntil(dut.io.a.toLong == 88)
-        dut.io.b \= 99l
+        dut.io.b #= 99l
         sleep(10)
       }
 
       t1.join()
       sleep(50)
-      dut.io.a \= 42l
+      dut.io.a #= 42l
       sleep(10)
 
       def doStuff(bt: UInt, value : Long): Long@suspendable = {
-        bt \= value
+        bt #= value
         sleep(40)
         bt.toLong + 1
       }

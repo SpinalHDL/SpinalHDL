@@ -1,6 +1,6 @@
 package spinal.sim
 
-import spinal.core.{BaseType, BitVector, Bool, Bits, UInt, SInt, ClockDomain, Component}
+import spinal.core.{BaseType, BitVector, Bits, Bool, ClockDomain, Component, SInt, UInt}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations.suspendable
@@ -8,6 +8,8 @@ import scala.util.continuations.suspendable
 
 object SpinalSimManagedApi{
   private def btToSignal(manager : SimManager, bt : BaseType) = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+
+
 
   def getInt(bt : BaseType) : Long = {
     val manager = SimManagerContext.current.manager
@@ -45,40 +47,72 @@ object SpinalSimManagedApi{
 
   implicit class BoolPimper(bt : Bool) {
     def toBoolean = if(getLong(bt) != 0) true else false
-    def :=(value : Boolean) = setLong(bt, if(value) 1 else 0)
+    def #=(value : Boolean) = setLong(bt, if(value) 1 else 0)
   }
 
   implicit class BitVectorPimper(bt : BitVector) {
     def toInt = getInt(bt)
     def toLong = getLong(bt)
     def toBigInt = getBigInt(bt)
-    def \=(value : Int) = setLong(bt, value)
-    def \=(value : Long) = setLong(bt, value)
-    def \=(value : BigInt) = setBigInt(bt, value)
+    def #=(value : Int) = setLong(bt, value)
+    def #=(value : Long) = setLong(bt, value)
+    def #=(value : BigInt) = setBigInt(bt, value)
   }
 
   implicit class ClockDomainPimper(cd : ClockDomain) {
-    private def getClockSignal(manager : SimManager): Signal ={
+    private def getBool(manager : SimManager, who : Bool): Bool ={
+      val manager = SimManagerContext.current.manager
+      manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
+    }
+
+    private def getSignal(manager : SimManager, who : Bool): Signal ={
       val manager = SimManagerContext.current.manager
       val bt = manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
       btToSignal(manager, bt)
     }
-    def fallingEdge : Unit = {
+
+    def clockSim = getBool(SimManagerContext.current.manager, cd.clock)
+    def resetSim = getBool(SimManagerContext.current.manager, cd.reset)
+    def clockEnableSim = getBool(SimManagerContext.current.manager, cd.clockEnable)
+    def softResetSim = getBool(SimManagerContext.current.manager, cd.softReset)
+
+    def fallingEdge() : Unit = {
       val manager = SimManagerContext.current.manager
-      val signal = getClockSignal(manager)
+      val signal = getSignal(manager, cd.clock)
       manager.setLong(signal, 0)
     }
-    def risingEdge : Unit = {
+    def risingEdge() : Unit = {
       val manager = SimManagerContext.current.manager
-      val signal = getClockSignal(manager)
+      val signal = getSignal(manager, cd.clock)
       manager.setLong(signal, 1)
     }
 
-    def waitRisingEdge: Unit@suspendable  ={
+    def waitRisingEdge(): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
-      val signal = getClockSignal(manager)
+      val signal = getSignal(manager, cd.clock)
       waitUntil(manager.getLong(signal) == 0)
       waitUntil(manager.getLong(signal) == 1)
     }
+
+    def waitFallingEdge(): Unit@suspendable  ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      waitUntil(manager.getLong(signal) == 1)
+      waitUntil(manager.getLong(signal) == 0)
+    }
+
+    def waitActiveEdge(): Unit@suspendable  = {
+      if(cd.config.clockEdge == spinal.core.RISING)
+        waitRisingEdge
+      else
+        waitFallingEdge
+    }
+
+    def assertReset() : Unit = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
+    def disassertReset() : Unit = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
+    def assertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel == spinal.core.HIGH
+    def disassertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel != spinal.core.HIGH
+    def assertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel == spinal.core.HIGH
+    def disassertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel != spinal.core.HIGH
   }
 }
