@@ -11,6 +11,7 @@ package object sim {
         f(i.next())
       }
     }
+
     def mapSim[R](f: T => R@suspendable): Seq[R]@suspendable ={
       val i = pimped.toIterator
       val ret = ArrayBuffer[R]()
@@ -18,6 +19,16 @@ package object sim {
         ret += f(i.next())
       }
       ret
+    }
+  }
+
+  implicit class PimperB(pimped : Range){
+    def doSim[U](f:  => U@suspendable): Unit@suspendable ={
+      val i = pimped.toIterator
+      while(i.hasNext){
+        i.next()
+        f
+      }
     }
   }
 }

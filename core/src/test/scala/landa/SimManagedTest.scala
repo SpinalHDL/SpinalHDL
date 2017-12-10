@@ -3,21 +3,19 @@ package landa
 import spinal.core.SimManagedVerilator
 import spinal.core.SimManagedApi._
 import spinal.core._
+import spinal.sim.PimperA
 
 object SimManagedTest {
-  object Rtl {
-
-    class Dut extends Component {
-      val io = new Bundle {
-        val a, b, c = in UInt (8 bits)
-        val result = out UInt (8 bits)
-      }
-      io.result := RegNext(io.a + io.b - io.c)
+  class Dut extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
     }
+    io.result := RegNext(io.a + io.b - io.c)
   }
 
   def main(args: Array[String]): Unit = {
-    SimManagedVerilator(new Rtl.Dut) { dut =>
+    SimManagedVerilator(new Dut) { dut =>
       fork {
         var counter = 0l
         var lastTime = System.nanoTime()
@@ -105,6 +103,13 @@ object SimManagedTest {
       println(doStuff(dut.io.a, 88))
 
       clkGen.join()
+
+      fork{
+        (0 until 100).doSim{
+          dut.io.a #= dut.io.a.toLong + 1
+          sleep(1)
+        }
+      }.join()
     }
   }
 }
