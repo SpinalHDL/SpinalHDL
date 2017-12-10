@@ -25,7 +25,8 @@ before_install:
   - sudo hostname "$(hostname | cut -c1-63)"
   - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
   - cat /etc/hosts # optionally check the content *after*
-
+  - cd ..
+  
   # GHDL
   #- sudo add-apt-repository -y ppa:pgavin/ghdl
   #- sudo apt-get update
@@ -38,7 +39,6 @@ before_install:
 
   # iverilog (debian package 9.7 contain bugs)
   - sudo apt-get install -y gperf readline-common bison flex
-  - cd ..
   - wget https://github.com/steveicarus/iverilog/archive/v10_0.tar.gz
   - tar -xvf v10_0.tar.gz
   - cd iverilog-10_0
@@ -71,6 +71,8 @@ before_install:
   - ./configure
   - make -j$(nproc)
   - sudo make install
+
+  - cd SpinalHDL
 
 
 before_cache:
