@@ -31,4 +31,12 @@ package object sim {
       }
     }
   }
+
+  def repeatSim(times : Long)(body : => Unit@suspendable): Unit@suspendable ={
+    var idx = 0l
+    while(idx != times){
+      idx += 1
+      body
+    }
+  }
 }

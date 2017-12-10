@@ -3,6 +3,7 @@ package landa
 import spinal.core.SimManagedVerilator
 import spinal.core.SimManagedApi._
 import spinal.core._
+import spinal.sim._
 import spinal.sim.PimperA
 
 object SimManagedTest {

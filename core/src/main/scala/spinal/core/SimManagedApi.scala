@@ -79,6 +79,11 @@ object SimManagedApi{
     def clockEnableSim = getBool(SimManagerContext.current.manager, cd.clockEnable)
     def softResetSim = getBool(SimManagerContext.current.manager, cd.softReset)
 
+    def clockToggle(): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      manager.setLong(signal, 1-manager.getLong(signal))
+    }
     def fallingEdge() : Unit = {
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)

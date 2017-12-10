@@ -1,11 +1,11 @@
 package landa
 
-import spinal.core.SimManagedVerilator
-
+import spinal.core._
+import spinal.sim._
+import spinal.core.SimManagedApi._
 
 object DebugTest {
   object Rtl {
-    import spinal.core._
     class Dut extends Component {
       val io = new Bundle {
         val a, b, c = in UInt (7 bits)
@@ -16,7 +16,6 @@ object DebugTest {
   }
 
   def main(args: Array[String]): Unit = {
-    import spinal.core.SimManagedApi._
     SimManagedVerilator(new Rtl.Dut) { dut =>
       println(dut.io.a.toLong)
       dut.io.a #= 42l
