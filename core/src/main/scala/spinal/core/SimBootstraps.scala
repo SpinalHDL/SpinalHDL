@@ -1,11 +1,11 @@
-package spinal.sim
+package spinal.core
 
-import spinal.core.{Bits, Bool, Component, SInt, SpinalVerilog, UInt}
 import spinal.core.internals.GraphUtils
+import spinal.sim._
 
 import scala.util.continuations.suspendable
 
-object SpinalSimVerilator{
+object SimVerilator{
   def apply[T <: Component](rtl : => T) = {
     val report = SpinalVerilog(rtl)
     val config = new BackendConfig()
@@ -36,9 +36,9 @@ object SpinalSimVerilator{
 }
 
 
-object SpinalSimManagedVerilator {
+object SimManagedVerilator {
   def apply[T <: Component](gen: => T)(body: T => Unit@suspendable): Unit = {
-    val (sim, dut) = SpinalSimVerilator(gen)
+    val (sim, dut) = SimVerilator(gen)
     val manager = new SimManager(sim)
     manager.userData = dut
     manager.run(body(dut.asInstanceOf[T]))

@@ -1,8 +1,5 @@
-package spinal.sim
-
-
-import spinal.sim.SpinalSimManagedApi._
-import scala.util.continuations.suspendable
+package landa;
+import spinal.core._
 
 object SpeedTest {
   object Rtl {
@@ -18,8 +15,8 @@ object SpeedTest {
   def main(args: Array[String]): Unit = {
     val times = 1000000
     Bench(times) {
-      import spinal.sim.SpinalSimManagedApi._
-      SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
+      import spinal.core.SimManagedApi._
+      SimManagedVerilator(new Rtl.Dut) { dut =>
         val clkGen = fork {
           var idx = 0
           while (idx < times) {

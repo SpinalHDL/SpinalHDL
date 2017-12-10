@@ -1,4 +1,4 @@
-package spinal.sim
+package landa;
 
 object Bench {
   def apply(factor : Double)(testbench: => Unit): Unit = {

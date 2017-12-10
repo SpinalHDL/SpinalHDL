@@ -46,7 +46,7 @@ before_install:
   - ./configure
   - make -j4
   - sudo make install
-  - cd ../SpinalHDL
+  - cd ..
 
   # cocotb
   - sudo apt-get install -y git make gcc g++ swig python-dev
@@ -54,10 +54,24 @@ before_install:
   - export COCOTB=$(pwd)/cocotb
 
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  - cd tester/src/test/python/spinal/Dummy
+  - cd SpinalHDL/tester/src/test/python/spinal/Dummy
   - make TOPLEVEL_LANG=verilog
   - make TOPLEVEL_LANG=vhdl
-  - cd ../../../../../..
+  - cd ../../../../../../..
+
+  # Verilator
+  - sudo apt-get install git make autoconf g++ flex bison -y  # First time prerequisites
+  - git clone http://git.veripool.org/git/verilator   # Only first time
+  - unsetenv VERILATOR_ROOT  # For csh; ignore error if on bash
+  - unset VERILATOR_ROOT  # For bash
+  - cd verilator
+  - git pull        # Make sure we're up-to-date
+  - git tag         # See what versions exist
+  - autoconf        # Create ./configure script
+  - ./configure
+  - make -j$(nproc)
+  - sudo make install
+
 
 before_cache:
   # Tricks to avoid unnecessary cache updates

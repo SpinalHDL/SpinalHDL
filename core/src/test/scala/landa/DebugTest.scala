@@ -1,4 +1,7 @@
-package spinal.sim
+package landa
+
+import spinal.core.SimManagedVerilator
+
 
 object DebugTest {
   object Rtl {
@@ -13,8 +16,8 @@ object DebugTest {
   }
 
   def main(args: Array[String]): Unit = {
-    import spinal.sim.SpinalSimManagedApi._
-    SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
+    import spinal.core.SimManagedApi._
+    SimManagedVerilator(new Rtl.Dut) { dut =>
       println(dut.io.a.toLong)
       dut.io.a #= 42l
       println(dut.io.a.toLong)

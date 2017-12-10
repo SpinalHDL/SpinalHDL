@@ -1,17 +1,6 @@
-
-package spinal.sim
+package landa;
 
 import spinal.core._
-import spinal.core.internals.GraphUtils
-
-import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations.suspendable
-
-
-
-
-
-
 
 object TypeTests {
 
@@ -34,7 +23,7 @@ object TypeTests {
 //    io.s4 := -2
   }
 
-  import SpinalSimManagedApi._
+  import SimManagedApi._
   def main(args: Array[String]): Unit = {
 //    val (sim, dut) = SpinalSimVerilator(new Dut)
 //    val manager = new SimManager(sim)
@@ -44,7 +33,7 @@ object TypeTests {
 //      println(peak(dut.io.u8_o))
 //    }
 
-    SpinalSimManagedVerilator(new Dut) { dut =>
+    SimManagedVerilator(new Dut) { dut =>
       sleep(10)
       println(getLong(dut.io.u8_o))
     }

@@ -1,12 +1,12 @@
-package spinal.sim
+package landa
 
-import SpinalSimManagedApi._
-import scala.util.continuations.suspendable
-
+import spinal.core.SimManagedVerilator
+import spinal.core.SimManagedApi._
+import spinal.core._
 
 object SimManagedTest {
   object Rtl {
-    import spinal.core._
+
     class Dut extends Component {
       val io = new Bundle {
         val a, b, c = in UInt (8 bits)
@@ -17,7 +17,7 @@ object SimManagedTest {
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
+    SimManagedVerilator(new Rtl.Dut) { dut =>
       fork {
         var counter = 0l
         var lastTime = System.nanoTime()

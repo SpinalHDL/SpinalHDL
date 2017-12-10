@@ -12,7 +12,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(sim, core, lib/*, debugger, tester*/)
+    aggregate = Seq(sim, core, lib, debugger, tester)
   )
 
   import sys.process._
@@ -65,9 +65,9 @@ object SpinalBuild extends Build {
       libraryDependencies += "commons-io" % "commons-io" % "2.4",
       version := SpinalVersion.lib
     )
-  ) dependsOn (core)
+  ) dependsOn (sim, core)
 
-  /*
+
     lazy val debugger = Project(
       id = "SpinalHDL-debugger",
       base = file("debugger"),
@@ -80,7 +80,7 @@ object SpinalBuild extends Build {
         libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
         publishTo := None
       )
-    ) dependsOn(core, lib/*, ip*/)
+    ) dependsOn(sim, core, lib/*, ip*/)
 
     lazy val demo = Project(
       id = "SpinalHDL-demo",
@@ -90,7 +90,7 @@ object SpinalBuild extends Build {
         version := SpinalVersion.demo,
         publishTo := None
       )
-    ) dependsOn(core, lib/*, ip*/ ,debugger)
+    ) dependsOn(sim, core, lib/*, ip*/ ,debugger)
 
 
     lazy val tester = Project(
@@ -100,12 +100,12 @@ object SpinalBuild extends Build {
         name := "SpinalHDL tester",
         version := SpinalVersion.tester,
         libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
-        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
+//        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
         //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
         publishTo := None
       )
-    ) dependsOn(core, lib, debugger,demo)
-  */
+    ) dependsOn(sim, core, lib, debugger,demo)
+
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
@@ -114,9 +114,12 @@ object SpinalBuild extends Build {
     scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
     javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
     baseDirectory in test := file("/out/"),
+
+    //SpinalSim
     addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
     libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
     scalacOptions += "-P:continuations:enable",
+
     profileName := "Dolu1990",
     publishMavenStyle := true,
     publishArtifact in Test := false,

@@ -2,9 +2,9 @@ package spinal.sim
 
 
 object SimManagerContext{
-  private[sim]val threadLocal = new ThreadLocal[SimManagerContext]
-  private[sim]def current = threadLocal.get()
-  private[sim]def reset() = threadLocal.set(new SimManagerContext)
+  val threadLocal = new ThreadLocal[SimManagerContext]
+  def current = threadLocal.get()
+  def reset() = threadLocal.set(new SimManagerContext)
 }
 
 class SimManagerContext{

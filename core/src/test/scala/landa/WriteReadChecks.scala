@@ -2,15 +2,14 @@
 package spinal.sim
 
 
+import spinal.core._
+import spinal.core.SimManagedApi._
 
 import scala.util.Random
-import scala.util.continuations.suspendable
 
 
 object ReadWriteChecks {
   object Rtl {
-    import spinal.core._
-
     class Dut extends Component {
       val io = new Bundle {
         val bool = in Bool
@@ -40,8 +39,7 @@ object ReadWriteChecks {
 
 
   def main(args: Array[String]): Unit = {
-    import SpinalSimManagedApi._
-    SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
+    SimManagedVerilator(new Rtl.Dut) { dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)
@@ -67,7 +65,7 @@ object ReadWriteChecks {
       }
 
 
-      (0 to 3).foreachSim {e =>
+      (0 to 20).foreachSim {e =>
         List(false, true).foreachSim(value => checkBoolean(value, dut.io.bool))
 
         //checkInt

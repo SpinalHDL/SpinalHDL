@@ -1,15 +1,14 @@
-package spinal.sim
+package spinal.core
 
-import spinal.core.{BaseType, BitVector, Bits, Bool, ClockDomain, Component, SInt, UInt}
+import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations.suspendable
+import scala.util.continuations.{cps, suspendable}
 
 
-object SpinalSimManagedApi{
+object SimManagedApi{
+  type suspendable = cps[Unit]
   private def btToSignal(manager : SimManager, bt : BaseType) = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
-
-
 
   def getInt(bt : BaseType) : Long = {
     val manager = SimManagerContext.current.manager
