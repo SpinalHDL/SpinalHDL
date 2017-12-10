@@ -5,6 +5,7 @@ abstract class DataType(){
   def longToRaw64(that : Long) : Long
   def raw64ToLong(that : Long) : Long
   def raw64ToInt(that : Long) : Int
+  def checkIs64(that : Long) : Unit
 }
 
 class BoolDataType extends DataType{
@@ -22,9 +23,13 @@ class BoolDataType extends DataType{
   override def raw64ToInt(that: Long) = {
     that.toInt
   }
+
+  override def checkIs64(that: Long) = assert(false)
 }
 
-abstract class BitVectorDataType(override val width : Int) extends DataType
+abstract class BitVectorDataType(override val width : Int) extends DataType{
+  override def checkIs64(that: Long) = assert(width >= 64)
+}
 
 class BitsDataType(width : Int) extends BitVectorDataType(width) {
   val maxLongValue = if (width >= 63) Long.MaxValue else ((1l << width) - 1)
@@ -67,7 +72,7 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
   val maxLongValue = if(width >= 63) Long.MaxValue else ((1l << width-1)-1)
   override def longToRaw64(that: Long) = {
     assert(that >= -maxLongValue-1 && that <= maxLongValue)
-    that
+    that & ((maxLongValue << 1) + 1)
   }
 
   override def raw64ToLong(that: Long) = {

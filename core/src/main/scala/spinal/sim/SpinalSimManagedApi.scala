@@ -1,6 +1,6 @@
 package spinal.sim
 
-import spinal.core.{BaseType, BitVector, Bool, ClockDomain, Component}
+import spinal.core.{BaseType, BitVector, Bool, Bits, UInt, SInt, ClockDomain, Component}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations.suspendable
@@ -21,11 +21,22 @@ object SpinalSimManagedApi{
     manager.getLong(signal)
   }
 
+  def getBigInt(bt : BaseType) : BigInt = {
+    val manager = SimManagerContext.current.manager
+    val signal = btToSignal(manager, bt)
+    manager.getBigInt(signal)
+  }
 
   def setLong(bt : BaseType, value : Long) = {
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.setLong(signal, value)
+  }
+
+  def setBigInt(bt : BaseType, value : BigInt) = {
+    val manager = SimManagerContext.current.manager
+    val signal = btToSignal(manager, bt)
+    manager.setBigInt(signal, value)
   }
 
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
@@ -40,8 +51,10 @@ object SpinalSimManagedApi{
   implicit class BitVectorPimper(bt : BitVector) {
     def toInt = getInt(bt)
     def toLong = getLong(bt)
-    def :=(value : Long) = setLong(bt, value)
-    def :=(value : Int) = setLong(bt, value)
+    def toBigInt = getBigInt(bt)
+    def \=(value : Int) = setLong(bt, value)
+    def \=(value : Long) = setLong(bt, value)
+    def \=(value : BigInt) = setBigInt(bt, value)
   }
 
   implicit class ClockDomainPimper(cd : ClockDomain) {

@@ -35,8 +35,8 @@ class VerilatorBackend(config: BackendConfig, vConfig : VerilatorBackendConfig) 
 
 class ISignalAccess{
 public:
- // virtual uint64_t getU64() = 0;
-  //virtual void setU64(uint64_t value) = 0;
+  virtual void getAU8(uint8_t *value) {}
+  virtual void setAU8(uint8_t *value, int length) {}
 
   virtual uint64_t getU64() = 0;
   virtual void setU64(uint64_t value) = 0;
@@ -89,17 +89,50 @@ public:
 
 class  WDataSignalAccess : public ISignalAccess{
 public:
-    QData *raw;
-    uint32_t wordsCount;
-    WDataSignalAccess(WData *raw, uint32_t wordsCount) : raw((QData*)raw), wordsCount(wordsCount){
+    WData *raw;
+    uint32_t width;
+    bool sint;
+
+    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){
 
     }
-    uint64_t getU64() {return raw[0];}
+
+    uint64_t getU64() {return raw[0] + (((uint64_t)raw[1]) << 32);}
     void setU64(uint64_t value)  {
-        raw[0] = value;
-        for(uint32_t idx = 1;idx < wordsCount;idx++){
-          raw[idx] = 0;
-        }
+      uint32_t wordsCount = (width+31)/32;
+      raw[0] = value;
+      raw[1] = value >> 32;
+      uint32_t padding = (value & 0x8000000000000000) && sint ? 0xFFFFFFFFFFFFFFFF : 0;
+      for(uint32_t idx = 2;idx < wordsCount;idx++){
+        raw[idx] = padding;
+      }
+
+      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
+    }
+
+    void getAU8(uint8_t *value) {
+      uint32_t wordsCount = (width+31)/32;
+      uint32_t byteCount = wordsCount*4;
+      uint32_t shift = 32-(width % 32);
+      uint32_t backup = raw[wordsCount-1];
+      if(sint && shift != 32) raw[wordsCount-1] = (((int32_t)backup) << shift) >> shift;
+      for(uint32_t idx = 0;idx < byteCount;idx++){
+        value[idx + !sint] = ((uint8_t*)raw)[byteCount-idx-1];
+      }
+      raw[wordsCount-1] = backup;
+    }
+
+    void setAU8(uint8_t *value, int length) {
+      uint32_t wordsCount = (width+31)/32;
+      uint32_t padding = (value[0] & 0x80 && sint) != 0 ? 0xFFFFFFFF : 0;
+      for(uint32_t idx = 0;idx < wordsCount;idx++){
+        raw[idx] = padding;
+      }
+      uint32_t capedLength = length > 4*wordsCount ? 4*wordsCount : length;
+      for(uint32_t idx = 0;idx < capedLength;idx++){
+        ((uint8_t*)raw)[idx] = value[length-idx-1];
+      }
+      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
     }
 };
 
@@ -119,7 +152,7 @@ ${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.dataType.width > 64) s", ${(signal.dataType.width+63)/64}" else ""});\n"
+      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);
@@ -166,6 +199,14 @@ uint64_t wrapperGetU64(Wrapper *handle, int id){
 void wrapperSetU64(Wrapper *handle, int id, uint64_t value){
   handle->signalAccess[id]->setU64(value);
 }
+
+void wrapperGetAU8(Wrapper *handle, int id, uint8_t *value){
+  handle->signalAccess[id]->getAU8(value);
+}
+void wrapperSetAU8(Wrapper *handle, int id, uint8_t *value, int length){
+  handle->signalAccess[id]->setAU8(value, length);
+}
+
 
 void wrapperSleep(Wrapper *handle, uint64_t cycles){
   #ifdef TRACE

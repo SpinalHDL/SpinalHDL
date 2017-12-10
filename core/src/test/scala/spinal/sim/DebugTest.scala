@@ -16,11 +16,11 @@ object DebugTest {
     import spinal.sim.SpinalSimManagedApi._
     SpinalSimManagedVerilator(new Rtl.Dut) { dut =>
       println(dut.io.a.toLong)
-      dut.io.a := 42l
+      dut.io.a \= 42l
       println(dut.io.a.toLong)
       sleep(1)
       println(dut.io.a.toLong)
-      dut.io.a := 54l
+      dut.io.a \= 54l
       println(dut.io.a.toLong)
       sleep(1)
       println(dut.io.a.toLong)

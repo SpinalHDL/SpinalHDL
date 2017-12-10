@@ -1,5 +1,7 @@
 package spinal.sim
 
+import java.math.BigInteger
+
 import jnr.ffi.LibraryLoader
 import jnr.ffi.Pointer
 

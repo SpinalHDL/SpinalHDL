@@ -26,8 +26,12 @@ class SimManager(val raw : SimRaw) {
 
   def getInt(bt : Signal) : Int = raw.getInt(bt)
   def getLong(bt : Signal) : Long = raw.getLong(bt)
+  def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
   def setLong(bt : Signal, value : Long): Unit = {
     commandBuffer += (() => raw.setLong(bt, value))
+  }
+  def setBigInt(bt : Signal, value : BigInt): Unit = {
+    commandBuffer += (() => raw.setBigInt(bt, value))
   }
   def scheduleThread(thread : SimThread): Unit = {
     if(thread.time < time) thread.time = time
@@ -54,49 +58,57 @@ class SimManager(val raw : SimRaw) {
   }
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
-    while(continueWhile && threads.nonEmpty){
-      val nextTime = threads.head.time
-      val delta = nextTime - time
-      time = nextTime
+    try {
+      while (continueWhile && threads.nonEmpty) {
+        val nextTime = threads.head.time
+        val delta = nextTime - time
+        time = nextTime
 
-      var threadsToRunCount = 1
-      val threadsCount = threads.length
-      while(threadsToRunCount < threadsCount && threads(threadsToRunCount).time == nextTime){
-        threadsToRunCount += 1
-      }
-      if(delta != 0) {
-//        println("TIME=" + time)
-        raw.sleep(delta)
-      }
-      schedulingOffset = threadsToRunCount
-      var threadId = 0
-      while(threadId != threadsToRunCount){
-        val thread = threads(threadId)
-        context.thread = thread
-        thread.resume()
-        threadId += 1
-      }
-      commandBuffer.foreach(_())
-      commandBuffer.clear()
-      raw.eval()
-
-      var sensitivitiesCount = sensitivities.length
-      var sensitivitiesId = 0
-      while(sensitivitiesId < sensitivitiesCount){
-        if(!sensitivities(sensitivitiesId).update()){
-          sensitivitiesCount-=1
-          sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
-          sensitivities.remove(sensitivitiesCount)
-        }else{
-          sensitivitiesId += 1
+        var threadsToRunCount = 1
+        val threadsCount = threads.length
+        while (threadsToRunCount < threadsCount && threads(threadsToRunCount).time == nextTime) {
+          threadsToRunCount += 1
         }
+        if (delta != 0) {
+          //        println("TIME=" + time)
+          raw.sleep(delta)
+        }
+        schedulingOffset = threadsToRunCount
+        var threadId = 0
+        while (threadId != threadsToRunCount) {
+          val thread = threads(threadId)
+          context.thread = thread
+          thread.resume()
+          threadId += 1
+        }
+        commandBuffer.foreach(_ ())
+        commandBuffer.clear()
+        raw.eval()
+
+        var sensitivitiesCount = sensitivities.length
+        var sensitivitiesId = 0
+        while (sensitivitiesId < sensitivitiesCount) {
+          if (!sensitivities(sensitivitiesId).update()) {
+            sensitivitiesCount -= 1
+            sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
+            sensitivities.remove(sensitivitiesCount)
+          } else {
+            sensitivitiesId += 1
+          }
+        }
+
+
+        threads.remove(0, threadsToRunCount)
+        schedulingOffset = 0
       }
-
-
-      threads.remove(0, threadsToRunCount)
-      schedulingOffset = 0
+    } catch {
+      case e : Throwable => {
+        raw.sleep(1)
+        raw.end()
+        println("ERROR")
+        throw e
+      }
     }
-
     raw.end()
   }
 }
