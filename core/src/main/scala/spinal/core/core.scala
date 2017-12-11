@@ -15,6 +15,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit lazy val reflectiveCalls = scala.language.reflectiveCalls
   implicit lazy val postfixOps = scala.language.postfixOps
 
+
+
   implicit def IntToBuilder(value: Int) : IntBuilder = new IntBuilder(value)
 
   implicit def BigIntToBuilder(value: BigInt) : BigIntBuilder = new BigIntBuilder(value)
@@ -177,11 +179,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     var str = arg.replace("_", "").toLowerCase
     if (str == "") return builder(0, 0 bit)
 
-    var bitCount = -1
+    var bitCount : Int = -1
 
     if (str.contains(''')) {
       val split = str.split(''')
-      bitCount = split(0).toInt
+//      bitCount = split(0).toInt
       str = split(1)
     }
 

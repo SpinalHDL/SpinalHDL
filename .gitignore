@@ -45,3 +45,5 @@ log.txt
 
 /tester/**/*.gtkw
 *.do
+
+*verilatorSim/

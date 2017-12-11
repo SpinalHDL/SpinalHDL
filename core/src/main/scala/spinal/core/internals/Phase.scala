@@ -586,7 +586,8 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       c.nameElements()
       if(c.definitionName == null) {
-        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
+//        c.definitionName = pc.config.globalPrefix + c.getClass.getName.replace("$",".").split("\\.").last
+        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName.replace("$",".").split("\\.").head
       }
       c match {
         case bb: BlackBox => {
@@ -1744,10 +1745,9 @@ object SpinalVhdlBoot{
     }
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
-
-
+    val report = new SpinalReport[T]()
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
-    phases += initVhdlBase(new PhaseVhdl(pc))
+    phases += initVhdlBase(new PhaseVhdl(pc, report))
 
     for(inserter <-config.phasesInserters){
       inserter(phases)
@@ -1766,9 +1766,8 @@ object SpinalVhdlBoot{
 
     SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
-    //pc.checkNoZeroWidth() for debug
 
-    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.toplevel = pc.topLevel.asInstanceOf[T]
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
@@ -1822,7 +1821,7 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
 
     val pc = new PhaseContext(config)
-    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
 
     val prunedSignals    = mutable.Set[BaseType]()
     val unusedSignals    = mutable.Set[BaseType]()
@@ -1869,7 +1868,9 @@ object SpinalVerilogBoot{
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
-    phases += new PhaseVerilog(pc)
+
+    val report = new SpinalReport[T]()
+    phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){
       inserter(phases)
@@ -1886,10 +1887,7 @@ object SpinalVerilogBoot{
     SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
     pc.checkGlobalData()
-
-    //pc.checkNoZeroWidth() for debug
-
-    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.toplevel = pc.topLevel.asInstanceOf[T]
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
