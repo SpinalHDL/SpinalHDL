@@ -213,7 +213,7 @@ class ComponentEmiterVhdl(
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
-      //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
       logics ++= s"  ${
         children.getName()
@@ -221,23 +221,23 @@ class ComponentEmiterVhdl(
 
       def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
-        //        if (isBBUsingULogic)
-        //          if (dir == in) {
-        //            bt match {
-        //              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-        ////              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else if (dir == spinal.core.out) {
-        //            bt match {
-        //              case _: Bool => return s"      std_logic($io) => $logic,\n"
-        ////              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else SpinalError("???")
-        //
-        //        else
-        return s"      $io => $logic,\n"
+        if (isBBUsingULogic)
+          if (dir == in) {
+            bt match {
+              case _: Bool => return s"      $io => std_ulogic($logic),\n"
+              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
+              case _ => return s"      $io => $logic,\n"
+            }
+          } else if (dir == spinal.core.out) {
+            bt match {
+              case _: Bool => return s"      std_logic($io) => $logic,\n"
+              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
+              case _ => return s"      $io => $logic,\n"
+            }
+          } else SpinalError("???")
+
+        else
+          return s"      $io => $logic,\n"
       }
 
       if (children.isInstanceOf[BlackBox]) {
