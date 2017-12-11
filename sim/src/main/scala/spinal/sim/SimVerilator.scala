@@ -7,15 +7,15 @@ object SimVerilator{
 class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
   override def getInt(signal : Signal) : Int = {
     assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
-    signal.dataType.raw64ToInt(backend.native.wrapperGetU64(handle, signal.id))
+    signal.dataType.raw64ToInt(backend.native.wrapperGetU64(handle, signal.id), signal : Signal)
   }
   override def getLong(signal : Signal) : Long = {
     assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
-    signal.dataType.raw64ToLong(backend.native.wrapperGetU64(handle, signal.id))
+    signal.dataType.raw64ToLong(backend.native.wrapperGetU64(handle, signal.id), signal : Signal)
   }
   override def setLong(signal : Signal, value : Long) : Unit = {
     assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
-    backend.native.wrapperSetU64(handle, signal.id, signal.dataType.longToRaw64(value))
+    backend.native.wrapperSetU64(handle, signal.id, signal.dataType.longToRaw64(value, signal : Signal))
   }
 
   override def getBigInt(signal: Signal) = {
@@ -49,9 +49,10 @@ class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
     } else if(valueBitLength == 64 && signal.dataType.width == 64) {
       assert(signal.id != -1, "You can't access this signal in the simulation, as it isn't public")
       val valueLong = value.toLong
-      signal.dataType.checkIs64(valueLong)
+      signal.dataType.checkIs64(valueLong, signal : Signal)
       backend.native.wrapperSetU64(handle, signal.id, valueLong)
     } else {
+      signal.dataType.checkBigIntRange(value, signal)
       val array = value.toByteArray
       backend.native.wrapperSetAU8(handle, signal.id, array, array.length)
     }

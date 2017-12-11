@@ -3,12 +3,17 @@ package spinal.core
 import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations.{cps, suspendable}
+import scala.util.continuations.{cps}
 
 
 object SimManagedApi{
   type suspendable = cps[Unit]
-  private def btToSignal(manager : SimManager, bt : BaseType) = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+  private def btToSignal(manager : SimManager, bt : BaseType) = {
+    if(bt.algoInt == -1){
+      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation")
+    }
+    manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+  }
 
   def getInt(bt : BaseType) : Long = {
     val manager = SimManagerContext.current.manager
