@@ -234,6 +234,7 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
     s"""verilator
        |-CFLAGS -fPIC -CFLAGS -m64 -CFLAGS -shared
        |-LDFLAGS -fPIC -LDFLAGS -m64 -LDFLAGS -shared
+       |-Wno-WIDTH -Wno-UNOPTFLAT
        |${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        |--Mdir ${config.workspacePath}
        |--top-module ${config.toplevelName}

@@ -139,7 +139,7 @@ abstract class BlackBox extends Component{
   def isUsingULogic = this.hasTag(uLogic)
 
   /** Replace std_logic by std_ulogic */
-  def replaceStdLogicByStdULogic = this.addTag(uLogic)
+  def replaceStdLogicByStdULogic() = this.addTag(uLogic)
 }
 
 
