@@ -17,7 +17,8 @@ object SimDemo {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doManagedSim{ dut =>
+    //For alternatives ways of running the sim, see note at the end of the file
+    SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
       fork{
         dut.clockDomain.assertReset()
         dut.clockDomain.fallingEdge()
