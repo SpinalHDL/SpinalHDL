@@ -14,8 +14,7 @@ object DebugTest {
     io.result := RegNext(io.a + io.b - io.c)
   }
   def main(args: Array[String]): Unit = {
-    SimManagedVerilator(new Dut) { dut =>
-      dut.io.a #= BigInt("1" *8,2)
+    SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
       println(dut.io.a.toLong)
       dut.io.a #= 42l
       println(dut.io.a.toLong)

@@ -28,9 +28,11 @@ class SimManager(val raw : SimRaw) {
   def getLong(bt : Signal) : Long = raw.getLong(bt)
   def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
   def setLong(bt : Signal, value : Long): Unit = {
+    bt.dataType.checkLongRange(value, bt)
     commandBuffer += (() => raw.setLong(bt, value))
   }
   def setBigInt(bt : Signal, value : BigInt): Unit = {
+    bt.dataType.checkBigIntRange(value, bt)
     commandBuffer += (() => raw.setBigInt(bt, value))
   }
   def scheduleThread(thread : SimThread): Unit = {

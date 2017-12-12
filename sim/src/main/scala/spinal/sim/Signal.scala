@@ -13,7 +13,7 @@ abstract class DataType(){
   def readLongError(signal : Signal): Unit =
     SimError(f"READ ERROR : $signal is to big to be read with an Long")
   def checkBigIntRange(value : BigInt, signal : Signal): Unit
-
+  def checkLongRange(value : Long, signal : Signal) : Unit
 }
 
 class BoolDataType extends DataType{
@@ -37,6 +37,8 @@ class BoolDataType extends DataType{
   override def checkBigIntRange(value: BigInt, signal: Signal): Unit = {
     if(value < 0 || value > 1) rangeError(value, signal)
   }
+
+  override def checkLongRange(that: Long, signal: Signal): Unit = if((that & ~1l) != 0) rangeError(that, signal)
 
   override def toString = "Bool"
 }
@@ -67,6 +69,9 @@ class BitsDataType(width : Int) extends BitVectorDataType(width) {
     if(value.signum == -1 || value.bitCount > width) rangeError(value, signal)
   }
 
+  override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < 0 || that > maxLongValue) rangeError(that, signal)
+
+
   override def toString = s"Bits[$width bits]"
 }
 
@@ -90,6 +95,7 @@ class UIntDataType(width : Int) extends BitVectorDataType(width){
   override def checkBigIntRange(value: BigInt, signal: Signal): Unit = {
     if(value.signum == -1 || value.bitCount > width) rangeError(value, signal)
   }
+  override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < 0 || that > maxLongValue) rangeError(that, signal)
 
   override def toString = s"UInt[$width bits]"
 }
@@ -114,7 +120,7 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
   override def checkBigIntRange(value: BigInt, signal: Signal): Unit = {
     if(value.bitLength + (if(value.signum == -1) 1 else 0) > width) rangeError(value, signal)
   }
-
+  override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < -maxLongValue-1 || that > maxLongValue) rangeError(that, signal)
   override def toString = s"SInt[$width bits]"
 }
 class Signal(val path : Seq[String],val dataType : DataType) {
