@@ -10,7 +10,9 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL all",
       version := SpinalVersion.all,
-      publishTo := None
+      publishTo := None,
+      publish := {},
+      publishLocal := {}
     ),
     aggregate = Seq(sim, core, lib, debugger, tester)
   )
@@ -78,7 +80,9 @@ object SpinalBuild extends Build {
         //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
         libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
         libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
-        publishTo := None
+        publishTo := None,
+        publish := {},
+        publishLocal := {}
       )
     ) dependsOn(sim, core, lib/*, ip*/)
 
@@ -88,7 +92,9 @@ object SpinalBuild extends Build {
       settings = defaultSettings ++ Seq(
         name := "SpinalHDL Demo",
         version := SpinalVersion.demo,
-        publishTo := None
+        publishTo := None,
+        publish := {},
+        publishLocal := {}
       )
     ) dependsOn(sim, core, lib/*, ip*/ ,debugger)
 
@@ -102,7 +108,9 @@ object SpinalBuild extends Build {
         libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
 //        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
         //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
-        publishTo := None
+        publishTo := None,
+        publish := {},
+        publishLocal := {}
       )
     ) dependsOn(sim, core, lib, debugger,demo)
 

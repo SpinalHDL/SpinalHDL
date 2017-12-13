@@ -185,11 +185,11 @@ trait GlobalDataUser {
 
 
 trait ContextUser extends GlobalDataUser {
-  var parentScope = globalData.currentScope
+  var parentScope = if(globalData != null) globalData.currentScope else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
-  private[core] var instanceCounter = globalData.getInstanceCounter
+  private[core] var instanceCounter = if(globalData != null) globalData.getInstanceCounter else -1
 
   def getInstanceCounter = instanceCounter
 
