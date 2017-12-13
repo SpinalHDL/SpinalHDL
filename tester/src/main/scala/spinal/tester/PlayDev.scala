@@ -566,14 +566,18 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-    val sel = in UInt(2 bits)
-    val inputsA = in Vec(Bits(8 bits), 4)
-    val inputsB = in Vec(Bool, 4)
-//    val outputA = out(inputsA(sel))
-    val outputB = out(inputsB(sel))
 
-    val xx = Bits(4 bits)
-    xx := inputsA(sel)
+    val mask = MaskedLiteral("10-")
+    val input = in Bits(3 bits)
+    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
+//    val sel = in UInt(2 bits)
+//    val inputsA = in Vec(Bits(8 bits), 4)
+//    val inputsB = in Vec(Bool, 4)
+////    val outputA = out(inputsA(sel))
+//    val outputB = out(inputsB(sel))
+//
+//    val xx = Bits(4 bits)
+//    xx := inputsA(sel)
 //    val x = UInt(8 bits)
 //    val y = SInt(6 bits)
 //    y := x.asSInt

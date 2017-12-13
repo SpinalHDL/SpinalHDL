@@ -98,6 +98,7 @@ object weakCloneOf {
  */
 object widthOf {
   def apply[T <: Data](that: T): Int = that.getBitsWidth
+  def apply(maskedLiteral: MaskedLiteral) : Int = maskedLiteral.getWidth()
 }
 
 
