@@ -85,9 +85,12 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
       case (None, Some(report)) => report
       case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
     }
+    val startAt = System.nanoTime()
     val (sim, dut) = SimVerilator(report, _withWave, _optimisationLevel)
     val manager = new SimManager(sim)
     manager.userData = dut
+    val deltaTime = (System.nanoTime() - startAt)*1e-6
+    println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
     manager.run(body(dut.asInstanceOf[T]))
   }
 }
