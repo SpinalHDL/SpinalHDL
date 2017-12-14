@@ -38,7 +38,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
       }
     }
 
-    SimManagedVerilator(new SpinalSimVerilatorIoTest) { dut =>
+    SimConfig(new SpinalSimVerilatorIoTest).doManagedSim { dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)

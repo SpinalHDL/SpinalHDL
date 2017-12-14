@@ -1,6 +1,6 @@
 package landa
 
-import spinal.core.SimManagedVerilator
+
 import spinal.core.SimManagedApi._
 import spinal.core._
 import spinal.sim._
@@ -16,7 +16,7 @@ object SimManagedTest {
   }
 
   def main(args: Array[String]): Unit = {
-    SimManagedVerilator(new Dut) { dut =>
+    SimConfig(new Dut).doManagedSim{ dut =>
       fork {
         var counter = 0l
         var lastTime = System.nanoTime()

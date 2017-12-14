@@ -6,18 +6,18 @@ import scala.collection.mutable.ArrayBuffer
 
 import sys.process._
 
-class BackendConfig {
+
+
+class VerilatorBackendConfig{
+  var signals = ArrayBuffer[Signal]()
+  var optimisationLevel : Int = 2
   val rtlSourcesPaths = ArrayBuffer[String]()
   var toplevelName: String = null
   var workspacePath: String = null
   var withWave = true
 }
 
-class VerilatorBackendConfig{
-  var signals = ArrayBuffer[Signal]()
-}
-
-class VerilatorBackend(config: BackendConfig, vConfig : VerilatorBackendConfig) {
+class VerilatorBackend(config : VerilatorBackendConfig) {
 
   def wrapperCppPath = s"${config.workspacePath}/V${config.toplevelName}__spinalWrapper.cpp"
 
@@ -140,14 +140,14 @@ class Wrapper{
 public:
     uint64_t time;
     V${config.toplevelName} top;
-    ISignalAccess *signalAccess[${vConfig.signals.length}];
+    ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
 	  VerilatedVcdC tfp;
 	  #endif
 
     Wrapper(){
       time = 0;
-${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
+${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
@@ -162,7 +162,7 @@ ${val signalInits = for((signal, id) <- vConfig.signals.zipWithIndex)
     }
 
     virtual ~Wrapper(){
-      for(int idx = 0;idx < ${vConfig.signals.length};idx++){
+      for(int idx = 0;idx < ${config.signals.length};idx++){
           delete signalAccess[idx];
       }
 
@@ -235,6 +235,7 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
        |-CFLAGS -fPIC -CFLAGS -m64 -CFLAGS -shared
        |-LDFLAGS -fPIC -LDFLAGS -m64 -LDFLAGS -shared
        |-Wno-WIDTH -Wno-UNOPTFLAT
+       |-CFLAGS -O${config.optimisationLevel}
        |${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        |--Mdir ${config.workspacePath}
        |--top-module ${config.toplevelName}

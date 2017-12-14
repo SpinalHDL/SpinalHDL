@@ -43,7 +43,7 @@ class SimManager(val raw : SimRaw) {
     }
   }
 
-  def newThread(body : => Unit@suspendable): SimThread@suspendable ={
+  def newThread(body : => Unit@suspendable): SimThread ={
     val thread = new SimThread(body, time)
     scheduleThread(thread)
     thread

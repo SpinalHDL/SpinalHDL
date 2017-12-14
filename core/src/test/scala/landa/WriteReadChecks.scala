@@ -2,6 +2,7 @@
 package spinal.sim
 
 
+import landa.SimManagedTest.Dut
 import spinal.core._
 import spinal.core.SimManagedApi._
 
@@ -9,37 +10,34 @@ import scala.util.Random
 
 
 object ReadWriteChecks {
-  object Rtl {
-    class Dut extends Component {
-      val io = new Bundle {
-        val bool = in Bool
-        val u1  = in UInt (1 bits)
-        val u8  = in UInt (8 bits)
-        val u16 = in UInt (16 bits)
-        val u31 = in UInt (31 bits)
-        val u32 = in UInt (32 bits)
-        val u63 = in UInt (63 bits)
-        val u64 = in UInt (64 bits)
-        val u65 = in UInt (65 bits)
-        val u127 = in UInt (127 bits)
-        val u128 = in UInt (128 bits)
-        val s1  = in SInt (1 bits)
-        val s8  = in SInt (8 bits)
-        val s16 = in SInt (16 bits)
-        val s31 = in SInt (31 bits)
-        val s32 = in SInt (32 bits)
-        val s63 = in SInt (63 bits)
-        val s64 = in SInt (64 bits)
-        val s65 = in SInt (65 bits)
-        val s127 = in SInt (127 bits)
-        val s128 = in SInt (128 bits)
-      }
+  class Dut extends Component {
+    val io = new Bundle {
+      val bool = in Bool
+      val u1  = in UInt (1 bits)
+      val u8  = in UInt (8 bits)
+      val u16 = in UInt (16 bits)
+      val u31 = in UInt (31 bits)
+      val u32 = in UInt (32 bits)
+      val u63 = in UInt (63 bits)
+      val u64 = in UInt (64 bits)
+      val u65 = in UInt (65 bits)
+      val u127 = in UInt (127 bits)
+      val u128 = in UInt (128 bits)
+      val s1  = in SInt (1 bits)
+      val s8  = in SInt (8 bits)
+      val s16 = in SInt (16 bits)
+      val s31 = in SInt (31 bits)
+      val s32 = in SInt (32 bits)
+      val s63 = in SInt (63 bits)
+      val s64 = in SInt (64 bits)
+      val s65 = in SInt (65 bits)
+      val s127 = in SInt (127 bits)
+      val s128 = in SInt (128 bits)
     }
   }
 
-
   def main(args: Array[String]): Unit = {
-    SimManagedVerilator(new Rtl.Dut) { dut =>
+    SimConfig(new Dut).doManagedSim{ dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)

@@ -10,14 +10,14 @@ object SimVerilator{
 //    this.apply(SpinalVerilog(rtl))
 //  }
 
-  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false) = {
-    val config = new BackendConfig()
-    config.rtlSourcesPaths ++= rtl.generatedSourcesPaths
+  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false, optimisationLevel : Int = 2) = {
+    val config = new VerilatorBackendConfig()
+    config.rtlSourcesPaths ++= rtl.rtlSourcesPaths
     config.toplevelName = rtl.toplevelName
     config.workspacePath = s"${rtl.toplevelName}_verilatorSim"
     config.withWave = withWave
+    config.optimisationLevel = optimisationLevel
 
-    val vConfig = new VerilatorBackendConfig
     GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(_.algoInt = -1))
     var signalId = 0
     for(io <- rtl.toplevel.getAllIo){
@@ -29,12 +29,12 @@ object SimVerilator{
       })
       io.algoInt = signalId
       signal.id = signalId
-      vConfig.signals += signal
+      config.signals += signal
       signalId += 1
     }
-    val backend = new VerilatorBackend(config,vConfig)
+    val backend = new VerilatorBackend(config)
     val sim = new SimVerilator(backend, backend.instanciate())
-    sim.userData = vConfig.signals
+    sim.userData = config.signals
     (sim, rtl.toplevel)
   }
 }
@@ -48,37 +48,46 @@ object SimConfig{
   }
 }
 
-case class SimConfig[T <: Component](var _withWave: Boolean = false,
-                        var _rtlGen : Option[() => T] = None,
-                        var _spinalConfig: SpinalConfig = SpinalConfig(),
-                        var _spinalReport : Option[SpinalReport[T]] = None){
+case class SimConfig[T <: Component]( var _withWave: Boolean = false,
+                                      var _rtlGen : Option[() => T] = None,
+                                      var _spinalConfig: SpinalConfig = SpinalConfig(),
+                                      var _spinalReport : Option[SpinalReport[T]] = None,
+                                      var _optimisationLevel : Int = 0){
   def withWave : this.type = {
     _withWave = true
     this
   }
 
+  def withConfig(config : SpinalConfig) : this.type = {
+    _spinalConfig = config
+    this
+  }
+
+  def noOptimisation : this.type = {
+    _optimisationLevel = 0
+    this
+  }
+  def fewOptimisation : this.type = {
+    _optimisationLevel = 1
+    this
+  }
+  def normalOptimisation : this.type = {
+    _optimisationLevel = 2
+    this
+  }
+  def allOptimisation : this.type = {
+    _optimisationLevel = 3
+    this
+  }
+
   def doManagedSim(body : T => Unit@suspendable): Unit ={
-    (_rtlGen, _spinalReport) match {
-      case (None, Some(report)) => SimManagedVerilator(report, _withWave)(body)
-      case (Some(gen), None) => SimManagedVerilator(gen(), _withWave)(body)
+    val report = (_rtlGen, _spinalReport) match {
+      case (None, Some(report)) => report
+      case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
     }
-  }
-}
-
-object SimManagedVerilator {
-  def apply[T <: Component](gen: => T)(body: T => Unit@suspendable): Unit = {
-    SimManagedVerilator(SpinalVerilog(gen), false)(body)
-  }
-
-  def apply[T <: Component](gen: => T, withWave : Boolean)(body: T => Unit@suspendable): Unit = {
-    SimManagedVerilator(SpinalVerilog(gen), withWave)(body)
-  }
-
-  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean)(body: T => Unit@suspendable): Unit = {
-    val (sim, dut) = SimVerilator(rtl, withWave)
+    val (sim, dut) = SimVerilator(report, _withWave, _optimisationLevel)
     val manager = new SimManager(sim)
     manager.userData = dut
     manager.run(body(dut.asInstanceOf[T]))
   }
-
 }

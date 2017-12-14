@@ -1,5 +1,6 @@
 package landa;
 
+import landa.SimManagedTest.Dut
 import spinal.core._
 
 object TypeTests {
@@ -33,7 +34,7 @@ object TypeTests {
 //      println(peak(dut.io.u8_o))
 //    }
 
-    SimManagedVerilator(new Dut) { dut =>
+    SimConfig(new Dut).doManagedSim { dut =>
       sleep(10)
       println(getLong(dut.io.u8_o))
     }
