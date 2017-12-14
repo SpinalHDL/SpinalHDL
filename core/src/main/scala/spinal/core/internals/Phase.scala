@@ -1484,7 +1484,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
 
-class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], rtlSourcesPath: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
+class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutable.Set[BaseType], counterRegisters: Ref[Int], blackboxesSourcesPaths: mutable.LinkedHashSet[String])(pc: PhaseContext) extends PhaseCheck {
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1500,7 +1500,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
     }
 
     walkComponents{
-      case bb: BlackBox => bb.listRLTPath.foreach(path => rtlSourcesPath += path)
+      case bb: BlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
       case _            =>
     }
 
@@ -1695,8 +1695,8 @@ object SpinalVhdlBoot{
 
     val prunedSignals   = mutable.Set[BaseType]()
     val unusedSignals   = mutable.Set[BaseType]()
-    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
     val counterRegister = Ref[Int](0)
+    val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
 
     SpinalProgress("Elaborate components")
 
@@ -1744,7 +1744,7 @@ object SpinalVhdlBoot{
       base
     }
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += initVhdlBase(new PhaseVhdl(pc, report))
@@ -1771,7 +1771,7 @@ object SpinalVhdlBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
-    report.rtlSourcesPaths ++= rtlSourcesPaths
+    report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
 
     report
   }
@@ -1825,8 +1825,8 @@ object SpinalVerilogBoot{
 
     val prunedSignals    = mutable.Set[BaseType]()
     val unusedSignals    = mutable.Set[BaseType]()
-    val rtlSourcesPaths  = new mutable.LinkedHashSet[String]()
     val counterRegister  = Ref[Int](0)
+    val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
 
     SpinalProgress("Elaborate components")
 
@@ -1865,7 +1865,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, rtlSourcesPaths)(pc)
+    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
 
@@ -1891,7 +1891,7 @@ object SpinalVerilogBoot{
     report.prunedSignals ++= prunedSignals
     report.unusedSignals ++= unusedSignals
     report.counterRegister = counterRegister.value
-    report.rtlSourcesPaths ++= rtlSourcesPaths
+    report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
 
     report
   }

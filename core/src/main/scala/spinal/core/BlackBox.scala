@@ -84,10 +84,10 @@ abstract class BlackBox extends Component{
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
 
-  val listRLTPath = new LinkedHashSet[String]()
+  val listRTLPath = new LinkedHashSet[String]()
 
   /** Add the path of the rtl file */
-  def addRTLPath(path: String) = listRLTPath += path
+  def addRTLPath(path: String) = listRTLPath += path
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {

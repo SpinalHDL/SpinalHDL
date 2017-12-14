@@ -1344,6 +1344,6 @@ object PlayWithBlackBoxPath{
       mode = VHDL
     ).generate(new EssaiBlackBox)
 
-    report.mergeRTLSource()
+    report.mergeRTLSource("merge")
   }
 }
