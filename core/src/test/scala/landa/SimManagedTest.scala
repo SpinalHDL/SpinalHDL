@@ -4,7 +4,6 @@ package landa
 import spinal.core.SimManagedApi._
 import spinal.core._
 import spinal.sim._
-import spinal.sim.PimperA
 
 object SimManagedTest {
   class Dut extends Component {
@@ -106,7 +105,7 @@ object SimManagedTest {
       clkGen.join()
 
       fork{
-        (0 until 100).doSim{
+        repeatSim(100){
           dut.io.a #= dut.io.a.toLong + 1
           sleep(1)
         }

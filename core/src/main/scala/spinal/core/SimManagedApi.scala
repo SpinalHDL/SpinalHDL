@@ -49,8 +49,8 @@ object SimManagedApi{
   def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread = SimManagerContext.current.manager.newThread(body)
   def forkJoin(bodys : (()=> Unit@suspendable)*) : Unit@suspendable = {
-    val threads = bodys.mapSim(body => fork(body()))
-    threads.foreachSim(thread => thread.join())
+    val threads = bodys.cps.map(body => fork(body()))
+    threads.cps.foreach(thread => thread.join())
   }
 
   implicit class BoolPimper(bt : Bool) {

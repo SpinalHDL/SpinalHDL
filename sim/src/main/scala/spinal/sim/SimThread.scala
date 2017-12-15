@@ -9,6 +9,8 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
   private var nextStep: Unit => Unit = null
   var waitingThreads = ArrayBuffer[SimThread]()
 
+
+
   def join(): Unit@suspendable = {
     val thread = SimManagerContext.current.thread
     assert(thread != this)

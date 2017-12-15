@@ -63,80 +63,80 @@ object ReadWriteChecks {
       }
 
 
-      (0 to 20).foreachSim {e =>
-        List(false, true).foreachSim(value => checkBoolean(value, dut.io.bool))
+      (0 to 20).cps.foreach {e =>
+        List(false, true).cps.foreach(value => checkBoolean(value, dut.io.bool))
 
         //checkInt
-        List(0, 1).foreachSim(value => checkInt(value, dut.io.u1))
-        List(0, 1, 127, 255).foreachSim(value => checkInt(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreachSim(value => checkInt(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreachSim(value => checkInt(value, dut.io.u31))
+        List(0, 1).cps.foreach(value => checkInt(value, dut.io.u1))
+        List(0, 1, 127, 255).cps.foreach(value => checkInt(value, dut.io.u8))
+        List(0, 1, 0xFFFF).cps.foreach(value => checkInt(value, dut.io.u16))
+        List(0, 1, 0x7FFFFFFF).cps.foreach(value => checkInt(value, dut.io.u31))
 
-        List(0, -1).foreachSim(value => checkInt(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreachSim(value => checkInt(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreachSim(value => checkInt(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreachSim(value => checkInt(value, dut.io.s32))
+        List(0, -1).cps.foreach(value => checkInt(value, dut.io.s1))
+        List(0, 1, -1, 127, -128).cps.foreach(value => checkInt(value, dut.io.s8))
+        List(0, 1, -1, Short.MaxValue, Short.MinValue).cps.foreach(value => checkInt(value, dut.io.s16))
+        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).cps.foreach(value => checkInt(value, dut.io.s32))
 
         //checkLong
-        List(0, 1).foreachSim(value => checkLong(value, dut.io.u1))
-        List(0, 1, 127, 255).foreachSim(value => checkLong(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreachSim(value => checkLong(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreachSim(value => checkLong(value, dut.io.u32))
-        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreachSim(value => checkLong(value, dut.io.u63))
+        List(0, 1).cps.foreach(value => checkLong(value, dut.io.u1))
+        List(0, 1, 127, 255).cps.foreach(value => checkLong(value, dut.io.u8))
+        List(0, 1, 0xFFFF).cps.foreach(value => checkLong(value, dut.io.u16))
+        List(0, 1, 0x7FFFFFFF).cps.foreach(value => checkLong(value, dut.io.u32))
+        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).cps.foreach(value => checkLong(value, dut.io.u63))
 
-        List(0, -1).foreachSim(value => checkLong(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreachSim(value => checkLong(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreachSim(value => checkLong(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreachSim(value => checkLong(value, dut.io.s32))
-        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreachSim(value => checkLong(value, dut.io.s64))
+        List(0, -1).cps.foreach(value => checkLong(value, dut.io.s1))
+        List(0, 1, -1, 127, -128).cps.foreach(value => checkLong(value, dut.io.s8))
+        List(0, 1, -1, Short.MaxValue, Short.MinValue).cps.foreach(value => checkLong(value, dut.io.s16))
+        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).cps.foreach(value => checkLong(value, dut.io.s32))
+        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).cps.foreach(value => checkLong(value, dut.io.s64))
 
         //checkBigInt
-        List(0, 1).foreachSim(value => checkBigInt(value, dut.io.u1))
-        List(0, 1, 127, 255).foreachSim(value => checkBigInt(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreachSim(value => checkBigInt(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreachSim(value => checkBigInt(value, dut.io.u32))
-        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreachSim(value => checkBigInt(value, dut.io.u63))
+        List(0, 1).cps.foreach(value => checkBigInt(value, dut.io.u1))
+        List(0, 1, 127, 255).cps.foreach(value => checkBigInt(value, dut.io.u8))
+        List(0, 1, 0xFFFF).cps.foreach(value => checkBigInt(value, dut.io.u16))
+        List(0, 1, 0x7FFFFFFF).cps.foreach(value => checkBigInt(value, dut.io.u32))
+        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).cps.foreach(value => checkBigInt(value, dut.io.u63))
 
-        List(0, -1).foreachSim(value => checkBigInt(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreachSim(value => checkBigInt(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreachSim(value => checkBigInt(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreachSim(value => checkBigInt(value, dut.io.s32))
-        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreachSim(value => checkBigInt(value, dut.io.s64))
+        List(0, -1).cps.foreach(value => checkBigInt(value, dut.io.s1))
+        List(0, 1, -1, 127, -128).cps.foreach(value => checkBigInt(value, dut.io.s8))
+        List(0, 1, -1, Short.MaxValue, Short.MinValue).cps.foreach(value => checkBigInt(value, dut.io.s16))
+        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).cps.foreach(value => checkBigInt(value, dut.io.s32))
+        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).cps.foreach(value => checkBigInt(value, dut.io.s64))
 
         forkJoin(
-          () => Random.shuffle((0 to 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u1)),
-          () => Random.shuffle((0 to 8 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u8)),
-          () => Random.shuffle((0 to 16 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u16)),
-          () => Random.shuffle((0 to 31 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u31)),
-          () => Random.shuffle((0 to 32 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u32)),
-          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u63)),
-          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u64)),
-          () => Random.shuffle((0 to 65)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u65)),
-          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u127)),
-          () => Random.shuffle((0 to 128)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.u128)),
-          () => Random.shuffle((0 to 1  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s1)),
-          () => Random.shuffle((0 to 8  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s8)),
-          () => Random.shuffle((0 to 16 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s16)),
-          () => Random.shuffle((0 to 31 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s31)),
-          () => Random.shuffle((0 to 32 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s32)),
-          () => Random.shuffle((0 to 62)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s63)),
-          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s64)),
-          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s65)),
-          () => Random.shuffle((0 to 126)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s127)),
-          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreachSim(value => checkBigInt(value, dut.io.s128))
+          () => Random.shuffle((0 to 1 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u1)),
+          () => Random.shuffle((0 to 8 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u8)),
+          () => Random.shuffle((0 to 16 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u16)),
+          () => Random.shuffle((0 to 31 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u31)),
+          () => Random.shuffle((0 to 32 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u32)),
+          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u63)),
+          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u64)),
+          () => Random.shuffle((0 to 65)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u65)),
+          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u127)),
+          () => Random.shuffle((0 to 128)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.u128)),
+          () => Random.shuffle((0 to 1  - 1)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s1)),
+          () => Random.shuffle((0 to 8  - 1)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s8)),
+          () => Random.shuffle((0 to 16 - 1 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s16)),
+          () => Random.shuffle((0 to 31 - 1 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s31)),
+          () => Random.shuffle((0 to 32 - 1 )).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s32)),
+          () => Random.shuffle((0 to 62)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s63)),
+          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s64)),
+          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s65)),
+          () => Random.shuffle((0 to 126)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s127)),
+          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).cps.foreach(value => checkBigInt(value, dut.io.s128))
         )
 
         forkJoin(
-          () => Random.shuffle((0 to 1  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s1 )),
-          () => Random.shuffle((0 to 8  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s8 )),
-          () => Random.shuffle((0 to 16 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s16)),
-          () => Random.shuffle((0 to 31 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s31)),
-          () => Random.shuffle((0 to 32 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s32)),
-          () => Random.shuffle((0 to 62)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s63)),
-          () => Random.shuffle((0 to 63)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s64)),
-          () => Random.shuffle((0 to 64)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s65)),
-          () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s127)),
-          () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).foreachSim(value => checkBigInt(value, dut.io.s128))
+          () => Random.shuffle((0 to 1  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s1 )),
+          () => Random.shuffle((0 to 8  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s8 )),
+          () => Random.shuffle((0 to 16 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s16)),
+          () => Random.shuffle((0 to 31 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s31)),
+          () => Random.shuffle((0 to 32 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s32)),
+          () => Random.shuffle((0 to 62)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s63)),
+          () => Random.shuffle((0 to 63)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s64)),
+          () => Random.shuffle((0 to 64)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s65)),
+          () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s127)),
+          () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).cps.foreach(value => checkBigInt(value, dut.io.s128))
         )
       }
     }
