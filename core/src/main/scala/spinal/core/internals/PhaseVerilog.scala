@@ -32,7 +32,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   override def impl(pc: PhaseContext): Unit = {
     val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName)
-    report.rtlSourcesPaths += targetPath
+    report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
     outFile.write(VhdlVerilogBase.getHeader("//",topLevel))

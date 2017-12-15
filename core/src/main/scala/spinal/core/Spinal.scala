@@ -177,12 +177,17 @@ object SpinalConfig{
  * Spinal report give after the generation of the RTL
  */
 class SpinalReport[T <: Component]() {
-  var toplevel: T = null.asInstanceOf[T]
+  var toplevel: T     = null.asInstanceOf[T]
   val prunedSignals   = mutable.Set[BaseType]()
   val unusedSignals   = mutable.Set[BaseType]()
-  var rtlSourcesPaths = mutable.LinkedHashSet[String]()
   var counterRegister = 0
-  var toplevelName : String = null
+  var toplevelName: String = null
+
+
+  val generatedSourcesPaths  = mutable.LinkedHashSet[String]()
+  val blackboxesSourcesPaths = mutable.LinkedHashSet[String]()
+  def rtlSourcesPaths        = generatedSourcesPaths ++ blackboxesSourcesPaths
+
 
   def printUnused() : this.type = {
     unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
@@ -206,7 +211,7 @@ class SpinalReport[T <: Component]() {
     val bb_verilog = new mutable.LinkedHashSet[String]()
 
     /** Split verilog/vhdl path */
-    rtlSourcesPaths.foreach{ path =>
+    blackboxesSourcesPaths.foreach{ path =>
       val vhdl_regex    = """.*\.(vhdl|vhd)""".r
       val verilog_regex = """.*\.(v)""".r
 
@@ -234,9 +239,9 @@ class SpinalReport[T <: Component]() {
     }
 
     // Merge vhdl/verilog file
-    val nameFile = if(fileName == null) toplevel.definitionName else fileName
-    if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}_bb.vhd") }
-    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}_bb.v") }
+    val nameFile = if(fileName == null) s"${toplevel.definitionName}_bb" else fileName
+    if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}.vhd") }
+    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
 
   }
 }

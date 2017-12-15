@@ -12,7 +12,7 @@ object SimVerilator{
 
   def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false) = {
     val config = new BackendConfig()
-    config.rtlSourcesPaths ++= rtl.rtlSourcesPaths
+    config.rtlSourcesPaths ++= rtl.generatedSourcesPaths
     config.toplevelName = rtl.toplevelName
     config.workspacePath = s"${rtl.toplevelName}_verilatorSim"
     config.withWave = withWave
