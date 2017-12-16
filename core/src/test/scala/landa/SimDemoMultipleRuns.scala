@@ -17,7 +17,6 @@ object SimDemoMultipleRuns {
   }
 
   def main(args: Array[String]): Unit = {
-    //For alternatives ways of running the sim, see note at the end of the file
     val compiled = SimConfig(rtl = new Dut).withWave.compile
     compiled.doManagedSim("longTest"){ dut =>
       fork{
@@ -62,7 +61,3 @@ object SimDemoMultipleRuns {
     }
   }
 }
-
-//Note that there is two ways to run the sim :
-// SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
-// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doManagedSim{ dut =>
