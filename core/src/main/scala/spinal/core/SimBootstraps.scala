@@ -121,7 +121,7 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
 //    manager.run(body(report.toplevel))
   }
 
-  def compile : SimCompiled[T] = {
+  def compile() : SimCompiled[T] = {
     val report = (_rtlGen, _spinalReport) match {
       case (None, Some(report)) => report
       case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
