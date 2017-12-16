@@ -17,7 +17,7 @@ class VerilatorBackendConfig{
   var withWave = true
 }
 
-class VerilatorBackend(config : VerilatorBackendConfig) {
+class VerilatorBackend(val config : VerilatorBackendConfig) {
 
   def wrapperCppPath = s"${config.workspacePath}/V${config.toplevelName}__spinalWrapper.cpp"
 
@@ -145,7 +145,7 @@ public:
 	  VerilatedVcdC tfp;
 	  #endif
 
-    Wrapper(){
+    Wrapper(const char * name){
       time = 0;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
@@ -157,7 +157,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open("${config.workspacePath}/V${config.toplevelName}.vcd");
+      tfp.open((string("${config.workspacePath}/V${config.toplevelName}_") + name + ".vcd").c_str());
       #endif
     }
 
@@ -181,8 +181,8 @@ extern "C" {
 #endif
 #include <stdio.h>
 #include <stdint.h>
-Wrapper* wrapperNewHandle(){
-    Wrapper *handle = new Wrapper;
+Wrapper* wrapperNewHandle(const char * name){
+    Wrapper *handle = new Wrapper(name);
     return handle;
 }
 void wrapperDeleteHandle(Wrapper * handle){
@@ -251,5 +251,5 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
   clean()
   compile()
   val native = LibraryLoader.create(classOf[IVerilatorNative]).load(s"${config.workspacePath}/V${config.toplevelName}")
-  def instanciate() = native.wrapperNewHandle()
+  def instanciate(name : String) = native.wrapperNewHandle(name)
 }

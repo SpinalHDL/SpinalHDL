@@ -8,7 +8,7 @@ package object sim {
   import scala.util.continuations._
 
   implicit class cpsIterable[A, Repr](xs: IterableLike[A, Repr]) {
-    def cps = new {
+    def suspendable = new {
       def foreach[B](f: A => Any@suspendable): Unit@suspendable = {
         val it = xs.iterator
         while(it.hasNext) f(it.next)

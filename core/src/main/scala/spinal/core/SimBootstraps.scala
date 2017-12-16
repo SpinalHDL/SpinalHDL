@@ -1,15 +1,12 @@
 package spinal.core
 
 import spinal.core.internals.GraphUtils
-import spinal.sim._
+import spinal.sim.{VerilatorBackend, _}
 
 import scala.util.continuations.suspendable
 
-object SimVerilator{
-//  def apply[T <: Component](rtl : => T) = {
-//    this.apply(SpinalVerilog(rtl))
-//  }
 
+object SpinalVerilatorBackend{
   def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false, optimisationLevel : Int = 2) = {
     val config = new VerilatorBackendConfig()
     config.rtlSourcesPaths ++= rtl.rtlSourcesPaths
@@ -32,10 +29,23 @@ object SimVerilator{
       config.signals += signal
       signalId += 1
     }
-    val backend = new VerilatorBackend(config)
-    val sim = new SimVerilator(backend, backend.instanciate())
-    sim.userData = config.signals
-    (sim, rtl.toplevel)
+    new VerilatorBackend(config)
+  }
+}
+
+
+object SpinalVerilatorSim{
+  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false, optimisationLevel : Int = 2) = {
+    val backend = SpinalVerilatorBackend(rtl, withWave, optimisationLevel)
+    val sim = new SimVerilator(backend, backend.instanciate("test1"))
+    sim.userData = backend.config.signals
+    sim
+  }
+
+  def apply[T <: Component](backend : VerilatorBackend) = {
+    val sim = new SimVerilator(backend, backend.instanciate("test1"))
+    sim.userData = backend.config.signals
+    sim
   }
 }
 
@@ -45,6 +55,22 @@ object SimConfig{
   }
   def apply[T <: Component](rtl: SpinalReport[T]) : SimConfig[T] ={
     SimConfig[T](_spinalReport = Some(rtl))
+  }
+}
+
+class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
+  var anonymRunId = 0
+  def allocateRunId : Int = this.synchronized{
+    anonymRunId += 1
+    anonymRunId
+  }
+  def doManagedSim(body : T => Unit@suspendable) : Unit = doManagedSim("test" + allocateRunId)(body)
+  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = {
+    val sim = new SimVerilator(backend, backend.instanciate(name))
+    sim.userData = backend.config.signals
+    val manager = new SimManager(sim)
+    manager.userData = dut
+    manager.run(body(dut))
   }
 }
 
@@ -81,16 +107,29 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
   }
 
   def doManagedSim(body : T => Unit@suspendable): Unit ={
+    compile.doManagedSim(body)
+//    val report = (_rtlGen, _spinalReport) match {
+//      case (None, Some(report)) => report
+//      case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
+//    }
+//    val startAt = System.nanoTime()
+//    val sim = SpinalVerilatorSim(report, _withWave, _optimisationLevel)
+//    val manager = new SimManager(sim)
+//    manager.userData = report.toplevel
+//    val deltaTime = (System.nanoTime() - startAt)*1e-6
+//    println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
+//    manager.run(body(report.toplevel))
+  }
+
+  def compile : SimCompiled[T] = {
     val report = (_rtlGen, _spinalReport) match {
       case (None, Some(report)) => report
       case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
     }
     val startAt = System.nanoTime()
-    val (sim, dut) = SimVerilator(report, _withWave, _optimisationLevel)
-    val manager = new SimManager(sim)
-    manager.userData = dut
+    val backend = SpinalVerilatorBackend(report, _withWave, _optimisationLevel)
     val deltaTime = (System.nanoTime() - startAt)*1e-6
     println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
-    manager.run(body(dut.asInstanceOf[T]))
+    new SimCompiled(backend, report.toplevel)
   }
 }
