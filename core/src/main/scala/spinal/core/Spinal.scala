@@ -148,6 +148,9 @@ case class SpinalConfig(
     this
   }
 
+
+
+
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
     this

@@ -70,6 +70,7 @@ class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
     sim.userData = backend.config.signals
     val manager = new SimManager(sim)
     manager.userData = dut
+    println(s"[Progress] Start ${dut.definitionName} $name simulation")
     manager.run(body(dut))
   }
 }
@@ -106,20 +107,7 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
     this
   }
 
-  def doManagedSim(body : T => Unit@suspendable): Unit ={
-    compile.doManagedSim(body)
-//    val report = (_rtlGen, _spinalReport) match {
-//      case (None, Some(report)) => report
-//      case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
-//    }
-//    val startAt = System.nanoTime()
-//    val sim = SpinalVerilatorSim(report, _withWave, _optimisationLevel)
-//    val manager = new SimManager(sim)
-//    manager.userData = report.toplevel
-//    val deltaTime = (System.nanoTime() - startAt)*1e-6
-//    println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
-//    manager.run(body(report.toplevel))
-  }
+  def doManagedSim(body : T => Unit@suspendable): Unit = compile.doManagedSim(body)
 
   def compile() : SimCompiled[T] = {
     val report = (_rtlGen, _spinalReport) match {
