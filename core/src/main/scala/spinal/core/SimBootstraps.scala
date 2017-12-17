@@ -25,6 +25,7 @@ object SpinalVerilatorBackend{
         case io : SInt => new SIntDataType(io.getBitsWidth)
       })
       io.algoInt = signalId
+      io.algoIncrementale = -1
       signal.id = signalId
       config.signals += signal
       signalId += 1

@@ -23,6 +23,8 @@ object SimDemo {
         dut.clockDomain.assertReset()
         dut.clockDomain.fallingEdge()
         sleep(10)
+        dut.clockDomain.disassertReset()
+        sleep(10)
         while(true){
           dut.clockDomain.clockToggle()
           sleep(5)

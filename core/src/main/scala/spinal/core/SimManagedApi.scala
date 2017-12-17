@@ -9,37 +9,48 @@ import scala.util.continuations.{cps}
 object SimManagedApi{
   type suspendable = cps[Unit]
   private def btToSignal(manager : SimManager, bt : BaseType) = {
-    if(bt.algoInt == -1){
+    if(bt.algoIncrementale != -1){
       SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation")
     }
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
   }
 
   def getInt(bt : BaseType) : Long = {
+    if(bt.getBitsWidth == 0) return 0
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getInt(signal)
   }
 
   def getLong(bt : BaseType) : Long = {
+    if(bt.getBitsWidth == 0) return 0l
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getLong(signal)
   }
 
   def getBigInt(bt : BaseType) : BigInt = {
+    if(bt.getBitsWidth == 0) return BigInt(0)
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getBigInt(signal)
   }
 
-  def setLong(bt : BaseType, value : Long) = {
+  def setLong(bt : BaseType, value : Long) : Unit = {
+    if(bt.getBitsWidth == 0) {
+      assert(value == 0)
+      return
+    }
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.setLong(signal, value)
   }
 
-  def setBigInt(bt : BaseType, value : BigInt) = {
+  def setBigInt(bt : BaseType, value : BigInt) : Unit = {
+    if(bt.getBitsWidth == 0) {
+      assert(value == 0)
+      return
+    }
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.setBigInt(signal, value)
@@ -70,7 +81,7 @@ object SimManagedApi{
   implicit class ClockDomainPimper(cd : ClockDomain) {
     private def getBool(manager : SimManager, who : Bool): Bool ={
       val manager = SimManagerContext.current.manager
-      manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
+      manager.userData.asInstanceOf[Component].pulledDataCache(who).asInstanceOf[Bool]
     }
 
     private def getSignal(manager : SimManager, who : Bool): Signal ={
