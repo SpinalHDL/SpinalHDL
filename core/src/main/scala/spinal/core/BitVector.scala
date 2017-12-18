@@ -176,6 +176,13 @@ abstract class BitVector extends BaseType with Widthable {
     Vec(vec)
   }
 
+
+  def asBool : Bool = {
+    val ret = Bool()
+    ret := lsb
+    ret
+  }
+
   /**
     * Split the BitVector into x slice
     * @example {{{ val res = myBits.subdiviedIn(3 slices) }}}
@@ -312,6 +319,9 @@ abstract class BitVector extends BaseType with Widthable {
     * @example{{{ val myBool = myBits(3 downto 1) }}}
     */
   def apply(range: Range): this.type = this.apply(range.low, range.high - range.low + 1 bits)
+
+
+
 
   /** Set all bits to value */
   def setAllTo(value: Boolean): Unit = if(value) setAll() else clearAll()
