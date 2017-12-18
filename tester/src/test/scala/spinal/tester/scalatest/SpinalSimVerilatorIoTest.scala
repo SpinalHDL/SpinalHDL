@@ -1,11 +1,12 @@
 package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
-
-
 import spinal.core._
 import spinal.sim._
 import spinal.core.SimManagedApi._
+import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
+
+import scala.concurrent.{Await, Future}
 import scala.util.Random
 
 object SpinalSimVerilatorIoTest{
@@ -70,10 +71,9 @@ object SpinalSimVerilatorIoTest{
 }
 
 class SpinalSimVerilatorIoTest extends FunSuite {
-
-
-  test("test1") {
-    SimConfig(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop).withWave(2).doManagedSim("miaou") { dut =>
+  var compiled : SimCompiled[SpinalSimVerilatorIoTestTop] = null
+  def doTest: Unit ={
+    compiled.doManagedSim{ dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)
@@ -193,4 +193,35 @@ class SpinalSimVerilatorIoTest extends FunSuite {
       }
     }
   }
+
+  test("compile"){
+    compiled = SimConfig(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop).compile()
+  }
+
+  test("test1") {
+    doTest
+  }
+  test("test2") {
+    doTest
+  }
+  test("test3") {
+    doTest
+  }
+
+
+  test("testMulticore") {
+    import scala.concurrent.ExecutionContext.Implicits.global
+
+    val futures = for(i <- 0 to 31) yield {
+      Future{
+        doTest
+      }
+    }
+    import scala.concurrent.duration._
+
+    futures.foreach(f => Await.result(f,10 seconds))
+  }
+
+
+
 }

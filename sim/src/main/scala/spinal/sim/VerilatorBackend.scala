@@ -183,7 +183,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 Wrapper* wrapperNewHandle(const char * name, uint32_t seedValue){
-//    seed(seedValue);
+    srand48(seedValue);
     Verilated::randReset(2);
     Wrapper *handle = new Wrapper(name);
     return handle;
