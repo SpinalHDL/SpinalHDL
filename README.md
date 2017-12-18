@@ -18,8 +18,8 @@ Getting started
 ## Links
 - Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
 - Presentation of the language   <br> http://spinalhdl.github.io/SpinalDoc/presentation/
-- SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
-- Workshop                       <br> https://github.com/SpinalHDL/SpinalBaseProject/tree/workshop
+- SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt.git
+- Workshop                       <br> https://github.com/SpinalHDL/SpinalWorkshop
 - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
