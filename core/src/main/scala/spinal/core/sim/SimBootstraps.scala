@@ -1,6 +1,7 @@
-package spinal.core
+package spinal.core.sim
 
 import spinal.core.internals.GraphUtils
+import spinal.core.{Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, UInt}
 import spinal.sim.{VerilatorBackend, _}
 
 import scala.util.Random

@@ -1,8 +1,9 @@
 package landa
 
 
-import spinal.core.SimManagedApi._
+import spinal.core.sim._
 import spinal.core._
+import spinal.core.sim.SimConfig
 import spinal.sim._
 
 object SimManagedTest {

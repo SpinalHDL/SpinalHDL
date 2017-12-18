@@ -1,12 +1,10 @@
 package spinal.core
 
 import spinal.sim._
-
 import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations.{cps}
+import scala.util.continuations.cps
 
-
-object SimManagedApi{
+package object sim {
   type suspendable = cps[Unit]
   private def btToSignal(manager : SimManager, bt : BaseType) = {
     if(bt.algoIncrementale != -1){
@@ -141,11 +139,51 @@ object SimManagedApi{
         waitFallingEdge
     }
 
+    def doStimulus(period : Long) : Unit@suspendable ={
+      if(cd.hasClockEnableSignal) assertClockEnable()
+      if(cd.hasSoftResetSignal) disassertSoftReset()
+      cd.config.clockEdge match {
+        case RISING => fallingEdge()
+        case FALLING => risingEdge()
+      }
+      val dummy = if(cd.config.resetKind == ASYNC){
+          val dummy = if(cd.hasResetSignal){
+            DoReset(resetSim, period*16, cd.config.resetActiveLevel)
+          }
+          sleep(period)
+          DoClock(clockSim, period)
+      } else if(cd.config.resetKind == SYNC) {
+        val dummy = if(cd.hasResetSignal){
+          cd.assertReset()
+          val clk = clockSim
+          var value = clk.toBoolean
+          spinal.sim.repeatSim(32){
+            value = !value
+            clk #= value
+            sleep(period >> 1)
+          }
+          cd.disassertReset()
+        }
+        DoClock(clockSim, period)
+      } else if(cd.config.resetKind == BOOT){
+        sleep(period)
+        DoClock(clockSim, period)
+      } else {
+        val dummy = throw new Exception("???")
+      }
+
+    }
+
+    def forkStimulus(period : Long) = fork(doStimulus(period))
+
     def assertReset() : Unit = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def disassertReset() : Unit = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
     def assertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel == spinal.core.HIGH
     def disassertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel != spinal.core.HIGH
     def assertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel == spinal.core.HIGH
     def disassertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel != spinal.core.HIGH
+
+    def isResetAsserted : Boolean = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
+    def isResetDisasserted : Boolean = ! isResetAsserted
   }
 }

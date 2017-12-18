@@ -287,4 +287,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def report(message : String,severity: AssertNodeSeverity) = assert(True,message,severity)
   def report(message : Seq[Any],severity: AssertNodeSeverity) = assert(True,message,severity)
 
+
+//  def SimManagedApi = spinal.core.sim.ManagedApi
+//  def SimConfig = spinal.core.sim.SimConfig
 }

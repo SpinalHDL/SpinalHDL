@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.sim._
-import spinal.core.SimManagedApi._
+import spinal.core.sim._
 import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
 
 import scala.concurrent.{Await, Future}

@@ -1,8 +1,8 @@
 package landa
 
-;
 
 import spinal.core._
+import spinal.core.sim._
 
 object SpeedTest {
 
@@ -18,7 +18,7 @@ object SpeedTest {
 
   def main(args: Array[String]): Unit = {
 
-    import spinal.core.SimManagedApi._
+    import spinal.core.sim._
     SimConfig(new Dut).doManagedSim{ dut =>
       val t1 = fork {
         while (true) {

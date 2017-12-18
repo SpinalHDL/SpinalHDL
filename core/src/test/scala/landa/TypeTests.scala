@@ -2,6 +2,7 @@ package landa;
 
 import landa.SimManagedTest.Dut
 import spinal.core._
+import spinal.core.sim.SimConfig
 
 object TypeTests {
 
@@ -24,7 +25,7 @@ object TypeTests {
 //    io.s4 := -2
   }
 
-  import SimManagedApi._
+  import spinal.core.sim._
   def main(args: Array[String]): Unit = {
 //    val (sim, dut) = SpinalSimVerilator(new Dut)
 //    val manager = new SimManager(sim)

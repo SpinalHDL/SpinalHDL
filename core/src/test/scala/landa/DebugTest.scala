@@ -1,8 +1,9 @@
 package landa
 
 import spinal.core._
-import spinal.sim. _
-import spinal.core.SimManagedApi._
+import spinal.core.sim.SimConfig
+import spinal.sim._
+import spinal.core.sim._
 
 
 

@@ -2,7 +2,7 @@ package landa
 
 import spinal.sim._
 import spinal.core._
-import spinal.core.SimManagedApi._
+import spinal.core.sim._
 
 import scala.util.Random
 
@@ -18,26 +18,19 @@ object SimDemo {
 
   def main(args: Array[String]): Unit = {
     //For alternatives ways of running the sim, see note at the end of the file
-    SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
-      fork{
-        dut.clockDomain.assertReset()
-        dut.clockDomain.fallingEdge()
-        sleep(10)
-        dut.clockDomain.disassertReset()
-        sleep(10)
-        while(true){
-          dut.clockDomain.clockToggle()
-          sleep(5)
-        }
-      }
+    SimConfig(new Dut)
+      .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
+      .withWave
+      .doManagedSim{ dut =>
+      dut.clockDomain.forkStimulus(period = 10)
 
-      repeatSim(times = 100) {
+      Suspendable.repeat(times = 100) {
         val a, b, c = Random.nextInt(256)
         dut.io.a #= a
         dut.io.b #= b
         dut.io.c #= c
         dut.clockDomain.waitActiveEdge()
-        assert(dut.io.result.toInt == ((a+b-c) & 0xFF))
+        if(dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a+b-c) & 0xFF))
       }
     }
   }

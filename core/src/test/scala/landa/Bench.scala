@@ -1,7 +1,7 @@
 package landa
 
-import spinal.core.SimManagedApi.suspendable
-;
+import spinal.core.sim._
+
 
 object Bench {
   def apply(factor : Double)(testbench: => Unit): Unit = {
