@@ -56,7 +56,8 @@ object SimManagedApi{
     manager.setBigInt(signal, value)
   }
 
-  def exitSim(): Unit@suspendable = SimManagerContext.current.manager.exitSim()
+  def simTime() : Long = SimManagerContext.current.manager.time
+  def simExit(): Unit@suspendable = SimManagerContext.current.manager.exitSim()
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
   def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread = SimManagerContext.current.manager.newThread(body)
