@@ -589,6 +589,9 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 //        c.definitionName = pc.config.globalPrefix + c.getClass.getName.replace("$",".").split("\\.").last
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName.replace("$",".").split("\\.").head
       }
+      if(c.definitionName == ""){
+        c.definitionName = "unamed"
+      }
       c match {
         case bb: BlackBox => {
           val generic = bb.getGeneric

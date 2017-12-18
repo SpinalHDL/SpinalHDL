@@ -8,7 +8,7 @@ import jnr.ffi.annotations.In;
 import jnr.ffi.annotations.Out;
 
 public interface IVerilatorNative {
-    public long wrapperNewHandle(@In String name);
+    public long wrapperNewHandle(@In String name, int seed);
     @IgnoreError public void wrapperEval(long handle);
     @IgnoreError public void wrapperSleep(long handle, long cycles);
     @IgnoreError public long wrapperGetU64(long handle, int id);

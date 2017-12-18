@@ -273,6 +273,7 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   def getWidth(enum: SpinalEnum): Int
   /** Return the value of the encoding */
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
+  def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T]
 
   def isNative: Boolean
 }
@@ -284,6 +285,7 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
 object inferred extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = ???
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = ???
+  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = ???
   override def isNative: Boolean = ???
 }
 
@@ -294,6 +296,8 @@ object inferred extends SpinalEnumEncoding{
 object native extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
+  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
+
   override def isNative = true
   setWeakName("native")
 }
@@ -306,6 +310,7 @@ object native extends SpinalEnumEncoding{
 object binarySequential extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
+  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
   override def isNative = false
   setWeakName("binary_sequancial")
 }
@@ -318,6 +323,7 @@ object binarySequential extends SpinalEnumEncoding{
 object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = enum.elements.length
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
+  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.bitLength-1)
   override def isNative = false
   setWeakName("binary_one_hot")
 }
@@ -351,6 +357,7 @@ object SpinalEnumEncoding{
     override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.map(getValue(_)).max)
     override def isNative: Boolean = false
     override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = spec(element.position)
+    override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
   }
 
   def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X], BigInt]): SpinalEnumEncoding = list(spec).setName(name)
@@ -367,6 +374,7 @@ object SpinalEnumEncoding{
       override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
+      override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
     }
   }
 }

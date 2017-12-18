@@ -3,7 +3,7 @@ package spinal.sim
 import jnr.ffi.LibraryLoader
 
 import scala.collection.mutable.ArrayBuffer
-
+import scala.util.Random
 import sys.process._
 
 
@@ -15,6 +15,7 @@ class VerilatorBackendConfig{
   var toplevelName: String = null
   var workspacePath: String = null
   var withWave = true
+  var waveDepth = 1 // 0 => all
 }
 
 class VerilatorBackend(val config : VerilatorBackendConfig) {
@@ -181,7 +182,9 @@ extern "C" {
 #endif
 #include <stdio.h>
 #include <stdint.h>
-Wrapper* wrapperNewHandle(const char * name){
+Wrapper* wrapperNewHandle(const char * name, uint32_t seedValue){
+//    seed(seedValue);
+    Verilated::randReset(2);
     Wrapper *handle = new Wrapper(name);
     return handle;
 }
@@ -231,16 +234,19 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
   }
 
   def compile(): Unit = {
+    // VL_THREADED
     s"""verilator
-       |-CFLAGS -fPIC -CFLAGS -m64 -CFLAGS -shared
-       |-LDFLAGS -fPIC -LDFLAGS -m64 -LDFLAGS -shared
-       |-Wno-WIDTH -Wno-UNOPTFLAT
-       |-CFLAGS -O${config.optimisationLevel}
-       |${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
-       |--Mdir ${config.workspacePath}
-       |--top-module ${config.toplevelName}
-       |-cc ${config.rtlSourcesPaths.mkString(" ")}
-       |--exe $wrapperCppPath""".stripMargin.!(new Logger())
+       | -CFLAGS -fPIC -CFLAGS -m64 -CFLAGS -shared
+       | -LDFLAGS -fPIC -LDFLAGS -m64 -LDFLAGS -shared
+       | -Wno-WIDTH -Wno-UNOPTFLAT
+       | --x-assign unique
+       | --trace-depth ${config.waveDepth}
+       | -CFLAGS -O${config.optimisationLevel}
+       | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
+       | --Mdir ${config.workspacePath}
+       | --top-module ${config.toplevelName}
+       | -cc ${config.rtlSourcesPaths.mkString(" ")}
+       | --exe $wrapperCppPath""".stripMargin.!(new Logger())
 
     genWrapperCpp()
     s"make -j -C ${config.workspacePath} -f V${config.toplevelName}.mk V${config.toplevelName}".!(new Logger())
@@ -251,5 +257,5 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
   clean()
   compile()
   val native = LibraryLoader.create(classOf[IVerilatorNative]).load(s"${config.workspacePath}/V${config.toplevelName}")
-  def instanciate(name : String) = native.wrapperNewHandle(name)
+  def instanciate(name : String, seed : Int) = native.wrapperNewHandle(name, seed)
 }

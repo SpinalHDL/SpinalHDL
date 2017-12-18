@@ -3,17 +3,25 @@ package spinal.core
 import spinal.core.internals.GraphUtils
 import spinal.sim.{VerilatorBackend, _}
 
+import scala.util.Random
 import scala.util.continuations.suspendable
 
 
+case class SpinalVerilatorBackendConfig[T <: Component]( rtl : SpinalReport[T],
+                                                         withWave : Boolean = false,
+                                                         waveDepth : Int = 0,
+                                                         optimisationLevel : Int = 2)
+
 object SpinalVerilatorBackend{
-  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false, optimisationLevel : Int = 2) = {
-    val config = new VerilatorBackendConfig()
-    config.rtlSourcesPaths ++= rtl.rtlSourcesPaths
-    config.toplevelName = rtl.toplevelName
-    config.workspacePath = s"${rtl.toplevelName}_verilatorSim"
-    config.withWave = withWave
-    config.optimisationLevel = optimisationLevel
+  def apply[T <: Component](config : SpinalVerilatorBackendConfig[T]) = {
+    import config._
+    val vconfig = new VerilatorBackendConfig()
+    vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
+    vconfig.toplevelName = rtl.toplevelName
+    vconfig.workspacePath = s"${rtl.toplevelName}_verilatorSim"
+    vconfig.withWave = withWave
+    vconfig.waveDepth = waveDepth
+    vconfig.optimisationLevel = optimisationLevel
 
     GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(_.algoInt = -1))
     var signalId = 0
@@ -23,28 +31,27 @@ object SpinalVerilatorBackend{
         case io : Bits => new BitsDataType(io.getBitsWidth)
         case io : UInt => new UIntDataType(io.getBitsWidth)
         case io : SInt => new SIntDataType(io.getBitsWidth)
+        case io : SpinalEnumCraft[_] => new BitsDataType(io.getBitsWidth)
       })
       io.algoInt = signalId
       io.algoIncrementale = -1
       signal.id = signalId
-      config.signals += signal
+      vconfig.signals += signal
       signalId += 1
     }
-    new VerilatorBackend(config)
+    new VerilatorBackend(vconfig)
   }
 }
 
 
 object SpinalVerilatorSim{
-  def apply[T <: Component](rtl : SpinalReport[T], withWave : Boolean = false, optimisationLevel : Int = 2) = {
-    val backend = SpinalVerilatorBackend(rtl, withWave, optimisationLevel)
-    val sim = new SimVerilator(backend, backend.instanciate("test1"))
-    sim.userData = backend.config.signals
-    sim
+  def apply[T <: Component](config : SpinalVerilatorBackendConfig[T], seed : Int) : SimVerilator = {
+    val backend = SpinalVerilatorBackend(config)
+    SpinalVerilatorSim(backend, seed)
   }
 
-  def apply[T <: Component](backend : VerilatorBackend) = {
-    val sim = new SimVerilator(backend, backend.instanciate("test1"))
+  def apply[T <: Component](backend : VerilatorBackend, seed : Int) : SimVerilator = {
+    val sim = new SimVerilator(backend, backend.instanciate("test1", seed))
     sim.userData = backend.config.signals
     sim
   }
@@ -66,23 +73,37 @@ class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
     anonymRunId
   }
   def doManagedSim(body : T => Unit@suspendable) : Unit = doManagedSim("test" + allocateRunId)(body)
-  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = {
-    val sim = new SimVerilator(backend, backend.instanciate(name))
+  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = doManagedSim(name, Random.nextLong())(body)
+  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+    Random.setSeed(seed)
+    doManagedSimPostSeed(name, Random.nextLong())(body)
+  }
+  def doManagedSimPostSeed(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+    val seedInt = seed.toInt
+    val backendSeed = if(seedInt == 0) 1 else seedInt
+    val sim = new SimVerilator(backend, backend.instanciate(name, backendSeed))
     sim.userData = backend.config.signals
     val manager = new SimManager(sim)
     manager.userData = dut
-    println(s"[Progress] Start ${dut.definitionName} $name simulation")
+    println(f"[Progress] Start ${dut.definitionName} $name simulation with seed $seed")
     manager.run(body(dut))
   }
 }
 
 case class SimConfig[T <: Component]( var _withWave: Boolean = false,
+                                      var _waveDepth : Int = 0, //0 => all
                                       var _rtlGen : Option[() => T] = None,
                                       var _spinalConfig: SpinalConfig = SpinalConfig(),
                                       var _spinalReport : Option[SpinalReport[T]] = None,
                                       var _optimisationLevel : Int = 0){
   def withWave : this.type = {
     _withWave = true
+    this
+  }
+
+  def withWave(depth : Int) : this.type = {
+    _withWave = true
+    _waveDepth = depth
     this
   }
 
@@ -109,6 +130,8 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
   }
 
   def doManagedSim(body : T => Unit@suspendable): Unit = compile.doManagedSim(body)
+  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doManagedSim(name)(body)
+  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doManagedSim(name,seed)(body)
 
   def compile() : SimCompiled[T] = {
     val report = (_rtlGen, _spinalReport) match {
@@ -116,7 +139,13 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
       case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
     }
     val startAt = System.nanoTime()
-    val backend = SpinalVerilatorBackend(report, _withWave, _optimisationLevel)
+    val vConfig = SpinalVerilatorBackendConfig[T](
+      rtl = report,
+      withWave = _withWave,
+      waveDepth = _waveDepth,
+      optimisationLevel = _optimisationLevel
+    )
+    val backend = SpinalVerilatorBackend(vConfig)
     val deltaTime = (System.nanoTime() - startAt)*1e-6
     println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
     new SimCompiled(backend, report.toplevel)

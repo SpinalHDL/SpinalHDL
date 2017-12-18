@@ -21,6 +21,7 @@ class SimManager(val raw : SimRaw) {
   var time = 0l
   var userData : Any = null
   val context = new SimManagerContext()
+  var simContinue = false
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
@@ -49,6 +50,11 @@ class SimManager(val raw : SimRaw) {
     thread
   }
 
+  def exitSim(): Unit@suspendable = {
+    var simContinue = false
+    SimManagerContext.current.thread.suspend()
+  }
+
   def run(body : => Unit@suspendable): Unit ={
     val startAt = System.nanoTime()
     val tRoot = new SimThread(body, time)
@@ -61,7 +67,8 @@ class SimManager(val raw : SimRaw) {
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
     try {
-      while (continueWhile && threads.nonEmpty) {
+      simContinue = true
+      while (continueWhile && threads.nonEmpty && simContinue) {
         val nextTime = threads.head.time
         val delta = nextTime - time
         time = nextTime

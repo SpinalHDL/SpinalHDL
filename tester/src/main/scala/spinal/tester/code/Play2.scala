@@ -2969,38 +2969,6 @@ object Debug425{
 
 
 
-object PlayEnumEncoding{
-  object EncodingA extends SpinalEnumEncoding{
-    def getWidth(enum: SpinalEnum): Int = log2Up(this.getValue(enum.elements.last) + 1)
-    def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position //element.position*element.position
-    def isNative: Boolean = false
-  }
-  object EncodingB extends SpinalEnumEncoding {
-    def getWidth(enum: SpinalEnum): Int = log2Up(this.getValue(enum.elements.last) + 1)
-    def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
-    //element.position*element.position
-    def isNative: Boolean = false
-  }
-
-  val EncodingC = SpinalEnumEncoding("Yolo",_ * 2 + 1)
-
-  object State extends SpinalEnum(EncodingA){
-    val A,B,C,D,E,F = newElement()
-  }
-
-  class TopLevel extends Component{
-    for(state <- State.elements){
-      out(state()).setName("s" + state.position)
-      out(state(EncodingB)).setName("sx" + state.position)
-      out(state(EncodingC)).setName("sy" + state.position)
-    }
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
-  }
-}
-
 object PlayMuxDyn{
 
   class TopLevel extends Component{

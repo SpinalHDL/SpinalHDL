@@ -56,6 +56,7 @@ object SimManagedApi{
     manager.setBigInt(signal, value)
   }
 
+  def exitSim(): Unit@suspendable = SimManagerContext.current.manager.exitSim()
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
   def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread = SimManagerContext.current.manager.newThread(body)
@@ -77,6 +78,13 @@ object SimManagedApi{
     def #=(value : Long) = setLong(bt, value)
     def #=(value : BigInt) = setBigInt(bt, value)
   }
+
+
+  implicit class EnumPimper[T <: SpinalEnum](bt : SpinalEnumCraft[T]) {
+    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum)
+    def #=(value : SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
+  }
+
 
   implicit class ClockDomainPimper(cd : ClockDomain) {
     private def getBool(manager : SimManager, who : Bool): Bool ={
