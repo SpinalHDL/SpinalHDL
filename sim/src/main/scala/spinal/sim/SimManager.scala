@@ -62,7 +62,7 @@ class SimManager(val raw : SimRaw) {
     runWhile(tRoot.nonDone)
     val endAt = System.nanoTime()
     val duration = (endAt - startAt)*1e-9
-    println(f"""[Progress] Simulation done in ${duration*1e3}%1.3f ms""")
+    println(f"""[Done] Simulation done in ${duration*1e3}%1.3f ms""")
   }
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
@@ -114,7 +114,7 @@ class SimManager(val raw : SimRaw) {
       case e : Throwable => {
         raw.sleep(1)
         raw.end()
-        println("ERROR")
+        println(f"""[Error] Simulation failed at time=$time""")
         throw e
       }
     }

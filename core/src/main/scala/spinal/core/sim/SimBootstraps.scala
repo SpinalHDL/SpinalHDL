@@ -138,6 +138,7 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
       case (None, Some(report)) => report
       case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
     }
+    println(f"[Progress] Verilator compilation started")
     val startAt = System.nanoTime()
     val vConfig = SpinalVerilatorBackendConfig[T](
       rtl = report,
