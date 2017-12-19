@@ -470,10 +470,10 @@ object I2cCtrl{
     }
 
     val interruptCtrl = new Area{
-      val rxDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 0)
-      val rxAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 1)
-      val txDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 2)
-      val txAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 3)
+      val rxDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 0) init(False)
+      val rxAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 1)  init(False)
+      val txDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 2) init(False)
+      val txAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 3)  init(False)
 
       def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
         val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId)
