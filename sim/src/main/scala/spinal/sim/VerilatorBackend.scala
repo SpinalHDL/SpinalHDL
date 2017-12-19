@@ -30,6 +30,7 @@ class VerilatorBackend(val config : VerilatorBackendConfig) {
   def genWrapperCpp(): Unit = {
     val wrapperString = s"""
 #include <stdint.h>
+#include <string>
 
 #include "V${config.toplevelName}.h"
 #include "verilated_vcd_c.h"
@@ -158,7 +159,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((string("${config.workspacePath}/V${config.toplevelName}_") + name + ".vcd").c_str());
+      tfp.open((std::string("${config.workspacePath}/V${config.toplevelName}_") + name + ".vcd").c_str());
       #endif
     }
 
