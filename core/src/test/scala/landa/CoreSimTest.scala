@@ -1,41 +1,46 @@
-//package spinal.sim
-//
-//
-//import spinal.core._
-//
-//
-//import SimRaw._
-//object CoreSimTest {
-//  class Dut extends Component{
-//    val io = new Bundle{
-//      val a,b,c = in UInt(8 bits)
-//      val result = out UInt(8 bits)
-//    }
-//    val tmp = (0 until 1).map(i => RegNext(io.a + io.b - io.c)).reduceLeft(_ | _)
-//    io.result := tmp
-//  }
-//
-//  def main(args: Array[String]): Unit = {
-//    val sim = SimVerilator(new Dut)
-//    import sim.dut
-//    SpinalProgress("Sim")
-//    Bench(1000000) {
-//      var counter = 0l
-//      var idx = 1000000
-//
-//
-//      while (idx != 0) {
-//        idx -= 1
-//        counter += dut.io.result.toLong
-//        dut.io.a :<< dut.io.a.toLong + 1
-//        dut.io.b :<< 5
-//        dut.io.c :<< 1
-//        sleep(5); sim.dut.clockDomain.fallingEdge;eval()
-//        sleep(5); sim.dut.clockDomain.risingEdge ;eval()
-//      }
-//      println(counter)
-//      SpinalProgress("Done")
-//    }
-//    end()
-//  }
-//}
+package landa
+
+import spinal.sim._
+import spinal.core._
+import spinal.core.sim._
+
+import scala.util.Random
+
+
+object CoreSimTest {
+  class Dut extends Component {
+    val io = new Bundle {
+      val mClk, mReset = in Bool()
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+    }
+    ClockDomain(io.mClk, io.mReset){
+      io.result := RegNext(io.a + io.b - io.c) init(0)
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //For alternatives ways of running the sim, see note at the end of the file
+    SimConfig(new Dut)
+      .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
+      .withWave
+      .doManagedSim{ dut =>
+//        dut.clockDomain.forkStimulus(period = 10)
+        val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
+        cd.forkStimulus(period = 10)
+
+        Suspendable.repeat(times = 100) {
+          val a, b, c = Random.nextInt(256)
+          dut.io.a #= a
+          dut.io.b #= b
+          dut.io.c #= c
+          cd.waitActiveEdge()
+          if(cd.isResetDisasserted) assert(dut.io.result.toInt == ((a+b-c) & 0xFF))
+        }
+      }
+  }
+}
+
+//Note that there is two ways to run the sim :
+// SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
+// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doManagedSim{ dut =>

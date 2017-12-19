@@ -36,6 +36,7 @@ class PhaseContext(val config: SpinalConfig) {
   var globalData = GlobalData.reset
   config.applyToGlobalData(globalData)
 
+
   val globalScope         = new NamingScope()
   var topLevel: Component = null
   val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
@@ -164,7 +165,8 @@ class PhaseContext(val config: SpinalConfig) {
     if (GlobalData.get.dslClockDomain.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
-  def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty) SpinalError()
+  def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
+    SpinalError()
 
   def doPhase(phase: Phase): Unit ={
     phase.impl(this)
@@ -1655,10 +1657,13 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
 object SpinalVhdlBoot{
 
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+    if(config.debugComponents.nonEmpty){
+      return singleShot(config)(gen)
+    }
     try {
       singleShot(config)(gen)
     } catch {
-      case e: NullPointerException if config.debug =>
+      case e: NullPointerException =>
         println(
           """
             |ERROR !
@@ -1671,23 +1676,15 @@ object SpinalVhdlBoot{
           """.stripMargin)
         System.out.flush()
         throw e
-      case e: Throwable =>
-        if(!config.debug){
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
-            s"          Spinal will restart with scala trace to help you to find the problem.")
-          println("**********************************************************************************************\n")
-          System.out.flush()
-          return singleShot(config.copy(debug = true))(gen)
-        }else{
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
-          println("**********************************************************************************************")
-          System.out.flush()
-          throw e
-        }
+      case e: Throwable => {
+        println("\n**********************************************************************************************")
+        val errCnt = SpinalError.getErrorCount()
+        SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+          s"          Spinal will restart with scala trace to help you to find the problem.")
+        println("**********************************************************************************************\n")
+        System.out.flush()
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+      }
     }
   }
 
@@ -1785,10 +1782,13 @@ object SpinalVhdlBoot{
 object SpinalVerilogBoot{
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] ={
+    if(config.debugComponents.nonEmpty){
+      return singleShot(config)(gen)
+    }
     try {
       singleShot(config)(gen)
     } catch {
-      case e: NullPointerException if config.debug =>
+      case e: NullPointerException =>
         println(
           """
             |ERROR !
@@ -1801,23 +1801,15 @@ object SpinalVerilogBoot{
           """.stripMargin)
         System.out.flush()
         throw e
-      case e: Throwable =>
-        if(!config.debug){
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
-            s"          Spinal will restart with scala trace to help you to find the problem.")
-          println("**********************************************************************************************\n")
-          System.out.flush()
-          return singleShot(config.copy(debug = true))(gen)
-        }else{
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
-          println("**********************************************************************************************")
-          System.out.flush()
-          throw e
-        }
+      case e: Throwable => {
+        println("\n**********************************************************************************************")
+        val errCnt = SpinalError.getErrorCount()
+        SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+          s"          Spinal will restart with scala trace to help you to find the problem.")
+        println("**********************************************************************************************\n")
+        System.out.flush()
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+      }
     }
   }
 

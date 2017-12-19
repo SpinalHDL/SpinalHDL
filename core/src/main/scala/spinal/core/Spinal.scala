@@ -106,7 +106,8 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
  */
 case class SpinalConfig(
   mode                           : SpinalMode = null,
-  debug                          : Boolean = false,
+  @deprecated debug              : Boolean = false,
+  debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
   keepAll                        : Boolean = false,
   defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
@@ -137,7 +138,8 @@ case class SpinalConfig(
   }
 
   def applyToGlobalData(globalData: GlobalData): Unit = {
-    globalData.scalaLocatedEnable = debug
+    globalData.scalaLocatedEnable = debugComponents.nonEmpty
+    globalData.scalaLocatedInterrests ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
   }
 
@@ -164,7 +166,6 @@ object SpinalConfig{
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
       opt[Unit]("vhdl")                   action { (_, c) => c.copy(mode = VHDL)         } text("Select the VHDL mode")
       opt[Unit]("verilog")                action { (_, c) => c.copy(mode = Verilog)      } text("Select the Verilog mode")
-      opt[Unit]('d', "debug")             action { (_, c) => c.copy(debug = true)        } text("Enter in debug mode directly")
       opt[String]('o', "targetDirectory") action { (v, c) => c.copy(targetDirectory = v) } text("Set the target directory")
     }
 

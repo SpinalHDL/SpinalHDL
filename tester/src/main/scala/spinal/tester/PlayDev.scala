@@ -566,10 +566,16 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
+    val a,b = in UInt(8 bits)
+    val result = out UInt(7 bits)
 
-    val mask = MaskedLiteral("10-")
-    val input = in Bits(3 bits)
-    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
+    result := a + b
+
+    val sub = StreamFifo(Bool, 10)
+
+//    val mask = MaskedLiteral("10-")
+//    val input = in Bits(3 bits)
+//    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
 //    val sel = in UInt(2 bits)
 //    val inputsA = in Vec(Bits(8 bits), 4)
 //    val inputsB = in Vec(Bool, 4)
@@ -607,7 +613,7 @@ object PlayDevBugx{
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(debug  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
+    val toplevel = SpinalConfig(debug  = false,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
     print("done")
   }
 }
