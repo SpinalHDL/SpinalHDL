@@ -6,25 +6,26 @@ import java.net.ServerSocket
 import spinal.core.sim._
 import spinal.lib.com.jtag.Jtag
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 
 object JtagTcp {
   def apply(jtag: Jtag, jtagClkPeriod: Long) = fork {
     var inputStream: InputStream = null
     var outputStream: OutputStream = null
 
-    val server = Future {
-      val socket = new ServerSocket(7894)
-      println("WAITING FOR TCP JTAG CONNECTION")
-      while (true) {
-        val connection = socket.accept()
-        connection.setTcpNoDelay(true)
-        outputStream = connection.getOutputStream()
-        inputStream = connection.getInputStream()
-        println("TCP JTAG CONNECTION")
+    val server = new Thread  {
+      override def run() = {
+        val socket = new ServerSocket(7894)
+        println("WAITING FOR TCP JTAG CONNECTION")
+        while (true) {
+          val connection = socket.accept()
+          connection.setTcpNoDelay(true)
+          outputStream = connection.getOutputStream()
+          inputStream = connection.getInputStream()
+          println("TCP JTAG CONNECTION")
+        }
       }
     }
+    server.start()
 
     while (true) {
       sleep(jtagClkPeriod * 200)
