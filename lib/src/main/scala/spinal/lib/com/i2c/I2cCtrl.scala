@@ -476,7 +476,7 @@ object I2cCtrl{
       val txAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 3)  init(False)
 
       def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
-        val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId)
+        val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId) init(False)
         val flag = busCtrlWithOffset.readAndClearOnSet(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
       }
 
