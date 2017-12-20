@@ -13,7 +13,7 @@ package object sim {
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
   }
 
-  def getInt(bt : BaseType) : Long = {
+  def getInt(bt : BaseType) : Int = {
     if(bt.getBitsWidth == 0) return 0
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
