@@ -87,13 +87,16 @@ package object sim {
 
   implicit class ClockDomainPimper(cd : ClockDomain) {
     private def getBool(manager : SimManager, who : Bool): Bool ={
-      val manager = SimManagerContext.current.manager
-      manager.userData.asInstanceOf[Component].pulledDataCache(who).asInstanceOf[Bool]
+      val component = who.component
+      if(who.isInput && component != null && component.parent == null){
+        who
+      }else {
+        manager.userData.asInstanceOf[Component].pulledDataCache(who).asInstanceOf[Bool]
+      }
     }
 
     private def getSignal(manager : SimManager, who : Bool): Signal ={
-      val manager = SimManagerContext.current.manager
-      val bt = manager.userData.asInstanceOf[Component].pulledDataCache(cd.clock).asInstanceOf[Bool]
+      val bt = getBool(manager, who)
       btToSignal(manager, bt)
     }
 

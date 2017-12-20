@@ -18,8 +18,19 @@ class VerilatorBackendConfig{
   var waveDepth = 1 // 0 => all
 }
 
-class VerilatorBackend(val config : VerilatorBackendConfig) {
+object VerilatorBackend{
+  private var uniqueId = 0
+  def allocateUniqueId() : Int = {
+    this.synchronized {
+      uniqueId = uniqueId + 1
+      uniqueId
+    }
+  }
+}
 
+class VerilatorBackend(val config : VerilatorBackendConfig) {
+  val uniqueId = VerilatorBackend.allocateUniqueId()
+  
   def wrapperCppPath = s"${config.workspacePath}/V${config.toplevelName}__spinalWrapper.cpp"
 
   def clean(): Unit ={
@@ -138,7 +149,7 @@ public:
     }
 };
 
-class Wrapper{
+class Wrapper_${uniqueId}{
 public:
     uint64_t time;
     V${config.toplevelName} top;
@@ -147,7 +158,7 @@ public:
 	  VerilatedVcdC tfp;
 	  #endif
 
-    Wrapper(const char * name){
+    Wrapper_${uniqueId}(const char * name){
       time = 0;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
@@ -163,7 +174,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #endif
     }
 
-    virtual ~Wrapper(){
+    virtual ~Wrapper_${uniqueId}(){
       for(int idx = 0;idx < ${config.signals.length};idx++){
           delete signalAccess[idx];
       }
@@ -183,36 +194,36 @@ extern "C" {
 #endif
 #include <stdio.h>
 #include <stdint.h>
-Wrapper* wrapperNewHandle(const char * name, uint32_t seedValue){
+Wrapper_${uniqueId}* wrapperNewHandle(const char * name, uint32_t seedValue){
     srand48(seedValue);
     Verilated::randReset(2);
-    Wrapper *handle = new Wrapper(name);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(name);
     return handle;
 }
-void wrapperDeleteHandle(Wrapper * handle){
+void wrapperDeleteHandle(Wrapper_${uniqueId} * handle){
     delete handle;
 }
 
-void wrapperEval(Wrapper *handle){
+void wrapperEval(Wrapper_${uniqueId} *handle){
     handle->top.eval();
 }
 
-uint64_t wrapperGetU64(Wrapper *handle, int id){
+uint64_t wrapperGetU64(Wrapper_${uniqueId} *handle, int id){
   return handle->signalAccess[id]->getU64();
 }
-void wrapperSetU64(Wrapper *handle, int id, uint64_t value){
+void wrapperSetU64(Wrapper_${uniqueId} *handle, int id, uint64_t value){
   handle->signalAccess[id]->setU64(value);
 }
 
-void wrapperGetAU8(Wrapper *handle, int id, uint8_t *value){
+void wrapperGetAU8(Wrapper_${uniqueId} *handle, int id, uint8_t *value){
   handle->signalAccess[id]->getAU8(value);
 }
-void wrapperSetAU8(Wrapper *handle, int id, uint8_t *value, int length){
+void wrapperSetAU8(Wrapper_${uniqueId} *handle, int id, uint8_t *value, int length){
   handle->signalAccess[id]->setAU8(value, length);
 }
 
 
-void wrapperSleep(Wrapper *handle, uint64_t cycles){
+void wrapperSleep(Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
   handle->tfp.dump(handle->time);
   #endif
@@ -257,6 +268,10 @@ void wrapperSleep(Wrapper *handle, uint64_t cycles){
 
   clean()
   compile()
-  val native = LibraryLoader.create(classOf[IVerilatorNative]).load(s"${config.workspacePath}/V${config.toplevelName}")
+
+  val native = JnrLock.synchronized{LibraryLoader.create(classOf[IVerilatorNative]).load(s"${config.workspacePath}/V${config.toplevelName}")}
   def instanciate(name : String, seed : Int) = native.wrapperNewHandle(name, seed)
 }
+
+
+object JnrLock

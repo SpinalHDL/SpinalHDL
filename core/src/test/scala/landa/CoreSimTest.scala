@@ -14,7 +14,11 @@ object CoreSimTest {
       val a, b, c = in UInt (8 bits)
       val result = out UInt (8 bits)
     }
-    ClockDomain(io.mClk, io.mReset){
+
+    val tmpClk, tmpReset = Bool
+    tmpClk := io.mClk
+    tmpReset := io.mReset
+    ClockDomain(tmpClk, tmpReset){
       io.result := RegNext(io.a + io.b - io.c) init(0)
     }
   }
