@@ -213,31 +213,42 @@ class ComponentEmiterVhdl(
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
-      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
       logics ++= s"  ${
         children.getName()
       } : $definitionString\n"
 
-      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
-        if (isBBUsingULogic)
+      def addCasting(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
+
+        if (isBBUsingULogic || isBBUsingNoNumericType) {
           if (dir == in) {
             bt match {
-              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-              case _ => return s"      $io => $logic,\n"
+              case _: Bool if isBBUsingULogic                            => return s"      $io => std_ulogic($logic),\n"
+              case _: Bits if isBBUsingULogic                            => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
+              case _: UInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
+              case _: SInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _                                                     => return s"      $io => $logic,\n"
             }
-          } else if (dir == spinal.core.out) {
+          } else if (dir == out) {
             bt match {
-              case _: Bool => return s"      std_logic($io) => $logic,\n"
-              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
-              case _ => return s"      $io => $logic,\n"
+              case _: Bool if isBBUsingULogic => return s"      std_logic($io) => $logic,\n"
+              case _: Bits if isBBUsingULogic => return s"      std_logic_vector($io) => $logic,\n"
+              case _: UInt                    => return s"      unsigned($io) => $logic,\n"
+              case _: SInt                    => return s"      signed($io) => $logic,\n"
+              case _                          => return s"      $io => $logic,\n"
             }
-          } else SpinalError("???")
+          }else{
+            SpinalError("It is not possible to cast an inout")
+          }
 
-        else
+        }else {
           return s"      $io => $logic,\n"
+        }
       }
 
       if (children.isInstanceOf[BlackBox]) {
@@ -249,12 +260,12 @@ class ComponentEmiterVhdl(
 
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType) => logics ++= addULogicCast(bt, name, emitExpression(bt.head.source), in)
-              case (name: String, s: String) => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case (name: String, i: Int) => logics ++= s"      ${name} => $i,\n"
-              case (name: String, d: Double) => logics ++= s"      ${name} => $d,\n"
+              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.head.source), in)
+              case (name: String, s: String)        => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name: String, i: Int)           => logics ++= s"      ${name} => $i,\n"
+              case (name: String, d: Double)        => logics ++= s"      ${name} => $d,\n"
               case (name: String, boolean: Boolean) => logics ++= s"      ${name} => $boolean,\n"
-              case (name: String, t: TimeNumber) =>
+              case (name: String, t: TimeNumber)    =>
                 val d = t.decompose
                 logics ++= s"      ${name} => ${d._1} ${d._2},\n"
             }
@@ -269,7 +280,7 @@ class ComponentEmiterVhdl(
 
       for (data <- children.getOrdredNodeIo) {
         val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-        logics ++= addULogicCast(data, emitReferenceNoOverrides(data), logic , data.dir)
+        logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
       }
 
       logics.setCharAt(logics.size - 2, ' ')
@@ -978,11 +989,18 @@ class ComponentEmiterVhdl(
     }
   }
 
-  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
-    if (b.isUsingULogic)
-      str.replace("std_logic", "std_ulogic")
-    else
-      str
+  def blackBoxReplaceTypeRegardingTag(b: BlackBox, str: String): String = {
+    var str_tmp = str
+
+    if(b.isUsingNoNumericType){
+      str_tmp = str_tmp.replace("unsigned", "std_logic_vector")
+      str_tmp = str_tmp.replace("signed",   "std_logic_vector")
+    }
+    if (b.isUsingULogic) {
+      str_tmp = str_tmp.replace("std_logic", "std_ulogic")
+    }
+
+    return str_tmp
   }
 
   def emitBlackBoxComponent(component: BlackBox): Unit = {
@@ -993,7 +1011,7 @@ class ComponentEmiterVhdl(
 
       for (e <- genericFlat) {
         e match {
-          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxRemplaceULogic(component, emitDataType(bt, true))};\n"
+          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxReplaceTypeRegardingTag(component, emitDataType(bt, true))};\n"
           case (name: String, s: String)        => declarations ++= s"      $name : string;\n"
           case (name: String, i: Int)           => declarations ++= s"      $name : integer;\n"
           case (name: String, d: Double)        => declarations ++= s"      $name : real;\n"
@@ -1011,7 +1029,7 @@ class ComponentEmiterVhdl(
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
         if (baseType.isIo) {
-          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
+          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, true))};\n"
         }
       case _ =>
     }

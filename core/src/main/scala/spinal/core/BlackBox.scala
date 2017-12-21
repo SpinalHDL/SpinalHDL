@@ -141,6 +141,9 @@ abstract class BlackBox extends Component{
     this
   }
 
+  /** Return true if the blackbox used the tag noNumericType */
+  def isUsingNoNumericType = this.hasTag(noNumericType)
+
   /** Return true if the blackbox used std_ulogic */
   def isUsingULogic = this.hasTag(uLogic)
 
@@ -161,5 +164,13 @@ abstract class BlackBoxULogic extends BlackBox {
   * Create a Ulogic tag used by Blackbox in order to transform std_logic into std_ulogic
   */
 object uLogic extends SpinalTag {
+  override def moveToSyncNode = false
+}
+
+
+/**
+  * Transform all unsigned/signed into std_logic_vector
+  */
+object noNumericType extends SpinalTag {
   override def moveToSyncNode = false
 }
