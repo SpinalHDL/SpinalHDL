@@ -104,7 +104,6 @@ object SpinalBuild extends Build {
       settings = defaultSettings ++ Seq(
         name := "SpinalHDL tester",
         version := SpinalVersion.tester,
-        fork in Test := true,
         baseDirectory in (Test) := file("./"),
 
           libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
@@ -124,6 +123,7 @@ object SpinalBuild extends Build {
     scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
     javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
     baseDirectory in test := file("/out/"),
+    fork := true,
 
     //SpinalSim
     addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
