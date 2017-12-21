@@ -23,10 +23,16 @@ object SimDemo {
 
   def main(args: Array[String]): Unit = {
     //For alternatives ways of running the sim, see note at the end of the file
-    for (t <- 0 to 0) {
+    for (t <- 0 to 4) {
       new Thread {
         override def run() = {
-          for (i <- 0 to 0) {
+          for (i <- 0 to 4) {
+            //Little memory leak (300KB)
+            println("\n"*3)
+//            println(s"Free memory => ${Runtime.getRuntime.freeMemory()/1024}/${Runtime.getRuntime.totalMemory()/1024}")
+//            System.gc()
+            println(s"Free memory => ${Runtime.getRuntime.freeMemory()/1024}/${Runtime.getRuntime.totalMemory()/1024}")
+            println("\n"*3)
             try {
               SimConfig(new Dut().setDefinitionName(s"Dut_${t}_${i}"))
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
@@ -41,12 +47,13 @@ object SimDemo {
                     dut.io.b #= b
                     dut.io.c #= c
                     dut.clockDomain.waitActiveEdge()
-                    if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+                    if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c ) & 0xFF))
                   }
                 }
             } catch {
               case e => {
                 println(e)
+                println("FAILURE")
                 System.exit(1)
               }
             }

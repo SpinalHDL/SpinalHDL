@@ -101,14 +101,13 @@ public class DynamicCompiler {
                 Locale.ENGLISH,
                 null);
         //specify classes output folder
-        Iterable options = Arrays.asList("-d", classOutputFolder);
+//        System.out.println("**********   " + System.getProperty("java.class.path"));
+        Iterable options = Arrays.asList("-d", classOutputFolder/*, "-classpath", System.getProperty("java.class.path")*/);
         JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager,
                 c, options, null,
                 files);
+
         Boolean result = task.call();
-        if (result == true) {
-            System.out.println("Succeeded");
-        }
     }
 
     /**

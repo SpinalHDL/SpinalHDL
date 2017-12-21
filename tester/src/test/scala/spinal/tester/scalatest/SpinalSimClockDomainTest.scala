@@ -59,7 +59,7 @@ class SpinalSimClockDomainTest extends FunSuite {
           val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
           cd.forkStimulus(period = 10)
 
-          Suspendable.repeat(times = 100) {
+          Suspendable.repeat(times = 10000) {
             val a, b, c = Random.nextInt(256)
             dut.io.a #= a
             dut.io.b #= b
@@ -81,7 +81,7 @@ class SpinalSimClockDomainTest extends FunSuite {
           val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
           cd.forkStimulus(period = 10)
 
-          Suspendable.repeat(times = 100) {
+          Suspendable.repeat(times = 10000) {
             val a, b, c = Random.nextInt(256)
             dut.io.a #= a
             dut.io.b #= b
@@ -101,7 +101,7 @@ class SpinalSimClockDomainTest extends FunSuite {
         .doManagedSim(resetKind.toString) { dut =>
           dut.clockDomain.forkStimulus(period = 10)
 
-          Suspendable.repeat(times = 100) {
+          Suspendable.repeat(times = 10000) {
             val a, b, c = Random.nextInt(256)
             dut.io.a #= a
             dut.io.b #= b

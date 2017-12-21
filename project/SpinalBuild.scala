@@ -30,8 +30,7 @@ object SpinalBuild extends Build {
     base = file("sim"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Sim",
-      version := SpinalVersion.sim,
-      libraryDependencies += "com.github.jnr" % "jnr-ffi" % "2.1.7"
+      version := SpinalVersion.sim
     )
   )
 
@@ -105,7 +104,10 @@ object SpinalBuild extends Build {
       settings = defaultSettings ++ Seq(
         name := "SpinalHDL tester",
         version := SpinalVersion.tester,
-        libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+        fork in Test := true,
+        baseDirectory in (Test) := file("./"),
+
+          libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
 //        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
         //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
         publishTo := None,

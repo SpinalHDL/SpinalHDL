@@ -2,8 +2,6 @@ package spinal.sim
 
 import javax.tools.JavaFileObject
 
-import jnr.ffi.LibraryLoader
-
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
@@ -41,17 +39,19 @@ class VerilatorBackend(val config : VerilatorBackendConfig) {
   }
 
   def genWrapperCpp(): Unit = {
+    val jniPrefix = "Java_" + s"wrapper_${config.workspacePath}".replace("_", "_1") + "_VerilatorNative_"
     val wrapperString = s"""
 #include <stdint.h>
 #include <string>
+#include <jni.h>
 
 #include "V${config.toplevelName}.h"
 #include "verilated_vcd_c.h"
 
 class ISignalAccess{
 public:
-  virtual void getAU8(uint8_t *value) {}
-  virtual void setAU8(uint8_t *value, int length) {}
+  virtual void getAU8(JNIEnv *env, jbyteArray value) {}
+  virtual void setAU8(JNIEnv *env, jbyteArray value, int length) {}
 
   virtual uint64_t getU64() = 0;
   virtual void setU64(uint64_t value) = 0;
@@ -125,19 +125,23 @@ public:
       if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
     }
 
-    void getAU8(uint8_t *value) {
+    void getAU8(JNIEnv *env, jbyteArray value) {
       uint32_t wordsCount = (width+31)/32;
       uint32_t byteCount = wordsCount*4;
       uint32_t shift = 32-(width % 32);
       uint32_t backup = raw[wordsCount-1];
+      uint8_t values[byteCount + !sint];
       if(sint && shift != 32) raw[wordsCount-1] = (((int32_t)backup) << shift) >> shift;
       for(uint32_t idx = 0;idx < byteCount;idx++){
-        value[idx + !sint] = ((uint8_t*)raw)[byteCount-idx-1];
+        values[idx + !sint] = ((uint8_t*)raw)[byteCount-idx-1];
       }
+      (env)->SetByteArrayRegion ( value, 0, byteCount + !sint, reinterpret_cast<jbyte*>(values));
       raw[wordsCount-1] = backup;
     }
 
-    void setAU8(uint8_t *value, int length) {
+    void setAU8(JNIEnv *env, jbyteArray jvalue, int length) {
+      jbyte value[length];
+      (env)->GetByteArrayRegion( jvalue, 0, length, value);
       uint32_t wordsCount = (width+31)/32;
       uint32_t padding = (value[0] & 0x80 && sint) != 0 ? 0xFFFFFFFF : 0;
       for(uint32_t idx = 0;idx < wordsCount;idx++){
@@ -196,41 +200,60 @@ extern "C" {
 #endif
 #include <stdio.h>
 #include <stdint.h>
-Wrapper_${uniqueId}* wrapperSpinalNewHandle_${uniqueId}(const char * name, uint32_t seedValue){
+
+
+JNIEXPORT Wrapper_${uniqueId} * JNICALL ${jniPrefix}newHandle_1${uniqueId}
+  (JNIEnv * env, jobject obj, jstring name, jint seedValue){
     srand48(seedValue);
     Verilated::randReset(2);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(name);
+    const char* ch = env->GetStringUTFChars(name, 0);
+    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
+    env->ReleaseStringUTFChars(name, ch);
     return handle;
 }
-void wrapperSpinalDeleteHandle_${uniqueId}(Wrapper_${uniqueId} * handle){
-    delete handle;
-}
 
-void wrapperSpinalEval_${uniqueId}(Wrapper_${uniqueId} *handle){
-    handle->top.eval();
-}
-
-uint64_t wrapperSpinalGetU64_${uniqueId}(Wrapper_${uniqueId} *handle, int id){
-  return handle->signalAccess[id]->getU64();
-}
-void wrapperSpinalSetU64_${uniqueId}(Wrapper_${uniqueId} *handle, int id, uint64_t value){
-  handle->signalAccess[id]->setU64(value);
-}
-
-void wrapperSpinalGetAU8_${uniqueId}(Wrapper_${uniqueId} *handle, int id, uint8_t *value){
-  handle->signalAccess[id]->getAU8(value);
-}
-void wrapperSpinalSetAU8_${uniqueId}(Wrapper_${uniqueId} *handle, int id, uint8_t *value, int length){
-  handle->signalAccess[id]->setAU8(value, length);
+JNIEXPORT void JNICALL ${jniPrefix}eval_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
+   handle->top.eval();
 }
 
 
-void wrapperSpinalSleep_${uniqueId}(Wrapper_${uniqueId} *handle, uint64_t cycles){
+JNIEXPORT void JNICALL ${jniPrefix}sleep_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
   handle->tfp.dump(handle->time);
   #endif
   handle->time += cycles;
 }
+
+JNIEXPORT jlong JNICALL ${jniPrefix}getU64_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id){
+  return handle->signalAccess[id]->getU64();
+}
+
+JNIEXPORT void JNICALL ${jniPrefix}setU64_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t value){
+  handle->signalAccess[id]->setU64(value);
+}
+
+JNIEXPORT void JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
+  delete handle;
+}
+
+JNIEXPORT void JNICALL ${jniPrefix}getAU8_1${uniqueId}
+  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value){
+  handle->signalAccess[id]->getAU8(env, value);
+}
+
+
+
+JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
+  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, jint length){
+  handle->signalAccess[id]->setAU8(env, value, length);
+}
+
+
 
 #ifdef __cplusplus
 }
@@ -243,7 +266,7 @@ void wrapperSpinalSleep_${uniqueId}(Wrapper_${uniqueId} *handle, uint64_t cycles
 
     val exportMapString =
       s"""CODEABI_1.0 {
-         |    global: wrapperSpinal*;
+         |    global: $jniPrefix*;
          |    local: *;
          |};""".stripMargin
 
@@ -253,17 +276,19 @@ void wrapperSpinalSleep_${uniqueId}(Wrapper_${uniqueId} *handle, uint64_t cycles
     exportmapFile.close()
   }
 
-  class Logger extends ProcessLogger {override def err(s: => String): Unit = {println(s)}
+  class Logger extends ProcessLogger {override def err(s: => String): Unit = {if(!s.startsWith("ar: creating ")) println(s)}
     override def out(s: => String): Unit = {}
     override def buffer[T](f: => T) = f
   }
 
   def compileVerilator(): Unit = {
     // VL_THREADED
+    val jdk = System.getProperty("java.home").replace("/jre","")
     val flags = List("-fPIC", "-m64", "-shared")
     s"""verilator
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
+       | -CFLAGS -I$jdk/include -CFLAGS -I$jdk/include/linux
        | -LDFLAGS '-Wl,--version-script=libcode.version'
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
@@ -281,64 +306,47 @@ void wrapperSpinalSleep_${uniqueId}(Wrapper_${uniqueId} *handle, uint64_t cycles
   }
 
   def compileJava() : Unit = {
-    val verilatorNativeCode =
-      s"""package wrapper_${config.workspacePath};
-         |import jnr.ffi.Pointer;
-         |import jnr.ffi.annotations.IgnoreError;
-         |import jnr.ffi.annotations.In;
-         |import jnr.ffi.annotations.Out;
-         |
-         |public interface VerilatorNative {
-         |    public long wrapperSpinalNewHandle_${uniqueId}(@In String name, int seed);
-         |    @IgnoreError public void wrapperSpinalEval_${uniqueId}(long handle);
-         |    @IgnoreError public void wrapperSpinalSleep_${uniqueId}(long handle, long cycles);
-         |    @IgnoreError public long wrapperSpinalGetU64_${uniqueId}(long handle, int id);
-         |    @IgnoreError public void wrapperSpinalSetU64_${uniqueId}(long handle, int id, long value);
-         |    @IgnoreError public void wrapperSpinalGetAU8_${uniqueId}(long handle, int id,@Out byte[] value);
-         |    @IgnoreError public void wrapperSpinalSetAU8_${uniqueId}(long handle, int id,@In byte[] value, int length);
-         |    public void wrapperSpinalDeleteHandle_${uniqueId}(long handle);
-         |}
-       """.stripMargin
-    val verilatorNativeFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${config.workspacePath}.VerilatorNative", verilatorNativeCode)
-
     val verilatorNativeImplCode =
       s"""package wrapper_${config.workspacePath};
          |import spinal.sim.IVerilatorNative;
-         |import jnr.ffi.LibraryLoader;
          |
-         |public class VerilatorNativeImpl implements IVerilatorNative {
-         |    public VerilatorNative jnr;
-         |    public VerilatorNativeImpl(){
-         |      this.jnr = LibraryLoader.create(VerilatorNative.class).load("${config.workspacePath}/V${config.toplevelName}");
+         |public class VerilatorNative implements IVerilatorNative {
+         |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
+         |    public void eval(long handle) { eval_${uniqueId}(handle);}
+         |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
+         |    public long getU64(long handle, int id) { return getU64_${uniqueId}(handle, id);}
+         |    public void setU64(long handle, int id, long value) { setU64_${uniqueId}(handle, id, value);}
+         |    public void getAU8(long handle, int id, byte[] value) { getAU8_${uniqueId}(handle, id, value);}
+         |    public void setAU8(long handle, int id, byte[] value, int length) { setAU8_${uniqueId}(handle, id, value, length);}
+         |    public void deleteHandle(long handle) { deleteHandle_${uniqueId}(handle);}
+         |    
+         |    public native long newHandle_${uniqueId}(String name, int seed);
+         |    public native void eval_${uniqueId}(long handle);
+         |    public native void sleep_${uniqueId}(long handle, long cycles);
+         |    public native long getU64_${uniqueId}(long handle, int id);
+         |    public native void setU64_${uniqueId}(long handle, int id, long value);
+         |    public native void getAU8_${uniqueId}(long handle, int id, byte[] value);
+         |    public native void setAU8_${uniqueId}(long handle, int id, byte[] value, int length);
+         |    public native void deleteHandle_${uniqueId}(long handle);
+         |
+         |    static{
+         |      System.load("${System.getProperty("user.dir")}/${config.workspacePath}/libV${config.toplevelName}.so");
          |    }
-         |    public long wrapperNewHandle(String name, int seed) { return jnr.wrapperSpinalNewHandle_${uniqueId}(name, seed);}
-         |    public void wrapperEval(long handle) { jnr.wrapperSpinalEval_${uniqueId}(handle);}
-         |    public void wrapperSleep(long handle, long cycles) { jnr.wrapperSpinalSleep_${uniqueId}(handle, cycles);}
-         |    public long wrapperGetU64(long handle, int id) { return jnr.wrapperSpinalGetU64_${uniqueId}(handle, id);}
-         |    public void wrapperSetU64(long handle, int id, long value) { jnr.wrapperSpinalSetU64_${uniqueId}(handle, id, value);}
-         |    public void wrapperGetAU8(long handle, int id, byte[] value) { jnr.wrapperSpinalGetAU8_${uniqueId}(handle, id, value);}
-         |    public void wrapperSetAU8(long handle, int id, byte[] value, int length) { jnr.wrapperSpinalSetAU8_${uniqueId}(handle, id, value, length);}
-         |    public void wrapperDeleteHandle(long handle) { jnr.wrapperSpinalDeleteHandle_${uniqueId}(handle);}
          |}
        """.stripMargin
-    val verilatorNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${config.workspacePath}.VerilatorNativeImpl", verilatorNativeImplCode)
+
+    val verilatorNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${config.workspacePath}.VerilatorNative", verilatorNativeImplCode)
     import collection.JavaConverters._
-    DynamicCompiler.compile(List[JavaFileObject](verilatorNativeFile, verilatorNativeImplFile).asJava, s"${config.workspacePath}")
+    DynamicCompiler.compile(List[JavaFileObject](verilatorNativeImplFile).asJava, s"${config.workspacePath}")
   }
 
   clean()
   compileVerilator()
   compileJava()
 
-  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${config.workspacePath}.VerilatorNativeImpl", s"${config.workspacePath}")
+  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${config.workspacePath}.VerilatorNative", s"${config.workspacePath}")
   val nativeInstance : IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
-//  val jnrClass = DynamicCompiler.getClass(s"wrapper_${config.workspacePath}.VerilatorNative", s"${config.workspacePath}")
-//  val jnr = LibraryLoader.create(jnrClass).load("${config.workspacePath}/V${config.toplevelName}");
-//  nativeInstance.getClass().getField("jnr").set(nativeInstance, jnr)
-  val a = 2
-  //Little memory leak (300KB)
-//  System.gc()
-//  println(s"Free memory => ${Runtime.getRuntime.freeMemory()/1024}/${Runtime.getRuntime.totalMemory()/1024}")
-  def instanciate(name : String, seed : Int) = nativeInstance.wrapperNewHandle(name, seed)
+
+  def instanciate(name : String, seed : Int) = nativeInstance.newHandle(name, seed)
 }
 
