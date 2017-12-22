@@ -566,12 +566,33 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-    val a,b = in UInt(8 bits)
-    val result = out UInt(7 bits)
+    val a, b, c, d = in Bits(8 bits)
+    val sel = UInt(2 bits)
+    val result = Bits(8 bits)
+    def rec(that : Bits, level : Int) : Bits = if(level != 0)
+      rec(~ that, level -1)
+    else
+      that
+//    switch(sel){
+//      is(0) { result := rec(a, 10) }
+//      is(1) { result := rec(b, 10) }
+//      is(2) { result := rec(c, 10) }
+//      is(3) { result := rec(d, 10) }
+//    }
+    result := Vec(List(a,b,c,d).map(rec(_, 65)))(sel)
 
-    result := a + b
 
-    val sub = StreamFifo(Bool, 10)
+//      def rec(that : UInt, level : Int) : UInt = if(level != 0)
+//        rec(RegNext(that), level -1)
+//      else
+//        that
+//      result := rec(a & b, 4000)
+//    val a,b = in UInt(8 bits)
+//    val result = out UInt(7 bits)
+//
+//    result := a + b
+//
+//    val sub = StreamFifo(Bool, 10)
 
 //    val mask = MaskedLiteral("10-")
 //    val input = in Bits(3 bits)
@@ -613,7 +634,7 @@ object PlayDevBugx{
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(debug  = false,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
+    val toplevel = SpinalConfig(verbose  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
     print("done")
   }
 }

@@ -148,6 +148,7 @@ class ComponentEmiterVhdl(
     )
 
     //Wrap expression which need it
+    cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
