@@ -340,7 +340,15 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
     DynamicCompiler.compile(List[JavaFileObject](verilatorNativeImplFile).asJava, s"${config.workspacePath}")
   }
 
+  def checks(): Unit ={
+    if(System.getProperty("java.class.path").contains("sbt-launch.jar")){
+      System.err.println("""[Error] It look like you are running the simulation with SBT without having the SBT 'fork := true' configuration. Add it in the build.sbt file to fix this issue.""")
+      throw new Exception()
+    }
+  }
+
   clean()
+  checks()
   compileVerilator()
   compileJava()
 
