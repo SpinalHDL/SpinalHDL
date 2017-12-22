@@ -120,6 +120,7 @@ case class SpinalConfig(
   anonymSignalPrefix             : String = null,
   device                         : Device = Device(),
   genVhdlPkg                     : Boolean = true,
+  verbose                        : Boolean = false,
   mergeAsyncProcess              : Boolean = true,
   asyncResetCombSensitivity      : Boolean = false,
   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),

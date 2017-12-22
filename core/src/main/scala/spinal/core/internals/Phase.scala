@@ -1754,7 +1754,7 @@ object SpinalVhdlBoot{
     }
 
     for(phase <- phases){
-//      SpinalProgress(phase.getClass.getName)
+      if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
       pc.doPhase(phase)
     }
 
@@ -1872,6 +1872,7 @@ object SpinalVerilogBoot{
     }
 
     for(phase <- phases){
+      if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
       pc.doPhase(phase)
     }
 

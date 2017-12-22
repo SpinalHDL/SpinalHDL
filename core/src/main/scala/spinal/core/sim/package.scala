@@ -132,19 +132,35 @@ package object sim {
       }
     }
 
-    def waitRisingEdge(): Unit@suspendable  ={
+    def waitEdgeWhere(condAnd : => Boolean): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
       waitUntil{
         val current = manager.getLong(signal)
-        val cond = last == 0l && current == 1l
+        val cond = last != current && condAnd
         last = current
         cond
       }
     }
 
-    def waitRisingEdgeAnd(condAnd : => Boolean): Unit@suspendable  ={
+
+    def waitRisingEdge() : Unit@suspendable = waitRisingEdge(1)
+    def waitRisingEdge(count : Int): Unit@suspendable  ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getLong(signal)
+      var counter = 0
+      waitUntil{
+        val current = manager.getLong(signal)
+        val cond = last == 0l && current == 1l
+        if(cond) counter += 1
+        last = current
+        cond && counter == count
+      }
+    }
+
+    def waitRisingEdgeWhere(condAnd : => Boolean): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
@@ -156,19 +172,22 @@ package object sim {
       }
     }
 
-    def waitFallingEdge(): Unit@suspendable  ={
+    def waitFallingEdge() : Unit@suspendable = waitFallingEdge(1)
+    def waitFallingEdge(count : Int = 1): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
+      var counter = 0
       waitUntil{
         val current = manager.getLong(signal)
         val cond = last == 1l && current == 0l
+        if(cond) counter += 1
         last = current
-        cond
+        cond && counter == count
       }
     }
 
-    def waitFallingEdgeAnd(condAnd : => Boolean): Unit@suspendable  ={
+    def waitFallingEdgeWhere(condAnd : => Boolean): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
@@ -180,20 +199,22 @@ package object sim {
       }
     }
 
-
-    def waitActiveEdge(): Unit@suspendable  = {
+    def waitActiveEdge() : Unit@suspendable = waitActiveEdge(1)
+    def waitActiveEdge(count : Int = 1): Unit@suspendable  = {
       if(cd.config.clockEdge == spinal.core.RISING)
-        waitRisingEdge
+        waitRisingEdge(count)
       else
-        waitFallingEdge
+        waitFallingEdge(count)
     }
 
-    def waitActiveEdgeAnd(condAnd : => Boolean): Unit@suspendable  = {
+    def waitActiveEdgeWhere(condAnd : => Boolean): Unit@suspendable  = {
       if(cd.config.clockEdge == spinal.core.RISING)
-        waitRisingEdgeAnd(condAnd)
+        waitRisingEdgeWhere(condAnd)
       else
-        waitFallingEdgeAnd(condAnd)
+        waitFallingEdgeWhere(condAnd)
     }
+
+
 
     def doStimulus(period : Long) : Unit@suspendable ={
       if(cd.hasClockEnableSignal) assertClockEnable()

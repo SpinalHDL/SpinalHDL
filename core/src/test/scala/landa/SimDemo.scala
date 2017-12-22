@@ -51,7 +51,7 @@ object SimDemo {
                   }
                 }
             } catch {
-              case e => {
+              case e : Throwable => {
                 println(e)
                 println("FAILURE")
                 System.exit(1)
