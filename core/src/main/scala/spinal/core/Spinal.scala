@@ -256,6 +256,7 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+    val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
@@ -273,9 +274,9 @@ object Spinal{
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
 
-    val report = config.mode match {
-      case `VHDL`    => SpinalVhdlBoot(config)(gen)
-      case `Verilog` => SpinalVerilogBoot(config)(gen)
+    val report = configPatched.mode match {
+      case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
+      case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")

@@ -1,7 +1,9 @@
 package spinal.sim
 
+import java.io.File
 import javax.tools.JavaFileObject
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
@@ -14,6 +16,9 @@ class VerilatorBackendConfig{
   val rtlSourcesPaths = ArrayBuffer[String]()
   var toplevelName: String = null
   var workspacePath: String = null
+  var workspaceName: String = null
+  var vcdPath: String = null
+  var vcdPrefix: String = null
   var withWave = true
   var waveDepth = 1 // 0 => all
 }
@@ -30,16 +35,18 @@ object VerilatorBackend{
 
 class VerilatorBackend(val config : VerilatorBackendConfig) {
   val uniqueId = VerilatorBackend.allocateUniqueId()
-
-  def wrapperCppPath = s"${config.workspacePath}/V${config.toplevelName}__spinalWrapper.cpp"
+  val workspaceName = config.workspaceName
+  val workspacePath = config.workspacePath
+  val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
+  val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
   def clean(): Unit ={
-    s"rm -rf ${config.workspacePath}".!
-//    s"rm ${config.workspacePath}/libV${config.toplevelName}.so".!
+    s"rm -rf ${workspacePath}/${workspaceName}".!
+//    s"rm ${workspacePath}/libV${config.toplevelName}.so".!
   }
 
   def genWrapperCpp(): Unit = {
-    val jniPrefix = "Java_" + s"wrapper_${config.workspacePath}".replace("_", "_1") + "_VerilatorNative_"
+    val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_VerilatorNative_"
     val wrapperString = s"""
 #include <stdint.h>
 #include <string>
@@ -176,7 +183,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${config.workspacePath}/V${config.toplevelName}_") + name + ".vcd").c_str());
+      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".vcd").c_str());
       #endif
     }
 
@@ -270,7 +277,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    local: *;
          |};""".stripMargin
 
-    val exportmapFile = new java.io.FileWriter(s"${config.workspacePath}/libcode.version")
+    val exportmapFile = new java.io.FileWriter(s"${workspacePath}/${workspaceName}/libcode.version")
     exportmapFile.write(exportMapString)
     exportmapFile.flush()
     exportmapFile.close()
@@ -285,7 +292,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
     // VL_THREADED
     val jdk = System.getProperty("java.home").replace("/jre","")
     val flags = List("-fPIC", "-m64", "-shared")
-    s"""verilator
+    val verolatorCmd = s"""verilator
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdk/include -CFLAGS -I$jdk/include/linux
@@ -295,19 +302,19 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --trace-depth ${config.waveDepth}
        | -CFLAGS -O${config.optimisationLevel}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
-       | --Mdir ${config.workspacePath}
+       | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${config.rtlSourcesPaths.mkString(" ")}
-       | --exe $wrapperCppPath""".stripMargin.!(new Logger())
-
+       | -cc ${config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" ")}
+       | --exe $workspaceName/$wrapperCppName""".stripMargin
+    Process(verolatorCmd, new File(workspacePath)).!(new Logger())
     genWrapperCpp()
-    s"make -j -C ${config.workspacePath} -f V${config.toplevelName}.mk V${config.toplevelName}".! (new Logger())
-    s"cp ${config.workspacePath}/V${config.toplevelName} ${config.workspacePath}/libV${config.toplevelName}.so".!(new Logger())
+    s"make -j -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".! (new Logger())
+    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.so".!  (new Logger())
   }
 
   def compileJava() : Unit = {
     val verilatorNativeImplCode =
-      s"""package wrapper_${config.workspacePath};
+      s"""package wrapper_${workspaceName};
          |import spinal.sim.IVerilatorNative;
          |
          |public class VerilatorNative implements IVerilatorNative {
@@ -319,7 +326,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public void getAU8(long handle, int id, byte[] value) { getAU8_${uniqueId}(handle, id, value);}
          |    public void setAU8(long handle, int id, byte[] value, int length) { setAU8_${uniqueId}(handle, id, value, length);}
          |    public void deleteHandle(long handle) { deleteHandle_${uniqueId}(handle);}
-         |    
+         |
          |    public native long newHandle_${uniqueId}(String name, int seed);
          |    public native void eval_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
@@ -330,19 +337,19 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public native void deleteHandle_${uniqueId}(long handle);
          |
          |    static{
-         |      System.load("${System.getProperty("user.dir")}/${config.workspacePath}/libV${config.toplevelName}.so");
+         |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath}/${workspaceName}_$uniqueId.so");
          |    }
          |}
        """.stripMargin
 
-    val verilatorNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${config.workspacePath}.VerilatorNative", verilatorNativeImplCode)
+    val verilatorNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${workspaceName}.VerilatorNative", verilatorNativeImplCode)
     import collection.JavaConverters._
-    DynamicCompiler.compile(List[JavaFileObject](verilatorNativeImplFile).asJava, s"${config.workspacePath}")
+    DynamicCompiler.compile(List[JavaFileObject](verilatorNativeImplFile).asJava, s"${workspacePath}/${workspaceName}")
   }
 
   def checks(): Unit ={
     if(System.getProperty("java.class.path").contains("sbt-launch.jar")){
-      System.err.println("""[Error] It look like you are running the simulation with SBT without having the SBT 'fork := true' configuration. Add it in the build.sbt file to fix this issue.""")
+      System.err.println("""[Error] It look like you are running the simulation with SBT without having the SBT 'fork := true' configuration.\n  Add it in the build.sbt file to fix this issue, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/master/build.sbt""")
       throw new Exception()
     }
   }
@@ -352,7 +359,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
   compileVerilator()
   compileJava()
 
-  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${config.workspacePath}.VerilatorNative", s"${config.workspacePath}")
+  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
   val nativeInstance : IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name : String, seed : Int) = nativeInstance.newHandle(name, seed)

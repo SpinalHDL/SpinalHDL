@@ -29,7 +29,6 @@ class SpinalSimPerfTester extends FunSuite {
 
   test("compile") {
     compiled = SimConfig(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
-      .withWave
       .allOptimisation
       .compile()
   }

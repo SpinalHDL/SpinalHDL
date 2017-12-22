@@ -1,7 +1,9 @@
 package spinal.core
 
 import spinal.sim._
+
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 import scala.util.continuations.cps
 
 package object sim {
@@ -64,12 +66,15 @@ package object sim {
     threads.suspendable.foreach(thread => thread.join())
   }
 
-  implicit class BoolPimper(bt : Bool) {
+  implicit class SimBoolPimper(bt : Bool) {
     def toBoolean = if(getLong(bt) != 0) true else false
     def #=(value : Boolean) = setLong(bt, if(value) 1 else 0)
+    def randomize() : Unit = {
+      bt #= Random.nextBoolean()
+    }
   }
 
-  implicit class BitVectorPimper(bt : BitVector) {
+  implicit class SimBitVectorPimper(bt : BitVector) {
     def toInt = getInt(bt)
     def toLong = getLong(bt)
     def toBigInt = getBigInt(bt)
@@ -78,14 +83,51 @@ package object sim {
     def #=(value : BigInt) = setBigInt(bt, value)
   }
 
+  implicit class SimBitsPimper(bt : Bits) {
+    def randomize() : Unit = {
+      val width = bt.getWidth
+      if(width < 64){
+        bt #= Random.nextLong() & ((1l << width) - 1)
+      }else {
+        bt #= BigInt(width, Random)
+      }
+    }
+  }
 
-  implicit class EnumPimper[T <: SpinalEnum](bt : SpinalEnumCraft[T]) {
-    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum)
-    def #=(value : SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
+  implicit class SimUIntPimper(bt : UInt) {
+    def randomize() : Unit = {
+      val width = bt.getWidth
+      if(width < 64){
+        bt #= Random.nextLong() & ((1l << width) - 1)
+      }else {
+        bt #= BigInt(width, Random)
+      }
+    }
   }
 
 
-  implicit class ClockDomainPimper(cd : ClockDomain) {
+  implicit class SimSIntPimper(bt : SInt) {
+    def randomize() : Unit = {
+      val width = bt.getWidth
+      if(width <= 64){
+        val shift = 64 - width
+        bt #= (Random.nextLong() << shift) >> shift
+      }else {
+        bt #= BigInt(width, Random) - (BigInt(1) << width-1)
+      }
+    }
+  }
+
+  implicit class SimEnumPimper[T <: SpinalEnum](bt : SpinalEnumCraft[T]) {
+    def toEnum = bt.encoding.getElement(getBigInt(bt), bt.spinalEnum)
+    def #=(value : SpinalEnumElement[T]) = setBigInt(bt, bt.encoding.getValue(value))
+    def randomize(): Unit ={
+      bt #= bt.spinalEnum.elements(Random.nextInt(bt.spinalEnum.elements.length))
+    }
+  }
+
+
+  implicit class SimClockDomainPimper(cd : ClockDomain) {
     private def getBool(manager : SimManager, who : Bool): Bool ={
       val component = who.component
       if(who.isInput && component != null && component.parent == null){
@@ -121,16 +163,22 @@ package object sim {
       manager.setLong(signal, 1)
     }
 
-    def waitEdge(): Unit@suspendable  ={
+
+    def waitEdge() : Unit@suspendable = waitRisingEdge(1)
+    def waitEdge(count : Int): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
-      val last = manager.getLong(signal)
+      var last = manager.getLong(signal)
+      var counter = 0
       waitUntil{
         val current = manager.getLong(signal)
-        val cond = last != current
-        cond
+        if(last != current)
+          counter += 1
+        last = current
+        counter == count
       }
     }
+
 
     def waitEdgeWhere(condAnd : => Boolean): Unit@suspendable  ={
       val manager = SimManagerContext.current.manager
@@ -153,10 +201,10 @@ package object sim {
       var counter = 0
       waitUntil{
         val current = manager.getLong(signal)
-        val cond = last == 0l && current == 1l
-        if(cond) counter += 1
+        if(last == 0l && current == 1l)
+          counter += 1
         last = current
-        cond && counter == count
+        counter == count
       }
     }
 
@@ -180,10 +228,10 @@ package object sim {
       var counter = 0
       waitUntil{
         val current = manager.getLong(signal)
-        val cond = last == 1l && current == 0l
-        if(cond) counter += 1
+        if(last == 1l && current == 0l)
+          counter += 1
         last = current
-        cond && counter == count
+        counter == count
       }
     }
 

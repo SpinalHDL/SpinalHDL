@@ -4,11 +4,17 @@ import spinal.core.internals.GraphUtils
 import spinal.core.{Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, UInt}
 import spinal.sim._
 
+import scala.collection.mutable
 import scala.util.Random
 
+import sys.process._
 
 case class SpinalVerilatorBackendConfig[T <: Component]( rtl : SpinalReport[T],
                                                          withWave : Boolean = false,
+                                                         workspacePath : String = "./",
+                                                         workspaceName : String = null,
+                                                         vcdPath : String = null,
+                                                         vcdPrefix : String = null,
                                                          waveDepth : Int = 0,
                                                          optimisationLevel : Int = 2)
 
@@ -18,7 +24,10 @@ object SpinalVerilatorBackend{
     val vconfig = new VerilatorBackendConfig()
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
     vconfig.toplevelName = rtl.toplevelName
-    vconfig.workspacePath = s"${rtl.toplevelName}_verilatorSim"
+    vconfig.vcdPath = vcdPath
+    vconfig.vcdPrefix = vcdPrefix
+    vconfig.workspaceName = workspaceName
+    vconfig.workspacePath = workspacePath
     vconfig.withWave = withWave
     vconfig.waveDepth = waveDepth
     vconfig.optimisationLevel = optimisationLevel
@@ -90,12 +99,38 @@ class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
   }
 }
 
-case class SimConfig[T <: Component]( var _withWave: Boolean = false,
-                                      var _waveDepth : Int = 0, //0 => all
-                                      var _rtlGen : Option[() => T] = None,
-                                      var _spinalConfig: SpinalConfig = SpinalConfig(),
-                                      var _spinalReport : Option[SpinalReport[T]] = None,
-                                      var _optimisationLevel : Int = 0){
+object SimWorkspace{
+  private var uniqueId = 0
+  def allocateUniqueId() : Int = {
+    this.synchronized {
+      uniqueId = uniqueId + 1
+      uniqueId
+    }
+  }
+
+  val workspaceMap = mutable.HashMap[String, Int]()
+  def allocateWorkspace(name : String) : String = {
+    workspaceMap.synchronized{
+      val value = workspaceMap.getOrElseUpdate(name, 0)
+      workspaceMap(name) = value + 1
+      if(value == 0){
+        return name
+      }else{
+        val ret = name + "_1"
+        println(s"[Info] Workspace $name was reallocated as $ret to avoid collision")
+        return ret
+      }
+    }
+  }
+}
+case class SimConfig[T <: Component](var _withWave: Boolean = false,
+                                     var _workspacePath : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
+                                     var _workspaceName: String = null,
+                                     var _waveDepth : Int = 0, //0 => all
+                                     var _rtlGen : Option[() => T] = None,
+                                     var _spinalConfig: SpinalConfig = SpinalConfig(),
+                                     var _spinalReport : Option[SpinalReport[T]] = None,
+                                     var _optimisationLevel : Int = 0){
   def withWave : this.type = {
     _withWave = true
     this
@@ -104,6 +139,16 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
   def withWave(depth : Int) : this.type = {
     _withWave = true
     _waveDepth = depth
+    this
+  }
+
+  def workspacePath(path : String) : this.type = {
+    _workspacePath = path
+    this
+  }
+
+  def workspaceName(name : String) : this.type = {
+    _workspaceName = name
     this
   }
 
@@ -134,15 +179,39 @@ case class SimConfig[T <: Component]( var _withWave: Boolean = false,
   def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doManagedSim(name,seed)(body)
 
   def compile() : SimCompiled[T] = {
+    if(_workspacePath.startsWith("~"))
+      _workspacePath = System.getProperty( "user.home" ) + _workspacePath.drop(1)
+
     val report = (_rtlGen, _spinalReport) match {
       case (None, Some(report)) => report
-      case (Some(gen), None) => _spinalConfig.generateVerilog(gen())
+      case (Some(gen), None) => {
+        val uniqueId = SimWorkspace.allocateUniqueId()
+        s"mkdir -p tmp".!
+        s"mkdir -p tmp/job_$uniqueId".!
+        _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").generateVerilog(gen())
+      }
     }
+    if(_workspaceName == null)
+      _workspaceName = s"${report.toplevelName}"
+    s"mkdir -p ${_workspacePath}".!
+    s"rm -rf ${_workspacePath}/${_workspaceName}".!
+    s"mkdir -p ${_workspacePath}/${_workspaceName}".!
+    s"mkdir -p ${_workspacePath}/${_workspaceName}/rtl".!
+    report.generatedSourcesPaths.foreach{srcPath =>
+      s"cp ${srcPath} ${_workspacePath}/${_workspaceName}/rtl/".!
+    }
+
     println(f"[Progress] Verilator compilation started")
     val startAt = System.nanoTime()
     val vConfig = SpinalVerilatorBackendConfig[T](
       rtl = report,
       withWave = _withWave,
+      workspacePath = s"${_workspacePath}/${_workspaceName}",
+      vcdPath = s"${_workspacePath}/${_workspaceName}",
+      vcdPrefix = null,
+      workspaceName = "verilator",
+//      workspacePath = s"${_workspacePath}",
+//      workspaceName = s"${_workspaceName}",
       waveDepth = _waveDepth,
       optimisationLevel = _optimisationLevel
     )

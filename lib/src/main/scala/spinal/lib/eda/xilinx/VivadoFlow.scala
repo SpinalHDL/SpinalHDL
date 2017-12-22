@@ -117,6 +117,6 @@ report_timing"""
 object QuartusTest {
   def main(args: Array[String]) {
 
-
+    Paths.get("~")
   }
 }
