@@ -308,7 +308,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --exe $workspaceName/$wrapperCppName""".stripMargin
     Process(verolatorCmd, new File(workspacePath)).!(new Logger())
     genWrapperCpp()
-    s"make -j -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".! (new Logger())
+    s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".! (new Logger())
     s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.so".!  (new Logger())
   }
 
