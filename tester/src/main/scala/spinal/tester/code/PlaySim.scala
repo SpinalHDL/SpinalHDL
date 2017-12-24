@@ -29,5 +29,19 @@ object SimSynchronouExample {
         idx += 1
       }
     }
+    SimConfig(rtl = new Dut).withWave.doManagedSim("choubaka"){ dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+
+      var idx = 0
+      while(idx < 100) {
+        val a, b, c = Random.nextInt(256)
+        dut.io.a #= a
+        dut.io.b #= b
+        dut.io.c #= c
+        dut.clockDomain.waitActiveEdge()
+        assert(dut.io.result.toInt == ((a+b-c) & 0xFF))
+        idx += 1
+      }
+    }
   }
 }

@@ -1,12 +1,13 @@
 package spinal.core.sim
 
+import java.io.File
+
 import spinal.core.internals.GraphUtils
 import spinal.core.{Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, UInt}
 import spinal.sim._
 
 import scala.collection.mutable
 import scala.util.Random
-
 import sys.process._
 
 case class SpinalVerilatorBackendConfig[T <: Component]( rtl : SpinalReport[T],
@@ -94,7 +95,7 @@ class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
     sim.userData = backend.config.signals
     val manager = new SimManager(sim)
     manager.userData = dut
-    println(f"[Progress] Start ${dut.definitionName} $name simulation with seed $seed")
+    println(f"[Progress] Start ${dut.definitionName} $name simulation with seed $seed${if(backend.config.withWave) s",ave in ${new File(backend.config.vcdPath).getAbsolutePath}/${name}.vcd" else ", without wave"}")
     manager.run(body(dut))
   }
 }
@@ -108,11 +109,11 @@ object SimWorkspace{
     }
   }
 
-  val workspaceMap = mutable.HashMap[String, Int]()
-  def allocateWorkspace(name : String) : String = {
+  val workspaceMap = mutable.HashMap[(String, String), Int]()
+  def allocateWorkspace(path : String, name : String) : String = {
     workspaceMap.synchronized{
-      val value = workspaceMap.getOrElseUpdate(name, 0)
-      workspaceMap(name) = value + 1
+      val value = workspaceMap.getOrElseUpdate((path,name), 0)
+      workspaceMap((path,name)) = value + 1
       if(value == 0){
         return name
       }else{
@@ -193,6 +194,10 @@ case class SimConfig[T <: Component](var _withWave: Boolean = false,
     }
     if(_workspaceName == null)
       _workspaceName = s"${report.toplevelName}"
+
+    _workspaceName = SimWorkspace.allocateWorkspace(_workspacePath, _workspaceName)
+
+    println(f"[Progress] Simulation workspace in ${new File(s"${_workspacePath}/${_workspaceName}").getAbsolutePath}")
     s"mkdir -p ${_workspacePath}".!
     s"rm -rf ${_workspacePath}/${_workspaceName}".!
     s"mkdir -p ${_workspacePath}/${_workspaceName}".!
