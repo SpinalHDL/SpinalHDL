@@ -34,8 +34,9 @@ class SpinalSimPerfTester extends FunSuite {
   }
 
   test("TestStdSimInt") {
-    compiled.doManagedSim { dut =>
+    compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
+      dut.clockDomain.forkSimSpeedPrinter(0.2)
 
       Suspendable.repeat(times = 4) {
         val times = 1000000
@@ -55,7 +56,7 @@ class SpinalSimPerfTester extends FunSuite {
   }
 
   test("TestStdSimIntx2") {
-    compiled.doManagedSim { dut =>
+    compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {
@@ -82,7 +83,7 @@ class SpinalSimPerfTester extends FunSuite {
 
 
   test("TestStdSimBigInt") {
-    compiled.doManagedSim { dut =>
+    compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {
@@ -103,7 +104,7 @@ class SpinalSimPerfTester extends FunSuite {
   }
 
   test("TestSleep0") {
-    compiled.doManagedSim { dut =>
+    compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {

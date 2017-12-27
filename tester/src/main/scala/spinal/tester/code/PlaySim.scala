@@ -15,7 +15,7 @@ object SimSynchronouExample {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(rtl = new Dut).withWave.doManagedSim("choubaka"){ dut =>
+    SimConfig(rtl = new Dut).withWave.doSim("choubaka"){ dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
       var idx = 0
@@ -29,7 +29,7 @@ object SimSynchronouExample {
         idx += 1
       }
     }
-    SimConfig(rtl = new Dut).withWave.doManagedSim("choubaka"){ dut =>
+    SimConfig(rtl = new Dut).withWave.doSim("choubaka"){ dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
       var idx = 0

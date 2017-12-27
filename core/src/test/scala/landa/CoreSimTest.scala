@@ -28,7 +28,7 @@ object CoreSimTest {
     SimConfig(new Dut)
       .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
       .withWave
-      .doManagedSim{ dut =>
+      .doSim{ dut =>
 //        dut.clockDomain.forkStimulus(period = 10)
         val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
         cd.forkStimulus(period = 10)
@@ -46,5 +46,5 @@ object CoreSimTest {
 }
 
 //Note that there is two ways to run the sim :
-// SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
-// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doManagedSim{ dut =>
+// SimConfig(rtl = new Dut).withWave.doSim{ dut =>
+// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doSim{ dut =>

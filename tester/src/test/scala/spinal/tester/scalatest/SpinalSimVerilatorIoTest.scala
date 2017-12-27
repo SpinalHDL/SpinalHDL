@@ -73,7 +73,7 @@ object SpinalSimVerilatorIoTest{
 class SpinalSimVerilatorIoTest extends FunSuite {
   var compiled : SimCompiled[SpinalSimVerilatorIoTestTop] = null
   def doTest: Unit ={
-    compiled.doManagedSim{ dut =>
+    compiled.doSim{ dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)

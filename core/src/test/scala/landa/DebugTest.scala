@@ -69,7 +69,7 @@ object DebugTest {
   }
   def main(args: Array[String]): Unit = {
     def yolo() = 3
-    SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
+    SimConfig(rtl = new Dut).withWave.doSim{ dut =>
       val x = yolo()
       yolo()
       println(dut.io.a.toLong)

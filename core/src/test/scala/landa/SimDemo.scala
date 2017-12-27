@@ -38,7 +38,7 @@ object SimDemo {
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
                 //        .compile()
                 .withWave
-                .doManagedSim { dut =>
+                .doSim { dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
                   Suspendable.repeat(times = 100) {
@@ -66,5 +66,5 @@ object SimDemo {
 }
 
 //Note that there is two ways to run the sim :
-// SimConfig(rtl = new Dut).withWave.doManagedSim{ dut =>
-// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doManagedSim{ dut =>
+// SimConfig(rtl = new Dut).withWave.doSim{ dut =>
+// SimConfig(rtl = SpinalVerilog(new Dut)).withWave.doSim{ dut =>

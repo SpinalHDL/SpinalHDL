@@ -13,6 +13,9 @@ trait SimManagerSensitive{
   def update() : Boolean
 }
 
+class SimSuccess extends Exception
+class SimFailure(message : String) extends Exception (message)
+
 class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
@@ -51,7 +54,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   def exitSim(): Unit@suspendable = {
-    var simContinue = false
+    simContinue = false
     SimManagerContext.current.thread.suspend()
   }
 
@@ -60,6 +63,17 @@ class SimManager(val raw : SimRaw) {
     val tRoot = new SimThread(body, time)
     scheduleThread(tRoot)
     runWhile(tRoot.nonDone)
+    val endAt = System.nanoTime()
+    val duration = (endAt - startAt)*1e-9
+    println(f"""[Done] Simulation done in ${duration*1e3}%1.3f ms""")
+  }
+
+
+  def runAll(body : => Unit@suspendable): Unit ={
+    val startAt = System.nanoTime()
+    val tRoot = new SimThread(body, time)
+    scheduleThread(tRoot)
+    runWhile(true)
     val endAt = System.nanoTime()
     val duration = (endAt - startAt)*1e-9
     println(f"""[Done] Simulation done in ${duration*1e3}%1.3f ms""")
@@ -111,6 +125,7 @@ class SimManager(val raw : SimRaw) {
         schedulingOffset = 0
       }
     } catch {
+      case e : SimSuccess =>
       case e : Throwable => {
         raw.sleep(1)
         raw.end()
@@ -119,5 +134,6 @@ class SimManager(val raw : SimRaw) {
       }
     }
     raw.end()
+    SimManagerContext.threadLocal.set(null)
   }
 }

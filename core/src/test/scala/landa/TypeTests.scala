@@ -35,7 +35,7 @@ object TypeTests {
 //      println(peak(dut.io.u8_o))
 //    }
 
-    SimConfig(new Dut).doManagedSim { dut =>
+    SimConfig(new Dut).doSim { dut =>
       sleep(10)
       println(getLong(dut.io.u8_o))
     }

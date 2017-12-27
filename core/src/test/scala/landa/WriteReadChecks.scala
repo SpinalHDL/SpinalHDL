@@ -38,7 +38,7 @@ object ReadWriteChecks {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(new Dut).doManagedSim{ dut =>
+    SimConfig(new Dut).doSim{ dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)

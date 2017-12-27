@@ -18,7 +18,7 @@ object SimDemoMultipleRuns {
 
   def main(args: Array[String]): Unit = {
     val compiled = SimConfig(rtl = new Dut).withWave.compile()
-    compiled.doManagedSim("longTest"){ dut =>
+    compiled.doSim("longTest"){ dut =>
       fork{
         dut.clockDomain.assertReset()
         dut.clockDomain.fallingEdge()
@@ -39,7 +39,7 @@ object SimDemoMultipleRuns {
       }
     }
 
-    compiled.doManagedSim("shortTest"){ dut =>
+    compiled.doSim("shortTest"){ dut =>
       fork{
         dut.clockDomain.assertReset()
         dut.clockDomain.fallingEdge()

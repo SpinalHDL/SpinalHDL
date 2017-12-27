@@ -57,7 +57,9 @@ package object sim {
   }
 
   def simTime() : Long = SimManagerContext.current.manager.time
-  def simExit(): Unit@suspendable = SimManagerContext.current.manager.exitSim()
+  def simSuccess() : Unit = throw new SimSuccess()
+  def simFailure(message : String = "") : Unit = throw new SimFailure(message)
+//  def simExit(): Unit@suspendable = SimManagerContext.current.manager.exitSim()
   def sleep(cycles : Long) : Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
   def waitUntil(cond : => Boolean) : Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
   def fork(body : => Unit@suspendable) : SimThread = SimManagerContext.current.manager.newThread(body)
@@ -163,6 +165,22 @@ package object sim {
       manager.setLong(signal, 1)
     }
 
+
+    def waitSampling() : Unit@suspendable = waitSampling(1)
+    def waitSampling(count : Int): Unit@suspendable  ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getLong(signal)
+      var counter = 0
+      waitUntil{
+        val current = manager.getLong(signal)
+        if(last != edgeValue && current == edgeValue && isSamplingEnable)
+          counter += 1
+        last = current
+        counter == count
+      }
+    }
 
     def waitEdge() : Unit@suspendable = waitRisingEdge(1)
     def waitEdge(count : Int): Unit@suspendable  ={
@@ -305,6 +323,7 @@ package object sim {
     }
 
     def forkStimulus(period : Long) = fork(doStimulus(period))
+    def forkSimSpeedPrinter(printPeriod : Double = 1.0) = SimSpeedPrinter(cd, printPeriod)
 
     def assertReset() : Unit = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def disassertReset() : Unit = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
@@ -315,5 +334,9 @@ package object sim {
 
     def isResetAsserted : Boolean = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDisasserted : Boolean = ! isResetAsserted
+    def isClockEnableAsserted : Boolean = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableDisasserted : Boolean = ! isClockEnableAsserted
+    def isSamplingEnable: Boolean = isResetDisasserted && isClockEnableAsserted
+    def isSamplingDisable: Boolean = ! isSamplingEnable
   }
 }

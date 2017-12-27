@@ -77,27 +77,52 @@ object SimConfig{
 }
 
 class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
-  var anonymRunId = 0
-  def allocateRunId : Int = this.synchronized{
-    anonymRunId += 1
-    anonymRunId
+  val testNameMap = mutable.HashMap[String, Int]()
+  def allocateTestName(name : String) : String = {
+    testNameMap.synchronized{
+      val value = testNameMap.getOrElseUpdate(name, 0)
+      testNameMap(name) = value + 1
+      if(value == 0){
+        return name
+      }else{
+        val ret = name + "_" + value
+        println(s"[Info] Test '$name' was reallocated as '$ret' to avoid collision")
+        return ret
+      }
+    }
   }
-  def doManagedSim(body : T => Unit@suspendable) : Unit = doManagedSim("test" + allocateRunId)(body)
-  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = doManagedSim(name, Random.nextLong())(body)
-  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+  def doSim(body : T => Unit@suspendable) : Unit = doSim("test")(body)
+  def doSim(name : String)(body : T => Unit@suspendable) : Unit = doSim(name, Random.nextLong())(body)
+  def doSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
     Random.setSeed(seed)
-    doManagedSimPostSeed(name, Random.nextLong())(body)
+    doSimPostSeed(name, Random.nextLong(), false)(body)
   }
-  def doManagedSimPostSeed(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+
+
+  def doSimUntilVoid(body : T => Unit@suspendable) : Unit = doSimUntilVoid("test")(body)
+  def doSimUntilVoid(name : String)(body : T => Unit@suspendable) : Unit = doSimUntilVoid(name, Random.nextLong())(body)
+  def doSimUntilVoid(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+    Random.setSeed(seed)
+    doSimPostSeed(name, Random.nextLong(), true)(body)
+  }
+
+
+  def doSimPostSeed(name : String, seed : Long, joinAll : Boolean)(body : T => Unit@suspendable) : Unit = {
+    val allocatedName = allocateTestName(name)
     val seedInt = seed.toInt
     val backendSeed = if(seedInt == 0) 1 else seedInt
-    val sim = new SimVerilator(backend, backend.instanciate(name, backendSeed))
+    val sim = new SimVerilator(backend, backend.instanciate(allocatedName, backendSeed))
     sim.userData = backend.config.signals
     val manager = new SimManager(sim)
     manager.userData = dut
-    println(f"[Progress] Start ${dut.definitionName} $name simulation with seed $seed${if(backend.config.withWave) s",ave in ${new File(backend.config.vcdPath).getAbsolutePath}/${name}.vcd" else ", without wave"}")
-    manager.run(body(dut))
+    println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.withWave) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.vcd" else ", without wave"}")
+    if(joinAll)
+      manager.runAll(body(dut))
+    else
+      manager.run(body(dut))
   }
+
+
 }
 
 object SimWorkspace{
@@ -117,8 +142,8 @@ object SimWorkspace{
       if(value == 0){
         return name
       }else{
-        val ret = name + "_1"
-        println(s"[Info] Workspace $name was reallocated as $ret to avoid collision")
+        val ret = name + "_" + value
+        println(s"[Info] Workspace '$name' was reallocated as '$ret' to avoid collision")
         return ret
       }
     }
@@ -175,9 +200,14 @@ case class SimConfig[T <: Component](var _withWave: Boolean = false,
     this
   }
 
-  def doManagedSim(body : T => Unit@suspendable): Unit = compile.doManagedSim(body)
-  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doManagedSim(name)(body)
-  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doManagedSim(name,seed)(body)
+  def doSim(body : T => Unit@suspendable): Unit = compile.doSim(body)
+  def doSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doSim(name)(body)
+  def doSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSim(name,seed)(body)
+
+  def doSimUntilVoid(body : T => Unit@suspendable): Unit = compile.doSimUntilVoid(body)
+  def doSimUntilVoid(name : String)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name)(body)
+  def doSimUntilVoid(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name,seed)(body)
+
 
   def compile() : SimCompiled[T] = {
     if(_workspacePath.startsWith("~"))

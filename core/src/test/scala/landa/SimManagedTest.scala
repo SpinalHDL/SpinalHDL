@@ -16,7 +16,7 @@ object SimManagedTest {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(new Dut).doManagedSim{ dut =>
+    SimConfig(new Dut).doSim{ dut =>
       fork {
         var counter = 0l
         var lastTime = System.nanoTime()

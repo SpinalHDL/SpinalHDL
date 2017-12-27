@@ -8,7 +8,7 @@ object SpinalSimPinsec {
   def main(args: Array[String]): Unit = {
     SimConfig(new Pinsec(PinsecConfig.default))
       .allOptimisation
-      .doManagedSim{dut =>
+      .doSim{dut =>
         ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkStimulus(10)
         ClockDomain(dut.io.vgaClk).forkStimulus(40)
         ()

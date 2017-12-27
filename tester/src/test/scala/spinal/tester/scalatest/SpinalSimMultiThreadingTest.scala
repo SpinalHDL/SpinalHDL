@@ -34,7 +34,7 @@ class SpinalSimMultiThreadingTest extends FunSuite {
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
                 //        .compile()
 //                .withWave
-                .doManagedSim { dut =>
+                .doSim { dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
                   Suspendable.repeat(times = 1000000) {
