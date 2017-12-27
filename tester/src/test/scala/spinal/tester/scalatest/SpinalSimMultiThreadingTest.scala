@@ -30,11 +30,11 @@ class SpinalSimMultiThreadingTest extends FunSuite {
         override def run() = {
           for (i <- 0 to 8) {
             try {
-              SimConfig(new SpinalSimMultiThreadingDut(i + t).setDefinitionName(s"SpinalSimMultiThreadingDut_${t}_${i}"))
+              SimConfig
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
                 //        .compile()
 //                .withWave
-                .doSim { dut =>
+                .doSim (new SpinalSimMultiThreadingDut(i + t).setDefinitionName(s"SpinalSimMultiThreadingDut_${t}_${i}")){ dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
                   Suspendable.repeat(times = 1000000) {

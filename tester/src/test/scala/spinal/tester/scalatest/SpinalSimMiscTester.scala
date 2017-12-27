@@ -31,7 +31,7 @@ class SpinalSimMiscTester extends FunSuite {
   var compiled : SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
 
   test("compile"){
-    compiled = SimConfig(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter).withWave.compile()
+    compiled = SimConfig.withWave.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
   }
 
   def doStdTest(name : String): Unit ={
@@ -175,7 +175,7 @@ class SpinalSimMiscTester extends FunSuite {
   }
 
   test("testRecompile1"){
-    SimConfig(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter).withWave.doSim(dut => {
+    SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
@@ -196,7 +196,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
   test("testRecompile2"){
-    SimConfig(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter).withWave.doSim(dut => {
+    SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0

@@ -4,7 +4,7 @@ package spinal.sim
 
 import landa.SimManagedTest.Dut
 import spinal.core._
-import spinal.core.sim.SimConfig
+import spinal.core.sim.SimConfigLegacy
 import spinal.core.sim._
 
 import scala.util.Random
@@ -38,7 +38,7 @@ object ReadWriteChecks {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(new Dut).doSim{ dut =>
+    SimConfig.doSim(new Dut){ dut =>
       def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
         that #= value
         sleep(1)

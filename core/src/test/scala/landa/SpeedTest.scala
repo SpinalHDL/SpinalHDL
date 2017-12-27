@@ -19,7 +19,7 @@ object SpeedTest {
   def main(args: Array[String]): Unit = {
 
     import spinal.core.sim._
-    SimConfig(new Dut).doSim{ dut =>
+    SimConfig.doSim(rtl = new Dut){ dut =>
       val t1 = fork {
         while (true) {
           dut.clockDomain.waitRisingEdge

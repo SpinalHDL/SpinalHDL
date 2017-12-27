@@ -1,5 +1,6 @@
 package spinal.core
 
+import spinal.core.sim.SimConfigObject
 import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
@@ -8,6 +9,20 @@ import scala.util.continuations.cps
 
 package object sim {
   type suspendable = cps[Unit]
+
+  def SimConfig : SimConfigObject = SimConfigObject()
+
+  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  def SimConfig[T <: Component](rtl:  => T) : SimConfigLegacy[T] ={
+    new SimConfigLegacy[T](_rtlGen = Some(() => rtl))
+  }
+
+  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  def SimConfig[T <: Component](rtl: SpinalReport[T]) : SimConfigLegacy[T] ={
+    new SimConfigLegacy[T](_spinalReport = Some(rtl))
+  }
+
+
   private def btToSignal(manager : SimManager, bt : BaseType) = {
     if(bt.algoIncrementale != -1){
       SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation")

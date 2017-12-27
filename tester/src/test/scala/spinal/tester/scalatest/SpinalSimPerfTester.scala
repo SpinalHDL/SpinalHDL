@@ -28,9 +28,9 @@ class SpinalSimPerfTester extends FunSuite {
   var compiled: SimCompiled[SpinalSimPerfTester.SpinalSimPerfTesterDut] = null
 
   test("compile") {
-    compiled = SimConfig(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
+    compiled = SimConfig
       .allOptimisation
-      .compile()
+      .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
   }
 
   test("TestStdSimInt") {

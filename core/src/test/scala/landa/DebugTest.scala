@@ -1,7 +1,7 @@
 package landa
 
 import spinal.core._
-import spinal.core.sim.SimConfig
+import spinal.core.sim.SimConfigLegacy
 import spinal.sim._
 import spinal.core.sim._
 
@@ -69,7 +69,7 @@ object DebugTest {
   }
   def main(args: Array[String]): Unit = {
     def yolo() = 3
-    SimConfig(rtl = new Dut).withWave.doSim{ dut =>
+    SimConfig.withWave.compile(rtl = new Dut).doSim{ dut =>
       val x = yolo()
       yolo()
       println(dut.io.a.toLong)

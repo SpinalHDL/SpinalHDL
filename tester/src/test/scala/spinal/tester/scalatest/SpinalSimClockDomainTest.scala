@@ -64,8 +64,9 @@ class SpinalSimClockDomainTest extends FunSuite {
   val resetKinds = List(SYNC,ASYNC)
   test("Test1"){
     for(resetKind <- resetKinds) {
-      val compiled = SimConfig(new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest1().setDefinitionName("SpinalSimClockDomainTest1" + resetKind.getClass.getSimpleName.toString.take(4)))
+      val compiled = SimConfig
         .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind)))
+        .compile(new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest1().setDefinitionName("SpinalSimClockDomainTest1" + resetKind.getClass.getSimpleName.toString.take(4)))
         .doSim(resetKind.toString) { dut =>
           //        dut.clockDomain.forkStimulus(period = 10)
           val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
@@ -85,8 +86,9 @@ class SpinalSimClockDomainTest extends FunSuite {
 
   test("Test2"){
     for(resetKind <- resetKinds) {
-      SimConfig(new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest2().setDefinitionName("SpinalSimClockDomainTest2" + resetKind.getClass.getSimpleName.toString.take(4)))
+      SimConfig
         .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind)))
+        .compile((new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest2().setDefinitionName("SpinalSimClockDomainTest2" + resetKind.getClass.getSimpleName.toString.take(4))))
         .doSim(resetKind.toString) { dut =>
           //        dut.clockDomain.forkStimulus(period = 10)
           val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
@@ -109,8 +111,9 @@ class SpinalSimClockDomainTest extends FunSuite {
 
   test("Test3"){
     for(resetKind <- resetKinds) {
-      SimConfig(new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest3().setDefinitionName("SpinalSimClockDomainTest3" + resetKind.getClass.getSimpleName.toString.take(4)))
+      SimConfig
         .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind))).withWave
+        .compile((new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest3().setDefinitionName("SpinalSimClockDomainTest3" + resetKind.getClass.getSimpleName.toString.take(4))))
         .doSim(resetKind.toString) { dut =>
           dut.clockDomain.forkStimulus(period = 10)
 
@@ -127,9 +130,9 @@ class SpinalSimClockDomainTest extends FunSuite {
 
 
   test("Test4"){
-    SimConfig(new SpinalSimClockDomainTest.SpinalSimClockDomainTest4)
+    SimConfig
       .withWave
-      .doSim { dut =>
+      .doSim(new SpinalSimClockDomainTest.SpinalSimClockDomainTest4){ dut =>
         dut.clockDomain.forkStimulus(period = 10)
         var model = 42
         Suspendable.repeat(times = 10000) {
@@ -142,8 +145,8 @@ class SpinalSimClockDomainTest extends FunSuite {
   }
 
   test("Test5"){
-    SimConfig(new SpinalSimClockDomainTest.SpinalSimClockDomainTest4)
-      .doSim { dut =>
+    SimConfig
+      .doSim (new SpinalSimClockDomainTest.SpinalSimClockDomainTest4){ dut =>
         dut.clockDomain.forkStimulus(period = 10)
         var model = 42
         dut.io.enable #= false

@@ -2,7 +2,7 @@ package landa
 
 import spinal.core.sim._
 import spinal.core._
-import spinal.core.sim.SimConfig
+import spinal.core.sim.SimConfigLegacy
 import spinal.sim._
 
 import scala.util.Random
@@ -18,7 +18,7 @@ object SimDemoCombinatorial {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(rtl = new Dut).withWave.doSim{ dut =>
+    SimConfig.withWave.doSim(rtl = new Dut){ dut =>
       var idx = 0
       while(idx < 100){
         val a, b, c = Random.nextInt(256)

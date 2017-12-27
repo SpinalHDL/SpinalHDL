@@ -2,7 +2,7 @@ package landa;
 
 import landa.SimManagedTest.Dut
 import spinal.core._
-import spinal.core.sim.SimConfig
+import spinal.core.sim.SimConfigLegacy
 
 object TypeTests {
 
@@ -35,7 +35,7 @@ object TypeTests {
 //      println(peak(dut.io.u8_o))
 //    }
 
-    SimConfig(new Dut).doSim { dut =>
+    SimConfig.doSim(new Dut) { dut =>
       sleep(10)
       println(getLong(dut.io.u8_o))
     }

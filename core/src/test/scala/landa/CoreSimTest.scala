@@ -25,9 +25,10 @@ object CoreSimTest {
 
   def main(args: Array[String]): Unit = {
     //For alternatives ways of running the sim, see note at the end of the file
-    SimConfig(new Dut)
+    SimConfig
       .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
       .withWave
+      .compile(new Dut)
       .doSim{ dut =>
 //        dut.clockDomain.forkStimulus(period = 10)
         val cd = ClockDomain(dut.io.mClk, dut.io.mReset)

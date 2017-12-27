@@ -6,9 +6,9 @@ import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 
 object SpinalSimPinsec {
   def main(args: Array[String]): Unit = {
-    SimConfig(new Pinsec(PinsecConfig.default))
+    SimConfig
       .allOptimisation
-      .doSim{dut =>
+      .doSim(new Pinsec(PinsecConfig.default)){dut =>
         ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkStimulus(10)
         ClockDomain(dut.io.vgaClk).forkStimulus(40)
         ()

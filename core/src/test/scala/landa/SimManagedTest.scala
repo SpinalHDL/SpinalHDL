@@ -3,7 +3,7 @@ package landa
 
 import spinal.core.sim._
 import spinal.core._
-import spinal.core.sim.SimConfig
+import spinal.core.sim.SimConfigLegacy
 import spinal.sim._
 
 object SimManagedTest {
@@ -16,7 +16,7 @@ object SimManagedTest {
   }
 
   def main(args: Array[String]): Unit = {
-    SimConfig(new Dut).doSim{ dut =>
+    SimConfig.doSim(rtl = new Dut){ dut =>
       fork {
         var counter = 0l
         var lastTime = System.nanoTime()

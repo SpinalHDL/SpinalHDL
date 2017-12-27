@@ -34,11 +34,11 @@ object SimDemo {
             println(s"Free memory => ${Runtime.getRuntime.freeMemory()/1024}/${Runtime.getRuntime.totalMemory()/1024}")
             println("\n"*3)
             try {
-              SimConfig(new Dut().setDefinitionName(s"Dut_${t}_${i}"))
+              SimConfig
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
                 //        .compile()
                 .withWave
-                .doSim { dut =>
+                .doSim(new Dut().setDefinitionName(s"Dut_${t}_${i}")) { dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
                   Suspendable.repeat(times = 100) {
