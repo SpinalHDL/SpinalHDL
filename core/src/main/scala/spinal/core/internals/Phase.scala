@@ -1023,10 +1023,17 @@ class PhaseCheckCrossClock() extends PhaseCheck{
           val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
 
           PendingError(
-            s"""CLOCK CROSSING VIOLATION from ${syncDriver} to ${s}.
-               |- Register declaration at
-               |${s.getScalaLocationLong}- through
-               |${wellNameLoop}"
+            s"""CLOCK CROSSING VIOLATION :
+               |- Source            : ${syncDriver} ${syncDriver.getScalaLocationShort}
+               |- Source clock      : ${otherClockDomain.clock}
+               |- Destination       : ${s} ${s.getScalaLocationShort}
+               |- Destination clock : ${clockDomain.clock}
+               |- Source declaration :
+               |${syncDriver.getScalaLocationLong}
+               |- Destination declaration :
+               |${s.getScalaLocationLong}
+               |- Connection path :
+               |${wellNameLoop}
              """.stripMargin
           )
         }
