@@ -1,7 +1,6 @@
 package landa
 
 import spinal.core._
-import spinal.core.sim.SimConfigLegacy
 import spinal.sim._
 import spinal.core.sim._
 

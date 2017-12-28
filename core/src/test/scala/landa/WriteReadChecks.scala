@@ -4,7 +4,6 @@ package spinal.sim
 
 import landa.SimManagedTest.Dut
 import spinal.core._
-import spinal.core.sim.SimConfigLegacy
 import spinal.core.sim._
 
 import scala.util.Random

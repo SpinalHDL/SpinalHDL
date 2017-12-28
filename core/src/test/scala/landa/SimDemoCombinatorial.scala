@@ -2,7 +2,6 @@ package landa
 
 import spinal.core.sim._
 import spinal.core._
-import spinal.core.sim.SimConfigLegacy
 import spinal.sim._
 
 import scala.util.Random

@@ -145,7 +145,7 @@ object SimWorkspace{
 
 
 
-case class SimConfigObject(var _withWave: Boolean = false,
+case class SpinalSimConfig(var _withWave: Boolean = false,
                            var _workspacePath : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
                            var _workspaceName: String = null,
                            var _waveDepth : Int = 0, //0 => all
@@ -255,39 +255,6 @@ case class SimConfigObject(var _withWave: Boolean = false,
     val deltaTime = (System.nanoTime() - startAt)*1e-6
     println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
     new SimCompiled(backend, report.toplevel)
-  }
-}
-
-
-case class SimConfigLegacy[T <: Component]( var _rtlGen : Option[() => T] = None,
-                                            var _spinalConfig: SpinalConfig = SpinalConfig(),
-                                            var _spinalReport : Option[SpinalReport[T]] = None){
-  private val _simConfig = SimConfigObject()
-  def withWave : this.type = { _simConfig.withWave; this }
-  def withWave(depth : Int) : this.type =  { _simConfig.withWave(depth); this }
-
-  def workspacePath(path : String) : this.type =  { _simConfig.workspacePath(path); this }
-  def workspaceName(name : String) : this.type =  { _simConfig.workspaceName(name); this }
-  def withConfig(config : SpinalConfig) : this.type =  { _simConfig.withConfig(config); this }
-
-  def noOptimisation : this.type = { _simConfig.noOptimisation ; this }
-  def fewOptimisation : this.type =  { _simConfig.fewOptimisation ; this }
-  def normalOptimisation : this.type =  { _simConfig.normalOptimisation ; this }
-  def allOptimisation : this.type =  { _simConfig.allOptimisation ; this }
-
-  def doSim(body : T => Unit@suspendable): Unit = compile.doSim(body)
-  def doSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doSim(name)(body)
-  def doSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSim(name,seed)(body)
-
-  def doSimUntilVoid(body : T => Unit@suspendable): Unit = compile.doSimUntilVoid(body)
-  def doSimUntilVoid(name : String)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name)(body)
-  def doSimUntilVoid(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name,seed)(body)
-
-  def compile() : SimCompiled[T] = {
-    (_rtlGen, _spinalReport) match {
-      case (None, Some(report)) => _simConfig.compile(report)
-      case (Some(gen), None) => _simConfig.compile(gen())
-    }
   }
 }
 
