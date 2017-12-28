@@ -326,7 +326,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
     Process(verolatorCmd, new File(workspacePath)).! (new Logger())
     genWrapperCpp()
     s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger())
-    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}.exe ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger())
+    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger())
   }
 
   def compileJava() : Unit = {
