@@ -354,7 +354,7 @@ class SafeStack[T] {
 object SpinalExit {
   def apply(message: String = "") = throw new SpinalExit(s"\n $message")
 
-  val errorsMessagesSeparator     = s"${"*" * 120} \n ${"*" * 120}"
+  val errorsMessagesSeparator     = s"${"*" * 80}\n${"*" * 80}"
 }
 
 
