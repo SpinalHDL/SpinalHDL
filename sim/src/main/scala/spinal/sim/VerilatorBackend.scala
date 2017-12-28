@@ -34,12 +34,24 @@ object VerilatorBackend{
 }
 
 class VerilatorBackend(val config : VerilatorBackendConfig) {
+  val isWindows = System.getProperty("os.name").startsWith("Windows")
   val uniqueId = VerilatorBackend.allocateUniqueId()
   val workspaceName = config.workspaceName
   val workspacePath = config.workspacePath
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
+  def patchPath(path : String) : String = {
+    if(isWindows){
+      var tmp = path
+      if(tmp.substring(1,2) == ":") tmp = "/" + tmp.substring(0,1).toLowerCase + tmp.substring(2)
+      tmp = tmp.replace("//", "////")
+      tmp
+    }else{
+      path
+    }
+  }
+  
   def clean(): Unit ={
     s"rm -rf ${workspacePath}/${workspaceName}".!
 //    s"rm ${workspacePath}/libV${config.toplevelName}.so".!
@@ -183,7 +195,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".vcd").c_str());
+      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".vcd").c_str());
       #endif
     }
 
@@ -211,7 +223,11 @@ extern "C" {
 
 JNIEXPORT Wrapper_${uniqueId} * JNICALL ${jniPrefix}newHandle_1${uniqueId}
   (JNIEnv * env, jobject obj, jstring name, jint seedValue){
+    #if defined(_WIN32) && !defined(__CYGWIN__)
+    srand(seedValue);
+    #else
     srand48(seedValue);
+    #endif
     Verilated::randReset(2);
     const char* ch = env->GetStringUTFChars(name, 0);
     Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
@@ -290,12 +306,13 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
   def compileVerilator(): Unit = {
     // VL_THREADED
-    val jdk = System.getProperty("java.home").replace("/jre","")
+    val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
+    assert(!jdk.contains(" "), s"""Your JDK path contains spaces : ($jdk), If you are on windows, you can workaround it by : mklink /j "C:\\pf" "C:\\Program Files"  and then setting your JDK path via C:\\pf""")
     val flags = List("-fPIC", "-m64", "-shared")
-    val verolatorCmd = s"""verilator
+    val verolatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I$jdk/include -CFLAGS -I$jdk/include/linux
+       | -CFLAGS -I$jdk/include -CFLAGS -I$jdk/include/${if(isWindows)"win32" else "linux"}
        | -LDFLAGS '-Wl,--version-script=libcode.version'
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
@@ -304,12 +321,12 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" ")}
-       | --exe $workspaceName/$wrapperCppName""".stripMargin
-    Process(verolatorCmd, new File(workspacePath)).!(new Logger())
+       | -cc ${ "../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")}
+       | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
+    Process(verolatorCmd, new File(workspacePath)).! (new Logger())
     genWrapperCpp()
-    s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".! (new Logger())
-    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.so".!  (new Logger())
+    s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger())
+    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}.exe ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger())
   }
 
   def compileJava() : Unit = {
@@ -337,7 +354,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public native void deleteHandle_${uniqueId}(long handle);
          |
          |    static{
-         |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath}/${workspaceName}_$uniqueId.so");
+         |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath.replace("\\","\\\\")}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}");
          |    }
          |}
        """.stripMargin
