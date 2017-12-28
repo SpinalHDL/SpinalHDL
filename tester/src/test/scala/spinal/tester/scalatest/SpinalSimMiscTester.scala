@@ -213,4 +213,24 @@ class SpinalSimMiscTester extends FunSuite {
     })
   }
 
+
+  test("testLegacy"){
+    SimConfig(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter).withWave.doManagedSim(dut => {
+      dut.clockDomain.forkStimulus(10)
+
+      var counterModel = 0
+      Suspendable.repeat(100) {
+        dut.io.enable.randomize()
+        dut.clockDomain.waitActiveEdge()
+        if (dut.io.enable.toBoolean) {
+          counterModel = (counterModel + 1) & 0xFF
+        }
+        if(dut.io.value.toInt != counterModel){
+          simFailure("miaou")
+        }
+      }
+    })
+  }
+
+
 }

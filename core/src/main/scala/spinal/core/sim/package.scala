@@ -12,6 +12,18 @@ package object sim {
 
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
+  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  def SimConfig[T <: Component](rtl:  => T) : SimConfigLegacy[T] ={
+    new SimConfigLegacy[T](_rtlGen = Some(() => rtl))
+  }
+
+  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  def SimConfig[T <: Component](rtl: SpinalReport[T]) : SimConfigLegacy[T] ={
+    new SimConfigLegacy[T](_spinalReport = Some(rtl))
+  }
+
+
+
   private def btToSignal(manager : SimManager, bt : BaseType) = {
     if(bt.algoIncrementale != -1){
       SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation")
