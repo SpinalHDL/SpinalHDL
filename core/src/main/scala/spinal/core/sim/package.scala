@@ -31,21 +31,21 @@ package object sim {
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
   }
 
-  def getInt(bt : BaseType) : Int = {
+  private def getInt(bt : BaseType) : Int = {
     if(bt.getBitsWidth == 0) return 0
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getInt(signal)
   }
 
-  def getLong(bt : BaseType) : Long = {
+  private def getLong(bt : BaseType) : Long = {
     if(bt.getBitsWidth == 0) return 0l
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)
     manager.getLong(signal)
   }
 
-  def getBigInt(bt : BaseType) : BigInt = {
+  private def getBigInt(bt : BaseType) : BigInt = {
     if(bt.getBitsWidth == 0) return BigInt(0)
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, bt)

@@ -36,7 +36,7 @@ object TypeTests {
 
     SimConfig.doSim(new Dut) { dut =>
       sleep(10)
-      println(getLong(dut.io.u8_o))
+      println((dut.io.u8_o.toLong))
     }
   }
 }
