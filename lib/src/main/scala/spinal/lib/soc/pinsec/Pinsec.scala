@@ -295,8 +295,8 @@ object Pinsec{
   def main(args: Array[String]) {
     val config = SpinalConfig().dumpWave()
     val report = config.generateVerilog(new Pinsec(PinsecConfig.default))
-    report.unusedSignals.toList.sortBy(_.getInstanceCounter).foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
-    report.prunedSignals.toList.sortBy(_.getInstanceCounter).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+//    report.unusedSignals.toList.sortBy(_.getInstanceCounter).foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+//    report.prunedSignals.toList.sortBy(_.getInstanceCounter).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
     //    config.generateVerilog(new Pinsec(PinsecConfig.default))
 //    config.generateVhdl(new Pinsec(PinsecConfig.default))
   }

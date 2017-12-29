@@ -8,9 +8,9 @@ object SpinalSimPinsec {
   def main(args: Array[String]): Unit = {
     SimConfig
       .allOptimisation
-      .doSim(new Pinsec(PinsecConfig.default)){dut =>
+      .doSimUntilVoid(new Pinsec(PinsecConfig.default)){dut =>
         ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkStimulus(10)
-        ClockDomain(dut.io.vgaClk).forkStimulus(40)
+        ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkSimSpeedPrinter()
         ()
       }
   }

@@ -321,7 +321,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${ "../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")}
+       | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" "))}
        | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
     Process(verolatorCmd, new File(workspacePath)).! (new Logger())
     genWrapperCpp()
