@@ -307,8 +307,8 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
 //     VL_THREADED
   def compileVerilator(): Unit = {
     val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
-    s"""mkdir ${workspacePath}\\${workspaceName}""".! (new Logger())
     val jdkIncludes = if(isWindows){
+      s"""mkdir ${workspacePath}\\${workspaceName}""".! (new Logger())
       assert(s"""cp -rf \"$jdk\\include\" ${workspacePath}\\${workspaceName}\\jniIncludes""".! (new Logger()) == 0, "Verilator backend flow faild")
       s"jniIncludes"
     }else{
