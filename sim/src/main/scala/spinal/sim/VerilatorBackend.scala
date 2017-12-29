@@ -304,29 +304,37 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
     override def buffer[T](f: => T) = f
   }
 
+//     VL_THREADED
   def compileVerilator(): Unit = {
-    // VL_THREADED
     val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
-    assert(!jdk.contains(" "), s"""Your JDK path contains spaces : ($jdk), If you are on windows, you can workaround it by : mklink /j "C:\\pf" "C:\\Program Files"  and then setting your JDK path via C:\\pf""")
+    s"""mkdir ${workspacePath}\\${workspaceName}""".! (new Logger())
+    val jdkIncludes = if(isWindows){
+      assert(s"""cp -rf \"$jdk\\include\" ${workspacePath}\\${workspaceName}\\jniIncludes""".! (new Logger()) == 0, "Verilator backend flow faild")
+      s"jniIncludes"
+    }else{
+      jdk + "/include"
+    }
+
     val flags = List("-fPIC", "-m64", "-shared")
-    val verolatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
+    val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I$jdk/include -CFLAGS -I$jdk/include/${if(isWindows)"win32" else "linux"}
+       | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else "linux"}
        | -LDFLAGS '-Wl,--version-script=libcode.version'
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
+       | -O3
        | -CFLAGS -O${config.optimisationLevel}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${ "../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")}
+       | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" "))}
        | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
-    Process(verolatorCmd, new File(workspacePath)).! (new Logger())
+    assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
     genWrapperCpp()
-    s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger())
-    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger())
+    assert(s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger()) == 0, "Verilator backend flow faild")
   }
 
   def compileJava() : Unit = {
