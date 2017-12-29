@@ -317,6 +317,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
+       | -O3
        | -CFLAGS -O${config.optimisationLevel}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        | --Mdir ${workspaceName}
