@@ -323,10 +323,10 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --top-module ${config.toplevelName}
        | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" "))}
        | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
-    Process(verolatorCmd, new File(workspacePath)).! (new Logger())
+    assert(Process(verolatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
     genWrapperCpp()
-    s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger())
-    s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger())
+    assert(s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger()) == 0, "Verilator backend flow faild")
   }
 
   def compileJava() : Unit = {
