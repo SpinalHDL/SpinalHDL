@@ -77,7 +77,7 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.a #= a
             dut.io.b #= b
             dut.io.c #= c
-            cd.waitActiveEdge()
+            cd.waitActiveEdge(); sleep(0)
             if (cd.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
           }
         }
@@ -100,7 +100,7 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.a #= a
             dut.io.b #= b
             dut.io.c #= c
-            cd.waitActiveEdge()
+            cd.waitActiveEdge();sleep(0)
             if (cd.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
             counter += 1
             if(counter == 10000) simSuccess()
@@ -116,13 +116,16 @@ class SpinalSimClockDomainTest extends FunSuite {
         .compile((new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest3().setDefinitionName("SpinalSimClockDomainTest3" + resetKind.getClass.getSimpleName.toString.take(4))))
         .doSim(resetKind.toString) { dut =>
           dut.clockDomain.forkStimulus(period = 10)
-
+          var model = BigInt(0)
           Suspendable.repeat(times = 10000) {
             dut.io.a.randomize()
             dut.io.b.randomize()
             dut.io.c.randomize()
             dut.clockDomain.waitActiveEdge()
-            if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((dut.io.a.toBigInt + dut.io.b.toLong - dut.io.c.toInt) & 0xFF))
+            if (dut.clockDomain.isResetDisasserted) {
+              assert(dut.io.result.toInt == model)
+              model = ((dut.io.a.toBigInt + dut.io.b.toLong - dut.io.c.toInt) & 0xFF)
+            }
           }
         }
     }
@@ -137,7 +140,7 @@ class SpinalSimClockDomainTest extends FunSuite {
         var model = 42
         Suspendable.repeat(times = 10000) {
           dut.io.enable.randomize()
-          dut.clockDomain.waitActiveEdge()
+          dut.clockDomain.waitActiveEdge();sleep(0)
           if(dut.io.enable.toBoolean) model = (model + 1) & 0xFF
           assert(dut.io.result.toInt == model)
         }
@@ -154,7 +157,7 @@ class SpinalSimClockDomainTest extends FunSuite {
         Suspendable.repeat(times = 10000) {
           dut.io.enable.randomize()
           val waited = Random.nextInt(10)
-          dut.clockDomain.waitActiveEdge(waited)
+          dut.clockDomain.waitActiveEdge(waited); sleep(0)
           if(dut.io.enable.toBoolean) model = (model + waited) & 0xFF
           assert(dut.io.result.toInt == model)
         }

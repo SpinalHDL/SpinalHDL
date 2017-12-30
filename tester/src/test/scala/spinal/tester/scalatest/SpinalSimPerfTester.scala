@@ -38,16 +38,19 @@ class SpinalSimPerfTester extends FunSuite {
       dut.clockDomain.forkStimulus(period = 10)
       dut.clockDomain.forkSimSpeedPrinter(0.2)
 
+      var model = 0
       Suspendable.repeat(times = 4) {
         val times = 1000000
         val startAt = System.nanoTime
         Suspendable.repeat(times = times) {
-          val a, b, c = Random.nextInt(256)
-          dut.io.a #= a
-          dut.io.b #= b
-          dut.io.c #= c
+          dut.io.a #= Random.nextInt(256)
+          dut.io.b #= Random.nextInt(256)
+          dut.io.c #= Random.nextInt(256)
           dut.clockDomain.waitActiveEdge()
-          if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+          if (dut.clockDomain.isResetDisasserted) {
+            assert(dut.io.result.toInt == model)
+            model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+          }
         }
         val endAt = System.nanoTime
         System.out.println((endAt - startAt) * 1e-6 + " ms")
@@ -69,7 +72,7 @@ class SpinalSimPerfTester extends FunSuite {
             dut.io.a #= a
             dut.io.b #= b
             dut.io.c #= c
-            dut.clockDomain.waitActiveEdge()
+            dut.clockDomain.waitActiveEdge(); sleep(0)
             if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
           }
         }
@@ -94,7 +97,7 @@ class SpinalSimPerfTester extends FunSuite {
           dut.io.a #= a
           dut.io.b #= b
           dut.io.c #= c
-          dut.clockDomain.waitActiveEdge()
+          dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
         }
         val endAt = System.nanoTime

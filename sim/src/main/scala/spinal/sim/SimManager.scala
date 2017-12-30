@@ -82,32 +82,9 @@ class SimManager(val raw : SimRaw) {
   def runWhile(continueWhile : => Boolean = true): Unit ={
     try {
       simContinue = true
-      while (continueWhile && threads.nonEmpty && simContinue) {
-        val nextTime = threads.head.time
-        val delta = nextTime - time
-        time = nextTime
-
-        var threadsToRunCount = 1
-        val threadsCount = threads.length
-        while (threadsToRunCount < threadsCount && threads(threadsToRunCount).time == nextTime) {
-          threadsToRunCount += 1
-        }
-        if (delta != 0) {
-          //        println("TIME=" + time)
-          raw.sleep(delta)
-        }
-        schedulingOffset = threadsToRunCount
-        var threadId = 0
-        while (threadId != threadsToRunCount) {
-          val thread = threads(threadId)
-          context.thread = thread
-          thread.resume()
-          threadId += 1
-        }
-        commandBuffer.foreach(_ ())
-        commandBuffer.clear()
-        raw.eval()
-
+      var forceDeltaCycle = false
+      while ((continueWhile && threads.nonEmpty && simContinue) || forceDeltaCycle) {
+        //Process sensitivities
         var sensitivitiesCount = sensitivities.length
         var sensitivitiesId = 0
         while (sensitivitiesId < sensitivitiesCount) {
@@ -120,6 +97,39 @@ class SimManager(val raw : SimRaw) {
           }
         }
 
+        //Sleep until the next activity
+        val nextTime = if(forceDeltaCycle) time else threads.head.time
+        val delta = nextTime - time
+        time = nextTime
+        if (delta != 0) {
+          raw.sleep(delta)
+        }
+
+        //Execute pending threads
+        var threadsToRunCount = 0
+        val threadsCount = threads.length
+        while (threadsToRunCount < threadsCount && threads(threadsToRunCount).time == nextTime) {
+          threadsToRunCount += 1
+        }
+        schedulingOffset = threadsToRunCount
+        var threadId = 0
+        while (threadId != threadsToRunCount) {
+          val thread = threads(threadId)
+          context.thread = thread
+          thread.resume()
+          threadId += 1
+        }
+
+        //Evaluate the hardware outputs
+        if(forceDeltaCycle)
+          raw.eval()
+
+        //Execute the threads commands
+        forceDeltaCycle = commandBuffer.nonEmpty
+        if(forceDeltaCycle){
+          commandBuffer.foreach(_ ())
+          commandBuffer.clear()
+        }
 
         threads.remove(0, threadsToRunCount)
         schedulingOffset = 0

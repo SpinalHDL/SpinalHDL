@@ -19,6 +19,7 @@ object DoReset {
 
 object DoClock {
   def apply(clk : Bool, period : Long): Unit@suspendable = {
+    assert(period >= 2)
     var value = clk.toBoolean
     while(true){
       value = !value
@@ -50,5 +51,12 @@ object SimSpeedPrinter{
         }
       }
     }
+  }
+}
+
+object SimTimeout{
+  def apply(duration : Long): Unit = fork{
+    sleep(duration)
+    simFailure(s"Timeout trigger after $duration units of time")
   }
 }

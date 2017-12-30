@@ -299,6 +299,7 @@ package object sim {
 
 
     def doStimulus(period : Long) : Unit@suspendable ={
+      assert(period >= 2)
       if(cd.hasClockEnableSignal) assertClockEnable()
       if(cd.hasSoftResetSignal) disassertSoftReset()
       cd.config.clockEdge match {
