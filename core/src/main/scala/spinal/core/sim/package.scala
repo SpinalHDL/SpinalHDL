@@ -1,6 +1,6 @@
 package spinal.core
 
-import spinal.core.sim.SpinalSimConfig
+import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
@@ -82,6 +82,30 @@ package object sim {
   def forkJoin(bodys : (()=> Unit@suspendable)*) : Unit@suspendable = {
     val threads = bodys.map(body => fork(body()))
     threads.suspendable.foreach(thread => thread.join())
+  }
+
+  implicit class SimBaseTypePimper(bt : BaseType) {
+    def randomize() : Unit = bt match{
+      case bt : Bool => bt #= Random.nextBoolean()
+      case bt : Bits => bt.randomize()
+      case bt : UInt => bt.randomize()
+      case bt : SInt => bt.randomize()
+      case bt : SpinalEnumCraft[_] => bt.randomize()
+    }
+
+
+    def assignBigInt(value  : BigInt) : Unit = bt match{
+      case bt : Bool => bt #= (if(value == 0) false else if(value == 1) true else throw new Exception("Value outide the range"))
+      case bt : BitVector => bt #= value
+      case bt : SpinalEnumCraft[_] => {
+        assert(value < bt.spinalEnum.elements.length)
+        bt #= bt.spinalEnum.elements(value.toInt)
+      }
+    }
+  }
+
+  implicit class SimDataPimper(bt : Data) {
+    def randomize() : Unit = bt.flattenForeach(_.randomize())
   }
 
   implicit class SimBoolPimper(bt : Bool) {
@@ -197,6 +221,20 @@ package object sim {
         counter == count
       }
     }
+
+    def waitSamplingWhere(condAnd : => Boolean): Unit@suspendable  ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getLong(signal)
+      waitUntil{
+        val current = manager.getLong(signal)
+        val cond = last != edgeValue && current == edgeValue && condAnd
+        last = current
+        cond
+      }
+    }
+
 
     def waitEdge() : Unit@suspendable = waitRisingEdge(1)
     def waitEdge(count : Int): Unit@suspendable  ={

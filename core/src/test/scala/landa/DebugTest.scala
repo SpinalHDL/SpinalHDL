@@ -58,6 +58,18 @@ object DebugTest {
   }
 
 
+  def funcX(body : => Unit@cpsParam[Unit,Unit]) : Unit@cpsParam[Unit,Unit] = {
+
+  }
+
+  def funcY: Unit={
+
+  }
+
+  def funcZ: Unit@cpsParam[Unit,Unit]  ={
+    val x = funcX(funcY)
+  }
+
   class Dut extends Component {
     val io = new Bundle {
       val a, b, c = in UInt (7 bits)
@@ -80,6 +92,34 @@ object DebugTest {
       println(dut.io.a.toLong)
       sleep(1)
       println(dut.io.a.toLong)
+    }
+  }
+}
+
+
+object DebugTest2 {
+
+  class Dut extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (7 bits)
+      val result = out UInt (7 bits)
+    }
+    val tmp = Bool
+    io.result := RegNext(io.a + io.b - io.c)
+  }
+  def main(args: Array[String]): Unit = {
+    SimConfig.allOptimisation.compile(rtl = new Dut).doSimUntilVoid{ dut =>
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkSimSpeedPrinter()
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      fork{while(true) {dut.clockDomain.waitActiveEdge(100)}}
+      ()
     }
   }
 }

@@ -202,6 +202,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   override def flatten: Seq[BaseType] = Seq(this)
 
+  override def flattenForeach(body: (BaseType) => Unit): Unit = body(this)
+
   override def flattenLocalName: Seq[String] = Seq("")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)

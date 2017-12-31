@@ -302,7 +302,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
-
+  def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
   /** Pull a signal to the top level (use for debugging) */
   def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
 

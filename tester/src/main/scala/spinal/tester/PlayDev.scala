@@ -899,3 +899,47 @@ object PlayDevSynthesis{
     print("done")
   }
 }
+
+
+object PlayDevBug123{
+
+
+
+  class TopLevel extends Component {
+    val a,b,c = in Bool()
+    val x = out Bool()
+    when(a){
+      x := b
+    } otherwise {
+      x := c
+    }
+//    x := c
+//    switch(a){
+//      is(True){
+//        x := b
+//      }
+//      is(False){
+//
+//      }
+//    }
+//    when(a){
+//      x := b
+//    }
+//    val l = in Bits(8 bits)
+    //    val a,b,c = in Bool()
+    //    val x = out Bits(8 bits)
+//    x := l
+//    x(1 downto 0) := 0
+//    x := 0
+//
+//    when(a){
+//      x(1 downto 0) := 1
+//    }
+//    x(7 downto 2) := 3
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
