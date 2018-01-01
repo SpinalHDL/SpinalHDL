@@ -207,9 +207,8 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       }
 
       #ifdef TRACE
-      tfp.dump(time);
+      tfp.dump((vluint64_t)time);
       tfp.close();
-      tfp.dump(time);
       #endif
     }
 
@@ -246,7 +245,7 @@ JNIEXPORT void JNICALL ${jniPrefix}eval_1${uniqueId}
 JNIEXPORT void JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
-  handle->tfp.dump(handle->time);
+  handle->tfp.dump((vluint64_t)handle->time);
   #endif
   handle->time += cycles;
 }
