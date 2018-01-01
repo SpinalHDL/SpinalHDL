@@ -34,7 +34,9 @@ object VerilatorBackend{
 }
 
 class VerilatorBackend(val config : VerilatorBackendConfig) {
-  val isWindows = System.getProperty("os.name").startsWith("Windows")
+  val osName = System.getProperty("os.name").toLowerCase
+  val isWindows = osName.contains("windows")
+  val isMac = osName.contains("mac") || osName.contains("darwin")
   val uniqueId = VerilatorBackend.allocateUniqueId()
   val workspaceName = config.workspaceName
   val workspacePath = config.workspacePath
@@ -136,7 +138,7 @@ public:
       uint32_t wordsCount = (width+31)/32;
       raw[0] = value;
       raw[1] = value >> 32;
-      uint32_t padding = (value & 0x8000000000000000) && sint ? 0xFFFFFFFFFFFFFFFF : 0;
+      uint32_t padding = ((value & 0x8000000000000000l) && sint) ? 0xFFFFFFFF : 0;
       for(uint32_t idx = 2;idx < wordsCount;idx++){
         raw[idx] = padding;
       }
@@ -319,7 +321,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
     val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else "linux"}
+       | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -LDFLAGS '-Wl,--version-script=libcode.version'
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
