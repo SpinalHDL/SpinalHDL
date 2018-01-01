@@ -71,6 +71,8 @@ class VerilatorBackend(val config : VerilatorBackendConfig) {
 
 class ISignalAccess{
 public:
+  virtual ~ISignalAccess() {}
+
   virtual void getAU8(JNIEnv *env, jbyteArray value) {}
   virtual void setAU8(JNIEnv *env, jbyteArray value, int length) {}
 
