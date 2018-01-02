@@ -13,7 +13,7 @@ import scala.util.Random
 class SpinalSimStreamFifoCCTester extends FunSuite {
   test("test1"){
     //Compile the simulator
-    val compiled = SimConfig.withWave.allOptimisation.compile(
+    val compiled = SimConfig.allOptimisation.compile(
       rtl = new StreamFifoCC(
         dataType = Bits(32 bits),
         depth = 32,
