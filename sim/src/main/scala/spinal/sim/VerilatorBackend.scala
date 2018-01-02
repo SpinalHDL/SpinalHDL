@@ -11,21 +11,22 @@ import sys.process._
 
 
 class VerilatorBackendConfig{
-  var signals = ArrayBuffer[Signal]()
-  var optimisationLevel : Int = 2
-  val rtlSourcesPaths = ArrayBuffer[String]()
-  var toplevelName: String = null
-  var workspacePath: String = null
-  var workspaceName: String = null
-  var vcdPath: String = null
-  var vcdPrefix: String = null
-  var withWave = true
-  var waveDepth = 1 // 0 => all
+  var signals                = ArrayBuffer[Signal]()
+  var optimisationLevel: Int = 2
+  val rtlSourcesPaths        = ArrayBuffer[String]()
+  var toplevelName: String   = null
+  var workspacePath: String  = null
+  var workspaceName: String  = null
+  var vcdPath: String        = null
+  var vcdPrefix: String      = null
+  var withWave               = true
+  var waveDepth:Int          = 1 // 0 => all
 }
+
 
 object VerilatorBackend{
   private var uniqueId = 0
-  def allocateUniqueId() : Int = {
+  def allocateUniqueId(): Int = {
     this.synchronized {
       uniqueId = uniqueId + 1
       uniqueId
@@ -33,10 +34,7 @@ object VerilatorBackend{
   }
 }
 
-/**
-  * Verilator Backend
-  * @param config
-  */
+
 class VerilatorBackend(val config: VerilatorBackendConfig) {
 
   val osName         = System.getProperty("os.name").toLowerCase
@@ -331,6 +329,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
+       | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
