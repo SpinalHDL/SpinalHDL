@@ -323,7 +323,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
       jdk + "/include"
     }
 
-    val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared")
+    val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
     val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
