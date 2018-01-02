@@ -33,17 +33,22 @@ object VerilatorBackend{
   }
 }
 
-class VerilatorBackend(val config : VerilatorBackendConfig) {
-  val osName = System.getProperty("os.name").toLowerCase
-  val isWindows = osName.contains("windows")
-  val isMac = osName.contains("mac") || osName.contains("darwin")
-  val uniqueId = VerilatorBackend.allocateUniqueId()
-  val workspaceName = config.workspaceName
-  val workspacePath = config.workspacePath
+/**
+  * Verilator Backend
+  * @param config
+  */
+class VerilatorBackend(val config: VerilatorBackendConfig) {
+
+  val osName         = System.getProperty("os.name").toLowerCase
+  val isWindows      = osName.contains("windows")
+  val isMac          = osName.contains("mac") || osName.contains("darwin")
+  val uniqueId       = VerilatorBackend.allocateUniqueId()
+  val workspaceName  = config.workspaceName
+  val workspacePath  = config.workspacePath
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
-  def patchPath(path : String) : String = {
+  def patchPath(path: String): String = {
     if(isWindows){
       var tmp = path
       if(tmp.substring(1,2) == ":") tmp = "/" + tmp.substring(0,1).toLowerCase + tmp.substring(2)
@@ -54,7 +59,7 @@ class VerilatorBackend(val config : VerilatorBackendConfig) {
     }
   }
   
-  def clean(): Unit ={
+  def clean(): Unit = {
     s"rm -rf ${workspacePath}/${workspaceName}".!
 //    s"rm ${workspacePath}/libV${config.toplevelName}.so".!
   }
@@ -223,8 +228,10 @@ extern "C" {
 #include <stdio.h>
 #include <stdint.h>
 
+#define API __attribute__((visibility("default")))
 
-JNIEXPORT Wrapper_${uniqueId} * JNICALL ${jniPrefix}newHandle_1${uniqueId}
+
+JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
   (JNIEnv * env, jobject obj, jstring name, jint seedValue){
     #if defined(_WIN32) && !defined(__CYGWIN__)
     srand(seedValue);
@@ -238,13 +245,13 @@ JNIEXPORT Wrapper_${uniqueId} * JNICALL ${jniPrefix}newHandle_1${uniqueId}
     return handle;
 }
 
-JNIEXPORT void JNICALL ${jniPrefix}eval_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}eval_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
    handle->top.eval();
 }
 
 
-JNIEXPORT void JNICALL ${jniPrefix}sleep_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
   handle->tfp.dump((vluint64_t)handle->time);
@@ -252,29 +259,29 @@ JNIEXPORT void JNICALL ${jniPrefix}sleep_1${uniqueId}
   handle->time += cycles;
 }
 
-JNIEXPORT jlong JNICALL ${jniPrefix}getU64_1${uniqueId}
+JNIEXPORT jlong API JNICALL ${jniPrefix}getU64_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id){
   return handle->signalAccess[id]->getU64();
 }
 
-JNIEXPORT void JNICALL ${jniPrefix}setU64_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}setU64_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t value){
   handle->signalAccess[id]->setU64(value);
 }
 
-JNIEXPORT void JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
   delete handle;
 }
 
-JNIEXPORT void JNICALL ${jniPrefix}getAU8_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}getAU8_1${uniqueId}
   (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value){
   handle->signalAccess[id]->getAU8(env, value);
 }
 
 
 
-JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
+JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
   (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, jint length){
   handle->signalAccess[id]->setAU8(env, value, length);
 }
@@ -318,12 +325,13 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
       jdk + "/include"
     }
 
-    val flags = List("-fPIC", "-m64", "-shared")
+    val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared")
+
     val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
-       | -LDFLAGS '-Wl,--version-script=libcode.version'
+       | -LDFLAGS -fvisibility=hidden
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
@@ -334,13 +342,16 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --top-module ${config.toplevelName}
        | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" "))}
        | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
+
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+
     genWrapperCpp()
+
     assert(s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
-    assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}".! (new Logger()) == 0, "Verilator backend flow faild")
+    assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}".! (new Logger()) == 0, "Verilator backend flow faild")
   }
 
-  def compileJava() : Unit = {
+  def compileJava(): Unit = {
     val verilatorNativeImplCode =
       s"""package wrapper_${workspaceName};
          |import spinal.sim.IVerilatorNative;
@@ -365,7 +376,7 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public native void deleteHandle_${uniqueId}(long handle);
          |
          |    static{
-         |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath.replace("\\","\\\\")}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else "so"}");
+         |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath.replace("\\","\\\\")}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}");
          |    }
          |}
        """.stripMargin
@@ -388,8 +399,8 @@ JNIEXPORT void JNICALL ${jniPrefix}setAU8_1${uniqueId}
   compileJava()
 
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
-  val nativeInstance : IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
+  val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
 
-  def instanciate(name : String, seed : Int) = nativeInstance.newHandle(name, seed)
+  def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
 }
 
