@@ -61,3 +61,36 @@ object SimSynchronouExample {
     }
   }
 }
+
+import SimSynchronouExample.Dut
+object DutTestbench extends App{
+  val compiled = SimConfig.withWave.compile(rtl = new Dut)
+
+  compiled.doSim("test1"){ dut =>
+    //Testbench code
+  }
+
+  compiled.doSim("test2"){ dut =>
+    //Testbench code
+  }
+}
+
+
+
+object Miaou5252 extends App{
+  SimConfig.withWave.compile(new Dut).doSim{ dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+
+    var idx = 0
+    var resultModel = 0
+    while(idx < 100) {
+      dut.io.a #= Random.nextInt(256)
+      dut.io.b #= Random.nextInt(256)
+      dut.io.c #= Random.nextInt(256)
+      dut.clockDomain.waitActiveEdge()
+      assert(dut.io.result.toInt == resultModel)
+      resultModel = (dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF
+      idx += 1
+    }
+  }
+}
