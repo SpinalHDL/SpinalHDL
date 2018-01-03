@@ -319,7 +319,7 @@ object PlayBetterError {
 //      }otherwise{
 //        result := e
 //      }
-//    }.otherwise{
+//    }otherwise{
 //      result := f
 //    }
 
@@ -1442,7 +1442,7 @@ object PlayDivide {
         waitRsp := False
       }
 
-    }.otherwise{
+    }otherwise{
       counter.increment()
       remainder := remainderShifted.resized
       numerator := (numerator ## !remainderMinusDenominator.msb).asUInt.resized

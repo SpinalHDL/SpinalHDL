@@ -1783,7 +1783,7 @@ object PlayWhenSyntax{
 
     when(true){
 
-    }.otherwise.when(false){
+    }otherwise.when(false){
 
     }
   }

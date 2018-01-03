@@ -67,17 +67,17 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
       positionOnScreen.x := 0
       positionOnScreen.y := 0
       positionOnMandelbrot := io.frameTask.start
-    }.otherwise {
+    }otherwise {
       when(positionOnScreen.x =/= p.screenResX - 1) {
         positionOnScreen.x := positionOnScreen.x + 1
         positionOnMandelbrot.x := positionOnMandelbrot.x + io.frameTask.inc.x
-      }.otherwise {
+      }otherwise {
         positionOnScreen.x := 0
         positionOnMandelbrot.x := io.frameTask.start.x
         when(positionOnScreen.y =/= p.screenResY - 1) {
           positionOnScreen.y := positionOnScreen.y + 1
           positionOnMandelbrot.y := positionOnMandelbrot.y + io.frameTask.inc.y
-        }.otherwise {
+        }otherwise {
           positionOnMandelbrot.y := io.frameTask.start.y
           io.frameTask.ready := True //Asyncronous acknoledge into syncronous space <3
         }

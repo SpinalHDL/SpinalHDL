@@ -120,7 +120,7 @@ class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : B
       }
     }
 
-  }.otherwise{
+  }otherwise{
     counter.increment()
     remainder := remainderShifted.resized
     numerator := (numerator ## !remainderMinusDenominator.msb).asUInt.resized
