@@ -1767,29 +1767,6 @@ object PlayMask{
 }
 
 
-
-object PlayWhenSyntax{
-
-
-  def main(args: Array[String]) {
-    class When{
-      def otherwise = new Otherwise
-    }
-    class Otherwise{
-      def  when(cond : Boolean)(block : => Unit) = new When
-    }
-
-    def when(cond : Boolean)(block : => Unit) = new When
-
-    when(true){
-
-    }otherwise.when(false){
-
-    }
-  }
-}
-
-
 object PlayPwm{
 
   object PWMMode extends SpinalEnum {
