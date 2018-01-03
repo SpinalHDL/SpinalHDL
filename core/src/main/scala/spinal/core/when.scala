@@ -104,7 +104,7 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
   }
 
   def elsewhen(clause : ElseWhenClause) : WhenContext = protElsewhen(clause.cond)(clause.block)
-  @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
+//  @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
   def elsewhen(cond: Bool)(block: => Unit): WhenContext = protElsewhen(cond)(block)
   protected def protElsewhen(cond: Bool)(block: => Unit): WhenContext = {
     var newWhenContext: WhenContext = null
