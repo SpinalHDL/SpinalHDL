@@ -115,7 +115,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
         when(bitTimer.tick) {
           when(!sampler.value) {
             state := IDLE
-          }.elsewhen(bitCounter.value === toBitCount(io.configFrame.stop)) {
+          }elsewhen(bitCounter.value === toBitCount(io.configFrame.stop)) {
             state := IDLE
           }
         }

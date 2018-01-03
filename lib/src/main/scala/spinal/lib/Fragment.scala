@@ -167,7 +167,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
         when(pimped.payload === cResetClear) {
           softReset := False
         }
-      }.elsewhen(isMagic) {
+      }elsewhen(isMagic) {
         inMagic := True
       }
 

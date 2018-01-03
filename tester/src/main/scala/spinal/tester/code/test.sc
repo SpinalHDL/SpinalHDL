@@ -1,6 +1,6 @@
 
 
-def <° : Int = 3
+def <ï¿½ : Int = 3
 
 //10 x UInt(10 bit)
 
@@ -48,7 +48,7 @@ class Y{
 }
 
 when(1){
-}.elsewhen(2){
+}elsewhen(2){
 
 }
 

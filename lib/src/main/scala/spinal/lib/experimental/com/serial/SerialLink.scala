@@ -123,7 +123,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
         when(resendTimeout) {
           buffer.readPtr.valueNext := buffer.syncPtr
           resendTimeout.clear()
-        }.elsewhen(sendClosingNotification) {
+        }elsewhen(sendClosingNotification) {
           io.output.valid := True
           io.output.last := True
           io.output.fragment := cIsClose
@@ -131,7 +131,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           when(io.output.ready) {
             sendClosingNotification := False
           }
-        }.elsewhen(sendOpeningNotification) {
+        }elsewhen(sendOpeningNotification) {
           io.output.valid := True
           io.output.last := True
           io.output.fragment := cIsOpen
@@ -139,7 +139,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           when(io.output.ready) {
             sendOpeningNotification := False
           }
-        }.elsewhen(isOpen && (!buffer.empty || aliveTimeout)) {
+        }elsewhen(isOpen && (!buffer.empty || aliveTimeout)) {
           io.output.valid := True
           io.output.fragment := cData
           when(io.output.ready) {

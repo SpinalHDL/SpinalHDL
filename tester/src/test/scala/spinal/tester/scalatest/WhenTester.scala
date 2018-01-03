@@ -40,7 +40,7 @@ class WhenTester extends Component {
   def complexOn(that : UInt): Unit = {
     when(io.conds(0)) {
       that := io.data(0)
-    }.elsewhen(io.conds(1)) {
+    }elsewhen(io.conds(1)) {
       that := io.data(1)
       switch(io.data(3)) {
         is(io.data(4)) {
@@ -55,7 +55,7 @@ class WhenTester extends Component {
         is(U(0x55)) {
           when(io.conds(2)) {
             that := U(0xAA)
-          }.elsewhen(io.conds(3)) {
+          }elsewhen(io.conds(3)) {
             that := io.data(8)
           }
         }

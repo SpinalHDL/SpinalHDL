@@ -46,7 +46,7 @@ object CommonTester {
           bitDemux(sel(0)) := conds(0)
           when(conds(1)){
             bitDemux(sel(1)) := conds(2)
-          }.elsewhen(conds(3)){
+          }elsewhen(conds(3)){
             bitDemux(sel(0)) := conds(4)
           }
           when(conds(5)){

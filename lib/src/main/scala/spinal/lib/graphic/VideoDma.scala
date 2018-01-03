@@ -105,7 +105,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
           cmdActive := False
         }
       }
-    }.elsewhen(pendingMemRsp === 0) {
+    }elsewhen(pendingMemRsp === 0) {
       isActive := False
     }
   }

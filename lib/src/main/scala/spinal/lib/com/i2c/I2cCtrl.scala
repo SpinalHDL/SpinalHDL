@@ -294,10 +294,10 @@ object I2cCtrl{
             when(stop ) {
               txData.forceDisable := True
               goto(STOP1)
-            }.elsewhen(start){
+            }elsewhen(start){
               txData.forceDisable := True
               goto(RESTART)
-            }.elsewhen(internals.sclRead && txReady) {
+            }elsewhen(internals.sclRead && txReady) {
               goto(HIGH)
             }
           } otherwise {

@@ -313,7 +313,7 @@ object PlayBetterError {
     //Case 3
 //    when(cond){
 //      result := c
-//    }.elsewhen(cond){
+//    }elsewhen(cond){
 //      when(cond){
 //        result := a
 //      }otherwise{
@@ -1094,13 +1094,13 @@ object PlayIf {
     result := 1
     when(a > 2) {
       result := 2
-    }.elsewhen(a > 3) {
+    } elsewhen(a > 3) {
       result(0) := True
       when(a > 50) {
         result := 5
       }
       result(2) := False
-    }.otherwise {
+    } otherwise {
       result := 4
     }
     /*
@@ -1566,16 +1566,13 @@ object PlaySimplif {
     val input = in Bits (32 bit)
     val output = out Bits(2 bit)
 
-
     when(input === M"00001111----------------0000----"){
       output := 0
-    }.elsewhen(input === M"00001111----------------0001----"){
+    }elsewhen(input === M"00001111----------------0001----"){
       output := 1
-    }
-      .elsewhen(input === M"00001111----------------0010----"){
+    }elsewhen(input === M"00001111----------------0010----"){
       output := 2
-    }
-      .elsewhen(input === M"00001111----------------0011----"){
+    }elsewhen(input === M"00001111----------------0011----"){
       output := 3
     }otherwise{
       output.assignDontCare()
