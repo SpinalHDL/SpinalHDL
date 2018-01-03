@@ -914,7 +914,7 @@ object Play65{
 
     when(sel(3)){
       result := 5
-    }.elsewhen(sel(4)){
+    }elsewhen(sel(4)){
       result := 6
     }
 
@@ -925,7 +925,7 @@ object Play65{
       result2 := 1
       when(sel(1)){
         result := 2
-      }.elsewhen(sel(2)){
+      }elsewhen(sel(2)){
         result := 4
         result2 := 3
       }
@@ -1767,29 +1767,6 @@ object PlayMask{
 }
 
 
-
-object PlayWhenSyntax{
-
-
-  def main(args: Array[String]) {
-    class When{
-      def otherwise = new Otherwise
-    }
-    class Otherwise{
-      def  when(cond : Boolean)(block : => Unit) = new When
-    }
-
-    def when(cond : Boolean)(block : => Unit) = new When
-
-    when(true){
-
-    }.otherwise.when(false){
-
-    }
-  }
-}
-
-
 object PlayPwm{
 
   object PWMMode extends SpinalEnum {
@@ -2086,7 +2063,7 @@ object Play1adasd {
         e := f
       }
       b := f
-    }.elsewhen(a) {
+    }elsewhen(a) {
       val x = Bool()
       x := a || b
       i := g || x

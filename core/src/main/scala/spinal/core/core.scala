@@ -15,6 +15,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit lazy val reflectiveCalls = scala.language.reflectiveCalls
   implicit lazy val postfixOps = scala.language.postfixOps
 
+  //Implicit clause builder for `elseWhen`
+  implicit class ElseWhenClauseBuilder(cond : Bool){
+    def apply(block : => Unit) : ElseWhenClause = new ElseWhenClause(cond, block)
+  }
 
 
   implicit def IntToBuilder(value: Int) : IntBuilder = new IntBuilder(value)

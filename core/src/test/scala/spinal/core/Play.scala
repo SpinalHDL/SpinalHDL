@@ -316,7 +316,7 @@ object PlayScope{
         e := f
       }
       e := f
-    }.elsewhen(a) {
+    }elsewhen(a) {
       val x = Bool()
       val y = Reg(Bool())
       x := a || b
@@ -451,7 +451,7 @@ object PlayHeavyload {
          e := f
        }
        b := f
-    }.elsewhen(a) {
+    }elsewhen(a) {
       val x = Bool()
       x := a || b
       i := g || x

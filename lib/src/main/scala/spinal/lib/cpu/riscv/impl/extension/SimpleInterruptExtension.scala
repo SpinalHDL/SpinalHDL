@@ -43,7 +43,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
         writeBack.pcLoad.payload := exceptionVector
         exitPc := writeBack.inInst.pc
         inIrq := True
-      }.elsewhen(RegNext((writeBack.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0)){
+      }elsewhen(RegNext((writeBack.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0)){
         decode.halt := True
         when(decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !writeBack.inInst.valid) {
           writeBack.pcLoad.valid := True
