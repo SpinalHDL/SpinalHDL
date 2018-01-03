@@ -677,5 +677,5 @@ trait BitwiseOp[T <: Data]{
   def ^(right: T): T
 
   /** Inverse bitwise operator */
-  def unary_~(): T
+  def unary_- : T
 }

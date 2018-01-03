@@ -85,14 +85,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
-  override def unary_~(): SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+  override def unary_- : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
 
   /**
     * Negative number
     * @example{{{ val result = -mySInt }}}
     * @return return a negative number
     */
-  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
+  def unary_- : SInt = wrapUnaryOperator(new Operator.SInt.Minus)
 
   /**
     * Logical shift Right (output width == input width)

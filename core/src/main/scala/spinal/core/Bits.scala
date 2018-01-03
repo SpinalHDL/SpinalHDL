@@ -68,7 +68,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   override def |(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Or)
   override def &(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.And)
   override def ^(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Xor)
-  override def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+  override def unary_- : Bits = wrapUnaryOperator(new Operator.Bits.Not)
 
   /**
     * Logical shift right (output width will decrease)

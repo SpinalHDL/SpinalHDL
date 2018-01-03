@@ -77,9 +77,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @example{{{ val result = !myBool1 }}}
     * @return a Bool assign with the NOT result
     */
-  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
+  def unary_! : Bool = wrapUnaryOperator(new Operator.Bool.Not)
 
-  override def unary_~(): Bool = ! this
+  override def unary_~ : Bool = ! this
 
   /** this is assigned to True */
   def set(): Unit = this := True
