@@ -87,7 +87,10 @@ object when {
   }
 }
 
-class ElseWhenClause(val cond : Bool, _block: => Unit){def block = _block}
+class ElseWhenClause(val cond : Bool, _block: => Unit){
+  def unary_! : ElseWhenClause = new ElseWhenClause(!cond, _block)
+  def block = _block
+}
 
 
 /**
