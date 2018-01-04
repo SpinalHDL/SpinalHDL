@@ -223,7 +223,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             when(rsp.ready){
               banks(address.bank).active := False
             }
-          } elsewhen !banks(address.bank).active {
+          } elsewhen (!banks(address.bank).active) {
             rsp.task := ACTIVE
             val bank = banks(address.bank)
             bank.row := address.row

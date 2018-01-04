@@ -50,6 +50,12 @@ class MaskedBoolean(value : Boolean, careAbout : Boolean){
 }
 
 class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
+  override def hashCode() = value.hashCode() + careAbout.hashCode() + width
+  override def equals(o: scala.Any) = o match {
+    case o : MaskedLiteral => this.value == o.value && this.careAbout == o.careAbout && this.width == o.width
+    case _ => false
+  }
+
   def getWidth() = width
   def apply(index : Int): MaskedBoolean ={
     if(index >= width){

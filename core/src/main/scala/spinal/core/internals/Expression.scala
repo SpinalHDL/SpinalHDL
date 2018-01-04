@@ -1844,7 +1844,9 @@ class SwitchStatementKeyBool extends Expression{
   override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
   override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
 }
-class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
+class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ContextUser{
+
+}
 
 
 

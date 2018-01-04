@@ -272,7 +272,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       case `in`    => dir = out
       case `out`   => dir = in
       case `inout` =>
-      case _       => SpinalError(s"Can't flip a data that is direction less $this")
+      case _       => PendingError(s"Can't flip a data that is direction less $this")
     }
     this
   }
