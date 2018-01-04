@@ -2,6 +2,7 @@ package spinal.core.internals
 
 import spinal.core._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -207,14 +208,29 @@ object InferWidth{
     }
   }
 
-  def notResizableElseMax(op : MultiplexedWidthable) : Int = {
-    val leftR = canBeResized(op.whenTrue)
-    val rightR = canBeResized(op.whenFalse)
-    if(leftR != rightR){
-      if(leftR) op.whenFalse.getWidth else op.whenTrue.getWidth
-    } else {
-      Math.max(op.whenTrue.getWidth, op.whenFalse.getWidth)
+  def notResizableElseMax(op : MultiplexerWidthable) : Int = {
+    var resizableMax, notResizableMax = -1
+    op.inputs.foreach{
+      case e if canBeResized(e) => resizableMax = Math.max(resizableMax, e.getWidth)
+      case e => notResizableMax = Math.max(notResizableMax, e.getWidth)
     }
+    if(notResizableMax != -1)
+      notResizableMax
+    else
+      resizableMax
+  }
+
+
+  def notResizableElseMax(op : BinaryMultiplexerWidthable) : Int = {
+    var resizableMax, notResizableMax = -1
+    List(op.whenTrue, op.whenFalse).foreach{
+      case e if canBeResized(e) => resizableMax = Math.max(resizableMax, e.getWidth)
+      case e => notResizableMax = Math.max(notResizableMax, e.getWidth)
+    }
+    if(notResizableMax != -1)
+      notResizableMax
+    else
+      resizableMax
   }
 }
 
@@ -341,7 +357,10 @@ object Operator{
 
     trait ShiftOperator
     abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-      assert(shift >= 0)
+      if(shift < 0) {
+        val trace = ScalaLocated.long
+        PendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at\n${trace}")
+      }
       override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
@@ -354,7 +373,10 @@ object Operator{
     }
 
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-      assert(shift >= 0)
+      if(shift < 0) {
+        val trace = ScalaLocated.long
+        PendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at\n${trace}")
+      }
       override def calcWidth(): Int = source.getWidth + shift
       def getLiteralFactory : (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
@@ -797,6 +819,8 @@ abstract class Cast extends Modifier {
 abstract class CastBitVectorToBitVector extends Cast with Widthable{
   override type T <: Expression with WidthProvider
   override private[core] def calcWidth: Int = input.getWidth
+
+  override def toString = s"($opName of $getWidth bits)"
 }
 
 class CastSIntToBits extends CastBitVectorToBitVector{
@@ -862,6 +886,101 @@ class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodi
 
 abstract class Multiplexer extends Modifier {
   type T <: Expression
+  var select  : Expression  with WidthProvider = null
+  var inputs  : ArrayBuffer[T] = null.asInstanceOf[ArrayBuffer[T]]
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    select = func(select).asInstanceOf[Expression  with WidthProvider]
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = func(old)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
+  }
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(select)
+    inputs.foreach(func(_))
+  }
+}
+
+abstract class MultiplexerWidthable extends Multiplexer with Widthable{
+  override type T = Expression with WidthProvider
+  override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+
+  override def toString = super.toString + s"[$getWidth bits]"
+}
+
+class MultiplexerBool extends Multiplexer{
+  override def getTypeObject: Any = TypeBool
+  override def opName: String = "mux of Bool"
+}
+class MultiplexerBits extends MultiplexerWidthable {
+  override def getTypeObject: Any = TypeBits
+  override def opName: String = s"mux of Bits"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resizedOrUnfixedLit(old, targetWidth, new ResizeBits, this, this)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
+  }
+}
+class MultiplexerUInt extends MultiplexerWidthable{
+  override def getTypeObject: Any = TypeUInt
+  override def opName: String = s"mux of UInt"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resize(old, targetWidth, new ResizeUInt)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
+  }
+}
+class MultiplexerSInt extends MultiplexerWidthable{
+  override def getTypeObject: Any = TypeSInt
+  override def opName: String = s"mux of SInt"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      val old = inputs(idx)
+      val next = InputNormalize.resize(old, targetWidth, new ResizeSInt)
+      if(old != next)
+        inputs(idx) = next.asInstanceOf[T]
+    }
+  }
+}
+
+class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
+  override type T = Expression with EnumEncoded
+  override def opName: String = s"mux of Enum"
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
+  }
+  override def getTypeObject: Any = TypeEnum
+}
+
+
+
+
+
+
+abstract class BinaryMultiplexer extends Modifier {
+  type T <: Expression
   var cond      : Expression = null
   var whenTrue  : T = null.asInstanceOf[T]
   var whenFalse : T = null.asInstanceOf[T]
@@ -878,45 +997,46 @@ abstract class Multiplexer extends Modifier {
   }
 }
 
-abstract class MultiplexedWidthable extends Multiplexer with Widthable{
+abstract class BinaryMultiplexerWidthable extends BinaryMultiplexer with Widthable{
   override type T = Expression with WidthProvider
   override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+  override def toString = s"(${super.toString })[$getWidth bits]"
 }
 
-class MultiplexerBool extends Multiplexer{
+class BinaryMultiplexerBool extends BinaryMultiplexer{
   override def getTypeObject: Any = TypeBool
-  override def opName: String = "mux(B,B,B)"
+  override def opName: String = "Bool ? Bool | Bool"
 }
-class MultiplexerBits extends MultiplexedWidthable {
+class BinaryMultiplexerBits extends BinaryMultiplexerWidthable {
   override def getTypeObject: Any = TypeBits
-  override def opName: String = "mux(B,b,b)"
+  override def opName: String =  "Bool ? Bits | Bits"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     whenTrue = InputNormalize.resizedOrUnfixedLit(whenTrue, targetWidth, new ResizeBits, this, this)
     whenFalse = InputNormalize.resizedOrUnfixedLit(whenFalse, targetWidth, new ResizeBits, this, this)
   }
 }
-class MultiplexerUInt extends MultiplexedWidthable{
+class BinaryMultiplexerUInt extends BinaryMultiplexerWidthable{
   override def getTypeObject: Any = TypeUInt
-  override def opName: String = "mux(B,u,u)"
+  override def opName: String = "Bool ? UInt | UInt"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeUInt)
     whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeUInt)
   }
 }
-class MultiplexerSInt extends MultiplexedWidthable{
+class BinaryMultiplexerSInt extends BinaryMultiplexerWidthable{
   override def getTypeObject: Any = TypeSInt
-  override def opName: String = "mux(B,s,s)"
+  override def opName: String = "Bool ? Bits | Bits"
   override def normalizeInputs: Unit = {
     val targetWidth = getWidth
     whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeSInt)
     whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeSInt)
   }
 }
-class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
+class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with InferableEnumEncodingImpl{
   override type T = Expression with EnumEncoded
-  override def opName: String = "mux(B,e,e)"
+  override def opName: String = "Bool ? Bits | Bits"
   override def getDefinition: SpinalEnum = enumDef
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
@@ -926,12 +1046,15 @@ class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEn
 }
 
 
+
+
+
+
 private[spinal] object Multiplex {
 
-  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
+  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): BinaryMultiplexer = {
     whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
   }
-
 
   def complexData[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     val outType = if (whenTrue.getClass.isAssignableFrom(whenFalse.getClass)) whenTrue
@@ -1683,6 +1806,8 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
     offset = func(offset).asInstanceOf[Expression with WidthProvider]
   }
 
+
+  override def toString(): String = s"${out.toString()}[$offset over $bitCount bits]"
   override def opName: String = "x(hi:lo) <="
 
   //  override def normalizeInputs: Unit = {
@@ -1719,7 +1844,9 @@ class SwitchStatementKeyBool extends Expression{
   override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
   override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
 }
-class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
+class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ContextUser{
+
+}
 
 
 

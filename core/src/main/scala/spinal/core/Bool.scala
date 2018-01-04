@@ -77,9 +77,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @example{{{ val result = !myBool1 }}}
     * @return a Bool assign with the NOT result
     */
-  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
+  def unary_! : Bool = wrapUnaryOperator(new Operator.Bool.Not)
 
-  override def unary_~(): Bool = ! this
+  override def unary_~ : Bool = ! this
 
   /** this is assigned to True */
   def set(): Unit = this := True
@@ -213,7 +213,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
+  private[core] override def newMultiplexerExpression() = new MultiplexerBool
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBool
 
   private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
 
@@ -247,6 +248,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     this
   }
 
+  def ===(that: MaskedBoolean): Bool = that === this
+  /** BitVector is not equal to MaskedLiteral */
+  def =/=(that: MaskedBoolean): Bool = that =/= this
 }
 
 /**

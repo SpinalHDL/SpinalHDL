@@ -2,6 +2,7 @@ package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
+import spinal.lib.{Delay, StreamFifo}
 
 import scala.sys.process._
 
@@ -213,6 +214,15 @@ class ChecksTester extends FunSuite  {
       }
     })
 
+    generationShouldPass(new Component{
+      val a = Bool
+      when(True === True) {
+        a := False
+      } otherwise {
+        a := True
+      }
+    })
+
     generationShouldFaild(new Component{
       val a = Bool
       a := True
@@ -226,6 +236,51 @@ class ChecksTester extends FunSuite  {
         a := True
       }
     })
+
+    generationShouldFaild(new Component{
+      val a = Bool
+      when(True === True) {
+        a := False
+      }
+      a := True
+    })
+
+    generationShouldFaild(new Component{
+      val sub = new Component{
+        val a = in Bool()
+        val result = out Bool()
+        result := a
+      }
+
+      val result = out Bool()
+      result := sub.result
+    })
+
+    generationShouldFaild(new Component{
+      val sub = new Component{
+        val result = out Bool()
+      }
+
+      val result = out Bool()
+      result := sub.result
+    })
+
+    generationShouldFaild(new Component{
+      val sub = new Component{
+        val a = in Bool()
+        val result = out Bool()
+        result := a
+      }
+
+      val result = out Bool()
+      result := sub.result
+      when(True){
+        sub.a := True
+      }
+    })
+
+
+
   }
 
   test("checkNoResetFail") {

@@ -32,6 +32,7 @@ class ComponentEmiterVhdl(
   vhdlBase                           : VhdlBase,
   override val algoIdIncrementalBase : Int,
   override val mergeAsyncProcess     : Boolean,
+  asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component]
 ) extends ComponentEmiter{
@@ -43,6 +44,8 @@ class ComponentEmiterVhdl(
   val portMaps     = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
+
+
 
   def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
 
@@ -103,17 +106,14 @@ class ComponentEmiterVhdl(
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadAsync =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemReadWrite =>
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
-            expressionToWrap -= s
           case s: MemWrite =>
         }
       })
@@ -124,6 +124,17 @@ class ComponentEmiterVhdl(
       declarations ++= s"  signal $name : ${emitDataType(output)}${getBaseTypeSignalInitialisation(output)};\n"
       logics ++= s"  ${emitReference(output, false)} <= $name;\n"
       referencesOverrides(output) = name
+    }
+
+    for((select, muxes) <- multiplexersPerSelect){
+      expressionToWrap += select._1
+      for(mux <- muxes) {
+        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+        declarations ++= s"  signal $name : ${emitType(mux)};\n"
+        wrappedExpressionToName(mux) = name
+//        expressionToWrap ++= mux.inputs
+      }
+
     }
 
     component.children.foreach(sub =>
@@ -137,6 +148,8 @@ class ComponentEmiterVhdl(
     )
 
     //Wrap expression which need it
+    cutLongExpressions()
+    expressionToWrap --= wrappedExpressionToName.keysIterator
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
       declarations ++= s"  signal $name : ${emitType(e)};\n"
@@ -163,6 +176,7 @@ class ComponentEmiterVhdl(
     emitMems(mems)
     emitSubComponents(openSubIo)
     emitAnalogs()
+    emitMuxes()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty) {
@@ -200,31 +214,42 @@ class ComponentEmiterVhdl(
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
-      //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
       logics ++= s"  ${
         children.getName()
       } : $definitionString\n"
 
-      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
-        //        if (isBBUsingULogic)
-        //          if (dir == in) {
-        //            bt match {
-        //              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-        ////              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else if (dir == spinal.core.out) {
-        //            bt match {
-        //              case _: Bool => return s"      std_logic($io) => $logic,\n"
-        ////              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else SpinalError("???")
-        //
-        //        else
-        return s"      $io => $logic,\n"
+      def addCasting(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
+
+        if (isBBUsingULogic || isBBUsingNoNumericType) {
+          if (dir == in) {
+            bt match {
+              case _: Bool if isBBUsingULogic                            => return s"      $io => std_ulogic($logic),\n"
+              case _: Bits if isBBUsingULogic                            => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
+              case _: UInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
+              case _: SInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _                                                     => return s"      $io => $logic,\n"
+            }
+          } else if (dir == out) {
+            bt match {
+              case _: Bool if isBBUsingULogic => return s"      std_logic($io) => $logic,\n"
+              case _: Bits if isBBUsingULogic => return s"      std_logic_vector($io) => $logic,\n"
+              case _: UInt                    => return s"      unsigned($io) => $logic,\n"
+              case _: SInt                    => return s"      signed($io) => $logic,\n"
+              case _                          => return s"      $io => $logic,\n"
+            }
+          }else{
+            SpinalError("It is not possible to cast an inout")
+          }
+
+        }else {
+          return s"      $io => $logic,\n"
+        }
       }
 
       if (children.isInstanceOf[BlackBox]) {
@@ -236,12 +261,12 @@ class ComponentEmiterVhdl(
 
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType) => logics ++= addULogicCast(bt, name, emitExpression(bt.head.source), in)
-              case (name: String, s: String) => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case (name: String, i: Int) => logics ++= s"      ${name} => $i,\n"
-              case (name: String, d: Double) => logics ++= s"      ${name} => $d,\n"
+              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.head.source), in)
+              case (name: String, s: String)        => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name: String, i: Int)           => logics ++= s"      ${name} => $i,\n"
+              case (name: String, d: Double)        => logics ++= s"      ${name} => $d,\n"
               case (name: String, boolean: Boolean) => logics ++= s"      ${name} => $boolean,\n"
-              case (name: String, t: TimeNumber) =>
+              case (name: String, t: TimeNumber)    =>
                 val d = t.decompose
                 logics ++= s"      ${name} => ${d._1} ${d._2},\n"
             }
@@ -256,7 +281,7 @@ class ComponentEmiterVhdl(
 
       for (data <- children.getOrdredNodeIo) {
         val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-        logics ++= addULogicCast(data, emitReferenceNoOverrides(data), logic , data.dir)
+        logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
       }
 
       logics.setCharAt(logics.size - 2, ' ')
@@ -291,7 +316,14 @@ class ComponentEmiterVhdl(
 
     referenceSetStart()
 
-    if (withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
+    if (withReset) {
+      val initSensitivity = asyncResetCombSensitivity && asyncReset
+      if(!initSensitivity) referenceSetPause()
+      emitRegsInitialValue("      ", initialStatlementsGeneration)
+      if(!initSensitivity) referenceSetResume()
+    }
+
+
 
     referenceSetAdd(emitReference(clock, false))
 
@@ -299,7 +331,7 @@ class ComponentEmiterVhdl(
       referenceSetAdd(emitReference(reset, false))
     }
 
-    b ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
+    b ++= s"${tabStr}process(${referenceSetSorted.mkString(", ")})\n"
     b ++= s"${tabStr}begin\n"
     inc
 
@@ -372,6 +404,34 @@ class ComponentEmiterVhdl(
     )
   }
 
+
+  def emitMuxes(): Unit ={
+    val tmp = new StringBuilder()
+    for(((select, length), muxes) <- multiplexersPerSelect){
+      referenceSetStart()
+      tmp.clear()
+      tmp ++= s"  begin\n"
+      tmp ++= s"    case ${emitExpression(select)} is\n"
+      for(i <- 0 until length){
+        val key = Integer.toBinaryString(i)
+        if(i != length-1)
+          tmp ++= s"""      when "${"0" * (select.getWidth - key.length)}${key}" =>\n"""
+        else
+          tmp ++= s"      when others =>\n"
+
+        for(mux <- muxes){
+          tmp ++= s"        ${wrappedExpressionToName(mux)} <= ${emitExpression(mux.inputs(i))};\n"
+        }
+      }
+      tmp ++= s"    end case;\n"
+      tmp ++= s"  end process;\n\n"
+
+      logics ++= s"  process(${referenceSetSorted.mkString(",")})\n"
+      logics ++= tmp
+    }
+    referenceSetStop()
+  }
+
   def emitAsyncronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
@@ -385,8 +445,8 @@ class ComponentEmiterVhdl(
 
         emitLeafStatements(process.leafStatements, 0, process.scope, "<=", tmp, "    ")
 
-        if (referehceSetSorted.nonEmpty) {
-          logics ++= s"  process(${referehceSetSorted.mkString(",")})\n"
+        if (referenceSetSorted.nonEmpty) {
+          logics ++= s"  process(${referenceSetSorted.mkString(",")})\n"
           logics ++= "  begin\n"
           logics ++= tmp.toString()
           logics ++= "  end process;\n\n"
@@ -580,13 +640,21 @@ class ComponentEmiterVhdl(
     _referenceSet.clear()
   }
 
+  def referenceSetPause(): Unit ={
+    _referenceSetEnabled = false
+  }
+
+  def referenceSetResume(): Unit ={
+    _referenceSetEnabled = true
+  }
+
   def referenceSetAdd(str : String): Unit ={
     if(_referenceSetEnabled) {
       _referenceSet.add(str)
     }
   }
 
-  def referehceSetSorted() = _referenceSet
+  def referenceSetSorted() = _referenceSet
 
   var _referenceSetEnabled = false
   val _referenceSet        = mutable.LinkedHashSet[String]()
@@ -922,11 +990,18 @@ class ComponentEmiterVhdl(
     }
   }
 
-  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
-    if (b.isUsingULogic)
-      str.replace("std_logic", "std_ulogic")
-    else
-      str
+  def blackBoxReplaceTypeRegardingTag(b: BlackBox, str: String): String = {
+    var str_tmp = str
+
+    if(b.isUsingNoNumericType){
+      str_tmp = str_tmp.replace("unsigned", "std_logic_vector")
+      str_tmp = str_tmp.replace("signed",   "std_logic_vector")
+    }
+    if (b.isUsingULogic) {
+      str_tmp = str_tmp.replace("std_logic", "std_ulogic")
+    }
+
+    return str_tmp
   }
 
   def emitBlackBoxComponent(component: BlackBox): Unit = {
@@ -937,7 +1012,7 @@ class ComponentEmiterVhdl(
 
       for (e <- genericFlat) {
         e match {
-          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxRemplaceULogic(component, emitDataType(bt, true))};\n"
+          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxReplaceTypeRegardingTag(component, emitDataType(bt, true))};\n"
           case (name: String, s: String)        => declarations ++= s"      $name : string;\n"
           case (name: String, i: Int)           => declarations ++= s"      $name : integer;\n"
           case (name: String, d: Double)        => declarations ++= s"      $name : real;\n"
@@ -955,7 +1030,7 @@ class ComponentEmiterVhdl(
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
         if (baseType.isIo) {
-          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
+          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, true))};\n"
         }
       case _ =>
     }
@@ -965,6 +1040,7 @@ class ComponentEmiterVhdl(
     declarations ++= s"  end component;\n"
     declarations ++= s"  \n"
   }
+
 
   def refImpl(e: BaseType): String = emitReference(e, true)
 
@@ -994,7 +1070,7 @@ class ComponentEmiterVhdl(
     s"$vhd(${emitExpression(e.left)},${emitExpression(e.right)})"
   }
 
-  def muxImplAsFunction(vhd: String)(e: Multiplexer): String = {
+  def muxImplAsFunction(vhd: String)(e: BinaryMultiplexer): String = {
     s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
   }
 
@@ -1239,7 +1315,7 @@ class ComponentEmiterVhdl(
     case  e: ResizeUInt                              => resizeFunction("pkg_unsigned")(e)
     case  e: ResizeBits                              => resizeFunction("pkg_stdLogicVector")(e)
 
-    case  e: Multiplexer                             => muxImplAsFunction("pkg_mux")(e)
+    case  e: BinaryMultiplexer                       => muxImplAsFunction("pkg_mux")(e)
 
     case  e: BitVectorBitAccessFixed                 => accessBoolFixed(e)
     case  e: BitVectorBitAccessFloating              => accessBoolFloating(e)

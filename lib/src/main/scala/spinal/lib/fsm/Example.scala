@@ -1,25 +1,49 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.fsm
 
 import spinal.core._
 
-/**
- * Created by PIC32F_USER on 14/06/2016.
- */
 
 object StateMachineStyle1 {
+
   class TopLevel extends Component {
+
     val io = new Bundle{
       val result = out Bool
     }
 
-    val fsm = new StateMachine{
+    val fsm = new StateMachine {
       val counter = Reg(UInt(8 bits)) init (0)
       io.result := False
 
-      val stateA : State = new State with EntryPoint{
+      val stateA: State = new State with EntryPoint {
         whenIsActive (goto(stateB))
       }
-      val stateB : State = new State{
+      val stateB: State = new State {
         onEntry(counter := 0)
         whenIsActive {
           counter := counter + 1
@@ -29,7 +53,7 @@ object StateMachineStyle1 {
         }
         onExit(io.result := True)
       }
-      val stateC : State = new State{
+      val stateC: State = new State {
         whenIsActive (goto(stateA))
       }
     }
@@ -42,7 +66,9 @@ object StateMachineStyle1 {
 
 
 object StateMachineStyle2 {
+
   class TopLevel extends Component {
+
     val io = new Bundle{
       val result = out Bool
     }
@@ -78,8 +104,11 @@ object StateMachineStyle2 {
   }
 }
 
+
 object StateMachineStyle3 {
+
   class TopLevel extends Component {
+
     val io = new Bundle{
       val result = out Bool
     }
@@ -88,10 +117,10 @@ object StateMachineStyle3 {
       val counter = Reg(UInt(8 bits)) init (0)
       io.result := False
 
-      val stateA  : State = StateEntryPoint()
+      val stateA: State = StateEntryPoint()
         .whenIsActive(goto(stateB))
 
-      val stateB  : State = State()
+      val stateB: State = State()
         .onEntry(counter := 0)
         .whenIsActive {
           counter := counter + 1
@@ -112,20 +141,19 @@ object StateMachineStyle3 {
 }
 
 
-
-
-
 object StateMachineSimpleExample {
+
   class TopLevel extends Component {
+
     val io = new Bundle {
-      val enter = out UInt (8 bits)
+      val enter  = out UInt (8 bits)
       val active = out UInt (8 bits)
-      val exit = out UInt (8 bits)
+      val exit   = out UInt (8 bits)
     }
 
-    io.enter := 0xFF
+    io.enter  := 0xFF
     io.active := 0xFF
-    io.exit := 0xFF
+    io.exit   := 0xFF
 
     val counter = Reg(UInt(8 bits)) init (0)
 
@@ -170,16 +198,12 @@ object StateMachineSimpleExample {
 
 
 
-
-
-
-
-
-
 object StateMachineWithInnerExample {
+
   class TopLevel extends Component {
 
     def simpleFsm(countTo : Int) = new StateMachine {
+
       val counter = out(Reg(UInt(8 bits)) init (0))
 
       val stateA: State = new State with EntryPoint {
@@ -200,6 +224,7 @@ object StateMachineWithInnerExample {
     }
 
     val coreFsm = new StateMachine {
+
       val stateA: State = new State with EntryPoint {
         whenIsActive {
           goto(stateB)
@@ -208,6 +233,7 @@ object StateMachineWithInnerExample {
 
       val stateB: State = new StateFsm(
         new StateMachine {
+
           val counter = Reg(UInt(8 bits)) init (0)
 
           val stateA: State = new State with EntryPoint {
@@ -247,13 +273,13 @@ object StateMachineWithInnerExample {
         simpleFsm(12),
         simpleFsm(16)
       )(_.goto(stateF))
-      val stateF : State = new StateDelay(30){whenCompleted(goto(stateG))}
+      val stateF : State = new StateDelay(30){ whenCompleted(goto(stateG)) }
       val stateG : State = new StateDelay(40){
         whenCompleted{
           goto(stateH)
         }
       }
-      val stateH : State = new StateDelay(50){whenCompleted(goto(stateI))}
+      val stateH: State = new StateDelay(50){ whenCompleted(goto(stateI)) }
       val stateI: State = new State {
         whenIsActive {
           goto(stateA)
@@ -271,10 +297,10 @@ object StateMachineWithInnerExample {
 
 
 object StateMachineTryExample {
+
   class TopLevel extends Component {
 
-
-    val fsm = new StateMachine{
+    val fsm = new StateMachine {
       val counter = Reg(UInt(8 bits)) init (0)
 
       val stateA: State = new State {
@@ -305,10 +331,10 @@ object StateMachineTryExample {
 
 
 object StateMachineTry2Example {
+
   class TopLevel extends Component {
 
-
-    def InnerFsm(stateBDelay : Int) = new StateMachine {
+    def InnerFsm(stateBDelay: Int) = new StateMachine {
       val counter = Reg(UInt(8 bits)) init (0)
 
       val stateA: State = new State with EntryPoint {
@@ -336,7 +362,7 @@ object StateMachineTry2Example {
           goto(stateB)
         }
       }
-      val stateB: State = new StateParallelFsm(InnerFsm(9),InnerFsm(18)){
+      val stateB: State = new StateParallelFsm(InnerFsm(9), InnerFsm(18)){
         whenCompleted{
           goto(stateC)
         }
@@ -360,8 +386,7 @@ object StateMachineTry2Example {
 object StateMachineTry6Example {
   class TopLevel extends Component {
 
-
-    def InnerFsm(stateBDelay : Int) = new StateMachine {
+    def InnerFsm(stateBDelay: Int) = new StateMachine {
       //...
     }
 
@@ -378,13 +403,8 @@ object StateMachineTry6Example {
 
 
 
-
-
-
-
-
-
 object StateMachineTry3Example {
+
   class TopLevel extends Component {
 
     val fsm = new StateMachine{
@@ -415,10 +435,6 @@ object StateMachineTry3Example {
       out(isActive(stateB))
     }
 
-//    val isInStateB = out(fsm.isActive(fsm.stateB))
-//    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
-//
-//    fsm.stateReg.keep()
     val toto = "asd"
   }
 

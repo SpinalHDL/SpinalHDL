@@ -5,9 +5,11 @@ import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
+import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -564,19 +566,75 @@ object PlayDevMiaou{
 
 object PlayDevBugx{
   class TopLevel extends Component {
-//    val vec = out(Vec(Reg(Bits(32 bits)), 4))
-//    val sel = in(UInt(2 bits))
-//
-//    vec(sel) := 0
+    val a, b, c, d = in Bits(8 bits)
+    val sel = UInt(2 bits)
+    val result = Bits(8 bits)
+    def rec(that : Bits, level : Int) : Bits = if(level != 0)
+      rec(~ that, level -1)
+    else
+      that
+//    switch(sel){
+//      is(0) { result := rec(a, 10) }
+//      is(1) { result := rec(b, 10) }
+//      is(2) { result := rec(c, 10) }
+//      is(3) { result := rec(d, 10) }
+//    }
+    result := Vec(List(a,b,c,d).map(rec(_, 65)))(sel)
 
-    val a,b = out(Bits(32 bits))
-    val x = B(0).resized
-    a := x
-    b := x
+
+//      def rec(that : UInt, level : Int) : UInt = if(level != 0)
+//        rec(RegNext(that), level -1)
+//      else
+//        that
+//      result := rec(a & b, 4000)
+//    val a,b = in UInt(8 bits)
+//    val result = out UInt(7 bits)
+//
+//    result := a + b
+//
+//    val sub = StreamFifo(Bool, 10)
+
+//    val mask = MaskedLiteral("10-")
+//    val input = in Bits(3 bits)
+//    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
+//    val sel = in UInt(2 bits)
+//    val inputsA = in Vec(Bits(8 bits), 4)
+//    val inputsB = in Vec(Bool, 4)
+////    val outputA = out(inputsA(sel))
+//    val outputB = out(inputsB(sel))
+//
+//    val xx = Bits(4 bits)
+//    xx := inputsA(sel)
+//    val x = UInt(8 bits)
+//    val y = SInt(6 bits)
+//    y := x.asSInt
+//    val outputs = Vec(Vec(out(Reg(Bool)),3), 2)
+//
+//    outputs.foreach(_.foreach(_ := False))
+//    val x = U"0000000" >> -1
+//    case class MyReg() extends Bundle {
+//      val reg = UInt(32 bits)
+//
+//      def byteCount = reg(12 downto 0)
+//    }
+//
+//
+//    val reg = Reg(MyReg())
+//
+//
+//    reg.byteCount(7 downto 0).assignFromBits(B"x42")
+
+//
+//    val reg = Reg(Bits(32 bits))
+//    val sel = in UInt(2 bits)
+//    reg := 0
+////    reg(12 downto 1)(9 downto 2) := B"x00"
+//    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
+////    reg(16 downto 4)(5) := True
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig().generateVhdl(new TopLevel())
+    val toplevel = SpinalConfig(verbose  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
     print("done")
   }
 }
@@ -680,7 +738,7 @@ object PlayDevAnalog4{
   }
   def main(args: Array[String]) {
     SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
-    SpinalVhdl(InOutWrapper(new Toplevel))
+//    SpinalVhdl(InOutWrapper(new Toplevel))
     print("done")
   }
 }
@@ -773,25 +831,8 @@ object PlayDevAxi{
 
   // Instance
   class TopLevel extends Component {
-    val smallConfig = Axi4Config(
-      addressWidth = 16,
-      dataWidth    = 32,
-      useId        = false,
-      useRegion    = false,
-      useBurst     = false,
-      useLock      = false,
-      useCache     = false,
-      useSize      = false,
-      useQos       = false,
-      useLen       = false,
-      useLast      = true,
-      useResp      = false,
-      useProt      = false,
-      useStrb      = false
-    )
-    val axiA = slave(Axi4Shared(smallConfig))
-    val axiB = axiA.toAxi4()
-    val axiC = master(axiB.toFullConfig())
+    val M00_AXI = AxiLite4(addressWidth = 32, dataWidth = 32)
+    AxiLite4SpecRenamer(M00_AXI)
   }
 
   def main(args: Array[String]) {
@@ -827,14 +868,78 @@ object PlayDevDefault{
 
 object PlayDevMessages{
 
+  class RGB(width : Int) extends Bundle{
+    val r,g,b = UInt(width bits)
+  }
+
   class TopLevel extends Component {
-    val a = UInt(8 bits)
-    val b = UInt(2 bits)
-    b := a >> 1
+    val myUIntOf_8bit = UInt(8 bits)
+    myUIntOf_8bit := (2 -> false, default -> true)
   }
 
   def main(args: Array[String]) {
     SpinalConfig().generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+object PlayDevSynthesis{
+
+
+
+  class TopLevel extends Component {
+    val inputs = in(Vec(Bool, 16))
+    val sel = in(UInt(4 bits))
+    val output = out(inputs(sel))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVerilog(new TopLevel())
+    print("done")
+  }
+}
+
+
+object PlayDevBug123{
+
+
+
+  class TopLevel extends Component {
+    val a,b,c = in Bool()
+    val x = out Bool()
+    when(a){
+      x := b
+    } otherwise {
+      x := c
+    }
+//    x := c
+//    switch(a){
+//      is(True){
+//        x := b
+//      }
+//      is(False){
+//
+//      }
+//    }
+//    when(a){
+//      x := b
+//    }
+//    val l = in Bits(8 bits)
+    //    val a,b,c = in Bool()
+    //    val x = out Bits(8 bits)
+//    x := l
+//    x(1 downto 0) := 0
+//    x := 0
+//
+//    when(a){
+//      x(1 downto 0) := 1
+//    }
+//    x(7 downto 2) := 3
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVerilog(new TopLevel())
     print("done")
   }
 }

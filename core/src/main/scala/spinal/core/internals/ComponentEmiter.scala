@@ -62,6 +62,7 @@ abstract class ComponentEmiter {
   val processes  = mutable.LinkedHashSet[AsyncProcess]()
   val analogs    = ArrayBuffer[BaseType]()
   val mems       = ArrayBuffer[Mem[_]]()
+  val multiplexersPerSelect = mutable.LinkedHashMap[(Expression with WidthProvider,Int), ArrayBuffer[Multiplexer]]()
 
   val expressionToWrap   = mutable.LinkedHashSet[Expression]()
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
@@ -277,6 +278,8 @@ abstract class ComponentEmiter {
       }
     }
 
+
+
     //Manage subcomponents input bindings
     for(sub <- component.children){
       for(io <- sub.getOrdredNodeIo if io.isInput){
@@ -290,6 +293,15 @@ abstract class ComponentEmiter {
         }
       }
     }
+
+    //Fill multiplexersPerSelect
+    component.dslBody.walkStatements(s => {
+      s.walkDrivingExpressions{
+        case e : Multiplexer =>
+          multiplexersPerSelect.getOrElseUpdate((e.select, e.inputs.length), new ArrayBuffer[Multiplexer]) += e
+        case _ =>
+      }
+    })
 
     //Get all component outputs which are read internaly
     //And also fill some expressionToWrap from switch(xx)
@@ -329,5 +341,58 @@ abstract class ComponentEmiter {
       check(cd.clockEnable)
     })
 
+  }
+
+  def cutLongExpressions(): Unit ={
+
+    //Avoid too deep expressions generation
+    component.dslBody.walkStatements{
+      case s : AssignmentStatement => {
+
+        def filterMux(that : Multiplexer): Unit ={
+          that.foreachDrivingExpression {
+            case subExpression : Multiplexer => filterMux(subExpression)
+            case subExpression => walk(subExpression)
+          }
+        }
+
+        def walk(root : ExpressionContainer): Unit = {
+          var size = 0
+          val maximalDepth = 32
+          var oldDeepBuffer, newDeepBuffer = ArrayBuffer[Expression]()
+          root.foreachDrivingExpression{
+            case subExpression : Multiplexer => filterMux(subExpression)
+            case subExpression => oldDeepBuffer += subExpression
+          }
+          while (oldDeepBuffer.nonEmpty) {
+            newDeepBuffer.clear()
+            size += oldDeepBuffer.length
+            if (size >= maximalDepth) {
+              size = 0
+              expressionToWrap ++= oldDeepBuffer
+            }
+
+            oldDeepBuffer.foreach { expression =>
+              expression.foreachDrivingExpression { subExpression =>
+                if (!expressionToWrap.contains(subExpression)) {
+                  subExpression match{
+                    case subExpression : Multiplexer => filterMux(subExpression)
+                    case _ => newDeepBuffer += subExpression
+                  }
+                } else if(!subExpression.isInstanceOf[DeclarationStatement]){
+                  walk(subExpression)
+                }
+              }
+            }
+            val tmp = newDeepBuffer
+            newDeepBuffer = oldDeepBuffer
+            oldDeepBuffer = tmp
+          }
+        }
+
+        walk(s)
+      }
+      case _ =>
+    }
   }
 }

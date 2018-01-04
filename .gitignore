@@ -45,3 +45,6 @@ log.txt
 
 /tester/**/*.gtkw
 *.do
+
+simWorkspace/
+tmp/

@@ -690,7 +690,7 @@ object StreamFifoCC{
   def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
-class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T, val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
@@ -702,7 +702,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
   }
 
   val ptrWidth = log2Up(depth) + 1
-  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
+  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
   val ram = Mem(dataType, depth)

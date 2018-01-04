@@ -44,3 +44,13 @@ class SerialPortByteStreamHal(portName: String, baudrate: Int, stopType: Int, pa
 
   override def getTxStream : OutputStream = out
 }
+
+
+object SerialPortTest{
+  def main(args: Array[String]): Unit = {
+    val portsId = CommPortIdentifier.getPortIdentifiers
+    while(portsId.hasMoreElements){
+      println(portsId.nextElement().getName)
+    }
+  }
+}

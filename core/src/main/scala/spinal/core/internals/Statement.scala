@@ -527,7 +527,7 @@ object AssertStatementHelper{
 }
 
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity) extends LeafStatement with ContextUser {
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity) extends LeafStatement {
   var clockDomain = globalData.dslClockDomain.head
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {

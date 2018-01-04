@@ -98,6 +98,7 @@ object weakCloneOf {
  */
 object widthOf {
   def apply[T <: Data](that: T): Int = that.getBitsWidth
+  def apply(maskedLiteral: MaskedLiteral) : Int = maskedLiteral.getWidth()
 }
 
 
@@ -197,9 +198,12 @@ object SpinalMap {
 /**
   * Sel operation
   */
+@deprecated("Use Select instead")
 object Sel{
+  @deprecated("Use Select instead")
   def apply[T <: Data](default: T, mappings: (Bool, T)*):T = seq(default,mappings)
 
+  @deprecated("Use Select instead")
   def seq[T <: Data](default: T, mappings: Seq[(Bool, T)]): T = {
     val result = cloneOf(default)
     result := default
@@ -212,7 +216,6 @@ object Sel{
   }
 }
 
-//TODO sel and select are redundant ???
 //TODO DOC
 object Select{
   def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default, mappings)
@@ -220,37 +223,19 @@ object Select{
   def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
 
   def list[ T <: Data](defaultValue: T, mappings: Seq[(Bool, T)]): T = {
-    val result: T = cloneOf(defaultValue)
-
-    var ptr: WhenContext = null
-
-    mappings.foreach{
-      case (cond, that) =>
-        if(ptr == null){
-          ptr = when(cond){
-            result := that
-          }
-        }else{
-          ptr = ptr.elsewhen(cond){
-            result := that
-          }
-        }
-    }
-
-    if(ptr == null){
-      result := defaultValue
-    }else{
-      ptr.otherwise{
-        result := defaultValue
+    val result = cloneOf(defaultValue)
+    result := defaultValue
+    for((cond, value) <- mappings.reverseIterator){
+      when(cond){
+        result := value
       }
     }
-
     result
   }
 
   def list[T <: Data](mappings: Seq[(Any, T)]): T = {
     val defaultValue = mappings.find(_._1 == default)
-    if(defaultValue.isEmpty) new Exception("No default element in SpinalMap (default -> xxx)")
+    if(defaultValue.isEmpty) new Exception("MISSING DEFAULT in Select. Select(default -> xxx, ...)")
     val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
     list(defaultValue.get._2, filterd)
   }
@@ -369,7 +354,7 @@ class SafeStack[T] {
 object SpinalExit {
   def apply(message: String = "") = throw new SpinalExit(s"\n $message")
 
-  val errorsMessagesSeparator     = s"${"*" * 120} \n ${"*" * 120}"
+  val errorsMessagesSeparator     = s"${"*" * 80}\n${"*" * 80}"
 }
 
 

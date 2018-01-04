@@ -83,7 +83,7 @@ object Debug {
 
     when(U(3, 4 bit) < U(5, 7 bit)) {
       io.outs(4) := False
-    }.otherwise {
+    }otherwise {
       io.outs(4) := True
     }
 

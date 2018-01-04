@@ -91,6 +91,10 @@ abstract class MultiData extends Data {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
 
+  override def flattenForeach(body: (BaseType) => Unit): Unit = {
+    elements.foreach(_._2.flattenForeach(body))
+  }
+
   override def flattenLocalName: Seq[String] = {
     val result = ArrayBuffer[String]()
     for((localName,e) <- elements){

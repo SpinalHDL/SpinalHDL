@@ -313,13 +313,13 @@ object PlayBetterError {
     //Case 3
 //    when(cond){
 //      result := c
-//    }.elsewhen(cond){
+//    }elsewhen(cond){
 //      when(cond){
 //        result := a
 //      }otherwise{
 //        result := e
 //      }
-//    }.otherwise{
+//    }otherwise{
 //      result := f
 //    }
 
@@ -617,7 +617,7 @@ object Play7 {
   def grayCounter(n: Int, enable: Bool): UInt = {
     val gray = RegInit(U(0, n bit))
     var even = RegInit(True)
-    val word = Cat(True, gray(n - 3, 0), even)
+    val word = Cat(True, gray(n - 3 downto  0), even)
     when(enable) {
       var found = False
       for (i <- 0 until n) {
@@ -1094,13 +1094,13 @@ object PlayIf {
     result := 1
     when(a > 2) {
       result := 2
-    }.elsewhen(a > 3) {
+    } elsewhen(a > 3) {
       result(0) := True
       when(a > 50) {
         result := 5
       }
       result(2) := False
-    }.otherwise {
+    } otherwise {
       result := 4
     }
     /*
@@ -1442,7 +1442,7 @@ object PlayDivide {
         waitRsp := False
       }
 
-    }.otherwise{
+    }otherwise{
       counter.increment()
       remainder := remainderShifted.resized
       numerator := (numerator ## !remainderMinusDenominator.msb).asUInt.resized
@@ -1566,16 +1566,13 @@ object PlaySimplif {
     val input = in Bits (32 bit)
     val output = out Bits(2 bit)
 
-
     when(input === M"00001111----------------0000----"){
       output := 0
-    }.elsewhen(input === M"00001111----------------0001----"){
+    }elsewhen(input === M"00001111----------------0001----"){
       output := 1
-    }
-      .elsewhen(input === M"00001111----------------0010----"){
+    }elsewhen(input === M"00001111----------------0010----"){
       output := 2
-    }
-      .elsewhen(input === M"00001111----------------0011----"){
+    }elsewhen(input === M"00001111----------------0011----"){
       output := 3
     }otherwise{
       output.assignDontCare()
@@ -2452,8 +2449,8 @@ object PlayMaskAssign {
   class TopLevel extends Component {
     val input = in(UInt(4 bit))
     val output = out(UInt(4 bit))
-    output(3, 2) := input(1, 0)
-    output(1, 0) := input(3, 2)
+    output(3 downto 2) := input(1 downto 0)
+    output(1 downto 0) := input(3 downto 2)
   }
 
   def main(args: Array[String]) {

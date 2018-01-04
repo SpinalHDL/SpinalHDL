@@ -5,14 +5,18 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryConfig}
+import spinal.lib.bus.misc._
+import spinal.lib.bus.simple._
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
+import spinal.lib.fsm._
+
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -1135,6 +1139,7 @@ object PlayWithBusSlaveFacotry{
     io.toto := regToto
 
     val cnt = Reg(UInt(32 bits)) init(0)
+    factory.onWrite(0x10){ cnt := cnt + 1 }
     io.cnt := cnt
 
     factory.readStreamNonBlocking(io.myStream, 0x0l)
@@ -1245,3 +1250,200 @@ object PlayNetlistFileName{
   }
 }
 
+
+
+object PlayStateMachineDelay{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val a = in Bool
+      val c = out Bool
+    }
+
+    io.c := False
+
+    val fsm = new StateMachine{
+      val sIdle: State = new State with EntryPoint {
+        whenIsActive{
+          when(io.a){
+            goto(sIdle)
+          }
+        }
+      }
+      val sWait: State = new StateDelay(10 us){
+        whenCompleted{
+          io.c := True
+          goto(sIdle)
+        }
+      }
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(
+      mode = VHDL,
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
+    ).generate(new TopLevel)
+  }
+}
+
+
+object PlayWithBlackBoxPath{
+
+  class MyBlackBox extends BlackBox{
+    val io = new Bundle{
+      val clk   = in Bool
+      val rstn  = in Bool
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+    }
+
+    addRTLPath("./Pinsec.v")
+    addRTLPath("./OperatorTester.vhd")
+    addRTLPath("./StreamTester2.v")
+
+
+    mapCurrentClockDomain(io.clk, io.rstn)
+  }
+
+  class MyBlackBox2 extends BlackBox {
+    val io = new Bundle {
+      val din  = in UInt(32 bits)
+      val dout = out UInt(32 bits)
+    }
+
+    addRTLPath("./Pinsec.v")
+    addRTLPath("./OperatorTestessr.vhd")
+    addRTLPath("./OperatorTestessr.vhdas")
+
+  }
+
+  class EssaiBlackBox extends Component{
+    val io = new Bundle{
+      val store = in Bool
+      val din   = in Bits(32 bits)
+      val dout  = out Bits(32 bits)
+      val dout2 = out UInt(32 bits)
+    }
+
+    val bb = new MyBlackBox()
+    bb.io.store := io.store
+    bb.io.din   := io.din
+    io.dout     := bb.io.dout
+
+    val bb1 = new MyBlackBox2()
+    io.dout2   := bb1.io.dout
+    bb1.io.din := io.din.asUInt
+
+  }
+
+  def main(args: Array[String]) {
+    val report = SpinalConfig(
+      mode = VHDL
+    ).generate(new EssaiBlackBox)
+
+    report.mergeRTLSource("merge")
+  }
+}
+
+
+object PlayWithBlackBoxStdLogic{
+
+  object State extends SpinalEnum{
+    val IDLE, STATE1, STATE2, STATE3 = newElement()
+  }
+
+  object State1 extends SpinalEnum{
+    val IDLE, DONE = newElement()
+  }
+
+  object BR extends SpinalEnum{
+    val NE, EQ, J, JR = newElement()
+    defaultEncoding = SpinalEnumEncoding("opt")(
+      EQ -> 0,
+      NE -> 1,
+      J  -> 2,
+      JR -> 3 )
+  }
+
+
+  class MyBlackBox extends BlackBox{
+    val io = new Bundle{
+      val clk   = in Bool
+      val rstn  = in Bool
+      val bin1  = in Bits(32 bits)
+      val uin2  = in UInt(32 bits)
+      val sin3  = in SInt(32 bits)
+      val bin4  = in Bits(32 bits)
+      val ein5  = in(State())
+      val ein6  = in(State1())
+      val ein7  = in(BR())
+      val uout1 = out UInt(32 bits)
+      val sout2 = out SInt(32 bits)
+      val bout3 = out Bits(32 bits)
+      val bout4 = out Bits(32 bits)
+      val eout5 = out(State())
+      val eout6 = out(State1())
+      val eout7 = out(BR())
+      //      val dinOut1 = inout(Analog(Bits(32 bits)))
+      //      val dinOut2 = inout(Analog(UInt(32 bits)))
+      //      val dinOut3 = inout(Analog(SInt(32 bits)))
+    }
+
+    //addTag(noNumericType)
+
+    mapCurrentClockDomain(io.clk, io.rstn)
+  }
+
+
+  class FakeComponent extends Component{
+    val io = new Bundle{
+      val bin1  = in Bits(32 bits)
+      val uin2  = in UInt(32 bits)
+      val sin3  = in SInt(32 bits)
+      val uin4  = in UInt(32 bits)
+      val ein5  = in(State())
+      val ein6  = in(State1())
+      val ein7  = in(BR())
+      val uout1 = out UInt(32 bits)
+      val sout2 = out SInt(32 bits)
+      val bout3 = out Bits(32 bits)
+      val sout4 = out SInt(32 bits)
+      val eout5 = out(State())
+      val eout6 = out(State1())
+      val eout7 = out(BR())
+      //      val dinOut1 = inout(Analog(Bits(32 bits)))
+      //      val dinOut2 = inout(Analog(UInt(32 bits)))
+      //      val dinOut3 = inout(Analog(SInt(32 bits)))
+    }
+
+    val bb = new MyBlackBox()
+    bb.io.bin1 := io.bin1
+    bb.io.uin2 := io.uin2
+    bb.io.sin3 := io.sin3
+    bb.io.bin4 := io.uin4.asBits
+    bb.io.ein5 := io.ein5
+    bb.io.ein6 := io.ein6
+    bb.io.ein7 := io.ein7
+    io.uout1   := bb.io.uout1
+    io.sout2   := bb.io.sout2
+    io.bout3   := bb.io.bout3
+    io.sout4   := bb.io.bout4.asSInt
+    io.eout5   := bb.io.eout5
+    io.eout6   := bb.io.eout6
+    io.eout7   := bb.io.eout7
+
+    //    io.dinOut1 <> bb.io.dinOut1
+    //    io.dinOut2 <> bb.io.dinOut2
+    //    io.dinOut3 <> bb.io.dinOut3
+  }
+
+  def main(args: Array[String]) {
+    val report = SpinalConfig(
+      mode = VHDL
+    ).generate(new FakeComponent)
+
+  }
+}

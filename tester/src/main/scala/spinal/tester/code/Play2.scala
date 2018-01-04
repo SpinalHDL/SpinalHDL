@@ -184,6 +184,7 @@ object PlayBlackBox3 {
     }
 
     mapClockDomain(clock=io.clk)
+    replaceStdLogicByStdULogic()
   }
 
   class TopLevel extends Component {
@@ -196,7 +197,7 @@ object PlayBlackBox3 {
       val rd = new Bundle {
         val en = in Bool
         val addr = in UInt (log2Up(16) bit)
-//        val data = out Bits (8 bit)
+        val data = out Bits (8 bit)
       }
     }
     val ram_1w_1r = new Ram_1w_1r(8,16)
@@ -206,7 +207,7 @@ object PlayBlackBox3 {
     io.wr.data <> ram_1w_1r.io.wr.data
     io.rd.en   <> ram_1w_1r.io.rd.en
     io.rd.addr <> ram_1w_1r.io.rd.addr
-//    io.rd.data <> ram_1w_1r.io.rd.data
+    io.rd.data <> ram_1w_1r.io.rd.data
 
 
   }
@@ -913,7 +914,7 @@ object Play65{
 
     when(sel(3)){
       result := 5
-    }.elsewhen(sel(4)){
+    }elsewhen(sel(4)){
       result := 6
     }
 
@@ -924,7 +925,7 @@ object Play65{
       result2 := 1
       when(sel(1)){
         result := 2
-      }.elsewhen(sel(2)){
+      }elsewhen(sel(2)){
         result := 4
         result2 := 3
       }
@@ -1766,29 +1767,6 @@ object PlayMask{
 }
 
 
-
-object PlayWhenSyntax{
-
-
-  def main(args: Array[String]) {
-    class When{
-      def otherwise = new Otherwise
-    }
-    class Otherwise{
-      def  when(cond : Boolean)(block : => Unit) = new When
-    }
-
-    def when(cond : Boolean)(block : => Unit) = new When
-
-    when(true){
-
-    }.otherwise.when(false){
-
-    }
-  }
-}
-
-
 object PlayPwm{
 
   object PWMMode extends SpinalEnum {
@@ -2085,7 +2063,7 @@ object Play1adasd {
         e := f
       }
       b := f
-    }.elsewhen(a) {
+    }elsewhen(a) {
       val x = Bool()
       x := a || b
       i := g || x
@@ -2967,38 +2945,6 @@ object Debug425{
 
 
 
-
-object PlayEnumEncoding{
-  object EncodingA extends SpinalEnumEncoding{
-    def getWidth(enum: SpinalEnum): Int = log2Up(this.getValue(enum.elements.last) + 1)
-    def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position //element.position*element.position
-    def isNative: Boolean = false
-  }
-  object EncodingB extends SpinalEnumEncoding {
-    def getWidth(enum: SpinalEnum): Int = log2Up(this.getValue(enum.elements.last) + 1)
-    def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
-    //element.position*element.position
-    def isNative: Boolean = false
-  }
-
-  val EncodingC = SpinalEnumEncoding("Yolo",_ * 2 + 1)
-
-  object State extends SpinalEnum(EncodingA){
-    val A,B,C,D,E,F = newElement()
-  }
-
-  class TopLevel extends Component{
-    for(state <- State.elements){
-      out(state()).setName("s" + state.position)
-      out(state(EncodingB)).setName("sx" + state.position)
-      out(state(EncodingC)).setName("sy" + state.position)
-    }
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
-  }
-}
 
 object PlayMuxDyn{
 

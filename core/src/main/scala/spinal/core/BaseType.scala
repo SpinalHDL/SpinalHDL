@@ -22,6 +22,8 @@ package spinal.core
 
 import spinal.core.internals._
 
+import scala.collection.mutable.ArrayBuffer
+
 trait TypeFactory{
   def postTypeFactory[T <: Data](that: T) = that
 }
@@ -115,7 +117,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
   /** Remove all assignements of the base type */
-  def removeAssignments(): this.type = {
+  override def removeAssignments(): this.type = {
     foreachStatements(s => {
       s.removeStatement()
     })
@@ -191,13 +193,16 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   override def removeStatement(): Unit = {
-    if(!isDirectionLess) component.ioSet.remove(this)
+    if(!isDirectionLess)
+      component.ioSet.remove(this)
     super.removeStatement()
   }
 
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   override def flatten: Seq[BaseType] = Seq(this)
+
+  override def flattenForeach(body: (BaseType) => Unit): Unit = body(this)
 
   override def flattenLocalName: Seq[String] = Seq("")
 
@@ -210,16 +215,32 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     res
   }
 
+
+  private[core] def newMultiplexerExpression() : Multiplexer
   /** Base fucntion to create mux */
-  private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer
+  private[core] def newMultiplexer[T <: Expression](select: UInt, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
+
 
   /** Create a multiplexer */
-  final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
+  final private[core] def newMultiplexer[T <: Expression](select: Expression with WidthProvider, inputs : ArrayBuffer[T], mux: Multiplexer): Multiplexer = {
+    mux.select    = select
+    mux.inputs  = inputs.asInstanceOf[ArrayBuffer[mux.T]]
+    mux
+  }
+
+  private[core] def newBinaryMultiplexerExpression() : BinaryMultiplexer
+  /** Base fucntion to create mux */
+  private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): BinaryMultiplexer = newMultiplexer(sel,whenTrue, whenFalse, newBinaryMultiplexerExpression())
+
+  /** Create a multiplexer */
+  final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: BinaryMultiplexer): BinaryMultiplexer = {
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]
     mux
   }
+
+
 
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
     val typeNode = weakClone.setAsTypeNode()

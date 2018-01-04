@@ -61,7 +61,7 @@ object ConditionalContext {
   * @example {{{
   *     when(cond1){
   *       myCnt := 0
-  *     }.elsewhen(cond2){
+  *     }elsewhen(cond2){
   *       myCnt := myCnt + 1
   *     }otherwise{
   *       myCnt := myCnt - 1
@@ -87,6 +87,11 @@ object when {
   }
 }
 
+class ElseWhenClause(val cond : Bool, _block: => Unit){
+  def unary_! : ElseWhenClause = new ElseWhenClause(!cond, _block)
+  def block = _block
+}
+
 
 /**
   * else / else if  statement
@@ -101,7 +106,10 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
     whenStatement.whenFalse.pop()
   }
 
-  def elsewhen(cond: Bool)(block: => Unit): WhenContext = {
+  def elsewhen(clause : ElseWhenClause) : WhenContext = protElsewhen(clause.cond)(clause.block)
+//  @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
+  def elsewhen(cond: Bool)(block: => Unit): WhenContext = protElsewhen(cond)(block)
+  protected def protElsewhen(cond: Bool)(block: => Unit): WhenContext = {
     var newWhenContext: WhenContext = null
     otherwise {
       newWhenContext = when(cond)(block)

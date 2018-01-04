@@ -206,7 +206,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val dataReadRsp = data.readSync(dataReadCmd)
   })
 
-  val dataReadedValue = Vec(id => RegNext(ways(id).dataReadRsp),ways.length)
+  val dataReadedValue = Vec.tabulate(ways.length)(id => RegNext(ways(id).dataReadRsp))
 
 
 

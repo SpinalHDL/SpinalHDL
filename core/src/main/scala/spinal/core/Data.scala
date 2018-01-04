@@ -272,7 +272,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       case `in`    => dir = out
       case `out`   => dir = in
       case `inout` =>
-      case _       => SpinalError(s"Can't flip a data that is direction less $this")
+      case _       => PendingError(s"Can't flip a data that is direction less $this")
     }
     this
   }
@@ -302,7 +302,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
-
+  def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
   /** Pull a signal to the top level (use for debugging) */
   def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
 
@@ -318,6 +318,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
+    this
+  }
+
+  def removeAssignments(): this.type = {
+    flatten.foreach(_.removeStatement())
     this
   }
 

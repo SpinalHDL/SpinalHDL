@@ -533,7 +533,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
 
     when(iCmd.fire){
       inc := True
-    }.elsewhen(pcLoad.valid){
+    }elsewhen(pcLoad.valid){
       inc := False
     }
   }

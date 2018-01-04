@@ -142,6 +142,7 @@ class GlobalData {
   val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
+  val scalaLocatedInterrests = mutable.HashSet[Class[_]]()
   var instanceCounter    = 0
   val pendingErrors      = mutable.ArrayBuffer[() => String]()
   val postBackendTask    = mutable.ArrayBuffer[() => Unit]()
@@ -184,12 +185,20 @@ trait GlobalDataUser {
 }
 
 
-trait ContextUser extends GlobalDataUser {
-  var parentScope = globalData.currentScope
+trait ContextUser extends GlobalDataUser with ScalaLocated{
+  var parentScope = if(globalData != null) globalData.currentScope else null
+
+
+  override def getScalaTrace() = {
+    if(!globalData.scalaLocatedEnable) {
+      globalData.scalaLocatedInterrests += component.getClass
+    }
+    super.getScalaTrace()
+  }
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
-  private[core] var instanceCounter = globalData.getInstanceCounter
+  private[core] var instanceCounter = if(globalData != null) globalData.getInstanceCounter else -1
 
   def getInstanceCounter = instanceCounter
 
@@ -450,15 +459,22 @@ object ScalaLocated {
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private[core] var scalaTrace = if(globalData != null && !globalData.scalaLocatedEnable) null else new Throwable()
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedInterrests.contains(globalData.currentScope.component.getClass))) {
+    null
+  } else {
+    new Throwable()
+  }
 
   def setScalaLocated(source: ScalaLocated): this.type = {
     scalaTrace = source.scalaTrace
     this
   }
 
-  def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
-  def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)
+  def getScalaTrace(): Throwable = scalaTrace
+
+
+  def getScalaLocationLong: String = ScalaLocated.long(getScalaTrace())
+  def getScalaLocationShort: String = ScalaLocated.short(getScalaTrace())
 }
 
 
@@ -661,5 +677,5 @@ trait BitwiseOp[T <: Data]{
   def ^(right: T): T
 
   /** Inverse bitwise operator */
-  def unary_~(): T
+  def unary_~ : T
 }

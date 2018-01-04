@@ -25,13 +25,16 @@ import spinal.core._
 import scala.collection.mutable
 
 
-class PhaseVerilog(pc: PhaseContext) extends PhaseMisc with VerilogBase {
+class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
   import pc._
 
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
+    val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName)
+    report.generatedSourcesPaths += targetPath
+    report.toplevelName = pc.topLevel.definitionName
+    outFile = new java.io.FileWriter(targetPath)
     outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
 
     if(pc.config.dumpWave != null) {

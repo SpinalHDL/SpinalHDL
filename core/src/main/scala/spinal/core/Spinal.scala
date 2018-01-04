@@ -20,14 +20,22 @@
 \*                                                                           */
 package spinal.core
 
+
+import java.io.{File, FileWriter, BufferedWriter}
+
 import spinal.core.internals._
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.io.Source
+import scala.util.matching.Regex
 
+
+//TODO
+// undefined
 
 trait SpinalMode
 object VHDL    extends SpinalMode
@@ -35,6 +43,7 @@ object Verilog extends SpinalMode
 
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
+
 
 
 /**
@@ -97,7 +106,8 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
  */
 case class SpinalConfig(
   mode                           : SpinalMode = null,
-  debug                          : Boolean = false,
+  @deprecated debug              : Boolean = false,
+  debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
   keepAll                        : Boolean = false,
   defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
@@ -110,21 +120,27 @@ case class SpinalConfig(
   anonymSignalPrefix             : String = null,
   device                         : Device = Device(),
   genVhdlPkg                     : Boolean = true,
+  verbose                        : Boolean = false,
   mergeAsyncProcess              : Boolean = true,
   asyncResetCombSensitivity      : Boolean = false,
   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
   transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+  memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
 ){
 
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
 
-  def apply[T <: Component](gen : => T): SpinalReport[T] = Spinal(this)(gen)
+  def apply[T <: Component](gen : => T): SpinalReport[T] = {
+    if(memBlackBoxers.isEmpty)
+      addStandardMemBlackboxing(blackboxOnlyIfRequested)
+    Spinal(this)(gen)
+  }
 
   def applyToGlobalData(globalData: GlobalData): Unit = {
-    globalData.scalaLocatedEnable = debug
+    globalData.scalaLocatedEnable = debugComponents.nonEmpty
+    globalData.scalaLocatedInterrests ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
   }
 
@@ -134,6 +150,9 @@ case class SpinalConfig(
     transformationPhases += phase
     this
   }
+
+
+
 
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
@@ -148,7 +167,6 @@ object SpinalConfig{
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
       opt[Unit]("vhdl")                   action { (_, c) => c.copy(mode = VHDL)         } text("Select the VHDL mode")
       opt[Unit]("verilog")                action { (_, c) => c.copy(mode = Verilog)      } text("Select the Verilog mode")
-      opt[Unit]('d', "debug")             action { (_, c) => c.copy(debug = true)        } text("Enter in debug mode directly")
       opt[String]('o', "targetDirectory") action { (v, c) => c.copy(targetDirectory = v) } text("Set the target directory")
     }
 
@@ -163,10 +181,18 @@ object SpinalConfig{
 /**
  * Spinal report give after the generation of the RTL
  */
-class SpinalReport[T <: Component](val toplevel: T) {
+class SpinalReport[T <: Component]() {
+  var toplevel: T     = null.asInstanceOf[T]
   val prunedSignals   = mutable.Set[BaseType]()
   val unusedSignals   = mutable.Set[BaseType]()
   var counterRegister = 0
+  var toplevelName: String = null
+
+
+  val generatedSourcesPaths  = mutable.LinkedHashSet[String]()
+  val blackboxesSourcesPaths = mutable.LinkedHashSet[String]()
+  def rtlSourcesPaths        = generatedSourcesPaths ++ blackboxesSourcesPaths
+
 
   def printUnused() : this.type = {
     unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
@@ -182,6 +208,47 @@ class SpinalReport[T <: Component](val toplevel: T) {
     prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
     this
   }
+
+
+  def mergeRTLSource(fileName: String = null): Unit = {
+
+    val bb_vhdl    = new mutable.LinkedHashSet[String]()
+    val bb_verilog = new mutable.LinkedHashSet[String]()
+
+    /** Split verilog/vhdl path */
+    blackboxesSourcesPaths.foreach{ path =>
+      val vhdl_regex    = """.*\.(vhdl|vhd)""".r
+      val verilog_regex = """.*\.(v)""".r
+
+      path.toLowerCase match {
+        case vhdl_regex(f)    => bb_vhdl    += path
+        case verilog_regex(f) => bb_verilog += path
+        case _                => SpinalWarning(s"Merging blackbox sources : Extension file not supported (${path})")
+      }
+    }
+
+
+    /** Merge a list of path into one file */
+    def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
+      val bw = new BufferedWriter(new FileWriter(new File(fileName)))
+
+      listPath.foreach{ path =>
+        if( new File(path).exists ) {
+          Source.fromFile(path).getLines.foreach{ line => bw.write(line + "\n") }
+        }else{
+          SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
+        }
+      }
+
+      bw.close()
+    }
+
+    // Merge vhdl/verilog file
+    val nameFile = if(fileName == null) s"${toplevel.definitionName}_bb" else fileName
+    if(bb_vhdl.size > 0)   { mergeFile(bb_vhdl,    s"${nameFile}.vhd") }
+    if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
+
+  }
 }
 
 
@@ -189,6 +256,7 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+    val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
@@ -206,9 +274,9 @@ object Spinal{
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
 
-    val report = config.mode match {
-      case `VHDL`    => SpinalVhdlBoot(config)(gen)
-      case `Verilog` => SpinalVerilogBoot(config)(gen)
+    val report = configPatched.mode match {
+      case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
+      case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")

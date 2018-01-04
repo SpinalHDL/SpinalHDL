@@ -49,7 +49,8 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
       case (range: Range, _) =>
         hig = Math.max(hig, range.high)
       case (`default`, _) =>
-        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \nBut you can use it in the following case : myBits := (???,default -> ???, ???)\n${ScalaLocated.long}")
+        val trace = ScalaLocated.long
+        GlobalData.get.pendingErrors += (() => s"UNSUPPORTED DEFAULT. You can't use the default statement to create a literal without explicitly specifying how long this literal should be. Example : U(10 bits, 4 -> false, default -> true)\n$trace")
       case _ =>
     }
 

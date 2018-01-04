@@ -85,14 +85,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
-  override def unary_~(): SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+  override def unary_~ : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
 
   /**
     * Negative number
     * @example{{{ val result = -mySInt }}}
     * @return return a negative number
     */
-  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
+  def unary_- : SInt = wrapUnaryOperator(new Operator.SInt.Minus)
 
   /**
     * Logical shift Right (output width == input width)
@@ -151,7 +151,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi downto lo).assignFromBits(bits)
 
   /**
     * Cast a SInt into an UInt
@@ -174,7 +174,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+  private[core] override def newMultiplexerExpression() = new MultiplexerSInt
+  private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerSInt
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node   = new ResizeSInt

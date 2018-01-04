@@ -166,7 +166,7 @@ object GrayCounter {
   def apply(width: Int, enable: Bool): UInt = {
     val gray = RegInit(U(0, width bit))
     val even = RegInit(True)
-    val word = Cat(True, gray(width - 3, 0), even)
+    val word = Cat(True, gray(width - 3 downto  0), even)
     when(enable) {
       var found = False
       for (i <- 0 until width) {
@@ -419,7 +419,7 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
   val finalIncrement = UInt(log2Up(stateCount) bit)
   when(incrementIt && !decrementIt){
     finalIncrement := 1
-  }.elsewhen(!incrementIt && decrementIt){
+  }elsewhen(!incrementIt && decrementIt){
     finalIncrement := finalIncrement.maxValue
   }otherwise{
     finalIncrement := 0
@@ -670,7 +670,7 @@ object DelayEvent {
       } otherwise {
         isDelaying := True
       }
-    }.elsewhen(isDelaying) {
+    }elsewhen(isDelaying) {
       when(counterMatch) {
         isDelaying := False
         ret := True

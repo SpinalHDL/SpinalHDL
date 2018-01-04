@@ -26,13 +26,16 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
+class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VhdlBase {
   import pc._
 
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName))
+    val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
+    report.generatedSourcesPaths += targetPath
+    report.toplevelName = pc.topLevel.definitionName
+    outFile = new java.io.FileWriter(targetPath)
     outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
     emitEnumPackage(outFile)
 
@@ -53,7 +56,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase {
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)

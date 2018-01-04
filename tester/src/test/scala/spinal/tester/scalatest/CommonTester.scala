@@ -46,7 +46,7 @@ object CommonTester {
           bitDemux(sel(0)) := conds(0)
           when(conds(1)){
             bitDemux(sel(1)) := conds(2)
-          }.elsewhen(conds(3)){
+          }elsewhen(conds(3)){
             bitDemux(sel(0)) := conds(4)
           }
           when(conds(5)){
@@ -68,12 +68,12 @@ object CommonTester {
     io.outAA.assignFromBits(io.inAABits)
     io.outAABits := io.inAA.asBits
 
-    io.complexLiteral(15,4) := 0x70
-    io.complexLiteral(15,12) := (U(2) + U(1)).resized
+    io.complexLiteral(15 downto 4) := 0x70
+    io.complexLiteral(15 downto 12) := (U(2) + U(1)).resized
     io.complexLiteral(6) := True
     io.complexLiteral(3) := True
     io.complexLiteral(5) := True
-    io.complexLiteral(3,0) := 2
+    io.complexLiteral(3 downto 0) := 2
     io.complexLiteral(13) := False
 
     def combAdderFunc(x : UInt,y : UInt) = {

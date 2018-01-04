@@ -20,9 +20,10 @@
 \*                                                                           */
 package spinal.core
 
+
 import spinal.core.internals._
 
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 
 
 /**
@@ -83,6 +84,11 @@ abstract class BlackBox extends Component{
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
 
+  val listRTLPath = new LinkedHashSet[String]()
+
+  /** Add the path of the rtl file */
+  def addRTLPath(path: String) = listRTLPath += path
+
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
     try {
@@ -135,11 +141,14 @@ abstract class BlackBox extends Component{
     this
   }
 
+  /** Return true if the blackbox used the tag noNumericType */
+  def isUsingNoNumericType = this.hasTag(noNumericType)
+
   /** Return true if the blackbox used std_ulogic */
   def isUsingULogic = this.hasTag(uLogic)
 
   /** Replace std_logic by std_ulogic */
-  def replaceStdLogicByStdULogic = this.addTag(uLogic)
+  def replaceStdLogicByStdULogic() = this.addTag(uLogic)
 }
 
 
@@ -155,5 +164,13 @@ abstract class BlackBoxULogic extends BlackBox {
   * Create a Ulogic tag used by Blackbox in order to transform std_logic into std_ulogic
   */
 object uLogic extends SpinalTag {
+  override def moveToSyncNode = false
+}
+
+
+/**
+  * Transform all unsigned/signed into std_logic_vector
+  */
+object noNumericType extends SpinalTag {
   override def moveToSyncNode = false
 }
