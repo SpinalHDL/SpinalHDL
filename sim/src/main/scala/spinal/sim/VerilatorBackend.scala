@@ -71,7 +71,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
 
 #include "V${config.toplevelName}.h"
 #include "verilated_vcd_c.h"
-
+#include "V${config.toplevelName}__Syms.h"
 class ISignalAccess{
 public:
   virtual ~ISignalAccess() {}
@@ -197,7 +197,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);

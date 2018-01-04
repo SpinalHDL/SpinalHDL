@@ -1,6 +1,6 @@
 package landa
 
-import spinal.core.sim._
+import spinal.core.sim.{SimBaseTypePimper, _}
 import spinal.core._
 import spinal.sim._
 
@@ -91,6 +91,64 @@ object Miaou5252 extends App{
       assert(dut.io.result.toInt == resultModel)
       resultModel = (dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF
       idx += 1
+    }
+  }
+}
+
+object SimSubPublic {
+  class SubSub extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a ^ io.b
+    val miaou = (io.a & io.b).addTag(Verilator.public)
+    io.a.addTag(Verilator.public)
+
+    val miaouVec = Vec(UInt(8 bits), 4).addTag(Verilator.public)
+    miaouVec := Vec(io.a,io.b,io.result,miaou)
+  }
+
+  class Sub extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+    val subSubInst = new SubSub
+    subSubInst.io.a <> io.a
+    subSubInst.io.b <> io.b
+    subSubInst.io.result <> io.result
+  }
+
+  class Dut extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    val subInst = new Sub
+    subInst.io.a <> io.a
+    subInst.io.b <> io.b
+    subInst.io.result <> io.result
+  }
+
+  def main(args: Array[String]): Unit = {
+    SimConfig.withWave.compile(new Dut).doSim{ dut =>
+//      dut.clockDomain.forkStimulus(period = 10)
+
+      Suspendable.repeat(1000) {
+        dut.io.a.randomize()
+        dut.io.b.randomize()
+        sleep(1)
+        assert(dut.io.result.toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaou.toInt == (dut.io.a.toInt & dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.io.a.toInt == (dut.io.a.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(0).toInt == (dut.io.a.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(1).toInt == (dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(2).toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(3).toInt == (dut.io.a.toInt & dut.io.b.toInt))
+      }
     }
   }
 }
