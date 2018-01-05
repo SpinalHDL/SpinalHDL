@@ -176,6 +176,71 @@ class ChecksTester extends FunSuite  {
     })
   }
 
+  test("checkClockCrossingCheckingCheckSourcesPaths") {
+    generationShouldPass(new Component{
+      val clock = in Bool
+      val clockA =  Bool
+      val clockB =  Bool
+
+      clockA := clock
+      val sub = new Component{
+        val cIn = in Bool()
+        val cOut = out Bool()
+
+        val tmp = Bool()
+        tmp := cIn
+        cOut := tmp
+      }
+
+      sub.cIn := clock
+      clockB := sub.cOut
+      val areaA = new ClockingArea(ClockDomain(clockA)){
+        val reg = Reg(Bool)
+        reg := in(Bool)
+      }
+
+      val areaB = new ClockingArea(ClockDomain(clockB)){
+        val reg = Reg(Bool)
+        reg := areaA.reg
+        val output = out Bool()
+        output := reg
+      }
+    })
+  }
+
+  test("checkClockCrossingCheckingCheckSourcesPathsFalure") {
+    generationShouldFaild(new Component{
+      val clock1 = in Bool
+      val clock2 = in Bool
+      val clockA =  Bool
+      val clockB =  Bool
+
+      clockA := clock1
+      val sub = new Component{
+        val cIn = in Bool()
+        val cOut = out Bool()
+
+        val tmp = Bool()
+        tmp := cIn
+        cOut := tmp
+      }
+
+      sub.cIn := clock2
+      clockB := sub.cOut
+      val areaA = new ClockingArea(ClockDomain(clockA)){
+        val reg = Reg(Bool)
+        reg := in(Bool)
+      }
+
+      val areaB = new ClockingArea(ClockDomain(clockB)){
+        val reg = Reg(Bool)
+        reg := areaA.reg
+        val output = out Bool()
+        output := reg
+      }
+    })
+  }
+
   test("checkNoInputAssignement") {
     generationShouldFaild(new Component{
       val input = in Bool()
