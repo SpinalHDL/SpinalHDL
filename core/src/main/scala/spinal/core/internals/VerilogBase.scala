@@ -70,7 +70,7 @@ trait VerilogBase extends VhdlVerilogBase{
 
     if(values.isEmpty) return ""
 
-    "/* " + values.reduce(_ + " , " + _) + " */ "
+    " /* " + values.reduce(_ + " , " + _) + " */ "
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {

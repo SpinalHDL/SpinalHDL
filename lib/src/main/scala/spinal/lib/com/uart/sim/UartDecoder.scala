@@ -6,6 +6,7 @@ import spinal.sim._
 
 object UartDecoder {
   def apply(uartPin : Bool, baudPeriod : Long) = fork{
+    sleep(1) //Wait boot signals propagation
     waitUntil(uartPin.toBoolean == true)
 
     while(true) {

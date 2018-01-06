@@ -2,8 +2,8 @@ package spinal.core.sim
 
 import java.io.File
 
-import spinal.core.internals.GraphUtils
-import spinal.core.{Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, UInt}
+import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
+import spinal.core.{BaseType, Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -33,18 +33,43 @@ object SpinalVerilatorBackend{
     vconfig.waveDepth = waveDepth
     vconfig.optimisationLevel = optimisationLevel
 
-    GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(_.algoInt = -1))
     var signalId = 0
-    for(io <- rtl.toplevel.getAllIo){
-      val signal = new Signal(List(io.getName()), io match {
-        case io : Bool => new BoolDataType
-        case io : Bits => new BitsDataType(io.getBitsWidth)
-        case io : UInt => new UIntDataType(io.getBitsWidth)
-        case io : SInt => new SIntDataType(io.getBitsWidth)
-        case io : SpinalEnumCraft[_] => new BitsDataType(io.getBitsWidth)
+    def addSignal(bt : BaseType): Unit ={
+      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName()  , bt match {
+        case bt : Bool => new BoolDataType
+        case bt : Bits => new BitsDataType(bt.getBitsWidth)
+        case bt : UInt => new UIntDataType(bt.getBitsWidth)
+        case bt : SInt => new SIntDataType(bt.getBitsWidth)
+        case bt : SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
       })
-      io.algoInt = signalId
-      io.algoIncrementale = -1
+      bt.algoInt = signalId
+      bt.algoIncrementale = -1
+      signal.id = signalId
+      vconfig.signals += signal
+      signalId += 1
+    }
+    GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(s => {
+      s match {
+        case bt : BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
+          addSignal(bt)
+        }
+        case _ =>{
+          s.algoInt = -1
+        }
+      }
+    }))
+
+    for(io <- rtl.toplevel.getAllIo){
+      val bt = io
+      val signal = new Signal(bt.getComponents().tail.map(_.getName()) :+ bt.getName()  , bt match {
+        case bt : Bool => new BoolDataType
+        case bt : Bits => new BitsDataType(bt.getBitsWidth)
+        case bt : UInt => new UIntDataType(bt.getBitsWidth)
+        case bt : SInt => new SIntDataType(bt.getBitsWidth)
+        case bt : SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+      })
+      bt.algoInt = signalId
+      bt.algoIncrementale = -1
       signal.id = signalId
       vconfig.signals += signal
       signalId += 1
@@ -67,7 +92,19 @@ object SpinalVerilatorSim{
   }
 }
 
+object SimPublic extends SpinalTag
 
+class SwapTagPhase(oldOne : SpinalTag, newOne : SpinalTag) extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations{
+      case x : SpinalTagReady if(x.hasTag(oldOne)) =>  {
+        x.removeTag(oldOne)
+        x.addTag(newOne)
+      }
+      case _ =>
+    }
+  }
+}
 
 class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
   val testNameMap = mutable.HashMap[String, Int]()
@@ -224,7 +261,7 @@ case class SpinalSimConfig(var _withWave: Boolean = false,
     val uniqueId = SimWorkspace.allocateUniqueId()
     s"mkdir -p tmp".!
     s"mkdir -p tmp/job_$uniqueId".!
-    val report = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").generateVerilog(rtl)
+    val report = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public)).generateVerilog(rtl)
     compile[T](report)
   }
 

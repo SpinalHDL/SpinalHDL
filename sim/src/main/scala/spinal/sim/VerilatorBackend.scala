@@ -71,7 +71,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
 
 #include "V${config.toplevelName}.h"
 #include "verilated_vcd_c.h"
-
+#include "V${config.toplevelName}__Syms.h"
 class ISignalAccess{
 public:
   virtual ~ISignalAccess() {}
@@ -197,7 +197,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}top.${signal.path.mkString(".")}${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);
@@ -325,12 +325,16 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
+
+//    --output-split-cfuncs 200
+//    --output-split-ctrace 200
     val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
+       | --output-split 4000
        | -Wno-WIDTH -Wno-UNOPTFLAT
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
@@ -346,7 +350,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
     genWrapperCpp()
 
-    assert(s"make -j2 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
     assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}".! (new Logger()) == 0, "Verilator backend flow faild")
   }
 

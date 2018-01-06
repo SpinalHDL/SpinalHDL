@@ -1,0 +1,75 @@
+package spinal.tester.scalatest
+
+import org.scalatest.{FlatSpec, FunSuite}
+import spinal.core._
+import spinal.core.sim._
+import spinal.sim._
+
+object SpinalSimAccessSubComponents {
+  class SubSub extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a ^ io.b
+    val miaou = (io.a & io.b)
+
+    val miaouVec = Vec(UInt(8 bits), 4)
+    miaouVec := Vec(io.a,io.b,io.result,miaou)
+  }
+
+  class Sub extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+    val subSubInst = new SubSub
+    subSubInst.io.a <> io.a
+    subSubInst.io.b <> io.b
+    subSubInst.io.result <> io.result
+  }
+
+  class Dut extends Component {
+    val io = new Bundle {
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    val subInst = new Sub
+    subInst.io.a <> io.a
+    subInst.io.b <> io.b
+    subInst.io.result <> io.result
+  }
+
+}
+
+class SpinalSimAccessSubComponents extends FunSuite{
+  var compiled : SimCompiled[SpinalSimAccessSubComponents.Dut] = null
+  test("compile"){
+    compiled = SimConfig.withWave.compile{
+      val dut = new SpinalSimAccessSubComponents.Dut
+      dut.subInst.subSubInst.miaouVec.simPublic()
+      dut.subInst.subSubInst.io.a.simPublic()
+      dut.subInst.subSubInst.miaou.simPublic()
+      dut
+    }
+  }
+
+  test("simulate"){
+    compiled.doSim{ dut =>
+      Suspendable.repeat(1000) {
+        dut.io.a.randomize()
+        dut.io.b.randomize()
+        sleep(1)
+        assert(dut.io.result.toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaou.toInt == (dut.io.a.toInt & dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.io.a.toInt == (dut.io.a.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(0).toInt == (dut.io.a.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(1).toInt == (dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(2).toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+        assert(dut.subInst.subSubInst.miaouVec(3).toInt == (dut.io.a.toInt & dut.io.b.toInt))
+      }
+    }
+  }
+}

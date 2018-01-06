@@ -265,3 +265,147 @@ object PresentationDSL{
     
   }
 }
+
+
+object PresentationSymbolic{
+  import spinal.core._
+  import spinal.lib._
+  import spinal.lib.bus.amba3.apb._
+//  val x = Reg(Bool)
+//  val x = Reg(Bool) init(False)
+  val a,b,c,d,e = Bool
+//  val x = Reg(Bool)
+//  x := a
+//  when(d){
+//    when(e){
+//      x := b
+//    } otherwise {
+//      x := c
+//    }
+//  }
+//val x = ~a
+//  val x = a && b
+//  val x = a && (b || c)
+//  val tmp = b || c
+//  val x = a && tmp
+//  val x = Mux(c, b, c)
+//  val x = c ? b |c
+//  val x = Bool()
+//  when(c){
+//    x := b
+//  } otherwise {
+//    x := a
+//  }
+//
+//  val x = ~a
+//  val y = Bool()
+//  y := x
+//  val sel = UInt(2 bits)
+//  val x = sel.mux(
+//    0 -> a,
+//    1 -> b,
+//    2 -> c,
+//    3 -> d
+//  )
+//  val vec = Vec(a,b,c,d)
+//  val x = vec(sel)
+//  val x = Bool()
+//  switch(sel){
+//    is(0) {x := a}
+//    is(1) {x := b}
+//    is(2) {x := c}
+//    is(3) {x := d}
+//  }
+  class Pwm(width : Int) extends Component{
+    val io = new Bundle{
+      val enable    = in Bool
+      val dutyCycle = in UInt(width bits)
+      val pwm       = out Bool
+    }
+    // ...
+  }
+//  class ApbFifo(packetWidth : Int,
+//                fifoDepth : Int) extends Component{
+//    val io = new Bundle{
+//      val apb = slave(Apb3(
+//        addressWidth = 32,
+//        dataWidth = 32
+//      ))
+//      val pop = master(Stream(Bits(packetWidth bits)))
+//      val pwm       = out Bool
+//    }
+//    // ...
+//  }
+  case class RGB(channelWidth : Int) extends Bundle{
+    val r,g,b = UInt(channelWidth bits)
+  }
+
+  case class MemoryPort( addressWidth : Int,
+                         dataWidth : Int) extends Bundle with IMasterSlave {
+    val enable    = Bool
+    val rwn       = Bool
+    val address   = Bits(addressWidth bits)
+    val writeData = Bits(dataWidth bits)
+    val readData  = Bits(dataWidth bits)
+
+    override def asMaster(): Unit = {
+      out(enable,rwn,address,writeData)
+      in(readData)
+    }
+  }
+
+  val src = RGB(8)
+  val dst = Reg(RGB(channelWidth = 8))
+  dst := src
+
+
+  class MappedFifo(packetWidth : Int,
+                   fifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val apb = slave(MemoryPort(
+        addressWidth = 32,
+        dataWidth = 32
+      ))
+      val pop = master(Stream(Bits(packetWidth bits)))
+    }
+    // ...
+  }
+
+
+  class SubComponent extends Component{
+    val io = new Bundle {
+      val dutyCycle = out UInt(16 bits)
+    }
+    io.dutyCycle := 42
+  }
+
+  class Toplevel extends Component{
+    val io = new Bundle{
+      val pin = out Bool
+    }
+
+    val subComponent = new SubComponent
+
+    val ctrl = new Pwm(width = 10)
+    ctrl.io.enable := True
+    ctrl.io.dutyCycle := subComponent.io.dutyCycle << 6
+    ctrl.io.pwm <> io.pin
+  }
+//case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
+//
+//  val PADDR      = UInt(config.addressWidth bits)
+//  val PSEL       = Bits(config.selWidth bits)
+//  val PENABLE    = Bool
+//  val PREADY     = Bool
+//  val PWRITE     = Bool
+//  val PWDATA     = Bits(config.dataWidth bits)
+//  val PRDATA     = Bits(config.dataWidth bits)
+//  val PSLVERROR  = if(config.useSlaveError) Bool else null
+//
+//  override def asMaster(): Unit = {
+//    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
+//    in(PREADY, PRDATA)
+//    if(config.useSlaveError) in(PSLVERROR)
+//  }
+
+}

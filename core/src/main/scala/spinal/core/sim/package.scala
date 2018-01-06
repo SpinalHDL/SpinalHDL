@@ -26,7 +26,7 @@ package object sim {
 
   private def btToSignal(manager : SimManager, bt : BaseType) = {
     if(bt.algoIncrementale != -1){
-      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation")
+      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it durring the elaboration.")
     }
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
   }
@@ -106,6 +106,7 @@ package object sim {
 
   implicit class SimDataPimper(bt : Data) {
     def randomize() : Unit = bt.flattenForeach(_.randomize())
+    def simPublic() : Unit = bt.addTag(SimPublic)
   }
 
   implicit class SimBoolPimper(bt : Bool) {

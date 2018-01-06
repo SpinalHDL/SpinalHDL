@@ -1041,12 +1041,30 @@ class PhaseCheckCrossClock() extends PhaseCheck{
              """.stripMargin
           )
         }
-
+        def areSyncronous(a : ClockDomain, b : ClockDomain): Boolean ={
+          if(a.isSyncronousWith(b)){
+            true
+          }else{
+            def getDriver(that : Bool): Bool ={
+              if(that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb){
+                getDriver(that.head.source.asInstanceOf[Bool])
+              }else{
+                that
+              }
+            }
+            if(getDriver(a.clock) == getDriver(b.clock)){
+              a.setSyncronousWith(b)
+              true
+            }else{
+              false
+            }
+          }
+        }
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
           case node: BaseType =>
             if (node.isReg) {
-              if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+              if(!areSyncronous(node.clockDomain, clockDomain)) {
                 issue(node, node.clockDomain)
               }
             } else {
@@ -1059,11 +1077,11 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
           case node: Mem[_] =>
           case node: MemReadSync =>
-            if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+            if(!areSyncronous(node.clockDomain, clockDomain)) {
               issue(node, node.clockDomain)
             }
           case node: MemReadWrite =>
-            if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+            if(!areSyncronous(node.clockDomain, clockDomain)) {
               issue(node, node.clockDomain)
             }
           case node: Expression =>

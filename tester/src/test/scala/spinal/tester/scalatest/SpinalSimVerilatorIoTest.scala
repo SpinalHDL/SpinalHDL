@@ -52,9 +52,12 @@ object SpinalSimVerilatorIoTest{
       val s65 = in SInt (65 bits)
       val s127 = in SInt (127 bits)
       val s128 = in SInt (128 bits)
+      val sum = out SInt(32*5 bits)
     }
 
-
+    val signeds = List(io.s1, io.s8, io.s16, io.s31, io.s32, io.s63, io.s64, io.s65, io.s127, io.s128)
+    val unsigneds = List( io.u1, io.u8, io.u16, io.u31, io.u32, io.u63, io.u64, io.u65, io.u127, io.u128)
+    io.sum := signeds.map(_.resize(widthOf(io.sum))).reduce(_ + _) + unsigneds.map(_.resize(widthOf(io.sum)).asSInt).reduce(_ + _)
     val sub = new Component{
       val x = False
       val subsub = new Component{
@@ -96,6 +99,13 @@ class SpinalSimVerilatorIoTest extends FunSuite {
         that #= value
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)
+      }
+
+      fork{
+        while(true) {
+          sleep(1)
+          assert(dut.signeds.map(_.toBigInt).reduce(_ + _) + dut.unsigneds.map(_.toBigInt).reduce(_ + _)  == dut.io.sum.toBigInt)
+        }
       }
 
 
@@ -174,6 +184,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
           () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).suspendable.foreach(value => checkBigInt(value, dut.io.s127)),
           () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).suspendable.foreach(value => checkBigInt(value, dut.io.s128))
         )
+
 
 
         import SpinalSimVerilatorIoTest._
