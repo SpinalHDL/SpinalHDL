@@ -6,7 +6,6 @@ import spinal.sim._
 import spinal.core.sim._
 import spinal.tester
 import spinal.tester.scalatest
-import spinal.tester.scalatest.SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop
 
 import scala.concurrent.{Await, Future}
 import scala.util.Random
@@ -47,6 +46,7 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
+          ()
         }
       })
     }
@@ -65,6 +65,7 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
+          ()
         }
       })
     }
@@ -130,6 +131,7 @@ class SpinalSimMiscTester extends FunSuite {
           counterModel = (counterModel + 1) & 0xFF
         }
         assert(dut.io.value.toInt == counterModel)
+        ()
       }
     })
   }

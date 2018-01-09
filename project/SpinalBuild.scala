@@ -41,7 +41,7 @@ object SpinalBuild extends Build {
     settings = defaultSettings  ++  Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-      libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+      libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.0",
       resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core,
       sourceGenerators in Compile <+= (sourceManaged in Compile, version, name) map { (d, v, n) =>
@@ -105,10 +105,7 @@ object SpinalBuild extends Build {
         name := "SpinalHDL tester",
         version := SpinalVersion.tester,
         baseDirectory in (Test) := file("./"),
-
-          libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
-//        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
-        //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
+        libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1",
         publishTo := None,
         publish := {},
         publishLocal := {}
@@ -126,8 +123,8 @@ object SpinalBuild extends Build {
     fork := true,
 
     //SpinalSim
-    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
-    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
+    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.12.2" % "1.0.3"),
+    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.3",
     scalacOptions += "-P:continuations:enable",
 
     profileName := "Dolu1990",

@@ -73,6 +73,7 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
           dut.popClock.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+            ()
           }
         }
         simSuccess()
