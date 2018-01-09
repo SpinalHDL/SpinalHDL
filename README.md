@@ -7,6 +7,7 @@ SpinalHDL is:
 - Much less verbose than VHDL, Verilog and SystemVerilog
 - Not an HLS, nor based on the event driven paradigm
 - Only generating what you asked him in a one to one way (no black-magic, no blackbox)
+- Not introducing Area/Performance overhead in your design (versus a hand written VHDL/Verilog)
 - Based on the RTL description paradigm, but can go much futher
 - Allowing you to use Object Oriented Programming and Functional Programming to elaborate your hardware and verify it
 - Free and can be used in the industry without any license
@@ -24,7 +25,7 @@ SpinalHDL is:
 
 [![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
 
-## SBT (Scala build script)
+## SBT (Scala build tool)
 
 ```scala
 scalaVersion := "2.11.6"
@@ -46,8 +47,4 @@ You can force to pick a specific SpinalHDL version by replacing the 'latest.rele
 ## Changes logs
 
 https://github.com/SpinalHDL/SpinalHDL/tags
-
-## Why not Chisel ?
-
-http://spinalhdl.github.io/SpinalDoc/chisel/
 
