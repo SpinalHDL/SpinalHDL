@@ -1,5 +1,4 @@
-About SpinalHDL
-============
+## About SpinalHDL
 
 SpinalHDL is:
 - A language to describe digital hardware 
@@ -12,8 +11,7 @@ SpinalHDL is:
 - Allowing you to use Object Oriented Programming and Functional Programming to elaborate your hardware and verify it
 - Free and can be used in the industry without any license
 
-Getting started
-===============
+
 
 ## Links
 - Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
