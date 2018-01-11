@@ -20,7 +20,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
   val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,io.input.readCmd.ready)  init(0)
   val pendingError = RegNextWhen(decodedCmdError,io.input.readCmd.ready)  init(False)
-  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
+  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =!= pendingMax && pendingSels === decodedCmdSels)
 
   //Decoding error managment
   val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
@@ -74,8 +74,8 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,cmdAllowedStart)  init(0)
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
-  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
-  val allowData   = pendingDataCounter =/= 0
+  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =!= pendingMax && pendingSels === decodedCmdSels)
+  val allowData   = pendingDataCounter =!= 0
   cmdAllowedStart := io.input.writeCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.writeCmd.ready))
 
   //Decoding error managment
@@ -156,8 +156,8 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,cmdAllowedStart)  init(0)
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
-  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
-  val allowData   = pendingDataCounter =/= 0
+  val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =!= pendingMax && pendingSels === decodedCmdSels)
+  val allowData   = pendingDataCounter =!= 0
   cmdAllowedStart := io.input.sharedCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.sharedCmd.ready))
 
   //Decoding error managment

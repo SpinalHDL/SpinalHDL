@@ -16,7 +16,7 @@ case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Seq[SizeMa
   val decodedSels = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
   val applyedSels = Bits(decodings.size bits)
   val previousSels = Reg(Bits(decodings.size bits)) init(0)
-  val noneIdleSwitchDetected = previousSels =/= 0 && decodedSels =/= 0 && previousSels =/= decodedSels
+  val noneIdleSwitchDetected = previousSels =!= 0 && decodedSels =!= 0 && previousSels =!= decodedSels
   applyedSels      := !noneIdleSwitchDetected ? decodedSels     | 0
   val applyedHTRANS = !noneIdleSwitchDetected ? io.input.HTRANS | 0
   val applyedSlaveHREADY = noneIdleSwitchDetected ? slaveReadyOutReduction | io.input.HREADY

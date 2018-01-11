@@ -354,7 +354,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
             tagsWriteCmd.way := 0
             tagsWriteCmd.address := request.address(lineRange)
             tagsWriteCmd.data.used := False
-            when(request.address(lineRange) =/= lineCount-1){
+            when(request.address(lineRange) =!= lineCount-1){
               request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
             }otherwise{
               request.ready := True

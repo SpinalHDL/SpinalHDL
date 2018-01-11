@@ -112,7 +112,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 
     //Count pendings command on the vgaRead bus
     val pendingCmd = Reg(UInt(6 bit)) init (0)
-    when(io.vgaReadCmd.fire =/= io.vgaReadRet.fire) {
+    when(io.vgaReadCmd.fire =!= io.vgaReadRet.fire) {
       when(io.vgaReadCmd.fire) {
         pendingCmd := pendingCmd + 1
       } otherwise {

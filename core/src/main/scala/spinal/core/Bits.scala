@@ -171,7 +171,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   private[core] override def isNotEquals(that: Any): Bool = that match {
     case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
-    case that: MaskedLiteral => that =/= this
+    case that: MaskedLiteral => that =!= this
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 

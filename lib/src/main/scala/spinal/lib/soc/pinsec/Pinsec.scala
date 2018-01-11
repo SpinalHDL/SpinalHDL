@@ -112,7 +112,7 @@ class Pinsec(config: PinsecConfig) extends Component{
     //Implement an counter to keep the reset axiResetOrder high 64 cycles
     // Also this counter will automaticly do a reset when the system boot.
     val axiResetCounter = Reg(UInt(6 bits)) init(0)
-    when(axiResetCounter =/= U(axiResetCounter.range -> true)){
+    when(axiResetCounter =!= U(axiResetCounter.range -> true)){
       axiResetCounter := axiResetCounter + 1
       axiResetUnbuffered := True
     }

@@ -61,7 +61,7 @@ class I2cEdgeDetector(value: Bool) extends Area {
 
   val rising  =  value && !oldValue
   val falling = !value &&  oldValue
-  val toogle  =  value =/= oldValue
+  val toogle  =  value =!= oldValue
 }
 
 
@@ -92,10 +92,10 @@ class I2cIoFilter(i2c: I2c, clockDivider: UInt, samplingSize: Int, clockDividerW
 
   val sda, scl = RegInit(True)
   when(timer.tick){
-    when(sampler.sdaSamples.map(_ =/= sda).andR){
+    when(sampler.sdaSamples.map(_ =!= sda).andR){
       sda := sampler.sdaSamples.last
     }
-    when(sampler.sclSamples.map(_ =/= scl).andR){
+    when(sampler.sclSamples.map(_ =!= scl).andR){
       scl := sampler.sclSamples.last
     }
   }

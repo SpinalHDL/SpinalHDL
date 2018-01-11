@@ -91,7 +91,7 @@ object OperatorTester {
     val bitsShiftRightUintFixedWidth = out(bits8 |>> uint4)
 
     val uintSbEquals= out(uint4 === uint8)
-    val uintSbNotEquals = out(uint4 =/= uint8)
+    val uintSbNotEquals = out(uint4 =!= uint8)
 
     val uintSbAdd = out(uint4 + uint8)
     val uintSbSub = out(uint4 - uint8)
@@ -109,7 +109,7 @@ object OperatorTester {
     val uintSbBiggerEquals = out(uint4 >= uint8)
 
     val sintSbEquals= out(sint4 === sint8)
-    val sintSbNotEquals = out(sint4 =/= sint8)
+    val sintSbNotEquals = out(sint4 =!= sint8)
 
     val sintSbAdd = out(sint4 + sint8)
     val sintSbSub = out(sint4 - sint8)
@@ -129,7 +129,7 @@ object OperatorTester {
 
 
     val bitsSbEquals= out(bits4.resized === bits8)
-    val bitsSbNotEquals = out(bits4.resized =/= bits8)
+    val bitsSbNotEquals = out(bits4.resized =!= bits8)
 
     val bitsSbAnd = out(bits4.resized & bits8)
     val bitsSbOr = out(bits4.resized | bits8)
@@ -138,7 +138,7 @@ object OperatorTester {
 
 
     val uintBsEquals= out(uint8 === uint4)
-    val uintBsNotEquals = out(uint8 =/= uint4)
+    val uintBsNotEquals = out(uint8 =!= uint4)
 
     val uintBsAdd = out(uint8 + uint4)
     val uintBsSub = out(uint8 - uint4)
@@ -157,7 +157,7 @@ object OperatorTester {
     val uintBsBiggerEquals = out(uint8 >= uint4)
 
     val sintBsEquals= out(sint8 === sint4)
-    val sintBsNotEquals = out(sint8 =/= sint4)
+    val sintBsNotEquals = out(sint8 =!= sint4)
 
     val sintBsAdd = out(sint8 + sint4)
     val sintBsSub = out(sint8 - sint4)
@@ -176,7 +176,7 @@ object OperatorTester {
     val sintBsBiggerEquals = out(sint8 >= sint4)
 
     val bitsBsEquals= out(bits8 === bits4.resized)
-    val bitsBsNotEquals = out(bits8 =/= bits4.resized)
+    val bitsBsNotEquals = out(bits8 =!= bits4.resized)
 
     val bitsBsAnd = out(bits8 & bits4.resized)
     val bitsBsOr = out(bits8 | bits4.resized)
@@ -190,7 +190,7 @@ object OperatorTester {
 
 
     val boolEquals    = out(boolA === boolB)
-    val boolNotEquals = out(boolA =/= boolB)
+    val boolNotEquals = out(boolA =!= boolB)
     
     val boolAnd = out(boolA & boolB)
     val boolOr = out(boolA | boolB)
@@ -232,9 +232,9 @@ object OperatorTester {
     val stateNativeIsA    = out(stateNative === State.a)
     val stateNativeIsB    = out(stateNative === State.b)
     val stateNativeIsC    = out(stateNative === State.c)
-    val stateNativeIsNotA = out(stateNative =/= State.a)
-    val stateNativeIsNotB = out(stateNative =/= State.b)
-    val stateNativeIsNotC = out(stateNative =/= State.c)
+    val stateNativeIsNotA = out(stateNative =!= State.a)
+    val stateNativeIsNotB = out(stateNative =!= State.b)
+    val stateNativeIsNotC = out(stateNative =!= State.c)
     stateNativeMuxInternal := Mux(boolC,State.a,State.b)
     val stateNativeMux = out(stateNativeMuxInternal.asBits)
 
@@ -245,9 +245,9 @@ object OperatorTester {
     val stateBinarySequancialIsA    = out(stateBinarySequancial === State.a)
     val stateBinarySequancialIsB    = out(stateBinarySequancial === State.b)
     val stateBinarySequancialIsC    = out(stateBinarySequancial === State.c)
-    val stateBinarySequancialIsNotA = out(stateBinarySequancial =/= State.a)
-    val stateBinarySequancialIsNotB = out(stateBinarySequancial =/= State.b)
-    val stateBinarySequancialIsNotC = out(stateBinarySequancial =/= State.c)
+    val stateBinarySequancialIsNotA = out(stateBinarySequancial =!= State.a)
+    val stateBinarySequancialIsNotB = out(stateBinarySequancial =!= State.b)
+    val stateBinarySequancialIsNotC = out(stateBinarySequancial =!= State.c)
     stateBinarySequancialMux    := Mux(boolC,State.a,State.b)
     stateBinarySequancialMux.asOutput()
 
@@ -257,9 +257,9 @@ object OperatorTester {
     val stateBinaryOneHotIsA    = out(stateBinaryOneHot === State.a)
     val stateBinaryOneHotIsB    = out(stateBinaryOneHot === State.b)
     val stateBinaryOneHotIsC    = out(stateBinaryOneHot === State.c)
-    val stateBinaryOneHotIsNotA = out(stateBinaryOneHot =/= State.a)
-    val stateBinaryOneHotIsNotB = out(stateBinaryOneHot =/= State.b)
-    val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =/= State.c)
+    val stateBinaryOneHotIsNotA = out(stateBinaryOneHot =!= State.a)
+    val stateBinaryOneHotIsNotB = out(stateBinaryOneHot =!= State.b)
+    val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =!= State.c)
     stateBinaryOneHotMux := (Mux(boolC,State.a,State.b))
     stateBinaryOneHotMux.asOutput()
 

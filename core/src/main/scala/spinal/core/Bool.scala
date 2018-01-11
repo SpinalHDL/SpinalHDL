@@ -143,7 +143,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
     ret.rise   := !old && this
     ret.fall   := old && !this
-    ret.toogle := old =/= this
+    ret.toogle := old =!= this
 
     ret
   }
@@ -155,7 +155,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
     ret.rise   := !old && this
     ret.fall   := old && !this
-    ret.toogle := old =/= this
+    ret.toogle := old =!= this
 
     ret
   }
@@ -250,7 +250,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   def ===(that: MaskedBoolean): Bool = that === this
   /** BitVector is not equal to MaskedLiteral */
-  def =/=(that: MaskedBoolean): Bool = that =/= this
+  def =!=(that: MaskedBoolean): Bool = that =!= this
+  def =/=(that: MaskedBoolean): Bool = that =!= this
 }
 
 /**

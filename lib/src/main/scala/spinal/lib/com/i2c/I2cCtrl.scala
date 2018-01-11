@@ -228,7 +228,7 @@ object I2cCtrl{
         state := 0
       }
 
-      val hits = addresses.map(address => address.enable && Mux(!address.is10Bit,(byte0 >> 1) === address.value(6 downto 0) && state =/= 0, (byte0(2 downto 1) ## byte1) === address.value && state === 2))
+      val hits = addresses.map(address => address.enable && Mux(!address.is10Bit,(byte0 >> 1) === address.value(6 downto 0) && state =!= 0, (byte0(2 downto 1) ## byte1) === address.value && state === 2))
       txAck.forceAck setWhen(byte0Is10Bit && state === 1 && addresses.map(address => address.enable && address.is10Bit && byte0(2 downto 1) === address.value(9 downto 8)).orR)
       busCtrlWithOffset.read(hits.asBits, 0x80, 0)
       busCtrlWithOffset.read(byte0.lsb, 0x84, 0)
@@ -430,7 +430,7 @@ object I2cCtrl{
           rxData.value(7 - dataCounter) := bus.cmd.data
           dataCounter := dataCounter + 1
 
-          when(bus.rsp.data =/= bus.cmd.data){
+          when(bus.rsp.data =!= bus.cmd.data){
             txData.enable clearWhen(txData.disableOnDataConflict)
             txAck.enable clearWhen(txAck.disableOnDataConflict)
           }

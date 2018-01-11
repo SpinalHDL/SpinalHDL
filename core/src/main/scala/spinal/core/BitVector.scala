@@ -51,7 +51,7 @@ abstract class BitVector extends BaseType with Widthable {
   def range: Range = 0 until getWidth
 
   /** Logical OR of all bits */
-  def orR: Bool = this.asBits =/= 0
+  def orR: Bool = this.asBits =!= 0
   /** Logical AND of all bits */
   def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
   /** Logical XOR of all bits */
@@ -65,6 +65,7 @@ abstract class BitVector extends BaseType with Widthable {
     */
   def ===(that: MaskedLiteral): Bool = this.isEquals(that)
   /** BitVector is not equal to MaskedLiteral */
+  def =!=(that: MaskedLiteral): Bool = this.isNotEquals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
 
 

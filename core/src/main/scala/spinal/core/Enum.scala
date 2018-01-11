@@ -33,7 +33,8 @@ import scala.collection.mutable.ArrayBuffer
 class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) extends Nameable {
 
   def ===(that: SpinalEnumCraft[T]): Bool = that === this
-  def =/=(that: SpinalEnumCraft[T]): Bool = that =/= this
+  def =!=(that: SpinalEnumCraft[T]): Bool = that =!= this
+  def =/=(that: SpinalEnumCraft[T]): Bool = that =!= this
 
   def apply(): SpinalEnumCraft[T] = craft()
   def apply(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = craft(encoding)
@@ -126,10 +127,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
 
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
   def ===(that: SpinalEnumElement[T]): Bool = this === that.craft()
-  def =/=(that: SpinalEnumElement[T]): Bool = this =/= that.craft()
-
-  @deprecated("Use =/= instead")
-  def !==(that: SpinalEnumElement[T]): Bool = this =/= that
+  def =!=(that: SpinalEnumElement[T]): Bool = this =!= that.craft()
+  def =/=(that: SpinalEnumElement[T]): Bool = this =!= that.craft()
 
   private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match{
     case that : SpinalEnumCraft[T]          => super.assignFromImpl(that, target, kind)

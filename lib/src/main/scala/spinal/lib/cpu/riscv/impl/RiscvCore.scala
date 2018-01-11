@@ -351,7 +351,7 @@ case class CoreDataBus(implicit p : RiscvCoreConfig) extends Bundle with IMaster
       val pendingIsWrite = RegNextWhen(mm.sharedCmd.write, mm.sharedCmd.fire) randBoot()
 
       val cmdPreFork = if (stageCmd) cmd.stage else cmd
-      val (cmdFork, dataFork) = StreamFork2(cmdPreFork.haltWhen((pendingCmd =/= 0 && (pendingIsWrite ^ cmdPreFork.wr)) || pendingCmd === pendingMax))
+      val (cmdFork, dataFork) = StreamFork2(cmdPreFork.haltWhen((pendingCmd =!= 0 && (pendingIsWrite ^ cmdPreFork.wr)) || pendingCmd === pendingMax))
       mm.sharedCmd.valid := cmdFork.valid
       mm.sharedCmd.write := cmdFork.wr
       mm.sharedCmd.prot := "010"
@@ -554,7 +554,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
     }
 
     val throwRemaining = Reg(UInt(2 bit)) init(0)
-    val throwNextIRsp = throwRemaining =/= 0
+    val throwNextIRsp = throwRemaining =!= 0
     when(throwNextIRsp && iRsp.fire){
       throwRemaining := throwRemaining - 1
     }
@@ -628,14 +628,14 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
 
     // branch interface
     val pcLoad = Flow(UInt(pcWidth bit))
-    pcLoad.valid := inInst.valid && !throwIt && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
+    pcLoad.valid := inInst.valid && !throwIt && !hazard && outInst.ready && (ctrl.br =!= BR.JR && ctrl.br =!= BR.N) && ctrl.instVal && shouldTakeBranch
     pcLoad.payload := brJumpPc
 
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
     outInst.ctrl := ctrl
-    outInst.doSub := outInst.ctrl.alu =/= ALU.ADD
+    outInst.doSub := outInst.ctrl.alu =!= ALU.ADD
     outInst.src0 := Mux(!addr0IsZero, src0, B(0, 32 bit))
     outInst.src1 := Mux(!addr1IsZero, src1, B(0, 32 bit))
     outInst.alu_op0 := outInst.ctrl.op0.mux(
@@ -739,7 +739,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
       val readCountInc = dCmd.fire && !dCmd.wr
       val readCountDec = dRsp.fire
 
-      when(readCountInc =/= readCountDec){
+      when(readCountInc =!= readCountDec){
         readCount := readCount + Mux(readCountInc,U(1),U(readCount.maxValue))
       }
       when(inInst.valid && inInst.ctrl.men && inInst.ctrl.m === M.XRD && readCount === pendingDataMax){
@@ -785,12 +785,12 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
     when(inInst.branchHistory.valid){
       line.history := newHistory.resized
     }otherwise {
-      line.history := (pc_sel =/= PC.INC).asSInt.resized
+      line.history := (pc_sel =!= PC.INC).asSInt.resized
     }
 
     //TODO Performance drop 11/06/2016 ?? 113kcycles
-    when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
-      when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10" && newHistory(newHistory.high downto newHistory.high - 1) =/= S"01") { //no history overflow  TODO fix me
+    when(inInst.fire && inInst.ctrl.br =!= BR.JR && inInst.ctrl.br =!= BR.N && inInst.ctrl.br =!= BR.J){
+      when(newHistory(newHistory.high downto newHistory.high - 1) =!= S"10" && newHistory(newHistory.high downto newHistory.high - 1) =!= S"01") { //no history overflow  TODO fix me
         brancheCache(inInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit)) := line
       }
     }
@@ -825,7 +825,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
       val mask = Reg(Bits(irqWidth bit)) init(0)
       val masked = sources & mask
       val inhibate = False
-      when(((sources & ~mask) & irqExceptionMask) =/= 0){
+      when(((sources & ~mask) & irqExceptionMask) =!= 0){
         halt := True
       }
 
