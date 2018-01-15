@@ -799,11 +799,15 @@ object History {
         }, left - 1)
       }
     }
-    Vec(builder(that, length))
+    val inputBuffer = cloneOf(that); inputBuffer := that
+    Vec(builder(inputBuffer, length))
   }
 
-  def apply[T <: Data](that: T, range: Range, when: Bool, init: T): Vec[T] =
-    Vec(History(that, range.high + 1, when, init).drop(range.low))
+  def apply[T <: Data](that: T, range: Range, when: Bool, init: T): Vec[T] = {
+    val ret = Vec(cloneOf(that), range.length)
+    (ret, History(that, range.high + 1, when, init).drop(range.low)).zipped.foreach(_ := _)
+    ret
+  }
 
   def apply[T <: Data](that: T, range: Range, init: T): Vec[T] =
     apply(that, range, null, init = init)
