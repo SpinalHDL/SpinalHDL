@@ -36,14 +36,14 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
         irqValue(id) := writeBack.irq.masked(id)
     }
     when(!inIrq && !writeBack.irq.inhibate) {
-      when((writeBack.irq.masked & irqExceptionMask) =!= 0) {
+      when((writeBack.irq.masked & irqExceptionMask) =/= 0) {
         writeBack.throwIt := True
         writeBack.flushMemoryResponse := True
         writeBack.pcLoad.valid := True
         writeBack.pcLoad.payload := exceptionVector
         exitPc := writeBack.inInst.pc
         inIrq := True
-      }elsewhen(RegNext((writeBack.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =!= 0)){
+      }elsewhen(RegNext((writeBack.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0)){
         decode.halt := True
         when(decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !writeBack.inInst.valid) {
           writeBack.pcLoad.valid := True

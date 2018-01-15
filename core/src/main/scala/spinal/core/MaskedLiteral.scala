@@ -46,8 +46,7 @@ object MaskedLiteral{
 
 class MaskedBoolean(value : Boolean, careAbout : Boolean){
   def ===(that : Bool) : Bool = if(careAbout) that === Bool(value) else True
-  def =!=(that : Bool) : Bool = if(careAbout) that =!= Bool(value) else False
-  def =/=(that : Bool) : Bool = if(careAbout) that =!= Bool(value) else False
+  def =/=(that : Bool) : Bool = if(careAbout) that =/= Bool(value) else False
 }
 
 class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
@@ -71,7 +70,6 @@ class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
     (that.asBits & careAbout) === value
   }
 
-  def =!=(that: BitVector): Bool = !(this === that)
   def =/=(that: BitVector): Bool = !(this === that)
 
   override def toString: String = {

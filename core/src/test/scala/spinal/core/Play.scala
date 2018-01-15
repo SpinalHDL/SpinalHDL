@@ -239,7 +239,7 @@ object PlaySimple{
 
     val l,m,n,o, p, q, r,s = Bits(4 bits)
     l := ~(m | (n & (o ## (p ^ q)).resized))
-    e := (l === n) && (o =!= q)
+    e := (l === n) && (o =/= q)
 
 //    g := False
 //    when(a || b && c){
@@ -256,7 +256,7 @@ object PlaySimple{
 
 //    ~a
 //    d := ~a
-//    d := ((a || b && c ^ (~g)) === True) =!= False
+//    d := ((a || b && c ^ (~g)) === True) =/= False
 
 
 //    def useless(): Unit ={

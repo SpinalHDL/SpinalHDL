@@ -548,7 +548,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
     io.outputs(i).payload := io.input.payload
-    when(i =!= io.select) {
+    when(i =/= io.select) {
       io.outputs(i).valid := False
     } otherwise {
       io.outputs(i).valid := io.input.valid
@@ -585,7 +585,7 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
   io.pop.payload := ram.readSync(popPtr.valueNext)
 
-  when(pushing =!= popping) {
+  when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
@@ -657,7 +657,7 @@ class StreamFifoLowLatency[T <: Data](dataType: T, depth: Int, latency : Int = 0
       io.pop.payload := ram.readAsync(popPtr.value)
     }
   }
-  when(pushing =!= popping) {
+  when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
@@ -788,7 +788,7 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
     outHitSignal := hit
 
     val stream = cloneOf(io.input)
-    stream.valid := (target =!= hit)
+    stream.valid := (target =/= hit)
     stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)
 
@@ -820,7 +820,7 @@ class StreamDispatcherSequencial[T <: Data](gen: T, n: Int) extends Component {
     io.input.ready := False
     for (i <- 0 to n - 1) {
       io.outputs(i).payload := io.input.payload
-      when(counter =!= i) {
+      when(counter =/= i) {
         io.outputs(i).valid := False
       } otherwise {
         io.outputs(i).valid := io.input.valid

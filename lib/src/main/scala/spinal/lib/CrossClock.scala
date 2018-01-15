@@ -64,11 +64,11 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
     val target = BufferCC(inArea.target, False)
     val hit    = RegInit(False);
 
-    when(target =!= hit) {
+    when(target =/= hit) {
       hit := !hit
     }
 
-    io.pulseOut := (target =!= hit)
+    io.pulseOut := (target =/= hit)
   }
 }
 

@@ -265,10 +265,10 @@ object Operator{
 
     class NotEqual extends BinaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "Bool =!= Bool"
+      override def opName: String = "Bool =/= Bool"
     }
   }
-
+  //
   object BitVector{
     abstract class And extends BinaryOperatorWidthableInputs with Widthable{
       def resizeFactory : Resize
@@ -472,7 +472,7 @@ object Operator{
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
-      override def opName: String = "Bits =!= Bits"
+      override def opName: String = "Bits =/= Bits"
     }
 
     class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
@@ -597,7 +597,7 @@ object Operator{
     }
 
     class NotEqual extends BitVector.NotEqual{
-      override def opName: String = "UInt =!= UInt"
+      override def opName: String = "UInt =/= UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -732,7 +732,7 @@ object Operator{
     }
 
     class NotEqual extends BitVector.NotEqual{
-      override def opName: String = "SInt =!= SInt"
+      override def opName: String = "SInt =/= SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -792,7 +792,7 @@ object Operator{
 
     class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
       override def getTypeObject: Any = TypeBool
-      override def opName: String = "Enum =!= Enum"
+      override def opName: String = "Enum =/= Enum"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
 
       override type T = Expression with EnumEncoded

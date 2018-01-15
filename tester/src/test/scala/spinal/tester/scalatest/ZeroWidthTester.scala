@@ -54,7 +54,7 @@ object ZeroWidthTester {
 
 
     val uint08Equals    = out(uint0 === uint8)
-    val uint08NotEquals = out(uint0 =!= uint8)
+    val uint08NotEquals = out(uint0 =/= uint8)
 
     val uint08Add = out(uint0 + uint8)
     val uint08Sub = out(uint0 - uint8)
@@ -71,7 +71,7 @@ object ZeroWidthTester {
 
 
     val sint08Equals= out(sint0 === sint8)
-    val sint08NotEquals = out(sint0 =!= sint8)
+    val sint08NotEquals = out(sint0 =/= sint8)
 
     val sint08Add = out(sint0 + sint8)
     val sint08Sub = out(sint0 - sint8)
@@ -89,7 +89,7 @@ object ZeroWidthTester {
 
 
     val bits08Equals= out(0 === bits8)
-    val bits08NotEquals = out(0 =!= bits8)
+    val bits08NotEquals = out(0 =/= bits8)
 
     val bits08And = out(bits0.resized & bits8)
     val bits08Or = out(bits0.resized | bits8)
@@ -101,7 +101,7 @@ object ZeroWidthTester {
     val bits80ShiftLeftUint  = out(bits8 >> uint0)
 
     val uint80Equals= out(uint8 === uint0)
-    val uint80NotEquals = out(uint8 =!= uint0)
+    val uint80NotEquals = out(uint8 =/= uint0)
 
     val uint80Add = out(uint8 + uint0)
     val uint80Sub = out(uint8 - uint0)
@@ -117,7 +117,7 @@ object ZeroWidthTester {
     val uint80BiggerEquals = out(uint8 >= uint0)
 
     val sint80Equals= out(sint8 === sint0)
-    val sint80NotEquals = out(sint8 =!= sint0)
+    val sint80NotEquals = out(sint8 =/= sint0)
 
     val sint80Add = out(sint8 + sint0)
     val sint80Sub = out(sint8 - sint0)
@@ -133,7 +133,7 @@ object ZeroWidthTester {
     val sint80BiggerEquals = out(sint8 >= sint0)
 
     val bits80Equals= out(bits8 === bits0.resized)
-    val bits80NotEquals = out(bits8 =!= bits0.resized)
+    val bits80NotEquals = out(bits8 =/= bits0.resized)
 
     val bits80And = out(bits8 & bits0.resized)
     val bits80Or = out(bits8 | bits0.resized)

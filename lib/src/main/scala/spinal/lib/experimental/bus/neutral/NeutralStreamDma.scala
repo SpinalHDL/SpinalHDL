@@ -112,7 +112,7 @@ object NeutralStreamDma {
         isActive := True
       }
     } otherwise {
-      when(memCmdCounter =!= 0){
+      when(memCmdCounter =/= 0){
         io.mem.cmd.valid := True
       } otherwise {
         when(pendingMemRsp <= 1 && io.mem.rsp.fire) {

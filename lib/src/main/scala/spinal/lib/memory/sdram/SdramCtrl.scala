@@ -218,7 +218,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
         }elsewhen(io.bus.cmd.valid){
           rsp.valid := True
           val bank = banks(address.bank)
-          when(bank.active && bank.row =!= address.row){
+          when(bank.active && bank.row =/= address.row){
             rsp.task := PRECHARGE_SINGLE
             when(rsp.ready){
               banks(address.bank).active := False
@@ -248,7 +248,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
 
     def cycleCounter(cycleMax : BigInt,assignCheck : Boolean = false) = new Area {
       val counter = Reg(UInt(log2Up(cycleMax) bits)) init(0)
-      val busy = counter =!= 0
+      val busy = counter =/= 0
       if(cycleMax > 1) {
         when(busy && rsp.ready) {
           counter := counter - 1

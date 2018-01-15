@@ -32,7 +32,6 @@ trait DataPrimitives[T <: Data]{
 
   /** Comparison between two data */
   def ===(that: T): Bool = _data isEquals that
-  def =!=(that: T): Bool = _data isNotEquals that
   def =/=(that: T): Bool = _data isNotEquals that
 
   /** Assign a data to this */

@@ -170,7 +170,7 @@ class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCloc
     val hit = RegNext(target)
 
     val flow = cloneOf(io.input)
-    flow.valid := (target =!= hit)
+    flow.valid := (target =/= hit)
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
