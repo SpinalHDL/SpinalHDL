@@ -53,11 +53,18 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   }
 }
 
-case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
+object StreamReadyRandomizer {
+  def apply[T <: Data](stream: Stream[T], clockDomain: ClockDomain) = new StreamReadyRandomizer(stream, clockDomain, () => true)
+}
 
+case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain, condition: () => Boolean){
   fork{
     while(true) {
-      stream.ready #= Random.nextBoolean()
+      if (condition()) {
+        stream.ready #= Random.nextBoolean()
+      } else {
+        stream.ready #= false
+      }
       clockDomain.waitSampling()
     }
   }
