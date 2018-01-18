@@ -382,6 +382,8 @@ object Operator{
       override def simplifyNode: Expression = {
         if(source.getWidth == 0){
           getLiteralFactory(0, this.getWidth)
+        } else if(shift == 0){
+          source
         } else {
           this
         }

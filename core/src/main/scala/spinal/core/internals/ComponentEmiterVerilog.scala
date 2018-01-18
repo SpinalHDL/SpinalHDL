@@ -1018,7 +1018,15 @@ end
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"(${emitExpression(e.source)} <<< ${e.shift})"
+    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${e.shift})"
+  }
+
+
+  def shiftLeftByUIntImpl(e: Operator.BitVector.ShiftLeftByUInt): String = {
+    s"({${e.getWidth-e.left.getWidth}'d0,${emitExpression(e.left)}} <<< ${emitExpression(e.right)})"
+  }
+  def shiftLeftByUIntImplSigned(e: Operator.SInt.ShiftLeftByUInt): String = {
+    s"({{${e.getWidth - e.left.getWidth}{${emitExpression(e.left)}[${e.left.getWidth-1}]}},${emitExpression(e.left)}} <<< ${emitExpression(e.right)})"
   }
 
   def shiftRightByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
@@ -1107,7 +1115,7 @@ end
     case  e: Operator.UInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.UInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.UInt.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.UInt.ShiftLeftByUInt            => operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.UInt.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
     case  e: Operator.UInt.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
     case  e: Operator.UInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
@@ -1133,7 +1141,7 @@ end
     case  e: Operator.SInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.SInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.SInt.ShiftRightByUInt           => operatorImplAsBinaryOperatorLeftSigned(">>>")(e)
-    case  e: Operator.SInt.ShiftLeftByUInt            =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
+    case  e: Operator.SInt.ShiftLeftByUInt            =>  shiftLeftByUIntImplSigned(e)
     case  e: Operator.SInt.ShiftRightByIntFixedWidth  =>  shiftRightSignedByIntFixedWidthImpl(e)
     case  e: Operator.SInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
@@ -1150,7 +1158,7 @@ end
     case  e: Operator.Bits.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.Bits.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.Bits.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.Bits.ShiftLeftByUInt            =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.Bits.ShiftLeftByUInt            =>  shiftLeftByUIntImpl(e)
     case  e: Operator.Bits.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
     case  e: Operator.Bits.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
