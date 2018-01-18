@@ -186,11 +186,23 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     ret
   }
 
+  private def fixAddress(address : UInt) : UInt = if(widthOf(address) != log2Up(length)){
+    if(address.hasTag(tagAutoResize)){
+      address.resize(log2Up(length))
+    }else{
+      val location = ScalaLocated.long
+      PendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n\n${location}")
+      address
+    }
+  }else{
+    address
+  }
+
   def read(address: UInt): T = {
     val key = (Component.current, address)
     if (readMap.contains(key)) return readMap(key)
-
-    val ret = readEmu(address)
+    val trueAddress = fixAddress(address)
+    val ret = readEmu(trueAddress)
 
     readMap += (key -> ret)
     ret
@@ -199,9 +211,10 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   def access(address: UInt): T = {
     val key = (Component.current, address)
     if (accessMap.contains(key)) return accessMap(key)
+    val trueAddress = fixAddress(address)
 
-    val ret     = readEmu(address)
-    val enables = (U(1) << address).asBools
+    val ret     = readEmu(trueAddress)
+    val enables = (U(1) << trueAddress).asBools
 
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign[T](enables, to, this)
@@ -267,4 +280,5 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
 
   override def clone: this.type = new Vec[T](dataType, vec.map(cloneOf(_))).asInstanceOf[this.type]
 
+  override def toString() = s"${getDisplayName()} : Vec of $length elements"
 }
