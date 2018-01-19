@@ -64,7 +64,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       mergeAsyncProcess           = config.mergeAsyncProcess,
       asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
       anonymSignalPrefix          = globalData.anonymSignalPrefix,
-      nativeRom                   = config.nativeRom,
+      nativeRom                   = config.inlineRom,
       nativeRomFilePrefix         = targetPath,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths

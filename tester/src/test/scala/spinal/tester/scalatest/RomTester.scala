@@ -89,6 +89,7 @@ class RomTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester"
   override def createToplevel: Component = new RomTester.RomTester
   override def noVhdl = true
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = true)
 }
 
 class RomTesterCocotbBoot2 extends SpinalTesterCocotbBase {
@@ -96,7 +97,7 @@ class RomTesterCocotbBoot2 extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester2"
   override def createToplevel: Component = new RomTester.RomTester().setDefinitionName("RomTester2")
   override def noVhdl = true
-  override def backendConfig(config: SpinalConfig) = config.copy(nativeRom = false)
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = false)
 
   override def genVerilog: Unit = {
     super.genVerilog
@@ -111,7 +112,7 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester3"
   override def createToplevel: Component = new RomTester.RomTesterSymbols().setDefinitionName("RomTester3")
   override def noVhdl = true
-  override def backendConfig(config: SpinalConfig) = config.copy(nativeRom = false)
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = false)
 
   override def genVerilog: Unit = {
     super.genVerilog
