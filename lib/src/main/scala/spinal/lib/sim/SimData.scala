@@ -13,7 +13,7 @@ object SimData{
 }
 
 class SimData extends Dynamic{
-  val values = mutable.HashMap[String,Any]()
+  val values = mutable.LinkedHashMap[String,Any]()
 
   def updateDynamic(name: String)(value: BigInt) = values(name) = value
   def selectDynamic(name: String) = values(name)
@@ -65,6 +65,23 @@ class SimData extends Dynamic{
     }
     return true
   }
+
+
+  def toString(tab : String) : String = {
+    val str = new StringBuilder()
+    for((name, value) <- values) value match{
+      case value : BigInt => {
+        str ++= s"$tab$name : $value\n"
+      }
+      case value : SimData => {
+        str ++= s"$tab$name\n"
+        str ++= value.toString(tab + "- ")
+      }
+    }
+    str.toString
+  }
+
+  override def toString = toString("")
 
   override def equals(o: scala.Any) = o match {
     case o : SimData => values == o.values

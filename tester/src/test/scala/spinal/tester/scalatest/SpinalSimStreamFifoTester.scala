@@ -63,9 +63,9 @@ class SpinalSimStreamFifoTester extends FunSuite {
   test("testBundle") {
     //Bundle used as fifo payload
     case class Transaction() extends Bundle {
-      val a = Bool
-      val b = Bits(8 bits)
-      val c = Rgb(5, 6, 5)
+      val flag = Bool
+      val data = Bits(8 bits)
+      val color = Rgb(5, 6, 5)
     }
 
     val compiled = SimConfig.allOptimisation.compile(
