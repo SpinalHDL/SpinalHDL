@@ -119,6 +119,7 @@ case class SpinalConfig(
   globalPrefix                   : String = "",
   anonymSignalPrefix             : String = null,
   device                         : Device = Device(),
+  nativeRom                      : Boolean = true,
   genVhdlPkg                     : Boolean = true,
   verbose                        : Boolean = false,
   mergeAsyncProcess              : Boolean = true,

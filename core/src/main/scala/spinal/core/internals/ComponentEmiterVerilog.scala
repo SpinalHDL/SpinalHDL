@@ -34,7 +34,10 @@ class ComponentEmiterVerilog(
   override val mergeAsyncProcess     : Boolean,
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
-  emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component]
+  nativeRom                          : Boolean,
+  nativeRomFilePrefix                : String,
+  emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
 ) extends ComponentEmiter {
 
   import verilogBase._
@@ -754,16 +757,52 @@ class ComponentEmiterVerilog(
 
     if (mem.initialContent != null) {
       logics ++= "  initial begin\n"
-      for ((value, index) <- mem.initialContent.zipWithIndex) {
-        val unfilledValue = value.toString(2)
-        val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
-        if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-          for(i <- 0 until symbolCount){
-            logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
+      if(nativeRom) {
+        for ((value, index) <- mem.initialContent.zipWithIndex) {
+          val unfilledValue = value.toString(2)
+          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+            for (i <- 0 until symbolCount) {
+              logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
+            }
+          } else {
+            logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
           }
-        }else{
-          logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
         }
+      }else {
+        val fileName = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
+        if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+          for (i <- 0 until symbolCount) {
+            logics ++= s"""    $$readmemb("${fileName}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
+          }
+        } else {
+          logics ++= s"""    $$readmemb("${fileName}.bin",${emitReference(mem, false)});\n"""
+        }
+
+        val files = if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+          List.tabulate(symbolCount){i => {
+            val name = s"${fileName}_symbol$i.bin"
+            emitedRtlSourcesPath += name
+            new java.io.FileWriter(name)
+          }}
+        }else{
+          emitedRtlSourcesPath += s"${fileName}.bin"
+          List(new java.io.FileWriter(s"${fileName}.bin"))
+        }
+        for ((value, index) <- mem.initialContent.zipWithIndex) {
+          val unfilledValue = value.toString(2)
+          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+            for (i <- 0 until symbolCount) {
+              files(i).write( s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n")
+            }
+          } else {
+            files.head.write( s"$filledValue\n")
+          }
+        }
+
+        files.foreach(_.flush())
+        files.foreach(_.close())
       }
 
       logics ++= "  end\n"
