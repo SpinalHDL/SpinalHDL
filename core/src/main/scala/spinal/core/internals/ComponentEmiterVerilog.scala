@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core.internals
 
+import java.io.File
+
 import spinal.core._
 
 import scala.collection.mutable
@@ -770,24 +772,25 @@ class ComponentEmiterVerilog(
           }
         }
       }else {
-        val fileName = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
+        val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
+        val relativePath = new File(filePath).getName
         if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
           for (i <- 0 until symbolCount) {
-            logics ++= s"""    $$readmemb("${fileName}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
+            logics ++= s"""    $$readmemb("${relativePath}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
           }
         } else {
-          logics ++= s"""    $$readmemb("${fileName}.bin",${emitReference(mem, false)});\n"""
+          logics ++= s"""    $$readmemb("${relativePath}.bin",${emitReference(mem, false)});\n"""
         }
 
         val files = if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
           List.tabulate(symbolCount){i => {
-            val name = s"${fileName}_symbol$i.bin"
+            val name = s"${filePath}_symbol$i.bin"
             emitedRtlSourcesPath += name
             new java.io.FileWriter(name)
           }}
         }else{
-          emitedRtlSourcesPath += s"${fileName}.bin"
-          List(new java.io.FileWriter(s"${fileName}.bin"))
+          emitedRtlSourcesPath += s"${filePath}.bin"
+          List(new java.io.FileWriter(s"${filePath}.bin"))
         }
         for ((value, index) <- mem.initialContent.zipWithIndex) {
           val unfilledValue = value.toString(2)
