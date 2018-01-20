@@ -20,6 +20,7 @@ class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   val commandBuffer = mutable.ArrayBuffer[() => Unit]()
+  val onEndListeners = mutable.ArrayBuffer[() => Unit]()
   var schedulingOffset = 0
   var time = 0l
   var userData : Any = null
@@ -28,6 +29,7 @@ class SimManager(val raw : SimRaw) {
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
+  def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = raw.getInt(bt)
   def getLong(bt : Signal) : Long = raw.getLong(bt)
   def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
@@ -143,6 +145,7 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     }
+    onEndListeners.foreach(_())
     raw.end()
     SimManagerContext.threadLocal.set(null)
   }

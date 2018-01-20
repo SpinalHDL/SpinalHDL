@@ -29,9 +29,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   import pc._
 
   var outFile: java.io.FileWriter = null
+  def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName)
 
   override def impl(pc: PhaseContext): Unit = {
-    val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName)
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
@@ -57,7 +57,18 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVerilog = new ComponentEmiterVerilog(
+      c                           = component,
+      verilogBase                 = this,
+      algoIdIncrementalBase       = allocateAlgoIncrementaleBase,
+      mergeAsyncProcess           = config.mergeAsyncProcess,
+      asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
+      anonymSignalPrefix          = globalData.anonymSignalPrefix,
+      nativeRom                   = config.inlineRom,
+      nativeRomFilePrefix         = targetPath,
+      emitedComponentRef          = emitedComponentRef,
+      emitedRtlSourcesPath        = report.generatedSourcesPaths
+    )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {
       componentBuilderVerilog.logics ++=

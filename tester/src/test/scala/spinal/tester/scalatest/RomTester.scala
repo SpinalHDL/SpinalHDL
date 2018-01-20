@@ -59,7 +59,25 @@ object RomTester {
     val address = in UInt(3 bits)
     val data = out(rom(address))
   }
+
+  class RomTesterSymbols extends Component {
+
+    val rom = Mem(Bits(32 bits),8) init(Seq(
+      BigInt(0x01234567l),
+      BigInt(0x12345670l),
+      BigInt(0x10293857l),
+      BigInt(0x0abcfe23l),
+      BigInt(0x02938571l),
+      BigInt(0xabcfe230l),
+      BigInt(0x717833aal),
+      BigInt(0x17833aa6l)
+    ))
+    rom.write(U"000",B(0, 32 bits),False,B"0000")
+    val address = in UInt(3 bits)
+    val data = out(rom(address))
+  }
 }
+
 
 class RomTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "RomTester"
@@ -71,4 +89,37 @@ class RomTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester"
   override def createToplevel: Component = new RomTester.RomTester
   override def noVhdl = true
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = true)
+}
+
+class RomTesterCocotbBoot2 extends SpinalTesterCocotbBase {
+  override def getName: String = "RomTester2"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester2"
+  override def createToplevel: Component = new RomTester.RomTester().setDefinitionName("RomTester2")
+  override def noVhdl = true
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = false)
+
+  override def genVerilog: Unit = {
+    super.genVerilog
+    import scala.sys.process._
+    s"rm $pythonTestLocation/RomTester2.v_toplevel_rom.bin".!
+    s"cp RomTester2.v_toplevel_rom.bin $pythonTestLocation".!
+  }
+}
+
+class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
+  override def getName: String = "RomTester2"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester3"
+  override def createToplevel: Component = new RomTester.RomTesterSymbols().setDefinitionName("RomTester3")
+  override def noVhdl = true
+  override def backendConfig(config: SpinalConfig) = config.copy(inlineRom = false)
+
+  override def genVerilog: Unit = {
+    super.genVerilog
+    import scala.sys.process._
+    for(i <- 0 to 3) {
+      s"rm $pythonTestLocation/RomTester3.v_toplevel_rom_symbol$i.bin".!
+      s"cp RomTester3.v_toplevel_rom_symbol$i.bin $pythonTestLocation".!
+    }
+  }
 }

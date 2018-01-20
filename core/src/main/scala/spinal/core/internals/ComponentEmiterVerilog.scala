@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core.internals
 
+import java.io.File
+
 import spinal.core._
 
 import scala.collection.mutable
@@ -34,7 +36,10 @@ class ComponentEmiterVerilog(
   override val mergeAsyncProcess     : Boolean,
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
-  emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component]
+  nativeRom                          : Boolean,
+  nativeRomFilePrefix                : String,
+  emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
 ) extends ComponentEmiter {
 
   import verilogBase._
@@ -754,16 +759,53 @@ class ComponentEmiterVerilog(
 
     if (mem.initialContent != null) {
       logics ++= "  initial begin\n"
-      for ((value, index) <- mem.initialContent.zipWithIndex) {
-        val unfilledValue = value.toString(2)
-        val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
-        if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-          for(i <- 0 until symbolCount){
-            logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
+      if(nativeRom) {
+        for ((value, index) <- mem.initialContent.zipWithIndex) {
+          val unfilledValue = value.toString(2)
+          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+            for (i <- 0 until symbolCount) {
+              logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
+            }
+          } else {
+            logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
           }
-        }else{
-          logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
         }
+      }else {
+        val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
+        val relativePath = new File(filePath).getName
+        if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+          for (i <- 0 until symbolCount) {
+            logics ++= s"""    $$readmemb("${relativePath}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
+          }
+        } else {
+          logics ++= s"""    $$readmemb("${relativePath}.bin",${emitReference(mem, false)});\n"""
+        }
+
+        val files = if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+          List.tabulate(symbolCount){i => {
+            val name = s"${filePath}_symbol$i.bin"
+            emitedRtlSourcesPath += name
+            new java.io.FileWriter(name)
+          }}
+        }else{
+          emitedRtlSourcesPath += s"${filePath}.bin"
+          List(new java.io.FileWriter(s"${filePath}.bin"))
+        }
+        for ((value, index) <- mem.initialContent.zipWithIndex) {
+          val unfilledValue = value.toString(2)
+          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+            for (i <- 0 until symbolCount) {
+              files(i).write( s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n")
+            }
+          } else {
+            files.head.write( s"$filledValue\n")
+          }
+        }
+
+        files.foreach(_.flush())
+        files.foreach(_.close())
       }
 
       logics ++= "  end\n"
@@ -1018,7 +1060,15 @@ end
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"(${emitExpression(e.source)} <<< ${e.shift})"
+    s"({${e.shift}'d0,${emitExpression(e.source)}} <<< ${e.shift})"
+  }
+
+
+  def shiftLeftByUIntImpl(e: Operator.BitVector.ShiftLeftByUInt): String = {
+    s"({${e.getWidth-e.left.getWidth}'d0,${emitExpression(e.left)}} <<< ${emitExpression(e.right)})"
+  }
+  def shiftLeftByUIntImplSigned(e: Operator.SInt.ShiftLeftByUInt): String = {
+    s"({{${e.getWidth - e.left.getWidth}{${emitExpression(e.left)}[${e.left.getWidth-1}]}},${emitExpression(e.left)}} <<< ${emitExpression(e.right)})"
   }
 
   def shiftRightByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
@@ -1107,7 +1157,7 @@ end
     case  e: Operator.UInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.UInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.UInt.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.UInt.ShiftLeftByUInt            => operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.UInt.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
     case  e: Operator.UInt.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
     case  e: Operator.UInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
@@ -1133,7 +1183,7 @@ end
     case  e: Operator.SInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.SInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.SInt.ShiftRightByUInt           => operatorImplAsBinaryOperatorLeftSigned(">>>")(e)
-    case  e: Operator.SInt.ShiftLeftByUInt            =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
+    case  e: Operator.SInt.ShiftLeftByUInt            =>  shiftLeftByUIntImplSigned(e)
     case  e: Operator.SInt.ShiftRightByIntFixedWidth  =>  shiftRightSignedByIntFixedWidthImpl(e)
     case  e: Operator.SInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
@@ -1150,7 +1200,7 @@ end
     case  e: Operator.Bits.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.Bits.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.Bits.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.Bits.ShiftLeftByUInt            =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.Bits.ShiftLeftByUInt            =>  shiftLeftByUIntImpl(e)
     case  e: Operator.Bits.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
     case  e: Operator.Bits.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
     case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
