@@ -3,6 +3,8 @@ package spinal.sim
 import java.io.File
 import javax.tools.JavaFileObject
 
+import org.apache.commons.io.FileUtils
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
@@ -325,6 +327,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
+    config.rtlSourcesPaths.filter(_.endsWith(".bin")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
 
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200

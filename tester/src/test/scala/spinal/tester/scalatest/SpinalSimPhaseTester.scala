@@ -25,7 +25,7 @@ class SpinalSimPhaseTester extends FunSuite{
       )
     )
 
-    compiled.doSimUntilVoid{dut =>
+    compiled.doSim{dut =>
       SimTimeout(100000*10)
       Phase.boot() //Initialise phase. Phases are :  setup -> stimulus -> flush -> check -> end
       Phase.flush.retainFor(1000*10) //Give 1000 cycle between the end of push stimulus and check phase to flush the hardware

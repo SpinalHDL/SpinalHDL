@@ -76,6 +76,7 @@ object Phase{
   val threadLocal = new ThreadLocal[PhaseContext]
   def context = threadLocal.get()
   def boot() : Unit = {
+    SimManagerContext.current.manager.retain()
     threadLocal.set(new PhaseContext)
     SimManagerContext.current.manager.onEnd(threadLocal.remove())
   }

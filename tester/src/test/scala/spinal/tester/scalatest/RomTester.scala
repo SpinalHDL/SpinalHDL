@@ -20,7 +20,9 @@
 
 package spinal.tester.scalatest
 
+import org.scalatest.{FlatSpec, FunSuite}
 import spinal.core._
+import spinal.tester.scalatest.RomTester.RomTesterSymbols
 object RomTester {
 
   object MyEnum extends SpinalEnum{
@@ -120,6 +122,32 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
     for(i <- 0 to 3) {
       s"rm $pythonTestLocation/RomTester3.v_toplevel_rom_symbol$i.bin".!
       s"cp RomTester3.v_toplevel_rom_symbol$i.bin $pythonTestLocation".!
+    }
+  }
+}
+
+class SpinalSimRomTester extends FunSuite {
+  test("test1"){
+    import spinal.core.sim._
+    import spinal.sim._
+    SimConfig.compile(new RomTesterSymbols()).doSim{ dut =>
+      val rom = Seq(
+        BigInt(0x01234567l),
+        BigInt(0x12345670l),
+        BigInt(0x10293857l),
+        BigInt(0x0abcfe23l),
+        BigInt(0x02938571l),
+        BigInt(0xabcfe230l),
+        BigInt(0x717833aal),
+        BigInt(0x17833aa6l)
+      )
+
+      Suspendable.repeat(100){
+        dut.address.randomize()
+        sleep(1)
+        assert(dut.data.toBigInt == rom(dut.address.toInt))
+      }
+
     }
   }
 }
