@@ -30,6 +30,7 @@ object SpinalBuild extends Build {
     base = file("sim"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Sim",
+      libraryDependencies += "commons-io" % "commons-io" % "2.4",
       version := SpinalVersion.sim
     )
   )
