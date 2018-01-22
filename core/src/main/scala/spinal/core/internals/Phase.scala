@@ -200,6 +200,34 @@ trait PhaseCheck extends Phase {
 }
 
 
+//class PhaseZeroMemToReg extends PhaseNetlist{
+//  override def impl(pc: PhaseContext): Unit = {
+//    import pc._
+//    walkDeclarations{
+//      case mem : Mem[_] if mem.addressWidth == 0 => {
+//        println("SIMPLIFY ME")
+//        mem.component.rework{
+//          val storage = Reg(Bits(mem.width bits))
+//          mem.foreachStatements{
+//            case port : MemWrite => {
+//              when(port.writeEnable.asInstanceOf[Bool]){
+//                storage := port.data.asInstanceOf[Bits]
+//              }
+//            }
+//            case port : MemReadAsync => {
+//              po
+//            }
+//            case _ =>
+//          }
+//        }
+//        mem.removeStatement()
+//        mem.foreachStatements(s => s.removeStatement())
+//      }
+//      case _ =>
+//    }
+//  }
+//}
+
 class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
@@ -395,7 +423,92 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
       case _ =>
     }
-    mems.foreach(mem => doBlackboxing(pc, new MemTopology(mem, consumers)))
+    mems.foreach(mem => {
+      if(mem.addressWidth != 0) {
+        doBlackboxing(pc, new MemTopology(mem, consumers))
+      } else{
+        def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
+          consumers.get(oldSource) match {
+            case None        =>
+            case Some(array) => array.foreach(ec => {
+              ec.remapExpressions{
+                case e if e == oldSource => newSource
+                case e                   => e
+              }
+            })
+          }
+        }
+
+        mem.component.rework{
+          val content = Bits(mem.width bits)
+          mem.foreachStatements{
+            case port : MemWrite => {
+              assert(port.aspectRatio == 1)
+              val storage = port.clockDomain(Reg(Bits(mem.width bits)))
+              content := storage
+              when(port.writeEnable.asInstanceOf[Bool]){
+                if(port.mask == null) {
+                  storage := port.data.asInstanceOf[Bits]
+                } else {
+                  val dst = storage.subdivideIn(port.mask.getWidth slices)
+                  val src = port.data.asInstanceOf[Bits].subdivideIn(port.mask.getWidth slices)
+                  for(i <- 0 until port.mask.getWidth) {
+                    when(port.mask.asInstanceOf[Bits](i)) {
+                      dst(i) := src(i)
+                    }
+                  }
+                }
+              }
+            }
+            case port : MemReadAsync => {
+              assert(port.aspectRatio == 1)
+              assert(port.readUnderWrite == dontCare || port.readUnderWrite == writeFirst)
+              val readValue = Bits(mem.width bits)
+              readValue := content
+              readValue.addTags(port._spinalTags)
+              wrapConsumers(port, readValue)
+            }
+            case port : MemReadSync => {
+              assert(port.aspectRatio == 1)
+              assert(port.readUnderWrite == dontCare || port.readUnderWrite == readFirst)
+              val buffer = Reg(Bits(mem.width bits))
+              buffer.addTags(port._spinalTags)
+              when(port.readEnable.asInstanceOf[Bool]){
+                buffer := content
+              }
+              wrapConsumers(port, buffer)
+            }
+            case port : MemReadWrite => {
+              assert(port.aspectRatio == 1)
+              val storage = port.clockDomain(Reg(Bits(mem.width bits)))
+              content := storage
+              val buffer = Reg(Bits(mem.width bits))
+              buffer.addTags(port._spinalTags)
+              when(port.chipSelect.asInstanceOf[Bool]){
+                when(port.writeEnable.asInstanceOf[Bool]) {
+                  buffer := content
+                }otherwise{
+                  if(port.mask == null) {
+                    storage := port.data.asInstanceOf[Bits]
+                  } else {
+                    val dst = storage.subdivideIn(port.mask.getWidth slices)
+                    val src = port.data.asInstanceOf[Bits].subdivideIn(port.mask.getWidth slices)
+                    for(i <- 0 until port.mask.getWidth) {
+                      when(port.mask.asInstanceOf[Bits](i)) {
+                        dst(i) := src(i)
+                      }
+                    }
+                  }
+                }
+              }
+              wrapConsumers(port, buffer)
+            }
+          }
+        }
+        mem.removeStatement()
+        mem.foreachStatements(s => s.removeStatement())
+      }
+    })
   }
 
   def doBlackboxing(pc: PhaseContext, typo: MemTopology): Unit

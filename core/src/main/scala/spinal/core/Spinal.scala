@@ -134,8 +134,6 @@ case class SpinalConfig(
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
 
   def apply[T <: Component](gen : => T): SpinalReport[T] = {
-    if(memBlackBoxers.isEmpty)
-      addStandardMemBlackboxing(blackboxOnlyIfRequested)
     Spinal(this)(gen)
   }
 
@@ -257,6 +255,8 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+    if(config.memBlackBoxers.isEmpty)
+      config.addStandardMemBlackboxing(blackboxOnlyIfRequested)
     val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)
 
     println({

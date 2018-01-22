@@ -15,6 +15,13 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 
+
+object PlayDevRamZero{
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(verbose = true).generateVerilog(new StreamFifo(Bits(8 bits), 1))
+  }
+}
+
 object PlayDevMem{
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bits), 64)
