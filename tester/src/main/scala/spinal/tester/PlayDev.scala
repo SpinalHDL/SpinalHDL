@@ -986,3 +986,22 @@ object PlayDevBug123{
     print("done")
   }
 }
+
+
+
+object PlayDevFeature{
+  class TopLevel extends Component {
+//    val regA = RegNext(False) init(True)
+//    val regB = RegNext(S"0000") init(S"1111")
+//    val regC = RegNext(S"0000") init(in(SInt(4 bits)).setName("regCInit"))
+    val regDInit = S"1111"
+    val regD = RegNext(S"0000") init(regDInit)
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT))
+    config.generateVerilog(new TopLevel())
+    config.generateVhdl(new TopLevel())
+    print("done")
+  }
+}
