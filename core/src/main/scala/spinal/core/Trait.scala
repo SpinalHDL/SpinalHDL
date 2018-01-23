@@ -526,6 +526,13 @@ trait SpinalTagReady {
     None
   }
 
+  def getTags() : mutable.Set[SpinalTag] = {
+    if(_spinalTags == null)
+      mutable.Set[SpinalTag]()
+    else
+      _spinalTags
+  }
+
   def findTag(cond: (SpinalTag) => Boolean): Option[SpinalTag] = {
     if(_spinalTags == null) return None
     _spinalTags.find(cond)

@@ -445,6 +445,11 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
             case port : MemWrite => {
               assert(port.aspectRatio == 1)
               val storage = port.clockDomain(Reg(Bits(mem.width bits)))
+              storage.addTags(mem.getTags())
+              if(mem.initialContent != null){
+                assert(mem.initialContent.size == 1)
+                storage.init(mem.initialContent.head)
+              }
               content := storage
               when(port.writeEnable.asInstanceOf[Bool]){
                 if(port.mask == null) {
@@ -465,14 +470,14 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
               assert(port.readUnderWrite == dontCare || port.readUnderWrite == writeFirst)
               val readValue = Bits(mem.width bits)
               readValue := content
-              readValue.addTags(port._spinalTags)
+              readValue.addTags(port.getTags())
               wrapConsumers(port, readValue)
             }
             case port : MemReadSync => {
               assert(port.aspectRatio == 1)
               assert(port.readUnderWrite == dontCare || port.readUnderWrite == readFirst)
               val buffer = Reg(Bits(mem.width bits))
-              buffer.addTags(port._spinalTags)
+              buffer.addTags(port.getTags())
               when(port.readEnable.asInstanceOf[Bool]){
                 buffer := content
               }
@@ -481,13 +486,16 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
             case port : MemReadWrite => {
               assert(port.aspectRatio == 1)
               val storage = port.clockDomain(Reg(Bits(mem.width bits)))
+              storage.addTags(mem.getTags())
+              if(mem.initialContent != null){
+                assert(mem.initialContent.size == 1)
+                storage.init(mem.initialContent.head)
+              }
               content := storage
               val buffer = Reg(Bits(mem.width bits))
-              buffer.addTags(port._spinalTags)
+              buffer.addTags(port.getTags())
               when(port.chipSelect.asInstanceOf[Bool]){
-                when(port.writeEnable.asInstanceOf[Bool]) {
-                  buffer := content
-                }otherwise{
+                when(port.writeEnable.asInstanceOf[Bool]){
                   if(port.mask == null) {
                     storage := port.data.asInstanceOf[Bits]
                   } else {
@@ -499,10 +507,17 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
                       }
                     }
                   }
+                } otherwise {
+                  buffer := content
                 }
               }
               wrapConsumers(port, buffer)
             }
+          }
+
+          if(mem.initialContent != null && content.dlcIsEmpty){
+            assert(mem.initialContent.size == 1)
+            content := mem.initialContent.head
           }
         }
         mem.removeStatement()
