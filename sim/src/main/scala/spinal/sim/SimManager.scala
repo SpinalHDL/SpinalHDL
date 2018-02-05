@@ -20,14 +20,17 @@ class SimManager(val raw : SimRaw) {
   val threads = mutable.ArrayBuffer[SimThread]()
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   val commandBuffer = mutable.ArrayBuffer[() => Unit]()
+  val onEndListeners = mutable.ArrayBuffer[() => Unit]()
   var schedulingOffset = 0
   var time = 0l
+  private var retains = 0
   var userData : Any = null
   val context = new SimManagerContext()
-  var simContinue = false
+//  var simContinue = false
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
+  def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = raw.getInt(bt)
   def getLong(bt : Signal) : Long = raw.getLong(bt)
   def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
@@ -47,16 +50,19 @@ class SimManager(val raw : SimRaw) {
     }
   }
 
+  def retain() = retains += 1
+  def release() = retains -= 1
+
   def newThread(body : => Unit@suspendable): SimThread ={
     val thread = new SimThread(body, time)
     scheduleThread(thread)
     thread
   }
 
-  def exitSim(): Unit@suspendable = {
-    simContinue = false
-    SimManagerContext.current.thread.suspend()
-  }
+//  def exitSim(): Unit@suspendable = {
+//    simContinue = false
+//    SimManagerContext.current.thread.suspend()
+//  }
 
   def run(body : => Unit@suspendable): Unit ={
     val startAt = System.nanoTime()
@@ -81,9 +87,9 @@ class SimManager(val raw : SimRaw) {
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
     try {
-      simContinue = true
+//      simContinue = true
       var forceDeltaCycle = false
-      while ((continueWhile && threads.nonEmpty && simContinue) || forceDeltaCycle) {
+      while (((continueWhile || retains != 0) && threads.nonEmpty/* && simContinue*/) || forceDeltaCycle) {
         //Process sensitivities
         var sensitivitiesCount = sensitivities.length
         var sensitivitiesId = 0
@@ -134,6 +140,9 @@ class SimManager(val raw : SimRaw) {
         threads.remove(0, threadsToRunCount)
         schedulingOffset = 0
       }
+      if(retains != 0){
+        throw new SimFailure("Simulation ended while there was still some retains")
+      }
     } catch {
       case e : SimSuccess =>
       case e : Throwable => {
@@ -143,6 +152,7 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     }
+    onEndListeners.foreach(_())
     raw.end()
     SimManagerContext.threadLocal.set(null)
   }

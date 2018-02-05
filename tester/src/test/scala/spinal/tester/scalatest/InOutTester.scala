@@ -38,6 +38,7 @@ object InOutTester {
 
   class Sub extends Component{
     val bus2 = slave(Bus())
+    val busX = master(Bus())
     val tmp2 = Analog(analogType)
     when(bus2.cmd.writeEnable){
       tmp2 := bus2.cmd.write
@@ -45,6 +46,11 @@ object InOutTester {
     bus2.cmd.read := tmp2
 
     bus2.gpio := tmp2
+
+
+    busX.cmd.write := False
+    busX.cmd.writeEnable := False
+    busX.gpio := False
   }
 
   class BlackBoxed extends BlackBox{
@@ -52,10 +58,12 @@ object InOutTester {
   }
 
 
+
   class InOutTester extends Component {
     val bus = slave(Bus())
     val cmd = slave(TriState(analogType))
     val cmdbb = slave(TriState(analogType))
+    val busX = master(Bus())
 
     cmd.writeEnable.setCompositeName(cmd,"writeenable")
     cmdbb.writeEnable.setCompositeName(cmdbb,"writeenable")
@@ -71,6 +79,7 @@ object InOutTester {
 
     val sub = new Sub
     sub.bus2 <> busCpy
+    busX <> sub.busX
 
     val buscpy_gpio_readed = out(analogType)
     buscpy_gpio_readed := busCpy.gpio

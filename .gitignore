@@ -42,6 +42,7 @@ log.txt
 /src/
 *.out
 *.o
+*.bin
 
 /tester/**/*.gtkw
 *.do

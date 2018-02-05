@@ -51,6 +51,10 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
     }
   }
 
+  def unschedule(): Unit ={
+    nextStep = null
+  }
+
   def resume() = {
     if (nextStep != null) {
       val back = nextStep

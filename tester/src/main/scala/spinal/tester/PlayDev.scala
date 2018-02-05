@@ -660,6 +660,42 @@ object PlayDevAnalog{
 }
 
 
+object PlayWithBug {
+
+  class MyTopLevel extends Component {
+
+    val io = new Bundle{
+      val dout = out Bits(32 bits)
+      val din  = in Bits(32 bits)
+
+      val incr = in Bool
+      val wr   = in Bool
+    }
+
+    val dataRD = Vec(Reg(Bits(32 bits)), 8)
+    val rdCnt  = Reg(UInt(2 bits)) init(0)
+    val wrCnt  = Reg(UInt(3 bits)) init(0)
+
+
+    when(io.wr){
+      wrCnt := wrCnt + 1
+      dataRD(wrCnt) := io.din
+    }
+
+    when(io.incr){
+      rdCnt := rdCnt + 1
+    }
+
+    io.dout := dataRD(rdCnt.resized)
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new MyTopLevel)
+  }
+
+}
+
 object PlayDevAnalog2{
   class Sub extends Component{
     val cmd2 = slave(TriState(Bool))

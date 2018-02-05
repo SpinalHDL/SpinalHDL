@@ -102,6 +102,15 @@ package object sim {
         bt #= bt.spinalEnum.elements(value.toInt)
       }
     }
+
+
+    def toBigInt : BigInt = bt match{
+      case bt : Bool =>  BigInt(if(bt.toBoolean) 1 else 0)
+      case bt : Bits => bt.toBigInt
+      case bt : UInt => bt.toBigInt
+      case bt : SInt => bt.toBigInt
+      case bt : SpinalEnumCraft[_] => BigInt(bt.toEnum.position)
+    }
   }
 
   implicit class SimDataPimper(bt : Data) {

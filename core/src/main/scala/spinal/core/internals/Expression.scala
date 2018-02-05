@@ -382,6 +382,8 @@ object Operator{
       override def simplifyNode: Expression = {
         if(source.getWidth == 0){
           getLiteralFactory(0, this.getWidth)
+        } else if(shift == 0){
+          source
         } else {
           this
         }
@@ -904,6 +906,10 @@ abstract class Multiplexer extends Modifier {
     func(select)
     inputs.foreach(func(_))
   }
+
+  override def normalizeInputs: Unit = {
+
+  }
 }
 
 abstract class MultiplexerWidthable extends Multiplexer with Widthable{
@@ -921,6 +927,7 @@ class MultiplexerBits extends MultiplexerWidthable {
   override def getTypeObject: Any = TypeBits
   override def opName: String = s"mux of Bits"
   override def normalizeInputs: Unit = {
+    super.normalizeInputs
     val targetWidth = getWidth
     var idx = inputs.length
     while(idx != 0){
@@ -936,6 +943,7 @@ class MultiplexerUInt extends MultiplexerWidthable{
   override def getTypeObject: Any = TypeUInt
   override def opName: String = s"mux of UInt"
   override def normalizeInputs: Unit = {
+    super.normalizeInputs
     val targetWidth = getWidth
     var idx = inputs.length
     while(idx != 0){
@@ -951,6 +959,7 @@ class MultiplexerSInt extends MultiplexerWidthable{
   override def getTypeObject: Any = TypeSInt
   override def opName: String = s"mux of SInt"
   override def normalizeInputs: Unit = {
+    super.normalizeInputs
     val targetWidth = getWidth
     var idx = inputs.length
     while(idx != 0){
@@ -969,6 +978,7 @@ class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEn
   override def getDefinition: SpinalEnum = enumDef
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
+    super.normalizeInputs
     InputNormalize.enumImpl(this)
   }
   override def getTypeObject: Any = TypeEnum

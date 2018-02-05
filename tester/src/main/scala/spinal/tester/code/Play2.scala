@@ -2046,6 +2046,24 @@ object PlayBug544441{
     SpinalVhdl(new TopLevel())
   }
 }
+
+object PlaySV{
+
+  class Parameters{
+    def toSystemVerilog(): Unit ={
+
+    }
+  }
+
+
+
+  case class SocParameters( a : Int,
+                            b : Int,
+                            c : Int) extends Parameters
+
+}
+
+
 object Play1adasd {
 
   class Logic {

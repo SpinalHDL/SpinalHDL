@@ -3,6 +3,8 @@ package spinal.sim
 import java.io.File
 import javax.tools.JavaFileObject
 
+import org.apache.commons.io.FileUtils
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
@@ -325,6 +327,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
+    config.rtlSourcesPaths.filter(_.endsWith(".bin")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
 
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200
@@ -343,7 +346,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.map(new File(_).getAbsolutePath).mkString(" "))}
+       | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).mkString(" "))}
        | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
 
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
