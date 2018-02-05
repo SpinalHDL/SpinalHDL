@@ -96,7 +96,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
   /** Reference owner type */
-  override type RefOwnerType = Component
+//  override type RefOwnerType = Component
 
   var pulledDataCache = mutable.Map[Data, Data]()
 

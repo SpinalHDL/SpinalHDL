@@ -49,6 +49,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+            ()
           }
         }
         simSuccess()
@@ -63,6 +64,8 @@ class SpinalSimStreamFifoTester extends FunSuite {
       val flag = Bool
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
+
+      override def clone = Transaction()
     }
 
     val compiled = SimConfig.allOptimisation.compile(
