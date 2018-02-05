@@ -190,7 +190,7 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 
 
   override def getScalaTrace() = {
-    if(!globalData.scalaLocatedEnable) {
+    if(!globalData.scalaLocatedEnable && component != null) {
       globalData.scalaLocatedInterrests += component.getClass
     }
     super.getScalaTrace()
