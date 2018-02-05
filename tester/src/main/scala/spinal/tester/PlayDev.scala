@@ -1005,3 +1005,19 @@ object PlayDevFeature{
     print("done")
   }
 }
+
+
+object PlayDevFeature2{
+  class TopLevel extends Component {
+    val rom1 = Mem((0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+    val rom2 = Mem(Vec(Vec(UInt(8 bits), 4), 3), (0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+    val rom3 = Mem(Vec(Vec(UInt(8 bits), 4), 3), 6) init((0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TopLevel())
+    config.generateVhdl(new TopLevel())
+    print("done")
+  }
+}

@@ -22,6 +22,13 @@ object InOutWrapper {
               newIo := bundle.write
             }
           }
+          case bundle : TriStateOutput[_] if bundle.isOutput => {
+            val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
+            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            when(bundle.writeEnable){
+              newIo := bundle.write
+            }
+          }
           case bundle: ReadableOpenDrain[_]  if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
             bundle.asDirectionLess.unsetName().allowDirectionLessIo
