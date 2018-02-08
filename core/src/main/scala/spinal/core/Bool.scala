@@ -143,7 +143,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
     ret.rise   := !old && this
     ret.fall   := old && !this
-    ret.toogle := old =/= this
+    ret.toggle := old =/= this
+    ret.toogle := ret.toggle
+
 
     ret
   }
@@ -155,7 +157,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
     ret.rise   := !old && this
     ret.fall   := old && !this
-    ret.toogle := old =/= this
+    ret.toggle := old =/= this
+    ret.toogle := ret.toggle
 
     ret
   }
@@ -257,5 +260,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   * Bundle for the edge detection
   */
 case class BoolEdges() extends Bundle{
-  val rise, fall, toogle = Bool()
+  val rise, fall, toggle = Bool()
+
+  @deprecated("Use toggle")
+  val toogle = Bool()
 }
