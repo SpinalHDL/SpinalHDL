@@ -1718,7 +1718,7 @@ object BitAssignmentFloating{
     assign
   }
 }
-class BitAssignmentFloating() extends BitVectorAssignmentExpression{
+class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLocated{
   var out  : BitVector = null
   var bitId  : Expression with WidthProvider = null
   override def getTypeObject = TypeBool
@@ -1748,8 +1748,15 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression{
     }else
       this
   }
+
+  override def normalizeInputs: Unit = {
+    if (bitId.getWidth > log2Up(out.getWidth)) {
+      PendingError(s"Index ${bitId} used to access ${out} has to many bits\n${getScalaLocationLong}")
+    }
+  }
+
   override def getMinAssignedBits: AssignedRange = AssignedRange()
-  override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << bitId.getWidth)-1, 0)
+  override def getMaxAssignedBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << bitId.getWidth)-1), 0)
   //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
   //
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -1827,7 +1834,7 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
   //
   //
   override def getMinAssignedBits: AssignedRange = AssignedRange()
-  override def getMaxAssignedBits: AssignedRange = AssignedRange((1 << offset.getWidth)-1 + bitCount - 1, 0)
+  override def getMaxAssignedBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << offset.getWidth)-1 + bitCount - 1), 0)
 
   //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO

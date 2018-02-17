@@ -698,15 +698,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
       }
     }
   }
-}
 
-class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool = pimped.reduce(_ || _)
-  def andR: Bool = pimped.reduce(_ && _)
-  def xorR: Bool = pimped.reduce(_ ^ _)
-}
-
-class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
   }
@@ -730,6 +722,17 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     stage(array, 0)
   }
 
+}
+
+class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
+  def orR: Bool = pimped.reduce(_ || _)
+  def andR: Bool = pimped.reduce(_ && _)
+  def xorR: Bool = pimped.reduce(_ ^ _)
+}
+
+class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
+  def reduceBalancedTree(op: (T, T) => T): T =  new TraversableOnceAnyPimped[T](pimped).reduceBalancedTree(op)
+  def reduceBalancedTree(op: (T, T) => T, levelBridge: (T, Int) => T): T =  new TraversableOnceAnyPimped[T](pimped).reduceBalancedTree(op, levelBridge)
   def asBits() : Bits = Cat(pimped)
 
 

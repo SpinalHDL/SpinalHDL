@@ -1021,3 +1021,82 @@ object PlayDevFeature2{
     print("done")
   }
 }
+
+object PlayDevMiaou43{
+  case class StatusReg() extends Bundle{
+    val register = Bits(32 bits)
+    def start = register(0)
+  }
+  object StatusReg{
+    def apply(value: BigInt): StatusReg = {
+      val bundle = StatusReg()
+      bundle.register := value
+      return bundle
+    }
+  }
+
+  class TopLevel extends Component {
+    val apb = slave(Apb3(32,32))
+    val factory = Apb3SlaveFactory(apb)
+    def driveIO(factory: Apb3SlaveFactory, baseAddress: BigInt){
+      val status = factory.createReadAndWrite(StatusReg(), baseAddress + 0x00) init(StatusReg(0))
+
+      when(status.start){
+        status.start := False
+      }
+    }
+    driveIO(factory, 0)
+//    val status = factory.createReadAndWrite(StatusReg(), 0x00) init(StatusReg(0))
+//    when(!status.start){ status.start := False }
+
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TopLevel())
+  }
+}
+
+
+class AlteraMemTagger extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations{
+      case mem : Mem[_] =>
+        mem.foreachStatements{
+          case s : MemReadSync => s.readUnderWrite
+          case s : MemReadAsync =>
+          case _ =>
+        }
+        mem.addAttribute("ReadWritePolicy", "WriteFirst")
+      case _ =>
+    }
+  }
+}
+
+object PlayDevTest32 extends App{
+  SpinalConfig().addTransformationPhase(new AlteraMemTagger).generateVerilog(StreamFifo(UInt(8 bits), 32))
+}
+
+
+object PlayWithIndex extends App {
+  class MyTopLevel extends Component{
+    val io = new Bundle{
+      val load  = in Bool
+      val din   = in Bool
+      val index = in UInt(log2Up(60) bits)
+      val value = out UInt(60 bits)
+    }
+
+    val register = Reg(cloneOf(io.value)) init(0)
+
+
+    when(io.load){
+      register(io.index) := io.din
+    }
+
+    io.value := register
+
+  }
+
+  SpinalVhdl(new MyTopLevel)
+}

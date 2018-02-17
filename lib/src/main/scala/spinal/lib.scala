@@ -2,6 +2,8 @@ package spinal
 
 import spinal.core._
 
+import scala.collection.Iterable
+
 package object lib  {
   //  def Stream[T <: Data](that : T) : Stream[T] = new Stream[T](that)
   //  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster()
