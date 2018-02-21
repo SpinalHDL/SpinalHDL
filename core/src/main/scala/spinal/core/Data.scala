@@ -188,7 +188,7 @@ object Data {
           copy.setCompositeName(srcData,weak=true)
         pop(riseTo)
         if (currentComponent != null) {
-          push(currentComponent, currentComponent.dslBody)
+          push(currentComponent, riseTo.parentScope)
           copy := currentData
           pop(currentComponent)
         }
