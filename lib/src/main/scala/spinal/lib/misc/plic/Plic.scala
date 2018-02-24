@@ -1,0 +1,111 @@
+package spinal.lib.misc.plic
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.bus.misc.BusSlaveFactory
+
+case class PlicMapping(
+  gatewayPriorityOffset : Int,
+  gatewayPendingOffset  : Int,
+  targetEnableOffset    : Int,
+  targetThresholdOffset : Int,
+  targetClaimOffset     : Int,
+  gatewayPriorityShift  : Int,
+  gatwayPendingShift    : Int,
+  targetThresholdShift  : Int,
+  targetClaimShift      : Int,
+  targetEnableShift     : Int,
+  gatewayPriorityWriteGen : Boolean,
+  gatewayPriorityReadGen : Boolean,
+  gatewayPendingReadGen : Boolean,
+  targetThresholdWriteGen : Boolean,
+  targetThresholdReadGen : Boolean,
+  targetEnableWriteGen : Boolean,
+  targetEnableReadGen : Boolean
+)
+
+object PlicMapping{
+  def sifive = PlicMapping(
+    gatewayPriorityOffset =  0x0000,
+    gatewayPendingOffset  =  0x1000,
+    targetEnableOffset    =  0x2000,
+    targetThresholdOffset = 0x20000,
+    targetClaimOffset     = 0x20004,
+    gatewayPriorityShift  =       2,
+    gatwayPendingShift    =       2,
+    targetThresholdShift  =      12,
+    targetClaimShift      =      12,
+    targetEnableShift     =       7,
+    gatewayPriorityWriteGen = true,
+    gatewayPriorityReadGen = true,
+    gatewayPendingReadGen = true,
+    targetThresholdWriteGen = true,
+    targetThresholdReadGen = true,
+    targetEnableWriteGen = true,
+    targetEnableReadGen = true
+  )
+}
+
+
+object PlicMapper{
+  def apply(bus: BusSlaveFactory, mapping: PlicMapping)(gateways : Seq[PlicGateway], targets : Seq[PlicTarget]) = new Area{
+    import mapping._
+    val gatewayMapping = for(gateway <- gateways) yield new Area{
+      if(gatewayPriorityWriteGen) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
+      if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift))
+      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingOffset))
+    }
+
+    val idWidth = log2Up(gateways.map(_.id).max + 1)
+    val claim = Flow(UInt(idWidth bits))
+    claim.valid := False
+    claim.payload.assignDontCare()
+    when(claim.valid) {
+      switch(claim.payload) {
+        for (gateway <- gateways) {
+          is(gateway.id) {
+            gateway.doClaim()
+          }
+        }
+      }
+    }
+
+    val completion = Flow(UInt(idWidth bits))
+    completion.valid := False
+    completion.payload.assignDontCare()
+    when(completion.valid) {
+      switch(completion.payload) {
+        for (gateway <- gateways) {
+          is(gateway.id) {
+            gateway.doCompletion()
+          }
+        }
+      }
+    }
+
+    val targetMapping = for((target, targetId) <- targets.zipWithIndex) yield new Area {
+      val thresholdOffset = targetThresholdOffset + (targetId << targetThresholdShift)
+      val claimOffset = targetClaimOffset + (targetId << targetClaimShift)
+      if(targetThresholdWriteGen) bus.drive(target.threshold, address = thresholdOffset) init (0)
+      if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset)
+      bus.read(target.claim, address = claimOffset)
+      bus.onRead(claimOffset) {
+        claim.valid := True
+        claim.payload := target.claim
+      }
+
+      val targetCompletion = bus.createAndDriveFlow(UInt(target.idWidth bits), claimOffset)
+      when(targetCompletion.valid){
+        completion.valid := True
+        completion.payload := targetCompletion.payload
+      }
+
+      for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
+        val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
+        val bitOffset = gateway.id % bus.busDataWidth
+        if(targetEnableWriteGen) bus.drive(target.ie(gatewayIndex), address, bitOffset)
+        if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset)
+      }
+    }
+  }
+}
