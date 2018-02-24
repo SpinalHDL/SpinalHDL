@@ -1100,3 +1100,17 @@ object PlayWithIndex extends App {
 
   SpinalVhdl(new MyTopLevel)
 }
+
+
+object PlayWithIndex222 extends App {
+  class MyTopLevel extends Component{
+    val a, b = UInt(8 bits)
+    for(i <- 0 to 7){
+      b(i) := a(i)
+    }
+
+  }
+
+  val report = SpinalVerilog(new MyTopLevel)
+  println("asd")
+}
