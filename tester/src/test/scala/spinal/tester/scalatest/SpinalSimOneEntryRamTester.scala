@@ -44,6 +44,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
         }
         sleep(1)
         assert(dut.readAsyncPort.data.toInt == ramModel)
+        ()
       }
     }
   }
@@ -97,6 +98,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
         }
         sleep(1)
         assert(dut.readAsyncPort.data.toInt == ramModel)
+        ()
       }
     }
   }
@@ -131,6 +133,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
         }
         sleep(1)
         assert(dut.readAsyncPort.data.toInt == ramModel)
+        ()
       }
     }
   }
