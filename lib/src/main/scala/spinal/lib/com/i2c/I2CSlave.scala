@@ -195,7 +195,7 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     }
     val rspBufferIn = Stream(Rsp())
     val rspBuffer = rspBufferIn.stage() //Store rsp transaction
-    val rspAhead = rspBuffer.valid ? rspBuffer.asFlow | rspBufferIn.asFlow
+    val rspAhead = (rspBuffer.valid && !rspBuffer.ready) ? rspBuffer.asFlow | rspBufferIn.asFlow
     rspBufferIn.valid := io.bus.rsp.valid
     rspBufferIn.enable := io.bus.rsp.enable
     rspBufferIn.data := io.bus.rsp.data
@@ -218,7 +218,7 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     }
 
     when(inFrameData) {
-      when(!rspBuffer.valid){
+      when(!rspBuffer.valid || rspBuffer.ready){
         io.bus.cmd.kind := CmdMode.DRIVE
       }
 
@@ -266,6 +266,6 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(ctrl.sclWrite)
-  io.i2c.sda.write := RegNext(ctrl.sdaWrite)
+  io.i2c.scl.write := RegNext(ctrl.sclWrite) init(True)
+  io.i2c.sda.write := RegNext(ctrl.sdaWrite) init(True)
 }
