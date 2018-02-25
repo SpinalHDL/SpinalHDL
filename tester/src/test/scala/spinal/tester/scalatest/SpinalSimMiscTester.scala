@@ -4,6 +4,7 @@ import org.scalatest.FunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
+import spinal.lib.BufferCC
 import spinal.tester
 import spinal.tester.scalatest
 
@@ -234,5 +235,28 @@ class SpinalSimMiscTester extends FunSuite {
     })
   }
 
+  test("testCompInWhen"){
+    SimConfig.compile(new Component{
+      val src = in Bool()
+      val sel = in Bool()
+      val dst = out Bool()
 
+      dst := False
+      when(sel){
+        dst := BufferCC(src, False)
+      }
+    }).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      var modelA, modelB = false
+      Suspendable.repeat(100){
+        dut.src.randomize()
+        dut.sel.randomize()
+        dut.clockDomain.waitSampling()
+        assert(dut.dst.toBoolean == (modelB && dut.sel.toBoolean))
+        modelB = modelA
+        modelA = dut.src.toBoolean
+      }
+    }
+  }
 }

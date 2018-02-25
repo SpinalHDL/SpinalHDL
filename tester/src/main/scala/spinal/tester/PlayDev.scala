@@ -15,6 +15,13 @@ import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
 
 
+
+object PlayDevRamZero{
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(verbose = true).generateVerilog(new StreamFifo(Bits(8 bits), 1))
+  }
+}
+
 object PlayDevMem{
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bits), 64)
@@ -978,4 +985,132 @@ object PlayDevBug123{
     SpinalConfig().generateVerilog(new TopLevel())
     print("done")
   }
+}
+
+
+
+object PlayDevFeature{
+  class TopLevel extends Component {
+//    val regA = RegNext(False) init(True)
+//    val regB = RegNext(S"0000") init(S"1111")
+//    val regC = RegNext(S"0000") init(in(SInt(4 bits)).setName("regCInit"))
+    val regDInit = S"1111"
+    val regD = RegNext(S"0000") init(regDInit)
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT))
+    config.generateVerilog(new TopLevel())
+    config.generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+
+object PlayDevFeature2{
+  class TopLevel extends Component {
+    val rom1 = Mem((0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+    val rom2 = Mem(Vec(Vec(UInt(8 bits), 4), 3), (0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+    val rom3 = Mem(Vec(Vec(UInt(8 bits), 4), 3), 6) init((0 to 5).map(addr => Vec((0 to 2).map(i => Vec((0 to 3).map(j => U(i+j + addr, 8 bits)))))))
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TopLevel())
+    config.generateVhdl(new TopLevel())
+    print("done")
+  }
+}
+
+object PlayDevMiaou43{
+  case class StatusReg() extends Bundle{
+    val register = Bits(32 bits)
+    def start = register(0)
+  }
+  object StatusReg{
+    def apply(value: BigInt): StatusReg = {
+      val bundle = StatusReg()
+      bundle.register := value
+      return bundle
+    }
+  }
+
+  class TopLevel extends Component {
+    val apb = slave(Apb3(32,32))
+    val factory = Apb3SlaveFactory(apb)
+    def driveIO(factory: Apb3SlaveFactory, baseAddress: BigInt){
+      val status = factory.createReadAndWrite(StatusReg(), baseAddress + 0x00) init(StatusReg(0))
+
+      when(status.start){
+        status.start := False
+      }
+    }
+    driveIO(factory, 0)
+//    val status = factory.createReadAndWrite(StatusReg(), 0x00) init(StatusReg(0))
+//    when(!status.start){ status.start := False }
+
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TopLevel())
+  }
+}
+
+
+class AlteraMemTagger extends PhaseNetlist{
+  override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations{
+      case mem : Mem[_] =>
+        mem.foreachStatements{
+          case s : MemReadSync => s.readUnderWrite
+          case s : MemReadAsync =>
+          case _ =>
+        }
+        mem.addAttribute("ReadWritePolicy", "WriteFirst")
+      case _ =>
+    }
+  }
+}
+
+object PlayDevTest32 extends App{
+  SpinalConfig().addTransformationPhase(new AlteraMemTagger).generateVerilog(StreamFifo(UInt(8 bits), 32))
+}
+
+
+object PlayWithIndex extends App {
+  class MyTopLevel extends Component{
+    val io = new Bundle{
+      val load  = in Bool
+      val din   = in Bool
+      val index = in UInt(log2Up(60) bits)
+      val value = out UInt(60 bits)
+    }
+
+    val register = Reg(cloneOf(io.value)) init(0)
+
+
+    when(io.load){
+      register(io.index) := io.din
+    }
+
+    io.value := register
+
+  }
+
+  SpinalVhdl(new MyTopLevel)
+}
+
+
+object PlayWithIndex222 extends App {
+  class MyTopLevel extends Component{
+    val a, b = UInt(8 bits)
+    for(i <- 0 to 7){
+      b(i) := a(i)
+    }
+
+  }
+
+  val report = SpinalVerilog(new MyTopLevel)
+  println("asd")
 }

@@ -6,11 +6,11 @@ import spinal.lib.bus.misc.BusSlaveFactory
 
 case class Timer(width : Int) extends Component{
   val io = new Bundle {
-    val tick = in Bool
+    val tick  = in Bool
     val clear = in Bool
     val limit = in UInt (width bits)
 
-    val full = out Bool
+    val full  = out Bool
     val value = out UInt (width bits)
   }
   val counter = Reg(UInt(width bits))

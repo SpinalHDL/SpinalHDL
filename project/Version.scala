@@ -1,10 +1,10 @@
 object SpinalVersion {
-  val compiler = "2.12.4"
+  val compiler = "2.11.6"
   val compilerIsRC = false
 
   val isSnapshot = false
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.1.3"
+  private val major = "1.1.4"
   val all         = s"$major$snapshot"
   val sim         = s"$major$snapshot"
   val core        = s"$major$snapshot"

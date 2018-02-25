@@ -48,3 +48,18 @@ You can force to pick a specific SpinalHDL version by replacing the 'latest.rele
 
 https://github.com/SpinalHDL/SpinalHDL/tags
 
+## License
+
+The SpinalHDL core is using the LGPL3 license while SpinalHDL lib is using the MIT one. That's for the formalities. But there is some practices statements of those license implications :
+
+Your freedoms are :
+- You can use SpinalHDL core and lib in your closed/commercial projects.
+- The generated RTL is yours (.vhd/.v files)
+- Your hardware description is yours (.scala files)
+
+Your obligations (and my wish) are :
+- If you modifie the SpinalHDL core (the compiler itself), please, share your improvments.
+
+Also, SpinalHDL is provided "as is", without warranty of any kind.
+
+

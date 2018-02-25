@@ -215,8 +215,24 @@ package object sim {
       manager.setLong(signal, 1)
     }
 
+    def onSampling(body : => Unit): Unit ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getLong(signal)
+      manager.sensitivities += (new SimManagerSensitive {
+        override def update() = {
+          val current = manager.getLong(signal)
+          if(last != edgeValue && current == edgeValue && isSamplingEnable)
+            body
+          last = current
+          true
+        }
+      })
+    }
+//    def onSamplingFork(body : => Unit@suspendable): Unit = onSampling(fork(body))
 
-    def waitSampling() : Unit@suspendable = waitSampling(1)
+      def waitSampling() : Unit@suspendable = waitSampling(1)
     def waitSampling(count : Int): Unit@suspendable  ={
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
       val manager = SimManagerContext.current.manager

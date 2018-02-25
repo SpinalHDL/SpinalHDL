@@ -98,7 +98,8 @@ object weakCloneOf {
  */
 object widthOf {
   def apply[T <: Data](that: T): Int = that.getBitsWidth
-  def apply(maskedLiteral: MaskedLiteral) : Int = maskedLiteral.getWidth()
+  def apply(maskedLiteral: MaskedLiteral): Int = maskedLiteral.getWidth()
+  def apply[T <: Data](that: HardType[T]): Int = that.getBitsWidth
 }
 
 
@@ -108,7 +109,8 @@ object HardType{
 }
 
 class HardType[T <: Data](t : T){
-  def apply() = cloneOf(t)
+  def apply()   = cloneOf(t)
+  def getBitsWidth = t.getBitsWidth
 }
 
 

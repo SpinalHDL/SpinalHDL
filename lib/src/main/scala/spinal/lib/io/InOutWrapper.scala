@@ -1,14 +1,21 @@
 package spinal.lib.io
 
 import spinal.core._
+import spinal.lib.master
 
 import scala.collection.mutable
 
 object InOutWrapper {
   def apply[T <: Component](c : T) : T = {
     val dataParents = mutable.LinkedHashMap[Data,Int]()
-    for(io <- c.getAllIo if io.parent != null){
-      dataParents(io.parent) = dataParents.getOrElseUpdate(io.parent,0) + 1
+    def add(that : Data): Unit ={
+      if(that.parent != null){
+        dataParents(that.parent) = dataParents.getOrElseUpdate(that.parent,0) + 1
+        add(that.parent)
+      }
+    }
+    for(io <- c.getAllIo){
+      add(io)
     }
 
     c.rework {
@@ -22,11 +29,29 @@ object InOutWrapper {
               newIo := bundle.write
             }
           }
+          case bundle : TriStateOutput[_] if bundle.isOutput => {
+            val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
+            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            when(bundle.writeEnable){
+              newIo := bundle.write
+            }
+          }
           case bundle: ReadableOpenDrain[_]  if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
             bundle.asDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)
-            newIo := bundle.write
+            for((value, id) <- bundle.write.asBits.asBools.zipWithIndex) {
+              when(!value){
+                newIo.assignFromBits("0", id, 1 bits)
+              }
+            }
+//            for(bt <- bundle.write.flatten){
+//              for((value, id) <- bt.asBits.asBools.zipWithIndex) {
+//                when(!value){
+//                  bt.assignFromBits("0", id, 1 bits)
+//                }
+//              }
+//            }
           }
           case bundle: TriStateArray if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.write)).setWeakName(bundle.getName())
@@ -44,4 +69,22 @@ object InOutWrapper {
     }
     c
   }
+
+  def main(args: Array[String]): Unit = {
+    case class D() extends Bundle{
+      val x = UInt(2 bits)
+      val y = Bool
+    }
+    SpinalVhdl(InOutWrapper(new Component{
+      def t = D()
+      val driver = in(t)
+      val sink = out(t)
+      val openDrain = master(ReadableOpenDrain(t))
+      openDrain.write := driver
+      sink := openDrain.read
+    }))
+  }
 }
+
+
+

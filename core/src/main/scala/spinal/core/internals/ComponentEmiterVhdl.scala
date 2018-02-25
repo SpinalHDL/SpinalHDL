@@ -723,22 +723,37 @@ class ComponentEmiterVhdl(
   def getBaseTypeSignalInitialisation(signal: BaseType): String = {
     if(signal.isReg){
       if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
-        var initStatement: AssignmentStatement = null
+        var initExpression: Literal = null
         var needFunc = false
 
         signal.foreachStatements {
-          case s: InitAssignmentStatement if s.source.isInstanceOf[Literal] =>
-            if(initStatement != null)
+          case s: InitAssignmentStatement =>
+            assert(s.target == signal, s"Partial init not supported on $signal")
+            if(initExpression != null)
               needFunc = true
-            initStatement = s
+            def findLiteral(that : Expression): Literal = that match{
+              case that : Literal => that
+              case that : BaseType => {
+                if(Statement.isSomethingToFullStatement(that)){
+                  findLiteral(that.head.source)
+                }else{
+                  SpinalError(s"Can't resolve the literal value of $that")
+                }
+              }
+            }
+
+            initExpression = s match {
+              case s : Literal => s
+              case _ => findLiteral(s.source)
+            }
           case s =>
         }
 
         if(needFunc)
           ???
         else {
-          assert(initStatement.parentScope == signal.parentScope)
-          return " := " + emitExpressionNoWrappeForFirstOne(initStatement.source)
+          //          assert(initStatement.parentScope == signal.parentScope)
+          return " := " + emitExpressionNoWrappeForFirstOne(initExpression)
         }
 
       }else if (signal.hasTag(randomBoot)) {

@@ -116,11 +116,11 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
   override val getWidth : Int = width
 
   def addressWidth = log2Up(wordCount)
-  def generateAsBlackBox(): this.type = ???
-//  def generateAsBlackBox(): this.type = {
-//    forceMemToBlackboxTranslation = true
-//    this
-//  }
+
+  def generateAsBlackBox(): this.type = {
+    forceMemToBlackboxTranslation = true
+    this
+  }
 
   var initialContent: Array[BigInt] = null
 //  private[core] def checkInferedWidth: Unit = {
