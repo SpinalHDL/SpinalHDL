@@ -32,16 +32,13 @@ class SpinalSimStreamFifoTester extends FunSuite {
       dut.io.flush #= false
 
       //Push data randomly and fill the queueModel with pushed transactions
-      val pushThread = fork{
-        dut.io.push.valid #= false
-        while(true){
-          dut.io.push.valid.randomize()
-          dut.io.push.payload.randomize()
-          dut.clockDomain.waitSampling()
-          if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
-            queueModel.enqueue(dut.io.push.payload.toLong)
-          }
+      dut.io.push.valid #= false
+      dut.clockDomain.onSampling{
+        if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
+          queueModel.enqueue(dut.io.push.payload.toLong)
         }
+        dut.io.push.valid.randomize()
+        dut.io.push.payload.randomize()
       }
 
       //Pop data randomly and check that it match with the queueModel
@@ -52,6 +49,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
+            ()
           }
         }
         simSuccess()
@@ -66,6 +64,8 @@ class SpinalSimStreamFifoTester extends FunSuite {
       val flag = Bool
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
+
+      override def clone = Transaction()
     }
 
     val compiled = SimConfig.allOptimisation.compile(
@@ -101,6 +101,50 @@ class SpinalSimStreamFifoTester extends FunSuite {
       }
 
       waitUntil(scoreboard.matches == 400000)
+    }
+  }
+
+  test("testTwoDepth") {
+    //Bundle used as fifo payload
+    case class Transaction() extends Bundle {
+      val flag = Bool
+      val data = Bits(8 bits)
+      val color = Rgb(5, 6, 5)
+    }
+
+    val compiled = SimConfig.allOptimisation.compile(
+      rtl = new StreamFifo(
+        dataType = Transaction(),
+        depth = 2
+      )
+    )
+
+    //Run the simulation
+    compiled.doSim { dut =>
+      //Inits
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
+      dut.clockDomain.forkSimSpeedPrinter()
+      dut.io.flush #= false
+
+      val scoreboard = ScoreboardInOrder[SimData]()
+
+      //Drivers
+      StreamDriver(dut.io.push, dut.clockDomain) { payload =>
+        payload.randomize()
+        true
+      }
+      StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
+
+      //Monitors
+      StreamMonitor(dut.io.push, dut.clockDomain) { payload =>
+        scoreboard.pushRef(payload)
+      }
+      StreamMonitor(dut.io.pop, dut.clockDomain) { payload =>
+        scoreboard.pushDut(payload)
+      }
+
+      waitUntil(scoreboard.matches == 40000)
     }
   }
 }

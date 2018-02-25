@@ -563,7 +563,7 @@ object StreamFifo{
 }
 
 class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
-  require(depth >= 1)
+  require(depth > 1)
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)

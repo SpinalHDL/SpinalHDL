@@ -27,20 +27,24 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.{BusSlaveFactoryAddressWrapper, BusSlaveFactory}
-import spinal.lib.fsm.{State, StateMachine}
+import spinal.lib.bus.misc.BusSlaveFactory
+
 
 
 /**
   * Generics for the I2C Slave
   *
-  * @param samplingWindowSize              : deepth sampling
+  * @param samplingWindowSize        : depth sampling
   * @param samplingClockDividerWidth : Width of the clock divider
+  * @param tsuDataWidth              : Data set-up time width
+  * @param timeoutWidth              : Timeout width
   */
-case class I2cSlaveGenerics(samplingWindowSize        : Int = 3,
-                            samplingClockDividerWidth : BitCount = 10 bits,
-                            tsuDatWidth               : BitCount = 6 bits, //Data set-up time width
-                            timeoutWidth              : BitCount = 20 bits){}
+case class I2cSlaveGenerics(
+  samplingWindowSize        : Int = 3,
+  samplingClockDividerWidth : BitCount = 10 bits,
+  tsuDataWidth              : BitCount =  6 bits,
+  timeoutWidth              : BitCount = 20 bits
+){}
 
 
 /**
@@ -50,40 +54,41 @@ case class I2cSlaveConfig(g: I2cSlaveGenerics) extends Bundle {
 
   val samplingClockDivider = UInt(g.samplingClockDividerWidth)
   val timeout              = UInt(g.timeoutWidth)
-  val tsuDat               = UInt(g.tsuDatWidth)
+  val tsuData              = UInt(g.tsuDataWidth)
 
 
-  def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
+  def setFrequencySampling(frequencySampling: HertzNumber, clkFrequency: HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     samplingClockDivider := (clkFrequency / frequencySampling).toInt
   }
-  def setTimeoutPeriod(period : TimeNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
+
+  def setTimeoutPeriod(period: TimeNumber, clkFrequency: HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     timeout := (period*clkFrequency).toInt
   }
 }
 
+
 /**
  * Mode used to manage the slave
  */
-object I2cSlaveCmdMode extends SpinalEnum{
+object I2cSlaveCmdMode extends SpinalEnum {
   val NONE, START, RESTART, STOP, DROP, DRIVE, READ = newElement()
 }
 
 
-/**
- * Define the command interface
- */
-case class I2cSlaveCmd() extends Bundle{
+case class I2cSlaveCmd() extends Bundle {
   val kind = I2cSlaveCmdMode()
-  val data  = Bool
-}
-
-case class I2cSlaveRsp() extends Bundle{
-  val valid = Bool
-  val enable = Bool
   val data = Bool
 }
 
-case class I2cSlaveBus() extends Bundle with IMasterSlave{
+
+case class I2cSlaveRsp() extends Bundle {
+  val valid  = Bool
+  val enable = Bool
+  val data   = Bool
+}
+
+
+case class I2cSlaveBus() extends Bundle with IMasterSlave {
   val cmd = I2cSlaveCmd()
   val rsp = I2cSlaveRsp()
 
@@ -94,27 +99,33 @@ case class I2cSlaveBus() extends Bundle with IMasterSlave{
 }
 
 
-case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics,
-                                        addressFilterCount : Int = 0,
-                                        masterGenerics : I2cMasterMemoryMappedGenerics = null){
-  def genMaster = masterGenerics != null
+case class I2cSlaveMemoryMappedGenerics(
+  ctrlGenerics       : I2cSlaveGenerics,
+  addressFilterCount : Int = 0,
+  masterGenerics     : I2cMasterMemoryMappedGenerics = null
+){
+  def genMaster        = masterGenerics != null
   def genAddressFilter = addressFilterCount > 0
 }
 
 
-case class I2cMasterMemoryMappedGenerics( timerWidth : Int)
+case class I2cMasterMemoryMappedGenerics(timerWidth: Int)
 
 
-case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
-  val i2c = master(I2c())
+case class I2cSlaveIo(g: I2cSlaveGenerics) extends Bundle {
+
+  val i2c    = master(I2c())
   val config = in(I2cSlaveConfig(g))
-  val bus = master(I2cSlaveBus())
+  val bus    = master(I2cSlaveBus())
+
   val internals = out(new Bundle {
     val inFrame = Bool
     val sdaRead, sclRead = Bool
   })
 
-  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics: I2cSlaveMemoryMappedGenerics) = I2cCtrl.driveI2cSlaveIo(this, busCtrl, baseAddress)(generics)
+  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics: I2cSlaveMemoryMappedGenerics) = {
+    I2cCtrl.driveI2cSlaveIo(this, busCtrl, baseAddress)(generics)
+  }
 }
 
 
@@ -122,8 +133,6 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
   * I2C Slave IO Layer :
   *
   *  This component manages the low level of the I2C protocol. (START, STOP, Send & Receive bit data)
-  *
-  *
   *
   *          ________                       ________
   *         |        |<------- I2C ------->|        |---> CMD
@@ -145,38 +154,44 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     */
   val io = I2cSlaveIo(g)
 
+
   /**
     * Filter SDA and SCL input
     */
-  val filter = new I2cIoFilter(i2c               = io.i2c,
-                               clockDivider      = io.config.samplingClockDivider,
-                               samplingSize      = g.samplingWindowSize,
-                               clockDividerWidth = g.samplingClockDividerWidth)
+  val filter = new I2cIoFilter(
+    i2c               = io.i2c,
+    clockDivider      = io.config.samplingClockDivider,
+    samplingSize      = g.samplingWindowSize,
+    clockDividerWidth = g.samplingClockDividerWidth
+  )
 
   /**
     * Detect the rising and falling edge of the scl signal
     */
-  val sclEdge = new I2cEdgeDetector(filter.scl)
-  val sdaEdge = new I2cEdgeDetector(filter.sda)
+  val sclEdge = filter.scl.edges(True)
+  val sdaEdge = filter.sda.edges(True)
 
 
   /**
     * Detect the start/restart and the stop sequences
     */
   val detector = new Area{
-    val start = filter.scl && sdaEdge.falling
-    val stop  = filter.scl && sdaEdge.rising
+    val start = filter.scl && sdaEdge.fall
+    val stop  = filter.scl && sdaEdge.rise
   }
 
-  val tsuDat = new Area{
-    val counter = Reg(UInt(g.tsuDatWidth)) init(0)
-    val done = counter === 0
-    val reset = False
+  val tsuData = new Area{
+    val counter = Reg(UInt(g.tsuDataWidth)) init(0)
+
+    val done    = counter === 0
+    val reset   = False
+
     when(!done) {
       counter := counter - 1
     }
+
     when(reset){
-      counter := io.config.tsuDat
+      counter := io.config.tsuData
     }
   }
 
@@ -185,34 +200,37 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     * Slave controller
     */
   val ctrl = new Area{
-    val inFrame, inFrameData = Reg(Bool) init(False)
-    val sdaWrite, sclWrite = True
 
-    //Create a bus RSP buffer
+    val inFrame, inFrameData = RegInit(False)
+    val sdaWrite, sclWrite   = True
+
+    // Create a bus RSP buffer
     case class Rsp() extends Bundle{
       val enable = Bool
-      val data = Bool
+      val data   = Bool
     }
+
     val rspBufferIn = Stream(Rsp())
-    val rspBuffer = rspBufferIn.stage() //Store rsp transaction
-    val rspAhead = rspBuffer.valid ? rspBuffer.asFlow | rspBufferIn.asFlow
-    rspBufferIn.valid := io.bus.rsp.valid
+    val rspBuffer   = rspBufferIn.stage() //Store rsp transaction
+    val rspAhead    = rspBuffer.valid ? rspBuffer.asFlow | rspBufferIn.asFlow
+
+    rspBufferIn.valid  := io.bus.rsp.valid
     rspBufferIn.enable := io.bus.rsp.enable
-    rspBufferIn.data := io.bus.rsp.data
-    rspBuffer.ready := False
+    rspBufferIn.data   := io.bus.rsp.data
+    rspBuffer.ready    := False
 
     // default value
     io.bus.cmd.kind := CmdMode.NONE
-    io.bus.cmd.data  := filter.sda
+    io.bus.cmd.data := filter.sda
 
     // Send & Receive bit data
     when(inFrame) {
-      when(sclEdge.rising) {
+      when(sclEdge.rise) {
         io.bus.cmd.kind := CmdMode.READ
       }
 
-      when(sclEdge.falling) {
-        inFrameData  := True
+      when(sclEdge.fall) {
+        inFrameData     := True
         rspBuffer.ready := True //Flush
       }
     }
@@ -222,11 +240,11 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
         io.bus.cmd.kind := CmdMode.DRIVE
       }
 
-      when(!rspAhead.valid  || (rspAhead.enable && !tsuDat.done)) {
+      when(!rspAhead.valid  || (rspAhead.enable && !tsuData.done)) {
         sclWrite := False
       }
 
-      tsuDat.reset := !rspAhead.valid
+      tsuData.reset := !rspAhead.valid
 
       when(rspAhead.valid && rspAhead.enable){
         sdaWrite := rspAhead.data
@@ -234,19 +252,22 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     }
 
     when(detector.start){
-      io.bus.cmd.kind   := inFrame ? CmdMode.RESTART | CmdMode.START
-      inFrame := True
-      inFrameData := False
+      io.bus.cmd.kind := inFrame ? CmdMode.RESTART | CmdMode.START
+      inFrame         := True
+      inFrameData     := False
     }
   }
 
   val timeout = new Area{
+
     val counter = Reg(UInt(g.timeoutWidth)) init(0)
-    val tick = counter === 0
+    val tick    = counter === 0
+
     counter := counter - 1
+
     when(sclEdge.toogle || !ctrl.inFrame){
       counter := io.config.timeout
-      tick := False
+      tick    := False
     }
   }
 

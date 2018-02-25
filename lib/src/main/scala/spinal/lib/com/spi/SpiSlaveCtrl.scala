@@ -43,8 +43,8 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
    * - ssDisabledIntEnable -> RW[3]
    * - txInt -> RW[8]
    * - rxInt -> RW[9]
-   * - ssLowInt -> RW[10] cleared when set
-   * - ssHighInt -> RW[11] cleared when set
+   * - ssEnabledInt -> RW[10] cleared when set
+   * - ssDisabledInt -> RW[11] cleared when set
    * - rxListen -> RW[15]
    * - txAvailability -> R[30:16]
    *

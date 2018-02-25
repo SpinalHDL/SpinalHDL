@@ -84,7 +84,7 @@ object ClockDomain {
     clock.setName(if (name != "") name + "_clk" else "clk")
 
     var reset: Bool = null
-    if (withReset) {
+    if (withReset && config.resetKind != BOOT) {
       reset = Bool()
       reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }

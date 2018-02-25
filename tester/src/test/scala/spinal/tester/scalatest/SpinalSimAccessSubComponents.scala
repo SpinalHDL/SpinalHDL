@@ -69,6 +69,7 @@ class SpinalSimAccessSubComponents extends FunSuite{
         assert(dut.subInst.subSubInst.miaouVec(1).toInt == (dut.io.b.toInt))
         assert(dut.subInst.subSubInst.miaouVec(2).toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
         assert(dut.subInst.subSubInst.miaouVec(3).toInt == (dut.io.a.toInt & dut.io.b.toInt))
+        ()
       }
     }
   }

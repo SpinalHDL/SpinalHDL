@@ -190,7 +190,7 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 
 
   override def getScalaTrace() = {
-    if(!globalData.scalaLocatedEnable) {
+    if(!globalData.scalaLocatedEnable && component != null) {
       globalData.scalaLocatedInterrests += component.getClass
     }
     super.getScalaTrace()
@@ -524,6 +524,13 @@ trait SpinalTagReady {
     val tag = _spinalTags.find(_.getClass == clazz)
     if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
     None
+  }
+
+  def getTags() : mutable.Set[SpinalTag] = {
+    if(_spinalTags == null)
+      mutable.Set[SpinalTag]()
+    else
+      _spinalTags
   }
 
   def findTag(cond: (SpinalTag) => Boolean): Option[SpinalTag] = {
