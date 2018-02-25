@@ -462,12 +462,6 @@ object I2cCtrl{
               txData.valid := False
             }
           }
-        } otherwise {
-          when(txAck.valid) {
-            when(!txAck.repeat) {
-              txAck.valid := False
-            }
-          }
         }
       }
       is(I2cSlaveCmdMode.READ){
@@ -490,6 +484,12 @@ object I2cCtrl{
           rxAck.value := bus.cmd.data
           inAckState  := False
           wasntAck    := bus.cmd.data
+
+          when(txAck.valid) {
+            when(!txAck.repeat) {
+              txAck.valid := False
+            }
+          }
         }
       }
     }
