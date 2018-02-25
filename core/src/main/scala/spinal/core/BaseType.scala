@@ -110,6 +110,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     false
   }
 
+  def hasAssignement : Boolean = !this.dlcIsEmpty
+
   /** Don't remove/simplify this data during rtl generation */
   private[core] var dontSimplify = false
 

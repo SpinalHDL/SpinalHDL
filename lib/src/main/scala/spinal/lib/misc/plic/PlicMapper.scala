@@ -15,12 +15,12 @@ case class PlicMapping(
   targetThresholdShift  : Int,
   targetClaimShift      : Int,
   targetEnableShift     : Int,
-  gatewayPriorityWriteGen : Boolean,
+  gatewayPriorityWriteGen : Boolean = true,
   gatewayPriorityReadGen : Boolean,
   gatewayPendingReadGen : Boolean,
-  targetThresholdWriteGen : Boolean,
+  targetThresholdWriteGen : Boolean = true,
   targetThresholdReadGen : Boolean,
-  targetEnableWriteGen : Boolean,
+  targetEnableWriteGen : Boolean = true,
   targetEnableReadGen : Boolean
 )
 
@@ -36,12 +36,9 @@ object PlicMapping{
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
-    gatewayPriorityWriteGen = true,
     gatewayPriorityReadGen = true,
     gatewayPendingReadGen = true,
-    targetThresholdWriteGen = true,
     targetThresholdReadGen = true,
-    targetEnableWriteGen = true,
     targetEnableReadGen = true
   )
 }
@@ -51,7 +48,7 @@ object PlicMapper{
   def apply(bus: BusSlaveFactory, mapping: PlicMapping)(gateways : Seq[PlicGateway], targets : Seq[PlicTarget]) = new Area{
     import mapping._
     val gatewayMapping = for(gateway <- gateways) yield new Area{
-      if(gatewayPriorityWriteGen) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
+      if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
       if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift))
       if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingOffset))
     }
@@ -86,7 +83,7 @@ object PlicMapper{
     val targetMapping = for((target, targetId) <- targets.zipWithIndex) yield new Area {
       val thresholdOffset = targetThresholdOffset + (targetId << targetThresholdShift)
       val claimOffset = targetClaimOffset + (targetId << targetClaimShift)
-      if(targetThresholdWriteGen) bus.drive(target.threshold, address = thresholdOffset) init (0)
+      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset) init (0)
       if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset)
       bus.read(target.claim, address = claimOffset)
       bus.onRead(claimOffset) {
@@ -103,7 +100,7 @@ object PlicMapper{
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
         val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen) bus.drive(target.ie(gatewayIndex), address, bitOffset)
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset)
         if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset)
       }
     }
