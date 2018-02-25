@@ -42,7 +42,7 @@ object SpinalBuild extends Build {
     settings = defaultSettings  ++  Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-      libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+      libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.0",
       resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core,
       sourceGenerators in Compile <+= (sourceManaged in Compile, version, name) map { (d, v, n) =>
@@ -70,51 +70,48 @@ object SpinalBuild extends Build {
   ) dependsOn (sim, core)
 
 
-    lazy val debugger = Project(
-      id = "SpinalHDL-debugger",
-      base = file("debugger"),
-      settings = defaultSettings ++ Seq(
-        name := "SpinalHDL Debugger",
-        version := SpinalVersion.debugger,
-        resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
-        //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
-        libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-        libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
-        publishTo := None,
-        publish := {},
-        publishLocal := {}
-      )
-    ) dependsOn(sim, core, lib/*, ip*/)
+  lazy val debugger = Project(
+    id = "SpinalHDL-debugger",
+    base = file("debugger"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL Debugger",
+      version := SpinalVersion.debugger,
+      resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
+      //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
+      libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
+      libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
+      publishTo := None,
+      publish := {},
+      publishLocal := {}
+    )
+  ) dependsOn(sim, core, lib/*, ip*/)
 
-    lazy val demo = Project(
-      id = "SpinalHDL-demo",
-      base = file("demo"),
-      settings = defaultSettings ++ Seq(
-        name := "SpinalHDL Demo",
-        version := SpinalVersion.demo,
-        publishTo := None,
-        publish := {},
-        publishLocal := {}
-      )
-    ) dependsOn(sim, core, lib/*, ip*/ ,debugger)
+  lazy val demo = Project(
+    id = "SpinalHDL-demo",
+    base = file("demo"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL Demo",
+      version := SpinalVersion.demo,
+      publishTo := None,
+      publish := {},
+      publishLocal := {}
+    )
+  ) dependsOn(sim, core, lib/*, ip*/ ,debugger)
 
 
-    lazy val tester = Project(
-      id = "SpinalHDL-tester",
-      base = file("tester"),
-      settings = defaultSettings ++ Seq(
-        name := "SpinalHDL tester",
-        version := SpinalVersion.tester,
-        baseDirectory in (Test) := file("./"),
-
-          libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
-//        libraryDependencies += "net.openhft" % "compiler" % "2.3.0",
-        //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
-        publishTo := None,
-        publish := {},
-        publishLocal := {}
-      )
-    ) dependsOn(sim, core, lib, debugger,demo)
+  lazy val tester = Project(
+    id = "SpinalHDL-tester",
+    base = file("tester"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL tester",
+      version := SpinalVersion.tester,
+      baseDirectory in (Test) := file("./"),
+      libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1",
+      publishTo := None,
+      publish := {},
+      publishLocal := {}
+    )
+  ) dependsOn(sim, core, lib, debugger,demo)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
@@ -127,8 +124,8 @@ object SpinalBuild extends Build {
     fork := true,
 
     //SpinalSim
-    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
-    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
+    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.12.2" % "1.0.3"),
+    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.3",
     scalacOptions += "-P:continuations:enable",
 
     profileName := "Dolu1990",
