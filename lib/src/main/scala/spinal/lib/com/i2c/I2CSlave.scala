@@ -236,7 +236,7 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     }
 
     when(inFrameData) {
-      when(!rspBuffer.valid){
+      when(!rspBuffer.valid || rspBuffer.ready){
         io.bus.cmd.kind := CmdMode.DRIVE
       }
 
@@ -265,7 +265,7 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
 
     counter := counter - 1
 
-    when(sclEdge.toogle || !ctrl.inFrame){
+    when(sclEdge.toggle || !ctrl.inFrame){
       counter := io.config.timeout
       tick    := False
     }
@@ -287,6 +287,6 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(ctrl.sclWrite)
-  io.i2c.sda.write := RegNext(ctrl.sdaWrite)
+  io.i2c.scl.write := RegNext(ctrl.sclWrite) init(True)
+  io.i2c.sda.write := RegNext(ctrl.sdaWrite) init(True)
 }
