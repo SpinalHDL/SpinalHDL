@@ -318,7 +318,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
     val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
     val jdkIncludes = if(isWindows){
       new File(s"${workspacePath}\\${workspaceName}").mkdirs()
-      FileUtils.copyDirectory(new File(s"""\"$jdk\\include\""""), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
+      FileUtils.copyDirectory(new File(s"$jdk\\include"), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
       s"jniIncludes"
     }else{
       jdk + "/include"
