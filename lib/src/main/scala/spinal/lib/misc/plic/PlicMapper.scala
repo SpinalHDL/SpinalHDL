@@ -11,7 +11,7 @@ case class PlicMapping(
   targetThresholdOffset : Int,
   targetClaimOffset     : Int,
   gatewayPriorityShift  : Int,
-  gatwayPendingShift    : Int,
+  gatewayPendingShift    : Int,
   targetThresholdShift  : Int,
   targetClaimShift      : Int,
   targetEnableShift     : Int,
@@ -32,7 +32,7 @@ object PlicMapping{
     targetThresholdOffset = 0x20000,
     targetClaimOffset     = 0x20004,
     gatewayPriorityShift  =       2,
-    gatwayPendingShift    =       2,
+    gatewayPendingShift    =       2,
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
@@ -50,7 +50,7 @@ object PlicMapper{
     val gatewayMapping = for(gateway <- gateways) yield new Area{
       if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
       if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift))
-      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingOffset))
+      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingShift))
     }
 
     val idWidth = log2Up(gateways.map(_.id).max + 1)
