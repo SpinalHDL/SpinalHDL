@@ -100,7 +100,7 @@ object PlicMapper{
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
         val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset)
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset) init(False)
         if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset)
       }
     }
