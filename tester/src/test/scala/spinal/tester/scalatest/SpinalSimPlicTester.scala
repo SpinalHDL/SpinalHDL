@@ -32,7 +32,7 @@ class SpinalSimPlicTester extends FunSuite {
     val compiled = SimConfig.allOptimisation.compile(
       rtl = new Component{
         val io = new Bundle{
-          val apb = slave(Apb3(20,32))
+          val apb = slave(Apb3(24,32))
           val sources = in Bits(sourceCount bits)
           val targets = out Bits(targetCount bits)
         }
