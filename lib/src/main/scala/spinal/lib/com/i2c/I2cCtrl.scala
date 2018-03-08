@@ -490,7 +490,7 @@ object I2cCtrl{
         (start.flag || restart.flag || end.flag || drop.flag)
 
       val clockGen = if(genMaster) new Area{
-        val busyEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 16)
+        val busyEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 16) init(False)
         interrupt setWhen((busyEnable && masterLogic.fsm.isBusy))
       } else null
     }

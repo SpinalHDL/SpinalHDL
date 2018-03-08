@@ -26,19 +26,37 @@ case class PlicMapping(
 
 object PlicMapping{
   def sifive = PlicMapping(
-    gatewayPriorityOffset =  0x0000,
-    gatewayPendingOffset  =  0x1000,
-    targetEnableOffset    =  0x2000,
-    targetThresholdOffset = 0x20000,
-    targetClaimOffset     = 0x20004,
+    gatewayPriorityOffset =   0x0000,
+    gatewayPendingOffset  =   0x1000,
+    targetEnableOffset    =   0x2000,
+    targetThresholdOffset = 0x200000,
+    targetClaimOffset     = 0x200004,
     gatewayPriorityShift  =       2,
-    gatewayPendingShift    =       2,
+    gatewayPendingShift    =      2,
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
     gatewayPriorityReadGen = true,
     gatewayPendingReadGen = true,
     targetThresholdReadGen = true,
+    targetEnableReadGen = true
+  )
+
+
+  def light = PlicMapping(
+    gatewayPriorityOffset =  0x0000,
+    gatewayPendingOffset  =  0x1000,
+    targetEnableOffset    =  0x2000,
+    targetThresholdOffset =  0xF000,
+    targetClaimOffset     =  0xF004,
+    gatewayPriorityShift  =       2,
+    gatewayPendingShift   =       2,
+    targetThresholdShift  =      12,
+    targetClaimShift      =      12,
+    targetEnableShift     =       7,
+    gatewayPriorityReadGen = false,
+    gatewayPendingReadGen = false,
+    targetThresholdReadGen = false,
     targetEnableReadGen = true
   )
 }
