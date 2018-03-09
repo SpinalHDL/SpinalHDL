@@ -11,7 +11,7 @@ case class PlicMapping(
   targetThresholdOffset : Int,
   targetClaimOffset     : Int,
   gatewayPriorityShift  : Int,
-  gatwayPendingShift    : Int,
+  gatewayPendingShift    : Int,
   targetThresholdShift  : Int,
   targetClaimShift      : Int,
   targetEnableShift     : Int,
@@ -26,19 +26,37 @@ case class PlicMapping(
 
 object PlicMapping{
   def sifive = PlicMapping(
-    gatewayPriorityOffset =  0x0000,
-    gatewayPendingOffset  =  0x1000,
-    targetEnableOffset    =  0x2000,
-    targetThresholdOffset = 0x20000,
-    targetClaimOffset     = 0x20004,
+    gatewayPriorityOffset =   0x0000,
+    gatewayPendingOffset  =   0x1000,
+    targetEnableOffset    =   0x2000,
+    targetThresholdOffset = 0x200000,
+    targetClaimOffset     = 0x200004,
     gatewayPriorityShift  =       2,
-    gatwayPendingShift    =       2,
+    gatewayPendingShift    =      2,
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
     gatewayPriorityReadGen = true,
     gatewayPendingReadGen = true,
     targetThresholdReadGen = true,
+    targetEnableReadGen = true
+  )
+
+
+  def light = PlicMapping(
+    gatewayPriorityOffset =  0x0000,
+    gatewayPendingOffset  =  0x1000,
+    targetEnableOffset    =  0x2000,
+    targetThresholdOffset =  0xF000,
+    targetClaimOffset     =  0xF004,
+    gatewayPriorityShift  =       2,
+    gatewayPendingShift   =       2,
+    targetThresholdShift  =      12,
+    targetClaimShift      =      12,
+    targetEnableShift     =       7,
+    gatewayPriorityReadGen = false,
+    gatewayPendingReadGen = false,
+    targetThresholdReadGen = false,
     targetEnableReadGen = true
   )
 }
@@ -50,7 +68,7 @@ object PlicMapper{
     val gatewayMapping = for(gateway <- gateways) yield new Area{
       if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
       if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift))
-      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingOffset))
+      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingShift))
     }
 
     val idWidth = log2Up(gateways.map(_.id).max + 1)
@@ -100,7 +118,7 @@ object PlicMapper{
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
         val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset)
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset) init(False)
         if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset)
       }
     }

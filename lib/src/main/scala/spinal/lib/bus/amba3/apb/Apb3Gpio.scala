@@ -36,6 +36,12 @@ object Apb3Gpio{
 }
 
 
+/*
+ * gpioRead  -> 0x00 Read only register to read the physical pin values
+ * gpioWrite -> 0x04 Read-Write register to access the output values
+ * gpioDirection -> 0x08 Read-Write register to set the GPIO pin directions. When set, the corresponding pin is set as output.
+ **/
+
 case class Apb3Gpio(gpioWidth: Int) extends Component {
 
   val io = new Bundle {
