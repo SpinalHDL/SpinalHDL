@@ -32,7 +32,7 @@ class SpinalSimPlicTester extends FunSuite {
     val compiled = SimConfig.allOptimisation.compile(
       rtl = new Component{
         val io = new Bundle{
-          val apb = slave(Apb3(20,32))
+          val apb = slave(Apb3(24,32))
           val sources = in Bits(sourceCount bits)
           val targets = out Bits(targetCount bits)
         }
@@ -133,7 +133,7 @@ class SpinalSimPlicTester extends FunSuite {
             (0 until sourceCount).suspendable.foreach { sourceId =>
               if(Random.nextFloat() < 0.1) {
                 val gatwayId = idMapping(sourceId)
-                val isPending = apb.read(gatewayPendingOffset + (gatwayId << gatewayPendingOffset)) != 0
+                val isPending = apb.read(gatewayPendingOffset + (gatwayId << gatewayPendingShift)) != 0
                 assert(isPending == sourcesPending(sourceId))
               }
             }

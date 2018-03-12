@@ -30,23 +30,27 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
 
 
   /*
-   * In short, it has one command fifo (for send/read/ss order) and one read fifo.
-   * fifo -> 0x00 :
+   * In short, it has one read fifo and one write fifo.
+   * data -> 0x00 :
    * - rxTxData -> RW[7:0]
    * - rxOccupancy -> R[30:16]
    * - rxValid -> R[31]
+   * - When you read this register it pop an byte of the rx fifo (mosi) and provide its value (via rxTxData)
+   * - When you write this register, it push a byte into the tx fifo (miso).
    *
    * status -> 0x04 :
    * - txIntEnable -> RW[0]
    * - rxIntEnable -> RW[1]
    * - ssEnabledIntEnable -> RW[2]
    * - ssDisabledIntEnable -> RW[3]
-   * - txInt -> RW[8]
-   * - rxInt -> RW[9]
-   * - ssEnabledInt -> RW[10] cleared when set
-   * - ssDisabledInt -> RW[11] cleared when set
-   * - rxListen -> RW[15]
-   * - txAvailability -> R[30:16]
+   * - txInt -> R[8] Interruption which occur when the tx fifo is empty
+   * - rxInt -> R[9] Interruption which occur when the rx fifo is not empty
+   * - ssEnabledInt -> R[10] Interruption which occur when the SPI interface is selected from the master (ss falling edge).
+   * - ssDisabledInt -> R[11] Interruption which occur when the SPI interface is deselected from the master (ss rising edge).
+   * - ssEnabledIntClear -> W[12] When set, clear the ssEnabledInt interrupt
+   * - ssDisabledIntClear -> W[13] When set, clear the ssDisabledInt interrupt
+   * - rxListen -> RW[15] Enable the reception of mosi bytes
+   * - txAvailability -> R[30:16] Space avalaible in the tx fifo
    *
    * config -> 0x08
    * - cpol -> W[0]
@@ -90,8 +94,10 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
       val ssFiltedEdges = ssFilted.edges(True)
       val txInt  = busWithOffset.read(txIntEnable & !txLogic.stream.valid, address = 4, 8)
       val rxInt  = busWithOffset.read(rxIntEnable & rxLogic.stream.valid , address = 4, 9)
-      val ssEnabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
-      val ssDisabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
+      val ssEnabledInt = busWithOffset.read(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
+      val ssDisabledInt = busWithOffset.read(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
+      busWithOffset.clearOnSet(ssEnabledInt, address = 4, bitOffset = 12)
+      busWithOffset.clearOnSet(ssDisabledInt, address = 4, bitOffset = 13)
       val interrupt = rxInt || txInt || ssEnabledInt || ssDisabledInt
     }
 

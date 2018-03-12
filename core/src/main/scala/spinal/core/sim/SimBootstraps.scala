@@ -2,6 +2,7 @@ package spinal.core.sim
 
 import java.io.File
 
+import org.apache.commons.io.FileUtils
 import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
 import spinal.core.{BaseType, Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
@@ -259,8 +260,8 @@ case class SpinalSimConfig(var _withWave: Boolean = false,
 
   def compile[T <: Component](rtl: => T) : SimCompiled[T] = {
     val uniqueId = SimWorkspace.allocateUniqueId()
-    s"mkdir -p tmp".!
-    s"mkdir -p tmp/job_$uniqueId".!
+    new File(s"tmp").mkdirs()
+    new File(s"tmp/job_$uniqueId").mkdirs()
     val report = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public)).generateVerilog(rtl)
     compile[T](report)
   }
@@ -275,12 +276,12 @@ case class SpinalSimConfig(var _withWave: Boolean = false,
     _workspaceName = SimWorkspace.allocateWorkspace(_workspacePath, _workspaceName)
 
     println(f"[Progress] Simulation workspace in ${new File(s"${_workspacePath}/${_workspaceName}").getAbsolutePath}")
-    s"mkdir -p ${_workspacePath}".!
-    s"rm -rf ${_workspacePath}/${_workspaceName}".!
-    s"mkdir -p ${_workspacePath}/${_workspaceName}".!
-    s"mkdir -p ${_workspacePath}/${_workspaceName}/rtl".!
+    new File(s"${_workspacePath}").mkdirs()
+    FileUtils.deleteQuietly(new File(s"${_workspacePath}/${_workspaceName}"))
+    new File(s"${_workspacePath}/${_workspaceName}").mkdirs()
+    new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
     report.generatedSourcesPaths.foreach{srcPath =>
-      s"cp ${srcPath} ${_workspacePath}/${_workspaceName}/rtl/".!
+      FileUtils.copyFileToDirectory(new File(srcPath), new File(s"${_workspacePath}/${_workspaceName}/rtl"))
     }
 
     println(f"[Progress] Verilator compilation started")
