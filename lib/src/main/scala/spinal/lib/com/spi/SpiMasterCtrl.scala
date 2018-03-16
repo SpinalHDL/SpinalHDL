@@ -71,18 +71,19 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
 
 
     /*
-     * In short, it has one command fifo (for send/read/ss order) and one read fifo.
+     * In short, it has one command fifo (write/read/chip-select commands) and one read fifo.
      * data -> 0x00 :
      *   rxData -> R[7:0]
-     *   rxOccupancy -> R[30:16]
-     *   rxValid -> R[31]
-     *   Write commands:
+     *   rxOccupancy -> R[30:16] rx fifo occupancy (include the rxData in the amount)
+     *   rxValid -> R[31] Inform that the readed rxData is valid
+     *   When you read this register it pop an byte of the rx fifo and provide its value (via rxData)
+     *   When you write this register, it push a command into the fifo. There is the commands that you can use :
      *     0x000000xx =>  Send byte xx
      *     0x001000xx =>  Send byte xx and also push the read data into the FIFO
      *     0x1100000X =>  Enable the SS line X
      *     0x1000000X =>  Disable the SS line X
      *
-     * status -> 0x04:
+     * status -> 0x04
      *   cmdIntEnable -> RW[0] Command fifo empty interrupt enable
      *   rspIntEnable -> RW[1] Read fifo not empty interrupt enable
      *   cmdInt -> RW[8] Command fifo empty interrupt pending
@@ -93,9 +94,9 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      *   cpol -> W[0]
      *   cpha -> W[1]
      *
-     * cloclDivider -> W 0x0C frequancy = FCLK / (2 * [12])
+     * clockDivider -> W 0x0C SPI frequency = FCLK / (2 * clockDivider)
      * ssSetup -> W 0x10 time between chip select enable and the next byte
-     * ssHold -> W 0x14 time between the last byte transmition and the chip select disable
+     * ssHold -> W 0x14 time between the last byte transmission and the chip select disable
      * ssHold -> W 0x18 time between chip select disable and chip select enable
      */
 
