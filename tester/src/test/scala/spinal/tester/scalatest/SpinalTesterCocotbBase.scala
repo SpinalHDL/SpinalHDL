@@ -81,7 +81,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   if(!noVhdl)
     test("genVhdl") {genVhdl}
   if(!noVerilog)
-  test("genVerilog") {genVerilog}
+    test("genVerilog") {genVerilog}
 
   if(spinalMustPass) {
     val cocotbTests = ArrayBuffer[(String, String)]()

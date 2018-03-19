@@ -29,7 +29,7 @@ class SpinalSimPlicTester extends FunSuite {
     val plicMapping = PlicMapping.sifive
     import plicMapping._
 
-    val compiled = SimConfig.allOptimisation.compile(
+    val compiled = SimConfig.compile(
       rtl = new Component{
         val io = new Bundle{
           val apb = slave(Apb3(24,32))
@@ -57,9 +57,10 @@ class SpinalSimPlicTester extends FunSuite {
         )
       }.setDefinitionName("Plic")
     )
-
+    println("PLIC Compiled")
     //Run the simulation
     compiled.doSim("test") { dut =>
+      println("PLIC SIM start")
       dut.clockDomain.forkStimulus(10)
 
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
