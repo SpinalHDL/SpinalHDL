@@ -7,17 +7,35 @@ import spinal.core.sim._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.com.i2c._
 import spinal.sim._
+import spinal.lib._
 
 import scala.collection.mutable.ListBuffer
 
 
 trait I2CEvent
-case class Start_i2c()                  extends I2CEvent { override def toString: String = "Start"    }
-case class Restart_i2c()                extends I2CEvent { override def toString: String = "reStart"  }
-case class Stop_i2c()                   extends I2CEvent { override def toString: String = "Stop"     }
-case class DataRead_i2c(value: Byte, ack: Boolean)    extends I2CEvent { override def toString: String = f"Data Read (0x${value}%02X / ${ack})" }
-case class DataWrite_i2c(value: Byte, ack: Boolean)   extends I2CEvent { override def toString: String = f"Data Write (0x${value}%02X / ${ack})" }
-case class Ack_i2c(value: Boolean)      extends I2CEvent { override def toString: String = s"Ack(${value})"      }
+
+case class Start_i2c() extends I2CEvent {
+  override def toString: String = "Start"
+}
+
+case class Restart_i2c() extends I2CEvent {
+  override def toString: String = "reStart"
+}
+
+case class Stop_i2c() extends I2CEvent {
+  override def toString: String = "Stop"
+}
+
+case class DataRead_i2c(value: Byte, ack: Boolean)    extends I2CEvent {
+  def ==(that: DataWrite_i2c) = (this.value == that.value) && (this.ack == that.ack)
+  override def toString: String = f"Data Read (0x${value}%02X / ${ack})"
+}
+
+case class DataWrite_i2c(value: Byte, ack: Boolean)   extends I2CEvent {
+  def ==(that: DataWrite_i2c) = (this.value == that.value) && (this.ack == that.ack)
+  override def toString: String = f"Data Write (0x${value}%02X / ${ack})"
+}
+
 
 
 
@@ -146,11 +164,10 @@ class SpinalSimApbI2C extends FunSuite {
 
       while(busy){
 
-
         val cmd = cmdSlave(index)
 
         if(cmd.isInstanceOf[Start_i2c] || cmd.isInstanceOf[Restart_i2c]){
-          println("I2cModel - Start ")
+//          println("I2cModel - Start ")
           var detector = false
           while(!detector){
             var lastSDA = sda.read()
@@ -161,7 +178,7 @@ class SpinalSimApbI2C extends FunSuite {
           }
           waitUntil(!scl.read())
         }else if(cmd.isInstanceOf[Stop_i2c]){
-          println("I2cModel - Stop ")
+//          println("I2cModel - Stop ")
           var detector = false
           while(!detector){
             var lastSDA = sda.read()
@@ -187,7 +204,7 @@ class SpinalSimApbI2C extends FunSuite {
 
           // Read Ack
           waitUntil(scl.read())
-          println(s"I2cModel - ACK ${sda.read()}")
+//          println(s"I2cModel - ACK ${sda.read()}")
           waitUntil(!scl.read())
 
 
@@ -206,8 +223,8 @@ class SpinalSimApbI2C extends FunSuite {
             waitUntil(!scl.read())
           }
 
-          println(f"I2cModel - Data write ${dataRead}%02X")
-          assert(cmdData.value == dataRead.toByte, "Byte Write error")
+//          println(f"I2cModel - Data write ${dataRead}%02X")
+//          assert(cmdData.value == dataRead.toByte, "Byte Write error")
 
           // Write  ACK
 
@@ -271,7 +288,7 @@ class SpinalSimApbI2C extends FunSuite {
 
     var bufferCmd = new ListBuffer[I2CEvent]()
 
-    
+
     def polling_rx_ack(): (Byte, Byte)@suspendable  ={
       var status = BigInt(0)
 
@@ -301,41 +318,41 @@ class SpinalSimApbI2C extends FunSuite {
 
       apb.write(reg.tx_data, data | I2C_TX_VALID | I2C_TX_ENABLE )
 
-      println("WRITE")
-
       val(dataRead, ack) = polling_rx_ack()
-
-      println("End wrtie")
 
       bufferCmd += DataWrite_i2c(dataRead, (ack == 0x01))
 
       ()
     }
 
-    def read_ack(): Byte@suspendable = {
-
-      println("READ ACK")
+    def read(ack: Boolean): Byte@suspendable = {
 
       apb.write(reg.rx_data, I2C_RX_LISTEN)
 
       apb.write(reg.tx_data, 0x00 | I2C_TX_VALID)
 
-      apb.write(reg.tx_ack, 0x00 | I2C_TX_VALID | I2C_TX_ENABLE)
+      apb.write(reg.tx_ack, (if(ack) 0x01 else 0x00) | I2C_TX_VALID | I2C_TX_ENABLE)
 
-      val (dataRead, ack) = polling_rx_ack()
+      val (dataRead, ackRead) = polling_rx_ack()
 
-      bufferCmd += DataRead_i2c(dataRead, (ack == 0x01))
+      bufferCmd += DataRead_i2c(dataRead, (ackRead == 0x01))
 
       return apb.read(reg.rx_data).toByte
     }
 
 
-    def  start(): Unit@suspendable = {
+    def  start(isRestart: Boolean = false): Unit@suspendable = {
       apb.write(reg.rx_ack, I2C_RX_LISTEN)
       apb.write(reg.status_master, I2C_MASTER_START)
 
-      bufferCmd += Start_i2c()
+      bufferCmd += (if(isRestart) Restart_i2c() else Start_i2c())
       ()
+    }
+
+    def restart(): Unit@suspendable = start(true)
+
+    def checkCmd(slave: ListBuffer[I2CEvent]) = {
+      assert(bufferCmd.zip(slave).map(i2c => i2c._1 == i2c._2).reduce( _ && _ ), s"Mismatch between slave and master \nMaster : \n ${bufferCmd.mkString("\n ")} \nSlave : \n ${slave.mkString("\n ")}")
     }
   }
 
@@ -374,7 +391,9 @@ class SpinalSimApbI2C extends FunSuite {
       dut.clockDomain.waitSampling()
 
 
-
+      /**
+        * I2C Configuration
+        */
 
       // Master configuration
       apb.write(i2c.reg.t_buf,  ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt())
@@ -386,15 +405,21 @@ class SpinalSimApbI2C extends FunSuite {
       apb.write(i2c.reg.timeout,        (dut.clockDomain.frequency.getValue * 2).toBigDecimal.toBigInt()) // Timeout after 2 secondes
       apb.write(i2c.reg.tsu_data,       25)
 
-      // Start
 
+      /**
+        * Create slave model
+        */
       val slave = I2CSlaveModel(sdaInterconnect.newSoftConnection(), sclInterconnect.newSoftConnection())
+
+      /**
+        * Check Write operation
+        */
       slave.cmdSlave.clear()
       slave.cmdSlave += Start_i2c()
       slave.cmdSlave += DataWrite_i2c(0x06.toByte, false)
-      slave.cmdSlave += DataWrite_i2c(0xAA.toByte, false)
+      slave.cmdSlave += DataWrite_i2c(0xAA.toByte, true)
       slave.cmdSlave += Stop_i2c()
-      val s1 = slave.run()
+      slave.run()
 
       i2c.bufferCmd.clear()
       i2c.start()
@@ -402,47 +427,67 @@ class SpinalSimApbI2C extends FunSuite {
       i2c.write(0xAA)
       i2c.stop()
 
+      i2c.checkCmd(slave.cmdSlave)
 
-      println("Compare 1")
-      println("Master -----")
-      i2c.bufferCmd.foreach(println)
-      println("Slave -----")
-      slave.cmdSlave.foreach(println)
 
-      println("---" * 10)
+      dut.clockDomain.waitActiveEdge(10)
 
-      // check what the slave has recevied
 
-      dut.clockDomain.waitActiveEdge(100)
-
-      val slave_1 = I2CSlaveModel(sdaInterconnect.newSoftConnection(), sclInterconnect.newSoftConnection())
-
-      slave_1.cmdSlave += Start_i2c()
-      slave_1.cmdSlave += DataWrite_i2c(0x07.toByte, false)
-      slave_1.cmdSlave += DataRead_i2c(0xAA.toByte, false)
-      slave_1.cmdSlave += Stop_i2c()
-      val s2 = slave_1.run()
+      /**
+        * Check Write and read operations
+        */
+      slave.cmdSlave.clear()
+      slave.cmdSlave += Start_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0xAA.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x55.toByte, true)
+      slave.cmdSlave += Stop_i2c()
+      slave.run()
 
 
       i2c.bufferCmd.clear()
       i2c.start()
       i2c.write(0x07)
-      i2c.read_ack()
+      i2c.read(false)
+      i2c.read(true)
       i2c.stop()
 
+      i2c.checkCmd(slave.cmdSlave)
 
-      println("Compare  2")
-      println("Master -----")
-      i2c.bufferCmd.foreach(println)
-      println("Slave -----")
-      slave_1.cmdSlave.foreach(println)
-    //  s1.suspend()
 
-      println("---" * 10)
+      dut.clockDomain.waitActiveEdge(10)
+
+      /**
+        * Check Write, Restart and read operations
+        */
+      slave.cmdSlave.clear()
+      slave.cmdSlave += Start_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataWrite_i2c(0x00.toByte, false)
+      slave.cmdSlave += Restart_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x3D.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x5A.toByte, true)
+      slave.cmdSlave += Stop_i2c()
+      slave.run()
+
+
+      i2c.bufferCmd.clear()
+      i2c.start()
+      i2c.write(0x07)
+      i2c.write(0x00)
+      i2c.restart()
+      i2c.write(0x07)
+      i2c.read(false)
+      i2c.read(true)
+      i2c.stop()
+
+      i2c.checkCmd(slave.cmdSlave)
 
 
       dut.clockDomain.waitActiveEdge(200)
     }
   }
+
 }
 

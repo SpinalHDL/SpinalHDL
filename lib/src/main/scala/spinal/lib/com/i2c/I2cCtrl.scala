@@ -416,7 +416,12 @@ object I2cCtrl{
     when(!inAckState) {
       bus.rsp.valid  := txData.valid && !(rxData.valid && rxData.listen) && bus.cmd.kind === I2cSlaveCmdMode.DRIVE
       bus.rsp.enable := txData.enable
-      bus.rsp.data   := txData.value(7 - dataCounter)
+      if(genMaster){
+        bus.rsp.data   := masterLogic.start ? True | txData.value(7 - dataCounter)
+      }else{
+        bus.rsp.data   := txData.value(7 - dataCounter)
+      }
+
       when(txData.forceDisable){
         bus.rsp.valid := True
         bus.rsp.enable := False
