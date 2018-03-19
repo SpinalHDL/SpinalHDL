@@ -109,10 +109,15 @@ object I2cCtrl{
    * - endEnable -> RW[6]
    * - dropEnable -> RW[7]
    *
-   * - startFlag -> RW[8] cleared when set
-   * - restartFlag -> RW[9] cleared when set
-   * - endFlag -> RW[10] cleared when set
-   * - dropFlag -> RW[11] cleared when set
+   * - startFlag -> R[8] interrupt flag
+   * - restartFlag -> R[9] interrupt flag
+   * - endFlag -> R[10] interrupt flag
+   * - dropFlag -> R[11] interrupt flag
+   *
+   * - startFlagClear -> W[12] clear the corresponding interrupt flag when set
+   * - restartFlagClear -> W[13] clear the corresponding interrupt flag when set
+   * - endFlagClear -> W[14] clear the corresponding interrupt flag when set
+   * - dropFlagClear -> W[15] clear the corresponding interrupt flag when set
    *
    * - clockGenBusyEnable -> RW[16]
    *
@@ -529,15 +534,16 @@ object I2cCtrl{
       val txDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 2)  init(False)
       val txAckEnable  = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 3)  init(False)
 
-      def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
+      def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, flagClearBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
         val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId) init(False)
-        val flag   = busCtrlWithOffset.readAndClearOnSet(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
+        val flag = busCtrlWithOffset.read(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
+        busCtrlWithOffset.clearOnSet(flag, 0x20, flagClearBitId)
       }
 
-      val start   = i2CSlaveEvent(4,  8, I2cSlaveCmdMode.START)
-      val restart = i2CSlaveEvent(5,  9, I2cSlaveCmdMode.RESTART)
-      val end     = i2CSlaveEvent(6, 10, I2cSlaveCmdMode.STOP)
-      val drop    = i2CSlaveEvent(7, 11, I2cSlaveCmdMode.DROP)
+      val start = i2CSlaveEvent(4,8,12,I2cSlaveCmdMode.START)
+      val restart = i2CSlaveEvent(5,9,13,I2cSlaveCmdMode.RESTART)
+      val end = i2CSlaveEvent(6,10,14,I2cSlaveCmdMode.STOP)
+      val drop = i2CSlaveEvent(7,11,15,I2cSlaveCmdMode.DROP)
 
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid)   ||
                       (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||

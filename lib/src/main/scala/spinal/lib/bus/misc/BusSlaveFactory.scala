@@ -294,6 +294,15 @@ trait BusSlaveFactory extends Area{
   def readAndClearOnSet[T <: Data](that      : T,
                                    address   : BigInt,
                                    bitOffset : Int = 0): T = {
+    clearOnSet(that, address, bitOffset)
+    read(that, address, bitOffset)
+    that
+  }
+
+
+  def clearOnSet[T <: Data](that      : T,
+                            address   : BigInt,
+                            bitOffset : Int = 0): T = {
     val bitClears = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
     when(isWriting(address)){
       for(i <- 0 until widthOf(that)){
@@ -302,10 +311,8 @@ trait BusSlaveFactory extends Area{
         }
       }
     }
-    read(that, address, bitOffset)
     that
   }
-
 
 
   @deprecated("Use createReadAndWrite instead")
