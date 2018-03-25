@@ -2,10 +2,10 @@ package spinal.lib.com.uart
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.wishbone.{Wishbone, WishboneSlaveFactory}
+import spinal.lib.bus.wishbone.{Wishbone,WishboneConfig, WishboneSlaveFactory}
 
 object WishboneUartCtrl{
-  def getWishboneConfig = WishboneSlaveFactory.getWishboneConfig(addressWidth = 4,dataWidth = 32)
+  def getWishboneConfig = WishboneConfig(addressWidth = 4,dataWidth = 32)
 }
 
 class WishboneUartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
