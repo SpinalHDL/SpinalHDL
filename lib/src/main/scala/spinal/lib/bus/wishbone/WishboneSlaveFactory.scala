@@ -18,33 +18,59 @@ class WishboneSlaveFactory(bus: Wishbone) extends BusSlaveFactoryDelayed{
   //bus.ACK := False
   bus.DAT_MISO := 0
 
-  //Wishbone Classic//////////////////////////////////////////////////////
-  val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()          //
-  val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()          //
-  val doWrite = (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()//
-  val doRead = (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()//
-  ////////////////////////////////////////////////////////////////////////
+    val askWrite =  if(bus.config.isPipelined)
+                      (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
+                    else
+                      (bus.CYC && bus.STB && bus.WE).allowPruning()
+    val askRead =   if(bus.config.isPipelined)
+                      (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
+                    else
+                      (bus.CYC && bus.STB && !bus.WE).allowPruning()
+    val doWrite =   if(bus.config.isPipelined)
+                      (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
+                    else
+                      (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
+    val doRead =    if(bus.config.isPipelined)
+                      (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
+                    else
+                      (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
 
-  //Wishbone Pipelined//////////////////////////////////////////////////////////////////
-  //val askWrite = (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()          //
-  //val askRead = (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()          //
-  //val doWrite = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()//
-  //val doRead = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()//
-  //////////////////////////////////////////////////////////////////////////////////////
+    // val pip_feedback = RegNext(bus.STB) init(False)
+    // bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
+
+    // val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
+    // bus.ACK := reg_feedback && bus.STB
+
+    if(bus.config.isPipelined){
+      val pip_feedback = RegNext(bus.STB) init(False)
+      bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
+    } else {
+      val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
+      bus.ACK := reg_feedback && bus.STB
+    }
+//   if(bus.config.isPipelined){
+//     //Wishbone Pipelined
+//     val askWrite = (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
+//     val askRead = (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
+//     val doWrite = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
+//     val doRead = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
+
+//     val pip_feedback = RegNext(bus.STB) init(False)
+//     bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
+//   } else {
+//     //Wishbone Classic
+//     val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()
+//     val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()
+//     val doWrite = (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
+//     val doRead = (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
+
+//     val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
+//     bus.ACK := reg_feedback && bus.STB
+// }
 
   //Wishbone Classic Asynchronous//
   //bus.ACK := bus.STB && bus.CYC  //
   /////////////////////////////////
-
-  //Wishbone Classic Synchronous//////////////////////////////
-  val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)//
-  bus.ACK := reg_feedback && bus.STB                        //
-  ////////////////////////////////////////////////////////////
-
-  //Wishbone Pipelined///////////////////////////////
-  //val pip_feedback = RegNext(bus.STB) init(False)  //
-  //bus.ACK := pip_feedback || (bus.STALL && bus.CYC)//
-  ///////////////////////////////////////////////////
 
   override def readAddress() = bus.ADR
   override def writeAddress() = bus.ADR
@@ -56,7 +82,7 @@ class WishboneSlaveFactory(bus: Wishbone) extends BusSlaveFactoryDelayed{
   override def wordAddressInc = busDataWidth / 8
 
   override def build(): Unit = {
-    //super.doNonStopWrite(bus.DAT_MOSI)
+    super.doNonStopWrite(bus.DAT_MOSI)
 
     def doMappedElements(jobs : Seq[BusSlaveFactoryElement]) = super.doMappedElements(
       jobs = jobs,
