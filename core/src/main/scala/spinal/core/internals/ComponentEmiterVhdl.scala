@@ -49,10 +49,26 @@ class ComponentEmiterVhdl(
 
   def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
 
+
+  def emitLibrary(ret: StringBuilder): Unit = {
+    vhdlBase.emitLibrary(ret)
+    val libs = mutable.HashSet[String]()
+
+    for(child <- c.children)child match {
+      case bb : BlackBox => libs ++= bb.librariesUsages
+      case _ =>
+    }
+    for(lib <- libs){
+      ret ++= s"library $lib;\n"
+      ret ++= s"use $lib.all;\n"
+    }
+  }
+
   def result: String = {
     val ret = new StringBuilder()
 
     emitLibrary(ret)
+
 
     ret ++= s"\nentity ${c.definitionName} is\n"
     ret ++= s"  port("
@@ -230,17 +246,17 @@ class ComponentEmiterVhdl(
               case _: Bool if isBBUsingULogic                            => return s"      $io => std_ulogic($logic),\n"
               case _: Bits if isBBUsingULogic                            => return s"      $io => std_ulogic_vector($logic),\n"
               case _: UInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: UInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: UInt if isBBUsingNoNumericType &&  isBBUsingULogic => return s"      $io => std_ulogic_vector($logic),\n"
               case _: SInt if isBBUsingNoNumericType && !isBBUsingULogic => return s"      $io => std_logic_vector($logic),\n"
-              case _: SInt                                               => return s"      $io => std_ulogic_vector($logic),\n"
+              case _: SInt if isBBUsingNoNumericType &&  isBBUsingULogic  => return s"      $io => std_ulogic_vector($logic),\n"
               case _                                                     => return s"      $io => $logic,\n"
             }
           } else if (dir == out) {
             bt match {
               case _: Bool if isBBUsingULogic => return s"      std_logic($io) => $logic,\n"
               case _: Bits if isBBUsingULogic => return s"      std_logic_vector($io) => $logic,\n"
-              case _: UInt                    => return s"      unsigned($io) => $logic,\n"
-              case _: SInt                    => return s"      signed($io) => $logic,\n"
+              case _: UInt if isBBUsingNoNumericType => return s"      unsigned($io) => $logic,\n"
+              case _: SInt if isBBUsingNoNumericType  => return s"      signed($io) => $logic,\n"
               case _                          => return s"      $io => $logic,\n"
             }
           }else{
