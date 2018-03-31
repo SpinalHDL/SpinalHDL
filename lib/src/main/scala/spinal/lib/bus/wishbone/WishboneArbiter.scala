@@ -6,6 +6,13 @@ import spinal.lib._
 
 object WishboneArbiter{
   def apply(config : WishboneConfig, inputCount : Int, priority : Int = 1) = new WishboneArbiter(config, inputCount, priority)
+
+  def apply(masters: Seq[Wishbone], slave: Wishbone): WishboneArbiter = {
+    val arbiter = new WishboneArbiter(slave.config, masters.size)
+    arbiter.io.output <> slave
+    (arbiter.io.inputs, masters).zipped.map(_ <> _)
+    arbiter.setPartialName(slave,"arbiter")
+  }
 }
 
 class WishboneArbiter(config : WishboneConfig, inputCount : Int, priority : Int = 1) extends Component{

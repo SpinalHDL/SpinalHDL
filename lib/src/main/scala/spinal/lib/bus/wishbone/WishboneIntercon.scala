@@ -4,16 +4,25 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable
 
-class WishboneInterconFactory(){
+class WishboneInterconFactory{
   val masters = mutable.ListBuffer[Wishbone]()
   val slaves = mutable.Map[Wishbone,SizeMapping]()
 
-  def addSlave(wb : Wishbone, mapping : SizeMapping) : Unit = {
-    slaves += (wb -> mapping)
+  def addSlave(slave : Wishbone, mapping : SizeMapping): Unit = {
+    slaves += (slave -> mapping)
   }
 
-  def addMaster(wb : Wishbone) : Unit = {
-    masters += wb
+  def addSlaves(slaves : Seq[(Wishbone,SizeMapping)]): Unit = {
+    for(slave <- slaves)
+      this.slaves += (slave._1 -> slave._2)
+  }
+
+  def addMaster(master : Wishbone) : Unit = {
+    masters += master
+  }
+
+  def addMasters(masters : Seq[Wishbone]) : Unit = {
+    this.masters ++= masters
   }
 
   def build() = new Area {

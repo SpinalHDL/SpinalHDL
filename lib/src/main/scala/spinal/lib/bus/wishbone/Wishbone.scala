@@ -101,24 +101,85 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   // def doSlavePipelinedRead : Bool = this.CYC && !this.WE
 
   def connectTo(that : Wishbone, allowDataResize : Boolean = false, allowAddressResize : Boolean = false, allowTagResize : Boolean = false) : Unit = {
-    this <-> that
-    if(allowDataResize == false){
-      this.DAT_MISO.removeAssignments()
-      this.DAT_MOSI.removeAssignments()
-      this.DAT_MISO.resized <> that.DAT_MISO
-      this.DAT_MOSI.resized <> that.DAT_MOSI
+    this.CYC      <> that.CYC
+    this.STB      <> that.STB
+    this.WE       <> that.WE
+    this.ACK      <> that.ACK
 
+    if(allowDataResize){
+      this.DAT_MISO <> that.DAT_MISO.resized
+      this.DAT_MOSI <> that.DAT_MOSI.resized
+    } else {
+      this.DAT_MOSI <> that.DAT_MOSI
+      this.DAT_MISO <> that.DAT_MISO
     }
+
     if(allowAddressResize){
-      this.ADR.removeAssignments()
-      this.ADR.resized <> that.ADR
+      this.ADR <> that.ADR.resized
+    } else {
+      this.ADR <> that.ADR
     }
-    if(allowTagResize){
-      this.TGA.removeAssignments()
-      this.TGC.removeAssignments()
-      this.TGA.resized <> that.TGA
-      this.TGC.resized <> that.TGC
+
+    ///////////////////////////
+    // OPTIONAL FLOW CONTROS //
+    ///////////////////////////
+    if(this.config.useSTALL && that.config.useSTALL) this.STALL <> that.STALL
+    if(this.config.useERR   && that.config.useERR)   this.ERR   <> that.ERR
+    if(this.config.useRTY   && that.config.useRTY)   this.RTY   <> that.RTY
+    if(this.config.useSEL   && that.config.useSEL)   this.SEL   <> that.SEL
+    if(this.config.useCTI   && that.config.useCTI)   this.CTI   <> that.CTI
+
+    //////////
+    // TAGS //
+    //////////
+    if(this.config.useTGA && that.config.useTGA)
+      if(allowTagResize) this.TGA <> that.TGA.resized else this.TGA <> that.TGA
+
+    if(this.config.useTGC && that.config.useTGC)
+      if(allowTagResize) this.TGC <> that.TGC.resized else this.TGC <> that.TGC
+
+    if(this.config.useBTE && that.config.useBTE)
+      if(allowTagResize) this.BTE <> that.BTE.resized else this.BTE <> that.BTE
+
+    if(this.config.useTGD && that.config.useTGD){
+      if(allowTagResize){
+        this.TGD_MISO <> that.TGD_MISO.resized
+        this.TGD_MOSI <> that.TGD_MOSI.resized
+      } else {
+        this.TGD_MISO <> that.TGD_MISO
+        this.TGD_MOSI <> that.TGD_MOSI
+      }
     }
+// //////////////////////////////////////////////////////////
+//     if(allowDataResize){
+//       this.DAT_MISO.resized <> that.DAT_MISO
+//       this.DAT_MOSI.resized <> that.DAT_MOSI
+//     } else {
+//       sink.DAT_MOSI <> this.DAT_MOSI
+//       sink.DAT_MISO <> this.DAT_MISO
+//     }
+
+//     if(allowAddressResize){
+
+//       this.ADR := that.ADR.resized
+//     }
+//     if(allowTagResize){
+//       if(this.config.useTGA && that.config.useTGA){
+//         this.TGA.resized <> that.TGA
+//       }
+
+//       if(this.config.useTGC && that.config.useTGC){
+//         this.TGC.removeAssignments()
+//         that.TGC.removeAssignments()
+//         this.TGC.resized <> that.TGC
+//       }
+
+//       if(this.config.useTGD && that.config.useTGD){
+//         this.TGD_MISO.resized   <> that.TGD_MISO
+//         this.TGD_MOSI.resized   <> that.TGD_MOSI
+//       }
+//     }
+
   }
 
   /** Connect common Wishbone signals
