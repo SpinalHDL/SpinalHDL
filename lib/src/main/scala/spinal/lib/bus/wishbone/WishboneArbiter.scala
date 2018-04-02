@@ -1,12 +1,24 @@
-//TODO: FIx if nothing is selected, drive bus with zeroes
 package spinal.lib.bus.wishbone
 
 import spinal.core._
 import spinal.lib._
 
+/** Factory for [[spinal.lib.bus.wishbone.WishboneArbiter]] instances. */
 object WishboneArbiter{
+  /** Create a wishbone Arbiter/multiplexer
+    * the arbiter will not switch to other interfaces until the selected master/input CYC line goes to zero
+    * @constructor create a WishboneArbiter instance
+    * @param config it will use for configuring all the input/output wishbone port
+    * @param inputCount the number of master interface
+    * @param priority wich interface is considerate first in the roundrobin algorithm
+    * @return a instantiated WishboneArbiter class
+    */
   def apply(config : WishboneConfig, inputCount : Int, priority : Int = 1) = new WishboneArbiter(config, inputCount, priority)
 
+  /** Create a wishbone Arbiter/multiplexer
+    * @param masters a list of master interfaces
+    * @param slave the slave interface, the [[spinal.lib.bus.wishbone.Wishbone.config]] will be used for all input/output
+    */
   def apply(masters: Seq[Wishbone], slave: Wishbone): WishboneArbiter = {
     val arbiter = new WishboneArbiter(slave.config, masters.size)
     arbiter.io.output <> slave
@@ -15,6 +27,13 @@ object WishboneArbiter{
   }
 }
 
+/** Create a wishbone Arbiter/multiplexer
+  * the arbiter will not switch to other interfaces until the selected master/input CYC line goes to zero
+  * @constructor create a WishboneArbiter instance
+  * @param config it will use for configuring all the input/output wishbone port
+  * @param inputCount the number of master interface
+  * @param priority wich interface is considerate first in the roundrobin algorithm
+  */
 class WishboneArbiter(config : WishboneConfig, inputCount : Int, priority : Int = 1) extends Component{
   val io = new Bundle{
     val inputs = Vec(slave(Wishbone(config)), inputCount)

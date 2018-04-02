@@ -1,7 +1,6 @@
 //TODO: Make selection logic for Syncronous/asyncronous/pipelined interface
 //TODO: Support ERR signal
 //TODO: Support RTY signal
-//TODO: Create Testbench with SpinalSim
 //TODO: SUpport Burts mode (specially for memory)
 
 package spinal.lib.bus.wishbone
@@ -9,10 +8,18 @@ package spinal.lib.bus.wishbone
 import spinal.core._
 import spinal.lib.bus.misc._
 
+/** Factory for [[spinal.lib.bus.wishbone.WishboneSlaveFactory]] instances. */
 object WishboneSlaveFactory {
+  /** This is the slave facotory fot the wishbone bus
+    * @param bus the wishbone bus istance that will connect with the module
+    * @return an istanciated class of [[spinal.lib.bus.wishbone.WishboneSlaveFactory]]
+    */
   def apply(bus: Wishbone) = new WishboneSlaveFactory(bus)
 }
 
+/** This is the slave facotory fot the wishbone bus
+  * @param bus the wishbone bus istance that will connect with the module
+  */
 class WishboneSlaveFactory(bus: Wishbone) extends BusSlaveFactoryDelayed{
   bus.DAT_MISO := 0
 

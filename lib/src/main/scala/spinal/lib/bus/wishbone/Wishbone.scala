@@ -7,11 +7,11 @@ import spinal.lib._
   * @param addressWidth size in bits of the address line
   * @param dataWidth size in bits of the data line
   * @param selWidth size in bits of the selection line, deafult to 0 (disabled)
-  * @param useSTALL activate the stall line, default to flase (disabled)
-  * @param useLOCK activate the lock line, default to flase (disabled)
-  * @param useERR activate the error line, default to flase (disabled)
-  * @param useRTY activate the retry line, default to flase (disabled)
-  * @param tgaWidth size in bits of the tag address linie, deafult to 0(disabled)
+  * @param useSTALL activate the stall line, default to false (disabled)
+  * @param useLOCK activate the lock line, default to false (disabled)
+  * @param useERR activate the error line, default to false (disabled)
+  * @param useRTY activate the retry line, default to false (disabled)
+  * @param tgaWidth size in bits of the tag address linie, deafult to 0 (disabled)
   * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
   * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
   * @param useBTE activate the BTE line, deafult to 0 (disabled)
@@ -100,6 +100,12 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   // def doSlavePipelinedWrite : Bool = this.CYC && this.WE
   // def doSlavePipelinedRead : Bool = this.CYC && !this.WE
 
+  /** Connect the istance of this bus with another, allowing for resize of data
+    * @param that the wishbone instance that will be connected and resized
+    * @param allowDataResize allow to resize "that" data lines, default to false (disable)
+    * @param allowAddressResize allow to resize "that" address lines, default to false (disable)
+    * @param allowTagResize allow to resize "that" tag lines, default to false (disable)
+    */
   def connectTo(that : Wishbone, allowDataResize : Boolean = false, allowAddressResize : Boolean = false, allowTagResize : Boolean = false) : Unit = {
     this.CYC      <> that.CYC
     this.STB      <> that.STB
@@ -107,7 +113,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     this.ACK      <> that.ACK
 
     if(allowDataResize){
-      this.DAT_MISO <> that.DAT_MISO.resized
+      this.DAT_MISO.resized <> that.DAT_MISO
       this.DAT_MOSI <> that.DAT_MOSI.resized
     } else {
       this.DAT_MOSI <> that.DAT_MOSI
@@ -150,36 +156,6 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
         this.TGD_MOSI <> that.TGD_MOSI
       }
     }
-// //////////////////////////////////////////////////////////
-//     if(allowDataResize){
-//       this.DAT_MISO.resized <> that.DAT_MISO
-//       this.DAT_MOSI.resized <> that.DAT_MOSI
-//     } else {
-//       sink.DAT_MOSI <> this.DAT_MOSI
-//       sink.DAT_MISO <> this.DAT_MISO
-//     }
-
-//     if(allowAddressResize){
-
-//       this.ADR := that.ADR.resized
-//     }
-//     if(allowTagResize){
-//       if(this.config.useTGA && that.config.useTGA){
-//         this.TGA.resized <> that.TGA
-//       }
-
-//       if(this.config.useTGC && that.config.useTGC){
-//         this.TGC.removeAssignments()
-//         that.TGC.removeAssignments()
-//         this.TGC.resized <> that.TGC
-//       }
-
-//       if(this.config.useTGD && that.config.useTGD){
-//         this.TGD_MISO.resized   <> that.TGD_MISO
-//         this.TGD_MOSI.resized   <> that.TGD_MOSI
-//       }
-//     }
-
   }
 
   /** Connect common Wishbone signals

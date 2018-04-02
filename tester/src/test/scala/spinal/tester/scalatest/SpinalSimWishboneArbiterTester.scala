@@ -46,7 +46,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
    }
 
   test("WishboneArbiterRandomSingleTransaction"){
-    val compiled = SimConfig.allOptimisation.withWave.compile(
+    val compiled = SimConfig.allOptimisation.compile(
       rtl = WishboneArbiter(
         config = WishboneConfig(8,8),
         inputCount = 20,

@@ -5,6 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 
+/** Factory for [[spinal.lib.bus.wishbone.WishboneAdapter]] instances. */
 object WishboneAdapter{
   /** Create a Wishbone Adapter given the master/slave wishbone bus
     * @param master the wishbone master bus
@@ -30,7 +31,7 @@ object WishboneAdapter{
   }
 }
 
-/** Create a configurable adaptor fot the wishbone bus.
+/** Create a configurable adaptor for the wishbone bus.
   * It can adapt from a wishbone pipelined interface to a standard one
   * or vice versa
   * @constructor Create a wishbone bus adapter

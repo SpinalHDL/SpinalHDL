@@ -26,7 +26,7 @@ case class DecoderTest(config : WishboneConfig, decodings : Seq[SizeMapping]) ex
 
 class SpinalSimWishboneDecoderTester extends FunSuite{
   test("randomTransaction"){
-    val compiled = SimConfig.allOptimisation.withWave.compile(
+    val compiled = SimConfig.allOptimisation.compile(
       rtl = new DecoderTest(
         config = WishboneConfig(8,8),
         decodings = List(SizeMapping(10,10),SizeMapping(20,10),SizeMapping(30,10),SizeMapping(40,10),SizeMapping(50,10),SizeMapping(60,10),SizeMapping(70,10),SizeMapping(80,10),SizeMapping(90,10))

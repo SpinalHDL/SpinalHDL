@@ -21,7 +21,7 @@ case class AdapterTest(conf1 : WishboneConfig,conf2 : WishboneConfig) extends Co
 
 class SpinalSimWishboneAdapterTester extends FunSuite{
   test("StandardToPipelined"){
-    val compiled = SimConfig.allOptimisation.withWave.compile(rtl = new AdapterTest(
+    val compiled = SimConfig.allOptimisation.compile(rtl = new AdapterTest(
       WishboneConfig(8,8),
       WishboneConfig(8,8).pipelined))
 
