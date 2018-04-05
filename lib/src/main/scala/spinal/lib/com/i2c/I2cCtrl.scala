@@ -1,3 +1,28 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.com.i2c
 
 import spinal.core._
@@ -5,10 +30,13 @@ import spinal.lib._
 import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryAddressWrapper}
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 
-object I2cCtrl{
-  case class I2cAddress() extends Bundle{
+
+
+object I2cCtrl {
+
+  case class I2cAddress() extends Bundle {
     val enable  = Bool
-    val value = Bits(10 bits)
+    val value   = Bits(10 bits)
     val is10Bit = Bool
   }
 
@@ -164,8 +192,9 @@ object I2cCtrl{
     val i2cBuffer = I2c()
     i2cBuffer <> i2c
 
-    val rxData = new Area  {
-      val event  = RegInit(False)
+
+    val rxData = new Area {
+      val event  = RegNext(False) init(False)
       val listen = RegInit(False)
       val valid  = RegInit(False)
       val value  = Reg(Bits(8 bits))
@@ -176,6 +205,7 @@ object I2cCtrl{
 
       valid clearWhen(busCtrlWithOffset.isReading(0x08))
     }
+
 
     val rxAck = new Area {
       val listen = RegInit(False)
@@ -188,6 +218,7 @@ object I2cCtrl{
 
       valid clearWhen(busCtrlWithOffset.isReading(0x0C))
     }
+
 
     val txData = new Area {
       val valid        = RegInit(True)
@@ -202,6 +233,7 @@ object I2cCtrl{
       busCtrlWithOffset.readAndWrite(enable, address = 0x00, bitOffset = 9)
     }
 
+
     val txAck = new Area {
       val valid    = RegInit(True)
       val repeat   = RegInit(True)
@@ -214,6 +246,7 @@ object I2cCtrl{
       busCtrlWithOffset.readAndWrite(valid,  address = 0x04, bitOffset = 8)
       busCtrlWithOffset.readAndWrite(enable, address = 0x04, bitOffset = 9)
     }
+
 
     /**
       * Address filtering
@@ -412,9 +445,11 @@ object I2cCtrl{
       }
     } else null
 
+
     val dataCounter = RegInit(U"000")
     val inAckState  = RegInit(False)
     val wasntAck    = RegInit(False)
+
 
     if(genMaster) masterLogic.txReady :=  inAckState ? txAck.valid | txData.valid
 
@@ -441,6 +476,7 @@ object I2cCtrl{
         bus.rsp.data   := False
       }
     }
+
 
     val isMasterMode = if(masterLogic != null) masterLogic.fsm.isBusy else False
 
@@ -524,6 +560,7 @@ object I2cCtrl{
       rxAck.listen  := False
     }
 
+
     /**
       * Interrupt Controller
       */
@@ -534,16 +571,17 @@ object I2cCtrl{
       val txDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 2)  init(False)
       val txAckEnable  = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 3)  init(False)
 
-      def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, flagClearBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
+      def i2CSlaveEvent(enableBitId: Int, flagBitId: Int, flagClearBitId: Int, busCmd: I2cSlaveCmdMode.E) = new Area {
         val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId) init(False)
-        val flag = busCtrlWithOffset.read(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
+        val flag   = busCtrlWithOffset.read(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
+
         busCtrlWithOffset.clearOnSet(flag, 0x20, flagClearBitId)
       }
 
-      val start = i2CSlaveEvent(4,8,12,I2cSlaveCmdMode.START)
-      val restart = i2CSlaveEvent(5,9,13,I2cSlaveCmdMode.RESTART)
-      val end = i2CSlaveEvent(6,10,14,I2cSlaveCmdMode.STOP)
-      val drop = i2CSlaveEvent(7,11,15,I2cSlaveCmdMode.DROP)
+      val start   = i2CSlaveEvent(4,  8, 12, I2cSlaveCmdMode.START)
+      val restart = i2CSlaveEvent(5,  9, 13, I2cSlaveCmdMode.RESTART)
+      val end     = i2CSlaveEvent(6, 10, 14, I2cSlaveCmdMode.STOP)
+      val drop    = i2CSlaveEvent(7, 11, 15, I2cSlaveCmdMode.DROP)
 
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid)   ||
                       (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
