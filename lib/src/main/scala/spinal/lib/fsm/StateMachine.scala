@@ -144,7 +144,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot")
     stateReg  = Reg(enumDefinition())
-    stateNext = enumDefinition()
+    stateNext = enumDefinition().allowOverride
 
     OwnableRef.proposal(stateBoot, this)
     OwnableRef.proposal(stateReg, this)
