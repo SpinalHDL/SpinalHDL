@@ -11,11 +11,11 @@ import spinal.lib._
   * @param useLOCK activate the lock line, default to false (disabled)
   * @param useERR activate the error line, default to false (disabled)
   * @param useRTY activate the retry line, default to false (disabled)
+  * @param useCTI activate the CTI line, deafult to 0 (disabled)
   * @param tgaWidth size in bits of the tag address linie, deafult to 0 (disabled)
   * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
   * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
-  * @param useBTE activate the BTE line, deafult to 0 (disabled)
-  * @param useCTI activate the CTI line, deafult to 0 (disabled)
+  * @param bteWidth size in bits of the Burst Type Extension, deafult to 0 (disabled)
   * @example {{{
   * val wishboneBusConf = new WishboneConfig(32,8).withCycleTag(8).withDataTag(8)
   * val wishboneBus = new Wishbone(wishboneBusConf)
@@ -30,21 +30,28 @@ case class WishboneConfig(
   val useLOCK : Boolean = false,
   val useERR : Boolean = false,
   val useRTY : Boolean = false,
+  val useCTI : Boolean = false
   val tgaWidth : Int = 0,
   val tgcWidth : Int = 0,
   val tgdWidth : Int = 0,
-  val useBTE : Boolean = false,
-  val useCTI : Boolean = false
+  val bteWidth : Int = 0,
 ){
   def useTGA = tgaWidth > 0
   def useTGC = tgcWidth > 0
   def useTGD = tgdWidth > 0
+  def useBTE = bteWidth > 0
   def useSEL = selWidth > 0
+
   def isPipelined = useSTALL
+  def isRegisteredFeedback = useCTI
+
   def pipelined : WishboneConfig = this.copy(useSTALL = true)
+  def registeredFeedback : WishboneConfig = this.copy(useCTI = true)
+
   def withDataTag(size : Int)    : WishboneConfig = this.copy(tgdWidth = size)
   def withAddressTag(size : Int) : WishboneConfig = this.copy(tgaWidth = size)
   def withCycleTag(size : Int)   : WishboneConfig = this.copy(tgdWidth = size)
+  def withBurstType(size : Int)  : WishboneConfig = this.copy(bteWidth = size)
 }
 
 /** This class rappresent a Wishbone bus
@@ -70,16 +77,17 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   val LOCK      = if(config.useLOCK)  Bool                       else null
   val ERR       = if(config.useERR)   Bool                       else null
   val RTY       = if(config.useRTY)   Bool                       else null
+  val CTI       = if(config.useCTI)   Bits(3 bits)               else null
 
   //////////
   // TAGS //
   //////////
-  val TGD_MISO  = if(config.useTGD)   Bits()                     else null
-  val TGD_MOSI  = if(config.useTGD)   Bits()                     else null
+  val TGD_MISO  = if(config.useTGD)   Bits(config.tgdWidth bits) else null
+  val TGD_MOSI  = if(config.useTGD)   Bits(config.tgdWidth bits) else null
   val TGA       = if(config.useTGA)   Bits(config.tgaWidth bits) else null
   val TGC       = if(config.useTGC)   Bits(config.tgcWidth bits) else null
-  val BTE       = if(config.useBTE)   Bits()                     else null
-  val CTI       = if(config.useCTI)   Bits(3 bits)               else null
+  val BTE       = if(config.useBTE)   Bits(config.bteWidth bits) else null
+
 
   override def asMaster(): Unit = {
     outWithNull(DAT_MOSI, TGD_MOSI, ADR, CYC, LOCK, SEL, STB, TGA, TGC, WE, CTI, BTE)
