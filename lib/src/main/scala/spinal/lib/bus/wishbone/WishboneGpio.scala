@@ -10,7 +10,7 @@ import spinal.core.sim._
 import spinal.lib.wishbone.sim._
 import spinal.lib.io.InOutWrapper
 
-class WishboneGPIO(config : WishboneConfig, gpioWidth : Int) extends Component{
+class WishboneGpio(config : WishboneConfig, gpioWidth : Int) extends Component{
   val io = new Bundle{
     val wb = slave(Wishbone(config))
     val gpio = master(TriStateArray(gpioWidth bits))
@@ -32,7 +32,7 @@ class WishboneGPIO(config : WishboneConfig, gpioWidth : Int) extends Component{
 object SpinalSimWishboneGpioTester{
   def main(args: Array[String]): Unit = {
     val compiled = SimConfig.allOptimisation.withWave.compile(
-      rtl = new WishboneGPIO(
+      rtl = new WishboneGpio(
         config = WishboneConfig(8,8),
         gpioWidth = 8
       )
