@@ -94,113 +94,6 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     inWithNull(DAT_MISO, TGD_MISO, ACK, STALL, ERR, RTY)
   }
 
-  // // def isCycle : Bool = if(config.useERR) !ERR && CYC else CYC
-  // // def isWrite : Bool = isCycle && WE
-  // // def isRead : Bool  = isCycle && !WE
-  // // def isReadCycle : Bool = isRead && STB
-  // // def isWriteCycle : Bool = isWrite && STB
-  // // def isStalled : Bool = if(config.isPipelined) isCycle && STALL else False
-  // // def isAcknoledge : Bool = isCycle && ACK
-  // // def isStrobe : Bool = isCycle && STB
-
-  // // def doSlaveWrite : Bool = this.CYC && this.STB && this.WE
-  // // def doSlaveRead : Bool = this.CYC && this.STB && !this.WE
-  // // def doSlavePipelinedWrite : Bool = this.CYC && this.WE
-  // // def doSlavePipelinedRead : Bool = this.CYC && !this.WE
-
-  // /** Connect the istance of this bus with another, allowing for resize of data
-  //   * @param that the wishbone instance that will be connected and resized
-  //   * @param allowDataResize allow to resize "that" data lines, default to false (disable)
-  //   * @param allowAddressResize allow to resize "that" address lines, default to false (disable)
-  //   * @param allowTagResize allow to resize "that" tag lines, default to false (disable)
-  //   */
-  // def connectTo(that : Wishbone, allowDataResize : Boolean = false, allowAddressResize : Boolean = false, allowTagResize : Boolean = false) : Unit = {
-  //   this.CYC      <> that.CYC
-  //   this.STB      <> that.STB
-  //   this.WE       <> that.WE
-  //   this.ACK      <> that.ACK
-
-  //   if(allowDataResize){
-  //     this.DAT_MISO.resized <> that.DAT_MISO
-  //     this.DAT_MOSI <> that.DAT_MOSI.resized
-  //   } else {
-  //     this.DAT_MOSI <> that.DAT_MOSI
-  //     this.DAT_MISO <> that.DAT_MISO
-  //   }
-
-  //   if(allowAddressResize){
-  //     this.ADR <> that.ADR.resized
-  //   } else {
-  //     this.ADR <> that.ADR
-  //   }
-
-  //   ///////////////////////////
-  //   // OPTIONAL FLOW CONTROS //
-  //   ///////////////////////////
-  //   if(this.config.useSTALL && that.config.useSTALL) this.STALL <> that.STALL
-  //   if(this.config.useERR   && that.config.useERR)   this.ERR   <> that.ERR
-  //   if(this.config.useRTY   && that.config.useRTY)   this.RTY   <> that.RTY
-  //   if(this.config.useSEL   && that.config.useSEL)   this.SEL   <> that.SEL
-  //   if(this.config.useCTI   && that.config.useCTI)   this.CTI   <> that.CTI
-
-  //   //////////
-  //   // TAGS //
-  //   //////////
-  //   if(this.config.useTGA && that.config.useTGA)
-  //     if(allowTagResize) this.TGA <> that.TGA.resized else this.TGA <> that.TGA
-
-  //   if(this.config.useTGC && that.config.useTGC)
-  //     if(allowTagResize) this.TGC <> that.TGC.resized else this.TGC <> that.TGC
-
-  //   if(this.config.useBTE && that.config.useBTE)
-  //     if(allowTagResize) this.BTE <> that.BTE.resized else this.BTE <> that.BTE
-
-  //   if(this.config.useTGD && that.config.useTGD){
-  //     if(allowTagResize){
-  //       this.TGD_MISO <> that.TGD_MISO.resized
-  //       this.TGD_MOSI <> that.TGD_MOSI.resized
-  //     } else {
-  //       this.TGD_MISO <> that.TGD_MISO
-  //       this.TGD_MOSI <> that.TGD_MOSI
-  //     }
-  //   }
-  // }
-
-  // /** Connect common Wishbone signals
-  //   * @example{{{wishbone1 <-> wishbone2}}}
-  //   */
-  // def <-> (sink : Wishbone) : Unit = {
-  //   /////////////////////
-  //   // MINIMAL SIGNALS //
-  //   /////////////////////
-  //   sink.CYC      <> this.CYC
-  //   sink.ADR      <> this.ADR
-  //   sink.DAT_MOSI <> this.DAT_MOSI
-  //   sink.DAT_MISO <> this.DAT_MISO
-  //   sink.STB      <> this.STB
-  //   sink.WE       <> this.WE
-  //   sink.ACK      <> this.ACK
-
-  //   ///////////////////////////
-  //   // OPTIONAL FLOW CONTROS //
-  //   ///////////////////////////
-  //   if(this.config.useSTALL && sink.config.useSTALL) sink.STALL <> this.STALL
-  //   if(this.config.useERR   && sink.config.useERR)   sink.ERR   <> this.ERR
-  //   if(this.config.useRTY   && sink.config.useRTY)   sink.RTY   <> this.RTY
-  //   if(this.config.useSEL   && sink.config.useSEL)   sink.SEL   <> this.SEL
-
-  //   //////////
-  //   // TAGS //
-  //   //////////
-  //   if(this.config.useTGA && sink.config.useTGA) sink.TGA <> this.TGA
-  //   if(this.config.useTGC && sink.config.useTGC) sink.TGC <> this.TGC
-  //   if(this.config.useCTI && sink.config.useCTI) sink.CTI <> this.CTI
-  //   if(this.config.useBTE && sink.config.useBTE) sink.BTE <> this.BTE
-  //   if(this.config.useTGD && sink.config.useTGD){
-  //     sink.TGD_MISO  <> this.TGD_MISO
-  //     sink.TGD_MOSI  <> this.TGD_MOSI
-  //   }
-  // }
 
   /** Clear all the relevant signals in the wishbone bus
     * @example{{{
@@ -289,7 +182,13 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     */
   def << (that : Wishbone) : Unit = that >> this
 
-
+  /** Connect to a wishbone bus with optional resize.
+    * This will drop all the signals that are not in common
+    * @param that the wishbone bus that i want to connect, must be a wishbone slave
+    * @param allowDataResize allow the resize of the data lines, deafult to false
+    * @param allowAddressResize allow the resize of the address line, deafult to false
+    * @param allowTagResize allow the resize of the tag lines, deafult to false
+    */
   def connectTo(that : Wishbone, allowDataResize : Boolean = false, allowAddressResize : Boolean = false, allowTagResize : Boolean = false) : Unit = {
     /////////////////////
     // MINIMAL SIGNALS //
@@ -325,6 +224,14 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
 }
 
 object Wishbone{
+  /** Connect to signal with some check
+    * This will ceck if the two signal are null, and if one of them are, connect with some condition
+    * @param from must be an input
+    * @param to must be an output
+    * @param defaultValue if "from" is null, drive "to" with this value
+    * @param allowResize allow resize allow the resize of the "from" signal
+    * @param allowDrop allow to not connect if one of the two siglar are null
+    */
   def driveWeak[T <: Data](from: T, to: T, defaultValue: () => T, allowResize : Boolean, allowDrop: Boolean){
     (from != null, to != null) match{
       case (false, false) =>
