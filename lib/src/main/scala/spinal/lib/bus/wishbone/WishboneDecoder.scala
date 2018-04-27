@@ -36,12 +36,30 @@ class WishboneDecoder(config : WishboneConfig, decodings : Seq[SizeMapping]) ext
     val outputs = Vec(master(Wishbone(config)),decodings.size)
   }
 
-  io.outputs.map(_.clearAll)
-  io.input.clearAll()
+  io.outputs.map(_.CYC := False)
 
-  for((slave, select) <- decodings.zipWithIndex){
-    when(slave.hit(io.input.ADR) && io.input.CYC){
-      io.outputs(select) <> io.input
-    }
+  io.outputs.map{ out =>
+    out.STB       := io.input.STB
+    out.DAT_MOSI  := io.input.DAT_MOSI
+    out.WE        := io.input.WE
+    out.ADR       := io.input.ADR
+    Wishbone.driveWeak(io.input.SEL, out.SEL, null, false, false)
+    Wishbone.driveWeak(io.input.LOCK, out.LOCK, null, false, false)
+    Wishbone.driveWeak(io.input.CTI, out.CTI, null, false, false)
+    Wishbone.driveWeak(io.input.TGD_MOSI, out.TGD_MOSI, null, false, false)
+    Wishbone.driveWeak(io.input.TGA, out.TGA, null, false, false)
+    Wishbone.driveWeak(io.input.TGC, out.TGC, null, false, false)
+    Wishbone.driveWeak(io.input.BTE, out.BTE, null, false, false)
   }
+
+  val selector = Vec(decodings.map(_.hit(io.input.ADR) && io.input.CYC))
+
+  io.input.CYC      <> MuxOH(selector, Vec(io.outputs.map(_.CYC)))
+  io.input.ACK      <> MuxOH(selector, Vec(io.outputs.map(_.ACK)))
+  io.input.DAT_MISO <> MuxOH(selector, Vec(io.outputs.map(_.DAT_MISO)))
+
+  if(config.useSTALL) io.input.STALL    <> MuxOH(selector, Vec(io.outputs.map(_.STALL)))
+  if(config.useERR)   io.input.ERR      <> MuxOH(selector, Vec(io.outputs.map(_.ERR)))
+  if(config.useRTY)   io.input.RTY      <> MuxOH(selector, Vec(io.outputs.map(_.RTY)))
+  if(config.useTGD)   io.input.TGD_MISO <> MuxOH(selector, Vec(io.outputs.map(_.TGD_MISO)))
 }
