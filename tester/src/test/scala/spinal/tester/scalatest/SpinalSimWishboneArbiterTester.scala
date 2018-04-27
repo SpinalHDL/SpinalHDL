@@ -49,8 +49,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
     val compiled = SimConfig.allOptimisation.compile(
       rtl = WishboneArbiter(
         config = WishboneConfig(8,8),
-        inputCount = 20,
-        priority = 1
+        inputCount = 20
       )
     )
 
