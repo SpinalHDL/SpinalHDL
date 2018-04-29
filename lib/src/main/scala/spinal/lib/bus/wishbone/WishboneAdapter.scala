@@ -58,30 +58,25 @@ class WishboneAdapter(wbmConfig : WishboneConfig,
     val wbs = master(Wishbone(wbsConfig))
   }
 
-  io.wbs.connectTo(io.wbm, allowDataResize, allowAddressResize, allowTagResize)
+  io.wbm.connectTo(io.wbs, allowDataResize, allowAddressResize, allowTagResize)
 
   (wbmConfig.isPipelined,wbsConfig.isPipelined) match{
     case (false,true) => {
+      // Little state machine from chapter 5.1 of the wishbone B4 specification
+      // States:
+      // - idle     [wait4ack = False]
+      // - wait4ack [wait4ack = True]
+      // Logic:
+      // if (io.wbs.STB) change state to wait4ack [io.wbs.STB = False]
+      // if (io.wbs.ACK) change state to idle     [io.wbs.STB = io.wbm.STB]
       io.wbs.STB.removeAssignments()
-      val wsm = new StateMachine{
-        io.wbs.STB := False
-        val idle : State = new State with EntryPoint{
-          whenIsActive{
-            io.wbs.STB := io.wbm.STB
-            when(io.wbs.STB){
-              goto(wait4ack)
-            }
-          }
-        }
-
-        val wait4ack : State = new State{
-          whenIsActive{
-            when(io.wbs.ACK){
-              goto(idle)
-            }
-          }
-        }
+      val wait4ack = Reg(Bool) init(False)
+      when(!wait4ack && io.wbs.STB){
+        wait4ack := True
+      }.elsewhen(wait4ack && io.wbs.ACK){
+        wait4ack := False
       }
+      io.wbs.STB := !wait4ack ? io.wbm.STB | False
     }
     case (true, false) => {
       io.wbm.STALL.removeAssignments()
