@@ -76,7 +76,7 @@ class WishboneAdapter(wbmConfig : WishboneConfig,
       }.elsewhen(wait4ack && io.wbs.ACK){
         wait4ack := False
       }
-      io.wbs.STB := !wait4ack ? io.wbm.STB | False
+      io.wbs.STB := wait4ack ? False | io.wbm.STB
     }
     case (true, false) => {
       io.wbm.STALL.removeAssignments()
