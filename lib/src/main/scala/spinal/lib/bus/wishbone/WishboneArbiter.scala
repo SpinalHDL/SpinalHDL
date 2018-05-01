@@ -44,13 +44,12 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     in.DAT_MISO := io.output.DAT_MISO
     Wishbone.driveWeak(io.output.TGD_MISO, in.TGD_MISO, null, false, false)
   }
+
   val requests = if(config.useLOCK) Vec(io.inputs.map(func => func.CYC && func.LOCK)) else Vec(io.inputs.map(_.CYC))
-  val selector = Reg(Bits(inputCount bits)) init(1)
   val maskLock = Reg(Bits(inputCount bits)) init(1)
 
-  when(!io.output.CYC){
-    selector := OHMasking.roundRobin(requests.asBits, maskLock)
-  }.otherwise{
+  val selector = RegNextWhen(OHMasking.roundRobin(requests.asBits, maskLock), !io.output.CYC) init(1)
+  when(io.output.CYC && selector =/= 0){
     maskLock := selector
   }
 
