@@ -17,6 +17,7 @@ case class WishboneTransaction( address : BigInt ,
                                 tgc : BigInt  = 0,
                                 tgd : BigInt  = 0){
   override def toString : String = "Address: %d | Data: %d | TGA: %d | TGC: %d | TGD: %d".format(address,data,tga,tgc,tgd)
+  def masked(mask : BigInt) : WishboneTransaction = this.copy(address = this.address & mask)
 }
 
 class WishboneDrive(wishbone: Wishbone, clockdomain: ClockDomain){
@@ -155,189 +156,88 @@ class WishbonePipelinedDrive(wishbone: Wishbone, clockdomain: ClockDomain){
   }
 
 }
-class Wishbonetest extends Component {
-  val io = new Bundle{
-    val bus = slave(Wishbone(WishboneConfig(8,8)))
-    val data_out = out Bits(8 bits)
-  }
 
-  val feed = RegNext(io.bus.CYC && io.bus.STB) init(False)
-  io.bus.ACK := feed && io.bus.STB
-  val value = RegNextWhen(io.bus.DAT_MOSI, io.bus.CYC && io.bus.STB) init(0)
-  io.data_out := value
-  io.bus.DAT_MISO := value
-}
+// class Wishbonetest extends Component {
+//   val io = new Bundle{
+//     val bus = slave(Wishbone(WishboneConfig(8,8)))
+//     val data_out = out Bits(8 bits)
+//   }
 
-object test{
-  def main(args: Array[String]): Unit = {
-    SimConfig(rtl = new Wishbonetest).withWave.doManagedSim{ dut =>
-      dut.io.bus.CYC #= false
-    //val transaction = collection.immutable.Seq(WishboneTransaction(42,12),WishboneTransaction(142,112),WishboneTransaction(242,212))
-    val transaction : collection.immutable.Seq[WishboneTransaction] = for(x <- 0 to 20)yield {
-      val coso = Random.nextInt(100)
-      WishboneTransaction(42,coso)
-    }
-      dut.clockDomain.forkStimulus(period=10)
-      dut.io.bus.CYC #= false
-      dut.io.bus.STB #= false
-      dut.io.bus.ACK #= false
-      val test = new WishboneDrive(dut.io.bus, dut.clockDomain)
-      test.write(transaction)
-      sleep(100)
-    }
-  }
-}
+//   val feed = RegNext(io.bus.CYC && io.bus.STB) init(False)
+//   io.bus.ACK := feed && io.bus.STB
+//   val value = RegNextWhen(io.bus.DAT_MOSI, io.bus.CYC && io.bus.STB) init(0)
+//   io.data_out := value
+//   io.bus.DAT_MISO := value
+// }
 
-object testpipelined{
-  class WishboneMasterPipelined extends Component{
-    val io = new Bundle{
-      val masterSide = slave(Wishbone(WishboneConfig(8,8, useSTALL = true)))
-      val slaveSide = master(Wishbone(WishboneConfig(8,8, useSTALL = true)))
-    }
-    val dummy = Reg(Bits(8 bits))
-    io.masterSide <> io.slaveSide
-  }
+// object test{
+//   def main(args: Array[String]): Unit = {
+//     SimConfig(rtl = new Wishbonetest).withWave.doManagedSim{ dut =>
+//       dut.io.bus.CYC #= false
+//     //val transaction = collection.immutable.Seq(WishboneTransaction(42,12),WishboneTransaction(142,112),WishboneTransaction(242,212))
+//     val transaction : collection.immutable.Seq[WishboneTransaction] = for(x <- 0 to 20)yield {
+//       val coso = Random.nextInt(100)
+//       WishboneTransaction(42,coso)
+//     }
+//       dut.clockDomain.forkStimulus(period=10)
+//       dut.io.bus.CYC #= false
+//       dut.io.bus.STB #= false
+//       dut.io.bus.ACK #= false
+//       val test = new WishboneDrive(dut.io.bus, dut.clockDomain)
+//       test.write(transaction)
+//       sleep(100)
+//     }
+//   }
+// }
+
+// object testpipelined{
+//   class WishboneMasterPipelined extends Component{
+//     val io = new Bundle{
+//       val masterSide = slave(Wishbone(WishboneConfig(8,8, useSTALL = true)))
+//       val slaveSide = master(Wishbone(WishboneConfig(8,8, useSTALL = true)))
+//     }
+//     val dummy = Reg(Bits(8 bits))
+//     io.masterSide <> io.slaveSide
+//   }
 
 
-  def main(args: Array[String]): Unit = {
-    SimConfig(rtl = new WishboneMasterPipelined).withWave.doManagedSim{ dut =>
-      dut.io.masterSide.CYC #= false
-      dut.io.slaveSide.CYC #= false
-      dut.io.masterSide.STB #= false
-      dut.io.slaveSide.ACK #= false
-      dut.io.masterSide.STALL #= false
-      dut.io.slaveSide.STALL #= false
-      dut.io.masterSide.WE #= false
-      dut.clockDomain.forkStimulus(period=10)
+//   def main(args: Array[String]): Unit = {
+//     SimConfig(rtl = new WishboneMasterPipelined).withWave.doManagedSim{ dut =>
+//       dut.io.masterSide.CYC #= false
+//       dut.io.slaveSide.CYC #= false
+//       dut.io.masterSide.STB #= false
+//       dut.io.slaveSide.ACK #= false
+//       dut.io.masterSide.STALL #= false
+//       dut.io.slaveSide.STALL #= false
+//       dut.io.masterSide.WE #= false
+//       dut.clockDomain.forkStimulus(period=10)
 
-      val slv = new WishbonePipelinedSlave(dut.io.slaveSide, dut.clockDomain)
-      val mst = new WishbonePipelinedDrive(dut.io.masterSide, dut.clockDomain)
+//       val slv = new WishbonePipelinedSlave(dut.io.slaveSide, dut.clockDomain)
+//       val mst = new WishbonePipelinedDrive(dut.io.masterSide, dut.clockDomain)
 
-      slv.addTrigger(AddressRange(1,100)){bus =>
-        if(!bus.WE.toBoolean){
-          bus.DAT_MISO #= Random.nextInt(100)
-        }
+//       slv.addTrigger(AddressRange(1,100)){bus =>
+//         if(!bus.WE.toBoolean){
+//           bus.DAT_MISO #= Random.nextInt(100)
+//         }
 
-        bus.STALL.randomize()
-        //bus.ACK #= true
+//         bus.STALL.randomize()
+//         //bus.ACK #= true
 
-      }
+//       }
 
-      dut.clockDomain.waitSampling(10)
-      mst.write(List(
-        WishboneTransaction(10,10),
-        WishboneTransaction(11,20),
-        WishboneTransaction(12,20),
-        WishboneTransaction(13,20),
-        WishboneTransaction(14,30),
-        WishboneTransaction(15,40)))
+//       dut.clockDomain.waitSampling(10)
+//       mst.write(List(
+//         WishboneTransaction(10,10),
+//         WishboneTransaction(11,20),
+//         WishboneTransaction(12,20),
+//         WishboneTransaction(13,20),
+//         WishboneTransaction(14,30),
+//         WishboneTransaction(15,40)))
 
-        dut.clockDomain.waitSampling(10)
-        mst.write(WishboneTransaction(10,10))
+//         dut.clockDomain.waitSampling(10)
+//         mst.write(WishboneTransaction(10,10))
 
-      sleep(100)
-    }
-  }
-}
-//class WishboneMasterFactory(wishbone: Wishbone, clockdomain: ClockDomain){
-//  val blockCycle = ListBuffer[(Wishbone) => Unit]()
-//  var cycleStart : (Wishbone) => Unit = {bus =>}
-//
-//
-//  def addToBlockCycle(transaction: (Wishbone) => Unit) : Unit = {
-//    blockCycle += transaction
-//  }
-//
-//  def onCycleStart(transaction: (Wishbone) => Unit) : Unit = {
-//    cycleStart = transaction
-//  }
-//  def write()(callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = classicTransaction(isWrite = true, callbacks)
-//  def pipelinedWrite()(callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = pipelinedTransaction(isWrite = true, callbacks)
-//  def read()(callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = classicTransaction(isWrite = false, callbacks)
-//  def pipelinedRead()(callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = pipelinedTransaction(isWrite = false, callbacks)
-//  def classicTransaction(isWrite : Boolean, callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = {
-//    def send(callback: (Wishbone) => Unit) : Unit@suspendable = {
-//      callback(wishbone)
-//      wishbone.STB #= true
-//      clockdomain.waitActiveEdgeWhere(wishbone.CYC.toBoolean && wishbone.ACK.toBoolean && wishbone.STB.toBoolean) //TODO: support ERR
-//      wishbone.STB #= false
-//    }
-//
-//    def receive(callback: (Wishbone) => Unit) : Unit@suspendable = {
-//
-//    }
-//
-//    clockdomain.waitActiveEdge()
-//    wishbone.CYC #= true
-//    wishbone.WE #= isWrite
-//    cycleStart(wishbone)
-//    callbacks.init.suspendable.foreach { callback =>
-//      send(callback)
-//      clockdomain.waitActiveEdge()
-//    }
-//    send(callbacks.last)
-//    wishbone.STB #= false
-//    wishbone.CYC #= false
-//  }
-//
-//
-//  def pipelinedTransaction(isWrite : Boolean, callbacks: List[(Wishbone) => Unit]) : Unit@suspendable = {
-//    clockdomain.waitActiveEdge()
-//    wishbone.CYC #= true
-//
-//    val ackcount = fork{
-//      callbacks.suspendable.foreach{ _ => clockdomain.waitActiveEdgeWhere(wishbone.isAcknoledge.toBoolean) }
-//    }
-//
-//    wishbone.WE #= isWrite
-//    callbacks.suspendable.foreach { callback =>
-//      callback(wishbone)
-//      wishbone.STB #= true
-//      clockdomain.waitActiveEdgeWhere(wishbone.isStalled.toBoolean)
-//    }
-//    wishbone.STB #= false
-//
-//    ackcount.join()
-//    wishbone.CYC #= false
-//  }
-//
-//
-//
-//
-//}
-//
-//class Wishbonetest extends Component {
-//  val io = new Bundle{
-//    val bus = slave(Wishbone(WishboneConfig(8,8)))
-//    val data_out = out Bits(8 bits)
-//  }
-//
-//  val feed = RegNext(io.bus.CYC && io.bus.STB) init(False)
-//  io.bus.ACK := feed && io.bus.STB
-//  val value = RegNextWhen(io.bus.DAT_MOSI, io.bus.CYC && io.bus.STB) init(0)
-//  io.data_out := value
-//  io.bus.DAT_MISO := value
-//}
-//
-//object test{
-//  def main(args: Array[String]): Unit = {
-//    SimConfig(rtl = new Wishbonetest).withWave.doManagedSim{ dut =>
-//    //SimConfig.withWave.compile(new Wishbonetest).doSim{ dut =>
-//      dut.clockDomain.forkStimulus(period=10)
-//      dut.io.bus.CYC #= false
-//      dut.io.bus.STB #= false
-//      dut.io.bus.ACK #= false
-//      val wbm = new WishboneMasterFactory(dut.io.bus, dut.clockDomain)
-//      wbm.write(){ List({bus =>
-//          bus.ADR #= 42
-//          bus.DAT_MOSI #= 100
-//          },{bus =>
-//
-//          bus.ADR #= 21
-//          bus.DAT_MOSI #= 50
-//          })
-//      }
-//      sleep(100)
-//    }
-//  }
-//}
+//       sleep(100)
+//     }
+//   }
+// }

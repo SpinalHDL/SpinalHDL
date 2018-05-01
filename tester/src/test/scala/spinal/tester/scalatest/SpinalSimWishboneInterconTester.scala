@@ -12,8 +12,8 @@ import spinal.lib.wishbone.sim._
 
   class InterconTest extends Component{
     val io = new Bundle{
-        val masters = Vec(slave(Wishbone(WishboneConfig(16,8))),2)
-        val slaves = Vec(master(Wishbone(WishboneConfig(8,8))),2)
+        val masters = Vec(slave(Wishbone(WishboneConfig(16,8))),3)
+        val slaves = Vec(master(Wishbone(WishboneConfig(8,8))),5)
     }
     val config = WishboneConfig(16,8)
     val intercon = new WishboneInterconFactory(config)
@@ -27,7 +27,7 @@ import spinal.lib.wishbone.sim._
 
 class SpinalSimWishboneInterconTester extends FunSuite{
   test("RandomIntercon"){
-    val compiled = SimConfig.allOptimisation.compile(rtl = new InterconTest)
+    val compiled = SimConfig.allOptimisation.withWave.compile(rtl = new InterconTest)
     compiled.doSim("randomTransactionIntercon"){ dut =>
       dut.io.masters.suspendable.foreach{ bus =>
         bus.CYC #= false
@@ -43,6 +43,8 @@ class SpinalSimWishboneInterconTester extends FunSuite{
         bus.STB #= false
         bus.DAT_MISO #= 0
       }
+
+      SimTimeout(1000000*10)
 
       dut.clockDomain.forkStimulus(period=10)
       dut.clockDomain.waitSampling(10)

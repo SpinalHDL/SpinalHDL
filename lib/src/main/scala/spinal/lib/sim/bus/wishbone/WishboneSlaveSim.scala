@@ -64,74 +64,74 @@ case class AddressRange(base : BigInt, size: Int){
 }
 
 
-class WishboneSlaveTest extends Component {
-  val io = new Bundle{
-    val bus = master(Wishbone(WishboneConfig(8,8)))
-    val start = in Bool
-  }
+// class WishboneSlaveTest extends Component {
+//   val io = new Bundle{
+//     val bus = master(Wishbone(WishboneConfig(8,8)))
+//     val start = in Bool
+//   }
 
-  io.bus.CYC := False
-  io.bus.STB := False
-  io.bus.ADR := 0
-  io.bus.WE := False
-  io.bus.DAT_MOSI := 0
+//   io.bus.CYC := False
+//   io.bus.STB := False
+//   io.bus.ADR := 0
+//   io.bus.WE := False
+//   io.bus.DAT_MOSI := 0
 
-  val fsm = new StateMachine{
-    val  idle : State = new State with EntryPoint{
-      whenIsActive{
-        io.bus.CYC := False
-        io.bus.WE := False
-        when(io.start){
-          goto(send)
-        }
-      }
-    }
-    val send : State = new State{
-      whenIsActive{
-        io.bus.CYC := True
-        io.bus.STB := True
-        io.bus.DAT_MOSI := 42
-        io.bus.ADR := 10
-        when(io.bus.ACK){
-          goto(finish)
-        }
-      }
-    }
-    val finish : State = new State{
-      whenIsActive{
-        io.bus.CYC := True
-        io.bus.STB := False
-        when(io.start){
-          goto(send)
-        }.otherwise{
-          io.bus.CYC := False
-          goto(idle)
-        }
-      }
-    }
-  }
-}
+//   val fsm = new StateMachine{
+//     val  idle : State = new State with EntryPoint{
+//       whenIsActive{
+//         io.bus.CYC := False
+//         io.bus.WE := False
+//         when(io.start){
+//           goto(send)
+//         }
+//       }
+//     }
+//     val send : State = new State{
+//       whenIsActive{
+//         io.bus.CYC := True
+//         io.bus.STB := True
+//         io.bus.DAT_MOSI := 42
+//         io.bus.ADR := 10
+//         when(io.bus.ACK){
+//           goto(finish)
+//         }
+//       }
+//     }
+//     val finish : State = new State{
+//       whenIsActive{
+//         io.bus.CYC := True
+//         io.bus.STB := False
+//         when(io.start){
+//           goto(send)
+//         }.otherwise{
+//           io.bus.CYC := False
+//           goto(idle)
+//         }
+//       }
+//     }
+//   }
+// }
 
-object SlaveTest{
-  def main(args: Array[String]): Unit = {
-    SimConfig(rtl = new WishboneSlaveTest).withWave.doManagedSim{ dut =>
-      dut.clockDomain.forkStimulus(period=10)
-      dut.io.start #= false
-      dut.io.bus.CYC #= false
-      dut.io.bus.STB #= false
-      dut.io.bus.ACK #= false
-      sleep(1000)
-      dut.io.start #= true
-      val wbs = new WishboneSlave(dut.io.bus, dut.clockDomain)
+// object SlaveTest{
+//   def main(args: Array[String]): Unit = {
+//     SimConfig(rtl = new WishboneSlaveTest).withWave.doManagedSim{ dut =>
+//       dut.clockDomain.forkStimulus(period=10)
+//       dut.io.start #= false
+//       dut.io.bus.CYC #= false
+//       dut.io.bus.STB #= false
+//       dut.io.bus.ACK #= false
+//       sleep(1000)
+//       dut.io.start #= true
+//       val wbs = new WishboneSlave(dut.io.bus, dut.clockDomain)
 
-      wbs.addTrigger(AddressRange(10,10)){bus =>
-       //dut.clockDomain.waitRisingEdge(10)
-        bus.DAT_MISO #= Random.nextInt(256)
-      }
+//       wbs.addTrigger(AddressRange(10,10)){bus =>
+//        //dut.clockDomain.waitRisingEdge(10)
+//         bus.DAT_MISO #= Random.nextInt(256)
+//       }
 
-      dut.clockDomain.waitRisingEdge(99)
-      dut.io.start #= false
-      dut.clockDomain.waitRisingEdge(100)
-    }
-  }
-}
+//       dut.clockDomain.waitRisingEdge(99)
+//       dut.io.start #= false
+//       dut.clockDomain.waitRisingEdge(100)
+//     }
+//   }
+// }

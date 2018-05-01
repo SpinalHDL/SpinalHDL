@@ -46,7 +46,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
    }
 
   test("WishboneArbiterRandomSingleTransaction"){
-    val compiled = SimConfig.allOptimisation.compile(
+    val compiled = SimConfig.allOptimisation.withWave.compile(
       rtl = WishboneArbiter(
         config = WishboneConfig(8,8),
         inputCount = 20
@@ -56,6 +56,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
     compiled.doSim("randomMaster"){ dut =>
       //dut.io.inputs.foreach{ bus => bus.clearAll() }
       //dut.io.output.clearAll()
+      SimTimeout(10000 * 20)
       dut.io.inputs.suspendable.foreach{ bus =>
        bus.CYC #= false
        bus.STB #= false
@@ -83,22 +84,24 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
       }
 
       val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
-      scala.util.Random.shuffle(driveMasters zip transactions).suspendable.foreach{ Mst =>
-        masterPool += fork{
-          sleep(scala.util.Random.nextInt(15*dut.io.inputs.size).toLong)
-          val rec = Mst._1.read(Mst._2)
-          rec match{
-            case WishboneTransaction(Mst._2.address,Mst._2.data ,_,_,_) => println("Master %d: Success".format(Mst._2.address))
-            case _ => {
-              println("Master %d: Failure".format(Mst._2.address))
-              println("Transmitted: " + Mst.toString)
-              println("Received:    " + rec.toString)
-              simFailure()
+      Suspendable.repeat(100){
+        scala.util.Random.shuffle(driveMasters zip transactions).suspendable.foreach{ Mst =>
+          masterPool += fork{
+            sleep(scala.util.Random.nextInt(15*dut.io.inputs.size).toLong)
+            val rec = Mst._1.read(Mst._2)
+            rec match{
+              case WishboneTransaction(Mst._2.address,Mst._2.data ,_,_,_) => println("Master %d: Success".format(Mst._2.address))
+              case _ => {
+                println("Master %d: Failure".format(Mst._2.address))
+                println("Transmitted: " + Mst.toString)
+                println("Received:    " + rec.toString)
+                simFailure()
+              }
             }
           }
         }
+        masterPool.suspendable.foreach{th => th.join}
       }
-      masterPool.suspendable.foreach{th => th.join}
       dut.clockDomain.waitSampling()
       simSuccess()
     }
