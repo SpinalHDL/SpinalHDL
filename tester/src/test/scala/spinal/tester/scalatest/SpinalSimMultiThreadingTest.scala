@@ -43,7 +43,7 @@ class SpinalSimMultiThreadingTest extends FunSuite {
                     dut.io.b #= b
                     dut.io.c #= c
                     dut.clockDomain.waitActiveEdge(); sleep(0)
-                    if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c + i + t) & 0xFF))
+                    if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toInt == ((a + b - c + i + t) & 0xFF))
                     ()
                   }
                 }

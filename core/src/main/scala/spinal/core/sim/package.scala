@@ -365,7 +365,7 @@ package object sim {
     def doStimulus(period : Long) : Unit@suspendable ={
       assert(period >= 2)
       if(cd.hasClockEnableSignal) assertClockEnable()
-      if(cd.hasSoftResetSignal) disassertSoftReset()
+      if(cd.hasSoftResetSignal) deassertSoftReset()
       cd.config.clockEdge match {
         case RISING => fallingEdge()
         case FALLING => risingEdge()
@@ -391,7 +391,7 @@ package object sim {
             clk #= value
             sleep(period >> 1)
           }
-          cd.disassertReset()
+          cd.deassertReset()
         }
         DoClock(clockSim, period)
       } else if(cd.config.resetKind == BOOT){
@@ -407,17 +407,17 @@ package object sim {
     def forkSimSpeedPrinter(printPeriod : Double = 1.0) = SimSpeedPrinter(cd, printPeriod)
 
     def assertReset() : Unit = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
-    def disassertReset() : Unit = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
+    def deassertReset() : Unit = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH
     def assertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel == spinal.core.HIGH
-    def disassertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel != spinal.core.HIGH
+    def deassertClockEnable() : Unit = clockEnableSim #= cd.config.clockEnableActiveLevel != spinal.core.HIGH
     def assertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel == spinal.core.HIGH
-    def disassertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel != spinal.core.HIGH
+    def deassertSoftReset() : Unit = softResetSim #= cd.config.softResetActiveLevel != spinal.core.HIGH
 
     def isResetAsserted : Boolean = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
-    def isResetDisasserted : Boolean = ! isResetAsserted
+    def isResetDeasserted : Boolean = ! isResetAsserted
     def isClockEnableAsserted : Boolean = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
-    def isClockEnableDisasserted : Boolean = ! isClockEnableAsserted
-    def isSamplingEnable: Boolean = isResetDisasserted && isClockEnableAsserted
+    def isClockEnableDeasserted : Boolean = ! isClockEnableAsserted
+    def isSamplingEnable: Boolean = isResetDeasserted && isClockEnableAsserted
     def isSamplingDisable: Boolean = ! isSamplingEnable
   }
 }
