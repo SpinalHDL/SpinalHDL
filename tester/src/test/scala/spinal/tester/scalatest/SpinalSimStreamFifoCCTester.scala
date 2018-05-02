@@ -98,8 +98,8 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
     compiled.doSimUntilVoid { dut =>
       dut.pushClock.fallingEdge()
       dut.popClock.fallingEdge()
-      dut.pushClock.disassertReset()
-      dut.popClock.disassertReset()
+      dut.pushClock.deassertReset()
+      dut.popClock.deassertReset()
       fork {
         //Clear clock domains signals, to be sure the simulation capture their first edge.
         sleep(0)
@@ -108,8 +108,8 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
         dut.pushClock.assertReset()
         dut.popClock.assertReset()
         sleep(10)
-        dut.pushClock.disassertReset()
-        dut.popClock.disassertReset()
+        dut.pushClock.deassertReset()
+        dut.popClock.deassertReset()
         sleep(1)
       }
 
