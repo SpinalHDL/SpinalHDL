@@ -362,14 +362,18 @@ object I2cCtrl {
           whenIsActive {
             when(timer.done) {
               //            val couldBeEnd =  !inAckState && dataCounter === 0 && !txData.valid
-              when(stop) {
+              when(stop && !inAckState) {
                 txData.forceDisable := True
                 goto(STOP1)
-              } elsewhen (start) {
+              } elsewhen (start && !inAckState) {
                 txData.forceDisable := True
                 goto(RESTART)
-              } elsewhen (internals.sclRead && txReady) {
-                goto(HIGH)
+              } elsewhen (txReady) {
+                when(internals.sclRead) {
+                  goto(HIGH)
+                }
+              } otherwise {
+                i2cBuffer.scl.write := False
               }
             } otherwise {
               i2cBuffer.scl.write := False
@@ -550,13 +554,16 @@ object I2cCtrl {
       txData.valid  := True
       txData.enable := False
       txData.repeat := True
+      txData.forceDisable := False
+      txData.disableOnDataConflict := False
 
       txAck.valid   := True
       txAck.enable  := False
       txAck.repeat  := True
+      txAck.disableOnDataConflict := False
+
 
       rxData.listen := False
-
       rxAck.listen  := False
     }
 
