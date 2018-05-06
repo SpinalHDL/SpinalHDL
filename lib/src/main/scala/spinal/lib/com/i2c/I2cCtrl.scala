@@ -368,12 +368,8 @@ object I2cCtrl {
               } elsewhen (start && !inAckState) {
                 txData.forceDisable := True
                 goto(RESTART)
-              } elsewhen (txReady) {
-                when(internals.sclRead) {
-                  goto(HIGH)
-                }
-              } otherwise {
-                i2cBuffer.scl.write := False
+              } elsewhen (internals.sclRead) {
+                goto(HIGH)
               }
             } otherwise {
               i2cBuffer.scl.write := False
