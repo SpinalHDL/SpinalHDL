@@ -202,7 +202,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     if (lengthDifference >= 0) {
       this ## B(0, lengthDifference bits)
     } else {
-      this(width - 1 downto 0)
+      this(this.getWidth - 1 downto math.abs(lengthDifference))
     }
   }
 
