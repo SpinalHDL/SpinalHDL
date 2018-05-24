@@ -34,24 +34,22 @@ case class WishboneConfig(
   val tgaWidth : Int = 0,
   val tgcWidth : Int = 0,
   val tgdWidth : Int = 0,
-  val bteWidth : Int = 0
+  val useBTE : Boolean = false
 ){
   def useTGA = tgaWidth > 0
   def useTGC = tgcWidth > 0
   def useTGD = tgdWidth > 0
-  def useBTE = bteWidth > 0
   def useSEL = selWidth > 0
 
   def isPipelined = useSTALL
-  def isRegisteredFeedback = useCTI
 
   def pipelined : WishboneConfig = this.copy(useSTALL = true)
-  def registeredFeedback : WishboneConfig = this.copy(useCTI = true)
 
   def withDataTag(size : Int)    : WishboneConfig = this.copy(tgdWidth = size)
   def withAddressTag(size : Int) : WishboneConfig = this.copy(tgaWidth = size)
   def withCycleTag(size : Int)   : WishboneConfig = this.copy(tgdWidth = size)
-  def withBurstType(size : Int)  : WishboneConfig = this.copy(bteWidth = size)
+  def withCycleTypeIdentifier    : WishboneConfig = this.copy(useCTI = true)
+  def withBurstType              : WishboneConfig = this.copy(useCTI = true, useBTE = true)
 }
 
 /** This class rappresent a Wishbone bus
@@ -86,7 +84,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   val TGD_MOSI  = if(config.useTGD)   Bits(config.tgdWidth bits) else null
   val TGA       = if(config.useTGA)   Bits(config.tgaWidth bits) else null
   val TGC       = if(config.useTGC)   Bits(config.tgcWidth bits) else null
-  val BTE       = if(config.useBTE)   Bits(config.bteWidth bits) else null
+  val BTE       = if(config.useBTE)   Bits(2 bits)               else null
 
 
   override def asMaster(): Unit = {
@@ -221,6 +219,73 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     Wishbone.driveWeak(that.TGD_MISO,this.TGD_MISO,null,allowTagResize,true)
     Wishbone.driveWeak(this.TGD_MOSI,that.TGD_MOSI,null,allowTagResize,true)
   }
+
+// def startCycle = {
+//   CYC := true
+// }
+// def doWrite(address: UInt, data : Bits) = {
+//   startCycle()
+//   STB = true
+//   WE = true
+//   ADR = address
+//   DAT_MOSI = data
+// }
+
+// def doRead(address: UInt) : Bits = {
+//   val data = Bits(config.dataWidth bits)
+//   startCycle()
+//   STB = true
+//   WE = false
+//   ADR = address
+//   when(isAck){
+//     data = DAT_MISO
+//   }
+//   data
+// }
+
+
+
+def isCycle = CYC
+
+def isStall : Bool =     if(config.isPipelined)  isCycle && STALL
+                  else                    False
+
+def isAck : Bool =       if(config.isPipelined)  isCycle && ACK && !STALL
+                  else                    isCycle && ACK && STB
+
+def isTransfer : Bool =  if(config.isPipelined)  isCycle && STB && !STALL
+                  else                    isCycle && STB
+
+def isWrite : Bool =     isTransfer &&  WE
+
+def isRead : Bool =      isTransfer && !WE
+
+// def askSend =   if(config.isPipelined)  isCycle && STB
+//                 else                    isCycle && STB && !STALL
+def doSend  : Bool = isTransfer && isAck
+def doWrite : Bool = doSend &&  WE
+def doRead  : Bool = doSend && !WE
+
+
+// val askWrite =  if(bus.config.isPipelined)
+//                     (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
+//                   else
+//                     (bus.CYC && bus.STB && bus.WE).allowPruning()
+
+//   val askRead =   if(bus.config.isPipelined)
+//                     (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
+//                   else
+//                     (bus.CYC && bus.STB && !bus.WE).allowPruning()
+
+//   val doWrite =   if(bus.config.isPipelined)
+//                     (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
+//                   else
+//                     (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
+
+//   val doRead =    if(bus.config.isPipelined)
+//                     (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
+//                   else
+//                     (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
 }
 
 object Wishbone{
@@ -239,5 +304,19 @@ object Wishbone{
       case (true , false) => if(!allowDrop) LocatedPendingError(s"$from can't drive $to because this last one doesn't has the corresponding pin")
       case (true , true)  => to := (if(allowResize) from.resized else from)
     }
+  }
+
+  object CycleType{
+    val classic               = 0
+    val constantAddressBurst  = 1
+    val incrementingBurst     = 2
+    val endOfBurst            = 7
+  }
+
+  object BurstType{
+    val linearBurst     = 0
+    val fourBeatWrap    = 1
+    val eightBeatWrap   = 2
+    val sixteenBeatWrap = 3
   }
 }
