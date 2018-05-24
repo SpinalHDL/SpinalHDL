@@ -9,108 +9,91 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
+import spinal.lib.sim._
+import scala.util.Random
 
-case class AdapterTest(conf1 : WishboneConfig,conf2 : WishboneConfig) extends Component{
-  val io = new Bundle {
-    val wbm = slave(Wishbone(conf1))
-    val wbs = master(Wishbone(conf2))
+class WishboneSimpleBusAdapted( configIn : WishboneConfig,
+                                configOut : WishboneConfig,
+                                allowAddressResize : Boolean = false,
+                                allowDataResize : Boolean = false,
+                                allowTagResize : Boolean = false) extends Component{
+  val io = new Bundle{
+    val busIN = slave(Wishbone(configIn))
+    val busOUT = master(Wishbone(configOut))
   }
-  val adapter = WishboneAdapter(io.wbm,io.wbs,true)
-  val ddd = Reg(Bool)
+  val ff = Reg(Bool)
+  val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
 }
 
 class SpinalSimWishboneAdapterTester extends FunSuite{
-  test("StandardToPipelined"){
-    val compiled = SimConfig.allOptimisation.compile(rtl = new AdapterTest(
-      WishboneConfig(8,8),
-      WishboneConfig(8,8).pipelined))
-
-    compiled.doSim("AdapterStandardToPipelined"){ dut =>
-        dut.io.wbm.CYC #= false
-        dut.io.wbm.ACK #= false
-        dut.io.wbm.STB #= false
-        dut.io.wbm.WE #= false
-        dut.io.wbm.ADR #= 0
-        dut.io.wbm.DAT_MOSI #= 0
-
-        dut.io.wbs.ACK #= false
-        dut.io.wbs.STB #= false
-        dut.io.wbs.DAT_MISO #= 0
-
+  def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, description : String = ""): Unit = {
+    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT))
+    fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
+      dut.io.busIN.CYC #= false
+      dut.io.busIN.STB #= false
+      dut.io.busIN.WE #= false
+      dut.io.busIN.ADR #= 0
+      dut.io.busIN.DAT_MOSI #= 0
+      if(dut.io.busOUT.config.isPipelined) dut.io.busOUT.STALL #= false
+      dut.io.busOUT.ACK #= false
+      dut.io.busOUT.DAT_MOSI #= 0
       dut.clockDomain.waitSampling(10)
+      SimTimeout(1000*20*100)
+      val sco = ScoreboardInOrder[WishboneTransaction]()
+      val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
+      val dri2 = new WishboneDriver(dut.io.busOUT, dut.clockDomain)
 
-      val driveSlave =  new WishbonePipelinedSlave(dut.io.wbs, dut.clockDomain)
-      val driveMaster = new WishboneDrive(dut.io.wbm, dut.clockDomain)
-      val transactions = for(x <- (1 to 10)) yield WishboneTransaction(x, x)
+      val seq = WishboneSequencer{
+        WishboneTransaction(BigInt(Random.nextInt(200)),BigInt(Random.nextInt(200)))
+        }
 
-      driveSlave.addTrigger(AddressRange(1,10)){ bus =>
-        bus.DAT_MISO #= bus.ADR.toInt
+      val mon1 = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
+        sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
-      transactions.suspendable.foreach{ Transaction =>
-        // sleep(scala.util.Random.nextInt(100).toLong)
-        dut.clockDomain.waitSampling()
-        val rec = driveMaster.read(Transaction)
-        rec match{
-          case Transaction => println("Master %d: Success".format(Transaction.address))
-          case _ => {
-            println("Master %d: Failure".format(Transaction.address))
-            println("Transmitted: " + Transaction.toString)
-            println("Received:    " + rec.toString)
-            simFailure()
+      val mon2 = WishboneMonitor(dut.io.busOUT, dut.clockDomain){ bus =>
+        sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
+      }
+
+      dri2.slaveSink()
+
+      Suspendable.repeat(1000){
+        seq.generateTransactions(10)
+        val ddd = fork{
+          while(!seq.isEmpty){
+            val tran = seq.nextTransaction
+            dri.drive(tran ,true)
+            dut.clockDomain.waitSampling(1)
           }
         }
+        ddd.join()
+        dut.clockDomain.waitSampling(10)
       }
-      dut.clockDomain.waitSampling()
-      simSuccess()
     }
   }
 
-  test("PipelinedToStandard"){
-    val compiled = SimConfig.allOptimisation.withWave.compile(rtl = new AdapterTest(
-      WishboneConfig(8,8).pipelined,
-      WishboneConfig(8,8)))
+  test("passthroughAdapter"){
+    val confIN = WishboneConfig(8,8)
+    val confOUT = WishboneConfig(8,8)
+    testBus(confIN,confOUT,description="passthroughAdapter")
+  }
 
-    compiled.doSim("AdapterPipelinedToStandard"){ dut =>
-        dut.io.wbm.CYC #= false
-        dut.io.wbm.ACK #= false
-        dut.io.wbm.STB #= false
-        dut.io.wbm.WE #= false
-        dut.io.wbm.ADR #= 0
-        dut.io.wbm.DAT_MOSI #= 0
+  test("passthroughAdapterPipelined"){
+    val confIN = WishboneConfig(8,8).pipelined
+    val confOUT = WishboneConfig(8,8).pipelined
+    testBus(confIN,confOUT,description="passthroughAdapterPipelined")
+  }
 
-        dut.io.wbs.ACK #= false
-        dut.io.wbs.STB #= false
-        dut.io.wbs.DAT_MISO #= 0
+  test("classicToPipelined"){
+    val confIN = WishboneConfig(8,8)
+    val confOUT = WishboneConfig(8,8).pipelined
+    testBus(confIN,confOUT,description="classicToPipelined")
+  }
 
-      dut.clockDomain.forkStimulus(period=10)
-      dut.clockDomain.waitSampling(10)
-
-      val driveSlave =  new WishboneSlave(dut.io.wbs, dut.clockDomain)
-      val driveMaster = new WishbonePipelinedDrive(dut.io.wbm, dut.clockDomain)
-      val transactions = for(x <- (1 to 10)) yield WishboneTransaction(x, x)
-
-      driveSlave.addTrigger(AddressRange(1,10)){ bus =>
-        bus.DAT_MISO #= bus.ADR.toInt
-      }
-
-      transactions.suspendable.foreach{ Transaction =>
-        // sleep(scala.util.Random.nextInt(100).toLong)
-        dut.clockDomain.waitSampling()
-        val rec = driveMaster.read(Transaction)
-        rec match{
-          case Transaction => println("Master %d: Success".format(Transaction.address))
-          case _ => {
-            println("Master %d: Failure".format(Transaction.address))
-            println("Transmitted: " + Transaction.toString)
-            println("Received:    " + rec.toString)
-            simFailure()
-          }
-        }
-      }
-      dut.clockDomain.waitSampling()
-      simSuccess()
-    }
+  test("pipelinedToClassic"){
+    val confIN = WishboneConfig(8,8).pipelined
+    val confOUT = WishboneConfig(8,8)
+    testBus(confIN,confOUT,description="pipelinedToClassic")
   }
 }
