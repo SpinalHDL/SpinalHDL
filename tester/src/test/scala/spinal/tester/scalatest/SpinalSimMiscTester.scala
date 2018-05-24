@@ -142,12 +142,12 @@ class SpinalSimMiscTester extends FunSuite {
     var counterClock = 0
     compiled.doSimUntilVoid("testdoSimUntilVoid")(dut => {
       fork {
-        dut.clockDomain.disassertReset()
+        dut.clockDomain.deassertReset()
         sleep(0)
         dut.clockDomain.fallingEdge()
         dut.clockDomain.assertReset()
         sleep(10)
-        dut.clockDomain.disassertReset()
+        dut.clockDomain.deassertReset()
         sleep(10)
 
         Suspendable.repeat(2000) {
