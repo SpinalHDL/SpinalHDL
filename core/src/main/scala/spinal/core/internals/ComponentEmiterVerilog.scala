@@ -783,7 +783,7 @@ class ComponentEmiterVerilog(
               logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
             }
           } else {
-            logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
+            logics ++= s"    ${emitReference(mem, false)}[$index] = ${filledValue.length}'b$filledValue;\n"
           }
         }
       }else {

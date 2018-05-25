@@ -1108,7 +1108,9 @@ object PlayWithIndex222 extends App {
     for(i <- 0 to 7){
       b(i) := a(i)
     }
-
+    val miaou = out(True)
+    miaou.addTag(ClockDomainTag(ClockDomain.current))
+    miaou.addTag(ClockDomainTag(ClockDomain.current))
   }
 
   val report = SpinalVerilog(new MyTopLevel)

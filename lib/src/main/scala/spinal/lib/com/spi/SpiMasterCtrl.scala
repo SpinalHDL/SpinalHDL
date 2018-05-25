@@ -19,6 +19,7 @@ case class SpiMasterCtrlConfig(generics : SpiMasterCtrlGenerics) extends Bundle{
   val kind = SpiKind()
   val sclkToogle = UInt(generics.timerWidth bits)
   val ss = if(generics.ssGen) new Bundle {
+    val activeHigh = Bits(generics.ssWidth bits)
     val setup   = UInt(generics.timerWidth bits)
     val hold    = UInt(generics.timerWidth bits)
     val disable = UInt(generics.timerWidth bits)
@@ -79,7 +80,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      *   When you read this register it pop an byte of the rx fifo and provide its value (via rxData)
      *   When you write this register, it push a command into the fifo. There is the commands that you can use :
      *     0x000000xx =>  Send byte xx
-     *     0x001000xx =>  Send byte xx and also push the read data into the FIFO
+     *     0x010000xx =>  Send byte xx and also push the read data into the FIFO
      *     0x1100000X =>  Enable the SS line X
      *     0x1000000X =>  Disable the SS line X
      *
@@ -93,6 +94,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      * config -> 0x08
      *   cpol -> W[0]
      *   cpha -> W[1]
+     *   ssActiveHigh -> W[31..4] For each ss, the corresponding bit specify if that's a active high one.
      *
      * clockDivider -> W 0x0C SPI frequency = FCLK / (2 * clockDivider)
      * ssSetup -> W 0x10 time between chip select enable and the next byte
@@ -158,6 +160,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       bus.drive(config.kind, baseAddress +  8)
       bus.drive(config.sclkToogle, baseAddress +  12)
       if(ssGen) new Bundle {
+        bus.drive(config.ss.activeHigh, baseAddress +  8, bitOffset = 4) init(0)
         bus.drive(config.ss.setup,   address = baseAddress + 16)
         bus.drive(config.ss.hold,    address = baseAddress + 20)
         bus.drive(config.ss.disable, address = baseAddress + 24)
@@ -232,7 +235,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
     }
 
     //SPI connections
-    if(ssGen) io.spi.ss := ss
+    if(ssGen) io.spi.ss := ss ^ io.config.ss.activeHigh
     io.spi.sclk := RegNext(((io.cmd.valid && io.cmd.isData) && (counter.lsb ^ io.config.kind.cpha)) ^ io.config.kind.cpol)
     io.spi.mosi := RegNext(io.cmd.argsData.data(dataWidth-1 - (counter >> 1)))
   }

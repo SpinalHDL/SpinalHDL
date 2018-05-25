@@ -35,9 +35,13 @@ sealed trait Polarity
 object HIGH extends Polarity
 object LOW  extends Polarity
 
-case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag
+case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag{
+  override def toString = s"ClockDomainTag($clockDomain)"
+}
 
-sealed trait ClockDomainBoolTag extends SpinalTag
+sealed trait ClockDomainBoolTag extends SpinalTag{
+  override def allowMultipleInstance = true
+}
 case class ClockTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ResetTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
@@ -287,6 +291,8 @@ class ClockDomain(val config      : ClockDomainConfig,
             clockEnable : Bool = clockEnable): ClockDomain = {
     new ClockDomain(config, clock, reset, dummyArg, softReset, clockEnable, frequency)
   }
+
+  override def toString = clock.getName("???")
 }
 
 
