@@ -490,13 +490,17 @@ trait SpinalTagReady {
     _spinalTags
   }
 
-  def addTag(spinalTag: SpinalTag): this.type = {
-    spinalTags += spinalTag
+  def addTag[T <: SpinalTag](spinalTag: T): this.type = {
+    if (!spinalTag.allowMultipleInstance && hasTag(spinalTag.getClass)) {
+      val existingTag = getTag(spinalTag.getClass).get
+      SpinalError(s"Conflicting tags added to the same item! ${existingTag} ; ${spinalTag}")
+    }
+    else spinalTags += spinalTag
     this
   }
 
-  def addTags(tags: Iterable[SpinalTag]): this.type = {
-    spinalTags ++= tags
+  def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
+    for (spinalTag <- spinalTags) addTag(spinalTag)
     this
   }
 
@@ -515,6 +519,14 @@ trait SpinalTagReady {
   def hasTag(spinalTag: SpinalTag): Boolean = {
     if (_spinalTags == null)             return false
     if (_spinalTags.contains(spinalTag)) return true
+    return false
+  }
+
+  //Feed it with classOf[?] to avoid intermodule problems
+  def hasTag[T <: SpinalTag](clazz: Class[T]): Boolean = {
+    if (_spinalTags == null)             return false
+    val tag = _spinalTags.find(_.getClass == clazz)
+    if (tag.isDefined) return true
     return false
   }
 
@@ -599,6 +611,7 @@ trait SpinalTag {
   def duplicative           = false
   def driverShouldNotChange = false
   def canSymplifyHost       = false
+  def allowMultipleInstance = false // Allow multiple instances of the tag on the same object
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag

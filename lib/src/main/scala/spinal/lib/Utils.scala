@@ -689,7 +689,6 @@ class NoData extends Bundle {
 
 
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
-  def toto = 2
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))
     for((e,i) <- pimped.zipWithIndex) {

@@ -1190,6 +1190,10 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         }
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
+          case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
+            if(!areSyncronous(node.getTag(classOf[ClockDomainTag]).get.clockDomain, clockDomain)) {
+              issue(node.asInstanceOf[BaseNode with ScalaLocated], node.getTag(classOf[ClockDomainTag]).get.clockDomain)
+            }
           case node: BaseType =>
             if (node.isReg) {
               if(!areSyncronous(node.clockDomain, clockDomain)) {
@@ -1218,13 +1222,28 @@ class PhaseCheckCrossClock() extends PhaseCheck{
       }
 
       s match {
+        case s: BaseType if s.hasTag(classOf[ClockDomainTag]) =>
+          if (!s.isReg) {
+            // if it not a reg, perform the check if the ClockDomainTag is present
+            walked = GlobalData.get.allocateAlgoIncrementale()
+            s.foreachStatements(as => walk(as, as :: s :: Nil, s.getTag(classOf[ClockDomainTag]).get.clockDomain))
+          }
+          else {
+            PendingError(s"Can't add ClockDomainTag to registers:\n" + s.getScalaLocationLong)
+          }
         case s: BaseType if s.isReg && !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
         case s: MemReadWrite if !s.hasTag(crossClockDomain) =>
+          if (s.hasTag(classOf[ClockDomainTag])) {
+            PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
+          }
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
         case s: MemWrite if !s.hasTag(crossClockDomain) =>
+          if (s.hasTag(classOf[ClockDomainTag])) {
+            PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
+          }
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
         case _ =>
