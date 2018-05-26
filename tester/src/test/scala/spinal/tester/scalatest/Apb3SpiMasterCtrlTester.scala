@@ -28,7 +28,7 @@ class Apb3SpiMasterCtrlTester extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/SpiTester/Apb3SpiMasterCtrlTester"
   override def createToplevel: Component = new Apb3SpiMasterCtrl(
     SpiMasterCtrlMemoryMappedConfig(
-      ctrlGenerics = SpiMasterCtrlGenerics(
+      spiCtrlGenerics = SpiMasterCtrlGenerics(
         ssWidth     = 4,
         timerWidth  = 12,
         dataWidth   = 8

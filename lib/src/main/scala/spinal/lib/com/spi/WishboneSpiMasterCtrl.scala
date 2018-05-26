@@ -13,17 +13,17 @@ object WishboneSpiMasterCtrl{
 }
 
 
-case class WishboneSpiMasterCtrl(generics : SpiMasterCtrlMemoryMappedConfig) extends Component{
+case class WishboneSpiMasterCtrl(config : SpiMasterCtrlMemoryMappedConfig) extends Component{
   val io = new Bundle{
     val wishbone = slave(Wishbone(WishboneSpiMasterCtrl.getWishboneConfig))
-    val spi = master(SpiMaster(ssWidth = generics.ctrlGenerics.ssWidth))
+    val spi = master(SpiMaster(ssWidth = config.spiCtrlGenerics.ssWidth))
     val interrupt = out Bool
   }
 
-  val spiCtrl = new SpiMasterCtrl(generics.ctrlGenerics)
+  val spiCtrl = new SpiMasterCtrl(config.spiCtrlGenerics)
   io.spi <> spiCtrl.io.spi
 
   val busCtrl = WishboneSlaveFactory(io.wishbone)
-  val bridge = spiCtrl.io.driveFrom(busCtrl)(generics)
+  val bridge = spiCtrl.io.driveFrom(busCtrl, config)
   io.interrupt := bridge.interruptCtrl.interrupt
 }

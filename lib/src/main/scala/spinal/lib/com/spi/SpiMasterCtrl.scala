@@ -57,9 +57,9 @@ case class SpiMasterCmd(generics : SpiMasterCtrlGenerics) extends Bundle{
     ret
   }
 }
-case class SpiMasterCtrlMemoryMappedConfig(ctrlGenerics : SpiMasterCtrlGenerics,
-                                           cmdFifoDepth : Int = 32,
-                                           rspFifoDepth : Int = 32)
+case class SpiMasterCtrlMemoryMappedConfig(spiCtrlGenerics : SpiMasterCtrlGenerics,
+                                           cmdFifoDepth    : Int = 32,
+                                           rspFifoDepth    : Int = 32)
 
 case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
   import generics._
@@ -102,8 +102,9 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      * ssDisable -> W 0x18 time between chip select disable and chip select enable
      */
 
-    def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {
+    def driveFrom(bus : BusSlaveFactory, generics : SpiMasterCtrlMemoryMappedConfig, baseAddress : Int = 0) = new Area {
       import generics._
+
       require(cmdFifoDepth >= 1)
       require(rspFifoDepth >= 1)
 
@@ -112,13 +113,13 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
 
       //CMD
       val cmdLogic = new Area {
-        val streamUnbuffered = Stream(SpiMasterCmd(ctrlGenerics))
+        val streamUnbuffered = Stream(SpiMasterCmd(spiCtrlGenerics))
         streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
-        val dataCmd = SpiMasterCtrlCmdData(ctrlGenerics)
+        val dataCmd = SpiMasterCtrlCmdData(spiCtrlGenerics)
         bus.nonStopWrite(dataCmd.data, bitOffset = 0)
         bus.nonStopWrite(dataCmd.read, bitOffset = 24)
-        if(ctrlGenerics.ssGen) {
-          val ssCmd = SpiMasterCtrlCmdSs(ctrlGenerics)
+        if(ssGen) {
+          val ssCmd = SpiMasterCtrlCmdSs(spiCtrlGenerics)
           bus.nonStopWrite(ssCmd.index, bitOffset = 0)
           bus.nonStopWrite(ssCmd.enable, bitOffset = 24)
           bus.nonStopWrite(streamUnbuffered.mode, bitOffset = 28)
@@ -134,7 +135,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
           streamUnbuffered.args.assignFromBits(dataCmd.asBits)
         }
 
-        bus.createAndDriveFlow(SpiMasterCmd(ctrlGenerics),address = baseAddress + 0).toStream
+        bus.createAndDriveFlow(SpiMasterCmd(spiCtrlGenerics),address = baseAddress + 0).toStream
         val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
         cmd << stream
         bus.read(fifoAvailability, address = baseAddress + 4, 16)

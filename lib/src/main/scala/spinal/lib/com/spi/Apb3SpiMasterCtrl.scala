@@ -15,17 +15,17 @@ object Apb3SpiMasterCtrl{
 }
 
 
-case class Apb3SpiMasterCtrl(generics : SpiMasterCtrlMemoryMappedConfig) extends Component{
+case class Apb3SpiMasterCtrl(config : SpiMasterCtrlMemoryMappedConfig) extends Component{
   val io = new Bundle{
     val apb =  slave(Apb3(Apb3SpiMasterCtrl.getApb3Config))
-    val spi = master(SpiMaster(ssWidth = generics.ctrlGenerics.ssWidth))
+    val spi = master(SpiMaster(ssWidth = config.spiCtrlGenerics.ssWidth))
     val interrupt = out Bool
   }
 
-  val spiCtrl = new SpiMasterCtrl(generics.ctrlGenerics)
+  val spiCtrl = new SpiMasterCtrl(config.spiCtrlGenerics)
   io.spi <> spiCtrl.io.spi
 
   val busCtrl = Apb3SlaveFactory(io.apb)
-  val bridge = spiCtrl.io.driveFrom(busCtrl)(generics)
+  val bridge = spiCtrl.io.driveFrom(busCtrl, config)
   io.interrupt := bridge.interruptCtrl.interrupt
 }
