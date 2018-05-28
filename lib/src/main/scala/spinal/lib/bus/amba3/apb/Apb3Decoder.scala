@@ -54,7 +54,6 @@ object Apb3Decoder{
 
 
 class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends Component {
-
   assert(inputConfig.selWidth == 1)
 
   val io = new Bundle {
@@ -75,5 +74,10 @@ class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends 
   io.input.PRDATA := io.output.PRDATA
 
   if(inputConfig.useSlaveError) io.input.PSLVERROR := io.output.PSLVERROR
+
+  when(io.input.PSEL.lsb && io.output.PSEL === 0){
+    io.input.PREADY := True
+    if(inputConfig.useSlaveError) io.input.PSLVERROR := True
+  }
 }
 
