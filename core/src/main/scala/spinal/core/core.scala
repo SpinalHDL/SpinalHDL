@@ -32,7 +32,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   import languageFeature.implicitConversions
 
   /**
-    * Scala implicit 
+    * Scala implicit
     */
   implicit lazy val implicitConversions = scala.language.implicitConversions
   implicit lazy val reflectiveCalls     = scala.language.reflectiveCalls

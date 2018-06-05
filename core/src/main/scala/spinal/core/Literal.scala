@@ -140,10 +140,10 @@ object U extends BitVectorLiteralFactory[UInt] {
   */
 object S extends BitVectorLiteralFactory[SInt] {
   def apply(): SInt = new SInt()
-  def apply(that : Bool): SInt = that.asSInt
-  def apply(that : Bits): SInt = that.asSInt
-  def apply(that : UInt): SInt = that.asSInt
-  def apply(that : SFix): SInt = that.toSInt
+  def apply(that: Bool): SInt = that.asSInt
+  def apply(that: Bits): SInt = that.asSInt
+  def apply(that: UInt): SInt = that.asSInt
+  def apply(that: SFix): SInt = that.toSInt
 
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
