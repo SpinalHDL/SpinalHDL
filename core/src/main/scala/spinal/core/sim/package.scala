@@ -301,7 +301,7 @@ package object sim {
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
 
-      manager.sensitivities += (new SimManagerSensitive {
+      manager.sensitivities += new SimManagerSensitive {
         override def update() = {
           val current = manager.getLong(signal)
           if(last != edgeValue && current == edgeValue && isSamplingEnable)
@@ -309,7 +309,7 @@ package object sim {
           last = current
           true
         }
-      })
+      }
     }
 
     def waitSampling(): Unit@suspendable = waitSampling(1)
