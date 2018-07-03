@@ -229,17 +229,21 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val bw = new BufferedWriter(new FileWriter(new File(fileName)))
+      val fw = new FileWriter(new File(fileName))
+      val bw = new BufferedWriter(fw)
 
       listPath.foreach{ path =>
         if( new File(path).exists ) {
-          Source.fromFile(path).getLines.foreach{ line => bw.write(line + "\n") }
+          val buffer = Source.fromFile(path)
+          buffer.getLines.foreach{ line => bw.write(line + "\n") }
+          buffer.close()
         }else{
           SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
         }
       }
 
       bw.close()
+      fw.close()
     }
 
     // Merge vhdl/verilog file
