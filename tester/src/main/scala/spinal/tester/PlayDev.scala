@@ -1023,6 +1023,24 @@ object PlayDevFeature2{
   }
 }
 
+case class ArgConfig(debug : Boolean = false,
+                     iCacheSize : Int = 4096)
+
+object PlayDevConsole{
+  def main(args: Array[String]): Unit = {
+    val parser = new scopt.OptionParser[ArgConfig]("VexRiscvGen") {
+      //  ex :-d    or   --debug
+      opt[Unit]('d', "debug")    action { (_, c) => c.copy(debug = true)   } text("Enable debug")
+      // ex : -iCacheSize=XXX
+      opt[Int]("iCacheSize")     action { (v, c) => c.copy(iCacheSize = v) } text("Set instruction cache size")
+    }
+
+    val argConfig = parser.parse(args, ArgConfig()).get
+
+    println(argConfig)
+  }
+}
+
 object PlayDevMiaou43{
   case class StatusReg() extends Bundle{
     val register = Bits(32 bits)
