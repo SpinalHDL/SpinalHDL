@@ -630,6 +630,10 @@ object tagTruncated                  extends SpinalTag{
   override def canSymplifyHost: Boolean = true
 }
 
+class ExternalDriverTag(val driver : Data)             extends SpinalTag{
+  override def allowMultipleInstance = false
+}
+
 
 object Driver {
   val startTime = System.currentTimeMillis()
