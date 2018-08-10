@@ -1135,3 +1135,14 @@ object PlayWithIndex222 extends App {
   val report = SpinalVerilog(new MyTopLevel)
   println("asd")
 }
+
+
+object PlayNamingImprovment extends App{
+  SpinalVerilog(new Component {
+    val input = in Bool()
+    val output = out Bool()
+
+    output := RegNext(Delay(RegNext(input),4))
+    val yolo = RegNext(input)
+  })
+}

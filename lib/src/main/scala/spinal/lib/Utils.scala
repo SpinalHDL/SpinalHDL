@@ -762,15 +762,15 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
 object Delay {
   def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T]): T = {
     require(cycleCount >= 0,"Negative cycleCount is not allowed in Delay")
-    cycleCount match {
-      case 0 => that
-      case _ => {
-        if(when == null)
-          Delay(RegNext(that,init), cycleCount - 1,when,init)
-        else
-          Delay(RegNextWhen(that,when,init), cycleCount - 1,when,init)
-      }
+    var ptr = that
+    for(i <- 0 until cycleCount) {
+      if (when == null)
+        ptr = RegNext(ptr, init)
+      else
+        ptr = RegNextWhen(ptr, when, init)
+      ptr.unsetName().setCompositeName(that, "delay_" + (i + 1), true)
     }
+    ptr
   }
 }
 

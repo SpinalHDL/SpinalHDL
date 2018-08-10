@@ -718,7 +718,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 
     globalData.nodeAreNamed = true
 
-    if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+    if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
 
     for (c <- sortedComponents) {
       c.nameElements()
@@ -736,7 +736,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
             Misc.reflect(generic, (name, obj) => {
               OwnableRef.proposal(obj, this)
               obj match {
-                case obj: Nameable => obj.setWeakName(name)
+                case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
                 case _ =>
               }
               obj match {
@@ -776,14 +776,14 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
+          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
           case _ =>
         }
       })
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-          e.setWeakName(scope.getUnusedName("e" + e.position))
+          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
         }
       }
     }
@@ -926,7 +926,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //give a name to unamed encodings
-    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){

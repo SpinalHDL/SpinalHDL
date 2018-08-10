@@ -46,7 +46,7 @@ object Reg {
   * Register a signal of one clock
   */
 object RegNext {
-  def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next)
+  def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next).setCompositeName(next, "regNext", true)
 }
 
 
@@ -55,7 +55,7 @@ object RegNext {
   */
 object RegNextWhen {
   def apply[T <: Data](next: T, cond: Bool, init: T = null.asInstanceOf[T]): T = {
-    val reg = Reg(next, init)
+    val reg = Reg(next, init).setCompositeName(next, "regNextWhen", true)
     when(cond){
       reg := next
     }
