@@ -31,6 +31,14 @@ object CheckTester{
 class ChecksTester extends FunSuite  {
   import CheckTester._
 
+  test("literalWidth"){
+    val t = SpinalVhdl(new Component{
+      val a = B"32'h0"
+    }).toplevel
+
+    assert(widthOf(t.a) == 32)
+  }
+
   test("reflectionNamming") {
     val t = SpinalVhdl(new Component{
       val a = new Area{
