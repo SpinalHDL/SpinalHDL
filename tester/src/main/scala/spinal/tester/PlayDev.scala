@@ -1138,11 +1138,20 @@ object PlayWithIndex222 extends App {
 
 
 object PlayNamingImprovment extends App{
-  SpinalVerilog(new Component {
+  def gen(c : => Component): Unit ={
+    SpinalVhdl(c)
+    SpinalVerilog(c)
+  }
+  gen(new Component {
     val input = in Bool()
     val output = out Bool()
+    val readableOutput = out Bool()
 
     output := RegNext(Delay(RegNext(input),4))
     val yolo = RegNext(input)
+
+    readableOutput := True
+    val miaou = Bool
+    miaou := readableOutput
   })
 }

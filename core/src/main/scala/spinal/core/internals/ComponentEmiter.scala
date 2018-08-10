@@ -53,6 +53,7 @@ abstract class ComponentEmiter {
   def component: Component
   def algoIdIncrementalBase: Int
   def mergeAsyncProcess: Boolean
+  def readedOutputWrapEnable : Boolean = false
 
   val wrappedExpressionToName = mutable.HashMap[Expression, String]()
   val referencesOverrides     = mutable.HashMap[Nameable,Any]()
@@ -314,13 +315,14 @@ abstract class ComponentEmiter {
         case s: SwitchStatement => expressionToWrap += s.value
         case _                  =>
       }
-
-      s.walkDrivingExpressions{
-        case bt: BaseType =>
-          if (bt.component == component && bt.isOutput) {
-            outputsToBufferize += bt
-          }
-        case _            =>
+      if(readedOutputWrapEnable) {
+        s.walkDrivingExpressions {
+          case bt: BaseType =>
+            if (bt.component == component && bt.isOutput) {
+              outputsToBufferize += bt
+            }
+          case _ =>
+        }
       }
     })
 

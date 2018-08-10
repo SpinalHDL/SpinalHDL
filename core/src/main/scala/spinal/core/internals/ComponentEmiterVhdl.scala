@@ -45,7 +45,7 @@ class ComponentEmiterVhdl(
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
-
+  override def readedOutputWrapEnable = true
 
   def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
 
