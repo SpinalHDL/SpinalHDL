@@ -27,7 +27,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-class ComponentEmiterVhdl(
+class ComponentEmitterVhdl(
   val c                              : Component,
   vhdlBase                           : VhdlBase,
   override val algoIdIncrementalBase : Int,
@@ -35,7 +35,7 @@ class ComponentEmiterVhdl(
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component]
-) extends ComponentEmiter{
+) extends ComponentEmitter{
 
   import vhdlBase._
 
@@ -47,7 +47,7 @@ class ComponentEmiterVhdl(
 
   override def readedOutputWrapEnable = true
 
-  def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
 
 
   def emitLibrary(ret: StringBuilder): Unit = {
