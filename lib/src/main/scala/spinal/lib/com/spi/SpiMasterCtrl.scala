@@ -99,7 +99,7 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
      * clockDivider -> W 0x0C SPI frequency = FCLK / (2 * clockDivider)
      * ssSetup -> W 0x10 time between chip select enable and the next byte
      * ssHold -> W 0x14 time between the last byte transmission and the chip select disable
-     * ssHold -> W 0x18 time between chip select disable and chip select enable
+     * ssDisable -> W 0x18 time between chip select disable and chip select enable
      */
 
     def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {

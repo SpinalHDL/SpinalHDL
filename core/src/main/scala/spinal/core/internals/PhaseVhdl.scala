@@ -56,7 +56,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmitterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
@@ -74,7 +74,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     outFile.write(text)
   }
 
-  val emitedComponent    = mutable.Map[ComponentEmiterTrace, Component]()
+  val emitedComponent    = mutable.Map[ComponentEmitterTrace, Component]()
   val emitedComponentRef = new java.util.concurrent.ConcurrentHashMap[Component, Component]()
 
 

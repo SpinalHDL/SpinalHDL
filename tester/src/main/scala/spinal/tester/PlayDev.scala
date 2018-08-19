@@ -991,18 +991,19 @@ object PlayDevBug123{
 
 object PlayDevFeature{
   class TopLevel extends Component {
-//    val regA = RegNext(False) init(True)
-//    val regB = RegNext(S"0000") init(S"1111")
-//    val regC = RegNext(S"0000") init(in(SInt(4 bits)).setName("regCInit"))
-    val regDInit = S"1111"
-    val regD = RegNext(S"0000") init(regDInit)
+    val x = Vec(Reg(UInt(8 bits)) init(0), 4)
+    val y = Vec(Reg(UInt(8 bits)), 4)
+    y.foreach(_ init(0))
+
+    //Just to avoid having reseted only flops
+    x := y
+    y := x
+
   }
 
   def main(args: Array[String]) {
-    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT))
+    val config = SpinalConfig()
     config.generateVerilog(new TopLevel())
-    config.generateVhdl(new TopLevel())
-    print("done")
   }
 }
 
@@ -1019,6 +1020,24 @@ object PlayDevFeature2{
     config.generateVerilog(new TopLevel())
     config.generateVhdl(new TopLevel())
     print("done")
+  }
+}
+
+case class ArgConfig(debug : Boolean = false,
+                     iCacheSize : Int = 4096)
+
+object PlayDevConsole{
+  def main(args: Array[String]): Unit = {
+    val parser = new scopt.OptionParser[ArgConfig]("VexRiscvGen") {
+      //  ex :-d    or   --debug
+      opt[Unit]('d', "debug")    action { (_, c) => c.copy(debug = true)   } text("Enable debug")
+      // ex : -iCacheSize=XXX
+      opt[Int]("iCacheSize")     action { (v, c) => c.copy(iCacheSize = v) } text("Set instruction cache size")
+    }
+
+    val argConfig = parser.parse(args, ArgConfig()).get
+
+    println(argConfig)
   }
 }
 
@@ -1115,4 +1134,24 @@ object PlayWithIndex222 extends App {
 
   val report = SpinalVerilog(new MyTopLevel)
   println("asd")
+}
+
+
+object PlayNamingImprovment extends App{
+  def gen(c : => Component): Unit ={
+    SpinalVhdl(c)
+    SpinalVerilog(c)
+  }
+  gen(new Component {
+    val input = in Bool()
+    val output = out Bool()
+    val readableOutput = out Bool()
+
+    output := RegNext(Delay(RegNext(input),4))
+    val yolo = RegNext(input)
+
+    readableOutput := True
+    val miaou = Bool
+    miaou := readableOutput
+  })
 }

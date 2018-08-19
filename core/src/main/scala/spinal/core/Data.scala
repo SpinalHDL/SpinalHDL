@@ -191,6 +191,8 @@ object Data {
           push(currentComponent, riseTo.parentScope)
           copy := currentData
           pop(currentComponent)
+        } else {
+          copy.addTag(new ExternalDriverTag(currentData))
         }
         currentData = copy
 

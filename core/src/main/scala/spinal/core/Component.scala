@@ -110,7 +110,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   if (parent != null) {
     parent.children += this
   } else {
-    setWeakName("toplevel")
+    setName("toplevel", Nameable.DATAMODEL_WEAK)
   }
 
   // Push component on the stack
@@ -188,13 +188,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     val io = reflectIo
 
     if(io != null) {
-      if(io.isUnnamed || io.isWeak) {
+      if(io.isUnnamed || io.isPriorityApplicable(Nameable.DATAMODEL_WEAK)) {
+        io.unsetName()
         if (ioPrefixEnable)
-          io.setName("io")
+          io.setName("io", Nameable.DATAMODEL_WEAK)
         else
-          io.setName("")
+          io.setName("", Nameable.DATAMODEL_WEAK)
+        OwnableRef.proposal(io,this)
       }
-      OwnableRef.proposal(io,this)
     }
 
     Misc.reflect(this, (name, obj) => {
@@ -202,20 +203,20 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
         obj match {
           case component: Component if component.parent == this =>
               OwnableRef.proposal(obj, this)
-              component.setWeakName(name)
+              component.setName(name, Nameable.DATAMODEL_WEAK)
 
           case nameable: Nameable =>
             if (!nameable.isInstanceOf[ContextUser]) {
-              nameable.setWeakName(name)
+              nameable.setName(name, Nameable.DATAMODEL_WEAK)
               OwnableRef.proposal(obj, this)
             } else if (nameable.asInstanceOf[ContextUser].component == this) {
-              nameable.setWeakName(name)
+              nameable.setName(name, Nameable.DATAMODEL_WEAK)
               OwnableRef.proposal(obj, this)
             } else {
               for (kind <- children) {
                 //Allow to name a component by his io reference into the parent component
                 if (kind.reflectIo == nameable) {
-                  kind.setWeakName(name)
+                  kind.setName(name, Nameable.DATAMODEL_WEAK)
                   OwnableRef.proposal(kind, this)
                 }
               }
@@ -240,20 +241,18 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       if (child.isUnnamed) {
         var name = child.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
-        child.unsetName()
-        child.setWeakName(name)
+        child.unsetName().setName(name, Nameable.DATAMODEL_WEAK)
       }
-      child.setName(localNamingScope.allocateName(child.getName()))
+      child.setName(localNamingScope.allocateName(child.getName()), Nameable.DATAMODEL_STRONG)
     }
 
     dslBody.walkStatements{
       case nameable : Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
-          nameable.unsetName()
-          nameable.setWeakName(globalData.anonymSignalPrefix)
+          nameable.unsetName().setName(globalData.anonymSignalPrefix, Nameable.DATAMODEL_WEAK)
         }
         if (nameable.isWeak)
-          nameable.setName(localNamingScope.allocateName(nameable.getName()))
+          nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)
         else
           localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
       case _ =>

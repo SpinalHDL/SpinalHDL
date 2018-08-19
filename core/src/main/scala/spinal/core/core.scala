@@ -1,5 +1,24 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal
-
 
 import spinal.core.internals._
 import scala.annotation.elidable
@@ -7,100 +26,125 @@ import scala.annotation.elidable._
 import scala.collection.immutable.Range
 import scala.language.experimental.macros
 
+
 package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
 
+  /**
+    * Scala implicit
+    */
   implicit lazy val implicitConversions = scala.language.implicitConversions
-  implicit lazy val reflectiveCalls = scala.language.reflectiveCalls
-  implicit lazy val postfixOps = scala.language.postfixOps
+  implicit lazy val reflectiveCalls     = scala.language.reflectiveCalls
+  implicit lazy val postfixOps          = scala.language.postfixOps
 
-  //Implicit clause builder for `elseWhen`
-  implicit class ElseWhenClauseBuilder(cond : Bool){
-    def apply(block : => Unit) : ElseWhenClause = new ElseWhenClause(cond, block)
+  /** Implicit clause builder for `elseWhen` */
+  implicit class ElseWhenClauseBuilder(cond: Bool){
+    def apply(block: => Unit): ElseWhenClause = new ElseWhenClause(cond, block)
   }
 
 
-  implicit def IntToBuilder(value: Int) : IntBuilder = new IntBuilder(value)
+  /**
+    * Implicit Int/BigInt/Double to Builder
+    */
+  implicit def IntToBuilder(value: Int): IntBuilder = new IntBuilder(value)
+  implicit def BigIntToBuilder(value: BigInt): BigIntBuilder = new BigIntBuilder(value)
+  implicit def DoubleToBuilder(value: Double): DoubleBuilder = new DoubleBuilder(value)
 
-  implicit def BigIntToBuilder(value: BigInt) : BigIntBuilder = new BigIntBuilder(value)
 
-  implicit def DoubleToBuilder(value: Double) : DoubleBuilder = new DoubleBuilder(value)
+  /**
+    * Implicit enum conversion
+    */
+  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) = element.asInstanceOf[SpinalEnumElement[T]]
+  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     = craft.asInstanceOf[SpinalEnumCraft[T]]
 
-//  def enum(param: Symbol*): Any = macro MacroTest.enum_impl
-  //def enum(param: Symbol*) = MacroTest.enum(param)
-
-  implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T2])  = element.asInstanceOf[SpinalEnumElement[T]]
-  implicit def EnumCtoEnumC2[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T2])  = craft.asInstanceOf[SpinalEnumCraft[T]]
-
-  implicit def EnumEtoEnumE3[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
-  implicit def EnumCtoEnumC3[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T])  = craft.asInstanceOf[SpinalEnumCraft[T2]]
-
+  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) = element.asInstanceOf[SpinalEnumElement[T2]]
+  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     = craft.asInstanceOf[SpinalEnumCraft[T2]]
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
-  //  implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
-  //  implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 
+
+  /**
+    * Integer Builder
+    */
   class IntBuilder(val i: Int) extends AnyVal {
-    //    def x[T <: Data](dataType : T) : Vec[T] = Vec(dataType,i)
 
-    def downto(start: Int): Range.Inclusive = Range.inclusive(i,start,-1)
+    def downto(start: Int): Range.Inclusive = Range.inclusive(i, start, -1)
 
-    def bit = new BitCount(i)
-    def bits = new BitCount(i)
-    def exp = new ExpNumber(i)
-    def pos = new PosCount(i)
+    def bit    = new BitCount(i)
+    def bits   = new BitCount(i)
+    def exp    = new ExpNumber(i)
+    def pos    = new PosCount(i)
     def slices = new SlicesCount(i)
 
-    def hr = TimeNumber(i * BigDecimal(3600.0))
-    def mn = TimeNumber(i * BigDecimal(60.0))
+    /** Time */
+    def hr  = TimeNumber(i * BigDecimal(3600.0))
+    def mn  = TimeNumber(i * BigDecimal(60.0))
     def sec = TimeNumber(i * BigDecimal(1.0))
-    def ms = TimeNumber(i * BigDecimal(1e-3))
-    def us = TimeNumber(i * BigDecimal(1e-6))
-    def ns = TimeNumber(i * BigDecimal(1e-9))
-    def ps = TimeNumber(i * BigDecimal(1e-12))
-    def fs = TimeNumber(i * BigDecimal(1e-15))
+    def ms  = TimeNumber(i * BigDecimal(1e-3))
+    def us  = TimeNumber(i * BigDecimal(1e-6))
+    def ns  = TimeNumber(i * BigDecimal(1e-9))
+    def ps  = TimeNumber(i * BigDecimal(1e-12))
+    def fs  = TimeNumber(i * BigDecimal(1e-15))
 
-
+    /** Frequency */
     def THz = HertzNumber(i * BigDecimal(1e12))
     def GHz = HertzNumber(i * BigDecimal(1e9))
     def MHz = HertzNumber(i * BigDecimal(1e6))
     def kHz = HertzNumber(i * BigDecimal(1e3))
-    def Hz = HertzNumber(i * BigDecimal(1e0))
+    def Hz  = HertzNumber(i * BigDecimal(1e0))
 
-    def Byte = BigInt(i)
-    def kB = BigInt(i) << 10
-    def MB = BigInt(i) << 20
-    def GB = BigInt(i) << 30
-    def TB = BigInt(i) << 40
+    /** Size */
+    def Byte   = BigInt(i)
+    def kB     = BigInt(i) << 10
+    def MB     = BigInt(i) << 20
+    def GB     = BigInt(i) << 30
+    def TB     = BigInt(i) << 40
+
+    /** Number of cycles */
     def cycles = new CyclesCount(i)
   }
 
+
+  /**
+    * BigInt Builder
+    */
   case class BigIntBuilder(i: BigInt) {
-    def bit = new BitCount(i.toInt)
-    def bits = new BitCount(i.toInt)
-    def exp = new ExpNumber(i.toInt)
-    def pos = new PosCount(i.toInt)
+
+    def bit    = new BitCount(i.toInt)
+    def bits   = new BitCount(i.toInt)
+    def exp    = new ExpNumber(i.toInt)
+    def pos    = new PosCount(i.toInt)
     def slices = new SlicesCount(i.toInt)
+
+    /** Size */
     def Byte = (i)
-    def kB = (i) << 10
-    def MB = (i) << 20
-    def GB = (i) << 30
-    def TB = (i) << 40
+    def kB   = (i) << 10
+    def MB   = (i) << 20
+    def GB   = (i) << 30
+    def TB   = (i) << 40
+
+    /** Number of cycles */
     def cycles = new CyclesCount(i)
   }
 
+
+  /**
+    * Double Builder
+    */
   case class DoubleBuilder(d: Double) {
-    def hr =  TimeNumber(d  * BigDecimal(3600.0))
-    def mn =  TimeNumber(d * BigDecimal(60.0))
+
+    /** Time */
+    def hr  = TimeNumber(d * BigDecimal(3600.0))
+    def mn  = TimeNumber(d * BigDecimal(60.0))
     def sec = TimeNumber(d * BigDecimal(1.0))
-    def ms =  TimeNumber(d  * BigDecimal(1e-3))
-    def us =  TimeNumber(d  * BigDecimal(1e-6))
-    def ns =  TimeNumber(d  * BigDecimal(1e-9))
-    def ps =  TimeNumber(d  * BigDecimal(1e-12))
-    def fs =  TimeNumber(d  * BigDecimal(1e-15))
+    def ms  = TimeNumber(d * BigDecimal(1e-3))
+    def us  = TimeNumber(d * BigDecimal(1e-6))
+    def ns  = TimeNumber(d * BigDecimal(1e-9))
+    def ps  = TimeNumber(d * BigDecimal(1e-12))
+    def fs  = TimeNumber(d * BigDecimal(1e-15))
 
-
+    /** Frequency */
     def THz = HertzNumber(d * BigDecimal(1e12))
     def GHz = HertzNumber(d * BigDecimal(1e9))
     def MHz = HertzNumber(d * BigDecimal(1e6))
@@ -108,17 +152,23 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def  Hz = HertzNumber(d * BigDecimal(1e0))
   }
 
+
+  /**
+    * BigDecimal Builder
+    */
   implicit class BigDecimalBuilder(d: BigDecimal) {
-    def hr =  TimeNumber(d  * BigDecimal(3600.0))
-    def mn =  TimeNumber(d * BigDecimal(60.0))
+
+    /** Time */
+    def hr  = TimeNumber(d  * BigDecimal(3600.0))
+    def mn  = TimeNumber(d * BigDecimal(60.0))
     def sec = TimeNumber(d * BigDecimal(1.0))
-    def ms =  TimeNumber(d  * BigDecimal(1e-3))
-    def us =  TimeNumber(d  * BigDecimal(1e-6))
-    def ns =  TimeNumber(d  * BigDecimal(1e-9))
-    def ps =  TimeNumber(d  * BigDecimal(1e-12))
-    def fs =  TimeNumber(d  * BigDecimal(1e-15))
+    def ms  = TimeNumber(d  * BigDecimal(1e-3))
+    def us  = TimeNumber(d  * BigDecimal(1e-6))
+    def ns  = TimeNumber(d  * BigDecimal(1e-9))
+    def ps  = TimeNumber(d  * BigDecimal(1e-12))
+    def fs  = TimeNumber(d  * BigDecimal(1e-15))
 
-
+    /** Frequency */
     def THz = HertzNumber(d * BigDecimal(1e12))
     def GHz = HertzNumber(d * BigDecimal(1e9))
     def MHz = HertzNumber(d * BigDecimal(1e6))
@@ -126,36 +176,48 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def  Hz = HertzNumber(d * BigDecimal(1e0))
   }
 
-  def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
+
+  /**
+    * True / False definition
+    */
+  def True  = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
   def False = Bool(false)
 
-  // implicit def RegRefToReg[T <: Data](that : RegRef[T]) : T = that.getReg
-  implicit def IntToUInt(that: Int) : UInt = U(that)
-  implicit def BigIntToUInt(that: BigInt) : UInt = U(that)
-  implicit def IntToSInt(that: Int) : SInt = S(that)
-  implicit def BigIntToSInt(that: BigInt) : SInt = S(that)
-  implicit def IntToBits(that: Int) : Bits = B(that)
-  implicit def BigIntToBits(that: BigInt) : Bits = B(that)
-  implicit def StringToBits(that: String) : Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
-  implicit def StringToUInt(that: String) : UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
-  implicit def StringToSInt(that: String) : SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 
+  /**
+    * Implicit conversion from Int/BigInt/String to UInt/SInt/Bits
+    */
+  implicit def IntToUInt(that: Int): UInt = U(that)
+  implicit def BigIntToUInt(that: BigInt): UInt = U(that)
+  implicit def IntToSInt(that: Int): SInt = S(that)
+  implicit def BigIntToSInt(that: BigInt): SInt = S(that)
+  implicit def IntToBits(that: Int): Bits = B(that)
+  implicit def BigIntToBits(that: BigInt): Bits = B(that)
+  implicit def StringToBits(that: String): Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
+  implicit def StringToUInt(that: String): UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
+  implicit def StringToSInt(that: String): SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
+
+
+  /**
+    * Literal builder S/U/B"[[size']base]value”
+    *
+    * e.g. : B"8'xFF"
+    */
   implicit class LiteralBuilder(private val sc: StringContext) {
+
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
+
     def Bits(args: Any*): Bits = B(args)
     def UInt(args: Any*): UInt = U(args)
     def SInt(args: Any*): SInt = S(args)
 
     private def getString(args: Any*): String = {
-      // println(sc.parts.size + " " + args.size)
-      // println(sc.parts.head + "-----" + args.head)
-      // sc.standardInterpolator(_.toString(), args)
 
-      val pi = sc.parts.iterator
-      val ai = args.iterator
+      val pi   = sc.parts.iterator
+      val ai   = args.iterator
       val bldr = new StringBuilder(pi.next().toString)
 
       while (ai.hasNext) {
@@ -163,12 +225,15 @@ package object core extends BaseTypeFactory with BaseTypeCast {
         if (pi.hasNext && !pi.next.isInstanceOf[List[_]]) bldr append pi.next
       }
 
-      //println(bldr.result)
       bldr.result.replace("_", "")
     }
   }
 
+  /**
+    * Parsing the bitVector literal and building a Spinal BitVector
+    */
   private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String, signed: Boolean): T = {
+
     def error() = SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
 
     def strBinToInt(valueStr: String, radix: Int, bitCount: Int) = if (!signed) {
@@ -183,11 +248,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     var str = arg.replace("_", "").toLowerCase
     if (str == "") return builder(0, 0 bit)
 
-    var bitCount : Int = -1
+    var bitCount: Int = -1
 
     if (str.contains(''')) {
       val split = str.split(''')
-//      bitCount = split(0).toInt
+      bitCount = split(0).toInt
       str = split(1)
     }
 
@@ -202,7 +267,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
         case 'd' => 10
         case 'o' => 8
         case 'b' => 2
-        case c => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
+        case c   => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
       }
       str = str.tail
     }
@@ -218,14 +283,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     val digitCount = str.length
     if (bitCount == -1) bitCount = radix match {
       case 16 => digitCount * 4
-      case 8 => digitCount * 3
-      case 2 => digitCount
-      case _ => -1
+      case 8  => digitCount * 3
+      case 2  => digitCount
+      case _  => -1
     }
 
     val value = radix match {
       case 10 => if (minus) -BigInt(str, radix) else BigInt(str, radix)
-      case _ => strBinToInt(str, radix, bitCount)
+      case _  => strBinToInt(str, radix, bitCount)
     }
 
     if (bitCount == -1) {
@@ -235,9 +300,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
-  implicit def DataPimped[T <: Data](that: T) : DataPimper[T] = new DataPimper(that)
+  /**
+    * Implicit Data helper
+    */
+  implicit def DataPimped[T <: Data](that: T): DataPimper[T] = new DataPimper(that)
 
-
+  /**
+    * Implicit SInt helper
+    */
   implicit class SIntPimper(pimped: SInt) {
     def toSFix: SFix = {
       val width = pimped.getWidth
@@ -247,6 +317,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
+  /**
+    * Implicit UInt helper
+    */
   implicit class UIntPimper(pimped: UInt) {
     def toUFix: UFix = {
       val width = pimped.getWidth
@@ -256,42 +329,50 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
+  /**
+    * Implicit Range helper
+    */
   implicit class RangePimper(pimped: Range) {
     def high: Int = {
-      if(pimped.step > 0)
-        pimped.end + (if(pimped.isInclusive) 0 else -1)
-      else
+      if(pimped.step > 0) {
+        pimped.end + (if (pimped.isInclusive) 0 else -1)
+      }else {
         pimped.start
+      }
     }
 
     def low: Int = {
-      if(pimped.step < 0)
-        pimped.end + (if(pimped.isInclusive) 0 else 1)
-      else
+      if(pimped.step < 0) {
+        pimped.end + (if (pimped.isInclusive) 0 else 1)
+      }else {
         pimped.start
+      }
     }
 
   }
 
 
+  /**
+    * Assertion
+    */
   @elidable(ASSERTION)
   def assert(assertion: Boolean) = scala.Predef.assert(assertion)
 
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion,Nil,ERROR)
-  def assert(assertion: Bool,message : String) = AssertStatementHelper(assertion,message,ERROR)
-  def assert(assertion: Bool,message : Seq[Any]) = AssertStatementHelper(assertion,message,ERROR)
-  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,Nil,severity)
-  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
-  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertStatementHelper(assertion,message,severity)
-  def report(message : String) = assert(True,message,NOTE)
-  def report(message : Seq[Any]) = assert(True,message,NOTE)
-  def report(message : String,severity: AssertNodeSeverity) = assert(True,message,severity)
-  def report(message : Seq[Any],severity: AssertNodeSeverity) = assert(True,message,severity)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR)
+  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity)
 
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, ERROR)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, ERROR)
 
-//  def SimManagedApi = spinal.core.sim.ManagedApi
-//  def SimConfig = spinal.core.sim.SimConfig
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity)
+
+  def report(message: String)   = assert(True, message, NOTE)
+  def report(message: Seq[Any]) = assert(True, message, NOTE)
+
+  def report(message: String,   severity: AssertNodeSeverity) = assert(True, message, severity)
+  def report(message: Seq[Any], severity: AssertNodeSeverity) = assert(True, message, severity)
 }

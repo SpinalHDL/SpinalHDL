@@ -173,6 +173,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
       case AssignmentStatement(target, driver: BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
         Some(driver.asInstanceOf[this.type])
       case _ => None
+    } else if(this.isInput && this.component.parent == null && this.hasTag(classOf[ExternalDriverTag])){
+      Some(this.getTag(classOf[ExternalDriverTag]).get.driver.asInstanceOf[this.type])
     } else None
   }
 

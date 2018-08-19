@@ -288,6 +288,12 @@ object Nameable{
   val NAMEABLE_REF          : Byte = 2
   val OWNER_PREFIXED        : Byte = 3
   val NAMEABLE_REF_PREFIXED : Byte = 4
+
+
+  val DATAMODEL_STRONG : Byte = 15
+  val USER_SET : Byte = 10
+  val DATAMODEL_WEAK : Byte = 5
+  val USER_WEAK : Byte = 0
 }
 
 
@@ -298,13 +304,13 @@ trait Nameable extends OwnableRef with ContextUser{
   private var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
-  private var weak: Byte = 1
+  private var namePriority: Byte = -1
 
   private def getMode = mode
 
-  private[core] def isWeak = weak != 0
-  private[core] def setMode(mode: Byte)    = this.mode = mode
-  private[core] def setWeak(weak: Boolean) = this.weak = if (weak) 1 else 0
+  private[core] def isWeak = namePriority < USER_SET
+//  private[core] def setMode(mode: Byte)    = this.mode = mode
+//  private[core] def setWeak(weak: Boolean) = this.weak = if (weak) 1 else 0
 
   def isUnnamed: Boolean = getMode match{
     case UNNAMED               => true
@@ -354,60 +360,73 @@ trait Nameable extends OwnableRef with ContextUser{
     }
   }
 
+  def isPriorityApplicable(namePriority: Byte): Boolean = namePriority match{
+    case USER_WEAK => namePriority >= this.namePriority
+    case USER_SET => namePriority >= this.namePriority
+    case DATAMODEL_STRONG => namePriority > this.namePriority
+    case DATAMODEL_WEAK => namePriority > this.namePriority
+  }
+
   def setCompositeName(nameable: Nameable): this.type  = setCompositeName(nameable, weak = false)
-  def setCompositeName(nameable: Nameable, weak: Boolean): this.type = {
-    if (!weak || (mode == UNNAMED)) {
+  def setCompositeName(nameable: Nameable, weak: Boolean): this.type = setCompositeName(nameable, if(weak) USER_WEAK else USER_SET)
+  def setCompositeName(nameable: Nameable, namePriority: Byte): this.type = {
+    if (isPriorityApplicable(namePriority)) {
       nameableRef = nameable
       name = null
-      setMode(NAMEABLE_REF)
-      setWeak(weak)
+      mode = NAMEABLE_REF
+      this.namePriority = namePriority
     }
     this
   }
 
   def setCompositeName(nameable: Nameable, postfix: String): this.type = setCompositeName(nameable, postfix, weak = false)
-  def setCompositeName(nameable: Nameable, postfix: String, weak: Boolean): this.type = {
-    if (!weak || (mode == UNNAMED)) {
+  def setCompositeName(nameable: Nameable, postfix: String, weak: Boolean): this.type = setCompositeName(nameable, postfix,  if(weak) USER_WEAK else USER_SET)
+  def setCompositeName(nameable: Nameable, postfix: String, namePriority: Byte): this.type = {
+    if (isPriorityApplicable(namePriority)) {
       nameableRef = nameable
       name = postfix
-      setMode(NAMEABLE_REF_PREFIXED)
-      setWeak(weak)
+      mode = NAMEABLE_REF_PREFIXED
+      this.namePriority = namePriority
     }
     this
   }
 
   def setPartialName(owner: Nameable, name: String): this.type = setPartialName(owner, name, weak = false)
   def setPartialName(name: String): this.type = setPartialName(name, weak = false)
-
-  def setPartialName(owner: Nameable, name: String, weak: Boolean): this.type = {
-    if (!weak || (mode == UNNAMED)) {
+  def setPartialName(owner: Nameable, name: String, weak: Boolean): this.type = setPartialName(owner,name, if(weak) USER_WEAK else USER_SET)
+  def setPartialName(owner: Nameable, name: String, namePriority: Byte): this.type = {
+    if (isPriorityApplicable(namePriority)) {
       setRefOwner(owner)
       this.name = name
-      setMode(OWNER_PREFIXED)
-      setWeak(weak)
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
     }
     this
   }
 
-  def setPartialName(name: String, weak: Boolean): this.type = {
-    if (!weak || (mode == UNNAMED)) {
+  def setPartialName(name: String, weak: Boolean): this.type = setPartialName(name, if(weak) USER_WEAK else USER_SET)
+  def setPartialName(name: String, namePriority: Byte): this.type = {
+    if (isPriorityApplicable(namePriority)) {
       this.name = name
-      setMode(OWNER_PREFIXED)
-      setWeak(weak)
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
     }
     this
   }
 
   def unsetName(): this.type = {
-    setMode(Nameable.UNNAMED)
+    mode = Nameable.UNNAMED
+    namePriority = -1
     this
   }
 
-  def setName(name: String, weak: Boolean = false): this.type = {
-    if (!weak || (mode == UNNAMED)) {
+  def setName(name : String) : this.type = setName(name, false)
+  def setName(name: String, weak: Boolean): this.type = setName(name, if(weak) USER_WEAK else USER_SET)
+  def setName(name: String, namePriority: Byte): this.type = {
+    if (isPriorityApplicable(namePriority)) {
       this.name = name
-      setMode(ABSOLUTE)
-      setWeak(weak)
+      mode = ABSOLUTE
+      this.namePriority = namePriority
     }
     this
   }
@@ -611,7 +630,7 @@ trait SpinalTag {
   def duplicative           = false
   def driverShouldNotChange = false
   def canSymplifyHost       = false
-  def allowMultipleInstance = false // Allow multiple instances of the tag on the same object
+  def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag
@@ -628,6 +647,10 @@ object tagAutoResize                 extends SpinalTag{ override def duplicative
 object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
+}
+
+class ExternalDriverTag(val driver : Data)             extends SpinalTag{
+  override def allowMultipleInstance = false
 }
 
 

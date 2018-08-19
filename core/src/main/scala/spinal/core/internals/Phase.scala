@@ -573,27 +573,27 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.foreachStatements(s => s.removeStatement())
     }
 
-    mem.component.rework {
-      if (mem.initialContent != null) {
-        return "Can't blackbox ROM"  //TODO
-        //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
-      } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+    if (mem.initialContent != null) {
+      return "Can't blackbox ROM"  //TODO
+      //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
+    } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+      mem.component.rework {
         val wr = topo.writes(0)
         for (rd <- topo.readsAsync) {
           val clockDomain = wr.clockDomain
           clockDomain.push()
 
           val ram = new Ram_1w_1ra(
-            wordWidth      = mem.getWidth,
-            wordCount      = mem.wordCount,
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth    = wr.data.getWidth,
+            wrDataWidth = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth    = rd.getWidth,
-            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable   = wr.mask != null,
+            rdDataWidth = rd.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology     = mem.technology
+            technology = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && clockDomain.isClockEnableActive
@@ -614,18 +614,18 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 
         for (rd <- topo.readsSync) {
           val ram = new Ram_1w_1rs(
-            wordWidth      = mem.getWidth,
-            wordCount      = mem.wordCount,
-            wrClock        = wr.clockDomain,
-            rdClock        = rd.clockDomain,
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
+            wrClock = wr.clockDomain,
+            rdClock = rd.clockDomain,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth    = wr.data.getWidth,
+            wrDataWidth = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth    = rd.getWidth,
-            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable   = wr.mask != null,
+            rdDataWidth = rd.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology     = mem.technology
+            technology = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && wr.clockDomain.isClockEnableActive
@@ -645,11 +645,13 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         }
 
         removeMem()
-      } else if (topo.portCount == 1 && topo.readWriteSync.size == 1) {
+      }
+    } else if (topo.portCount == 1 && topo.readWriteSync.size == 1) {
 
+      mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, dontCare)
+        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
@@ -660,49 +662,50 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 
         ram.setName(mem.getName())
         removeMem()
+      }
+    } else if (topo.portCount == 2 && topo.readWriteSync.size == 2) {
 
-      } else if (topo.portCount == 2 && topo.readWriteSync.size == 2) {
-
+      mem.component.rework {
         val portA = topo.readWriteSync(0)
         val portB = topo.readWriteSync(1)
 
         val ram = new Ram_2wrs(
-          wordWidth            = mem.getWidth,
-          wordCount            = mem.wordCount,
-          technology           = mem.technology,
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
           portA_readUnderWrite = dontCare,
-          portA_clock          = portA.clockDomain,
-          portA_addressWidth   = portA.address.getWidth,
-          portA_dataWidth      = portA.getWidth,
-          portA_maskWidth      = if(portA.mask != null) portA.mask.getWidth else 1,
-          portA_maskEnable     = portA.mask != null,
+          portA_clock = portA.clockDomain,
+          portA_addressWidth = portA.address.getWidth,
+          portA_dataWidth = portA.getWidth,
+          portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
+          portA_maskEnable = portA.mask != null,
           portB_readUnderWrite = dontCare,
-          portB_clock          = portB.clockDomain,
-          portB_addressWidth   = portB.address.getWidth,
-          portB_dataWidth      = portB.getWidth,
-          portB_maskWidth      = if(portB.mask != null) portB.mask.getWidth else 1,
-          portB_maskEnable     = portB.mask != null
+          portB_clock = portB.clockDomain,
+          portB_addressWidth = portB.address.getWidth,
+          portB_dataWidth = portB.getWidth,
+          portB_maskWidth = if (portB.mask != null) portB.mask.getWidth else 1,
+          portB_maskEnable = portB.mask != null
         )
 
         ram.io.portA.addr.assignFrom(portA.address)
         ram.io.portA.en.assignFrom(wrapBool(portA.chipSelect) && portA.clockDomain.isClockEnableActive)
         ram.io.portA.wr.assignFrom(portA.writeEnable)
         ram.io.portA.wrData.assignFrom(portA.data)
-        ram.io.portA.mask.assignFrom((if(portA.mask != null) portA.mask else B"1"))
+        ram.io.portA.mask.assignFrom((if (portA.mask != null) portA.mask else B"1"))
         wrapConsumers(portA, ram.io.portA.rdData)
 
         ram.io.portB.addr.assignFrom(portB.address)
         ram.io.portB.en.assignFrom(wrapBool(portB.chipSelect) && portB.clockDomain.isClockEnableActive)
         ram.io.portB.wr.assignFrom(portB.writeEnable)
         ram.io.portB.wrData.assignFrom(portB.data)
-        ram.io.portB.mask.assignFrom((if(portB.mask != null) portB.mask else B"1"))
+        ram.io.portB.mask.assignFrom((if (portB.mask != null) portB.mask else B"1"))
         wrapConsumers(portB, ram.io.portB.rdData)
 
         ram.setName(mem.getName())
         removeMem()
-      } else {
-        return "Unblackboxable memory topology" //TODO
       }
+    } else {
+      return "Unblackboxable memory topology" //TODO
     }
     return null
   }
@@ -715,7 +718,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 
     globalData.nodeAreNamed = true
 
-    if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+    if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
 
     for (c <- sortedComponents) {
       c.nameElements()
@@ -733,7 +736,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
             Misc.reflect(generic, (name, obj) => {
               OwnableRef.proposal(obj, this)
               obj match {
-                case obj: Nameable => obj.setWeakName(name)
+                case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
                 case _ =>
               }
               obj match {
@@ -773,14 +776,14 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
+          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
           case _ =>
         }
       })
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-          e.setWeakName(scope.getUnusedName("e" + e.position))
+          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
         }
       }
     }
@@ -923,7 +926,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //give a name to unamed encodings
-    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){

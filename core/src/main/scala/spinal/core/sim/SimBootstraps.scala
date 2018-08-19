@@ -1,3 +1,23 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.sim
 
 import java.io.File
@@ -11,47 +31,62 @@ import scala.collection.mutable
 import scala.util.Random
 import sys.process._
 
-case class SpinalVerilatorBackendConfig[T <: Component]( rtl : SpinalReport[T],
-                                                         withWave : Boolean = false,
-                                                         workspacePath : String = "./",
-                                                         workspaceName : String = null,
-                                                         vcdPath : String = null,
-                                                         vcdPrefix : String = null,
-                                                         waveDepth : Int = 0,
-                                                         optimisationLevel : Int = 2)
+/**
+  * Backend configuration for verilator
+  */
+case class SpinalVerilatorBackendConfig[T <: Component](
+  rtl               : SpinalReport[T],
+  withWave          : Boolean = false,
+  workspacePath     : String = "./",
+  workspaceName     : String = null,
+  vcdPath           : String = null,
+  vcdPrefix         : String = null,
+  waveDepth         : Int = 0,
+  optimisationLevel : Int = 2
+)
 
-object SpinalVerilatorBackend{
-  def apply[T <: Component](config : SpinalVerilatorBackendConfig[T]) = {
+
+/**
+  * Backend verilator
+  */
+object SpinalVerilatorBackend {
+
+  def apply[T <: Component](config: SpinalVerilatorBackendConfig[T]) = {
+
     import config._
+
     val vconfig = new VerilatorBackendConfig()
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
-    vconfig.toplevelName = rtl.toplevelName
-    vconfig.vcdPath = vcdPath
-    vconfig.vcdPrefix = vcdPrefix
-    vconfig.workspaceName = workspaceName
-    vconfig.workspacePath = workspacePath
-    vconfig.withWave = withWave
-    vconfig.waveDepth = waveDepth
+    vconfig.toplevelName      = rtl.toplevelName
+    vconfig.vcdPath           = vcdPath
+    vconfig.vcdPrefix         = vcdPrefix
+    vconfig.workspaceName     = workspaceName
+    vconfig.workspacePath     = workspacePath
+    vconfig.withWave          = withWave
+    vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
 
     var signalId = 0
-    def addSignal(bt : BaseType): Unit ={
-      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName()  , bt match {
-        case bt : Bool => new BoolDataType
-        case bt : Bits => new BitsDataType(bt.getBitsWidth)
-        case bt : UInt => new UIntDataType(bt.getBitsWidth)
-        case bt : SInt => new SIntDataType(bt.getBitsWidth)
-        case bt : SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+
+    def addSignal(bt: BaseType): Unit ={
+      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
+        case bt: Bool               => new BoolDataType
+        case bt: Bits               => new BitsDataType(bt.getBitsWidth)
+        case bt: UInt               => new UIntDataType(bt.getBitsWidth)
+        case bt: SInt               => new SIntDataType(bt.getBitsWidth)
+        case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
       })
+
       bt.algoInt = signalId
       bt.algoIncrementale = -1
       signal.id = signalId
       vconfig.signals += signal
       signalId += 1
     }
+
     GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(s => {
       s match {
-        case bt : BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
+        case bt: BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
         }
         case _ =>{
@@ -62,13 +97,14 @@ object SpinalVerilatorBackend{
 
     for(io <- rtl.toplevel.getAllIo){
       val bt = io
-      val signal = new Signal(bt.getComponents().tail.map(_.getName()) :+ bt.getName()  , bt match {
-        case bt : Bool => new BoolDataType
-        case bt : Bits => new BitsDataType(bt.getBitsWidth)
-        case bt : UInt => new UIntDataType(bt.getBitsWidth)
-        case bt : SInt => new SIntDataType(bt.getBitsWidth)
-        case bt : SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+      val signal = new Signal(bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
+        case bt: Bool               => new BoolDataType
+        case bt: Bits               => new BitsDataType(bt.getBitsWidth)
+        case bt: UInt               => new UIntDataType(bt.getBitsWidth)
+        case bt: SInt               => new SIntDataType(bt.getBitsWidth)
+        case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
       })
+
       bt.algoInt = signalId
       bt.algoIncrementale = -1
       signal.id = signalId
@@ -80,8 +116,8 @@ object SpinalVerilatorBackend{
 }
 
 
-object SpinalVerilatorSim{
-  def apply[T <: Component](config : SpinalVerilatorBackendConfig[T], seed : Int) : SimVerilator = {
+object SpinalVerilatorSim {
+  def apply[T <: Component](config: SpinalVerilatorBackendConfig[T], seed: Int) : SimVerilator = {
     val backend = SpinalVerilatorBackend(config)
     SpinalVerilatorSim(backend, seed)
   }
@@ -93,12 +129,19 @@ object SpinalVerilatorSim{
   }
 }
 
+
+/** Tag SimPublic  */
 object SimPublic extends SpinalTag
 
-class SwapTagPhase(oldOne : SpinalTag, newOne : SpinalTag) extends PhaseNetlist{
+
+/**
+  * Swap all oldTag with newTag
+  */
+class SwapTagPhase(oldOne: SpinalTag, newOne: SpinalTag) extends PhaseNetlist {
+
   override def impl(pc: PhaseContext): Unit = {
     pc.walkDeclarations{
-      case x : SpinalTagReady if(x.hasTag(oldOne)) =>  {
+      case x: SpinalTagReady if(x.hasTag(oldOne)) =>  {
         x.removeTag(oldOne)
         x.addTag(newOne)
       }
@@ -107,9 +150,15 @@ class SwapTagPhase(oldOne : SpinalTag, newOne : SpinalTag) extends PhaseNetlist{
   }
 }
 
-class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
+
+/**
+  * Run simulation
+  */
+class SimCompiled[T <: Component](backend: VerilatorBackend, dut: T){
+
   val testNameMap = mutable.HashMap[String, Int]()
-  def allocateTestName(name : String) : String = {
+
+  def allocateTestName(name: String): String = {
     testNameMap.synchronized{
       val value = testNameMap.getOrElseUpdate(name, 0)
       testNameMap(name) = value + 1
@@ -122,52 +171,61 @@ class SimCompiled[T <: Component](backend : VerilatorBackend, dut : T){
       }
     }
   }
-  def doSim(body : T => Unit@suspendable) : Unit = doSim("test")(body)
-  def doSim(name : String)(body : T => Unit@suspendable) : Unit = doSim(name, Random.nextLong())(body)
-  def doSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+
+  def doSim(body: T => Unit@suspendable): Unit = doSim("test")(body)
+  def doSim(name: String)(body: T => Unit@suspendable) : Unit = doSim(name, Random.nextLong())(body)
+  def doSim(name: String, seed: Long)(body: T => Unit@suspendable) : Unit = {
     Random.setSeed(seed)
     doSimPostSeed(name, Random.nextLong(), false)(body)
   }
 
   @deprecated("Use doSim instead")
-  def doManagedSim(body : T => Unit@suspendable) : Unit = doSim("test")(body)
+  def doManagedSim(body: T => Unit@suspendable): Unit = doSim("test")(body)
   @deprecated("Use doSim instead")
-  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = doSim(name, Random.nextLong())(body)
+  def doManagedSim(name: String)(body: T => Unit@suspendable): Unit = doSim(name, Random.nextLong())(body)
   @deprecated("Use doSim instead")
-  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+  def doManagedSim(name: String, seed: Long)(body: T => Unit@suspendable): Unit = {
     Random.setSeed(seed)
     doSimPostSeed(name, Random.nextLong(), false)(body)
   }
 
-  def doSimUntilVoid(body : T => Unit@suspendable) : Unit = doSimUntilVoid("test")(body)
-  def doSimUntilVoid(name : String)(body : T => Unit@suspendable) : Unit = doSimUntilVoid(name, Random.nextLong())(body)
-  def doSimUntilVoid(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = {
+  def doSimUntilVoid(body: T => Unit@suspendable): Unit = doSimUntilVoid("test")(body)
+  def doSimUntilVoid(name: String)(body: T => Unit@suspendable): Unit = doSimUntilVoid(name, Random.nextLong())(body)
+  def doSimUntilVoid(name: String, seed: Long)(body : T => Unit@suspendable): Unit = {
     Random.setSeed(seed)
     doSimPostSeed(name, Random.nextLong(), true)(body)
   }
 
 
-  def doSimPostSeed(name : String, seed : Long, joinAll : Boolean)(body : T => Unit@suspendable) : Unit = {
+  def doSimPostSeed(name: String, seed: Long, joinAll: Boolean)(body: T => Unit@suspendable): Unit = {
     val allocatedName = allocateTestName(name)
-    val seedInt = seed.toInt
-    val backendSeed = if(seedInt == 0) 1 else seedInt
+    val seedInt       = seed.toInt
+    val backendSeed   = if(seedInt == 0) 1 else seedInt
+
     val sim = new SimVerilator(backend, backend.instanciate(allocatedName, backendSeed))
     sim.userData = backend.config.signals
+
     val manager = new SimManager(sim)
     manager.userData = dut
+
     println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.withWave) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.vcd" else ", without wave"}")
-    if(joinAll)
+
+    if(joinAll) {
       manager.runAll(body(dut))
-    else
+    }else {
       manager.run(body(dut))
+    }
   }
-
-
 }
 
-object SimWorkspace{
+
+/**
+  * Simulation Workspace
+  */
+object SimWorkspace {
   private var uniqueId = 0
-  def allocateUniqueId() : Int = {
+
+  def allocateUniqueId(): Int = {
     this.synchronized {
       uniqueId = uniqueId + 1
       uniqueId
@@ -175,10 +233,11 @@ object SimWorkspace{
   }
 
   val workspaceMap = mutable.HashMap[(String, String), Int]()
-  def allocateWorkspace(path : String, name : String) : String = {
+
+  def allocateWorkspace(path: String, name: String): String = {
     workspaceMap.synchronized{
       val value = workspaceMap.getOrElseUpdate((path,name), 0)
-      workspaceMap((path,name)) = value + 1
+      workspaceMap((path, name)) = value + 1
       if(value == 0){
         return name
       }else{
@@ -191,72 +250,76 @@ object SimWorkspace{
 }
 
 
+/**
+  * SpinalSim configuration
+  */
+case class SpinalSimConfig(
+  var _withWave          : Boolean = false,
+  var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
+  var _workspaceName     : String = null,
+  var _waveDepth         : Int = 0, //0 => all
+  var _spinalConfig      : SpinalConfig = SpinalConfig(),
+  var _optimisationLevel : Int = 0
+){
 
-case class SpinalSimConfig(var _withWave: Boolean = false,
-                           var _workspacePath : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
-                           var _workspaceName: String = null,
-                           var _waveDepth : Int = 0, //0 => all
-                           var _spinalConfig: SpinalConfig = SpinalConfig(),
-                           var _optimisationLevel : Int = 0){
-  def withWave : this.type = {
+  def withWave: this.type = {
     _withWave = true
     this
   }
 
-  def withWave(depth : Int) : this.type = {
+  def withWave(depth: Int): this.type = {
     _withWave = true
     _waveDepth = depth
     this
   }
 
-  def workspacePath(path : String) : this.type = {
+  def workspacePath(path: String): this.type = {
     _workspacePath = path
     this
   }
 
-  def workspaceName(name : String) : this.type = {
+  def workspaceName(name: String): this.type = {
     _workspaceName = name
     this
   }
 
-  def withConfig(config : SpinalConfig) : this.type = {
+  def withConfig(config: SpinalConfig): this.type = {
     _spinalConfig = config
     this
   }
 
-  def noOptimisation : this.type = {
+  def noOptimisation: this.type = {
     _optimisationLevel = 0
     this
   }
-  def fewOptimisation : this.type = {
+  def fewOptimisation: this.type = {
     _optimisationLevel = 1
     this
   }
-  def normalOptimisation : this.type = {
+  def normalOptimisation: this.type = {
     _optimisationLevel = 2
     this
   }
-  def allOptimisation : this.type = {
+  def allOptimisation: this.type = {
     _optimisationLevel = 3
     this
   }
 
-  def doSim[T <: Component](report : SpinalReport[T])(body : T => Unit@suspendable): Unit = compile(report).doSim(body)
-  def doSim[T <: Component](report : SpinalReport[T], name : String)(body : T => Unit@suspendable) : Unit = compile(report).doSim(name)(body)
-  def doSim[T <: Component](report : SpinalReport[T], name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile(report).doSim(name,seed)(body)
+  def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit@suspendable): Unit = compile(report).doSim(body)
+  def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit@suspendable): Unit = compile(report).doSim(name)(body)
+  def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile(report).doSim(name, seed)(body)
 
-  def doSimUntilVoid[T <: Component](report : SpinalReport[T])(body : T => Unit@suspendable): Unit = compile(report).doSimUntilVoid(body)
-  def doSimUntilVoid[T <: Component](report : SpinalReport[T], name : String)(body : T => Unit@suspendable) : Unit = compile(report).doSimUntilVoid(name)(body)
-  def doSimUntilVoid[T <: Component](report : SpinalReport[T], name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile(report).doSimUntilVoid(name,seed)(body)
+  def doSimUntilVoid[T <: Component](report: SpinalReport[T])(body: T => Unit@suspendable): Unit = compile(report).doSimUntilVoid(body)
+  def doSimUntilVoid[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit@suspendable): Unit = compile(report).doSimUntilVoid(name)(body)
+  def doSimUntilVoid[T <: Component](report: SpinalReport[T], name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile(report).doSimUntilVoid(name, seed)(body)
 
-  def doSim[T <: Component](rtl : => T)(body : T => Unit@suspendable): Unit = compile(rtl).doSim(body)
-  def doSim[T <: Component](rtl : => T, name : String)(body : T => Unit@suspendable) : Unit = compile(rtl).doSim(name)(body)
-  def doSim[T <: Component](rtl : => T, name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile(rtl).doSim(name,seed)(body)
+  def doSim[T <: Component](rtl: => T)(body: T => Unit@suspendable): Unit = compile(rtl).doSim(body)
+  def doSim[T <: Component](rtl: => T, name: String)(body: T => Unit@suspendable): Unit = compile(rtl).doSim(name)(body)
+  def doSim[T <: Component](rtl: => T, name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile(rtl).doSim(name, seed)(body)
 
-  def doSimUntilVoid[T <: Component](rtl : => T)(body : T => Unit@suspendable): Unit = compile(rtl).doSimUntilVoid(body)
-  def doSimUntilVoid[T <: Component](rtl : => T, name : String)(body : T => Unit@suspendable) : Unit = compile(rtl).doSimUntilVoid(name)(body)
-  def doSimUntilVoid[T <: Component](rtl : => T, name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile(rtl).doSimUntilVoid(name,seed)(body)
-
+  def doSimUntilVoid[T <: Component](rtl: => T)(body: T => Unit@suspendable): Unit = compile(rtl).doSimUntilVoid(body)
+  def doSimUntilVoid[T <: Component](rtl: => T, name: String)(body: T => Unit@suspendable): Unit = compile(rtl).doSimUntilVoid(name)(body)
+  def doSimUntilVoid[T <: Component](rtl: => T, name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile(rtl).doSimUntilVoid(name,seed)(body)
 
   def compile[T <: Component](rtl: => T) : SimCompiled[T] = {
     val uniqueId = SimWorkspace.allocateUniqueId()
@@ -266,7 +329,7 @@ case class SpinalSimConfig(var _withWave: Boolean = false,
     compile[T](report)
   }
 
-  def compile[T <: Component](report : SpinalReport[T]) : SimCompiled[T] = {
+  def compile[T <: Component](report: SpinalReport[T]): SimCompiled[T] = {
     if(_workspacePath.startsWith("~"))
       _workspacePath = System.getProperty( "user.home" ) + _workspacePath.drop(1)
 
@@ -306,39 +369,46 @@ case class SpinalSimConfig(var _withWave: Boolean = false,
 }
 
 
+/**
+  * Legacy simulation configuration 
+  */
+case class SimConfigLegacy[T <: Component](
+  var _rtlGen       : Option[() => T] = None,
+  var _spinalConfig : SpinalConfig = SpinalConfig(),
+  var _spinalReport : Option[SpinalReport[T]] = None
+){
 
-case class SimConfigLegacy[T <: Component]( var _rtlGen : Option[() => T] = None,
-                                            var _spinalConfig: SpinalConfig = SpinalConfig(),
-                                            var _spinalReport : Option[SpinalReport[T]] = None){
   private val _simConfig = SpinalSimConfig()
-  def withWave : this.type = { _simConfig.withWave; this }
-  def withWave(depth : Int) : this.type =  { _simConfig.withWave(depth); this }
 
-  def workspacePath(path : String) : this.type =  { _simConfig.workspacePath(path); this }
-  def workspaceName(name : String) : this.type =  { _simConfig.workspaceName(name); this }
-  def withConfig(config : SpinalConfig) : this.type =  { _simConfig.withConfig(config); this }
+  def withWave: this.type = { _simConfig.withWave; this }
+  def withWave(depth: Int): this.type = { _simConfig.withWave(depth); this }
 
-  def noOptimisation : this.type = { _simConfig.noOptimisation ; this }
-  def fewOptimisation : this.type =  { _simConfig.fewOptimisation ; this }
-  def normalOptimisation : this.type =  { _simConfig.normalOptimisation ; this }
-  def allOptimisation : this.type =  { _simConfig.allOptimisation ; this }
+  def workspacePath(path: String): this.type = { _simConfig.workspacePath(path); this }
+  def workspaceName(name: String): this.type = { _simConfig.workspaceName(name); this }
 
-  def doSim(body : T => Unit@suspendable): Unit = compile.doSim(body)
-  def doSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doSim(name)(body)
-  def doSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSim(name,seed)(body)
+  def withConfig(config: SpinalConfig): this.type =  { _simConfig.withConfig(config); this }
 
-  def doManagedSim(body : T => Unit@suspendable): Unit = compile.doSim(body)
-  def doManagedSim(name : String)(body : T => Unit@suspendable) : Unit = compile.doSim(name)(body)
-  def doManagedSim(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSim(name,seed)(body)
+  def noOptimisation: this.type     = { _simConfig.noOptimisation ; this }
+  def fewOptimisation: this.type    = { _simConfig.fewOptimisation ; this }
+  def normalOptimisation: this.type = { _simConfig.normalOptimisation ; this }
+  def allOptimisation: this.type    = { _simConfig.allOptimisation ; this }
 
-  def doSimUntilVoid(body : T => Unit@suspendable): Unit = compile.doSimUntilVoid(body)
-  def doSimUntilVoid(name : String)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name)(body)
-  def doSimUntilVoid(name : String, seed : Long)(body : T => Unit@suspendable) : Unit = compile.doSimUntilVoid(name,seed)(body)
+  def doSim(body: T => Unit@suspendable): Unit = compile.doSim(body)
+  def doSim(name: String)(body: T => Unit@suspendable): Unit = compile.doSim(name)(body)
+  def doSim(name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile.doSim(name, seed)(body)
 
-  def compile() : SimCompiled[T] = {
+  def doManagedSim(body: T => Unit@suspendable): Unit = compile.doSim(body)
+  def doManagedSim(name: String)(body: T => Unit@suspendable): Unit = compile.doSim(name)(body)
+  def doManagedSim(name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile.doSim(name, seed)(body)
+
+  def doSimUntilVoid(body: T => Unit@suspendable): Unit = compile.doSimUntilVoid(body)
+  def doSimUntilVoid(name: String)(body: T => Unit@suspendable): Unit = compile.doSimUntilVoid(name)(body)
+  def doSimUntilVoid(name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile.doSimUntilVoid(name, seed)(body)
+
+  def compile(): SimCompiled[T] = {
     (_rtlGen, _spinalReport) match {
       case (None, Some(report)) => _simConfig.compile(report)
-      case (Some(gen), None) => _simConfig.compile(gen())
+      case (Some(gen), None)    => _simConfig.compile(gen())
     }
   }
 }
