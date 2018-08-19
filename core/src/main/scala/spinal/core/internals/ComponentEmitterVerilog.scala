@@ -464,10 +464,12 @@ class ComponentEmitterVerilog(
               case m: Expression => ", " + emitExpression(m)
             }).mkString
 
+            b ++= s"`ifndef SYNTHESIS\n"
             b ++= s"${tab}if (!$cond) begin\n"
             b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
             if(assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
             b ++= s"${tab}end\n"
+            b ++= s"`endif\n"
         }
         statementIndex += 1
       } else {
