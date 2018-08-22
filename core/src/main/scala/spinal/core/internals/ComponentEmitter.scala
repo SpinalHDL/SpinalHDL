@@ -26,7 +26,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-class ComponentEmiterTrace(val builders: Seq[mutable.StringBuilder], val strings: Seq[String]) {
+class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val strings: Seq[String]) {
 
   var hash: Integer = null
 
@@ -40,7 +40,7 @@ class ComponentEmiterTrace(val builders: Seq[mutable.StringBuilder], val strings
   override def equals(obj: scala.Any): Boolean = {
     if (this.hashCode() != obj.hashCode()) return false //Collision into hashmap implementation don't check it XD
     obj match {
-      case that: ComponentEmiterTrace =>
+      case that: ComponentEmitterTrace =>
         return (this.builders, that.builders).zipped.map(_ == _).reduce(_ && _) && (this.strings, that.strings).zipped.map(_ == _).reduce(_ && _)
     }
   }
@@ -48,7 +48,7 @@ class ComponentEmiterTrace(val builders: Seq[mutable.StringBuilder], val strings
 }
 
 
-abstract class ComponentEmiter {
+abstract class ComponentEmitter {
 
   def component: Component
   def algoIdIncrementalBase: Int

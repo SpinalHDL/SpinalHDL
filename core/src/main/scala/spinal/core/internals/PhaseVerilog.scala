@@ -57,7 +57,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVerilog = new ComponentEmiterVerilog(
+    val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
       verilogBase                 = this,
       algoIdIncrementalBase       = allocateAlgoIncrementaleBase,
@@ -96,7 +96,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     outFile.write(text)
   }
 
-  val emitedComponent    = mutable.Map[ComponentEmiterTrace, Component]()
+  val emitedComponent    = mutable.Map[ComponentEmitterTrace, Component]()
   val emitedComponentRef = new java.util.concurrent.ConcurrentHashMap[Component,Component]()
 
   def emitEnumPackage(out: java.io.FileWriter): Unit = {

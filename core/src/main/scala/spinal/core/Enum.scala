@@ -312,7 +312,7 @@ object binarySequential extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
   override def isNative = false
-  setWeakName("binary_sequancial")
+  setWeakName("binary_sequential")
 }
 
 

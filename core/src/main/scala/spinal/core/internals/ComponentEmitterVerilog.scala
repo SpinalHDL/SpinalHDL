@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-class ComponentEmiterVerilog(
+class ComponentEmitterVerilog(
   val c                              : Component,
   verilogBase                        : VerilogBase,
   override val algoIdIncrementalBase : Int,
@@ -40,7 +40,7 @@ class ComponentEmiterVerilog(
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
-) extends ComponentEmiter {
+) extends ComponentEmitter {
 
   import verilogBase._
 
@@ -50,7 +50,7 @@ class ComponentEmiterVerilog(
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
-  def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ret = new StringBuilder()
@@ -464,10 +464,12 @@ class ComponentEmiterVerilog(
               case m: Expression => ", " + emitExpression(m)
             }).mkString
 
+            b ++= s"`ifndef SYNTHESIS\n"
             b ++= s"${tab}if (!$cond) begin\n"
             b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
             if(assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
             b ++= s"${tab}end\n"
+            b ++= s"`endif\n"
         }
         statementIndex += 1
       } else {

@@ -28,6 +28,7 @@ import spinal.core.{BaseType, Bits, Bool, Component, SInt, SpinalConfig, SpinalE
 import spinal.sim._
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
 
@@ -42,7 +43,8 @@ case class SpinalVerilatorBackendConfig[T <: Component](
   vcdPath           : String = null,
   vcdPrefix         : String = null,
   waveDepth         : Int = 0,
-  optimisationLevel : Int = 2
+  optimisationLevel : Int = 2,
+  simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
 )
 
 
@@ -65,6 +67,7 @@ object SpinalVerilatorBackend {
     vconfig.withWave          = withWave
     vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
+    vconfig.simulatorFlags        = simulatorFlags
 
     var signalId = 0
 
@@ -259,7 +262,8 @@ case class SpinalSimConfig(
   var _workspaceName     : String = null,
   var _waveDepth         : Int = 0, //0 => all
   var _spinalConfig      : SpinalConfig = SpinalConfig(),
-  var _optimisationLevel : Int = 0
+  var _optimisationLevel : Int = 0,
+  var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
 ){
 
   def withWave: this.type = {
@@ -302,6 +306,11 @@ case class SpinalSimConfig(
   }
   def allOptimisation: this.type = {
     _optimisationLevel = 3
+    this
+  }
+
+  def addSimulatorFlag(flag: String): this.type = {
+    _simulatorFlags += flag
     this
   }
 
@@ -359,7 +368,8 @@ case class SpinalSimConfig(
       //      workspacePath = s"${_workspacePath}",
       //      workspaceName = s"${_workspaceName}",
       waveDepth = _waveDepth,
-      optimisationLevel = _optimisationLevel
+      optimisationLevel = _optimisationLevel,
+      simulatorFlags = _simulatorFlags
     )
     val backend = SpinalVerilatorBackend(vConfig)
     val deltaTime = (System.nanoTime() - startAt)*1e-6
