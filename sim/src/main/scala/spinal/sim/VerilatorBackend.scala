@@ -23,6 +23,7 @@ class VerilatorBackendConfig{
   var vcdPrefix: String      = null
   var withWave               = true
   var waveDepth:Int          = 1 // 0 => all
+  var extraFlags: String     = null
 }
 
 
@@ -346,7 +347,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).mkString(" "))}
-       | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
+       | --exe $workspaceName/$wrapperCppName
+       | ${config.extraFlags}""".stripMargin.replace("\n", "")
 
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
 

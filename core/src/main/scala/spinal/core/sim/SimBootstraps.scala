@@ -42,7 +42,8 @@ case class SpinalVerilatorBackendConfig[T <: Component](
   vcdPath           : String = null,
   vcdPrefix         : String = null,
   waveDepth         : Int = 0,
-  optimisationLevel : Int = 2
+  optimisationLevel : Int = 2,
+  extraFlags        : String = null
 )
 
 
@@ -65,6 +66,7 @@ object SpinalVerilatorBackend {
     vconfig.withWave          = withWave
     vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
+    vconfig.extraFlags        = extraFlags
 
     var signalId = 0
 
@@ -259,7 +261,8 @@ case class SpinalSimConfig(
   var _workspaceName     : String = null,
   var _waveDepth         : Int = 0, //0 => all
   var _spinalConfig      : SpinalConfig = SpinalConfig(),
-  var _optimisationLevel : Int = 0
+  var _optimisationLevel : Int = 0,
+  var _extraFlags        : String = null
 ){
 
   def withWave: this.type = {
@@ -302,6 +305,11 @@ case class SpinalSimConfig(
   }
   def allOptimisation: this.type = {
     _optimisationLevel = 3
+    this
+  }
+
+  def withExtraFlags(flags: String): this.type = {
+    _extraFlags = flags
     this
   }
 
@@ -359,7 +367,8 @@ case class SpinalSimConfig(
       //      workspacePath = s"${_workspacePath}",
       //      workspaceName = s"${_workspaceName}",
       waveDepth = _waveDepth,
-      optimisationLevel = _optimisationLevel
+      optimisationLevel = _optimisationLevel,
+      extraFlags = _extraFlags
     )
     val backend = SpinalVerilatorBackend(vConfig)
     val deltaTime = (System.nanoTime() - startAt)*1e-6
