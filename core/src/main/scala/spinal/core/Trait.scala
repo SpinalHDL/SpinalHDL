@@ -584,7 +584,7 @@ trait SpinalTagReady {
     _spinalTags.filter(cond)
   }
 
-  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(attribute: Attribute): this.type = addTag(attribute)
   def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
   def addAttribute(name: String, value: String): this.type = addAttribute(new AttributeString(name, value))
 
@@ -648,6 +648,7 @@ object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
+class IfDefTag(val cond : String)       extends SpinalTag
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false

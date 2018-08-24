@@ -1309,6 +1309,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: AssertStatement =>
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
+            s.walkParentTreeStatements(propagate)
           case s: Mem[_] => s.foreachStatements{
             case p: MemWrite     => propagate(p)
             case p: MemReadWrite => propagate(p)
@@ -1339,7 +1340,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     walkStatements{
       case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
-      case s: AssertStatement      => propagate(s, false)
+      case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
       case s: MemWrite             =>

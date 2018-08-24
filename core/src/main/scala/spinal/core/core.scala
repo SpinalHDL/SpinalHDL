@@ -361,14 +361,18 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, ERROR)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, ERROR)
+  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME)
+  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT)
+
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
+
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
 
   def report(message: String)   = assert(True, message, NOTE)
   def report(message: Seq[Any]) = assert(True, message, NOTE)

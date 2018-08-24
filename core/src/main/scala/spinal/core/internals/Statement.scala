@@ -516,18 +516,26 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity): Unit = {
-    val node = AssertStatement(cond, message, severity)
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind): AssertStatement = {
+    val node = AssertStatement(cond, message, severity, kind)
     GlobalData.get.dslScope.head.append(node)
+    node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity): Unit ={
-    AssertStatementHelper(cond, List(message), severity)
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind): AssertStatement ={
+    AssertStatementHelper(cond, List(message), severity, kind)
   }
 }
 
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity) extends LeafStatement {
+class AssertStatementKind
+object AssertStatementKind{
+  val ASSERT = new AssertStatementKind
+  val ASSUME = new AssertStatementKind
+  val COVER = new AssertStatementKind
+}
+
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind) extends LeafStatement with SpinalTagReady {
   var clockDomain = globalData.dslClockDomain.head
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {

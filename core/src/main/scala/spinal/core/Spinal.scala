@@ -40,6 +40,7 @@ import scala.util.matching.Regex
 trait SpinalMode
 object VHDL    extends SpinalMode
 object Verilog extends SpinalMode
+object SystemVerilog extends SpinalMode
 
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
@@ -132,6 +133,7 @@ case class SpinalConfig(
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
+  def generateSystemVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = SystemVerilog))(gen)
 
   def apply[T <: Component](gen : => T): SpinalReport[T] = {
     Spinal(this)(gen)
@@ -150,7 +152,7 @@ case class SpinalConfig(
     this
   }
 
-
+  def isSystemVerilog = mode == SystemVerilog
 
 
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
@@ -282,6 +284,7 @@ object Spinal{
     val report = configPatched.mode match {
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
       case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
+      case `SystemVerilog` => SpinalVerilogBoot(configPatched)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
@@ -301,3 +304,7 @@ object SpinalVerilog {
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = Verilog).generate(gen)
 }
 
+object SpinalSystemVerilog {
+  def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = SystemVerilog))(gen)
+  def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = SystemVerilog).generate(gen)
+}

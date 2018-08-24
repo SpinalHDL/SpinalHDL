@@ -264,3 +264,8 @@ object GraphUtils{
 }
 
 
+object formal{
+  def apply(that : AssertStatement) = {
+    that.addTag(new IfDefTag("FORMAL"))
+  }
+}

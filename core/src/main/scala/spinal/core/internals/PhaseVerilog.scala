@@ -29,7 +29,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   import pc._
 
   var outFile: java.io.FileWriter = null
-  def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName)
+  def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
 
   override def impl(pc: PhaseContext): Unit = {
     report.generatedSourcesPaths += targetPath
@@ -59,6 +59,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   def compile(component: Component): Unit = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
+      systemVerilog               = pc.config.isSystemVerilog,
       verilogBase                 = this,
       algoIdIncrementalBase       = allocateAlgoIncrementaleBase,
       mergeAsyncProcess           = config.mergeAsyncProcess,

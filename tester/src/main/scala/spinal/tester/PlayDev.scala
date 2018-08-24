@@ -1137,6 +1137,39 @@ object PlayWithIndex222 extends App {
 }
 
 
+object PlayAssertFormal extends App {
+  class MyTopLevel extends Component{
+    when(in Bool()){
+      when(False){
+        assert(True,"asd")
+        assume(True)
+        cover(True)
+
+        formal(assert(True))
+        formal(assume(True))
+        formal(cover(True))
+      }
+    }
+  }
+
+  SpinalSystemVerilog(new MyTopLevel)
+  SpinalVerilog(new MyTopLevel)
+  SpinalVhdl(new MyTopLevel)
+
+}
+
+object PlayErrorImprovment extends App {
+  class MyTopLevel extends Component{
+    val data_old = B("32'd0")
+    val enable = True
+    val data = RegNext(data_old, enable)
+  }
+
+  val report = SpinalSystemVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
 object PlayNamingImprovment extends App{
   def gen(c : => Component): Unit ={
     SpinalVhdl(c)
