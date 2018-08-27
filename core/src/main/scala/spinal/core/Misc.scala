@@ -273,13 +273,13 @@ class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
     val count = map.getOrElse(lowerCase, 0)
     map(lowerCase) = count + 1
     val finalCount =  count + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (finalCount == 0) name else name + "_" + finalCount + duplicationPostfix
+    if (finalCount == 0) name else (name + "_" + finalCount + duplicationPostfix)
   }
 
   def getUnusedName(name: String): String = {
     val lowerCase = name.toLowerCase
     val count = map.getOrElse(lowerCase, 0) + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (count == 0) name else name + "_" + count + duplicationPostfix
+    if (count == 0) name else (name + "_" + count + duplicationPostfix)
   }
 
 
