@@ -37,9 +37,11 @@ class PhaseContext(val config: SpinalConfig) {
   config.applyToGlobalData(globalData)
 
 
-  val globalScope         = new NamingScope()
+  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+
   val reservedKeyWords    = mutable.Set[String](
     //VHDL
     "abs", "access", "after", "alias", "all",
@@ -1771,7 +1773,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
 
     for((enum, encodings) <- enums;
-        encodingsScope = new NamingScope();
+        encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       if (encoding.isWeak)

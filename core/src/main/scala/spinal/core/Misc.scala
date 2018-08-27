@@ -263,7 +263,7 @@ object cloneable {
 }
 
 
-class NamingScope(parent: NamingScope = null) {
+class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
   val map  = mutable.Map[String, Int]()
 
@@ -273,13 +273,13 @@ class NamingScope(parent: NamingScope = null) {
     val count = map.getOrElse(lowerCase, 0)
     map(lowerCase) = count + 1
     val finalCount =  count + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (finalCount == 0) name else name + "_" + finalCount
+    if (finalCount == 0) name else name + "_" + finalCount + duplicationPostfix
   }
 
   def getUnusedName(name: String): String = {
     val lowerCase = name.toLowerCase
     val count = map.getOrElse(lowerCase, 0) + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (count == 0) name else name + "_" + count
+    if (count == 0) name else name + "_" + count + duplicationPostfix
   }
 
 
@@ -302,7 +302,7 @@ class NamingScope(parent: NamingScope = null) {
     this.lock = true
   }
 
-  def newChild = new NamingScope(this)
+  def newChild = new NamingScope(duplicationPostfix, this)
 }
 
 
