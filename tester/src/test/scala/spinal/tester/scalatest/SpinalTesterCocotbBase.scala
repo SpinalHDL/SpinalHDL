@@ -76,7 +76,6 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     val pass = stdout.contains("**                                 ERRORS : 0                                      **")
 
     assert(!cocotbMustPass || pass,"Simulation fail")
-    if(cocotbMustPass && !pass) doCmd(List("cat /home/travis/build/SpinalHDL/SpinalHDL/tester/src/test/python/spinal/common/../../../../../../RiscvTesterCached.vhd"))
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")
   }
 
