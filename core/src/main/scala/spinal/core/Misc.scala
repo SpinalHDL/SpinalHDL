@@ -302,7 +302,7 @@ class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
     this.lock = true
   }
 
-  def newChild = new NamingScope(duplicationPostfix, this)
+  def newChild(duplicationPostfix : String = this.duplicationPostfix) = new NamingScope(duplicationPostfix, this)
 }
 
 

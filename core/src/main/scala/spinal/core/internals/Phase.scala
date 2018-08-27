@@ -776,7 +776,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
       case _ =>
     }
 
-    val scope = pc.globalScope.newChild
+    val scope = pc.globalScope.newChild("")
 
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
