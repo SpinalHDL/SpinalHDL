@@ -172,8 +172,20 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
+  val verboseLog = new java.io.FileWriter("verbose.log")
+
   def doPhase(phase: Phase): Unit ={
+    if(config.verbose) verboseLog.write(s"phase: $phase\n")
     phase.impl(this)
+    if(config.verbose){
+      var checksum = 0
+      def seed(that : Int) = checksum = ((checksum << 1) | ((checksum & 0x80000000) >> 31)) ^ that
+      walkComponents{c =>seed(c.getInstanceCounter)}
+      walkStatements{s =>seed(s.getInstanceCounter)}
+      verboseLog.write(s"checksum: $checksum\n")
+      verboseLog.flush()
+
+    }
     checkPendingErrors()
   }
 }

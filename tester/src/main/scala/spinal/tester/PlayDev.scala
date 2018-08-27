@@ -6,6 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
+import spinal.lib.com.i2c._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1137,9 +1138,37 @@ object PlayWithIndex222 extends App {
 }
 
 
+
+object PlayDeterministicGeneration extends App {
+  SpinalConfig(verbose=true).generateVerilog(new Component{
+    val e = for(i <- 0 until 2) yield new Area{
+      val ctrl = new spinal.lib.com.i2c.Apb3I2cCtrl(      I2cSlaveMemoryMappedGenerics(
+        ctrlGenerics = I2cSlaveGenerics(
+          samplingWindowSize = 3,
+          samplingClockDividerWidth = 10 bits,
+          timeoutWidth = 20 bits
+        ),
+        addressFilterCount = 4,
+        masterGenerics = I2cMasterMemoryMappedGenerics(
+          timerWidth = 12
+        )
+      ))
+
+      val io = new Bundle{
+        val apb =  slave(cloneOf(ctrl.io.apb))
+        val i2c = master(I2c())
+        val interrupt = out Bool
+      }
+
+      io <> ctrl.io
+    }
+  })
+
+}
+
 object PlayAssertFormal extends App {
   class MyTopLevel extends Component{
-    when(in Bool()){
+    when(False){
       when(False){
         assert(True,"asd")
         assume(True)
@@ -1155,7 +1184,6 @@ object PlayAssertFormal extends App {
   SpinalSystemVerilog(new MyTopLevel)
   SpinalVerilog(new MyTopLevel)
   SpinalVhdl(new MyTopLevel)
-
 }
 
 object PlayErrorImprovment extends App {
