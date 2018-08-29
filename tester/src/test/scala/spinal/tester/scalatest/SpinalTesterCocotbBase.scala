@@ -56,7 +56,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     assert(genHdlSuccess)
     val (langString, xmlPath) = lang match {
       case Language.VHDL => ("vhdl", testPath + "/sim_build/results.xml")
-      case Language.VERILOG => ("verilog", testPath + "/results.xml")
+      case Language.VERILOG | Language.SYSTEM_VERILOG => ("verilog", testPath + "/results.xml")
     }
     doCmd(Seq(
       s"rm -f $xmlPath"

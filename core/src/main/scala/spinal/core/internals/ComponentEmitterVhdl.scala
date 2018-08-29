@@ -1004,7 +1004,7 @@ class ComponentEmitterVhdl(
         case attribute: AttributeFlag   => "true"
       }
 
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}: signal is $value;\n"
+      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}$postfix : signal is $value;\n"
     }
   }
 
