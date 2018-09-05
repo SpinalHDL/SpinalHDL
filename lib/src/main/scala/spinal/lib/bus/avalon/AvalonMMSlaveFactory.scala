@@ -55,7 +55,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
       doWrite = doWrite,
       doRead = doRead,
       writeData = bus.writeData,
-      readData = readAtCmd
+      readData = readAtCmd.payload
     )
 
     switch(bus.address) {
