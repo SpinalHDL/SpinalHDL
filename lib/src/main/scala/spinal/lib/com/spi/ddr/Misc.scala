@@ -61,7 +61,7 @@ case class Parameters( dataWidth : Int,
                        mods : ArrayBuffer[ParameterMod] = ArrayBuffer()){
   def ssGen = spi.ssWidth != 0
   def addFullDuplex(id : Int): this.type ={
-    mods += ParameterMod(id, List(0), List(spi.dataWidth + 1))
+    mods += ParameterMod(id, List(0), List(1))
     this
   }
   def addHalfDuplex(id : Int, spiWidth : Int, ddr : Boolean): this.type = {
@@ -70,7 +70,7 @@ case class Parameters( dataWidth : Int,
     if(ddr)
       mods += ParameterMod(id, top ++ low, top ++ low)
     else
-      mods += ParameterMod(id, low, top)
+      mods += ParameterMod(id, low, low)
     this
   }
   def addAllMods(): this.type ={
@@ -151,7 +151,7 @@ class SpiDdrMasterCtrl(p: Parameters) extends Component {
     val state = RegInit(False)
     val counter = Reg(UInt(log2Up(p.dataWidth) bits)) init(0)
     val counterPlus = counter +  io.config.mod.muxList(U(0), p.mods.map(m => m.id -> U(m.bitrate))).resized
-    val readFill, readDone = RegNext(False) init(False)
+    val readFill, readDone = False
     val ss = RegInit(B((1 << p.spi.ssWidth) - 1, p.spi.ssWidth bits))
     io.spi.ss := ss
 
@@ -275,24 +275,27 @@ class SpiDdrMasterCtrl(p: Parameters) extends Component {
 
 
   val inputPhy = new Area{
-    val mod = RegNext(io.config.mod)
-    val fullRate = RegNext(io.config.fullRate)
+    def sync[T <: Data](that : T, init : T = null) = Delay(that,2,init=init)
+    val mod = sync(io.config.mod)
+    val fullRate = sync(io.config.fullRate)
+    val readFill = sync(fsm.readFill, False)
+    val readDone = sync(fsm.readDone, False)
     val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))
     val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
     val widthSel = mod.muxList(U(0),p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate))))
     val dataWrite, dataRead = Bits(maxBitRate bits)
-    val dataReadBuffer = RegNextWhen(Cat(io.spi.data.map(_.read(1))), !RegNext(fsm.state, init = False))
+    val dataReadBuffer = RegNextWhen(Cat(io.spi.data.map(_.read(1))), !sync(fsm.state))
     val dataReadSource = Cat(io.spi.data.map(_.read(0))) ## dataReadBuffer
 
     dataRead.assignDontCare()
 
     switch(mod){
       for(mod <- p.mods){
-        val modIsDdr = mod.writeMapping.exists(_ >= p.spi.dataWidth)
+//        val modIsDdr = mod.writeMapping.exists(_ >= p.spi.dataWidth)
         is(mod.id) {
           when(fullRate){
             for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
-              dataRead(targetId) := io.spi.data(sourceId % p.spi.dataWidth ).read(sourceId / p.spi.dataWidth)
+              dataRead(targetId) := io.spi.data(sourceId % p.spi.dataWidth).read(1 - sourceId / p.spi.dataWidth)
             }
           } otherwise {
             for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
@@ -308,12 +311,12 @@ class SpiDdrMasterCtrl(p: Parameters) extends Component {
       for ((width,widthId) <- widths.zipWithIndex) {
         is(widthId) {
           bufferNext := (buffer ## dataRead(0, width bits)).resized
-          when(fsm.readFill) { buffer := bufferNext.resized }
+          when(readFill) { buffer := bufferNext.resized }
         }
       }
     }
 
-    io.rsp.valid := fsm.readDone
+    io.rsp.valid := readDone
     io.rsp.data := bufferNext
   }
 }

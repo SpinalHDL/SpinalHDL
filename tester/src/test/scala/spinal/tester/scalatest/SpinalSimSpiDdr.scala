@@ -98,17 +98,21 @@ class SpinalSimSpiDdrMaster extends FunSuite {
                 } else {
                   assert(dut.io.spi.sclk.write.toInt == (if(cpol ^ cpha ^ high) 3 else 0))
                 }
-                if(mod == 0)
-                  dut.io.spi.data(1).read #= ((readData >> (8-dataRate-beat*dataRate)) & 1)*3
-                else{
-                  for(i <- 0 until spiWidth) {
-                    if(!ddr)
-                      dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beat*dataRate + i)) & 1)*3
-                    else{
-                      if(!fullRate){
-                        dut.io.spi.data(i).read #= ((readData >> (8-(if(!high) spiWidth else dataRate)-beat*dataRate + i)) & 1)*3
-                      } else {
-                        dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beat*dataRate + i)) & 1)*2 + ((readData >> (8-spiWidth-beat*dataRate + i)) & 1)
+                val beatBuffer = beat
+                fork{
+                  dut.clockDomain.waitSampling()
+                  if(mod == 0)
+                    dut.io.spi.data(1).read #= ((readData >> (8-dataRate-beatBuffer*dataRate)) & 1)*3
+                  else{
+                    for(i <- 0 until spiWidth) {
+                      if(!ddr)
+                        dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beatBuffer*dataRate + i)) & 1)*3
+                      else{
+                        if(!fullRate){
+                          dut.io.spi.data(i).read #= ((readData >> (8-(if(!high) spiWidth else dataRate)-beatBuffer*dataRate + i)) & 1)*3
+                        } else {
+                          dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beatBuffer*dataRate + i)) & 1) + ((readData >> (8-spiWidth-beatBuffer*dataRate + i)) & 1)*2
+                        }
                       }
                     }
                   }
