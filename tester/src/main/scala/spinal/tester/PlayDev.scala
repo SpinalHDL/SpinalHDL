@@ -1197,6 +1197,16 @@ object PlayErrorImprovment extends App {
   println("asd")
 }
 
+object PlayInitBoot extends App {
+  class MyTopLevel extends Component{
+    val data = RegInit(B"00")
+    data := 1
+  }
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+  println("asd")
+}
+
 
 object PlayNamingImprovment extends App{
   def gen(c : => Component): Unit ={

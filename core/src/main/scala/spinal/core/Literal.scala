@@ -109,6 +109,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 object B extends BitVectorLiteralFactory[Bits] {
   def apply(): Bits = new Bits()
   def apply(that: Data): Bits = that.asBits
+  def apply(that: Data, width : BitCount): Bits = that.asBits.resize(width)
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
@@ -129,6 +130,10 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: SInt): UInt = that.asUInt
   def apply(that: UFix): UInt = that.toUInt
 
+  def apply(that: Bool, width : BitCount): UInt = that.asUInt.resize(width)
+  def apply(that: Bits, width : BitCount): UInt = that.asUInt.resize(width)
+  def apply(that: SInt, width : BitCount): UInt = that.asUInt.resize(width)
+
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
   override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
@@ -144,6 +149,10 @@ object S extends BitVectorLiteralFactory[SInt] {
   def apply(that: Bits): SInt = that.asSInt
   def apply(that: UInt): SInt = that.asSInt
   def apply(that: SFix): SInt = that.toSInt
+
+  def apply(that: Bool, width : BitCount): SInt = that.asSInt.resize(width)
+  def apply(that: Bits, width : BitCount): SInt = that.asSInt.resize(width)
+  def apply(that: UInt, width : BitCount): SInt = that.asSInt.resize(width)
 
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
