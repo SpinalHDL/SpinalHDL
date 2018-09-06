@@ -36,7 +36,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
+    outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel))
     emitEnumPackage(outFile)
 
     if(pc.config.genVhdlPkg)
