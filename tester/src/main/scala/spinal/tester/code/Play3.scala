@@ -1441,8 +1441,17 @@ object PlayWithBlackBoxStdLogic{
   }
 
   def main(args: Array[String]) {
+
+    val header =
+      """
+        | Here is a custom header :
+        |   1. Mino
+        |   2. Toto
+        |   3. Lolo""".stripMargin
+
     val report = SpinalConfig(
-      mode = VHDL
+      mode = VHDL,
+      rtlHeader = header
     ).generate(new FakeComponent)
 
   }
