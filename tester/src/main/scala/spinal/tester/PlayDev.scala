@@ -1211,6 +1211,18 @@ object PlayInitBoot extends App {
 }
 
 
+object PlayErrorReportingImprovmenet extends App {
+  class MyTopLevel extends Component{
+    val a = B"0101010"
+    val index = U"10001010"
+    out(a(index))
+  }
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
 
 object PlayHardType extends App {
   case class A() extends Bundle{

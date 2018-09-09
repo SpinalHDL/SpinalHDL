@@ -507,7 +507,7 @@ object StreamFragmentGenerator {
   }
 
   def apply[T <: Data](event: Event, packetData: Vec[T], dataType: T): Stream[Fragment[T]] = {
-    val ret = Stream Fragment (packetData.dataType)
+    val ret = Stream Fragment (packetData.dataType())
     val counter = Counter(packetData.size)
 
     event.ready := Bool(false)
