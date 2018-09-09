@@ -6,22 +6,23 @@ import spinal.core._
 class FlowFactory extends MSFactory{
   object Fragment extends FlowFragmentFactory
 
-  def apply[T <: Data](dataType: T) = {
-    val ret = new Flow(dataType)
+  def apply[T <: Data](hardType: HardType[T]) = {
+    val ret = new Flow(hardType)
     postApply(ret)
     ret
   }
 
+  def apply[T <: Data](hardType: => T) : Flow[T] = apply(HardType(hardType))
 }
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T]{
+class Flow[T <: Data](hardType: HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T]{
   val valid = Bool
-  val payload : T = cloneOf(_dataType)
+  val payload : T = hardType()
 
-  def dataType = cloneOf(_dataType)
-  override def clone: Flow[T] = Flow(_dataType).asInstanceOf[this.type]
+  def dataType = hardType()
+  override def clone: Flow[T] = Flow(hardType).asInstanceOf[this.type]
 
   override def asMaster(): Unit = out(this)
   override def asSlave() : Unit  = in(this)
@@ -72,7 +73,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
-    val next = new Flow(_dataType)
+    val next = new Flow(hardType)
     next.valid := this.valid && cond
     next.payload := this.payload
     return next

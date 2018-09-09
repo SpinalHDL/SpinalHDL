@@ -35,9 +35,9 @@ import scala.util.Random
 
 class SpinalSimSpiDdrMaster extends FunSuite {
 
-  var compiled : SimCompiled[SpiDdrMasterCtrl] = null
+  var compiled : SimCompiled[SpiDdrMasterCtrl.TopLevel] = null
   test("compile"){
-    compiled = SimConfig.withWave.compile(new SpiDdrMasterCtrl(Parameters(8,12,SpiParameter(4,3,true)).addAllMods()))
+    compiled = SimConfig.compile(SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods()))
   }
 
 

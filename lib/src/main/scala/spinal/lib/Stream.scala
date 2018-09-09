@@ -6,11 +6,14 @@ import spinal.core._
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
 
-  def apply[T <: Data](dataType:  T) = {
-    val ret = new Stream(dataType)
+
+  def apply[T <: Data](hardType: HardType[T]) = {
+    val ret = new Stream(hardType)
     postApply(ret)
     ret
   }
+
+  def apply[T <: Data](hardType: => T) : Stream[T] = apply(HardType(hardType))
 }
 object Stream extends StreamFactory
 
@@ -23,14 +26,14 @@ class EventFactory extends MSFactory {
 }
 
 
-class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
+class Stream[T <: Data](hardType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid   = Bool
   val ready   = Bool
-  val payload = cloneOf(_dataType)
+  val payload = hardType()
 
 
-  def dataType : T  = _dataType
-  override def clone: Stream[T] =  Stream(_dataType)
+  def dataType : T  = hardType()
+  override def clone: Stream[T] =  Stream(hardType)
 
   override def asMaster(): Unit = {
     out(valid)
@@ -49,14 +52,14 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   */
   def toFlow: Flow[T] = {
     freeRun()
-    val ret = Flow(_dataType)
+    val ret = Flow(hardType)
     ret.valid := this.valid
     ret.payload := this.payload
     ret
   }
 
   def asFlow: Flow[T] = {
-    val ret = Flow(_dataType)
+    val ret = Flow(hardType)
     ret.valid := this.valid
     ret.payload := this.payload
     ret
@@ -224,10 +227,10 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false): Stream[T] = {
-    val ret = Stream(_dataType)
+    val ret = Stream(hardType)
 
     val rValid = RegInit(False)
-    val rData = Reg(_dataType)
+    val rData = Reg(hardType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
@@ -245,10 +248,10 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   }
 
   def s2mPipe(): Stream[T] = {
-    val ret = Stream(_dataType)
+    val ret = Stream(hardType)
 
     val rValid = RegInit(False)
-    val rBits = Reg(_dataType)
+    val rBits = Reg(hardType)
 
     ret.valid := this.valid || rValid
     this.ready := !rValid
@@ -273,7 +276,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   }
 
   def validPipe() : Stream[T] = {
-    val sink = Stream(_dataType)
+    val sink = Stream(hardType)
     val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
     sink.valid := validReg
     sink.payload := this.payload
@@ -284,7 +287,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
   def halfPipe(): Stream[T] = {
-    val ret = Stream(_dataType)
+    val ret = Stream(hardType)
 
     val rValid = RegInit(False)
     val rReady = RegInit(True)
@@ -316,7 +319,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Block this when cond is False. Return the resulting stream
   */
   def continueWhen(cond: Bool): Stream[T] = {
-    val next = new Stream(_dataType)
+    val next = new Stream(hardType)
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.payload := this.payload
@@ -409,7 +412,7 @@ object StreamArbiter {
   }
 }
 
-class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area,val lockFactory: (StreamArbiter[T]) => Area) extends Component {
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area,val lockFactory: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)

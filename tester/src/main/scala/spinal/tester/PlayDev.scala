@@ -7,6 +7,7 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
+import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1187,10 +1188,12 @@ object PlayAssertFormal extends App {
 }
 
 object PlayErrorImprovment extends App {
-  class MyTopLevel extends Component{
-    val data_old = B("32'd0")
-    val enable = True
-    val data = RegNext(data_old, enable)
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val state = out Bool
+    }
+    val a = RegInit(False)
+    io.state := a
   }
 
   val report = SpinalSystemVerilog(new MyTopLevel)
@@ -1207,6 +1210,38 @@ object PlayInitBoot extends App {
   println("asd")
 }
 
+
+
+object PlayHardType extends App {
+  case class A() extends Bundle{
+    println("A")
+    val x,y,z = Bool
+  }
+  class MyTopLevel extends Component{
+//    def f[T <: Data](hardType : HardType[T]) = {
+//      println("f start")
+//      hardType()
+//      println("f done")
+//    }
+//
+//    println("\nf(HardType(A()))")
+//    f(HardType(A()))
+//    println("\nf(A())")
+//    f(A())
+
+
+    val x = U"000"
+    val y = U()
+    y := x
+    val z = cloneOf(y)
+    println(widthOf(z))
+  }
+
+
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+  println("asd")
+}
 
 object PlayNamingImprovment extends App{
   def gen(c : => Component): Unit ={
@@ -1226,3 +1261,12 @@ object PlayNamingImprovment extends App{
     miaou := readableOutput
   })
 }
+
+
+object PlayScopeImport{
+//  case class Parameters(){
+//
+//  }
+  SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods())
+}
+

@@ -1140,7 +1140,13 @@ end
     val encoding = e.getEncoding
 
     encoding match {
-      case `binaryOneHot` => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
+      case `binaryOneHot` => {
+        (e.left, e.right) match {
+//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
+//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
+          case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
+        }
+      }
       case _              => s"(${emitExpression(e.left)} ${if (eguals) "==" else "!="} ${emitExpression(e.right)})"
     }
   }

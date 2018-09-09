@@ -1184,15 +1184,17 @@ private[spinal] object Multiplex {
     else throw new Exception("can't mux that")
 
     val muxOut = weakCloneOf(outType)
-    val muxInTrue = cloneOf(muxOut)
-    val muxInFalse = cloneOf(muxOut)
-
-    muxInTrue := whenTrue
-    muxInFalse := whenFalse
+    val muxInTrue = whenTrue
+    val muxInFalse = whenFalse
+//    val muxInTrue = weakCloneOf(muxOut)
+//    val muxInFalse = weakCloneOf(muxOut)
+//
+//    muxInTrue := whenTrue
+//    muxInFalse := whenFalse
 
     for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
-      if (t == null) SpinalError("Create a mux with incompatible true input type")
-      if (f == null) SpinalError("Create a mux with incompatible false input type")
+      if (out.getClass != t.getClass) SpinalError("Create a mux with incompatible true input type")
+      if (out.getClass != f.getClass) SpinalError("Create a mux with incompatible false input type")
 
       out.assignFrom(Multiplex.baseType(sel, t.setAsTypeNode(), f.setAsTypeNode()))
       out.setAsTypeNode()

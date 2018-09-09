@@ -130,22 +130,20 @@ object PlayEnum{
 
 
   class TopLevel extends Component {
-//    val a, b, c = in(State())
-//    val d, e, f = out(State())
-//    val i,j,k = out(State(binarySequential))
-    val j = out(State(binarySequential))
-    val cond = in Bool
 
-//    d := a
-//    d := cond ? a | b
-//    i := a
-    val t = State.B.apply()
-    j := cond ? t | State.C
+    val input = in(State(binaryOneHot))
+    val cond = out Bool()
+
+    cond := False
+    when(input === State.C){
+      cond := True
+    }
 
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+    SpinalVhdl(new TopLevel())
 
   }
 }

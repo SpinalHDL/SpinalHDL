@@ -35,7 +35,7 @@ object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
   def apply(bools: Seq[Bool]): UInt = {
     val boolsSize = bools.size
-    if (boolsSize < 2) return U(0)
+    if (boolsSize < 2) return U(0,0 bits)
 
     val retBitCount = log2Up(bools.size)
     val ret = Vec(Bool,retBitCount)

@@ -971,8 +971,7 @@ object PlaySymplify {
 
 object PlayBug {
   class TopLevel() extends Component{
-    val result = Bits(16 bits)
-    result(15 downto 4) := 0x70
+    Mux(True, U"0", B"0")
   }
 
   def main(args: Array[String]): Unit = {

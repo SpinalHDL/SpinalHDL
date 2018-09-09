@@ -83,7 +83,11 @@ object cloneOf {
  */
 object weakCloneOf {
   def apply[T <: Data](that: T): T = {
-    val ret = cloneOf(that)
+    val ret = that match {
+      case that : BitVector => that.weakClone.asInstanceOf[T]
+      case _ => cloneOf(that)
+    }
+
     ret.flatten.foreach {
       case bv: BitVector => bv.unfixWidth()
       case _             =>
@@ -105,11 +109,16 @@ object widthOf {
 
 
 object HardType{
-  implicit def implFactory[T <: Data](t : T): HardType[T] = new HardType(t)
+  implicit def implFactory[T <: Data](t : => T): HardType[T] = new HardType(t)
+  def apply[T <: Data](t : => T) = new HardType(t)
 }
 
-class HardType[T <: Data](t : T){
-  def apply()   = cloneOf(t)
+class HardType[T <: Data](t : => T){
+  def apply()   = {
+    val id = GlobalData.get.instanceCounter
+    val called = t
+    if(called.getInstanceCounter < id) cloneOf(called) else called
+  }
   def getBitsWidth = t.getBitsWidth
 }
 
