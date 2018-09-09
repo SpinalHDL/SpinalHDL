@@ -1234,6 +1234,14 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
     func(source)
   }
 
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- vector : $source
+       |- index  : $bitId
+       |""".stripMargin
+  }
+
   //  override def checkInferedWidth: Unit = {
   //    if (bitId < 0 || bitId >= getBitVector.getWidth) {
   //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
@@ -1278,8 +1286,13 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   override def getBitVector: Expression = source
 
   override def normalizeInputs: Unit = {
+
     if(source.getWidth == 0){
-      PendingError(s"Can't access ${source} bits, as it has none")
+      PendingError(s"Can't access ${source} bits, as it has none\n${getScalaLocationLong}")
+    }
+    if (bitId.getWidth > log2Up(source.getWidth)) {
+      bitId = InputNormalize.resizedOrUnfixedLit(bitId, log2Up(source.getWidth), new ResizeUInt, this, this)
+      //PendingError(s"Index ${bitId} used to access ${source} has to many bits\n${getScalaLocationLong}")
     }
   }
 
@@ -1318,6 +1331,13 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   //      else
   //        (-1,0)
   //  }
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- vector : $source
+       |- index  : $bitId
+       |""".stripMargin
+  }
 }
 
 /** Bits access with a floating index */

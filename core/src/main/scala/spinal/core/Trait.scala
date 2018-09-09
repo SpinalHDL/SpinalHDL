@@ -132,6 +132,7 @@ class GlobalData {
 
   var anonymSignalPrefix: String = null
   var commonClockConfig = ClockDomainConfig()
+  var phaseContext : PhaseContext = null
 
   var nodeAreNamed                 = false
   var nodeAreInferringWidth        = false
@@ -142,7 +143,21 @@ class GlobalData {
   val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
-  val scalaLocatedInterrests = mutable.HashSet[Class[_]]()
+  val scalaLocatedComponents = mutable.HashSet[Class[_]]()
+  val scalaLocateds = mutable.HashSet[ScalaLocated]()
+
+  def applyScalaLocated(): Unit ={
+    val pc = GlobalData.get.phaseContext
+    pc.walkComponents(c => {
+      c.dslBody.walkStatements(s => {
+        if(scalaLocateds.contains(s)) {scalaLocatedComponents += c.getClass}
+        s.walkExpression(e => {
+          if(scalaLocateds.contains(e)) {scalaLocatedComponents += c.getClass}
+        })
+      })
+    })
+  }
+
   var instanceCounter    = 0
   val pendingErrors      = mutable.ArrayBuffer[() => String]()
   val postBackendTask    = mutable.ArrayBuffer[() => Unit]()
@@ -187,14 +202,6 @@ trait GlobalDataUser {
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
   var parentScope = if(globalData != null) globalData.currentScope else null
-
-
-  override def getScalaTrace() = {
-    if(!globalData.scalaLocatedEnable && component != null) {
-      globalData.scalaLocatedInterrests += component.getClass
-    }
-    super.getScalaTrace()
-  }
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -478,7 +485,7 @@ object ScalaLocated {
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedInterrests.contains(globalData.currentScope.component.getClass))) {
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
     null
   } else {
     new Throwable()
@@ -489,7 +496,10 @@ trait ScalaLocated extends GlobalDataUser {
     this
   }
 
-  def getScalaTrace(): Throwable = scalaTrace
+  def getScalaTrace(): Throwable = {
+    globalData.scalaLocateds += this
+    scalaTrace
+  }
 
 
   def getScalaLocationLong: String = ScalaLocated.long(getScalaTrace())

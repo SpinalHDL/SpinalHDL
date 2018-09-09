@@ -142,7 +142,7 @@ case class SpinalConfig(
 
   def applyToGlobalData(globalData: GlobalData): Unit = {
     globalData.scalaLocatedEnable = debugComponents.nonEmpty
-    globalData.scalaLocatedInterrests ++= debugComponents
+    globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
   }
 

@@ -1216,6 +1216,7 @@ object PlayErrorReportingImprovmenet extends App {
     val a = B"0101010"
     val index = U"10001010"
     out(a(index))
+    out(a & B"00")
   }
 
   val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)

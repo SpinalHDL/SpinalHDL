@@ -129,6 +129,18 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
+  def walkAll(func: Any => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => {
+      func(c)
+      c.dslBody.walkStatements(s => {
+        func(s)
+        s.walkExpression(e => {
+          func(e)
+        })
+      })
+    })
+  }
+
   def walkStatements(func: Statement => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(func))
   }
@@ -1915,13 +1927,18 @@ object SpinalVhdlBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
 
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
@@ -2040,7 +2057,10 @@ object SpinalVerilogBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
@@ -2048,6 +2068,7 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
 
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
 
     val prunedSignals    = mutable.Set[BaseType]()
