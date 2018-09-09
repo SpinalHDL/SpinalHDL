@@ -5,7 +5,7 @@ import spinal.core._
 import scala.collection.mutable.ArrayBuffer
 
 class FragmentFactory {
-  def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
+  def apply[T <: Data](fragmentType: HardType[T]): Fragment[T] = new Fragment(fragmentType)
 }
 
 object Fragment extends FragmentFactory
@@ -136,7 +136,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
   }
 
   def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]], Bool) = {
-    val ret = Flow Fragment (pimped.dataType)
+    val ret = Flow Fragment (pimped.payloadType)
     val softReset = RegInit(True)
     val inMagic = RegInit(False)
     val buffer = Reg(pimped)
@@ -408,7 +408,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
 
 
 class FlowFragmentFactory extends MSFactory {
-  def apply[T <: Data](dataType: T): Flow[Fragment[T]] = {
+  def apply[T <: Data](dataType: HardType[T]): Flow[Fragment[T]] = {
     val ret = new Flow(Fragment(dataType))
     postApply(ret)
     ret
@@ -416,21 +416,21 @@ class FlowFragmentFactory extends MSFactory {
 }
 
 class StreamFragmentFactory extends MSFactory {
-  def apply[T <: Data](dataType: T): Stream[Fragment[T]] = {
-    val ret = new Stream(Fragment(dataType))
+  def apply[T <: Data](fragmentType: HardType[T]): Stream[Fragment[T]] = {
+    val ret = new Stream(Fragment(fragmentType))
     postApply(ret)
     ret
   }
 }
 
 
-class Fragment[T <: Data](_dataType: T) extends Bundle {
+class Fragment[T <: Data](val fragmentType: HardType[T]) extends Bundle {
   val last = Bool
-  val fragment: T = cloneOf(_dataType)
+  val fragment: T = fragmentType()
 
-  def dataType = cloneOf(_dataType)
+  def dataType = fragmentType()
   override def clone: this.type = {
-    new Fragment(_dataType).asInstanceOf[this.type];
+    new Fragment(fragmentType).asInstanceOf[this.type]
   }
 }
 
