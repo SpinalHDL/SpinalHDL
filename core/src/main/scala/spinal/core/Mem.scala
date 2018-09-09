@@ -69,13 +69,13 @@ object registerFile extends MemTechnologyKind {
 
 
 object Mem {
-  def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
-  def apply[T <: Data](wordType: T, wordCount: BigInt) = {
+  def apply[T <: Data](wordType: HardType[T], wordCount: Int) = new Mem(wordType, wordCount)
+  def apply[T <: Data](wordType: HardType[T], wordCount: BigInt) = {
     assert(wordCount <= Integer.MAX_VALUE)
     new Mem(wordType, wordCount.toInt)
   }
 
-  def apply[T <: Data](wordType: T, initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
+  def apply[T <: Data](wordType: HardType[T], initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
 }
 
@@ -90,15 +90,15 @@ object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
 
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady {
+class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady {
 
   if(parentScope != null) parentScope.append(this)
 
   var forceMemToBlackboxTranslation = false
-  val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
+  val _widths = wordType().flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width   = _widths.reduce(_ + _)
 
-  def wordType: T = cloneOf(_wordType)
+
   def byteCount = ((width+7)/8)*wordCount
 
   var technology: MemTechnologyKind = auto
@@ -190,7 +190,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
     ret
   }
 
-  def addressType = UInt(addressWidth bit)
+  val addressType = HardType(UInt(addressWidth bit))
 
 //  def addressTypeAt(initialValue: BigInt) = U(initialValue, addressWidth bit)
 //
@@ -223,7 +223,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
   }
 
   def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
-    val readWord = wordType
+    val readWord = wordType()
     readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false)
     readWord
   }

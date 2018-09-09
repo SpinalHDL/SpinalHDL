@@ -28,8 +28,8 @@ object PlayDevMem{
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bits), 64)
     val p0 = new Bundle{
-      val address = in(mem.addressType)
-      val data = in(mem.wordType)
+      val address = in(mem.addressType())
+      val data = in(mem.wordType())
       val mask = in(Bits(4 bits))
       val enable = in Bool()
     }
@@ -38,15 +38,15 @@ object PlayDevMem{
     }
 
     val p1 = new Bundle{
-      val address = in(mem.addressType)
-      val data = out(mem.wordType)
+      val address = in(mem.addressType())
+      val data = out(mem.wordType())
     }
     p1.data := mem.readSync(p1.address, True)
 
 
     val p2 = new Bundle{
-      val address = in(mem.addressType)
-      val data = out(mem.wordType)
+      val address = in(mem.addressType())
+      val data = out(mem.wordType())
     }
     p2.data := mem.readAsync(p2.address)
     val xx = RegNext(True)
@@ -54,8 +54,8 @@ object PlayDevMem{
     println(LatencyAnalysis(p0.address, p2.data))
 
     val p3 = new Bundle{
-      val address = in(mem.addressType)
-      val data = in(mem.wordType)
+      val address = in(mem.addressType())
+      val data = in(mem.wordType())
       val mask = in(Bits(4 bits))
       val enable = in Bool()
       val wr = in Bool()

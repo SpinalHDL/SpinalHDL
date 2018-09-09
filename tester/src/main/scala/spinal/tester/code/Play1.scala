@@ -2690,8 +2690,8 @@ object PlayRam {
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bit),8)
 
-    val address = in(mem.addressType)
-    val writeData = in(mem.wordType)
+    val address = in(mem.addressType())
+    val writeData = in(mem.wordType())
     val writeMask = in Bits(4 bits)
     val enable,write = in Bool()
     val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))

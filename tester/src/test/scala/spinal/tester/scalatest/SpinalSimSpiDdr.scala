@@ -45,6 +45,7 @@ class SpinalSimSpiDdrMaster extends FunSuite {
     val name = s"test cpol=$cpol cpha=$cpha"
     test(name) {
       compiled.doSim(name, 32) { dut =>
+        SimTimeout(10*100000)
         dut.clockDomain.forkStimulus(10)
         dut.io.config.kind.cpha #= cpha
         dut.io.config.kind.cpol #= cpol
