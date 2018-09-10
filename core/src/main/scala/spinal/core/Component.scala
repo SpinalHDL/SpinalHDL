@@ -234,7 +234,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] def allocateNames(globalScope: NamingScope): Unit = {
 
     localNamingScope = globalScope.newChild()
-    localNamingScope.allocateName(globalData.anonymSignalPrefix)
+    val anonymPrefix = if(globalData.phaseContext.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + this.definitionName else globalData.anonymSignalPrefix
+    localNamingScope.allocateName(anonymPrefix)
 
     for (child <- children) {
       OwnableRef.proposal(child, this)
@@ -249,7 +250,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     dslBody.walkStatements{
       case nameable : Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
-          nameable.unsetName().setName(globalData.anonymSignalPrefix, Nameable.DATAMODEL_WEAK)
+          nameable.unsetName().setName(anonymPrefix, Nameable.DATAMODEL_WEAK)
         }
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)
