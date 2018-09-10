@@ -20,10 +20,11 @@
 \*                                                                           */
 package spinal.core.internals
 
-import java.io.{FileWriter, BufferedWriter, File}
-import scala.collection.mutable.ListBuffer
+import java.io.{BufferedWriter, File, FileWriter}
 
+import scala.collection.mutable.ListBuffer
 import spinal.core._
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -1066,6 +1067,18 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
     }
 
     toRemove.foreach(_.removeStatement())
+
+
+    //propagate literals over one basetype
+    walkStatements{s =>
+      s.remapDrivingExpressions{
+        case e : BaseType if e.isComb && !e.isNamed && e.isDirectionLess && Statement.isSomethingToFullStatement(e) => e.head match {
+          case DataAssignmentStatement(_, lit : Literal) => lit.clone //clone because Expression can only be once in the graph
+          case _ => e
+        }
+        case e => e
+      }
+    }
   }
 }
 

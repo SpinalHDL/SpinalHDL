@@ -41,11 +41,11 @@ class SpinalSimSpiDdrMaster extends FunSuite {
   }
 
 
-  for(cpol <- List(false, true); cpha <- List(false, true)) {
-    val name = s"test cpol=$cpol cpha=$cpha"
+  for(cpol <- List(false, true); cpha <- List(false, true); repeat <- 0 to 0) {
+    val name = s"test cpol=$cpol cpha=$cpha $repeat"
     test(name) {
-      compiled.doSim(name, 32) { dut =>
-        SimTimeout(10*100000)
+      compiled.doSim(name) { dut =>
+        SimTimeout(10*1000000)
         dut.clockDomain.forkStimulus(10)
         dut.io.config.kind.cpha #= cpha
         dut.io.config.kind.cpol #= cpol
@@ -59,7 +59,7 @@ class SpinalSimSpiDdrMaster extends FunSuite {
           rspScoreboard.pushDut(rsp.data.toInt)
         }
 
-        while(rspScoreboard.matches != 300){
+        while(rspScoreboard.matches < 300){
           dut.io.cmd.valid #= true
 //          if(Random.nextFloat() < 0.8){
           val mods = List(0, 2,3, 4,5)

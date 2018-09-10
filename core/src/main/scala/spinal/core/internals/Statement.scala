@@ -356,6 +356,8 @@ object DataAssignmentStatement{
     ret.finalTarget.dlcAppend(ret)
     ret
   }
+
+  def unapply(x: DataAssignmentStatement): Option[(Expression, Expression)] = Some(x.target, x.source)
 }
 
 

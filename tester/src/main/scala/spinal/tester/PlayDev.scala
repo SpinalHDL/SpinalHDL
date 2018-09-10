@@ -1231,28 +1231,21 @@ object PlayHardType extends App {
     val x,y,z = Bool
   }
   class MyTopLevel extends Component{
-//    def f[T <: Data](hardType : HardType[T]) = {
-//      println("f start")
-//      hardType()
-//      println("f done")
-//    }
-//
-//    println("\nf(HardType(A()))")
-//    f(HardType(A()))
-//    println("\nf(A())")
-//    f(A())
 
+    def f() = {
+      val ret = Bits(32 bits)
+      val lit = True
+      ret.asBools.foreach(_ := lit)
+      ret
+    }
 
-    val x = U"000"
-    val y = U()
-    y := x
-    val z = cloneOf(y)
-    println(widthOf(z))
+    out(f())
   }
 
 
 
   val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+   SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVhdl(new MyTopLevel)
   println("asd")
 }
 
