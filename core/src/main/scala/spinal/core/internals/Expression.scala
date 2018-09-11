@@ -1184,15 +1184,17 @@ private[spinal] object Multiplex {
     else throw new Exception("can't mux that")
 
     val muxOut = weakCloneOf(outType)
-    val muxInTrue = cloneOf(muxOut)
-    val muxInFalse = cloneOf(muxOut)
-
-    muxInTrue := whenTrue
-    muxInFalse := whenFalse
+    val muxInTrue = whenTrue
+    val muxInFalse = whenFalse
+//    val muxInTrue = weakCloneOf(muxOut)
+//    val muxInFalse = weakCloneOf(muxOut)
+//
+//    muxInTrue := whenTrue
+//    muxInFalse := whenFalse
 
     for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
-      if (t == null) SpinalError("Create a mux with incompatible true input type")
-      if (f == null) SpinalError("Create a mux with incompatible false input type")
+      if (out.getClass != t.getClass) SpinalError("Create a mux with incompatible true input type")
+      if (out.getClass != f.getClass) SpinalError("Create a mux with incompatible false input type")
 
       out.assignFrom(Multiplex.baseType(sel, t.setAsTypeNode(), f.setAsTypeNode()))
       out.setAsTypeNode()
@@ -1230,6 +1232,14 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(source)
+  }
+
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- vector : $source
+       |- index  : $bitId
+       |""".stripMargin
   }
 
   //  override def checkInferedWidth: Unit = {
@@ -1276,8 +1286,13 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   override def getBitVector: Expression = source
 
   override def normalizeInputs: Unit = {
+
     if(source.getWidth == 0){
-      PendingError(s"Can't access ${source} bits, as it has none")
+      PendingError(s"Can't access ${source} bits, as it has none\n${getScalaLocationLong}")
+    }
+    if (bitId.getWidth > log2Up(source.getWidth)) {
+      bitId = InputNormalize.resizedOrUnfixedLit(bitId, log2Up(source.getWidth), new ResizeUInt, this, this)
+      //PendingError(s"Index ${bitId} used to access ${source} has to many bits\n${getScalaLocationLong}")
     }
   }
 
@@ -1316,6 +1331,13 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   //      else
   //        (-1,0)
   //  }
+
+  override def toStringMultiLine() = {
+    s"""$this
+       |- vector : $source
+       |- index  : $bitId
+       |""".stripMargin
+  }
 }
 
 /** Bits access with a floating index */

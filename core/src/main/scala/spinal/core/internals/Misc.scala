@@ -32,7 +32,7 @@ object ScalaUniverse {
 }
 
 
-trait BaseNode {
+trait BaseNode extends ScalaLocated{
   var algoInt, algoIncrementale = 0
 
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
@@ -264,3 +264,8 @@ object GraphUtils{
 }
 
 
+object formal{
+  def apply(that : AssertStatement) = {
+    that.addTag(new IfDefTag("FORMAL"))
+  }
+}

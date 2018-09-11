@@ -40,6 +40,7 @@ import scala.util.matching.Regex
 trait SpinalMode
 object VHDL    extends SpinalMode
 object Verilog extends SpinalMode
+object SystemVerilog extends SpinalMode
 
 
 case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
@@ -104,34 +105,36 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
 /**
  * Spinal configuration for the generation of the RTL 
  */
-case class SpinalConfig(
-   mode                           : SpinalMode = null,
-   @deprecated debug              : Boolean = false,
-   debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
-   keepAll                        : Boolean = false,
-   defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
-   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
-   defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
-   targetDirectory                : String = ".",
-   oneFilePerComponent            : Boolean = false,
-   netlistFileName                : String = null,
-   dumpWave                       : DumpWaveConfig = null,
-   globalPrefix                   : String = "",
-   anonymSignalPrefix             : String = null,
-   device                         : Device = Device(),
-   inlineRom                      : Boolean = false,
-   genVhdlPkg                     : Boolean = true,
-   verbose                        : Boolean = false,
-   mergeAsyncProcess              : Boolean = true,
-   asyncResetCombSensitivity      : Boolean = false,
-   phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-   transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-   memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+case class SpinalConfig( mode                           : SpinalMode = null,
+                         @deprecated debug              : Boolean = false,
+                         debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
+                         keepAll                        : Boolean = false,
+                         defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
+                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
+                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
+                         targetDirectory                : String = ".",
+                         oneFilePerComponent            : Boolean = false,
+                         netlistFileName                : String = null,
+                         dumpWave                       : DumpWaveConfig = null,
+                         globalPrefix                   : String = "",
+                         anonymSignalPrefix             : String = null,
+                         device                         : Device = Device(),
+                         inlineRom                      : Boolean = false,
+                         genVhdlPkg                     : Boolean = true,
+                         verbose                        : Boolean = false,
+                         mergeAsyncProcess              : Boolean = true,
+                         asyncResetCombSensitivity      : Boolean = false,
+                         anonymSignalUniqueness         : Boolean = false,
+                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
+                         rtlHeader                      : String = null
 ){
 
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
+  def generateSystemVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = SystemVerilog))(gen)
 
   def apply[T <: Component](gen : => T): SpinalReport[T] = {
     Spinal(this)(gen)
@@ -139,7 +142,7 @@ case class SpinalConfig(
 
   def applyToGlobalData(globalData: GlobalData): Unit = {
     globalData.scalaLocatedEnable = debugComponents.nonEmpty
-    globalData.scalaLocatedInterrests ++= debugComponents
+    globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
   }
 
@@ -150,7 +153,7 @@ case class SpinalConfig(
     this
   }
 
-
+  def isSystemVerilog = mode == SystemVerilog
 
 
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
@@ -282,6 +285,7 @@ object Spinal{
     val report = configPatched.mode match {
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
       case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
+      case `SystemVerilog` => SpinalVerilogBoot(configPatched)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
@@ -301,3 +305,7 @@ object SpinalVerilog {
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = Verilog).generate(gen)
 }
 
+object SpinalSystemVerilog {
+  def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = SystemVerilog))(gen)
+  def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = SystemVerilog).generate(gen)
+}

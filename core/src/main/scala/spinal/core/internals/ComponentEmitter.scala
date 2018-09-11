@@ -207,9 +207,9 @@ abstract class ComponentEmitter {
         processes += process
     }
 
-    //identify duplicated expression due to `when` spliting/duplication
+    //identify duplicated expression due to `when`/'switch' spliting/duplication
     {
-      val whenCondOccurences = mutable.HashMap[Expression, Int]()
+      val whenCondOccurences = mutable.LinkedHashMap[Expression, Int]()
       def walker(statements: ArrayBuffer[LeafStatement], statementIndexInit: Int, scope: ScopeStatement, algoId: Int): Int ={
         var statementIndex = statementIndexInit
 

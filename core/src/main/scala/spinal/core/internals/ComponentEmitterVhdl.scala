@@ -776,13 +776,13 @@ class ComponentEmitterVhdl(
 
         return signal match {
           case b: Bool       =>
-            " := " + { if (Random.nextBoolean()) "'1'" else "'0'" }
+            " := " + {/* if (Random.nextBoolean()) "'1'" else */"'0'" }
           case bv: BitVector =>
-            val rand = BigInt(bv.getWidth, Random).toString(2)
+            val rand = BigInt(/*bv.getWidth, Random*/0).toString(2)
             " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
           case e: SpinalEnumCraft[_] =>
             val vec  = e.spinalEnum.elements.toVector
-            val rand = vec(Random.nextInt(vec.size))
+            val rand = vec(/*Random.nextInt(vec.size)*/0)
             " := " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
@@ -1004,7 +1004,7 @@ class ComponentEmitterVhdl(
         case attribute: AttributeFlag   => "true"
       }
 
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}: signal is $value;\n"
+      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}$postfix : signal is $value;\n"
     }
   }
 

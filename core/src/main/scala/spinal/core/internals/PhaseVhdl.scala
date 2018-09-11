@@ -36,7 +36,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
+    outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel))
     emitEnumPackage(outFile)
 
     if(pc.config.genVhdlPkg)
@@ -56,7 +56,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentEmitterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmitterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix, emitedComponentRef)
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)

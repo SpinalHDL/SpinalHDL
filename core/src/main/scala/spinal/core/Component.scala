@@ -30,9 +30,9 @@ object Component {
 
   /** Push a new component on the stack */
   def push(c: Component): Unit = {
-    if(c != null)
+    if(c != null) {
       c.globalData.dslScope.push(c.dslBody)
-    else
+    }else
       GlobalData.get.dslScope.push(null)
   }
 
@@ -69,7 +69,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
-
+  if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
   dslBody.component = this
@@ -233,8 +233,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   var localNamingScope : NamingScope = null
   private[core] def allocateNames(globalScope: NamingScope): Unit = {
 
-    localNamingScope = globalScope.newChild
-    localNamingScope.allocateName(globalData.anonymSignalPrefix)
+    localNamingScope = globalScope.newChild()
+    val anonymPrefix = if(globalData.phaseContext.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + this.definitionName else globalData.anonymSignalPrefix
+    localNamingScope.allocateName(anonymPrefix)
 
     for (child <- children) {
       OwnableRef.proposal(child, this)
@@ -249,7 +250,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     dslBody.walkStatements{
       case nameable : Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
-          nameable.unsetName().setName(globalData.anonymSignalPrefix, Nameable.DATAMODEL_WEAK)
+          nameable.unsetName().setName(anonymPrefix, Nameable.DATAMODEL_WEAK)
         }
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)

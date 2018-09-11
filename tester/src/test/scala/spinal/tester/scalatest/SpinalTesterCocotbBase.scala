@@ -56,7 +56,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     assert(genHdlSuccess)
     val (langString, xmlPath) = lang match {
       case Language.VHDL => ("vhdl", testPath + "/sim_build/results.xml")
-      case Language.VERILOG => ("verilog", testPath + "/results.xml")
+      case Language.VERILOG | Language.SYSTEM_VERILOG => ("verilog", testPath + "/results.xml")
     }
     doCmd(Seq(
       s"rm -f $xmlPath"
@@ -74,6 +74,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     ))
 //    val pass = getCocotbPass(xmlPath)
     val pass = stdout.contains("**                                 ERRORS : 0                                      **")
+
     assert(!cocotbMustPass || pass,"Simulation fail")
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")
   }

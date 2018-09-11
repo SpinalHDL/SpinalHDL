@@ -34,11 +34,11 @@ object SINGLE_RAM   extends MemBitsMaskKind
 object VhdlVerilogBase{
 
   /** Header of the RTL generated */
-  def getHeader(commentSymbole: String, toplevel: Component): String =
-    s"""$commentSymbole Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}
-       |$commentSymbole Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}
-       |$commentSymbole Component : ${toplevel.definitionName}
-       |
+  def getHeader(commentSymbol: String, header: String, toplevel: Component): String =
+    s"""$commentSymbol Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}
+       |$commentSymbol Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}
+       |$commentSymbol Component : ${toplevel.definitionName}
+       |${if(header != null) header.split("\n").map(line => s"$commentSymbol $line").mkString("\n") + "\n" else ""}
        |""".stripMargin
 }
 

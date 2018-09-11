@@ -20,10 +20,11 @@
 \*                                                                           */
 package spinal.core.internals
 
-import java.io.{FileWriter, BufferedWriter, File}
-import scala.collection.mutable.ListBuffer
+import java.io.{BufferedWriter, File, FileWriter}
 
+import scala.collection.mutable.ListBuffer
 import spinal.core._
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -37,9 +38,11 @@ class PhaseContext(val config: SpinalConfig) {
   config.applyToGlobalData(globalData)
 
 
-  val globalScope         = new NamingScope()
+  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+
   val reservedKeyWords    = mutable.Set[String](
     //VHDL
     "abs", "access", "after", "alias", "all",
@@ -127,6 +130,18 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
+  def walkAll(func: Any => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => {
+      func(c)
+      c.dslBody.walkStatements(s => {
+        func(s)
+        s.walkExpression(e => {
+          func(e)
+        })
+      })
+    })
+  }
+
   def walkStatements(func: Statement => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(func))
   }
@@ -172,8 +187,20 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
+  val verboseLog = new java.io.FileWriter("verbose.log")
+
   def doPhase(phase: Phase): Unit ={
+    if(config.verbose) verboseLog.write(s"phase: $phase\n")
     phase.impl(this)
+    if(config.verbose){
+      var checksum = 0
+      def seed(that : Int) = checksum = ((checksum << 1) | ((checksum & 0x80000000) >> 31)) ^ that
+      walkComponents{c =>seed(c.getInstanceCounter)}
+      walkStatements{s =>seed(s.getInstanceCounter)}
+      verboseLog.write(s"checksum: $checksum\n")
+      verboseLog.flush()
+
+    }
     checkPendingErrors()
   }
 }
@@ -762,7 +789,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
       case _ =>
     }
 
-    val scope = pc.globalScope.newChild
+    val scope = pc.globalScope.newChild("")
 
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
@@ -1040,6 +1067,18 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
     }
 
     toRemove.foreach(_.removeStatement())
+
+
+    //propagate literals over one basetype
+    walkStatements{s =>
+      s.remapDrivingExpressions{
+        case e : BaseType if e.isComb && !e.isNamed && e.isDirectionLess && Statement.isSomethingToFullStatement(e) => e.head match {
+          case DataAssignmentStatement(_, lit : Literal) => lit.clone //clone because Expression can only be once in the graph
+          case _ => e
+        }
+        case e => e
+      }
+    }
   }
 }
 
@@ -1309,6 +1348,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: AssertStatement =>
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
+            s.walkParentTreeStatements(propagate)
           case s: Mem[_] => s.foreachStatements{
             case p: MemWrite     => propagate(p)
             case p: MemReadWrite => propagate(p)
@@ -1339,7 +1379,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     walkStatements{
       case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
-      case s: AssertStatement      => propagate(s, false)
+      case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
       case s: MemWrite             =>
@@ -1517,8 +1557,11 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
               case s : InitAssignmentStatement => withInit = true
               case _ =>
             }
-            if((bt.hasTag(unsetRegIfNoAssignementTag) || !bt.isVital) && withInit){
+            if(withInit){
               regToComb += bt
+              if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
+                SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine")
+              }
             }else if(bt.isVital) {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
@@ -1758,7 +1801,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
 
     for((enum, encodings) <- enums;
-        encodingsScope = new NamingScope();
+        encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       if (encoding.isWeak)
@@ -1854,7 +1897,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
     native //Avoid unconstructable during phase
     binarySequential
     binaryOneHot
-    pc.topLevel = gen
+    gen
     defaultClockDomain.pop()
     pc.checkGlobalData()
   }
@@ -1897,13 +1940,18 @@ object SpinalVhdlBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
 
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
@@ -2022,7 +2070,10 @@ object SpinalVerilogBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
@@ -2030,6 +2081,7 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
 
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
 
     val prunedSignals    = mutable.Set[BaseType]()

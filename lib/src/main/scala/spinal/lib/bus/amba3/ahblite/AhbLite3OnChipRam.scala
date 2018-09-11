@@ -15,7 +15,7 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : BigInt) 
   //Address/control phase to write data phase
   val pendingWrite = Reg(new Bundle{
     val valid = Bool
-    val address = ram.addressType
+    val address = ram.addressType()
     val mask    = Bits(AhbLite3Config.bytePerWord bits)
   })
   

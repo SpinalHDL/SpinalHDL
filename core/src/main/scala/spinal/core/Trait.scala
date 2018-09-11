@@ -40,7 +40,7 @@ trait IODirection extends BaseTypeFactory {
   override def Bits() = applyIt(super.Bits())
   override def UInt() = applyIt(super.UInt())
   override def SInt() = applyIt(super.SInt())
-  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
+  override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
 
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
@@ -132,6 +132,7 @@ class GlobalData {
 
   var anonymSignalPrefix: String = null
   var commonClockConfig = ClockDomainConfig()
+  var phaseContext : PhaseContext = null
 
   var nodeAreNamed                 = false
   var nodeAreInferringWidth        = false
@@ -142,7 +143,29 @@ class GlobalData {
   val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
-  val scalaLocatedInterrests = mutable.HashSet[Class[_]]()
+  val scalaLocatedComponents = mutable.HashSet[Class[_]]()
+  val scalaLocateds = mutable.HashSet[ScalaLocated]()
+
+  def applyScalaLocated(): Unit ={
+    try {
+      val pc = GlobalData.get.phaseContext
+      pc.walkComponents(c => {
+        c.dslBody.walkStatements(s => {
+          if (scalaLocateds.contains(s)) {
+            scalaLocatedComponents += c.getClass
+          }
+          s.walkExpression(e => {
+            if (scalaLocateds.contains(e)) {
+              scalaLocatedComponents += c.getClass
+            }
+          })
+        })
+      })
+    } catch {
+      case e: Throwable =>
+    }
+  }
+
   var instanceCounter    = 0
   val pendingErrors      = mutable.ArrayBuffer[() => String]()
   val postBackendTask    = mutable.ArrayBuffer[() => Unit]()
@@ -187,14 +210,6 @@ trait GlobalDataUser {
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
   var parentScope = if(globalData != null) globalData.currentScope else null
-
-
-  override def getScalaTrace() = {
-    if(!globalData.scalaLocatedEnable && component != null) {
-      globalData.scalaLocatedInterrests += component.getClass
-    }
-    super.getScalaTrace()
-  }
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -478,7 +493,7 @@ object ScalaLocated {
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedInterrests.contains(globalData.currentScope.component.getClass))) {
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
     null
   } else {
     new Throwable()
@@ -489,7 +504,10 @@ trait ScalaLocated extends GlobalDataUser {
     this
   }
 
-  def getScalaTrace(): Throwable = scalaTrace
+  def getScalaTrace(): Throwable = {
+    globalData.scalaLocateds += this
+    scalaTrace
+  }
 
 
   def getScalaLocationLong: String = ScalaLocated.long(getScalaTrace())
@@ -584,7 +602,7 @@ trait SpinalTagReady {
     _spinalTags.filter(cond)
   }
 
-  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(attribute: Attribute): this.type = addTag(attribute)
   def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
   def addAttribute(name: String, value: String): this.type = addAttribute(new AttributeString(name, value))
 
@@ -648,6 +666,7 @@ object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
+class IfDefTag(val cond : String)       extends SpinalTag
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
