@@ -1897,7 +1897,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
     native //Avoid unconstructable during phase
     binarySequential
     binaryOneHot
-    pc.topLevel = gen
+    gen
     defaultClockDomain.pop()
     pc.checkGlobalData()
   }

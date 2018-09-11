@@ -147,15 +147,23 @@ class GlobalData {
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
 
   def applyScalaLocated(): Unit ={
-    val pc = GlobalData.get.phaseContext
-    pc.walkComponents(c => {
-      c.dslBody.walkStatements(s => {
-        if(scalaLocateds.contains(s)) {scalaLocatedComponents += c.getClass}
-        s.walkExpression(e => {
-          if(scalaLocateds.contains(e)) {scalaLocatedComponents += c.getClass}
+    try {
+      val pc = GlobalData.get.phaseContext
+      pc.walkComponents(c => {
+        c.dslBody.walkStatements(s => {
+          if (scalaLocateds.contains(s)) {
+            scalaLocatedComponents += c.getClass
+          }
+          s.walkExpression(e => {
+            if (scalaLocateds.contains(e)) {
+              scalaLocatedComponents += c.getClass
+            }
+          })
         })
       })
-    })
+    } catch {
+      case e: Throwable =>
+    }
   }
 
   var instanceCounter    = 0

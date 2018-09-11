@@ -30,9 +30,9 @@ object Component {
 
   /** Push a new component on the stack */
   def push(c: Component): Unit = {
-    if(c != null)
+    if(c != null) {
       c.globalData.dslScope.push(c.dslBody)
-    else
+    }else
       GlobalData.get.dslScope.push(null)
   }
 
@@ -69,7 +69,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
-
+  if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
   dslBody.component = this
