@@ -59,7 +59,7 @@ trait MemBlackboxingPolicy {
   def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit
 
   def generateUnblackboxableError(topology: MemTopology, who: Any, message: String): Unit = {
-    PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readRrite ports : ${topology.readWriteSync.size}\n  -> $message")
+    PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readWrite ports : ${topology.readWriteSync.size}\n  -> $message")
   }
 }
 
