@@ -971,8 +971,7 @@ object PlaySymplify {
 
 object PlayBug {
   class TopLevel() extends Component{
-    val result = Bits(16 bits)
-    result(15 downto 4) := 0x70
+    Mux(True, U"0", B"0")
   }
 
   def main(args: Array[String]): Unit = {
@@ -2691,8 +2690,8 @@ object PlayRam {
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bit),8)
 
-    val address = in(mem.addressType)
-    val writeData = in(mem.wordType)
+    val address = in(mem.addressType())
+    val writeData = in(mem.wordType())
     val writeMask = in Bits(4 bits)
     val enable,write = in Bool()
     val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))

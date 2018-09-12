@@ -1,46 +1,90 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core.sim
 
 import spinal.core.{Bool, ClockDomain, EdgeKind, HIGH, LOW, Polarity}
 import spinal.core.sim._
 
+/**
+  * Execute a reset sequence
+  */
 object DoReset {
-  def apply(reset : Bool, duration : Long, activeLevel: Polarity): Unit@suspendable = {
+
+  def apply(reset: Bool, duration: Long, activeLevel: Polarity): Unit@suspendable = {
+
     reset #= (activeLevel match {
       case HIGH => true
       case LOW => false
     })
+
     sleep(duration)
+
     reset #= (activeLevel match {
       case HIGH => false
-      case LOW => true
+      case LOW  => true
     })
   }
+
 }
 
+/**
+  * Generate a clock
+  */
 object DoClock {
-  def apply(clk : Bool, period : Long): Unit@suspendable = {
+
+  def apply(clk: Bool, period: Long): Unit@suspendable = {
     assert(period >= 2)
+
     var value = clk.toBoolean
+
     while(true){
       value = !value
-      clk #= value
+      clk  #= value
       sleep(period >> 1)
     }
   }
+
 }
 
+/**
+  * Fork the DoClock
+  */
 object ForkClock {
-  def apply(clk : Bool, period : Long): Unit = fork(DoClock(clk, period))
+  def apply(clk: Bool, period: Long): Unit = fork(DoClock(clk, period))
 }
 
 
-object SimSpeedPrinter{
-  def apply(cd : ClockDomain, printPeriod : Double): Unit = fork{
+/**
+  * Print the simulation speed
+  */
+object SimSpeedPrinter {
+
+  def apply(cd: ClockDomain, printPeriod: Double): Unit = fork {
     var cycleCounter = 0l
     var lastTime = System.nanoTime()
+
     while(true){
       cd.waitActiveEdge()
       cycleCounter += 1
+
       if((cycleCounter & 8191) == 0){
         val currentTime = System.nanoTime()
         val deltaTime = (currentTime - lastTime)*1e-9
@@ -54,8 +98,13 @@ object SimSpeedPrinter{
   }
 }
 
-object SimTimeout{
-  def apply(duration : Long): Unit = fork{
+
+/**
+  * Create a Timeout for the simulation
+  */
+object SimTimeout {
+
+  def apply(duration: Long): Unit = fork {
     sleep(duration)
     simFailure(s"Timeout trigger after $duration units of time")
   }

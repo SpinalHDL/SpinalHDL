@@ -47,7 +47,7 @@ object SimDemo {
                     dut.io.b #= b
                     dut.io.c #= c
                     dut.clockDomain.waitActiveEdge()
-                    if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c ) & 0xFF))
+                    if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toInt == ((a + b - c ) & 0xFF))
                   }
                 }
             } catch {

@@ -58,7 +58,7 @@ Your freedoms are :
 - Your hardware description is yours (.scala files)
 
 Your obligations (and my wish) are :
-- If you modifie the SpinalHDL core (the compiler itself), please, share your improvments.
+- If you modify the SpinalHDL core (the compiler itself), please, share your improvments.
 
 Also, SpinalHDL is provided "as is", without warranty of any kind.
 

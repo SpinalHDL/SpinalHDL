@@ -1441,9 +1441,35 @@ object PlayWithBlackBoxStdLogic{
   }
 
   def main(args: Array[String]) {
+
+    val header =
+      """
+        | Here is a custom header :
+        |   1. Mino
+        |   2. Toto
+        |   3. Lolo""".stripMargin
+
     val report = SpinalConfig(
-      mode = VHDL
+      mode = VHDL,
+      rtlHeader = header
     ).generate(new FakeComponent)
 
   }
+}
+
+object PlayWithResizeLeft extends App{
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val a0 = in Bits(32 bits)
+      val b0 = out Bits(8 bits)
+
+      val a1 = in Bits(8 bits)
+      val b1 = out Bits(32 bits)
+    }
+    io.b0 := io.a0.resizeLeft(8)
+    io.b1 := io.a1.resizeLeft(32)
+  }
+
+  SpinalVhdl(new TopLevel)
 }

@@ -23,6 +23,7 @@ package spinal.core
 
 import spinal.core.internals._
 
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 
 
@@ -73,6 +74,7 @@ class Generic {
   */
 abstract class BlackBox extends Component{
   val genericElements = ArrayBuffer[(String, Any)]()
+  val librariesUsages = mutable.HashSet[String]();
 
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))

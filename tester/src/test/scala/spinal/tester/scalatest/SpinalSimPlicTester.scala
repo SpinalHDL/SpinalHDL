@@ -29,7 +29,7 @@ class SpinalSimPlicTester extends FunSuite {
     val plicMapping = PlicMapping.sifive
     import plicMapping._
 
-    val compiled = SimConfig.allOptimisation.compile(
+    val compiled = SimConfig.compile(
       rtl = new Component{
         val io = new Bundle{
           val apb = slave(Apb3(24,32))
@@ -57,9 +57,10 @@ class SpinalSimPlicTester extends FunSuite {
         )
       }.setDefinitionName("Plic")
     )
-
+    println("PLIC Compiled")
     //Run the simulation
     compiled.doSim("test") { dut =>
+      println("PLIC SIM start")
       dut.clockDomain.forkStimulus(10)
 
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
@@ -69,7 +70,7 @@ class SpinalSimPlicTester extends FunSuite {
       dut.clockDomain.waitSampling(10)
       assert(dut.io.targets.toInt === 0)
       var sourcesPending =  Array.fill(sourceCount)(false)
-      Suspendable.repeat(10000){
+      Suspendable.repeat(5000){
         val priorities = Array.fill(sourceCount)(Random.nextInt(4))
         val enables = Array.fill(targetCount)(Array.fill(sourceCount)(Random.nextBoolean()))
         val thresholds = Array.fill(targetCount)(Random.nextInt(priorityWidth))
