@@ -563,7 +563,7 @@ class ComponentEmitterVerilog(
                   case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
                 }
                 that match {
-                  case lit: EnumLiteral[_] if lit.encoding.isInstanceOf[binaryOneHot] => s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                  case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
                   case _ => s"((${emitExpression(switchStatement.value)}) == ${expr})"
                 }
               }
