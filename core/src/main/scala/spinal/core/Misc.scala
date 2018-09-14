@@ -397,14 +397,14 @@ class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ Glo
 
 
 object PendingError {
-  def apply(error: => String): Unit = {
+  def apply(error:  String): Unit = {
     GlobalData.get.pendingErrors += (() => error)
   }
 }
 
 
 object LocatedPendingError {
-  def apply(error: => String) = {
+  def apply(error:  String) = {
     val location = ScalaLocated.long
     GlobalData.get.pendingErrors += (() => error + "\n" + location)
   }

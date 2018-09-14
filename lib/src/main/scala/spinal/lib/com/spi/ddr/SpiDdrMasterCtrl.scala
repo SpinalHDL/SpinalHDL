@@ -113,7 +113,7 @@ object SpiDdrMasterCtrl {
   }
 
 
-  case class MemoryMappingParameters(//ctrlGenerics : SpiMasterCtrlGenerics,
+  case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
                                      xip : XipBusParameters = null)
@@ -197,8 +197,6 @@ object SpiDdrMasterCtrl {
           val instructionData = Reg(Bits(8 bits))
           val dummyCount = Reg(UInt(4 bits))
           val dummyData = Reg(Bits(8 bits))
-
-
 
 
           val fsm = new StateMachine{
