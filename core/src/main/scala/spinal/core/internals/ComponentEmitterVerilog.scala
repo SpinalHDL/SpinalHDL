@@ -568,7 +568,6 @@ class ComponentEmitterVerilog(
                 }
               }
 
-              b ++= s"${tab}(* parallel case *)\n"
               b ++= s"${tab}case(1) // synopsys parallel_case\n"
 
               switchStatement.elements.foreach(element => {
