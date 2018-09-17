@@ -538,7 +538,7 @@ class ComponentEmitterVerilog(
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
+            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && element.keys.forall(_.isInstanceOf[Literal]))
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
               case null => null
@@ -568,7 +568,8 @@ class ComponentEmitterVerilog(
                 }
               }
 
-              b ++= s"${tab}case(1) // synopsys parallel_case\n"
+              b ++= s"${tab}(* parallel_case *)\n"
+              b ++= s"${tab}case(1) // synthesis parallel_case\n"
 
               switchStatement.elements.foreach(element => {
                 b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(s"|\n${tab}  ")} : begin\n"
