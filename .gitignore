@@ -48,5 +48,12 @@ log.txt
 /tester/**/*.gtkw
 *.do
 
+#testing related
+/cocotb/
+/iverilog-*
+*_tb
+/tester/**/sim_build/
+/*.tar.gz
+
 simWorkspace/
 tmp/
