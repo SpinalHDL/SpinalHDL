@@ -10,6 +10,22 @@ import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
 
+case class DdrOutput() extends Bundle with IMasterSlave{
+  val write = Bits(2 bits)
+
+  override def asMaster(): Unit = {
+    out(write)
+  }
+
+  def toTriState(): TriState[Bool] ={
+    val io = TriState(Bool)
+    val clk = ClockDomain.readClockWire
+    val writeBuffer = RegNext(write)
+    io.write := (clk ? writeBuffer(0))| writeBuffer(1)
+    io
+  }
+}
+
 case class DdrPin() extends Bundle with IMasterSlave{
   val writeEnable = Bool
   val read,write = Bits(2 bits)
@@ -23,7 +39,8 @@ case class DdrPin() extends Bundle with IMasterSlave{
     val io = TriState(Bool)
     val clk = ClockDomain.readClockWire
     io.writeEnable := writeEnable
-    io.write := (clk ? write(0))| write(1)
+    val writeBuffer = RegNext(write)
+    io.write := (clk ? writeBuffer(0))| writeBuffer(1)
     def cd(edge : EdgeKind) = ClockDomain.current.clone(config = ClockDomain.current.config.copy(clockEdge = edge))
     read(0) := cd(RISING)(RegNext(io.read))
     read(1) := cd(FALLING)(RegNext(io.read))
@@ -38,7 +55,7 @@ case class SpiDdrParameter(dataWidth : Int = 2,
 case class SpiDdrMaster(p : SpiDdrParameter) extends Bundle with IMasterSlave{
   import p._
 
-  val sclk = DdrPin()
+  val sclk = DdrOutput()
   val data = Vec(DdrPin(), dataWidth)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 
@@ -348,6 +365,10 @@ object SpiDdrMasterCtrl {
           xipBus.rsp.valid := rspCounter.willOverflow
           xipBus.rsp.payload := rsp.payload ## rspBuffer
 
+          when(!enable){
+            xipBus.cmd.ready := True
+            xipBus.rsp.valid := RegNext(xipBus.cmd.valid) init(False)
+          }
 
         })
       }
@@ -449,7 +470,6 @@ object SpiDdrMasterCtrl {
       }
 
 
-      io.spi.sclk.writeEnable := True
       io.spi.sclk.write := sclkWrite ^ B(sclkWrite.range -> io.config.kind.cpol)
 
 

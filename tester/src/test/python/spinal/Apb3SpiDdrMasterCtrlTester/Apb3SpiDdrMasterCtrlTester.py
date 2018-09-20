@@ -180,6 +180,20 @@ def test1(dut):
         yield stop()
         yield whileFlashBusy()
 
+    @cocotb.coroutine
+    def readVolatileConfig(tab):
+        yield start()
+        yield write(0x85)
+        yield read(tab)
+        yield stop()
+
+    @cocotb.coroutine
+    def writeVolatileConfig(tab):
+        yield writeEnable()
+        yield start()
+        yield write(0x81)
+        yield write(tab)
+        yield stop()
 
     dut.vcc <= 0
     for i in xrange(300):
@@ -298,6 +312,11 @@ def test1(dut):
     assert(tab == [0xFF]*10)
 
     yield waitEmpty()
+
+
+    tab = [0,0]
+    yield readVolatileConfig(tab)
+    print(tab)
 
     yield Timer(1000000)
 

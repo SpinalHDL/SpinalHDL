@@ -45,10 +45,12 @@ case class Apb3SpiDdrMasterCtrl(p : SpiDdrMasterCtrl.MemoryMappingParameters) ex
     val apb = slave(Apb3(Apb3SpiDdrMasterCtrl.getApb3Config))
     val xip = ifGen(p.xip != null) (slave(SpiDdrMasterCtrl.XipBus(p.xip)))
     val spi = master(SpiDdrMaster(p.ctrl.spi))
+    val interrupt = out Bool()
   }
 
   val ctrl = SpiDdrMasterCtrl(p.ctrl)
   val mapping = ctrl.io.driveFrom(Apb3SlaveFactory(io.apb, 0))(p)
   if(p.xip != null) io.xip <> mapping.xip.xipBus
   io.spi <> ctrl.io.spi
+  io.interrupt <> mapping.interruptCtrl.interrupt
 }
