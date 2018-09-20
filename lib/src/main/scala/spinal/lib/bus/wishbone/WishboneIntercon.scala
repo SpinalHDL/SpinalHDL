@@ -89,7 +89,7 @@ class WishboneInterconFactory(config: WishboneConfig){
 
     for((arbiter,count_arb) <- (arbiters).zipWithIndex){
       for((decoder,count_dec) <- (decoders).zipWithIndex){
-        decoder.decoder.io.outputs(count_arb) <> arbiter.arbiter.io.inputs(count_dec)
+        decoder.decoder.io.outputs(count_arb) >> arbiter.arbiter.io.inputs(count_dec)
       }
     }
   }

@@ -8,6 +8,11 @@ import spinal.lib.bus.wishbone._
 import scala.collection.immutable._
 import scala.util.Random
 
+import spinal.lib.bus.misc._
+
+object AddressRange{
+  implicit def SizeMapping2AddressRange(sizeMapping: SizeMapping): AddressRange = AddressRange(sizeMapping.base,sizeMapping.size.toInt)
+}
 case class AddressRange(base : BigInt, size: Int){
   def inRange(address: BigInt): Boolean = (address >= base) && (address <= base + size)
   //def == (range: AddressRange): Boolean = (base == range.base) && (size == range.size)
@@ -60,6 +65,7 @@ case class WishboneTransaction( address : BigInt = 0,
   }
 
   def randomizeAddress(max : Int, min : Int = 0) : WishboneTransaction = this.copy(address = Random.nextInt(max - min) + min)
+  def randomAdressInRange(range: AddressRange): WishboneTransaction = this.copy(address = range.randomAddressInRange)
   def randomizeData(max : Int, min : Int = 0) : WishboneTransaction = this.copy(data = Random.nextInt(max - min) + min)
   def randomizeTGA(max : Int, min : Int = 0) : WishboneTransaction = this.copy(tga = Random.nextInt(max - min) + min)
   def randomizeTGC(max : Int, min : Int = 0) : WishboneTransaction = this.copy(tgc = Random.nextInt(max - min) + min)
