@@ -266,40 +266,40 @@ def test1(dut):
 
 
     @cocotb.coroutine
-    def xpiCmd(addr):
+    def xipCmd(addr):
         dut.io_xip_cmd_valid <= True
         dut.io_xip_cmd_payload <= addr
         yield waitClockedCond(dut.clk, lambda: dut.io_xip_cmd_ready == True)
         dut.io_xip_cmd_valid <= False
 
 
-    xpiRspRef = Queue()
+    xipRspRef = Queue()
     @cocotb.coroutine
-    def xpiRspScoreboard():
+    def xipRspScoreboard():
         while True:
             yield waitClockedCond(dut.clk, lambda: dut.io_xip_rsp_valid == True)
-            assert(not xpiRspRef.empty())
-            assert(xpiRspRef.get_nowait() == int(dut.io_xip_rsp_payload))
+            assert(not xipRspRef.empty())
+            assert(xipRspRef.get_nowait() == int(dut.io_xip_rsp_payload))
 
-    cocotb.fork(xpiRspScoreboard())
+    cocotb.fork(xipRspScoreboard())
 
     @cocotb.coroutine
-    def xpi(addr,value):
-        xpiRspRef.put(value)
-        yield xpiCmd(addr)
+    def xip(addr,value):
+        xipRspRef.put(value)
+        yield xipCmd(addr)
 
 
-    yield xpi(0x1100, 0x03020100)
-    yield xpi(0x1104, 0x07060504)
-    yield xpi(0x1108, 0x0B0A0908)
-    yield xpi(0x1100, 0x03020100)
-    yield xpi(0x1104, 0x07060504)
-    yield xpi(0x1108, 0x0B0A0908)
-    yield xpi(0x1100, 0x03020100)
-    yield xpi(0x1104, 0x07060504)
-    yield xpi(0x1108, 0x0B0A0908)
+    yield xip(0x1100, 0x03020100)
+    yield xip(0x1104, 0x07060504)
+    yield xip(0x1108, 0x0B0A0908)
+    yield xip(0x1100, 0x03020100)
+    yield xip(0x1104, 0x07060504)
+    yield xip(0x1108, 0x0B0A0908)
+    yield xip(0x1100, 0x03020100)
+    yield xip(0x1104, 0x07060504)
+    yield xip(0x1108, 0x0B0A0908)
 
-    yield waitClockedCond(dut.clk, lambda: xpiRspRef.empty())
+    yield waitClockedCond(dut.clk, lambda: xipRspRef.empty())
 
     yield apb.write(0x40, 0x0)
     yield stop()
