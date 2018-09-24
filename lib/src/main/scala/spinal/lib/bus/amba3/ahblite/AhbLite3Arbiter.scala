@@ -52,7 +52,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int) ext
     maskLocked := maskRouted
     locked     := True
 
-    when(io.output.HREADYOUT){ //fire
+    when(io.output.HREADY){ //fire
       when(io.output.last && !io.output.HMASTLOCK) { //End of burst and no lock
         locked := False
       }
@@ -79,6 +79,6 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int) ext
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
     input.HRDATA    := io.output.HRDATA
     input.HRESP     := io.output.HRESP
-    input.HREADYOUT := (!requestRouted && !input.HSEL ) || (requestRouted && io.output.HREADYOUT)
+    input.HREADYOUT := (!requestRouted && !input.HSEL) || (requestRouted && io.output.HREADYOUT)
   }
 }
