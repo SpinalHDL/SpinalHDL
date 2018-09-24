@@ -15,7 +15,7 @@ import spinal.lib._
   * @param tgaWidth size in bits of the tag address linie, deafult to 0 (disabled)
   * @param tgcWidth size in bits of the tag cycle line, deafult to 0 (disabled)
   * @param tgdWidth size in bits of the tag data line, deafult to 0 (disabled)
-  * @param bteWidth size in bits of the Burst Type Extension, deafult to 0 (disabled)
+  * @param useBTE activate the Burst Type Extension, default to false (disabled)
   * @example {{{
   * val wishboneBusConf = new WishboneConfig(32,8).withCycleTag(8).withDataTag(8)
   * val wishboneBus = new Wishbone(wishboneBusConf)
@@ -220,72 +220,19 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     Wishbone.driveWeak(this.TGD_MOSI,that.TGD_MOSI,null,allowTagResize,true)
   }
 
-// def startCycle = {
-//   CYC := true
-// }
-// def doWrite(address: UInt, data : Bits) = {
-//   startCycle()
-//   STB = true
-//   WE = true
-//   ADR = address
-//   DAT_MOSI = data
-// }
+  def isCycle = CYC
+  def isStall : Bool    = if(config.isPipelined)  isCycle && STALL
+                          else                    False
+  def isAck : Bool      = if(config.isPipelined)  isCycle && ACK && !STALL
+                          else                    isCycle && ACK && STB
+  def isTransfer : Bool = if(config.isPipelined)  isCycle && STB && !STALL
+                          else                    isCycle && STB
+  def isWrite : Bool    = isTransfer &&  WE
+  def isRead : Bool     = isTransfer && !WE
+  def doSend  : Bool    = isTransfer && isAck
+  def doWrite : Bool    = doSend &&  WE
+  def doRead  : Bool    = doSend && !WE
 
-// def doRead(address: UInt) : Bits = {
-//   val data = Bits(config.dataWidth bits)
-//   startCycle()
-//   STB = true
-//   WE = false
-//   ADR = address
-//   when(isAck){
-//     data = DAT_MISO
-//   }
-//   data
-// }
-
-
-
-def isCycle = CYC
-
-def isStall : Bool =     if(config.isPipelined)  isCycle && STALL
-                  else                    False
-
-def isAck : Bool =       if(config.isPipelined)  isCycle && ACK && !STALL
-                  else                    isCycle && ACK && STB
-
-def isTransfer : Bool =  if(config.isPipelined)  isCycle && STB && !STALL
-                  else                    isCycle && STB
-
-def isWrite : Bool =     isTransfer &&  WE
-
-def isRead : Bool =      isTransfer && !WE
-
-// def askSend =   if(config.isPipelined)  isCycle && STB
-//                 else                    isCycle && STB && !STALL
-def doSend  : Bool = isTransfer && isAck
-def doWrite : Bool = doSend &&  WE
-def doRead  : Bool = doSend && !WE
-
-
-// val askWrite =  if(bus.config.isPipelined)
-//                     (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
-//                   else
-//                     (bus.CYC && bus.STB && bus.WE).allowPruning()
-
-//   val askRead =   if(bus.config.isPipelined)
-//                     (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
-//                   else
-//                     (bus.CYC && bus.STB && !bus.WE).allowPruning()
-
-//   val doWrite =   if(bus.config.isPipelined)
-//                     (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
-//                   else
-//                     (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
-
-//   val doRead =    if(bus.config.isPipelined)
-//                     (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
-//                   else
-//                     (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
 }
 
 object Wishbone{
@@ -306,6 +253,9 @@ object Wishbone{
     }
   }
 
+  /** Values for each type of cycle
+    * This is a commodity object that define the values as specified in the wishbone specification
+    */
   object CycleType{
     val classic               = 0
     val constantAddressBurst  = 1
@@ -313,6 +263,9 @@ object Wishbone{
     val endOfBurst            = 7
   }
 
+  /** Values for each type burst
+    * This is a commodity object that define the values as specified in the wishbone specification
+    */
   object BurstType{
     val linearBurst     = 0
     val fourBeatWrap    = 1

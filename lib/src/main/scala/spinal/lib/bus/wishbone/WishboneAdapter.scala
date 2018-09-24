@@ -1,4 +1,5 @@
 /** @todo: support SEL resize*/
+/** @todo: change <> with the corrispective >> and <<*/
 package spinal.lib.bus.wishbone
 
 import spinal.core._
@@ -24,7 +25,11 @@ object WishboneAdapter{
             allowAddressResize : Boolean = false,
             allowDataResize : Boolean = false,
             allowTagResize : Boolean = false): WishboneAdapter = {
-    val adapter = new WishboneAdapter(master.config,slave.config,allowAddressResize,allowDataResize,allowTagResize)
+    val adapter = new WishboneAdapter(master.config,
+                                      slave.config,
+                                      allowAddressResize,
+                                      allowDataResize,
+                                      allowTagResize)
     master <> adapter.io.wbm
     slave <> adapter.io.wbs
     adapter.setPartialName(master,"adapter")
@@ -62,13 +67,14 @@ class WishboneAdapter(wbmConfig : WishboneConfig,
 
   (wbmConfig.isPipelined,wbsConfig.isPipelined) match{
     case (false,true) => {
-      // Little state machine from chapter 5.1 of the wishbone B4 specification
-      // States:
-      // - idle     [wait4ack = False]
-      // - wait4ack [wait4ack = True]
-      // Logic:
-      // if (io.wbs.STB) change state to wait4ack [io.wbs.STB = False]
-      // if (io.wbs.ACK) change state to idle     [io.wbs.STB = io.wbm.STB]
+      /* Little state machine from chapter 5.1 of the wishbone B4 specification
+         States:
+         - idle     [wait4ack = False]
+         - wait4ack [wait4ack = True]
+         Logic:
+         if (io.wbs.STB) change state to wait4ack [io.wbs.STB = False]
+         if (io.wbs.ACK) change state to idle     [io.wbs.STB = io.wbm.STB]
+      */
       io.wbs.STB.removeAssignments()
       val wait4ack = Reg(Bool) init(False)
       when(!wait4ack && io.wbs.STB){
