@@ -28,8 +28,8 @@ object Apb3SpiDdrMasterCtrl{
       )
       c.rework{
         val sclkShift = in(Bool).setName("clkEarly")
-        c.io.spi.sclk.asDirectionLess.unsetName().allowDirectionLessIo
-        c.io.spi.data.asDirectionLess.unsetName().allowDirectionLessIo
+        c.io.spi.sclk.setAsDirectionLess.unsetName().allowDirectionLessIo
+        c.io.spi.data.setAsDirectionLess.unsetName().allowDirectionLessIo
         ClockDomain(sclkShift)(master(c.io.spi.sclk.addTag(crossClockDomain).toTriState()).setName("io_spi_sclk"))
         for((d, idx) <- c.io.spi.data.zipWithIndex)
           master(d.toTriState()).setName(s"io_spi_data$idx")

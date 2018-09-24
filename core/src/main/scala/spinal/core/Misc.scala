@@ -117,7 +117,7 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
-    if(called.getInstanceCounter < id) cloneOf(called) else called.asDirectionLess()
+    if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
   }
   def getBitsWidth = t.getBitsWidth
 }

@@ -751,7 +751,7 @@ object PlayDevAnalog3{
       val toplevel = Apb3Gpio(32)
       toplevel.rework{
         import toplevel._
-        io.gpio.asDirectionLess.allowDirectionLessIo
+        io.gpio.setAsDirectionLess.allowDirectionLessIo
         val analog = inout(Analog(Bits(32 bits))).setName("analog")
         io.gpio.read := analog
         for(i <- 0 to 31){
