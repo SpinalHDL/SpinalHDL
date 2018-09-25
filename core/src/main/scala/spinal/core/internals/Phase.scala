@@ -1847,7 +1847,7 @@ class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
             newIO := B(io)
         }
 
-        io.asDirectionLess().allowDirectionLessIo
+        io.setAsDirectionLess().allowDirectionLessIo
       }
 
       val ioList = pc.topLevel.getAllIo.toArray

@@ -23,7 +23,7 @@ object InOutWrapper {
         dataParent match {
           case bundle: TriState[_]  if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
-            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)
             when(bundle.writeEnable){
               newIo := bundle.write
@@ -31,14 +31,14 @@ object InOutWrapper {
           }
           case bundle : TriStateOutput[_] if bundle.isOutput => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
-            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             when(bundle.writeEnable){
               newIo := bundle.write
             }
           }
           case bundle: ReadableOpenDrain[_]  if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
-            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)
             for((value, id) <- bundle.write.asBits.asBools.zipWithIndex) {
               when(!value){
@@ -55,7 +55,7 @@ object InOutWrapper {
           }
           case bundle: TriStateArray if bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.write)).setWeakName(bundle.getName())
-            bundle.asDirectionLess.unsetName().allowDirectionLessIo
+            bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)
             for(i <- 0 until bundle.width) {
               when(bundle.writeEnable(i)) {

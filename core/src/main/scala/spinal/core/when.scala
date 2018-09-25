@@ -163,7 +163,7 @@ object switch {
   */
 object is {
 
-  def apply(values:  Any*)(block: => Unit): Unit = list(values.iterator)(block)
+  def apply(value: Any, values:  Any*)(block: => Unit): Unit = list((value +: values).iterator)(block)
 
   def list(values: Iterator[Any])(block: => Unit): Unit = {
 
@@ -244,4 +244,3 @@ object default {
     defaultScope.pop()
   }
 }
-

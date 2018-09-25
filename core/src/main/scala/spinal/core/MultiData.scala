@@ -81,9 +81,21 @@ abstract class MultiData extends Data {
     this
   }
 
-  override def asDirectionLess: this.type = {
-    super.asDirectionLess()
-    elements.foreach(_._2.asDirectionLess());
+  override def setAsDirectionLess: this.type = {
+    super.setAsDirectionLess()
+    elements.foreach(_._2.setAsDirectionLess());
+    this
+  }
+
+  /** Set baseType to reg */
+  override def setAsReg(): this.type = {
+    elements.foreach(_._2.setAsReg())
+    this
+  }
+
+  /** Set baseType to Combinatorial */
+  override def setAsComb(): this.type = {
+    elements.foreach(_._2.setAsComb())
     this
   }
 

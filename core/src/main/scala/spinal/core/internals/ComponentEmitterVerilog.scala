@@ -538,7 +538,7 @@ class ComponentEmitterVerilog(
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
+            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && element.keys.forall(_.isInstanceOf[Literal]))
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
               case null => null
@@ -556,33 +556,65 @@ class ComponentEmitterVerilog(
             var nextScope = findSwitchScope()
 
             if(isPure) {
-              def emitIsCond(that: Expression): String = that match {
-                case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
-                case e: BoolLiteral      => if(e.value) "1'b1" else "1'b0"
-                case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
-              }
+              switchStatement.value match {
+                case switchValue : EnumEncoded if switchValue.getEncoding == binaryOneHot => {
+                  def emitIsCond(that: Expression): String = {
+                    that match {
+                      case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => {
+                        val expr = emitEnumLiteral(lit.enum, lit.encoding)
+                        s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                      }
+                    }
+                  }
 
-              b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  b ++= s"${tab}(* parallel_case *)\n"
+                  b ++= s"${tab}case(1) // synthesis parallel_case\n"
 
-              switchStatement.elements.foreach(element => {
-                b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
-                if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
-                  nextScope = findSwitchScope()
+                  switchStatement.elements.foreach(element => {
+                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(s"|\n${tab}  ")} : begin\n"
+                    if (nextScope == element.scopeStatement) {
+                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                      nextScope = findSwitchScope()
+                    }
+                    b ++= s"${tab}  end\n"
+                  })
+
+                  b ++= s"${tab}  default : begin\n"
+
+                  if (nextScope == switchStatement.defaultScope) {
+                    statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
+                    nextScope = findSwitchScope()
+                  }
+
+                  b ++= s"${tab}  end\n"
+                  b ++= s"${tab}endcase\n"
                 }
-                b ++= s"${tab}  end\n"
-              })
 
-              b ++= s"${tab}  default : begin\n"
+                case _ => {
+                  def emitIsCond(that: Expression): String = that match {
+                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
+                    case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
+                    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+                  }
 
-              if(nextScope == switchStatement.defaultScope) {
-                statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
-                nextScope = findSwitchScope()
+                  b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  switchStatement.elements.foreach(element => {
+                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                    if (nextScope == element.scopeStatement) {
+                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                      nextScope = findSwitchScope()
+                    }
+                    b ++= s"${tab}  end\n"
+                  })
+                  b ++= s"${tab}  default : begin\n"
+                  if (nextScope == switchStatement.defaultScope) {
+                    statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
+                    nextScope = findSwitchScope()
+                  }
+                  b ++= s"${tab}  end\n"
+                  b ++= s"${tab}endcase\n"
+                }
               }
-
-              b ++= s"${tab}  end\n"
-              b ++= s"${tab}endcase\n"
-
             } else {
 
               def emitIsCond(that: Expression): String = that match {

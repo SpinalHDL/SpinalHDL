@@ -1,30 +1,67 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.bus.amba3.ahblite
-
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
-case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Seq[SizeMapping]) extends Component{
-  val io = new Bundle{
-    val input = slave(AhbLite3(AhbLite3Config))
-    val outputs = Vec(master(AhbLite3(AhbLite3Config)),decodings.size)
+
+/**
+  * AHB lite decoder
+  *
+  * @param ahbLite3Config : AHB bus configuration
+  * @param decodings      : Mapping list for all outputs
+  */
+case class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]) extends Component {
+
+  val io = new Bundle {
+    val input   = slave(AhbLite3(ahbLite3Config))
+    val outputs = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
   }
-  val isIdle = io.input.isIdle
-  val wasIdle = RegNextWhen(isIdle,io.input.HREADY) init(True)
+
+  val isIdle  = io.input.isIdle
+  val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
+
   val slaveReadyOutReduction = io.outputs.map(_.HREADYOUT).reduce(_ & _)
-  val decodedSels = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
-  val applyedSels = Bits(decodings.size bits)
+
+  val decodedSels  = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
+  val applyedSels  = Bits(decodings.size bits)
   val previousSels = Reg(Bits(decodings.size bits)) init(0)
+
   val noneIdleSwitchDetected = previousSels =/= 0 && decodedSels =/= 0 && previousSels =/= decodedSels
   applyedSels      := !noneIdleSwitchDetected ? decodedSels     | 0
   val applyedHTRANS = !noneIdleSwitchDetected ? io.input.HTRANS | 0
   val applyedSlaveHREADY = noneIdleSwitchDetected ? slaveReadyOutReduction | io.input.HREADY
+
   when(applyedSlaveHREADY) {
     previousSels := applyedSels
   }
 
-  for((output,decoding,sel) <- (io.outputs,decodings,applyedSels.asBools).zipped){
+  for((output, decoding, sel) <- (io.outputs, decodings, applyedSels.asBools).zipped){
     output.HREADY    := applyedSlaveHREADY
     output.HSEL      := sel
     output.HADDR     := io.input.HADDR
@@ -38,13 +75,13 @@ case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Seq[SizeMa
   }
 
   val requestIndex = OHToUInt(io.outputs.map(_.HSEL))
-  val dataIndex    = RegNextWhen(requestIndex,io.input.HREADY)
-  val slaveHRDATA = io.outputs(dataIndex).HRDATA
-  val slaveHRESP  = io.outputs(dataIndex).HRESP
+  val dataIndex    = RegNextWhen(requestIndex, io.input.HREADY)
+  val slaveHRDATA  = io.outputs(dataIndex).HRDATA
+  val slaveHRESP   = io.outputs(dataIndex).HRESP
 
-  val switchBufferValid  = RegNextWhen(noneIdleSwitchDetected,applyedSlaveHREADY) init(False)
-  val switchBufferHRDATA = RegNextWhen(slaveHRDATA,applyedSlaveHREADY)
-  val switchBufferHRESP  = RegNextWhen(slaveHRESP,applyedSlaveHREADY)
+  val switchBufferValid  = RegNextWhen(noneIdleSwitchDetected, applyedSlaveHREADY) init(False)
+  val switchBufferHRDATA = RegNextWhen(slaveHRDATA, applyedSlaveHREADY)
+  val switchBufferHRESP  = RegNextWhen(slaveHRESP, applyedSlaveHREADY)
 
   io.input.HRDATA    := switchBufferValid ? switchBufferHRDATA | slaveHRDATA
   io.input.HRESP     := switchBufferValid ? switchBufferHRESP  | slaveHRESP
