@@ -28,7 +28,7 @@ object PlayAhbLite3{
 
     val perMaster = for(ahbMaster <- ahbMasters) yield new Area{
       val decoder = AhbLite3Decoder(
-        AhbLite3Config = ahbConfig,
+        ahbLite3Config = ahbConfig,
         decodings = List(
           (0x1000,0x1000),
           (0x3000,0x1000),
@@ -41,7 +41,7 @@ object PlayAhbLite3{
 
     val perSlave = for((ahbSlave,idx) <- ahbSlaves.zipWithIndex) yield new Area{
       val arbiter = AhbLite3Arbiter(
-        AhbLite3Config = ahbConfig,
+        ahbLite3Config = ahbConfig,
         inputsCount = ahbMasters.length
       )
       (arbiter.io.inputs,perMaster).zipped.foreach(_ <> _.decoder.io.outputs(idx))

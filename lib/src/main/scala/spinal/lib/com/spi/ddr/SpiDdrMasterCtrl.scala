@@ -6,8 +6,25 @@ import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.com.spi.SpiKind
 import spinal.lib.fsm.{State, StateMachine}
+import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
+
+case class DdrOutput() extends Bundle with IMasterSlave{
+  val write = Bits(2 bits)
+
+  override def asMaster(): Unit = {
+    out(write)
+  }
+
+  def toTriState(): TriState[Bool] ={
+    val io = TriState(Bool)
+    val clk = ClockDomain.readClockWire
+    val writeBuffer = RegNext(write)
+    io.write := (clk ? writeBuffer(0))| writeBuffer(1)
+    io
+  }
+}
 
 case class DdrPin() extends Bundle with IMasterSlave{
   val writeEnable = Bool
@@ -16,6 +33,18 @@ case class DdrPin() extends Bundle with IMasterSlave{
   override def asMaster(): Unit = {
     out(write,writeEnable)
     in(read)
+  }
+
+  def toTriState(): TriState[Bool] ={
+    val io = TriState(Bool)
+    val clk = ClockDomain.readClockWire
+    io.writeEnable := writeEnable
+    val writeBuffer = RegNext(write)
+    io.write := (clk ? writeBuffer(0))| writeBuffer(1)
+    def cd(edge : EdgeKind) = ClockDomain.current.clone(config = ClockDomain.current.config.copy(clockEdge = edge))
+    read(0) := cd(RISING)(RegNext(io.read))
+    read(1) := cd(FALLING)(RegNext(io.read))
+    io
   }
 }
 
@@ -26,7 +55,7 @@ case class SpiDdrParameter(dataWidth : Int = 2,
 case class SpiDdrMaster(p : SpiDdrParameter) extends Bundle with IMasterSlave{
   import p._
 
-  val sclk = DdrPin()
+  val sclk = DdrOutput()
   val data = Vec(DdrPin(), dataWidth)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 
@@ -113,7 +142,7 @@ object SpiDdrMasterCtrl {
   }
 
 
-  case class MemoryMappingParameters(//ctrlGenerics : SpiMasterCtrlGenerics,
+  case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
                                      xip : XipBusParameters = null)
@@ -165,7 +194,8 @@ object SpiDdrMasterCtrl {
 
         //RSP
         val rspLogic = new Area {
-          val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
+          val feedRsp = True
+          val (stream, fifoOccupancy) = rsp.takeWhen(feedRsp).queueWithOccupancy(rspFifoDepth)
           bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0)
           bus.read(fifoOccupancy, address = baseAddress + 0, 16)
         }
@@ -198,19 +228,26 @@ object SpiDdrMasterCtrl {
           val dummyCount = Reg(UInt(4 bits))
           val dummyData = Reg(Bits(8 bits))
 
-
-
+          bus.write(enable, baseAddress + 0x40)
+          bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
+          bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
+          bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
+          bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
 
           val fsm = new StateMachine{
             val doLoad, doPayload, done = False
             val loadedValid = RegInit(False)
-            val loadedAddress = Reg(UInt(32 bits))
-            val hit = loadedValid && loadedAddress + mapping.xip.dataWidth/8 === xipBus.cmd.payload
+            val loadedAddress = Reg(UInt(24 bits))
+            val hit = loadedValid && loadedAddress === xipBus.cmd.payload
 
             val IDLE, INSTRUCTION, ADDRESS, DUMMY, PAYLOAD = State()
             setEntry(IDLE)
 
-            cmd.valid := False
+            when(enable){
+              cmd.valid := False
+              rspLogic.feedRsp := False
+            }
+
             IDLE.whenIsActive{
               when(doLoad){
                 cmd.valid := True
@@ -248,7 +285,7 @@ object SpiDdrMasterCtrl {
               cmd.data := loadedAddress.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
               when(cmd.ready) {
                 counter := counter + 1
-                when(counter === 3) {
+                when(counter === 2) {
                   goto(DUMMY)
                 }
               }
@@ -277,9 +314,13 @@ object SpiDdrMasterCtrl {
                 cmd.kind := False
                 cmd.write := False
                 cmd.read := True
-                when(counter === mapping.xip.dataWidth/8-1){
-                  done := True
-                  loadedAddress := loadedAddress + mapping.xip.dataWidth/8
+                when(cmd.ready) {
+                  counter := counter + 1
+                  when(counter === mapping.xip.dataWidth / 8 - 1) {
+                    done := True
+                    counter := 0
+                    loadedAddress := loadedAddress + mapping.xip.dataWidth / 8
+                  }
                 }
               }
 
@@ -291,6 +332,12 @@ object SpiDdrMasterCtrl {
                   loadedValid := False
                   goto(IDLE)
                 }
+              }
+            }
+
+            always{
+              when(!enable){
+                goto(IDLE)
               }
             }
           }
@@ -317,6 +364,12 @@ object SpiDdrMasterCtrl {
 
           xipBus.rsp.valid := rspCounter.willOverflow
           xipBus.rsp.payload := rsp.payload ## rspBuffer
+
+          when(!enable){
+            xipBus.cmd.ready := True
+            xipBus.rsp.valid := RegNext(xipBus.cmd.valid) init(False)
+          }
+
         })
       }
     }
@@ -417,7 +470,6 @@ object SpiDdrMasterCtrl {
       }
 
 
-      io.spi.sclk.writeEnable := True
       io.spi.sclk.write := sclkWrite ^ B(sclkWrite.range -> io.config.kind.cpol)
 
 

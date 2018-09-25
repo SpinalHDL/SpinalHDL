@@ -425,7 +425,9 @@ trait BusSlaveFactory extends Area{
       onWrite(address){ that.valid := True }
       nonStopWrite(that.payload, bitOffset)
     }else{
-      assert(bitOffset == 0)
+
+      assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
+
       val regValid = Reg(that.valid) init(False)
       onWrite(address + ((wordCount - 1) * wordAddressInc)){ regValid := True }
       driveMultiWord(that.payload, address)
@@ -465,6 +467,11 @@ trait BusSlaveFactory extends Area{
                                        address          : BigInt,
                                        validBitOffset   : Int,
                                        payloadBitOffset : Int): Unit = {
+
+    assert(widthOf(that) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
+    assert(payloadBitOffset + widthOf(that) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter is bigger than the data bus width" )
+    assert(validBitOffset <= busDataWidth - 1, "BusSlaveFactory ERROR [readStreamNonBlocking] : validBitOffset is outside the data bus width")
+
     that.ready := False
     onRead(address){
       that.ready := True
@@ -475,13 +482,15 @@ trait BusSlaveFactory extends Area{
 
 
   /**
-    * Instanciate an internal register which at each cycle do : reg := reg | that
+    * Instantiate an internal register which at each cycle do : reg := reg | that
     * Then when a read occur, the register is cleared. This register is readable at address and placed at bitOffset in the word
     */
   def doBitsAccumulationAndClearOnRead(that      : Bits,
                                        address   : BigInt,
                                        bitOffset : Int = 0): Unit = {
-    assert(that.getWidth <= busDataWidth)
+
+    assert(that.getWidth <= busDataWidth, "BusSlaveFactory ERROR [doBitsAccumulationAndClearOnRead] : the width of the parameter that is bigger than the data bus width")
+
     val reg = Reg(that)
     reg := reg | that
     read(reg, address, bitOffset)
@@ -633,7 +642,9 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
                                         address       : AddressMapping,
                                         bitOffset     : Int,
                                         documentation : String): Unit = {
-    assert(bitOffset + that.getBitsWidth <= busDataWidth)
+
+    assert(bitOffset + that.getBitsWidth <= busDataWidth, "BusSlaveFactory ERROR [readPrimitive] : bitOffset + width of the parameter that is bigger than the data bus width")
+
     addElement(BusSlaveFactoryRead(
       that          = that,
       address       = address,
@@ -646,7 +657,9 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
                                          address       : AddressMapping,
                                          bitOffset     : Int,
                                          documentation : String): Unit = {
-    assert(bitOffset + that.getBitsWidth <= busDataWidth)
+
+    assert(bitOffset + that.getBitsWidth <= busDataWidth, "BusSlaveFactory ERROR [writePrimitive] : bitOffset + width of the parameter that is bigger than the data bus width")
+
     addElement(BusSlaveFactoryWrite(
       that          = that,
       address       = address,

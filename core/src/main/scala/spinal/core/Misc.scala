@@ -117,7 +117,7 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
-    if(called.getInstanceCounter < id) cloneOf(called) else called.asDirectionLess()
+    if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
   }
   def getBitsWidth = t.getBitsWidth
 }
@@ -397,14 +397,14 @@ class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ Glo
 
 
 object PendingError {
-  def apply(error: => String): Unit = {
+  def apply(error:  String): Unit = {
     GlobalData.get.pendingErrors += (() => error)
   }
 }
 
 
 object LocatedPendingError {
-  def apply(error: => String) = {
+  def apply(error:  String) = {
     val location = ScalaLocated.long
     GlobalData.get.pendingErrors += (() => error + "\n" + location)
   }

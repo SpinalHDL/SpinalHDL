@@ -70,12 +70,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   /** Set baseType to reg */
-  def setAsReg(): this.type = {
+  override def setAsReg(): this.type = {
     btFlags |= BaseType.isRegMask; this
   }
 
   /** Set baseType to Combinatorial */
-  def setAsComb(): this.type = {
+  override def setAsComb(): this.type = {
     btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this
   }
 
@@ -162,10 +162,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     super.asInOut()
   }
 
-  override def asDirectionLess(): BaseType.this.type = {
+  override def setAsDirectionLess(): BaseType.this.type = {
     if(dir == null) return this
     component.ioSet -= this
-    super.asDirectionLess()
+    super.setAsDirectionLess()
   }
 
   def getSingleDriver: Option[this.type] = {
