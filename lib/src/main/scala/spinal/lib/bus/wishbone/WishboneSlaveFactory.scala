@@ -1,7 +1,5 @@
-//TODO: Make selection logic for Syncronous/asyncronous/pipelined interface
-//TODO: Support ERR signal
-//TODO: Support RTY signal
-//TODO: SUpport Burts mode (specially for memory)
+/**@todo: Support RTY signal*/
+/**@todo: SUpport Burts mode (specially for memory)*/
 
 package spinal.lib.bus.wishbone
 
@@ -14,71 +12,31 @@ object WishboneSlaveFactory {
     * @param bus the wishbone bus istance that will connect with the module
     * @return an istanciated class of [[spinal.lib.bus.wishbone.WishboneSlaveFactory]]
     */
-  def apply(bus: Wishbone) = new WishboneSlaveFactory(bus)
+  def apply(bus: Wishbone,reg_fedback: Boolean = true) = new WishboneSlaveFactory(bus,reg_fedback)
 }
 
 /** This is the slave facotory fot the wishbone bus
   * @param bus the wishbone bus istance that will connect with the module
+  * @param reg_fedback if set to false, the slave will acknoledge as soon as possible otherwise will wait the next clock cycle(default)
   */
-class WishboneSlaveFactory(bus: Wishbone) extends BusSlaveFactoryDelayed{
+class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends BusSlaveFactoryDelayed{
   bus.DAT_MISO := 0
+  if(bus.config.isPipelined) bus.STALL := False
 
-  val askWrite =  if(bus.config.isPipelined)
-                    (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
-                  else
-                    (bus.CYC && bus.STB && bus.WE).allowPruning()
+  val askWrite = bus.isWrite.allowPruning()
+  val askRead = bus.isRead.allowPruning()
+  val doWrite = bus.doWrite.allowPruning()
+  val doRead = bus.doRead.allowPruning()
 
-  val askRead =   if(bus.config.isPipelined)
-                    (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
-                  else
-                    (bus.CYC && bus.STB && !bus.WE).allowPruning()
-
-  val doWrite =   if(bus.config.isPipelined)
-                    (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
-                  else
-                    (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
-
-  val doRead =    if(bus.config.isPipelined)
-                    (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
-                  else
-                    (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
-
-    // val pip_feedback = RegNext(bus.STB) init(False)
-    // bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
-
-    // val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
-    // bus.ACK := reg_feedback && bus.STB
-
-  if(bus.config.isPipelined){
-    val pip_feedback = RegNext(bus.STB) init(False)
-    bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
+  if(!reg_fedback){
+    bus.ACK := bus.STB && bus.CYC                 //Acknoledge as fast as possible
+  } else if(bus.config.isPipelined){
+    val pip_reg = RegNext(bus.STB) init(False)
+    bus.ACK := pip_reg || (bus.STALL && bus.CYC)  //Pipelined: Acknoledge at the next clock cycle
   } else {
-    val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
-    bus.ACK := reg_feedback && bus.STB
+    val reg_reg = RegNext(bus.STB && bus.CYC) init(False)
+    bus.ACK := reg_reg && bus.STB                 //Classic: Acknoledge at the next clock cycle
   }
-//   if(bus.config.isPipelined){
-//     //Wishbone Pipelined
-//     val askWrite = (bus.CYC && bus.STB && !bus.STALL && bus.WE).allowPruning()
-//     val askRead = (bus.CYC && bus.STB && !bus.STALL && !bus.WE).allowPruning()
-//     val doWrite = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && bus.WE).allowPruning()
-//     val doRead = (bus.CYC && bus.STB && !bus.STALL && bus.ACK && !bus.WE).allowPruning()
-
-//     val pip_feedback = RegNext(bus.STB) init(False)
-//     bus.ACK := pip_feedback || (bus.STALL && bus.CYC)
-//   } else {
-//     //Wishbone Classic
-//     val askWrite = (bus.CYC && bus.STB && bus.WE).allowPruning()
-//     val askRead = (bus.CYC && bus.STB && !bus.WE).allowPruning()
-//     val doWrite = (bus.CYC && bus.STB && bus.ACK && bus.WE).allowPruning()
-//     val doRead = (bus.CYC && bus.STB && bus.ACK && !bus.WE).allowPruning()
-
-//     val reg_feedback = RegNext(bus.STB && bus.CYC) init(False)
-//     bus.ACK := reg_feedback && bus.STB
-// }
-
-  //Wishbone Classic Asynchronous//
-  //bus.ACK := bus.STB && bus.CYC  //
-  /////////////////////////////////
 
   override def readAddress() = bus.ADR
   override def writeAddress() = bus.ADR
