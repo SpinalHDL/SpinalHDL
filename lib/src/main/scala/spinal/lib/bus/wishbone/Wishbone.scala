@@ -20,7 +20,6 @@ import spinal.lib._
   * val wishboneBusConf = new WishboneConfig(32,8).withCycleTag(8).withDataTag(8)
   * val wishboneBus = new Wishbone(wishboneBusConf)
   * }}}
-  * @todo test example
   */
 case class WishboneConfig(
   val addressWidth : Int,
