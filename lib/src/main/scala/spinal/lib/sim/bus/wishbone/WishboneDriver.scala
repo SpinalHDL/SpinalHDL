@@ -3,29 +3,9 @@ package spinal.lib.wishbone.sim
 import spinal.sim._
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib._
 import spinal.lib.bus.wishbone._
 import scala.collection.immutable._
 import scala.util.Random
-import scala.language.implicitConversions
-
-object WishboneStatus{
-  def apply(bus: Wishbone) = new WishboneStatus(bus)
-}
-
-class WishboneStatus(bus: Wishbone){
-  def isCycle   : Boolean = bus.CYC.toBoolean
-  def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean //TODO
-                            else                        false
-  def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean //&& !bus.STALL.toBoolean //TODO
-                            else                        isCycle && bus.STB.toBoolean
-
-  def isAck     : Boolean = if(bus.config.isPipelined)  isCycle &&  bus.ACK.toBoolean //TODO
-                            else                        isTransfer &&  bus.ACK.toBoolean
-
-  def isWrite   : Boolean =                             isTransfer &&  bus.WE.toBoolean
-  def isRead    : Boolean =                             isTransfer && !bus.WE.toBoolean
-}
 
 class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   val busStatus = WishboneStatus(bus)
@@ -62,7 +42,6 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     //ackCounter.join()
     bus.CYC #= false
   }
-
 
   def sendPipelinedBlock(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
     bus.CYC #= true

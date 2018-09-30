@@ -3,12 +3,8 @@ package spinal.lib.wishbone.sim
 import spinal.sim._
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib._
 import spinal.lib.bus.wishbone._
 import scala.collection.mutable._
-import scala.util.Random
-
-
 
 object WishboneMonitor{
   def apply(bus : Wishbone, clockdomain: ClockDomain)(callback: (Wishbone) => Unit) = new WishboneMonitor(bus,clockdomain).addCallback(callback)
