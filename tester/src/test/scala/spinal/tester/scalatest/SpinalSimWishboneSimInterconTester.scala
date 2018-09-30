@@ -97,8 +97,8 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
   }
 
   test("classicWishboneIntercon"){
-    val masters = 100
-    val slaves = 5
+    val masters = 10
+    val slaves = 10
     val size = 1024
     val config = WishboneConfig(32,16)
     val decodings = for(i <- 1 to slaves) yield SizeMapping(i*size,size-1)
@@ -108,7 +108,7 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
 
   test("pipelinedWishboneDecoder"){
     val masters = 10
-    val slaves = 2
+    val slaves = 10
     val size = 1024
     val config = WishboneConfig(32,16).pipelined
     val decodings = for(i <- 1 to slaves) yield SizeMapping(i*size,size-1)

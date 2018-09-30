@@ -1,12 +1,10 @@
 package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
-import spinal.tester
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
 import spinal.lib._
-import spinal.lib.bus.misc._
 import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
