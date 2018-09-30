@@ -19,8 +19,8 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
   io.busmaster <> io.busslave
 }
 class SpinalSimWishboneSimTester extends FunSuite{
-  val compiled = SimConfig.allOptimisation.withWave.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8)))
-  val compPipe = SimConfig.allOptimisation.withWave.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8).pipelined))
+  val compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8)))
+  val compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8).pipelined))
 
  test("DriveSingle"){
    compiled.doSim("DriveSingle"){ dut =>

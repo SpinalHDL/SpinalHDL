@@ -21,7 +21,7 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
 
 class SpinalSimWishboneArbiterTester extends FunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneArbiterComponent(config,size))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       dut.io.busIN.suspendable.foreach{ bus =>

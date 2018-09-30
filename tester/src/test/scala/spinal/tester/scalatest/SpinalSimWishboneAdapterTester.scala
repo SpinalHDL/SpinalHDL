@@ -25,7 +25,7 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
 
 class SpinalSimWishboneAdapterTester extends FunSuite{
   def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       dut.io.busIN.CYC #= false

@@ -26,7 +26,7 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
 
 class SpinalSimWishboneSimInterconTester extends FunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
+    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>
       def send_transaction(id: BigInt,master: Wishbone,slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit@suspendable = {
         val scoreboard_master = ScoreboardInOrder[WishboneTransaction]()
