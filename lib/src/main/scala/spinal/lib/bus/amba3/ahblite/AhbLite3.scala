@@ -166,4 +166,48 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
 
     lowMask & highMask
   }
+
+  /** Connect two AhbLite3 bus together with the resized of the address */
+  def <<(that: AhbLite3): Unit = {
+    
+    assert(this.config.dataWidth == that.config.dataWidth, "AhbLite3 << : bus must have the same data width")
+
+    that.HREADYOUT := this.HREADYOUT
+    that.HRDATA    := this.HRDATA
+    that.HRESP     := this.HRESP
+
+    this.HSEL      := that.HSEL
+    this.HREADY    := that.HREADY
+    this.HSIZE     := that.HSIZE
+    this.HWDATA    := that.HWDATA
+    this.HWRITE    := that.HWRITE
+    this.HBURST    := that.HBURST
+    this.HPROT     := that.HPROT
+    this.HMASTLOCK := that.HMASTLOCK
+    this.HTRANS    := that.HTRANS
+    this.HADDR     := that.HADDR.resized
+  }
+
+  def >>(that: AhbLite3): Unit = that << this
+
+
+  /** Convert to ahbLite3Master */
+  def toAhbLite3Master(): AhbLite3Master = {
+    val master = AhbLite3Master(config)
+
+    master.HADDR     := this.HADDR
+    master.HWRITE    := this.HWRITE
+    master.HSIZE     := this.HSIZE
+    master.HBURST    := this.HBURST
+    master.HPROT     := this.HPROT
+    master.HTRANS    := this.HTRANS
+    master.HMASTLOCK := this.HMASTLOCK
+    master.HWDATA    := this.HWDATA
+
+    this.HRDATA     := master.HRDATA
+    this.HRESP      := master.HRESP
+    this.HREADY     := master.HREADY
+
+    master
+  }
 }
