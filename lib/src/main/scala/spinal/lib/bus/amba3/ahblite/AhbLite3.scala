@@ -189,4 +189,25 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
   }
 
   def >>(that: AhbLite3): Unit = that << this
+
+
+  /** Convert to ahbLite3Master */
+  def toAhbLite3Master(): AhbLite3Master = {
+    val master = AhbLite3Master(config)
+
+    master.HADDR     := this.HADDR
+    master.HWRITE    := this.HWRITE
+    master.HSIZE     := this.HSIZE
+    master.HBURST    := this.HBURST
+    master.HPROT     := this.HPROT
+    master.HTRANS    := this.HTRANS
+    master.HMASTLOCK := this.HMASTLOCK
+    master.HWDATA    := this.HWDATA
+
+    this.HRDATA     := master.HRDATA
+    this.HRESP      := master.HRESP
+    this.HREADY     := master.HREADY
+
+    master
+  }
 }

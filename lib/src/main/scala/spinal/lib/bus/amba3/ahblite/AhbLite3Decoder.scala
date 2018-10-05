@@ -30,13 +30,47 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 
+
+object AhbLite3Decoder{
+
+  def apply(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]): AhbLite3Decoder = {
+    new AhbLite3Decoder(ahbLite3Config, decodings)
+  }
+
+  /**
+    * @example {{{
+    *
+    *     val decoder = AhbLite3Decoder(
+    *                      master = io.master_ahb,
+    *                      slaves = List(
+    *                           io.slave_ahb_1 -> (0x00000000, 1kB),
+    *                           io.slave_ahb_2 -> (0x10000000, 1kB),
+    *                           io.slave_ahb_3 -> (0x20000000, 1kB)
+    *                      ))
+    *         }}}
+    */
+  def apply(master: AhbLite3, slaves: Seq[(AhbLite3, SizeMapping)]): AhbLite3Decoder = {
+
+    val decoder = new AhbLite3Decoder(master.config, slaves.map(_._2))
+
+    decoder.io.input << master
+    (slaves.map(_._1), decoder.io.outputs).zipped.map(_ << _)
+
+    decoder
+  }
+
+  def apply(master: AhbLite3Master, slaves: Seq[(AhbLite3, SizeMapping)]): AhbLite3Decoder = AhbLite3Decoder(master.toAhbLite3(), slaves)
+}
+
+
+
 /**
   * AHB lite decoder
   *
   * @param ahbLite3Config : AHB bus configuration
   * @param decodings      : Mapping list for all outputs
   */
-case class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]) extends Component {
+class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]) extends Component {
 
   val io = new Bundle {
     val input   = slave(AhbLite3(ahbLite3Config))
@@ -61,7 +95,7 @@ case class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMa
     previousSels := applyedSels
   }
 
-  for((output, decoding, sel) <- (io.outputs, decodings, applyedSels.asBools).zipped){
+  for((output, sel) <- (io.outputs, applyedSels.asBools).zipped){
     output.HREADY    := applyedSlaveHREADY
     output.HSEL      := sel
     output.HADDR     := io.input.HADDR
