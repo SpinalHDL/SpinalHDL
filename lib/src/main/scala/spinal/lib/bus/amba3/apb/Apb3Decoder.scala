@@ -54,7 +54,9 @@ object Apb3Decoder{
 
 
 class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends Component {
-  assert(inputConfig.selWidth == 1)
+
+  assert(inputConfig.selWidth == 1, "Apb3Decoder: input sel width must be equal to 1")
+  assert(!SizeMapping.verifyOverlapping(decodings), "Apb3Decoder: overlapping found")
 
   val io = new Bundle {
     val input  = slave(Apb3(inputConfig))

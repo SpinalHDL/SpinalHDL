@@ -54,10 +54,45 @@ object SizeMapping{
   implicit def implicitTuple3(that: (Int, BigInt))   : SizeMapping = SizeMapping(that._1, that._2)
   implicit def implicitTuple5(that: (Long, BigInt))  : SizeMapping = SizeMapping(that._1, that._2)
   implicit def implicitTuple4(that: (BigInt, Int))   : SizeMapping = SizeMapping(that._1, that._2)
+
+  /**
+    * Verify that the mapping has no overlapping
+    *
+    *  MIN       MAX
+    *   |______   |
+    *   |__W1__|  |
+    *       ______|
+    *      |__W2__|
+    *
+    *  if overalp => max - min < w1 + w2
+    *
+    *  @return : true = overlapping found, false = no overlapping
+    */
+  def verifyOverlapping(mapping: Seq[SizeMapping]): Boolean = {
+
+    val mappingSorted = mapping.sortWith(_.base < _.base)
+
+    val hasOverlaps = (0 until mapping.length - 1).map{ i =>
+      val m1 = mappingSorted(i)
+      val m2 = mappingSorted(i + 1)
+
+      val max = m1.width.max(m2.width)
+      val min = m1.base
+
+      (max - min < m1.size + m2.size)
+    }.reduce(_ | _)
+
+    hasOverlaps
+  }
 }
 
 
 case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
+
+  assert(size > 0, "SizeMapping : size must be greater than 0")
+
+  val width = base + size
+
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
     (address & S(-size, address.getWidth bits).asUInt) === (base)
   else

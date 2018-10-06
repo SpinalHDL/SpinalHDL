@@ -72,6 +72,8 @@ object AhbLite3Decoder{
   */
 class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]) extends Component {
 
+  assert(!SizeMapping.verifyOverlapping(decodings), "AhbLite3Decoder : overlapping found")
+
   val io = new Bundle {
     val input   = slave(AhbLite3(ahbLite3Config))
     val outputs = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
