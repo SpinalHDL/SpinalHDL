@@ -76,7 +76,7 @@ object SizeMapping{
       val m1 = mappingSorted(i)
       val m2 = mappingSorted(i + 1)
 
-      val max = m1.width.max(m2.width)
+      val max = m1.end.max(m2.end)
       val min = m1.base
 
       (max - min < m1.size + m2.size)
@@ -91,7 +91,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   assert(size > 0, "SizeMapping : size must be greater than 0")
 
-  val width = base + size
+  val end = base + size
 
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
     (address & S(-size, address.getWidth bits).asUInt) === (base)
