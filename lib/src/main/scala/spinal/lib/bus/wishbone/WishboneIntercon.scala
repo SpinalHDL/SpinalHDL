@@ -46,7 +46,7 @@ class WishboneInterconFactory(config: WishboneConfig){
                                       allowAddressResize,
                                       allowDataResize,
                                       allowTagResize)
-    slave <> adapter.io.wbs
+    slave << adapter.io.wbs
     slaves += (adapter.io.wbm -> mapping)
   }
 
@@ -97,7 +97,7 @@ class WishboneInterconFactory(config: WishboneConfig){
                                       config, allowAddressResize,
                                       allowDataResize,
                                       allowTagResize)
-    master <> adapter.io.wbm
+    master >> adapter.io.wbm
     masters += adapter.io.wbs
   }
 
@@ -123,13 +123,13 @@ class WishboneInterconFactory(config: WishboneConfig){
   def build() = new Area {
     val arbiters = for(slave <- slaves.unzip._1) yield new Area{
       val arbiter = new WishboneArbiter(slave.config, masters.size)
-      arbiter.io.output <> slave
+      arbiter.io.output >> slave
       arbiter.setPartialName(slave,"arbiter")
     }
 
     val decoders = for(master <- masters) yield new Area{
       val decoder = new WishboneDecoder(master.config, slaves.unzip._2.toList)
-      decoder.io.input <> master
+      decoder.io.input << master
       decoder.setPartialName(master,"decoder")
     }
 
