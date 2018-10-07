@@ -7,43 +7,49 @@ import spinal.lib.bus.wishbone._
 import scala.collection.immutable._
 import scala.util.Random
 
+object WishboneDriver{
+  def apply(bus: Wishbone, clockdomain: ClockDomain) = new WishboneDriver(bus,clockdomain)
+}
+
+/** This is a helping class for driving the wishbone bus
+  * @param bus the wishbone bus to drive
+  * @param clockdomain the clockdomain where the bus reside
+  */
 class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
   val busStatus = WishboneStatus(bus)
 
-  def send(transaction : WishboneTransaction, we: Boolean): Unit@suspendable = {
-    bus.WE  #= we
-    transaction.driveAsMaster(bus)
+  /** Drive the wishbone bus as master with a transaction.
+    * @param transaction The transaction to send.
+    */
+  def sendAsMaster(transaction : WishboneTransaction, we: Boolean): Unit@suspendable = {
+    transaction.driveAsMaster(bus,we)
     if(!bus.config.isPipelined) clockdomain.waitSamplingWhere(busStatus.isAck)
     else clockdomain.waitSamplingWhere(!busStatus.isStall)
   }
 
-  def sendSingle(transaction: WishboneTransaction, we: Boolean): Unit@suspendable = {
-    bus.CYC #= true
-    bus.STB #= true
-    send(transaction, we)
-    bus.STB #= false
-    val dummy = if(bus.config.isPipelined) clockdomain.waitSamplingWhere(busStatus.isAck)
-    bus.CYC #= false
-  }
-
-  def sendBlock(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
+  /** Drive the wishbone bus as master.
+    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    */
+  def sendBlockAsMaster(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
     bus.CYC #= true
     transactions.dropRight(1).suspendable.foreach{ tran =>
       bus.STB #= true
-      send(tran, we)
+      sendAsMaster(tran, we)
       if(!bus.config.isPipelined){
         bus.STB #= false
         clockdomain.waitSampling()
       }
     }
     bus.STB #= true
-    send(transactions.last, we)
+    sendAsMaster(transactions.last, we)
     bus.STB #= false
-    //ackCounter.join()
     bus.CYC #= false
   }
 
-  def sendPipelinedBlock(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
+  /** Drive the wishbone bus as master in a pipelined way.
+    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    */
+  def sendPipelinedBlockAsMaster(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
     bus.CYC #= true
     bus.STB #= true
     val ackCounter = fork{
@@ -53,7 +59,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
         counter = counter + 1
       }
     }
-    transactions.suspendable.foreach(send(_, true))
+    transactions.suspendable.foreach(sendAsMaster(_, true))
     bus.STB #= false
     ackCounter.join()
     bus.CYC #= false
