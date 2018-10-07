@@ -65,25 +65,56 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     bus.CYC #= false
   }
 
-  def drive(transactions: Seq[WishboneTransaction], we: Boolean): Unit@suspendable = {
-    if(bus.config.isPipelined)  sendPipelinedBlock(transactions,we)
-    else                        sendBlock(transactions,we)
+  /** Drive the wishbone bus as slave with a transaction, and acknoledge the master.
+    * @param transaction The transaction to send.
+    */
+  def sendAsSlave(transaction : WishboneTransaction): Unit@suspendable = {
+    clockdomain.waitSamplingWhere(busStatus.isTransfer)
+    transaction.driveAsSlave(bus)
+    bus.ACK #= true
+    waitUntil(!busStatus.isTransfer)
+    bus.ACK #= false
   }
-//TODO
-  // def read(transaction: [Seq[WishboneTransaction],WishboneTransaction]): Unit@suspendable = {
-  //   transaction match{
-  //     case Seq[WishboneTransaction] => sendBlock(transaction, false)
-  //     case WishboneTransaction      => sendSingle(transaction, false)
-  //   }
-  // }
 
-  // def write[T <: Seq[WishboneTransaction],WishboneTransaction](transaction: T): Unit@suspendable = {
-  //   transaction match{
-  //     case Seq[WishboneTransaction] => sendBlock(transaction, true)
-  //     case WishboneTransaction      => sendSingle(transaction, true)
-  //   }
-  // }
+  /** Drive the wishbone bus as a slave.
+    * this function can hang if the master require more transactions than specified
+    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    */
+  def sendBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit@suspendable = {
+    transactions.suspendable.foreach{ transaction =>
+      sendAsSlave(transaction)
+    }
+  }
 
+  /** Drive the wishbone bus as a slave in a pipelined way.
+    * this function can hang if the master require more transactions than specified
+    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    */
+  def sendPipelinedBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit@suspendable = {
+    bus.ACK #= true
+    transactions.suspendable.foreach{ transaction =>
+      clockdomain.waitSamplingWhere(busStatus.isTransfer)
+      transaction.driveAsSlave(bus)
+    }
+    waitUntil(!busStatus.isTransfer)
+    bus.ACK #= false
+  }
+
+  /** Drive the wishbone bus.
+    * This will utomatically selects the wright function to use
+    * @param transactions a sequence of transactions that compouse the wishbone cycle
+    */
+  def drive(transactions: Seq[WishboneTransaction], we: Boolean= true): Unit@suspendable = {
+    (bus.isMasterInterface,bus.config.isPipelined) match {
+      case (false,false) => sendBlockAsMaster(transactions,we)
+      case (false,true)  => sendPipelinedBlockAsMaster(transactions,we)
+      case (true,false)  => sendBlockAsSlave(transactions)
+      case (true,true)   => sendPipelinedBlockAsSlave(transactions)
+    }
+  }
+
+  /** Dumb slave acknoledge.
+    */
   def slaveAckResponse(): Unit@suspendable = {
     clockdomain.waitSamplingWhere(busStatus.isTransfer)
     bus.ACK #= true
@@ -91,6 +122,8 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     bus.ACK #= false
   }
 
+  /** Dumb acknoledge, as a pipelined slave.
+    */
   def slaveAckPipelinedResponse(): Unit@suspendable = {
     clockdomain.waitSamplingWhere(busStatus.isCycle)
     val cycle = fork{
@@ -109,6 +142,9 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     cycle.join()
   }
 
+  /** Dumb slave acknoledge.
+    * This will utomatically selects the wright function to use
+    */
   def slaveSink(): Unit@suspendable = {
     val dummy = fork{
       while(true){
