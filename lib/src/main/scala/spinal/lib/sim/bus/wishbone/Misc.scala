@@ -61,12 +61,15 @@ case class WishboneTransaction( address : BigInt = 0,
                                 tgd : BigInt  = 0){
   def masked(mask : BigInt) : WishboneTransaction = this.copy(address = this.address & mask)
 
-  def driveAsMaster(bus: Wishbone): Unit = {
+  def driveAsMaster(bus: Wishbone,we: Boolean = true): Unit = {
     bus.ADR       #= address
-    bus.DAT_MOSI  #= data
-    if(bus.config.useTGA) bus.TGA       #= tga
-    if(bus.config.useTGC) bus.TGC       #= tgc
-    if(bus.config.useTGD) bus.TGD_MOSI  #= tgd
+    bus.WE        #= we
+    if(bus.config.useTGA) bus.TGA #= tga
+    if(bus.config.useTGC) bus.TGC #= tgc
+    if(we){
+      bus.DAT_MOSI  #= data
+      if(bus.config.useTGD) bus.TGD_MOSI #= tgd
+    }
   }
 
   def driveAsSlave(bus: Wishbone): Unit = {
