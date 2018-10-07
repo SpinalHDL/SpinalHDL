@@ -58,31 +58,16 @@ object SizeMapping{
   /**
     * Verify that the mapping has no overlapping
     *
-    *  MIN       MAX
-    *   |______   |
-    *   |__W1__|  |
-    *       ______|
-    *      |__W2__|
-    *
-    *  if overalp => max - min < w1 + w2
-    *
     *  @return : true = overlapping found, false = no overlapping
     */
   def verifyOverlapping(mapping: Seq[SizeMapping]): Boolean = {
 
     val mappingSorted = mapping.sortWith(_.base < _.base)
 
-    val hasOverlaps = (0 until mapping.length - 1).map{ i =>
-      val m1 = mappingSorted(i)
-      val m2 = mappingSorted(i + 1)
+    val hasOverlaps = if(mapping.size == 1) false else (0 until mapping.length - 1).map(i => mappingSorted(i).end >= mappingSorted(i + 1).base).reduce(_ | _)
 
-      val max = m1.end.max(m2.end)
-      val min = m1.base
+    return hasOverlaps
 
-      (max - min < m1.size + m2.size)
-    }.reduce(_ | _)
-
-    hasOverlaps
   }
 }
 
@@ -91,7 +76,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   assert(size > 0, "SizeMapping : size must be greater than 0")
 
-  val end = base + size
+  val end = base + size - 1
 
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
     (address & S(-size, address.getWidth bits).asUInt) === (base)
