@@ -57,7 +57,7 @@ class SpinalSimWishboneSimTester extends FunSuite{
        val ddd = fork{
          while(!seq.isEmpty){
            val tran = seq.nextTransaction
-           dri.sendBlock(tran ,true)
+           dri.drive(tran ,true)
            dut.clockDomain.waitSampling(1)
          }
        }
@@ -103,7 +103,7 @@ class SpinalSimWishboneSimTester extends FunSuite{
        val ddd = fork{
          while(!seq.isEmpty){
            val tran = seq.nextTransaction
-           dri.sendBlock(tran ,true)
+           dri.drive(tran ,true)
            dut.clockDomain.waitSampling(1)
          }
        }
@@ -150,7 +150,7 @@ class SpinalSimWishboneSimTester extends FunSuite{
         val ddd = fork{
           while(!seq.isEmpty){
             val tran = seq.nextTransaction
-            dri.sendPipelinedBlock(tran ,true)
+            dri.drive(tran ,true)
             dut.clockDomain.waitSampling(5)
           }
         }
@@ -198,7 +198,7 @@ class SpinalSimWishboneSimTester extends FunSuite{
         val ddd = fork{
           while(!seq.isEmpty){
             val tran = seq.nextTransaction
-            dri.sendPipelinedBlock(tran ,true)
+            dri.drive(tran ,true)
             dut.clockDomain.waitSampling(5)
           }
         }
