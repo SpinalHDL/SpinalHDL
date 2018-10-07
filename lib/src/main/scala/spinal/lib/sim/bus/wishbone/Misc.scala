@@ -12,12 +12,12 @@ object WishboneStatus{
 
 class WishboneStatus(bus: Wishbone){
   def isCycle   : Boolean = bus.CYC.toBoolean
-  def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean //TODO
+  def isStall   : Boolean = if(bus.config.isPipelined)  isCycle && bus.STALL.toBoolean
                             else                        false
-  def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean //&& !bus.STALL.toBoolean //TODO
+  def isTransfer: Boolean = if(bus.config.isPipelined)  isCycle && bus.STB.toBoolean && !bus.STALL.toBoolean
                             else                        isCycle && bus.STB.toBoolean
 
-  def isAck     : Boolean = if(bus.config.isPipelined)  isCycle &&  bus.ACK.toBoolean //TODO
+  def isAck     : Boolean = if(bus.config.isPipelined)  isCycle &&  bus.ACK.toBoolean
                             else                        isTransfer &&  bus.ACK.toBoolean
 
   def isWrite   : Boolean =                             isTransfer &&  bus.WE.toBoolean
