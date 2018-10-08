@@ -129,9 +129,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Initialization class delay */
   override def delayedInit(body: => Unit) = {
     body // evaluate the initialization code of body
-
+    val bodyFunc = (body _)
+    val field = bodyFunc.getClass.getDeclaredFields().apply(0)
+    val a = bodyFunc.getClass.getDeclaredMethods().apply(0).getDeclaringClass.getName
+    val b = this.getClass.getName  + "$delayedInit$body"
+    val hit = a == b
     // prePopTasks are executed after the creation of the inherited component
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
+    if(hit){
 
       this.nameElements()
 
