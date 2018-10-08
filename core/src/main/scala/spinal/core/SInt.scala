@@ -199,7 +199,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
   override def getAllTrue: this.type = S(if(getWidth != 0) -1 else 0, this.getWidth bits).asInstanceOf[this.type]
-  override def setAll(): Unit = this := (if(getWidth != 0) -1 else 0)
+  override def setAll(): this.type = {
+    this := (if(getWidth != 0) -1 else 0)
+    this
+  }
 
   override def assignDontCare(): this.type = {
     this.assignFrom(SIntLiteral(BigInt(0), (BigInt(1) << this.getWidth) - 1, widthOf(this)))

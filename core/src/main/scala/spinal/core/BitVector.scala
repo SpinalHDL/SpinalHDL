@@ -324,15 +324,24 @@ abstract class BitVector extends BaseType with Widthable {
 
 
   /** Set all bits to value */
-  def setAllTo(value: Boolean): Unit = if(value) setAll() else clearAll()
+  def setAllTo(value: Boolean): this.type = {
+    if(value) setAll() else clearAll()
+    this
+  }
 
   /** Set all bits to value */
-  def setAllTo(value: Bool): Unit = this := Mux(value, getAllTrue, getZero)
+  def setAllTo(value: Bool): this.type = {
+    this := Mux(value, getAllTrue, getZero)
+    this
+  }
 
   /** Set all bits */
-  def setAll(): Unit
+  def setAll(): this.type
   /** Clear all bits */
-  def clearAll(): Unit = this := this.getZeroUnconstrained
+  def clearAll(): this.type = {
+    this := this.getZeroUnconstrained
+    this
+  }
 
   /** Return the width */
   def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
