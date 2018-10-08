@@ -466,3 +466,17 @@ object ArrayManager{
 object AnnotationUtils{
   def isDontName(f: Field): Boolean = f.isAnnotationPresent(classOf[dontName])
 }
+
+
+/**
+  * Declare a register with an initialize value
+  */
+object CombInit {
+  def apply[T <: Data](init: T): T = {
+    val ret = cloneOf(init)
+    ret := init
+    ret
+  }
+
+  def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
+}
