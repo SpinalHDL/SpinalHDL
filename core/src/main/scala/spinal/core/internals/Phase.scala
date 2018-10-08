@@ -34,7 +34,7 @@ import scala.io.Source
 
 class PhaseContext(val config: SpinalConfig) {
 
-  var globalData = GlobalData.reset
+  var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
 

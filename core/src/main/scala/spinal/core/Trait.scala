@@ -93,8 +93,8 @@ object GlobalData {
   def get = it.get()
 
   /** Reset the GlobalData of the current thread */
-  def reset = {
-    it.set(new GlobalData)
+  def reset(config: SpinalConfig) = {
+    it.set(new GlobalData(config))
     get
   }
 }
@@ -102,7 +102,7 @@ object GlobalData {
 /**
   * Global data
   */
-class GlobalData {
+class GlobalData(val config : SpinalConfig) {
 
   val dslScope       = new Stack[ScopeStatement]()
   val dslClockDomain = new Stack[ClockDomain]()

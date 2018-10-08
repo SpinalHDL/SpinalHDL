@@ -1168,6 +1168,7 @@ object PlayDeterministicGeneration extends App {
 }
 
 object PlayAssertFormal extends App {
+  import spinal.core.GenerationFlags._
   class MyTopLevel extends Component{
     when(False){
       when(False){
@@ -1182,7 +1183,7 @@ object PlayAssertFormal extends App {
     }
   }
 
-  SpinalSystemVerilog(new MyTopLevel)
+  SpinalConfig().includeFormal.generateSystemVerilog(new MyTopLevel)
   SpinalVerilog(new MyTopLevel)
   SpinalVhdl(new MyTopLevel)
 }
