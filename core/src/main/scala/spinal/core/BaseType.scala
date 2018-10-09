@@ -260,6 +260,13 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     typeNode
   }
 
+  private[core] def wrapUnaryWithBool(e: UnaryOperator): Bool = {
+    e.source = this.asInstanceOf[e.T]
+    val typeNode = Bool().setAsTypeNode()
+    typeNode.assignFrom(e)
+    typeNode
+  }
+
   def wrapCast[T <: BaseType](result: T, node: Cast): T = {
     node.input = this.asInstanceOf[node.T]
     result.assignFrom(node)

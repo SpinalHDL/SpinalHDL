@@ -1181,11 +1181,22 @@ object PlayAssertFormal extends App {
         formal(cover(True))
       }
     }
+    GenerationFlags.formal{
+      import spinal.core.Formal._
+      val a = past(B"1010")
+      val b = rise(False)
+      val c = fall(False)
+      val d = changed(False)
+      val f = stable(False)
+      val g = initstate()
+      assume(!initstate() && changed(True))
+    }
+
   }
 
   SpinalConfig().includeFormal.generateSystemVerilog(new MyTopLevel)
-  SpinalVerilog(new MyTopLevel)
-  SpinalVhdl(new MyTopLevel)
+//  SpinalVerilog(new MyTopLevel)
+//  SpinalVhdl(new MyTopLevel)
 }
 
 object PlayErrorImprovment extends App {
@@ -1267,13 +1278,19 @@ object PlayNamingImprovment extends App{
     val miaou = Bool
     miaou := readableOutput
   })
+
+  import spinal.sim._
+  import spinal.core._
+  import spinal.core.sim._
+
+  object FpxxDemoTests {
+    def main(args: Array[String]): Unit = {
+      SimConfig.withWave.compile(new BufferCC(Bool, false, 2)).doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        println("asd")
+      }
+    }
+  }
 }
 
-
-object PlayScopeImport{
-//  case class Parameters(){
-//
-//  }
-  SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods())
-}
 

@@ -1322,6 +1322,13 @@ end
     case  e: BitVectorBitAccessFloating               => accessBoolFloating(e)
     case  e: BitVectorRangedAccessFixed               => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating            => accessBitVectorFloating(e)
+
+    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)})"
+    case e : Operator.Formal.Rise                     => s"$$rise(${emitExpression(e.source)})"
+    case e : Operator.Formal.Fall                     => s"$$rise(${emitExpression(e.source)})"
+    case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"
+    case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
+    case e : Operator.Formal.InitState                => s"$$initstate()"
   }
 
   elaborate()
