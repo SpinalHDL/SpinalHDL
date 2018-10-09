@@ -205,7 +205,7 @@ object SpinalMap {
   }
 
   def listDc[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
-    val result: T = weakCloneOf(mappings.head._2).assignDontCare()
+    val result: T = cloneOf(mappings.head._2).assignDontCare()
 
     switch(addr){
       for ((cond, value) <- mappings) {
