@@ -203,6 +203,27 @@ object SpinalMap {
     }
     result
   }
+
+  def listDc[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result: T = weakCloneOf(mappings.head._2).assignDontCare()
+
+    switch(addr){
+      for ((cond, value) <- mappings) {
+        cond match {
+          case product: Product =>
+            is.list(product.productIterator) {
+              result := value
+            }
+          case `default` => ???
+          case _ =>
+            is(cond) {
+              result := value
+            }
+        }
+      }
+    }
+    result
+  }
 }
 
 

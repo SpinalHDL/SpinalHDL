@@ -300,6 +300,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     SpinalMap.list(this, mappings :+ (spinal.core.default , defaultValue) )
   }
 
+  def muxListDc[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
+    SpinalMap.list(this, mappings)
+  }
+
   def mux[T2 <: Data](mappings: (Any, T2)*): T2 = {
     SpinalMap.list(this,mappings)
   }
