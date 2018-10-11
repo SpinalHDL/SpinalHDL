@@ -242,7 +242,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
 
     this.HRDATA     := master.HRDATA
     this.HRESP      := master.HRESP
-    this.HREADY     := master.HREADY
+    this.HREADYOUT  := master.HREADY
 
     master
   }
