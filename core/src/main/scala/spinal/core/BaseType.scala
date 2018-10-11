@@ -260,6 +260,13 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     typeNode
   }
 
+  private[core] def wrapUnaryWithBool(e: UnaryOperator): Bool = {
+    e.source = this.asInstanceOf[e.T]
+    val typeNode = Bool().setAsTypeNode()
+    typeNode.assignFrom(e)
+    typeNode
+  }
+
   def wrapCast[T <: BaseType](result: T, node: Cast): T = {
     node.input = this.asInstanceOf[node.T]
     result.assignFrom(node)
@@ -298,6 +305,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   def muxList[T2 <: Data](defaultValue: T2, mappings: Seq[(Any, T2)]): T2 = {
     SpinalMap.list(this, mappings :+ (spinal.core.default , defaultValue) )
+  }
+
+  def muxListDc[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
+    SpinalMap.listDc(this, mappings)
   }
 
   def mux[T2 <: Data](mappings: (Any, T2)*): T2 = {

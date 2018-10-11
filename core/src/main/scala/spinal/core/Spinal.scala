@@ -107,6 +107,7 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
  */
 case class SpinalConfig( mode                           : SpinalMode = null,
                          @deprecated debug              : Boolean = false,
+                         flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
                          debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
                          keepAll                        : Boolean = false,
                          defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
@@ -161,11 +162,23 @@ case class SpinalConfig( mode                           : SpinalMode = null,
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
     this
   }
+
+  def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
+  def includeFormal : this.type = {flags += GenerationFlags.formal; this}
+  def includeSimulation : this.type = {flags += GenerationFlags.simulation; this}
+}
+class GenerationFlags {
+  def isEnabled = GlobalData.get.config.flags.contains(this)
+  def apply[T](block : => T) : T = if(isEnabled) block else null.asInstanceOf[T]
 }
 
+object GenerationFlags{
+  object synthesis extends GenerationFlags
+  object formal extends GenerationFlags
+  object simulation extends GenerationFlags
+}
 
 object SpinalConfig{
-
   def shell[T <: Component](args: Seq[String]): SpinalConfig = {
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
       opt[Unit]("vhdl")                   action { (_, c) => c.copy(mode = VHDL)         } text("Select the VHDL mode")

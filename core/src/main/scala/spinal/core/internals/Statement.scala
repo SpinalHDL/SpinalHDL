@@ -430,7 +430,6 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
   override def normalizeInputs: Unit = {
     def bitVectorNormalize(factory : => Resize) : Unit =  {
       val targetWidth = value.asInstanceOf[WidthProvider].getWidth
-
       for(e <- elements; k <- e.keys){
         for(i <- e.keys.indices) {
           val k = e.keys(i)
@@ -441,7 +440,43 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
           }
         }
       }
+      if(targetWidth == 0){
+        def swap(scope : ScopeStatement) {
+          scope.foreachStatements(_.parentScope = this.parentScope)
+          if (this.lastScopeStatement != null)
+            this.lastScopeStatement.nextScopeStatement = scope.head
+          else
+            parentScope.head = scope.head
+          if (scope.head != null)
+            scope.head.lastScopeStatement = this.lastScopeStatement
+
+          if (this.nextScopeStatement != null)
+            this.nextScopeStatement.lastScopeStatement = scope.last
+          else
+            parentScope.last = scope.last
+
+          if (scope.last != null)
+            scope.last.nextScopeStatement = this.nextScopeStatement
+        }
+
+        if(elements.nonEmpty){
+          val element = elements.head
+          assert(defaultScope == null)
+          assert(element.keys.length == 1)
+          assert(element.keys.head.asInstanceOf[WidthProvider].getWidth == 0)
+          swap(element.scopeStatement)
+        } else if(defaultScope != null){
+          swap(defaultScope)
+        } else {
+          if(this.nextScopeStatement != null)
+            this.nextScopeStatement.lastScopeStatement = this.lastScopeStatement
+          if(this.lastScopeStatement != null)
+            this.lastScopeStatement.nextScopeStatement = this.nextScopeStatement
+        }
+
+      }
     }
+
 
     //TODO IR enum encoding stuff
     value.getTypeObject match {
