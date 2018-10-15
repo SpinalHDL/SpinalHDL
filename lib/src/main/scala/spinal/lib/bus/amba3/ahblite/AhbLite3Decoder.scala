@@ -30,6 +30,20 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 
+/**
+  * Default Slave
+  * Return an error when an operation is send to the default salve
+  */
+class DefaultAhbLite3Slave(config: AhbLite3Config) extends Component{
+  val io = slave(AhbLite3(config))
+
+  io.HREADYOUT := True
+  io.HRESP     := RegNext(io.HSEL & !io.isIdle, False)
+  io.HRDATA    := 0
+
+}
+
+
 
 object AhbLite3Decoder{
 
@@ -79,14 +93,24 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
     val outputs = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
   }
 
+  
+  val defaultSlave = new DefaultAhbLite3Slave(ahbLite3Config)
+
+  // add the default slave to the output list
+  def outputs : List[AhbLite3] = io.outputs.toList ++ List(defaultSlave.io)
+
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
 
   val slaveReadyOutReduction = io.outputs.map(_.HREADYOUT).reduce(_ & _)
 
-  val decodedSels  = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
-  val applyedSels  = Bits(decodings.size bits)
-  val previousSels = Reg(Bits(decodings.size bits)) init(0)
+  val decodesSlaves       = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
+  val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle
+
+  val decodedSels  = decodeDefaultSlave ## decodesSlaves
+  val applyedSels  = Bits(decodings.size + 1 bits)
+  val previousSels = Reg(Bits(decodings.size + 1 bits)) init(0)
+
 
   val noneIdleSwitchDetected = previousSels =/= 0 && decodedSels =/= 0 && previousSels =/= decodedSels
   applyedSels      := !noneIdleSwitchDetected ? decodedSels     | 0
@@ -97,7 +121,7 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
     previousSels := applyedSels
   }
 
-  for((output, sel) <- (io.outputs, applyedSels.asBools).zipped){
+  for((output, sel) <- (outputs, applyedSels.asBools).zipped){
     output.HREADY    := applyedSlaveHREADY
     output.HSEL      := sel
     output.HADDR     := io.input.HADDR
@@ -110,10 +134,10 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
     output.HWDATA    := io.input.HWDATA
   }
 
-  val requestIndex = OHToUInt(io.outputs.map(_.HSEL))
+  val requestIndex = OHToUInt(outputs.map(_.HSEL))
   val dataIndex    = RegNextWhen(requestIndex, io.input.HREADY)
-  val slaveHRDATA  = io.outputs(dataIndex).HRDATA
-  val slaveHRESP   = io.outputs(dataIndex).HRESP
+  val slaveHRDATA  = outputs(dataIndex).HRDATA
+  val slaveHRESP   = outputs(dataIndex).HRESP
 
   val switchBufferValid  = RegNextWhen(noneIdleSwitchDetected, applyedSlaveHREADY) init(False)
   val switchBufferHRDATA = RegNextWhen(slaveHRDATA, applyedSlaveHREADY)
