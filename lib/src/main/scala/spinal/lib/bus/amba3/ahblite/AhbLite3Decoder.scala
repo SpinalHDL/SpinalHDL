@@ -62,8 +62,24 @@ object AhbLite3Decoder{
     *                           io.slave_ahb_3 -> (0x20000000, 1kB)
     *                      ))
     *         }}}
+    *
+    * A default slave can be added as follow
+    *
+    * @example {{{
+    *
+    *     val decoder = AhbLite3Decoder(
+    *                      master = io.master_ahb,
+    *                      slaves = List(
+    *                           io.slave_ahb_1 -> (0x00000000, 1kB),
+    *                           io.slave_ahb_2 -> (0x10000000, 1kB),
+    *                           io.slave_ahb_3 -> (0x20000000, 1kB)
+    *                      ),
+    *                      defaultSlave = myDefautlSlave.io.ahb
+    *                      )
+    *         }}}
+    *
     */
-  def apply(master: AhbLite3, slaves: Seq[(AhbLite3, SizeMapping)]): AhbLite3Decoder = {
+  def apply(master: AhbLite3, slaves: Seq[(AhbLite3, SizeMapping)], defaultSlave: AhbLite3 = null): AhbLite3Decoder = {
 
     val decoder = new AhbLite3Decoder(master.config, slaves.map(_._2))
 
@@ -73,7 +89,6 @@ object AhbLite3Decoder{
     decoder
   }
 
-  def apply(master: AhbLite3Master, slaves: Seq[(AhbLite3, SizeMapping)]): AhbLite3Decoder = AhbLite3Decoder(master.toAhbLite3(), slaves)
 }
 
 
@@ -84,7 +99,7 @@ object AhbLite3Decoder{
   * @param ahbLite3Config : AHB bus configuration
   * @param decodings      : Mapping list for all outputs
   */
-class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping]) extends Component {
+class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping], defaultAhbLite3Slave: AhbLite3 = null) extends Component {
 
   assert(!SizeMapping.verifyOverlapping(decodings), "AhbLite3Decoder : overlapping found")
 
@@ -93,11 +108,11 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
     val outputs = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
   }
 
-  
-  val defaultSlave = new DefaultAhbLite3Slave(ahbLite3Config)
+
+  val defaultSlave = if(defaultAhbLite3Slave == null) new DefaultAhbLite3Slave(ahbLite3Config) else null
 
   // add the default slave to the output list
-  def outputs : List[AhbLite3] = io.outputs.toList ++ List(defaultSlave.io)
+  def outputs : List[AhbLite3] = io.outputs.toList ++ List(if(defaultAhbLite3Slave == null) defaultSlave.io else defaultAhbLite3Slave)
 
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
