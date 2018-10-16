@@ -37,14 +37,25 @@ class SpinalSimSpiDdrMaster extends FunSuite {
 
   var compiled : SimCompiled[SpiDdrMasterCtrl.TopLevel] = null
   test("compile"){
-    compiled = SimConfig.compile(SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods()))
+    compiled = SimConfig.withWave.withConfig(SpinalConfig(verbose = true)).compile(
+      SpiDdrMasterCtrl(
+        SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(dataWidth=4, ioRate = 2, ssWidth=3))
+//          .addFullDuplex(0, rate = 1, ddr = false)
+//          .addFullDuplex(1, rate = 1, ddr = true)
+//          .addFullDuplex(2, rate = 2, ddr = false)
+//          .addFullDuplex(3, rate = 2, ddr = true)
+
+//          .addHalfDuplex(2, rate = 1, ddr = false, spiWidth = 2)
+          .addHalfDuplex(3, rate = 1, ddr = true, spiWidth = 2)
+      )
+    )
   }
 
 
   for(cpol <- List(false, true); cpha <- List(false, true); repeat <- 0 to 0) {
     val name = s"test cpol=$cpol cpha=$cpha $repeat"
     test(name) {
-      compiled.doSim(name) { dut =>
+      compiled.doSim(name, 32) { dut =>
         SimTimeout(10*1000000)
         dut.clockDomain.forkStimulus(10)
         dut.io.config.kind.cpha #= cpha
@@ -62,31 +73,24 @@ class SpinalSimSpiDdrMaster extends FunSuite {
         while(rspScoreboard.matches < 300){
           dut.io.cmd.valid #= true
 //          if(Random.nextFloat() < 0.8){
-          val mods = List(0, 2,3, 4,5)
           val writeData, readData = Random.nextInt(256)
           val write, read = Random.nextBoolean()
-          val fullRate = Random.nextBoolean()
           val sclkToogle = Random.nextInt(1 << 2)
-          val mod = mods(Random.nextInt(mods.length))
+          val mod = dut.p.mods.apply(Random.nextInt(dut.p.mods.length))
 
           dut.io.cmd.kind #= false
           dut.io.cmd.data #= writeData
           dut.io.cmd.write #= write
           dut.io.cmd.read #= read
-          dut.io.config.fullRate #= fullRate
-          dut.io.config.mod #= mod
+          dut.io.config.mod #= mod.id
           dut.io.config.sclkToogle #= sclkToogle
 
           if(read) rspScoreboard.pushRef(readData)
           val spiThread = fork{
             var beat = 0
-            val (spiWidth, ddr) = mod match {
-              case 0 => (1, false)
-              case 2 => (2, false)
-              case 3 => (2, true)
-              case 4 => (4, false)
-              case 5 => (4, true)
-            }
+            val spiWidth = mod.bitrate
+            val ddr = mod.ddr
+            val fullRate = mod.clkRate != 1
             val dataRate = if(ddr) spiWidth *2 else spiWidth
             val dataMask = (1 << dataRate) - 1
             Suspendable.repeat(8/dataRate){
@@ -102,7 +106,7 @@ class SpinalSimSpiDdrMaster extends FunSuite {
                 val beatBuffer = beat
                 fork{
                   dut.clockDomain.waitSampling()
-                  if(mod == 0)
+                  if(mod.id == 0)
                     dut.io.spi.data(1).read #= ((readData >> (8-dataRate-beatBuffer*dataRate)) & 1)*3
                   else{
                     for(i <- 0 until spiWidth) {

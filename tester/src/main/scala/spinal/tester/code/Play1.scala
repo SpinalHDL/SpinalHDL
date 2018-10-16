@@ -970,13 +970,84 @@ object PlaySymplify {
 //}
 
 object PlayBug {
+  object LeadingZeros {
+    def apply(input: Bits): UInt = {
+      val zeros = UInt(log2Up(input.getWidth+1) bits)
+
+      // https://electronics.stackexchange.com/questions/196914/verilog-synthesize-high-speed-leading-zero-count
+
+      val input_padded = if ( (input.getWidth & 1) == 1) input ## True else input
+
+      // Encode pairs: 00 -> 10 (2 zeros), 01 -> 01 (1 leading zero), 10 and 11 -> 00 (no leading zeros)
+      val encoded = Bits(input_padded.getWidth bits)
+
+      var i = 0
+      while(i<input_padded.getWidth){
+        encoded(i+1 downto i) := input_padded(i+1 downto i).mux(
+          B"00" -> B"10",
+          B"01" -> B"01",
+          B"10" -> B"00",
+          B"11" -> B"00")
+        i = i + 2
+      }
+
+      var tree_in = Bits
+      tree_in := encoded
+
+      // Reduce tree
+      var n = 2
+      var tree_in_padded = Bits
+
+      while(n <= zeros.getWidth){
+        var pad_length =  (2*n - tree_in.getWidth % (2*n)) % (2*n)
+        var pad_vec = Bits(pad_length bits).setAll
+
+        tree_in_padded = Bits((tree_in.getWidth + pad_length) bits)
+        tree_in_padded = if (pad_length == 0) tree_in else (tree_in ## pad_vec)
+        //            tree_in_padded.setAll
+        //            when(True){
+        //                tree_in_padded(tree_in.range) := tree_in
+        //            }
+
+        var reduced = Bits(tree_in_padded.getWidth/(2*n)*(n+1) bits)
+
+        var i = 0
+        while(i < tree_in_padded.getWidth/2/n){
+          var pair  = tree_in_padded((i+1)*(2*n)-1 downto i*(2*n))
+          var left  = pair(n-1+n downto n)
+          var right = pair(n-1   downto 0)
+
+          when(left.msb && right.msb){
+            reduced((i+1)*(n+1)-1 downto i*(n+1)) := (n -> True, default -> False)
+          }
+            .elsewhen(!left.msb){
+              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"0" ## left
+            }.
+            otherwise{
+              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"01" ## right(n-2 downto 0)
+            }
+          i = i + 1
+        }
+
+        tree_in = reduced
+        n += 1
+
+        if(n > zeros.getWidth){
+          zeros := reduced.resize(zeros.getWidth).asUInt
+        }
+      }
+
+      zeros
+    }
+  }
   class TopLevel() extends Component{
-    Mux(True, U"0", B"0")
+    val toto = Bits
+//    toto.as
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
-    //SpinalVerilog(new TopLevel)
+//    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
@@ -1028,32 +1099,22 @@ object PlayFragment{
 object PlayOpt {
 
   class TopLevel extends Component {
-    val src0, src1 = in Bits (32 bit)
-    val eq  = in Bool
-    val signed  = in Bool
-    val result = out Bool
-
-
-
-  //  br_result := Mux(br_eq,(src0 === src1),Mux(br_signed,(src0.asSInt < src1.asSInt),(src0.asUInt < src1.asUInt)))
-
-
-    val br_src0 = (src0.msb && signed) ## src0
-    val br_src1 = (src1.msb && signed) ## src1
-    result :=  Mux(eq,(src0 === src1),(br_src0.asUInt-br_src1.asUInt).msb)
-//    val src0, src1 = in Bits (32 bit)
-//    //val br_eq  = out Bool
-//    val br_signed  = in Bool
-//    val br_result  = out Bool
-//
-//
-//
+    val a = UInt(2 bits)
+    a.assignDontCare()
+    when(True) {
+      switch(U(0)) {
+        is(0) {
+          a := in(UInt(2 bits))
+        }
+      }
+    }
+    val b = U(3)
 
 
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
