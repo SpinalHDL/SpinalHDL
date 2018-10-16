@@ -32,14 +32,44 @@ import spinal.lib.bus.misc.SizeMapping
 
 /**
   * Default Slave
-  * Return an error when an operation is send to the default salve
+  * Return an error when an operation occurs
   */
 class DefaultAhbLite3Slave(config: AhbLite3Config) extends Component{
+
   val io = slave(AhbLite3(config))
 
+  object Phase extends SpinalEnum{
+    val IDLE, ACCESS, RESPONSE, ERROR = newElement()
+  }
+
+  import Phase._
+
+  val state = RegInit(IDLE)
+
   io.HREADYOUT := True
-  io.HRESP     := RegNext(io.HSEL & !io.isIdle, False)
+  io.HRESP     := False
   io.HRDATA    := 0
+
+  switch(state){
+    is(IDLE){
+      when(io.HSEL & !io.isIdle){
+        state := ACCESS
+      }
+    }
+    is(ACCESS){
+      io.HREADYOUT := False
+      state        := RESPONSE
+    }
+    is(RESPONSE){
+      io.HREADYOUT := False
+      io.HRESP     := True
+      state        := ERROR
+    }
+    default{
+      io.HRESP := True
+      state    := IDLE
+    }
+  }
 
 }
 
@@ -112,12 +142,12 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   val defaultSlave = if(defaultAhbLite3Slave == null) new DefaultAhbLite3Slave(ahbLite3Config) else null
 
   // add the default slave to the output list
-  def outputs : List[AhbLite3] = io.outputs.toList ++ List(if(defaultAhbLite3Slave == null) defaultSlave.io else defaultAhbLite3Slave)
+  val outputs : List[AhbLite3] = io.outputs.toList ++ List(if(defaultAhbLite3Slave == null) defaultSlave.io else defaultAhbLite3Slave)
 
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
 
-  val slaveReadyOutReduction = io.outputs.map(_.HREADYOUT).reduce(_ & _)
+  val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduce(_ & _)
 
   val decodesSlaves       = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
   val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle
@@ -150,7 +180,7 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   }
 
   val requestIndex = OHToUInt(outputs.map(_.HSEL))
-  val dataIndex    = RegNextWhen(requestIndex, io.input.HREADY)
+  val dataIndex    = RegNextWhen(requestIndex, io.input.HREADYOUT)
   val slaveHRDATA  = outputs(dataIndex).HRDATA
   val slaveHRESP   = outputs(dataIndex).HRESP
 

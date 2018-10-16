@@ -74,8 +74,6 @@ object SizeMapping{
 
 case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
-  assert(size > 0, "SizeMapping : size must be greater than 0")
-
   val end = base + size - 1
 
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
