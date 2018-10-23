@@ -111,10 +111,12 @@ object AhbLite3Decoder{
     */
   def apply(master: AhbLite3, slaves: Seq[(AhbLite3, SizeMapping)], defaultSlave: AhbLite3 = null): AhbLite3Decoder = {
 
-    val decoder = new AhbLite3Decoder(master.config, slaves.map(_._2))
+    val decoder = new AhbLite3Decoder(master.config, slaves.map(_._2), defaultSlave != null)
 
     decoder.io.input << master
     (slaves.map(_._1), decoder.io.outputs).zipped.map(_ << _)
+
+    if(defaultSlave != null) defaultSlave << decoder.io.defaultSlave
 
     decoder
   }
@@ -129,20 +131,21 @@ object AhbLite3Decoder{
   * @param ahbLite3Config : AHB bus configuration
   * @param decodings      : Mapping list for all outputs
   */
-class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping], defaultAhbLite3Slave: AhbLite3 = null) extends Component {
+class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping], addDefaultSlaveInterface: Boolean = false) extends Component {
 
   assert(!SizeMapping.verifyOverlapping(decodings), "AhbLite3Decoder : overlapping found")
 
   val io = new Bundle {
-    val input   = slave(AhbLite3(ahbLite3Config))
-    val outputs = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
+    val input        = slave(AhbLite3(ahbLite3Config))
+    val outputs      = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
+    val defaultSlave = if(addDefaultSlaveInterface) master(AhbLite3(ahbLite3Config)) else null
   }
 
 
-  val defaultSlave = if(defaultAhbLite3Slave == null) new DefaultAhbLite3Slave(ahbLite3Config) else null
+  val defaultSlave = if(addDefaultSlaveInterface) null else new DefaultAhbLite3Slave(ahbLite3Config)
 
   // add the default slave to the output list
-  val outputs : List[AhbLite3] = io.outputs.toList ++ List(if(defaultAhbLite3Slave == null) defaultSlave.io else defaultAhbLite3Slave)
+  val outputs : List[AhbLite3] = io.outputs.toList ++ List(if(addDefaultSlaveInterface) io.defaultSlave else defaultSlave.io)
 
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)

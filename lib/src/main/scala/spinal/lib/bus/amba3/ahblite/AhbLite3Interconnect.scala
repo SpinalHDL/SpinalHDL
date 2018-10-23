@@ -64,6 +64,12 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping){
   *                 io.ahbMasters(1).toAhbLite3() -> List(ahbSlaves(1), ahbSlaves(2), ahbSlaves(3)),
   *                 io.ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0), ahbSlaves(3))
   *              )
+  *              // ** OPTIONAL **  
+  *              //.addGlobalDefaultSlave(io.defaultSalve)
+  *              //.addDefaultSalves(
+  *              //   io.ahbMaster(0) -> io.defaultSlaveM0,
+  *              //   io.ahbMaster(1) -> io.defaultSalveM1
+  *              //)
   *              .build()
   *             }
   *          }}}
@@ -71,7 +77,6 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping){
 case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
 
   val slavesConfigs = mutable.HashMap[AhbLite3, AhbLite3CrossbarSlaveConfig]()
-
 
   def addSlave(ahb: AhbLite3, mapping: SizeMapping): this.type = {
     slavesConfigs(ahb) = AhbLite3CrossbarSlaveConfig(mapping)
@@ -95,40 +100,78 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
     this
   }
 
+  /**
+    * Add a global default slaves
+    */
+  def addGlobalDefaultSlave(slave: AhbLite3): this.type = {
+    assert(slavesConfigs.count(_._2.mapping == null) == 0, "AhbLite3CrossbarFactory : default slave(s) has already been added")
+    slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null)
+    masters.foreach(m => addConnection(m, List(slave)))
+    this
+  }
+
+  /**
+    * Add a custom default slave for each Master (decoder)
+    */
+  def addDefaultSlaves(order: (AhbLite3, AhbLite3)*): this.type = {
+    assert(slavesConfigs.count(_._2.mapping == null) == 0,  "AhbLite3CrossbarFactory : default slave(s) has already been added")
+    order.map(_._2).foreach(slave => slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null))
+    order.foreach(order => addConnection(order._1, List(order._2)))
+    this
+  }
+
+  /** Get a list of all masters */
+  def masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSet
+
 
   /** Build the crossbar */
   def build() = new Area {
 
-    val masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSet
-
     val masterToDecodedSlave = mutable.HashMap[AhbLite3, Map[AhbLite3, AhbLite3]]()
 
-    // Create a decoder for each master
+    /**
+      * Create a decoder for each master
+      */
     val decoders = for(master <- masters) yield new Area {
 
       val slaves = slavesConfigs.filter {
         case (_, config) => config.masters.exists(connection => connection.master == master)
       }.toSeq
 
-      val decoder = AhbLite3Decoder(ahbLite3Config = ahbLite3Config, decodings = slaves.map(_._2.mapping))
+      val hasDefaultSlave = slaves.map(s => s._2.mapping == null).reduce(_ || _)
 
-      masterToDecodedSlave(master) = (slaves.map(_._1), decoder.io.outputs).zipped.toMap
+      val decoder = new AhbLite3Decoder(ahbLite3Config = ahbLite3Config, decodings = slaves.filter(p => p._2.mapping != null).map(_._2.mapping), addDefaultSlaveInterface = hasDefaultSlave  )
+
+      val outputs = if(hasDefaultSlave) decoder.io.outputs :+ decoder.io.defaultSlave else decoder.io.outputs
+      masterToDecodedSlave(master) = (slaves.map(_._1), outputs).zipped.toMap
       decoder.io.input <> master
 
       decoder.setPartialName(master, "decoder")
     }
 
-    // Create an arbiters for each slave
+
+    /**
+      * Create an arbiter for each slaves if needed
+      */
     val arbiters = for((slave, config) <- slavesConfigs) yield new Area {
 
-      val arbiter = AhbLite3Arbiter(ahbLite3Config = ahbLite3Config, inputsCount = config.masters.length)
+      if(config.masters.length == 1){ // one master <-> one slave => no Arbiter
 
-      for((input, master) <- (arbiter.io.inputs, config.masters).zipped){
-        input <> masterToDecodedSlave(master.master)(slave)
+        slave <> masterToDecodedSlave(config.masters.head.master)(slave)
+
+      }else{ // several master <-> one slave => add an Arbiter
+
+        val arbiter = AhbLite3Arbiter(ahbLite3Config = ahbLite3Config, inputsCount = config.masters.length)
+
+        for((input, master) <- (arbiter.io.inputs, config.masters).zipped){
+          input <> masterToDecodedSlave(master.master)(slave)
+        }
+
+        arbiter.io.output <> slave
+        arbiter.setPartialName(slave, "arbiter")
       }
-
-      arbiter.io.output <> slave
-      arbiter.setPartialName(slave, "arbiter")
     }
   }
 }
+
+
