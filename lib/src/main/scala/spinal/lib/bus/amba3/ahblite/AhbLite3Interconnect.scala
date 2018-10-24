@@ -64,7 +64,7 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping){
   *                 io.ahbMasters(1).toAhbLite3() -> List(ahbSlaves(1), ahbSlaves(2), ahbSlaves(3)),
   *                 io.ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0), ahbSlaves(3))
   *              )
-  *              // ** OPTIONAL **  
+  *              // ** OPTIONAL **
   *              //.addGlobalDefaultSlave(io.defaultSalve)
   *              //.addDefaultSalves(
   *              //   io.ahbMaster(0) -> io.defaultSlaveM0,
@@ -155,12 +155,6 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
       */
     val arbiters = for((slave, config) <- slavesConfigs) yield new Area {
 
-      if(config.masters.length == 1){ // one master <-> one slave => no Arbiter
-
-        slave <> masterToDecodedSlave(config.masters.head.master)(slave)
-
-      }else{ // several master <-> one slave => add an Arbiter
-
         val arbiter = AhbLite3Arbiter(ahbLite3Config = ahbLite3Config, inputsCount = config.masters.length)
 
         for((input, master) <- (arbiter.io.inputs, config.masters).zipped){
@@ -169,7 +163,6 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
 
         arbiter.io.output <> slave
         arbiter.setPartialName(slave, "arbiter")
-      }
     }
   }
 }
