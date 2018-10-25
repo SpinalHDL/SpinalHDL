@@ -138,24 +138,24 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   val io = new Bundle {
     val input        = slave(AhbLite3(ahbLite3Config))
     val outputs      = Vec(master(AhbLite3(ahbLite3Config)), decodings.size)
-    val defaultSlave = if(addDefaultSlaveInterface) master(AhbLite3(ahbLite3Config)) else null
+    val defaultSlave = if(addDefaultSlaveInterface) master(AhbLite3(ahbLite3Config)).setPartialName("defaultSlave") else null
   }
 
 
   val defaultSlave = if(addDefaultSlaveInterface) null else new DefaultAhbLite3Slave(ahbLite3Config)
 
   // add the default slave to the output list
-  val outputs : List[AhbLite3] = io.outputs.toList ++ List(if(addDefaultSlaveInterface) io.defaultSlave else defaultSlave.io)
+  def outputs : List[AhbLite3] = io.outputs.toList ++ List(if(addDefaultSlaveInterface) io.defaultSlave else defaultSlave.io)
 
   val isIdle  = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
 
   val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduce(_ & _)
 
-  val decodesSlaves       = Vec(decodings.map(_.hit(io.input.HADDR) && !isIdle)).asBits
+  val decodesSlaves       = decodings.map(_.hit(io.input.HADDR) && !isIdle).asBits
   val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle
 
-  val decodedSels  = decodeDefaultSlave ## decodesSlaves
+  val decodedSels  = decodeDefaultSlave ## decodesSlaves // !! reverse order compare to def outputs
   val applyedSels  = Bits(decodings.size + 1 bits)
   val previousSels = Reg(Bits(decodings.size + 1 bits)) init(0)
 

@@ -35,7 +35,7 @@ import scala.collection.mutable.ArrayBuffer
 case class AhbLite3CrossbarSlaveConnection(master: AhbLite3 /*,priority : Int*/)
 
 
-case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping){
+case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping, index: Int){
   val masters = ArrayBuffer[AhbLite3CrossbarSlaveConnection]()
 }
 
@@ -78,8 +78,10 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
 
   val slavesConfigs = mutable.HashMap[AhbLite3, AhbLite3CrossbarSlaveConfig]()
 
+  private def getNextSlaveIndex = if(slavesConfigs.isEmpty) 0 else (slavesConfigs.values.map(_.index).max + 1)
+
   def addSlave(ahb: AhbLite3, mapping: SizeMapping): this.type = {
-    slavesConfigs(ahb) = AhbLite3CrossbarSlaveConfig(mapping)
+    slavesConfigs(ahb) = AhbLite3CrossbarSlaveConfig(mapping, getNextSlaveIndex)
     this
   }
 
@@ -105,7 +107,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
     */
   def addGlobalDefaultSlave(slave: AhbLite3): this.type = {
     assert(slavesConfigs.count(_._2.mapping == null) == 0, "AhbLite3CrossbarFactory : default slave(s) has already been added")
-    slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null)
+    slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null, getNextSlaveIndex)
     masters.foreach(m => addConnection(m, List(slave)))
     this
   }
@@ -115,7 +117,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
     */
   def addDefaultSlaves(order: (AhbLite3, AhbLite3)*): this.type = {
     assert(slavesConfigs.count(_._2.mapping == null) == 0,  "AhbLite3CrossbarFactory : default slave(s) has already been added")
-    order.map(_._2).foreach(slave => slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null))
+    order.map(_._2).foreach(slave => slavesConfigs(slave) = AhbLite3CrossbarSlaveConfig(null, getNextSlaveIndex))
     order.foreach(order => addConnection(order._1, List(order._2)))
     this
   }
@@ -136,11 +138,15 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
 
       val slaves = slavesConfigs.filter {
         case (_, config) => config.masters.exists(connection => connection.master == master)
-      }.toSeq
+      }.toSeq.sortBy{s => s._2.index}
 
       val hasDefaultSlave = slaves.map(s => s._2.mapping == null).reduce(_ || _)
 
-      val decoder = new AhbLite3Decoder(ahbLite3Config = ahbLite3Config, decodings = slaves.filter(p => p._2.mapping != null).map(_._2.mapping), addDefaultSlaveInterface = hasDefaultSlave  )
+      val decoder = new AhbLite3Decoder(
+        ahbLite3Config           = ahbLite3Config,
+        decodings                = slaves.filter(p => p._2.mapping != null).map(_._2.mapping),
+        addDefaultSlaveInterface = hasDefaultSlave
+      )
 
       val outputs = if(hasDefaultSlave) decoder.io.outputs :+ decoder.io.defaultSlave else decoder.io.outputs
       masterToDecodedSlave(master) = (slaves.map(_._1), outputs).zipped.toMap

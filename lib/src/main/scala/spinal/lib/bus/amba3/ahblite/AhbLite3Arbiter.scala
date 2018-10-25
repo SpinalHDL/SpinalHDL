@@ -65,7 +65,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int) ext
       }
     }
 
-    val requests = Vec(io.inputs.map(_.HSEL)).asBits
+    val requests = io.inputs.map(_.HSEL).asBits
     maskProposal := OHMasking.roundRobin(requests, maskLocked(maskLocked.high - 1 downto 0) ## maskLocked.msb)
 
     val requestIndex     = OHToUInt(maskRouted)
