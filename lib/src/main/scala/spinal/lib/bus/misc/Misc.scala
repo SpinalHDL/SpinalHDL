@@ -56,6 +56,12 @@ object SizeMapping{
   implicit def implicitTuple4(that: (BigInt, Int))   : SizeMapping = SizeMapping(that._1, that._2)
 }
 
+object DefaultMapping extends AddressMapping{
+  override def hit(address: UInt): Bool = ???
+  override def removeOffset(address: UInt): UInt = ???
+  override def lowerBound: BigInt = ???
+  override def applyOffset(addressOffset: BigInt): AddressMapping = ???
+}
 
 case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
