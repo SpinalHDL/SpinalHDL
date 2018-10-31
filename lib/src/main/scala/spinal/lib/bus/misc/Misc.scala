@@ -71,6 +71,12 @@ object SizeMapping{
   }
 }
 
+object DefaultMapping extends AddressMapping{
+  override def hit(address: UInt): Bool = ???
+  override def removeOffset(address: UInt): UInt = ???
+  override def lowerBound: BigInt = ???
+  override def applyOffset(addressOffset: BigInt): AddressMapping = ???
+}
 
 case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
