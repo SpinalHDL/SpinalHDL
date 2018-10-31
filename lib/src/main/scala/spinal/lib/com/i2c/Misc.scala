@@ -52,19 +52,6 @@ case class I2c() extends Bundle with IMasterSlave {
 
 
 
-
-/**
-  * Detect the rising and falling Edge of the SCL signals
-  */
-class I2cEdgeDetector(value: Bool) extends Area {
-  val oldValue = RegNext(value) init(True)
-
-  val rising  =  value && !oldValue
-  val falling = !value &&  oldValue
-  val toogle  =  value =/= oldValue
-}
-
-
 /**
   * Filter the SCL and SDA input signals
   */

@@ -28,9 +28,9 @@ class I2cSlaveTester extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester2/I2cSlaveTester"
   override def createToplevel: Component = {
     val ret = new I2cSlave(I2cSlaveGenerics(
-      samplingWindowSize = 3,
+      samplingWindowSize        = 3,
       samplingClockDividerWidth = 10 bits,
-      timeoutWidth = 20 bits
+      timeoutWidth              = 20 bits
     ))
     ret.io.bus.cmd.kind.fixEncoding(binarySequential)
     ret

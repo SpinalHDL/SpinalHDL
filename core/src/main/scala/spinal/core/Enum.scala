@@ -312,13 +312,13 @@ object binarySequential extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
   override def isNative = false
-  setWeakName("binary_sequancial")
+  setWeakName("binary_sequential")
 }
 
 
 /**
   * Binary One hot encoding
-  * @example{{{ 000, 010, 100 }}}
+  * @example{{{ 001, 010, 100 }}}
   */
 object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = enum.elements.length

@@ -6,8 +6,7 @@ import spinal.lib.{Delay, StreamFifo}
 
 import scala.sys.process._
 
-class ChecksTester extends FunSuite  {
-
+object CheckTester{
   def checkFailure(func : => Unit) : Boolean = {
     try{func} catch {
       case e: Throwable => {
@@ -17,6 +16,7 @@ class ChecksTester extends FunSuite  {
     }
     return false
   }
+
   def generationShouldFaild(gen : => Component): Unit ={
     assert(checkFailure{SpinalVhdl(gen)})
     assert(checkFailure{SpinalVerilog(gen)})
@@ -25,6 +25,18 @@ class ChecksTester extends FunSuite  {
   def generationShouldPass(gen : => Component): Unit ={
     assert(!checkFailure{SpinalVhdl(gen)})
     assert(!checkFailure{SpinalVerilog(gen)})
+  }
+}
+
+class ChecksTester extends FunSuite  {
+  import CheckTester._
+
+  test("literalWidth"){
+    val t = SpinalVhdl(new Component{
+      val a = B"32'h0"
+    }).toplevel
+
+    assert(widthOf(t.a) == 32)
   }
 
   test("reflectionNamming") {

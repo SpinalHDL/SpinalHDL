@@ -77,7 +77,7 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.b #= b
             dut.io.c #= c
             cd.waitActiveEdge(); sleep(0)
-            if (cd.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+            if (cd.isResetDeasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
             ()
           }
         }
@@ -101,7 +101,7 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.b #= b
             dut.io.c #= c
             cd.waitActiveEdge();sleep(0)
-            if (cd.isResetDisasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+            if (cd.isResetDeasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
             counter += 1
             if(counter == 10000) simSuccess()
           }
@@ -122,7 +122,7 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.b.randomize()
             dut.io.c.randomize()
             dut.clockDomain.waitActiveEdge()
-            if (dut.clockDomain.isResetDisasserted) {
+            if (dut.clockDomain.isResetDeasserted) {
               assert(dut.io.result.toInt == model)
               model = ((dut.io.a.toBigInt + dut.io.b.toLong - dut.io.c.toInt) & 0xFF)
             }

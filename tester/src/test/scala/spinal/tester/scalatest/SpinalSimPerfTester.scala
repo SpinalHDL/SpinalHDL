@@ -47,7 +47,7 @@ class SpinalSimPerfTester extends FunSuite {
           dut.io.b #= Random.nextInt(256)
           dut.io.c #= Random.nextInt(256)
           dut.clockDomain.waitActiveEdge()
-          if (dut.clockDomain.isResetDisasserted) {
+          if (dut.clockDomain.isResetDeasserted) {
             assert(dut.io.result.toInt == model)
             model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
           }
@@ -74,7 +74,7 @@ class SpinalSimPerfTester extends FunSuite {
             dut.io.c #= c
             dut.clockDomain.waitActiveEdge()
             sleep(0)
-            val dummy = if (dut.clockDomain.isResetDisasserted)
+            val dummy = if (dut.clockDomain.isResetDeasserted)
               assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
           }
         }
@@ -99,7 +99,7 @@ class SpinalSimPerfTester extends FunSuite {
           dut.io.b #= b
           dut.io.c #= c
           dut.clockDomain.waitActiveEdge(); sleep(0)
-          if (dut.clockDomain.isResetDisasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
+          if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
           ()
         }
         val endAt = System.nanoTime

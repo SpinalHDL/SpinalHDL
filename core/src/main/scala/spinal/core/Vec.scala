@@ -29,15 +29,18 @@ import scala.collection.mutable.ArrayBuffer
   */
 trait VecFactory {
 
-  def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = {
+  def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = {
     val vector = elements.toVector
 
     if(vector.nonEmpty) {
-      val vecType = vector.reduce((a, b) => {
-        if (a.getClass.isAssignableFrom(b.getClass)) a
-        else if (b.getClass.isAssignableFrom(a.getClass)) b
-        else throw new Exception("can't mux that")
-      })
+      val vecType = if(dataType != null) dataType else {
+        val data = vector.reduce((a, b) => {
+          if (a.getClass.isAssignableFrom(b.getClass)) a
+          else if (b.getClass.isAssignableFrom(a.getClass)) b
+          else throw new Exception("can't mux that")
+        })
+        HardType(data)
+      }
 
       new Vec(vecType, vector)
     }else{
@@ -66,8 +69,8 @@ trait VecFactory {
       Vec((0 until size).map(gen(_)))
     }
 
-    def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
-      tabulate(size)(_ => gen)
+    def fill[T <: Data](size: Int)(dataType: => T): Vec[T] = {
+      Vec((0 until size).map(_ => dataType), HardType(dataType))
     }
   }
   val Vec = new VecBuilder()
@@ -102,7 +105,7 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
   */
-class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
+class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
 
   if(component != null) component.addPrePopTask(() => {
     for(i <- elements.indices){
@@ -112,7 +115,6 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     }
   })
 
-  def dataType = cloneOf(_dataType)
 
   def range = vec.indices
 
@@ -132,7 +134,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   private[core] def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
       vecTransposedCache = new ArrayBuffer[ArrayBuffer[BaseType]]()
-      val size = dataType.flatten.size
+      val size = dataType().flatten.size
 
       for (i <- 0 until size)
         vecTransposedCache += ArrayBuffer[BaseType]()
@@ -177,7 +179,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     }
 
 
-    val ret = cloneOf(_dataType)
+    val ret = dataType()
     val retFlatten = ret.flatten
     for(i <- 0 until vecTransposed.length){
       val target = retFlatten(i)

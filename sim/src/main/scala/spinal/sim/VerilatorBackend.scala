@@ -23,6 +23,7 @@ class VerilatorBackendConfig{
   var vcdPrefix: String      = null
   var withWave               = true
   var waveDepth:Int          = 1 // 0 => all
+  var simulatorFlags         = ArrayBuffer[String]()
 }
 
 
@@ -60,8 +61,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
   }
   
   def clean(): Unit = {
-    s"rm -rf ${workspacePath}/${workspaceName}".!
-//    s"rm ${workspacePath}/libV${config.toplevelName}.so".!
+    FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
   }
 
   def genWrapperCpp(): Unit = {
@@ -318,8 +318,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
   def compileVerilator(): Unit = {
     val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
     val jdkIncludes = if(isWindows){
-      s"""mkdir ${workspacePath}\\${workspaceName}""".! (new Logger())
-      assert(s"""cp -rf \"$jdk\\include\" ${workspacePath}\\${workspaceName}\\jniIncludes""".! (new Logger()) == 0, "Verilator backend flow faild")
+      new File(s"${workspacePath}\\${workspaceName}").mkdirs()
+      FileUtils.copyDirectory(new File(s"$jdk\\include"), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
       s"jniIncludes"
     }else{
       jdk + "/include"
@@ -347,14 +347,15 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).mkString(" "))}
-       | --exe $workspaceName/$wrapperCppName""".stripMargin.replace("\n", "")
+       | --exe $workspaceName/$wrapperCppName
+       | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
 
     genWrapperCpp()
 
     assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
-    assert(s"cp ${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""} ${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}".! (new Logger()) == 0, "Verilator backend flow faild")
+    FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 
   def compileJava(): Unit = {

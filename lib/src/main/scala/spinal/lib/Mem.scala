@@ -3,9 +3,9 @@ package spinal.lib
 import spinal.core._
 
 
-case class ReadRetLinked[T <: Data, T2 <: Data](readType: T, linkedType: T2) extends Bundle {
-  val value = cloneOf(readType)
-  val linked = cloneOf(linkedType)
+case class ReadRetLinked[T <: Data, T2 <: Data](readType: HardType[T], linkedType: HardType[T2]) extends Bundle {
+  val value = readType()
+  val linked = linkedType()
 }
 
 class MemPimped[T <: Data](mem: Mem[T]) {
@@ -79,7 +79,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   }
 
   def readSyncPort : MemReadPort[T] = {
-    val ret : MemReadPort[T] = MemReadPort(mem.wordType,mem.addressWidth)
+    val ret : MemReadPort[T] = MemReadPort(mem.wordType(),mem.addressWidth)
     ret.rsp := mem.readSync(ret.cmd.payload,ret.cmd.valid)
     ret
   }
@@ -87,8 +87,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 
 
 case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
-  val address = mem.addressType
-  val data    = mem.wordType
+  val address = mem.addressType()
+  val data    = mem.wordType()
 }
 
 case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{

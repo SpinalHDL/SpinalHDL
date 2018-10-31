@@ -134,7 +134,7 @@ abstract class BitVector extends BaseType with Widthable {
   override def clone: this.type = {
     val res = super.clone
     if(this.fixedWidth == -1){
-      res.fixedWidth = this.widthWhenNotInferred
+      res.fixedWidth = this.getWidth
     } else {
       res.fixedWidth = this.fixedWidth
     }

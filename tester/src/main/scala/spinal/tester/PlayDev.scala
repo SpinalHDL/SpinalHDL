@@ -6,6 +6,8 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
+import spinal.lib.com.i2c._
+import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -26,8 +28,8 @@ object PlayDevMem{
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bits), 64)
     val p0 = new Bundle{
-      val address = in(mem.addressType)
-      val data = in(mem.wordType)
+      val address = in(mem.addressType())
+      val data = in(mem.wordType())
       val mask = in(Bits(4 bits))
       val enable = in Bool()
     }
@@ -36,15 +38,15 @@ object PlayDevMem{
     }
 
     val p1 = new Bundle{
-      val address = in(mem.addressType)
-      val data = out(mem.wordType)
+      val address = in(mem.addressType())
+      val data = out(mem.wordType())
     }
     p1.data := mem.readSync(p1.address, True)
 
 
     val p2 = new Bundle{
-      val address = in(mem.addressType)
-      val data = out(mem.wordType)
+      val address = in(mem.addressType())
+      val data = out(mem.wordType())
     }
     p2.data := mem.readAsync(p2.address)
     val xx = RegNext(True)
@@ -52,8 +54,8 @@ object PlayDevMem{
     println(LatencyAnalysis(p0.address, p2.data))
 
     val p3 = new Bundle{
-      val address = in(mem.addressType)
-      val data = in(mem.wordType)
+      val address = in(mem.addressType())
+      val data = in(mem.wordType())
       val mask = in(Bits(4 bits))
       val enable = in Bool()
       val wr = in Bool()
@@ -749,7 +751,7 @@ object PlayDevAnalog3{
       val toplevel = Apb3Gpio(32)
       toplevel.rework{
         import toplevel._
-        io.gpio.asDirectionLess.allowDirectionLessIo
+        io.gpio.setAsDirectionLess.allowDirectionLessIo
         val analog = inout(Analog(Bits(32 bits))).setName("analog")
         io.gpio.read := analog
         for(i <- 0 to 31){
@@ -991,18 +993,19 @@ object PlayDevBug123{
 
 object PlayDevFeature{
   class TopLevel extends Component {
-//    val regA = RegNext(False) init(True)
-//    val regB = RegNext(S"0000") init(S"1111")
-//    val regC = RegNext(S"0000") init(in(SInt(4 bits)).setName("regCInit"))
-    val regDInit = S"1111"
-    val regD = RegNext(S"0000") init(regDInit)
+    val x = Vec(Reg(UInt(8 bits)) init(0), 4)
+    val y = Vec(Reg(UInt(8 bits)), 4)
+    y.foreach(_ init(0))
+
+    //Just to avoid having reseted only flops
+    x := y
+    y := x
+
   }
 
   def main(args: Array[String]) {
-    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT))
+    val config = SpinalConfig()
     config.generateVerilog(new TopLevel())
-    config.generateVhdl(new TopLevel())
-    print("done")
   }
 }
 
@@ -1019,6 +1022,24 @@ object PlayDevFeature2{
     config.generateVerilog(new TopLevel())
     config.generateVhdl(new TopLevel())
     print("done")
+  }
+}
+
+case class ArgConfig(debug : Boolean = false,
+                     iCacheSize : Int = 4096)
+
+object PlayDevConsole{
+  def main(args: Array[String]): Unit = {
+    val parser = new scopt.OptionParser[ArgConfig]("VexRiscvGen") {
+      //  ex :-d    or   --debug
+      opt[Unit]('d', "debug")    action { (_, c) => c.copy(debug = true)   } text("Enable debug")
+      // ex : -iCacheSize=XXX
+      opt[Int]("iCacheSize")     action { (v, c) => c.copy(iCacheSize = v) } text("Set instruction cache size")
+    }
+
+    val argConfig = parser.parse(args, ArgConfig()).get
+
+    println(argConfig)
   }
 }
 
@@ -1108,9 +1129,150 @@ object PlayWithIndex222 extends App {
     for(i <- 0 to 7){
       b(i) := a(i)
     }
-
+    val miaou = out(True)
+    miaou.addTag(ClockDomainTag(ClockDomain.current))
+    miaou.addTag(ClockDomainTag(ClockDomain.current))
   }
 
   val report = SpinalVerilog(new MyTopLevel)
   println("asd")
 }
+
+
+
+object PlayDeterministicGeneration extends App {
+  SpinalConfig(verbose=true).generateVerilog(new Component{
+    val e = for(i <- 0 until 2) yield new Area{
+      val ctrl = new spinal.lib.com.i2c.Apb3I2cCtrl(      I2cSlaveMemoryMappedGenerics(
+        ctrlGenerics = I2cSlaveGenerics(
+          samplingWindowSize = 3,
+          samplingClockDividerWidth = 10 bits,
+          timeoutWidth = 20 bits
+        ),
+        addressFilterCount = 4,
+        masterGenerics = I2cMasterMemoryMappedGenerics(
+          timerWidth = 12
+        )
+      ))
+
+      val io = new Bundle{
+        val apb =  slave(cloneOf(ctrl.io.apb))
+        val i2c = master(I2c())
+        val interrupt = out Bool
+      }
+
+      io <> ctrl.io
+    }
+  })
+
+}
+
+object PlayAssertFormal extends App {
+  class MyTopLevel extends Component{
+    when(False){
+      when(False){
+        assert(True,"asd")
+        assume(True)
+        cover(True)
+
+        formal(assert(True))
+        formal(assume(True))
+        formal(cover(True))
+      }
+    }
+  }
+
+  SpinalSystemVerilog(new MyTopLevel)
+  SpinalVerilog(new MyTopLevel)
+  SpinalVhdl(new MyTopLevel)
+}
+
+object PlayErrorImprovment extends App {
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val state = out Bool
+    }
+    val a = RegInit(False)
+    io.state := a
+  }
+
+  val report = SpinalSystemVerilog(new MyTopLevel)
+  println("asd")
+}
+
+object PlayInitBoot extends App {
+  class MyTopLevel extends Component{
+    val data = RegInit(B"00")
+    data := 1
+  }
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
+object PlayErrorReportingImprovmenet extends App {
+  class MyTopLevel extends Component{
+    val a = B"0101010"
+    val index = U"10001010"
+    out(a(index))
+    out(a & B"00")
+  }
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
+
+object PlayHardType extends App {
+  case class A() extends Bundle{
+    println("A")
+    val x,y,z = Bool
+  }
+  class MyTopLevel extends Component{
+
+    def f() = {
+      val ret = Bits(32 bits)
+      val lit = True
+      ret.asBools.foreach(_ := lit)
+      ret
+    }
+
+    out(f())
+  }
+
+
+
+  val report = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVerilog(new MyTopLevel)
+   SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT)).generateVhdl(new MyTopLevel)
+  println("asd")
+}
+
+object PlayNamingImprovment extends App{
+  def gen(c : => Component): Unit ={
+    SpinalVhdl(c)
+    SpinalVerilog(c)
+  }
+  gen(new Component {
+    val input = in Bool()
+    val output = out Bool()
+    val readableOutput = out Bool()
+
+    output := RegNext(Delay(RegNext(input),4))
+    val yolo = RegNext(input)
+
+    readableOutput := True
+    val miaou = Bool
+    miaou := readableOutput
+  })
+}
+
+
+object PlayScopeImport{
+//  case class Parameters(){
+//
+//  }
+  SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods())
+}
+

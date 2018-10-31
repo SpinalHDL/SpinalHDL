@@ -29,8 +29,9 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-class ComponentEmiterVerilog(
+class ComponentEmitterVerilog(
   val c                              : Component,
+  systemVerilog                      : Boolean,
   verilogBase                        : VerilogBase,
   override val algoIdIncrementalBase : Int,
   override val mergeAsyncProcess     : Boolean,
@@ -40,7 +41,7 @@ class ComponentEmiterVerilog(
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
-) extends ComponentEmiter {
+) extends ComponentEmitter {
 
   import verilogBase._
 
@@ -50,7 +51,7 @@ class ComponentEmiterVerilog(
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
 
-  def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ret = new StringBuilder()
@@ -448,12 +449,6 @@ class ComponentEmiterVerilog(
           case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
           case assertStatement: AssertStatement =>
             val cond = emitExpression(assertStatement.cond)
-            val severity = assertStatement.severity match{
-              case `NOTE`     => "NOTE"
-              case `WARNING`  => "WARNING"
-              case `ERROR`    => "ERROR"
-              case `FAILURE`  => "FAILURE"
-            }
 
             val frontString = (for(m <- assertStatement.message) yield m match{
               case m: String     => m
@@ -464,10 +459,48 @@ class ComponentEmiterVerilog(
               case m: Expression => ", " + emitExpression(m)
             }).mkString
 
-            b ++= s"${tab}if (!$cond) begin\n"
-            b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
-            if(assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-            b ++= s"${tab}end\n"
+            val keyword = assertStatement.kind match {
+              case AssertStatementKind.ASSERT => "assert"
+              case AssertStatementKind.ASSUME => "assume"
+              case AssertStatementKind.COVER => "cover"
+            }
+
+
+            val assertCond = assertStatement.getTag(classOf[IfDefTag]).getOrElse(null)
+            if(assertCond == null)
+              b ++= s"`ifndef SYNTHESIS\n"
+            else
+              b ++= s"`ifdef ${assertCond.cond}\n"
+
+            if(!systemVerilog){
+              val severity = assertStatement.severity match{
+                case `NOTE`     => "NOTE"
+                case `WARNING`  => "WARNING"
+                case `ERROR`    => "ERROR"
+                case `FAILURE`  => "FAILURE"
+              }
+              b ++= s"${tab}if(!$cond) begin\n"
+              b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
+              if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
+              b ++= s"${tab}end\n"
+            } else {
+              val severity = assertStatement.severity match{
+                case `NOTE`     => "$info"
+                case `WARNING`  => "$warning"
+                case `ERROR`    => "$error"
+                case `FAILURE`  => "$fatal"
+              }
+              if(assertStatement.kind == AssertStatementKind.ASSERT) {
+                b ++= s"${tab}$keyword($cond) else begin\n"
+                b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
+                if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
+                b ++= s"${tab}end\n"
+              }else{
+                b ++= s"${tab}$keyword($cond);\n"
+              }
+            }
+
+            b ++= s"`endif\n"
         }
         statementIndex += 1
       } else {
@@ -505,7 +538,7 @@ class ComponentEmiterVerilog(
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
+            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && element.keys.forall(_.isInstanceOf[Literal]))
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
               case null => null
@@ -523,33 +556,65 @@ class ComponentEmiterVerilog(
             var nextScope = findSwitchScope()
 
             if(isPure) {
-              def emitIsCond(that: Expression): String = that match {
-                case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
-                case e: BoolLiteral      => if(e.value) "1'b1" else "1'b0"
-                case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
-              }
+              switchStatement.value match {
+                case switchValue : EnumEncoded if switchValue.getEncoding == binaryOneHot => {
+                  def emitIsCond(that: Expression): String = {
+                    that match {
+                      case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => {
+                        val expr = emitEnumLiteral(lit.enum, lit.encoding)
+                        s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
+                      }
+                    }
+                  }
 
-              b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  b ++= s"${tab}(* parallel_case *)\n"
+                  b ++= s"${tab}case(1) // synthesis parallel_case\n"
 
-              switchStatement.elements.foreach(element => {
-                b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
-                if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
-                  nextScope = findSwitchScope()
+                  switchStatement.elements.foreach(element => {
+                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(s"|\n${tab}  ")} : begin\n"
+                    if (nextScope == element.scopeStatement) {
+                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                      nextScope = findSwitchScope()
+                    }
+                    b ++= s"${tab}  end\n"
+                  })
+
+                  b ++= s"${tab}  default : begin\n"
+
+                  if (nextScope == switchStatement.defaultScope) {
+                    statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
+                    nextScope = findSwitchScope()
+                  }
+
+                  b ++= s"${tab}  end\n"
+                  b ++= s"${tab}endcase\n"
                 }
-                b ++= s"${tab}  end\n"
-              })
 
-              b ++= s"${tab}  default : begin\n"
+                case _ => {
+                  def emitIsCond(that: Expression): String = that match {
+                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
+                    case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
+                    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+                  }
 
-              if(nextScope == switchStatement.defaultScope) {
-                statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
-                nextScope = findSwitchScope()
+                  b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  switchStatement.elements.foreach(element => {
+                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                    if (nextScope == element.scopeStatement) {
+                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                      nextScope = findSwitchScope()
+                    }
+                    b ++= s"${tab}  end\n"
+                  })
+                  b ++= s"${tab}  default : begin\n"
+                  if (nextScope == switchStatement.defaultScope) {
+                    statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
+                    nextScope = findSwitchScope()
+                  }
+                  b ++= s"${tab}  end\n"
+                  b ++= s"${tab}endcase\n"
+                }
               }
-
-              b ++= s"${tab}  end\n"
-              b ++= s"${tab}endcase\n"
-
             } else {
 
               def emitIsCond(that: Expression): String = that match {
@@ -692,13 +757,13 @@ class ComponentEmiterVerilog(
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
           case b: Bool       =>
-            " = " + (if (Random.nextBoolean()) "1" else "0")
+            " = " + (/*if (Random.nextBoolean()) "1" else */"0")
           case bv: BitVector =>
-            val rand = BigInt(bv.getWidth, Random).toString(2)
+            val rand = BigInt(0).toString(2)//BigInt(bv.getWidth, Random).toString(2)
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           case e: SpinalEnumCraft[_] =>
             val vec  = e.spinalEnum.elements.toVector
-            val rand = vec(Random.nextInt(vec.size))
+            val rand = vec(/*Random.nextInt(vec.size)*/0)
             " = " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
@@ -783,7 +848,7 @@ class ComponentEmiterVerilog(
               logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))};\n"
             }
           } else {
-            logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
+            logics ++= s"    ${emitReference(mem, false)}[$index] = ${filledValue.length}'b$filledValue;\n"
           }
         }
       }else {
@@ -1107,7 +1172,13 @@ end
     val encoding = e.getEncoding
 
     encoding match {
-      case `binaryOneHot` => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
+      case `binaryOneHot` => {
+        (e.left, e.right) match {
+//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
+//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
+          case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
+        }
+      }
       case _              => s"(${emitExpression(e.left)} ${if (eguals) "==" else "!="} ${emitExpression(e.right)})"
     }
   }

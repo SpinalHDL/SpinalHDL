@@ -102,7 +102,7 @@ def test1(dut):
 
     dut.io_config_samplingClockDivider <= 3
     dut.io_config_timeout <= 25*10-1
-    dut.io_config_tsuDat <= 4
+    dut.io_config_tsuData <= 4
 
     softMaster = I2cSoftMaster(sclInterconnect.newSoftConnection(), sdaInterconnect.newSoftConnection(), 2500000,dut.clk)
 

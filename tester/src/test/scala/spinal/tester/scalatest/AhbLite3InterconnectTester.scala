@@ -65,6 +65,6 @@ class AhbLite3CrossbarTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "AhbLite3CrossbarTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/AhbLite3CrossbarTester"
   override def createToplevel: Component = new AhbLite3CrossbarTester.AhbLite3CrossbarTester
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config
   override def noVhdl = true
 }

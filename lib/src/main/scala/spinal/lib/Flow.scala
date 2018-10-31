@@ -6,22 +6,22 @@ import spinal.core._
 class FlowFactory extends MSFactory{
   object Fragment extends FlowFragmentFactory
 
-  def apply[T <: Data](dataType: T) = {
-    val ret = new Flow(dataType)
+  def apply[T <: Data](payloadType: HardType[T]) = {
+    val ret = new Flow(payloadType)
     postApply(ret)
     ret
   }
 
+  def apply[T <: Data](payloadType: => T) : Flow[T] = apply(HardType(payloadType))
 }
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T]{
+class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T]{
   val valid = Bool
-  val payload : T = cloneOf(_dataType)
+  val payload : T = payloadType()
 
-  def dataType = cloneOf(_dataType)
-  override def clone: Flow[T] = Flow(_dataType).asInstanceOf[this.type]
+  override def clone: Flow[T] = Flow(payloadType).asInstanceOf[this.type]
 
   override def asMaster(): Unit = out(this)
   override def asSlave() : Unit  = in(this)
@@ -51,7 +51,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
   def toStream  : Stream[T] = toStream(null)
   def toStream(overflow : Bool) : Stream[T] = {
-    val ret = Stream(dataType)
+    val ret = Stream(payloadType)
     ret.valid := this.valid
     ret.payload := this.payload
     if(overflow != null) overflow := ret.valid && !ret.ready
@@ -72,7 +72,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
-    val next = new Flow(_dataType)
+    val next = new Flow(payloadType)
     next.valid := this.valid && cond
     next.payload := this.payload
     return next
@@ -114,14 +114,14 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   }
 
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(dataType, size)
+    val fifo = new StreamFifo(payloadType, size)
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(dataType, size)
+    val fifo = new StreamFifo(payloadType, size)
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.availability)

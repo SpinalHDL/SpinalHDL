@@ -70,12 +70,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   /** Set baseType to reg */
-  def setAsReg(): this.type = {
+  override def setAsReg(): this.type = {
     btFlags |= BaseType.isRegMask; this
   }
 
   /** Set baseType to Combinatorial */
-  def setAsComb(): this.type = {
+  override def setAsComb(): this.type = {
     btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this
   }
 
@@ -162,10 +162,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     super.asInOut()
   }
 
-  override def asDirectionLess(): BaseType.this.type = {
+  override def setAsDirectionLess(): BaseType.this.type = {
     if(dir == null) return this
     component.ioSet -= this
-    super.asDirectionLess()
+    super.setAsDirectionLess()
   }
 
   def getSingleDriver: Option[this.type] = {
@@ -173,6 +173,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
       case AssignmentStatement(target, driver: BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
         Some(driver.asInstanceOf[this.type])
       case _ => None
+    } else if(this.isInput && this.component.parent == null && this.hasTag(classOf[ExternalDriverTag])){
+      Some(this.getTag(classOf[ExternalDriverTag]).get.driver.asInstanceOf[this.type])
     } else None
   }
 
@@ -189,8 +191,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
         globalData.dslScope.head.append(statement(that))
-      case _ =>
-        throw new Exception(s"Undefined assignment $this := $that")
+      case _ => kind match {
+        case `DataAssign` => LocatedPendingError(s"Assignement data type missmatch\n$this := $that")
+        case `InitAssign` => LocatedPendingError(s"Register initialisation type missmatch\nReg($this) init($that)")
+      }
     }
   }
 

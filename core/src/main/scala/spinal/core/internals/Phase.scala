@@ -20,10 +20,11 @@
 \*                                                                           */
 package spinal.core.internals
 
-import java.io.{FileWriter, BufferedWriter, File}
-import scala.collection.mutable.ListBuffer
+import java.io.{BufferedWriter, File, FileWriter}
 
+import scala.collection.mutable.ListBuffer
 import spinal.core._
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -37,9 +38,11 @@ class PhaseContext(val config: SpinalConfig) {
   config.applyToGlobalData(globalData)
 
 
-  val globalScope         = new NamingScope()
+  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+
   val reservedKeyWords    = mutable.Set[String](
     //VHDL
     "abs", "access", "after", "alias", "all",
@@ -127,6 +130,18 @@ class PhaseContext(val config: SpinalConfig) {
 
   def sortedComponents = components().sortWith(_.level > _.level)
 
+  def walkAll(func: Any => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => {
+      func(c)
+      c.dslBody.walkStatements(s => {
+        func(s)
+        s.walkExpression(e => {
+          func(e)
+        })
+      })
+    })
+  }
+
   def walkStatements(func: Statement => Unit): Unit = {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(func))
   }
@@ -172,8 +187,20 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
+  val verboseLog = new java.io.FileWriter("verbose.log")
+
   def doPhase(phase: Phase): Unit ={
+    if(config.verbose) verboseLog.write(s"phase: $phase\n")
     phase.impl(this)
+    if(config.verbose){
+      var checksum = 0
+      def seed(that : Int) = checksum = ((checksum << 1) | ((checksum & 0x80000000) >> 31)) ^ that
+      walkComponents{c =>seed(c.getInstanceCounter)}
+      walkStatements{s =>seed(s.getInstanceCounter)}
+      verboseLog.write(s"checksum: $checksum\n")
+      verboseLog.flush()
+
+    }
     checkPendingErrors()
   }
 }
@@ -573,27 +600,27 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.foreachStatements(s => s.removeStatement())
     }
 
-    mem.component.rework {
-      if (mem.initialContent != null) {
-        return "Can't blackbox ROM"  //TODO
-        //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
-      } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+    if (mem.initialContent != null) {
+      return "Can't blackbox ROM"  //TODO
+      //      } else if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.portCount == 2) {
+    } else if (topo.writes.size == 1 && (topo.readsAsync.nonEmpty || topo.readsSync.nonEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+      mem.component.rework {
         val wr = topo.writes(0)
         for (rd <- topo.readsAsync) {
           val clockDomain = wr.clockDomain
           clockDomain.push()
 
           val ram = new Ram_1w_1ra(
-            wordWidth      = mem.getWidth,
-            wordCount      = mem.wordCount,
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth    = wr.data.getWidth,
+            wrDataWidth = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth    = rd.getWidth,
-            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable   = wr.mask != null,
+            rdDataWidth = rd.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology     = mem.technology
+            technology = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && clockDomain.isClockEnableActive
@@ -614,18 +641,18 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 
         for (rd <- topo.readsSync) {
           val ram = new Ram_1w_1rs(
-            wordWidth      = mem.getWidth,
-            wordCount      = mem.wordCount,
-            wrClock        = wr.clockDomain,
-            rdClock        = rd.clockDomain,
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
+            wrClock = wr.clockDomain,
+            rdClock = rd.clockDomain,
             wrAddressWidth = wr.address.getWidth,
-            wrDataWidth    = wr.data.getWidth,
+            wrDataWidth = wr.data.getWidth,
             rdAddressWidth = rd.address.getWidth,
-            rdDataWidth    = rd.getWidth,
-            wrMaskWidth    = if (wr.mask != null) wr.mask.getWidth else 1,
-            wrMaskEnable   = wr.mask != null,
+            rdDataWidth = rd.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
             readUnderWrite = rd.readUnderWrite,
-            technology     = mem.technology
+            technology = mem.technology
           )
 
           ram.io.wr.en := wrapBool(wr.writeEnable) && wr.clockDomain.isClockEnableActive
@@ -645,11 +672,13 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         }
 
         removeMem()
-      } else if (topo.portCount == 1 && topo.readWriteSync.size == 1) {
+      }
+    } else if (topo.portCount == 1 && topo.readWriteSync.size == 1) {
 
+      mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, dontCare)
+        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
@@ -660,49 +689,50 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 
         ram.setName(mem.getName())
         removeMem()
+      }
+    } else if (topo.portCount == 2 && topo.readWriteSync.size == 2) {
 
-      } else if (topo.portCount == 2 && topo.readWriteSync.size == 2) {
-
+      mem.component.rework {
         val portA = topo.readWriteSync(0)
         val portB = topo.readWriteSync(1)
 
         val ram = new Ram_2wrs(
-          wordWidth            = mem.getWidth,
-          wordCount            = mem.wordCount,
-          technology           = mem.technology,
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
           portA_readUnderWrite = dontCare,
-          portA_clock          = portA.clockDomain,
-          portA_addressWidth   = portA.address.getWidth,
-          portA_dataWidth      = portA.getWidth,
-          portA_maskWidth      = if(portA.mask != null) portA.mask.getWidth else 1,
-          portA_maskEnable     = portA.mask != null,
+          portA_clock = portA.clockDomain,
+          portA_addressWidth = portA.address.getWidth,
+          portA_dataWidth = portA.getWidth,
+          portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
+          portA_maskEnable = portA.mask != null,
           portB_readUnderWrite = dontCare,
-          portB_clock          = portB.clockDomain,
-          portB_addressWidth   = portB.address.getWidth,
-          portB_dataWidth      = portB.getWidth,
-          portB_maskWidth      = if(portB.mask != null) portB.mask.getWidth else 1,
-          portB_maskEnable     = portB.mask != null
+          portB_clock = portB.clockDomain,
+          portB_addressWidth = portB.address.getWidth,
+          portB_dataWidth = portB.getWidth,
+          portB_maskWidth = if (portB.mask != null) portB.mask.getWidth else 1,
+          portB_maskEnable = portB.mask != null
         )
 
         ram.io.portA.addr.assignFrom(portA.address)
         ram.io.portA.en.assignFrom(wrapBool(portA.chipSelect) && portA.clockDomain.isClockEnableActive)
         ram.io.portA.wr.assignFrom(portA.writeEnable)
         ram.io.portA.wrData.assignFrom(portA.data)
-        ram.io.portA.mask.assignFrom((if(portA.mask != null) portA.mask else B"1"))
+        ram.io.portA.mask.assignFrom((if (portA.mask != null) portA.mask else B"1"))
         wrapConsumers(portA, ram.io.portA.rdData)
 
         ram.io.portB.addr.assignFrom(portB.address)
         ram.io.portB.en.assignFrom(wrapBool(portB.chipSelect) && portB.clockDomain.isClockEnableActive)
         ram.io.portB.wr.assignFrom(portB.writeEnable)
         ram.io.portB.wrData.assignFrom(portB.data)
-        ram.io.portB.mask.assignFrom((if(portB.mask != null) portB.mask else B"1"))
+        ram.io.portB.mask.assignFrom((if (portB.mask != null) portB.mask else B"1"))
         wrapConsumers(portB, ram.io.portB.rdData)
 
         ram.setName(mem.getName())
         removeMem()
-      } else {
-        return "Unblackboxable memory topology" //TODO
       }
+    } else {
+      return "Unblackboxable memory topology" //TODO
     }
     return null
   }
@@ -715,7 +745,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 
     globalData.nodeAreNamed = true
 
-    if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+    if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
 
     for (c <- sortedComponents) {
       c.nameElements()
@@ -733,7 +763,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
             Misc.reflect(generic, (name, obj) => {
               OwnableRef.proposal(obj, this)
               obj match {
-                case obj: Nameable => obj.setWeakName(name)
+                case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
                 case _ =>
               }
               obj match {
@@ -759,7 +789,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
       case _ =>
     }
 
-    val scope = pc.globalScope.newChild
+    val scope = pc.globalScope.newChild("")
 
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
@@ -773,14 +803,14 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
+          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
           case _ =>
         }
       })
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-          e.setWeakName(scope.getUnusedName("e" + e.position))
+          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
         }
       }
     }
@@ -923,7 +953,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //give a name to unamed encodings
-    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
@@ -1037,6 +1067,18 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
     }
 
     toRemove.foreach(_.removeStatement())
+
+
+    //propagate literals over one basetype
+    walkStatements{s =>
+      s.remapDrivingExpressions{
+        case e : BaseType if e.isComb && !e.isNamed && e.isDirectionLess && Statement.isSomethingToFullStatement(e) => e.head match {
+          case DataAssignmentStatement(_, lit : Literal) => lit.clone //clone because Expression can only be once in the graph
+          case _ => e
+        }
+        case e => e
+      }
+    }
   }
 }
 
@@ -1190,6 +1232,10 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         }
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
+          case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
+            if(!areSyncronous(node.getTag(classOf[ClockDomainTag]).get.clockDomain, clockDomain)) {
+              issue(node.asInstanceOf[BaseNode with ScalaLocated], node.getTag(classOf[ClockDomainTag]).get.clockDomain)
+            }
           case node: BaseType =>
             if (node.isReg) {
               if(!areSyncronous(node.clockDomain, clockDomain)) {
@@ -1218,13 +1264,28 @@ class PhaseCheckCrossClock() extends PhaseCheck{
       }
 
       s match {
+        case s: BaseType if s.hasTag(classOf[ClockDomainTag]) =>
+          if (!s.isReg) {
+            // if it not a reg, perform the check if the ClockDomainTag is present
+            walked = GlobalData.get.allocateAlgoIncrementale()
+            s.foreachStatements(as => walk(as, as :: s :: Nil, s.getTag(classOf[ClockDomainTag]).get.clockDomain))
+          }
+          else {
+            PendingError(s"Can't add ClockDomainTag to registers:\n" + s.getScalaLocationLong)
+          }
         case s: BaseType if s.isReg && !s.hasTag(crossClockDomain) =>
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
         case s: MemReadWrite if !s.hasTag(crossClockDomain) =>
+          if (s.hasTag(classOf[ClockDomainTag])) {
+            PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
+          }
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
         case s: MemWrite if !s.hasTag(crossClockDomain) =>
+          if (s.hasTag(classOf[ClockDomainTag])) {
+            PendingError(s"Can't add ClockDomainTag to memory ports:\n" + s.getScalaLocationLong)
+          }
           walked = GlobalData.get.allocateAlgoIncrementale()
           s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
         case _ =>
@@ -1287,6 +1348,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: AssertStatement =>
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
+            s.walkParentTreeStatements(propagate)
           case s: Mem[_] => s.foreachStatements{
             case p: MemWrite     => propagate(p)
             case p: MemReadWrite => propagate(p)
@@ -1317,7 +1379,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     walkStatements{
       case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
-      case s: AssertStatement      => propagate(s, false)
+      case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
       case s: MemWrite             =>
@@ -1495,8 +1557,11 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
               case s : InitAssignmentStatement => withInit = true
               case _ =>
             }
-            if((bt.hasTag(unsetRegIfNoAssignementTag) || !bt.isVital) && withInit){
+            if(withInit){
               regToComb += bt
+              if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
+                SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine")
+              }
             }else if(bt.isVital) {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
@@ -1736,7 +1801,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
 
     for((enum, encodings) <- enums;
-        encodingsScope = new NamingScope();
+        encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       if (encoding.isWeak)
@@ -1782,7 +1847,7 @@ class PhaseStdLogicVectorAtTopLevelIo() extends PhaseNetlist {
             newIO := B(io)
         }
 
-        io.asDirectionLess().allowDirectionLessIo
+        io.setAsDirectionLess().allowDirectionLessIo
       }
 
       val ioList = pc.topLevel.getAllIo.toArray
@@ -1832,7 +1897,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
     native //Avoid unconstructable during phase
     binarySequential
     binaryOneHot
-    pc.topLevel = gen
+    gen
     defaultClockDomain.pop()
     pc.checkGlobalData()
   }
@@ -1875,13 +1940,18 @@ object SpinalVhdlBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
 
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
@@ -2000,7 +2070,10 @@ object SpinalVerilogBoot{
           s"          Spinal will restart with scala trace to help you to find the problem.")
         println("**********************************************************************************************\n")
         System.out.flush()
-        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedInterrests))(gen)
+
+        //Fill the ScalaLocated object which had trigger into the scalaLocatedCompoments
+        GlobalData.get.applyScalaLocated()
+        return singleShot(config.copy(debugComponents = GlobalData.get.scalaLocatedComponents))(gen)
       }
     }
   }
@@ -2008,6 +2081,7 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
 
     val pc = new PhaseContext(config)
+    pc.globalData.phaseContext = pc
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
 
     val prunedSignals    = mutable.Set[BaseType]()

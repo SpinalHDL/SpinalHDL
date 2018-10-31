@@ -191,6 +191,8 @@ object Data {
           push(currentComponent, riseTo.parentScope)
           copy := currentData
           pop(currentComponent)
+        } else {
+          copy.addTag(new ExternalDriverTag(currentData))
         }
         currentData = copy
 
@@ -246,9 +248,23 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   /** remove the direction (in,out,inout) to a data*/
-  def asDirectionLess(): this.type = {
+  def setAsDirectionLess(): this.type = {
     dir = null
     this
+  }
+
+  @deprecated("use setAsDirectionLess instead")
+  def asDirectionLess(): this.type = setAsDirectionLess()
+
+  /** Set baseType to reg */
+  def setAsReg(): this.type
+  /** Set baseType to Combinatorial */
+  def setAsComb(): this.type
+
+  def purify() : this.type = {
+    setAsDirectionLess()
+    setAsComb()
+    removeAssignments()
   }
 
   def dirString(): String = dir match {
@@ -322,7 +338,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   def removeAssignments(): this.type = {
-    flatten.foreach(_.removeStatement())
+    flattenForeach(_.removeAssignments())
     this
   }
 
@@ -471,7 +487,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
-        that.asDirectionLess()
+        that.setAsDirectionLess()
         that
       }
 
@@ -571,5 +587,7 @@ trait DataWrapper extends Data{
   override private[core] def isNotEquals(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+  override def setAsReg(): DataWrapper.this.type = ???
+  override def setAsComb(): DataWrapper.this.type = ???
 }
 

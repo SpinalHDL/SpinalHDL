@@ -30,7 +30,7 @@ abstract class MultiData extends Data {
 
   def elements: ArrayBuffer[(String, Data)]
 
-  override def addTag(spinalTag: SpinalTag): this.type = {
+  override def addTag[T <: SpinalTag](spinalTag: T): this.type = {
     super.addTag(spinalTag)
     elements.foreach(_._2.addTag(spinalTag))
     this
@@ -81,9 +81,21 @@ abstract class MultiData extends Data {
     this
   }
 
-  override def asDirectionLess: this.type = {
-    super.asDirectionLess()
-    elements.foreach(_._2.asDirectionLess());
+  override def setAsDirectionLess: this.type = {
+    super.setAsDirectionLess()
+    elements.foreach(_._2.setAsDirectionLess());
+    this
+  }
+
+  /** Set baseType to reg */
+  override def setAsReg(): this.type = {
+    elements.foreach(_._2.setAsReg())
+    this
+  }
+
+  /** Set baseType to Combinatorial */
+  override def setAsComb(): this.type = {
+    elements.foreach(_._2.setAsComb())
     this
   }
 
