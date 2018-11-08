@@ -12,10 +12,10 @@ case class SpiKind() extends Bundle {
 
 case class SpiMaster(ssWidth : Int = 1,
                      useSclk : Boolean = true) extends Bundle with IMasterSlave{
+  val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
   val sclk = if(useSclk)Bool else null
   val mosi = Bool
   val miso = Bool
-  val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 
   override def asMaster(): Unit = {
     out(sclk, mosi)

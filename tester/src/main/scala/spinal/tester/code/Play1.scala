@@ -269,6 +269,18 @@ object PlayFifo {
   }
 }
 
+
+object PlayUtilities{
+  class TopLevel() extends Component{
+    val x,y = in SInt(4 bits)
+    val result = out(x.resize(widthOf(x) + 1) + y.resize(widthOf(y) + 1))
+
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVerilog(new TopLevel())
+  }
+}
+
 object PlayCheckBundles {
   class TopLevel extends Component{
     case class A() extends Bundle{
