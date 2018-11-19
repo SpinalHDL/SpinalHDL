@@ -61,7 +61,12 @@ object MuxOH {
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
-  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = inputs(OHToUInt(oneHot))
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    oneHot.size match {
+      case 2 => oneHot(0) ? inputs(0) | inputs(1)
+      case _ => inputs(OHToUInt(oneHot))
+    }
+  }
 }
 
 object Min {
