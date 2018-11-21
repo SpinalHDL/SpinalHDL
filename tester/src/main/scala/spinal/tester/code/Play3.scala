@@ -1515,3 +1515,23 @@ object PlayWithAhbLite3Interconnect extends App{
   ).generate(new TopLevel)
 
 }
+
+object PlayWithAssert extends App{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val a,b = in Bool
+      val res = out Bool
+    }
+
+    assert(io.a & io.b, "Fake assert ")
+
+    io.res := io.a || io.b
+  }
+
+  SpinalConfig(
+    mode = VHDL,
+    noAssert = true
+  ).generate(new TopLevel)
+
+}
