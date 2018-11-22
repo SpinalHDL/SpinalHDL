@@ -127,6 +127,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
                          asyncResetCombSensitivity      : Boolean = false,
                          anonymSignalUniqueness         : Boolean = false,
                          noRandBoot                     : Boolean = false,
+                         noAssert                       : Boolean = false,
                          phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                          transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                          memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -162,6 +163,8 @@ case class SpinalConfig( mode                           : SpinalMode = null,
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
     this
   }
+
+  def withoutAssert : SpinalConfig = this.copy(noAssert = true)
 
   def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
   def includeFormal : this.type = {flags += GenerationFlags.formal; this}

@@ -169,8 +169,9 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
 
   /** Connect two AhbLite3 bus together with the resized of the address */
   def <<(that: AhbLite3): Unit = {
-    
-    assert(this.config.dataWidth == that.config.dataWidth, "AhbLite3 << : bus must have the same data width")
+
+    assert(that.config.addressWidth >= this.config.addressWidth, "AhbLite3 << : mismatch width address (use remap())")
+    assert(this.config.dataWidth == that.config.dataWidth, "AhbLite3 << : mismatch data width")
 
     that.HREADYOUT := this.HREADYOUT
     that.HRDATA    := this.HRDATA
@@ -191,23 +192,37 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
   def >>(that: AhbLite3): Unit = that << this
 
 
-  /** Convert to ahbLite3Master */
-  def toAhbLite3Master(): AhbLite3Master = {
-    val master = AhbLite3Master(config)
+  /**
+    * Remap a bus
+    *
+    * @example {{{
+    *
+    *     val ahb_0 = AhbLite3(AhbLite3Config(32, 32))
+    *     val ahb_1 = AhbLite3(AhbLite3Config(24, 32))
+    *
+    *     ahb_0 <> ahb_1.remapAddress(addr => U(0x40, 8 bits) @@ addr)
+    *         }}}
+    */
+  def remapAddress(remapping: UInt => UInt): AhbLite3 = {
+    val address = remapping(this.HADDR)
 
-    master.HADDR     := this.HADDR
-    master.HWRITE    := this.HWRITE
-    master.HSIZE     := this.HSIZE
-    master.HBURST    := this.HBURST
-    master.HPROT     := this.HPROT
-    master.HTRANS    := this.HTRANS
-    master.HMASTLOCK := this.HMASTLOCK
-    master.HWDATA    := this.HWDATA
+    val busRemap = AhbLite3(AhbLite3Config(dataWidth = this.config.dataWidth, addressWidth = address.getBitsWidth))
 
-    this.HRDATA     := master.HRDATA
-    this.HRESP      := master.HRESP
-    this.HREADY     := master.HREADY
+    this.HREADYOUT := busRemap.HREADYOUT
+    this.HRDATA    := busRemap.HRDATA
+    this.HRESP     := busRemap.HRESP
 
-    master
+    busRemap.HSEL      := this.HSEL
+    busRemap.HREADY    := this.HREADY
+    busRemap.HSIZE     := this.HSIZE
+    busRemap.HWDATA    := this.HWDATA
+    busRemap.HWRITE    := this.HWRITE
+    busRemap.HBURST    := this.HBURST
+    busRemap.HPROT     := this.HPROT
+    busRemap.HMASTLOCK := this.HMASTLOCK
+    busRemap.HTRANS    := this.HTRANS
+    busRemap.HADDR     := address
+
+    busRemap
   }
 }

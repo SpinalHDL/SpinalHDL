@@ -553,9 +553,13 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind): AssertStatement = {
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind): AssertStatement = {
     val node = AssertStatement(cond, message, severity, kind)
-    GlobalData.get.dslScope.head.append(node)
+
+    if(!GlobalData.get.phaseContext.config.noAssert){
+      GlobalData.get.dslScope.head.append(node)
+    }
+
     node
   }
 

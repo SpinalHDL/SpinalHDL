@@ -23,63 +23,62 @@
 ** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
 ** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
 \*                                                                           */
-package spinal.lib.bus.amba3.apb
-
+package spinal.lib.bus.bram
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 
-object Apb3Decoder{
+object BRAMDecoder{
 
-  def getOutputConfig(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) = inputConfig.copy(selWidth = decodings.size)
+  /**
+    * Map all slave bram bus on a master bram bus
+    */
+  def apply(master: BRAM, slaves: Seq[(BRAM, SizeMapping)]): BRAMDecoder = {
 
-  def apply(inputConfig: Apb3Config, decodings: Seq[SizeMapping]): Apb3Decoder = new Apb3Decoder(inputConfig, decodings)
+    val decoder = new BRAMDecoder(master.config, slaves.map(_._2))
 
-  def apply(master: Apb3, slaves: Seq[(Apb3, SizeMapping)]): Apb3Decoder = {
-
-    val decoder = new Apb3Decoder(master.config, slaves.map(_._2))
-    val router  = new Apb3Router(decoder.io.output.config)
-
+    // connect the master bus to the decoder
     decoder.io.input <> master
-    router.io.input  <> decoder.io.output
 
-    (slaves.map(_._1), router.io.outputs).zipped.map(_ << _)
+    // connect all slave to the decoder
+    (slaves.map(_._1), decoder.io.outputs).zipped.map(_ << _)
 
-    decoder.setPartialName(master, "decoder")
+    decoder
   }
 }
 
 
-
-class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends Component {
-
-  assert(inputConfig.selWidth == 1, "Apb3Decoder: input sel width must be equal to 1")
-  assert(!SizeMapping.verifyOverlapping(decodings), "Apb3Decoder: overlapping found")
+/**
+  * BRAM decoder
+  *
+  *         /|
+  *        | | -- bram bus
+  * BRAM - | | ...
+  *        | | -- bram bus
+  *         \|
+  */
+class BRAMDecoder(inputConfig: BRAMConfig, decodings: Seq[SizeMapping]) extends Component {
 
   val io = new Bundle {
-    val input  = slave(Apb3(inputConfig))
-    val output = master(Apb3(Apb3Decoder.getOutputConfig(inputConfig,decodings)))
+    val input   = slave(BRAM(inputConfig))
+    val outputs = Vec(master(BRAM(inputConfig)), decodings.size)
   }
 
-  io.output.PADDR   := io.input.PADDR
-  io.output.PENABLE := io.input.PENABLE
-  io.output.PWRITE  := io.input.PWRITE
-  io.output.PWDATA  := io.input.PWDATA
+  val sel = Bits(decodings.size bits)
 
-  for((decoding,psel) <- (decodings,io.output.PSEL.asBools).zipped){
-    psel := decoding.hit(io.input.PADDR) && io.input.PSEL.lsb
+  for((output, index) <- io.outputs.zipWithIndex){
+    output.addr   := io.input.addr
+    output.wrdata := io.input.wrdata
+    output.we     := io.input.we
+    output.en     := io.input.en && sel(index)
   }
 
-  io.input.PREADY := io.output.PREADY
-  io.input.PRDATA := io.output.PRDATA
-
-  if(inputConfig.useSlaveError) io.input.PSLVERROR := io.output.PSLVERROR
-
-  when(io.input.PSEL.lsb && io.output.PSEL === 0){
-    io.input.PREADY := True
-    if(inputConfig.useSlaveError) io.input.PSLVERROR := True
+  for((decoding, psel) <- (decodings, sel.asBools).zipped){
+    psel := decoding.hit(io.input.addr) & io.input.en
   }
+
+  val selIndex = RegNext(OHToUInt(sel))
+  io.input.rddata := io.outputs(selIndex).rddata
 }
-
