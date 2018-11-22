@@ -466,7 +466,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     * but need a randome value for simulation (avoid x-propagation)
     */
   def randBoot(): this.type = {
-    flatten.foreach(_.addTag(spinal.core.randomBoot))
+    if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
 

@@ -447,15 +447,15 @@ class ComponentEmitterVerilog(
 
         statement match {
           case assignment: AssignmentStatement  => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
-          case assertStatement: AssertStatement =>
+          case assertStatement: AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
 
-            val frontString = (for(m <- assertStatement.message) yield m match{
-              case m: String     => m
+            val frontString = (for (m <- assertStatement.message) yield m match {
+              case m: String => m
               case m: Expression => "%x"
             }).mkString
 
-            val backString = (for(m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match{
+            val backString = (for (m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match {
               case m: Expression => ", " + emitExpression(m)
             }).mkString
 
@@ -465,42 +465,34 @@ class ComponentEmitterVerilog(
               case AssertStatementKind.COVER => "cover"
             }
 
-
-            val assertCond = assertStatement.getTag(classOf[IfDefTag]).getOrElse(null)
-            if(assertCond == null)
-              b ++= s"`ifndef SYNTHESIS\n"
-            else
-              b ++= s"`ifdef ${assertCond.cond}\n"
-
-            if(!systemVerilog){
-              val severity = assertStatement.severity match{
-                case `NOTE`     => "NOTE"
-                case `WARNING`  => "WARNING"
-                case `ERROR`    => "ERROR"
-                case `FAILURE`  => "FAILURE"
+            if (!systemVerilog) {
+              val severity = assertStatement.severity match {
+                case `NOTE` => "NOTE"
+                case `WARNING` => "WARNING"
+                case `ERROR` => "ERROR"
+                case `FAILURE` => "FAILURE"
               }
               b ++= s"${tab}if(!$cond) begin\n"
               b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
               if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
               b ++= s"${tab}end\n"
             } else {
-              val severity = assertStatement.severity match{
-                case `NOTE`     => "$info"
-                case `WARNING`  => "$warning"
-                case `ERROR`    => "$error"
-                case `FAILURE`  => "$fatal"
+              val severity = assertStatement.severity match {
+                case `NOTE` => "$info"
+                case `WARNING` => "$warning"
+                case `ERROR` => "$error"
+                case `FAILURE` => "$fatal"
               }
-              if(assertStatement.kind == AssertStatementKind.ASSERT) {
+              if (assertStatement.kind == AssertStatementKind.ASSERT) {
                 b ++= s"${tab}$keyword($cond) else begin\n"
                 b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
                 b ++= s"${tab}end\n"
-              }else{
+              } else {
                 b ++= s"${tab}$keyword($cond);\n"
               }
             }
-
-            b ++= s"`endif\n"
+          }
         }
         statementIndex += 1
       } else {
@@ -1330,6 +1322,13 @@ end
     case  e: BitVectorBitAccessFloating               => accessBoolFloating(e)
     case  e: BitVectorRangedAccessFixed               => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating            => accessBitVectorFloating(e)
+
+    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)})"
+    case e : Operator.Formal.Rise                     => s"$$rise(${emitExpression(e.source)})"
+    case e : Operator.Formal.Fall                     => s"$$rise(${emitExpression(e.source)})"
+    case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"
+    case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
+    case e : Operator.Formal.InitState                => s"$$initstate()"
   }
 
   elaborate()

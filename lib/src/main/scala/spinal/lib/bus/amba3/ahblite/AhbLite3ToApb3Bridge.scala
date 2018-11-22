@@ -31,7 +31,7 @@ import spinal.lib.bus.amba3.apb._
 
 
 object AhbLite3ToApb3BridgePhase extends SpinalEnum{
-  val IDLE, SETUP, ACCESS = newElement
+  val IDLE, SETUP, ACCESS, ERROR = newElement
 }
 
 case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config) extends Component {
@@ -53,6 +53,13 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
   val readedData = Reg(ahbConfig.dataType)
 
 
+  io.apb.PADDR  := address.resized
+  io.ahb.HRDATA := readedData
+  io.apb.PWDATA := io.ahb.HWDATA
+  io.apb.PWRITE := write
+  io.ahb.HRESP  := io.apb.PSLVERROR
+
+
   switch(phase){
     is(IDLE){
       io.apb.PSEL      := "0"
@@ -71,21 +78,22 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
       io.ahb.HREADYOUT := False
       phase            := ACCESS
     }
-    default{ //is(ACCESS)
+    is(ACCESS){
       io.apb.PSEL      := "1"
       io.apb.PENABLE   := True
       io.ahb.HREADYOUT := False
 
       when(io.apb.PREADY){
         readedData := io.apb.PRDATA
-        phase      := IDLE
+        phase      := io.apb.PSLVERROR ? ERROR | IDLE
       }
     }
+    default{ // ERROR
+      io.apb.PENABLE   := False
+      io.apb.PSEL      := "0"
+      io.ahb.HREADYOUT := True
+      io.ahb.HRESP     := True
+      phase            := IDLE
+    }
   }
-
-  io.apb.PADDR  := address.resized
-  io.ahb.HRDATA := readedData
-  io.apb.PWDATA := io.ahb.HWDATA
-  io.apb.PWRITE := write
-  io.ahb.HRESP  := io.apb.PSLVERROR
 }

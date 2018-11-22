@@ -294,6 +294,10 @@ class ClockDomain(val config      : ClockDomainConfig,
   }
 
   override def toString = clock.getName("???")
+
+  def withRevertedClockEdge() = {
+    clone(config = config.copy(clockEdge = if(config.clockEdge == RISING) FALLING else RISING))
+  }
 }
 
 

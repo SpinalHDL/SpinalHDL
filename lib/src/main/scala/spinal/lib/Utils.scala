@@ -61,7 +61,12 @@ object MuxOH {
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
-  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = inputs(OHToUInt(oneHot))
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    oneHot.size match {
+      case 2 => oneHot(0) ? inputs(0) | inputs(1)
+      case _ => inputs(OHToUInt(oneHot))
+    }
+  }
 }
 
 object Min {
@@ -87,6 +92,12 @@ object OHMasking{
       val ret = cloneOf(that)
       ret.assignFromBits(masked.asBits)
       ret
+  }
+
+  //Avoid combinatorial loop on the first
+  def first(that : Vec[Bool]) : Vec[Bool] = {
+    val bitsFirst = first(that.asBits)
+    Vec(that.head +: bitsFirst.asBools.tail)
   }
 
   /** returns an one hot encoded vector with only MSB of the word present */
