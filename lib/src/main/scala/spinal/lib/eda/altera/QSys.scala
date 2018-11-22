@@ -193,18 +193,18 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
         builder ++= s"set_interface_property $name doStreamWrites false\n"
       }
 
-      builder ++= s"add_interface_port $name ${e.address.getName} address ${masterPinDir} ${addressWidth}\n"
-      if(useRead) builder ++= s"add_interface_port $name ${e.read.getName} read ${masterPinDir} 1\n"
-      if(useWrite) builder ++= s"add_interface_port $name ${e.write.getName} write ${masterPinDir} 1\n"
-      if(useWaitRequestn) builder ++= s"add_interface_port $name ${e.waitRequestn.getName} waitrequest_n ${slavePinDir} 1\n"
-      if(useLock) builder ++= s"add_interface_port $name ${e.lock.getName} lock ${masterPinDir} 1\n"
-      if(useBurstCount) builder ++= s"add_interface_port $name ${e.burstCount.getName} burstcount ${masterPinDir} ${burstCountWidth}\n"
-      if(useByteEnable) builder ++= s"add_interface_port $name ${e.byteEnable.getName} byteenable ${masterPinDir} ${dataByteCount}\n"
-      if(useWrite) builder ++= s"add_interface_port $name ${e.writeData.getName} writedata ${masterPinDir} ${dataWidth}\n"
-      if(useResponse) builder ++= s"add_interface_port $name ${e.response.getName} response ${slavePinDir} 2\n"
-      if(useReadDataValid) builder ++= s"add_interface_port $name ${e.readDataValid.getName} readdatavalid ${slavePinDir} 1\n"
-    //  if(useEndOfPacket) builder ++= s"add_interface_port $name ${e.endOfPacket.getName} endofpacket ${slavePinDir} 1\n"
-      if(useRead) builder ++= s"add_interface_port $name ${e.readData.getName} readdata ${slavePinDir} ${dataWidth}\n"
+      builder ++= s"add_interface_port $name ${e.address.getName()} address ${masterPinDir} ${addressWidth}\n"
+      if(useRead) builder ++= s"add_interface_port $name ${e.read.getName()} read ${masterPinDir} 1\n"
+      if(useWrite) builder ++= s"add_interface_port $name ${e.write.getName()} write ${masterPinDir} 1\n"
+      if(useWaitRequestn) builder ++= s"add_interface_port $name ${e.waitRequestn.getName()} waitrequest_n ${slavePinDir} 1\n"
+      if(useLock) builder ++= s"add_interface_port $name ${e.lock.getName()} lock ${masterPinDir} 1\n"
+      if(useBurstCount) builder ++= s"add_interface_port $name ${e.burstCount.getName()} burstcount ${masterPinDir} ${burstCountWidth}\n"
+      if(useByteEnable) builder ++= s"add_interface_port $name ${e.byteEnable.getName()} byteenable ${masterPinDir} ${dataByteCount}\n"
+      if(useWrite) builder ++= s"add_interface_port $name ${e.writeData.getName()} writedata ${masterPinDir} ${dataWidth}\n"
+      if(useResponse) builder ++= s"add_interface_port $name ${e.response.getName()} response ${slavePinDir} 2\n"
+      if(useReadDataValid) builder ++= s"add_interface_port $name ${e.readDataValid.getName()} readdatavalid ${slavePinDir} 1\n"
+    //  if(useEndOfPacket) builder ++= s"add_interface_port $name ${e.endOfPacket.getName()} endofpacket ${slavePinDir} 1\n"
+      if(useRead) builder ++= s"add_interface_port $name ${e.readData.getName()} readdata ${slavePinDir} ${dataWidth}\n"
       if(useDebugAccess)
         ???
       true
@@ -262,9 +262,9 @@ class InterruptReceiverEmitter extends QSysifyInterfaceEmiter{
 |# connection point $interfaceName
 |#
 |add_interface $interfaceName interrupt start
-|set_interface_property $interfaceName associatedAddressablePoint ${tag.get.addressablePoint.getName}
-|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName}
-|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName}
+|set_interface_property $interfaceName associatedAddressablePoint ${tag.get.addressablePoint.getName()}
+|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName()}
+|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName()}
 |set_interface_property $interfaceName irqScheme INDIVIDUAL_REQUESTS
 |set_interface_property $interfaceName ENABLED true
 |set_interface_property $interfaceName EXPORT_OF ""

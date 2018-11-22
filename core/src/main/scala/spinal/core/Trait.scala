@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.Nameable.NAMEABLE_REF_PREFIXED
+
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
@@ -223,14 +225,30 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 
 trait NameableByComponent extends Nameable with GlobalDataUser {
 
-  override def getName(): String = {
+  override def getName(default: String): String = {
     if(!globalData.nodeAreNamed) {
       if (isUnnamed) {
         val c = getComponent()
         if(c != null)c.nameElements()
       }
     }
-    super.getName()
+    (getMode, nameableRef) match{
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+        if(nameableRef.isNamed && other.component.isNamed)
+          other.component.getName() + "_" + nameableRef.getName() + "_" + name
+        else
+          default
+      case _ => super.getName(default)
+    }
+  }
+
+
+  override def isNamed: Boolean = {
+    (getMode, nameableRef) match{
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+        nameableRef.isNamed && other.component.isNamed
+      case _ => super.isNamed
+    }
   }
 
   private[core] def getComponent(): Component
@@ -315,13 +333,13 @@ object Nameable{
 trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
-  private var name: String = null
-  private var nameableRef: Nameable = null
+  protected var name: String = null
+  protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
   private var namePriority: Byte = -1
 
-  private def getMode = mode
+  protected def getMode = mode
 
   private[core] def isWeak = namePriority < USER_SET
 //  private[core] def setMode(mode: Byte)    = this.mode = mode

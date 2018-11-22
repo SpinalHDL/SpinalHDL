@@ -180,6 +180,8 @@ object is {
       }
     }
 
+
+
     values.foreach {
       case value: BaseType => onBaseType(value)
       case key: Int        =>
@@ -212,7 +214,7 @@ object is {
       }
       //    }
       //              case key: Data => switchValue.isEquals(key)
-      //              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+//      case key: Seq[Data] => switchElement.keys += SwitchStatementKeyBool(key.map(d => (switchValue.asInstanceOf[Data] === d)).reduce(_ || _))
     }
 
 

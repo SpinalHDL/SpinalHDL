@@ -50,46 +50,9 @@ class Stage1 extends Bundle with BundleA with BundleB with BundleD
 
 class Play1 extends Component {
   val io = new Bundle {
-    val input = slave Stream (new Stage0)
-    val output = master Stream (new Stage1)
+    val output = out(Reg(Bool))
   }
-  //  import scala.language.dynamics;
-  //  class Dyna extends Dynamic{
-  //    def applyDynamic(name: String)(args: Any*) ={
-  //     println(name)
-  //    }
-  //    def selectDynamic(name: String) = println(name)
-  //  }
-  //
-  //  val dyna = new Dyna
-  //  dyna.a__fafafs_asdda__fafaf
-
-  S(2).asUInt
-  val b = new Bundle {
-    val a = Bool
-    val b = Bool
-    val c = new Bundle {
-      val d = Vec((0 until 3).map(c => Bool))
-      val e = new Bundle {
-        val f = Vec(Bool, 4)
-        val g = Bool
-      }
-    }
-    val h = Bool
-  }
-
-  val fName = b.flattenLocalName
-  println(fName)
-
-  for ((e, name) <- (b.flatten, b.flattenLocalName).zipped) {
-    println(name)
-  }
-
-  io.input.translateInto(io.output)((to, from) => {
-    to.assignSomeByName(from)
-    to.d := False
-  })
-  io.output.a := False
+  io.output := !io.output
 }
 
 object Play1 {
@@ -1260,16 +1223,11 @@ object PlaySwitch {
   class TopLevel extends Component {
     val a, b = in UInt (4 bit)
     val result = out UInt (4 bit)
-    result := 1
     switch(a) {
-      is(1) {
-        //switch(b) {
-        //  is (1){
-            result := 2
-      //    }
-       // }
+      is(0 to 5) {
+        result := 2
       }
-      is (2) {
+      is (9) {
         result := 2
       }
       default{

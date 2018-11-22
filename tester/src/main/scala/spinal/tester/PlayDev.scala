@@ -669,38 +669,27 @@ object PlayDevAnalog{
 }
 
 
+
+
 object PlayWithBug {
 
-  class MyTopLevel extends Component {
-
+  class I2C extends Component {
+    val io = new Bundle {
+      val SDA = inout(Analog(Bool))
+    }
+  }
+  class Test extends Component {
     val io = new Bundle{
-      val dout = out Bits(32 bits)
-      val din  = in Bits(32 bits)
-
-      val incr = in Bool
-      val wr   = in Bool
+      val SDAs = Vec(inout(Analog(Bool)), 4)
     }
-
-    val dataRD = Vec(Reg(Bits(32 bits)), 8)
-    val rdCnt  = Reg(UInt(2 bits)) init(0)
-    val wrCnt  = Reg(UInt(3 bits)) init(0)
-
-
-    when(io.wr){
-      wrCnt := wrCnt + 1
-      dataRD(wrCnt) := io.din
+    for(j <- io.SDAs.range){
+      val i2c = new I2C();
+      i2c.io.SDA <> io.SDAs(j);
     }
-
-    when(io.incr){
-      rdCnt := rdCnt + 1
-    }
-
-    io.dout := dataRD(rdCnt.resized)
-
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new MyTopLevel)
+    SpinalVerilog(new Test)
   }
 
 }
@@ -1266,31 +1255,24 @@ object PlayNamingImprovment extends App{
     SpinalVhdl(c)
     SpinalVerilog(c)
   }
+
+  class Sub extends Component{
+    val io = new Bundle {
+      val input = in Bool
+      val output = out Bool
+    }
+    io.output := io.input
+  }
+
   gen(new Component {
-    val input = in Bool()
-    val output = out Bool()
-    val readableOutput = out Bool()
 
-    output := RegNext(Delay(RegNext(input),4))
-    val yolo = RegNext(input)
+    val sub = new Sub
+    sub.io.input := False
 
-    readableOutput := True
-    val miaou = Bool
-    miaou := readableOutput
+    var x = Bool()
+    x := RegNext(sub.io.output)
   })
 
-  import spinal.sim._
-  import spinal.core._
-  import spinal.core.sim._
-
-  object FpxxDemoTests {
-    def main(args: Array[String]): Unit = {
-      SimConfig.withWave.compile(new BufferCC(Bool, false, 2)).doSim { dut =>
-        dut.clockDomain.forkStimulus(period = 10)
-        println("asd")
-      }
-    }
-  }
 }
 
 
