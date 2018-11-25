@@ -265,3 +265,6 @@ object GraphUtils{
 }
 
 
+class BooleanPimped(pimped : Boolean){
+  def generate[T](block : => T) : T = if(pimped) block else null.asInstanceOf[T]
+}

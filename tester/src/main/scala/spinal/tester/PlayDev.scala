@@ -1212,6 +1212,36 @@ object PlayInitBoot extends App {
 }
 
 
+object PlayErrorImprovment2 extends App {
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val state = out Bool
+    }
+    val a = RegInit(False)
+    io.state := a
+  }
+
+  val report = SpinalSystemVerilog(new MyTopLevel)
+  println("asd")
+}
+
+object PlayGenerate extends App {
+  class MyTopLevel extends Component{
+    val param = true
+    val data = param generate new Bundle{
+      val x = UInt(8 bits)
+    }
+
+    val logic = param generate new Area{
+      data.x := 0
+    }
+  }
+
+  val report = SpinalVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
 object PlayErrorReportingImprovmenet extends App {
   class MyTopLevel extends Component{
     val a = B"0101010"

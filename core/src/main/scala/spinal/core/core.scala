@@ -352,6 +352,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   }
 
 
+
+  implicit def BooleanPimped[T <: Data](that : Boolean) = new BooleanPimped(that)
+
+
   /**
     * Assertion
     */
