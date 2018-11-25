@@ -34,7 +34,7 @@ import scala.io.Source
 
 class PhaseContext(val config: SpinalConfig) {
 
-  var globalData = GlobalData.reset
+  var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
 
@@ -1600,7 +1600,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
       val subInputsPerScope = mutable.HashMap[ScopeStatement, ArrayBuffer[BaseType]]()
       c.children.foreach(_.getAllIo.withFilter(_.isInput).foreach(input => subInputsPerScope.getOrElseUpdate(input.rootScopeStatement, ArrayBuffer[BaseType]()) += input))
 
-      def walkBody(body: ScopeStatement): mutable.HashMap[BaseType, AssignedBits] = {
+      def walkBody(body: ScopeStatement, checkOverlap : Boolean): mutable.HashMap[BaseType, AssignedBits] = {
         val assigneds = mutable.HashMap[BaseType, AssignedBits]()
 
         def getOrEmpty(bt: BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
@@ -1638,24 +1638,27 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         }
 
         def getOrEmptyAdd2(bt: BaseType, src: AssignedRange): Boolean = getOrEmptyAdd3(bt, src.hi, src.lo)
-
+        def noPoison(that : AssignmentStatement) = !checkOverlap || (that.source match {
+          case lit : Literal if lit.hasPoison() => false
+          case _ => true
+        })
         body.foreachStatements {
           case s: DataAssignmentStatement =>  //Omit InitAssignmentStatement
-            if(!s.finalTarget.isAnalog) {
+            if(!s.finalTarget.isAnalog && noPoison(s)) {
               s.target match {
-                case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)) {
+                case bt: BaseType => if (getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0) && checkOverlap) {
                   PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                 }
                 case e: BitVectorAssignmentExpression =>
                   val bt = e.finalTarget
-                  if (getOrEmptyAdd2(bt, e.getMinAssignedBits)) {
+                  if (getOrEmptyAdd2(bt, e.getMinAssignedBits) && checkOverlap) {
                     PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n${s.getScalaLocationLong}")
                   }
               }
             }
           case s: WhenStatement =>
-            val whenTrue  = walkBody(s.whenTrue)
-            val whenFalse = walkBody(s.whenFalse)
+            val whenTrue  = walkBody(s.whenTrue, checkOverlap)
+            val whenFalse = walkBody(s.whenFalse, checkOverlap)
 
             for ((bt, assigned) <- whenTrue) {
               whenFalse.get(bt) match {
@@ -1666,11 +1669,11 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
             whenFalse.foreach(p => getOrEmpty(p._1))
           case s: SwitchStatement =>
             val stuffs = if(s.isFullyCoveredWithoutDefault){
-              s.elements.map(e => walkBody(e.scopeStatement))
+              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap))
             } else if(s.defaultScope != null){
-              s.elements.map(e => walkBody(e.scopeStatement)) += walkBody(s.defaultScope)
+              s.elements.map(e => walkBody(e.scopeStatement, checkOverlap)) += walkBody(s.defaultScope, checkOverlap)
             } else {
-              s.elements.foreach(e => walkBody(e.scopeStatement).foreach(e => getOrEmpty(e._1)))
+              s.elements.foreach(e => walkBody(e.scopeStatement, checkOverlap).foreach(e => getOrEmpty(e._1)))
               null
             }
 
@@ -1699,7 +1702,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
               }
 
               for ((bt, assigned) <- mix) {
-                if(getOrEmptyAdd(bt,assigned)){
+                if(getOrEmptyAdd(bt,assigned) && checkOverlap){
                   PendingError(s"ASSIGNMENT OVERLAP completely the previous one of $bt\n ${s.getScalaLocationLong}")
                 }
               }
@@ -1731,15 +1734,18 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         }
 
         //Final checks usages
-        body.foreachDeclarations{
-          case bt : BaseType => finalCheck(bt)
-          case _ =>
+        if(!checkOverlap) {
+          body.foreachDeclarations {
+            case bt: BaseType => finalCheck(bt)
+            case _ =>
+          }
+          subInputsPerScope.get(body).foreach(_.foreach(finalCheck))
         }
-        subInputsPerScope.get(body).foreach(_.foreach(finalCheck))
 
         assigneds
       }
-      walkBody(c.dslBody)
+      walkBody(c.dslBody, true)
+      walkBody(c.dslBody, false)
     })
   }
 }

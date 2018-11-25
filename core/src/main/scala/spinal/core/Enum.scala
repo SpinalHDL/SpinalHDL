@@ -63,7 +63,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
  *
  * @example {{{
- *         class MyEnum extends SpinalEnum(binarySequancial){
+ *         object MyEnum extends SpinalEnum(binarySequancial){
  *           val s1, s2, s3, s4 = newElement()
  *         }
  *         }}}

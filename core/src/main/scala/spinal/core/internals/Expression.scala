@@ -269,11 +269,83 @@ object InferWidth
 }
 
 
+
+
 /**
   * Define all operator for each type
   */
 object Operator {
+  object Formal{
+    abstract class Past extends UnaryOperator
 
+    class PastBool extends Past {
+      override def getTypeObject = TypeBool
+      override def opName: String = "$past(Bool)"
+    }
+
+    abstract class PastBitvector extends Past with Widthable {
+      override type T = Expression with WidthProvider
+      override private[core] def calcWidth = source.getWidth
+    }
+
+    class PastBits extends PastBitvector{
+      override def getTypeObject = TypeBits
+      override def opName: String = "$past(Bits)"
+    }
+
+    class PastUInt extends PastBitvector{
+      override def getTypeObject = TypeUInt
+      override def opName: String = "$past(UInt)"
+    }
+
+    class PastSInt extends PastBitvector{
+      override def getTypeObject = TypeSInt
+      override def opName: String = "$past(SInt)"
+    }
+
+    class PastEnum(enumDef: SpinalEnum) extends Past with InferableEnumEncodingImpl{
+      override def getTypeObject = TypeEnum
+      override def opName: String = "$past(Enum)"
+
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+
+      override type T = Expression with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+    }
+
+
+    class Rise extends UnaryOperator{
+      override def opName: String = "$rise(Bool)"
+      override def getTypeObject: Any = TypeBool
+    }
+
+    class Fall extends UnaryOperator{
+      override def opName: String = "$rise(Bool)"
+      override def getTypeObject: Any = TypeBool
+    }
+
+
+
+    class Changed extends UnaryOperator{
+      override def getTypeObject = TypeBool
+      override def opName: String = "$changed(...)"
+    }
+
+
+    class Stable extends UnaryOperator{
+      override def getTypeObject = TypeBool
+      override def opName: String = "$changed(...)"
+    }
+
+    class InitState extends Expression{
+      override def remapExpressions(func: Expression => Expression): Unit = {}
+      override def foreachExpression(func: Expression => Unit): Unit = {}
+
+      override def getTypeObject = TypeBool
+      override def opName: String = "$initstate(...)"
+    }
+  }
 
   /**
     * Bool operator
@@ -349,6 +421,7 @@ object Operator {
       }
       override def toString() = s"(${super.toString()})[$getWidth bits]"
     }
+
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize

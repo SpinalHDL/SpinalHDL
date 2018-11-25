@@ -215,7 +215,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
   override def getAllTrue: this.type = B((BigInt(1) << this.getWidth) - 1, this.getWidth bits).asInstanceOf[this.type]
-  override def setAll(): Unit = this := (BigInt(1) << this.getWidth) - 1
+  override def setAll(): this.type = {
+    this := (BigInt(1) << this.getWidth) - 1
+    this.asInstanceOf[this.type]
+  }
 
   override def assignDontCare(): this.type = {
     this.assignFrom(BitsLiteral(BigInt(0), (BigInt(1) << this.getWidth) - 1, widthOf(this)))

@@ -20,7 +20,7 @@ object Apb3SpiDdrMasterCtrl{
     SpinalConfig(mergeAsyncProcess = false).generateVerilog {
       val c = Apb3SpiDdrMasterCtrl(
         SpiDdrMasterCtrl.MemoryMappingParameters(
-          SpiDdrMasterCtrl.Parameters(8, 12, SpiDdrParameter(4, 1)).addAllMods(),
+          SpiDdrMasterCtrl.Parameters(8, 12, SpiDdrParameter(4, 1, 1)).addFullDuplex(0),
           cmdFifoDepth = 32,
           rspFifoDepth = 32,
           xip = SpiDdrMasterCtrl.XipBusParameters(addressWidth = 24, dataWidth = 32)

@@ -203,6 +203,27 @@ object SpinalMap {
     }
     result
   }
+
+  def listDc[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result: T = cloneOf(mappings.head._2).assignDontCare()
+
+    switch(addr){
+      for ((cond, value) <- mappings) {
+        cond match {
+          case product: Product =>
+            is.list(product.productIterator) {
+              result := value
+            }
+          case `default` => ???
+          case _ =>
+            is(cond) {
+              result := value
+            }
+        }
+      }
+    }
+    result
+  }
 }
 
 
@@ -465,4 +486,18 @@ object ArrayManager{
 
 object AnnotationUtils{
   def isDontName(f: Field): Boolean = f.isAnnotationPresent(classOf[dontName])
+}
+
+
+/**
+  * Declare a register with an initialize value
+  */
+object CombInit {
+  def apply[T <: Data](init: T): T = {
+    val ret = cloneOf(init)
+    ret := init
+    ret
+  }
+
+  def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
 }

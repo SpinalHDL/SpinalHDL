@@ -669,38 +669,27 @@ object PlayDevAnalog{
 }
 
 
+
+
 object PlayWithBug {
 
-  class MyTopLevel extends Component {
-
+  class I2C extends Component {
+    val io = new Bundle {
+      val SDA = inout(Analog(Bool))
+    }
+  }
+  class Test extends Component {
     val io = new Bundle{
-      val dout = out Bits(32 bits)
-      val din  = in Bits(32 bits)
-
-      val incr = in Bool
-      val wr   = in Bool
+      val SDAs = Vec(inout(Analog(Bool)), 4)
     }
-
-    val dataRD = Vec(Reg(Bits(32 bits)), 8)
-    val rdCnt  = Reg(UInt(2 bits)) init(0)
-    val wrCnt  = Reg(UInt(3 bits)) init(0)
-
-
-    when(io.wr){
-      wrCnt := wrCnt + 1
-      dataRD(wrCnt) := io.din
+    for(j <- io.SDAs.range){
+      val i2c = new I2C();
+      i2c.io.SDA <> io.SDAs(j);
     }
-
-    when(io.incr){
-      rdCnt := rdCnt + 1
-    }
-
-    io.dout := dataRD(rdCnt.resized)
-
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new MyTopLevel)
+    SpinalVerilog(new Test)
   }
 
 }
@@ -1168,6 +1157,7 @@ object PlayDeterministicGeneration extends App {
 }
 
 object PlayAssertFormal extends App {
+  import spinal.core.GenerationFlags._
   class MyTopLevel extends Component{
     when(False){
       when(False){
@@ -1180,11 +1170,22 @@ object PlayAssertFormal extends App {
         formal(cover(True))
       }
     }
+    GenerationFlags.formal{
+      import spinal.core.Formal._
+      val a = past(B"1010")
+      val b = rise(False)
+      val c = fall(False)
+      val d = changed(False)
+      val f = stable(False)
+      val g = initstate()
+      assume(!initstate() && changed(True))
+    }
+
   }
 
-  SpinalSystemVerilog(new MyTopLevel)
-  SpinalVerilog(new MyTopLevel)
-  SpinalVhdl(new MyTopLevel)
+  SpinalConfig().includeFormal.generateSystemVerilog(new MyTopLevel)
+//  SpinalVerilog(new MyTopLevel)
+//  SpinalVhdl(new MyTopLevel)
 }
 
 object PlayErrorImprovment extends App {
@@ -1254,25 +1255,24 @@ object PlayNamingImprovment extends App{
     SpinalVhdl(c)
     SpinalVerilog(c)
   }
+
+  class Sub extends Component{
+    val io = new Bundle {
+      val input = in Bool
+      val output = out Bool
+    }
+    io.output := io.input
+  }
+
   gen(new Component {
-    val input = in Bool()
-    val output = out Bool()
-    val readableOutput = out Bool()
 
-    output := RegNext(Delay(RegNext(input),4))
-    val yolo = RegNext(input)
+    val sub = new Sub
+    sub.io.input := False
 
-    readableOutput := True
-    val miaou = Bool
-    miaou := readableOutput
+    var x = Bool()
+    x := RegNext(sub.io.output)
   })
+
 }
 
-
-object PlayScopeImport{
-//  case class Parameters(){
-//
-//  }
-  SpiDdrMasterCtrl(SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(4,3)).addAllMods())
-}
 
