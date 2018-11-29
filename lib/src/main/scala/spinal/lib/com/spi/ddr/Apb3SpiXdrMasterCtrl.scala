@@ -2,13 +2,13 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
-import spinal.lib.com.spi.ddr.SpiDdrMasterCtrl.{Cmd, Config, Rsp}
+import spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.{Cmd, Config, Rsp}
 import spinal.lib.io.InOutWrapper
 import spinal.lib.{Flow, Stream, master, slave}
 
 
 
-object Apb3SpiDdrMasterCtrl{
+object Apb3SpiXdrMasterCtrl{
   def getApb3Config = Apb3Config(
     addressWidth = 8,
     dataWidth = 32,
@@ -18,12 +18,12 @@ object Apb3SpiDdrMasterCtrl{
 
   def main(args: Array[String]): Unit = {
     SpinalConfig(mergeAsyncProcess = false).generateVerilog {
-      val c = Apb3SpiDdrMasterCtrl(
-        SpiDdrMasterCtrl.MemoryMappingParameters(
-          SpiDdrMasterCtrl.Parameters(8, 12, SpiDdrParameter(4, 1, 1)).addFullDuplex(0),
+      val c = Apb3SpiXdrMasterCtrl(
+        SpiXdrMasterCtrl.MemoryMappingParameters(
+          SpiXdrMasterCtrl.Parameters(8, 12, SpiXdrParameter(4, 1, 1)).addFullDuplex(0),
           cmdFifoDepth = 32,
           rspFifoDepth = 32,
-          xip = SpiDdrMasterCtrl.XipBusParameters(addressWidth = 24, dataWidth = 32)
+          xip = SpiXdrMasterCtrl.XipBusParameters(addressWidth = 24, dataWidth = 32)
         )
       )
       c.rework{
@@ -40,15 +40,15 @@ object Apb3SpiDdrMasterCtrl{
 }
 
 
-case class Apb3SpiDdrMasterCtrl(p : SpiDdrMasterCtrl.MemoryMappingParameters) extends Component{
+case class Apb3SpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters) extends Component{
   val io = new Bundle {
-    val apb = slave(Apb3(Apb3SpiDdrMasterCtrl.getApb3Config))
-    val xip = ifGen(p.xip != null) (slave(SpiDdrMasterCtrl.XipBus(p.xip)))
-    val spi = master(SpiDdrMaster(p.ctrl.spi))
+    val apb = slave(Apb3(Apb3SpiXdrMasterCtrl.getApb3Config))
+    val xip = ifGen(p.xip != null) (slave(SpiXdrMasterCtrl.XipBus(p.xip)))
+    val spi = master(SpiXdrMaster(p.ctrl.spi))
     val interrupt = out Bool()
   }
 
-  val ctrl = SpiDdrMasterCtrl(p.ctrl)
+  val ctrl = SpiXdrMasterCtrl(p.ctrl)
   val mapping = ctrl.io.driveFrom(Apb3SlaveFactory(io.apb, 0))(p)
   if(p.xip != null) io.xip <> mapping.xip.xipBus
   io.spi <> ctrl.io.spi

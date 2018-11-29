@@ -34,21 +34,28 @@ import scala.util.Random
 //case class SpinalSimSpiDdrCmdSs(id : Int, enable : Boolean)
 
 
-/*
-class SpinalSimSpiDdrMaster extends FunSuite {
 
-  var compiled : SimCompiled[SpiDdrMasterCtrl.TopLevel] = null
+class SpinalSimSpiXdrMaster extends FunSuite {
+
+  var compiled : SimCompiled[SpiXdrMasterCtrl.TopLevel] = null
   test("compile"){
     compiled = SimConfig.withWave.withConfig(SpinalConfig(verbose = true)).compile(
-      SpiDdrMasterCtrl(
-        SpiDdrMasterCtrl.Parameters(8,12,SpiDdrParameter(dataWidth=4, ioRate = 2, ssWidth=3))
-//          .addFullDuplex(0, rate = 1, ddr = false)
-//          .addFullDuplex(1, rate = 1, ddr = true)
-//          .addFullDuplex(2, rate = 2, ddr = false)
-//          .addFullDuplex(3, rate = 2, ddr = true)
+      SpiXdrMasterCtrl(
+        SpiXdrMasterCtrl.Parameters(8,12,SpiXdrParameter(dataWidth=4, ioRate = 2, ssWidth=3))
+          .addFullDuplex( 0, rate = 1, ddr = false)
+          .addFullDuplex( 1, rate = 1, ddr = true)
+          .addFullDuplex( 2, rate = 2, ddr = false)
+          .addFullDuplex( 3, rate = 2, ddr = true)
 
-//          .addHalfDuplex(2, rate = 1, ddr = false, spiWidth = 2)
-          .addHalfDuplex(3, rate = 1, ddr = true, spiWidth = 2)
+          .addHalfDuplex( 4, rate = 1, ddr = false, spiWidth = 2)
+          .addHalfDuplex( 5, rate = 1, ddr = true,  spiWidth = 2)
+          .addHalfDuplex( 6, rate = 2, ddr = false, spiWidth = 2)
+          .addHalfDuplex( 7, rate = 2, ddr = true,  spiWidth = 2)
+
+          .addHalfDuplex( 8, rate = 1, ddr = false, spiWidth = 4)
+          .addHalfDuplex( 9, rate = 1, ddr = true,  spiWidth = 4)
+          .addHalfDuplex(10, rate = 2, ddr = false, spiWidth = 4)
+          .addHalfDuplex(11, rate = 2, ddr = true,  spiWidth = 4)
       )
     )
   }
@@ -90,61 +97,34 @@ class SpinalSimSpiDdrMaster extends FunSuite {
           if(read) rspScoreboard.pushRef(readData)
           val spiThread = fork{
             var beat = 0
-            val spiWidth = mod.bitrate
-            val ddr = mod.ddr
-            val fullRate = mod.clkRate != 1
-            val dataRate = if(ddr) spiWidth *2 else spiWidth
-            val dataMask = (1 << dataRate) - 1
-            Suspendable.repeat(8/dataRate){
+            Suspendable.repeat(mod.dataWidth/mod.bitrate){
               var counter = 0
-              Suspendable.repeat(if (!fullRate) (sclkToogle+1) * 2 else 1) {
+              Suspendable.repeat(if (mod.clkRate == 1) (sclkToogle+1) * (if(mod.slowDdr) 1 else 2) else 1) {
                 dut.clockDomain.waitSampling()
-                val high = counter > sclkToogle
-                if(fullRate){
-                  assert(dut.io.spi.sclk.write.toInt == (if(cpol ^ cpha) 1 else 2))
+                if(mod.clkRate != 1){
+                  assert(dut.io.spi.sclk.write.toInt == ((0 until dut.p.spi.ioRate).filter(i => i/(dut.p.spi.ioRate/mod.clkRate) % 2 == 1).map(1 << _).reduce(_ | _) ^ (if(cpol ^ cpha) (1 << dut.p.spi.ioRate)-1 else 0)))
                 } else {
-                  assert(dut.io.spi.sclk.write.toInt == (if(cpol ^ cpha ^ high) 3 else 0))
+                  if(mod.slowDdr)
+                    assert(dut.io.spi.sclk.write.toInt == (if(cpol ^ cpha ^ (beat%2==1)) (1 << dut.p.spi.ioRate)-1 else 0))
+                  else
+                    assert(dut.io.spi.sclk.write.toInt == (if(cpol ^ cpha ^ (counter > sclkToogle)) (1 << dut.p.spi.ioRate)-1 else 0))
                 }
                 val beatBuffer = beat
                 fork{
                   dut.clockDomain.waitSampling()
-                  if(mod.id == 0)
-                    dut.io.spi.data(1).read #= ((readData >> (8-dataRate-beatBuffer*dataRate)) & 1)*3
-                  else{
-                    for(i <- 0 until spiWidth) {
-                      if(!ddr)
-                        dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beatBuffer*dataRate + i)) & 1)*3
-                      else{
-                        if(!fullRate){
-                          dut.io.spi.data(i).read #= ((readData >> (8-(if(!high) spiWidth else dataRate)-beatBuffer*dataRate + i)) & 1)*3
-                        } else {
-                          dut.io.spi.data(i).read #= ((readData >> (8-dataRate-beatBuffer*dataRate + i)) & 1) + ((readData >> (8-spiWidth-beatBuffer*dataRate + i)) & 1)*2
-                        }
-                      }
-                    }
+                  for((pin, tasks) <- mod.readMapping.groupBy(_.pin)){
+                    dut.io.spi.data(pin).read #= tasks.filter(m => ((readData >> m.target + mod.dataWidth - (beatBuffer + 1)*mod.bitrate) & 1) != 0).map(1 << _.phase).fold(0)(_ | _)
                   }
                 }
-
-                for(i <- 0 until spiWidth) {
-                  if(!ddr)
-                    assert(dut.io.spi.data(i).write.toInt == ((writeData >> (8-dataRate-beat*dataRate+i)) & 1) * 3)
-                  else{
-                    if(!fullRate){
-                      assert(dut.io.spi.data(i).write.toInt == ((writeData >> (8-(if(!high) spiWidth else dataRate)-beat*dataRate + i)) & 1)*3)
-                    } else {
-                      assert(dut.io.spi.data(i).write.toInt == ((writeData >> (8-dataRate-beat*dataRate + i)) & 1)*2 + ((writeData >> (8-spiWidth-beat*dataRate + i)) & 1))
-                    }
-                  }
-                  assert(dut.io.spi.data(i).writeEnable.toBoolean == write)
+                for(m <- mod.writeMapping){
+                  assert(dut.io.spi.data(m.pin).writeEnable.toBoolean == write)
+                  assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beatBuffer + 1)*mod.bitrate) & 1))
                 }
                 counter += 1
               }
               beat += 1
             }
           }
-//          } else {
-//            dut.io.cmd.kind #= true
-//          }
 
           dut.clockDomain.waitSamplingWhere(dut.io.cmd.ready.toBoolean)
           dut.io.cmd.valid #= false
@@ -153,13 +133,8 @@ class SpinalSimSpiDdrMaster extends FunSuite {
             assert(dut.io.spi.sclk.write.toInt == (if(cpol) 3 else 0))
             dut.io.spi.data.foreach(data => assert(data.writeEnable.toBoolean == false))
           }
-
-
         }
       }
     }
   }
-
 }
-
-*/ //TODO restore test
