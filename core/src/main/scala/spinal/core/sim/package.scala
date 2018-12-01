@@ -120,6 +120,24 @@ package object sim {
     threads.suspendable.foreach(thread => thread.join())
   }
 
+  def forkSensitive(block : => Unit): Unit ={
+    SimManagerContext.current.manager.sensitivities += new SimManagerSensitive(){
+      override def update(): Boolean = {
+        block
+        true
+      }
+    }
+  }
+
+  def forkSensitiveWithBreak(block : => Boolean): Unit ={
+    SimManagerContext.current.manager.sensitivities += new SimManagerSensitive(){
+      override def update(): Boolean = {
+        block
+      }
+    }
+  }
+
+
 
   /**
     * Add implicit function to BaseType for simulation
@@ -295,22 +313,7 @@ package object sim {
       manager.setLong(signal, 1)
     }
 
-    def onSampling(body: => Unit): Unit ={
-      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
-      val manager = SimManagerContext.current.manager
-      val signal  = getSignal(manager, cd.clock)
-      var last    = manager.getLong(signal)
 
-      manager.sensitivities += new SimManagerSensitive {
-        override def update() = {
-          val current = manager.getLong(signal)
-          if(last != edgeValue && current == edgeValue && isSamplingEnable)
-            body
-          last = current
-          true
-        }
-      }
-    }
 
     def waitSampling(): Unit@suspendable = waitSampling(1)
     def waitSampling(count: Int): Unit@suspendable ={
@@ -492,6 +495,61 @@ package object sim {
 
     def forkStimulus(period: Long) = fork(doStimulus(period))
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) = SimSpeedPrinter(cd, printPeriod)
+
+    def onRisingEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last == 0 && current == 1) block
+        last = current
+      }
+    }
+
+    def onFallingEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last == 1 && current == 0) block
+        last = current
+      }
+    }
+
+    def onActiveEdges(block : => Unit): Unit@suspendable = {
+      if (cd.config.clockEdge == spinal.core.RISING) {
+        onRisingEdges(block)
+      }else{
+        onFallingEdges(block)
+      }
+    }
+
+    def onEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last != current) block
+        last = current
+      }
+    }
+
+    def onSampling(body: => Unit): Unit ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = SimManagerContext.current.manager
+      val signal  = getSignal(manager, cd.clock)
+      var last    = manager.getInt(signal)
+
+      forkSensitive {
+        val current = manager.getInt(signal)
+        if(last != edgeValue && current == edgeValue && isSamplingEnable)
+          body
+        last = current
+      }
+    }
 
     def assertReset(): Unit         = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def deassertReset(): Unit       = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH

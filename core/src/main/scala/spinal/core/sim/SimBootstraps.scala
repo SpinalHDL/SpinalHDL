@@ -263,7 +263,8 @@ case class SpinalSimConfig(
   var _waveDepth         : Int = 0, //0 => all
   var _spinalConfig      : SpinalConfig = SpinalConfig(),
   var _optimisationLevel : Int = 0,
-  var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+  var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+  var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String]()
 ){
 
   def withWave: this.type = {
@@ -314,6 +315,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def addRtl(that : String) : this.type = {
+    _additionalRtlPath += that
+    this
+  }
+
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit@suspendable): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit@suspendable): Unit = compile(report).doSim(name)(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Long)(body: T => Unit@suspendable): Unit = compile(report).doSim(name, seed)(body)
@@ -335,6 +341,7 @@ case class SpinalSimConfig(
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
     val report = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public)).generateVerilog(rtl)
+    report.blackboxesSourcesPaths ++= _additionalRtlPath
     compile[T](report)
   }
 

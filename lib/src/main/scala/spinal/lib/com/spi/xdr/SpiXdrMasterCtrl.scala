@@ -56,7 +56,7 @@ case class SpiXdrParameter(dataWidth : Int,
                            ioRate : Int,
                            ssWidth : Int)
 
-case class SpiXdrMaster(p : SpiXdrParameter) extends Bundle with IMasterSlave{
+case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlave{
   import p._
 
   val sclk = XdrOutput(p.ioRate)
