@@ -3,6 +3,7 @@ package spinal.lib.bus.simple
 import spinal.core._
 import spinal.lib.bus.misc._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -320,4 +321,39 @@ case class PipelinedMemoryBusInterconnect(){
 
   //Will make SpinalHDL calling the build function at the end of the current component elaboration
   Component.current.addPrePopTask(build)
+}
+
+
+case class PipelinedMemoryBusToApbBridge(apb3Config: Apb3Config, pipelineBridge : Boolean, pipelinedMemoryBusConfig : PipelinedMemoryBusConfig) extends Component{
+  assert(apb3Config.dataWidth == pipelinedMemoryBusConfig.dataWidth)
+
+  val io = new Bundle {
+    val pipelinedMemoryBus = slave(PipelinedMemoryBus(pipelinedMemoryBusConfig))
+    val apb = master(Apb3(apb3Config))
+  }
+
+  val pipelinedMemoryBusStage = PipelinedMemoryBus(pipelinedMemoryBusConfig)
+  pipelinedMemoryBusStage.cmd << (if(pipelineBridge) io.pipelinedMemoryBus.cmd.halfPipe() else io.pipelinedMemoryBus.cmd)
+  pipelinedMemoryBusStage.rsp >-> io.pipelinedMemoryBus.rsp
+
+  val state = RegInit(False)
+  pipelinedMemoryBusStage.cmd.ready := False
+
+  io.apb.PSEL(0) := pipelinedMemoryBusStage.cmd.valid
+  io.apb.PENABLE := state
+  io.apb.PWRITE  := pipelinedMemoryBusStage.cmd.write
+  io.apb.PADDR   := pipelinedMemoryBusStage.cmd.address.resized
+  io.apb.PWDATA  := pipelinedMemoryBusStage.cmd.data
+
+  pipelinedMemoryBusStage.rsp.valid := False
+  pipelinedMemoryBusStage.rsp.data  := io.apb.PRDATA
+  when(!state) {
+    state := pipelinedMemoryBusStage.cmd.valid
+  } otherwise {
+    when(io.apb.PREADY){
+      state := False
+      pipelinedMemoryBusStage.rsp.valid := !pipelinedMemoryBusStage.cmd.write
+      pipelinedMemoryBusStage.cmd.ready := True
+    }
+  }
 }

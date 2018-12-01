@@ -4,6 +4,7 @@ package spinal.lib.com.spi.ddr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.spi.SpiKind
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
@@ -160,6 +161,17 @@ object SpiXdrMasterCtrl {
       master(cmd)
       slave(rsp)
     }
+
+    def fromPipelinedMemoryBus() = {
+      val accessBus = new PipelinedMemoryBus(PipelinedMemoryBusConfig(24,32))
+      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
+      cmd.ready <> accessBus.cmd.ready
+      cmd.payload <> accessBus.cmd.address
+
+      rsp.valid <> accessBus.rsp.valid
+      rsp.payload <> accessBus.rsp.data
+      accessBus
+    }
   }
 
   class TopLevel(val p: Parameters) extends Component {
@@ -169,7 +181,7 @@ object SpiXdrMasterCtrl {
       val config = in(Config(p))
       val cmd = slave(Stream(Cmd(p)))
       val rsp = master(Flow(Rsp(p)))
-      val spi = master(master(SpiXdrMaster(p.spi)))
+      val spi = master(SpiXdrMaster(p.spi))
 
 
       def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(mapping : MemoryMappingParameters) = new Area {
