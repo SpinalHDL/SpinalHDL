@@ -92,9 +92,11 @@ object SpiXdrMasterCtrl {
                         timerWidth : Int,
                         spi : SpiXdrParameter,
                         mods : ArrayBuffer[Mod] = ArrayBuffer()){
+
+    val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
     def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1)
-    def addHalfDuplex(id : Int, rate : Int,ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0): this.type = {
+    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
         val writeMapping = for (pinId <- (0 until spiWidth);
@@ -121,7 +123,7 @@ object SpiXdrMasterCtrl {
   case class Config(p: Parameters) extends Bundle {
     val kind = SpiKind()
     val sclkToogle = UInt(p.timerWidth bits)
-    val mod = in UInt(log2Up(p.mods.map(_.id).max + 1) bits)
+    val mod = in(p.ModType())
 
     val ss = ifGen(p.ssGen) (new Bundle {
       val activeHigh = Bits(p.spi.ssWidth bits)
@@ -129,6 +131,7 @@ object SpiXdrMasterCtrl {
       val hold = UInt(p.timerWidth bits)
       val disable = UInt(p.timerWidth bits)
     })
+
   }
 
   case class Cmd(p: Parameters) extends Bundle{
@@ -146,10 +149,26 @@ object SpiXdrMasterCtrl {
     val data = Bits(p.dataWidth bits)
   }
 
-
   case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
+                                     cpolInit : Boolean = false,
+                                     cphaInit : Boolean = false,
+                                     modInit : Int = 0,
+                                     sclkToogleInit : Int = 0,
+                                     ssSetupInit : Int = 0,
+                                     ssHoldInit : Int = 0,
+                                     ssDisableInit : Int = 0,
+                                     xipInstructionModInit: Int = 0,
+                                     xipAddressModInit : Int = 0,
+                                     xipDummyModInit : Int = 0,
+                                     xipPayloadModInit : Int = 0,
+                                     xipConfigWritable : Boolean = true,
+                                     xipEnableInit : Boolean = false,
+                                     xipInstructionEnableInit : Boolean = true,
+                                     xipInstructionDataInit : Int = 0x0B,
+                                     xipDummyCountInit : Int = 1,
+                                     xipDummyDataInit : Int = 0xFF,
                                      xip : XipBusParameters = null)
 
   case class XipBusParameters(addressWidth : Int, dataWidth : Int)
@@ -233,21 +252,54 @@ object SpiXdrMasterCtrl {
         bus.drive(config.ss.hold,    baseAddress + 0x28)
         bus.drive(config.ss.disable, baseAddress + 0x2C)
 
-
+        if(xipEnableInit){
+          config.kind.cpol init(cpolInit)
+          config.kind.cpha init(cphaInit)
+          config.mod init(modInit)
+          config.sclkToogle init(sclkToogleInit)
+          config.ss.setup init(ssSetupInit)
+          config.ss.hold init(ssHoldInit)
+          config.ss.disable init(ssDisableInit)
+        }
 
         val xip = ifGen(mapping.xip != null) (new Area{
           val xipBus = XipBus(mapping.xip)
-          val enable = RegInit(False)
+          val enable = Reg(Bool)
+          val instructionMod = Reg(p.ModType)
           val instructionEnable = Reg(Bool)
           val instructionData = Reg(Bits(8 bits))
+          val addressMod = Reg(p.ModType)
           val dummyCount = Reg(UInt(4 bits))
           val dummyData = Reg(Bits(8 bits))
+          val dummyMod = Reg(p.ModType)
+          val payloadMod = Reg(p.ModType)
+
+          if(xipEnableInit){
+            enable init(True)
+            instructionMod init(xipInstructionModInit)
+            addressMod init(xipAddressModInit)
+            dummyMod init(xipDummyModInit)
+            payloadMod init(xipPayloadModInit)
+            instructionEnable init(Bool(xipInstructionEnableInit))
+            instructionData init(xipInstructionDataInit)
+            dummyCount init(xipDummyCountInit)
+            dummyData init(xipDummyDataInit)
+          } else {
+            enable init(True)
+          }
 
           bus.write(enable, baseAddress + 0x40)
-          bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
-          bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
-          bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
-          bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
+          if(xipConfigWritable) {
+            bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
+            bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
+            bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
+            bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
+
+            bus.write(instructionMod, baseAddress + 0x48, bitOffset = 0)
+            bus.write(addressMod, baseAddress + 0x48, bitOffset = 8)
+            bus.write(dummyMod, baseAddress + 0x48, bitOffset = 16)
+            bus.write(payloadMod, baseAddress + 0x48, bitOffset = 24)
+          }
 
           val fsm = new StateMachine{
             val doLoad, doPayload, done = False
@@ -285,6 +337,7 @@ object SpiXdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := instructionData
+              config.mod := instructionMod
               when(cmd.ready) {
                 goto(ADDRESS)
               }
@@ -298,6 +351,7 @@ object SpiXdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := loadedAddress.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
+              config.mod := addressMod
               when(cmd.ready) {
                 counter := counter + 1
                 when(counter === 2) {
@@ -313,6 +367,7 @@ object SpiXdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := dummyData
+              config.mod := dummyMod
               when(cmd.ready) {
                 counter := counter + 1
                 when(counter === dummyCount) {
@@ -324,6 +379,7 @@ object SpiXdrMasterCtrl {
 
             PAYLOAD.onEntry(counter := 0)
             PAYLOAD.whenIsActive{
+              config.mod := payloadMod
               when(doPayload) {
                 cmd.valid := True
                 cmd.kind := False
@@ -399,7 +455,7 @@ object SpiXdrMasterCtrl {
       })
       val sclkToogleHit = counter === io.config.sclkToogle
 
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(reset){
         counter := 0
       }
