@@ -251,6 +251,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def ===(that: MaskedBoolean): Bool = that === this
   /** BitVector is not equal to MaskedLiteral */
   def =/=(that: MaskedBoolean): Bool = that =/= this
+
+  def init(value : Boolean) : Bool = this.init(Bool(value))
 }
 
 /**
