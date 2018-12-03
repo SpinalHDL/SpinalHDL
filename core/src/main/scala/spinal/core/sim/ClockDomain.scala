@@ -81,8 +81,7 @@ object SimSpeedPrinter {
     var cycleCounter = 0l
     var lastTime = System.nanoTime()
 
-    while(true){
-      cd.waitActiveEdge()
+    cd.onActiveEdges{
       cycleCounter += 1
 
       if((cycleCounter & 8191) == 0){
