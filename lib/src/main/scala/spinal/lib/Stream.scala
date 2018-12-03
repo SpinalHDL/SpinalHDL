@@ -132,7 +132,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a fifo and return its pop stream
   */
   def queue(size: Int): Stream[T] = {
-    val fifo = new StreamFifo(payloadType, size)
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue")
     fifo.setPartialName(this,"fifo")
     fifo.io.push << this
     fifo.io.pop
@@ -141,7 +141,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to an clock crossing fifo and return its pop stream
   */
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock)
+    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queue")
     fifo.io.push << this
     return fifo.io.pop
   }
@@ -149,13 +149,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a fifo and return its pop stream and its occupancy
   */
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size)
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy")
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size)
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability")
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.availability)
   }
@@ -163,7 +163,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
   */
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
-    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock)
+    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queueWithPushOccupancy")
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.pushOccupancy)
   }
