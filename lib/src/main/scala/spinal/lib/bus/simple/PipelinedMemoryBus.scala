@@ -275,20 +275,13 @@ case class PipelinedMemoryBusInterconnect(){
   }
 
   def build(): Unit ={
-    def applyName(bus : Bundle,name : String, onThat : Nameable) : Unit = {
-      if(bus.component == Component.current)
-        onThat.setCompositeName(bus,name)
-      else if(bus.isNamed)
-        onThat.setCompositeName(bus.component,bus.getName() + "_" + name)
-    }
-
     val connectionsInput  = mutable.HashMap[ConnectionModel,PipelinedMemoryBus]()
     val connectionsOutput = mutable.HashMap[ConnectionModel,PipelinedMemoryBus]()
     for((bus, model) <- masters){
       val busConnections = connections.filter(_.m == bus)
       val busSlaves = busConnections.map(c => slaves(c.s))
       val decoder = new PipelinedMemoryBusDecoder(bus.config, busSlaves.map(_.mapping))
-      applyName(bus,"decoder",decoder)
+      decoder.setCompositeName(bus, "decoder")
       model.connector(bus, decoder.io.input)
       for((connection, decoderOutput) <- (busConnections, decoder.io.outputs).zipped) {
         connectionsInput(connection) = decoderOutput
@@ -299,7 +292,7 @@ case class PipelinedMemoryBusInterconnect(){
       val busConnections = connections.filter(_.s == bus)
       val busMasters = busConnections.map(c => masters(c.m))
       val arbiter = new PipelinedMemoryBusArbiter(bus.config, busMasters.size, arbitrationPendingRspMaxDefault, arbitrationRspRouteQueueDefault, model.transactionLock)
-      applyName(bus,"arbiter",arbiter)
+      arbiter.setCompositeName(bus, "arbiter")
       model.connector(arbiter.io.output, bus)
       for((connection, arbiterInput) <- (busConnections, arbiter.io.inputs).zipped) {
         connectionsOutput(connection) = arbiterInput
