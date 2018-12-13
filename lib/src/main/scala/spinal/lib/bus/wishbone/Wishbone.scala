@@ -139,14 +139,18 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   }
 
   /** Connect common Wishbone signals
+    * this fuction will auto resize the slave address line
+    * only if slave.addressWidth <= master.addressWidth
     * @example{{{wishboneMaster >> wishboneSlave}}}
     */
   def >> (that : Wishbone) : Unit = {
+    assert(that.config.addressWidth >= this.config.addressWidth)
+    assert(that.config.dataWidth == this.config.dataWidth)
     /////////////////////
     // MINIMAL SIGNALS //
     /////////////////////
     that.CYC      := this.CYC
-    that.ADR      := this.ADR
+    that.ADR      := this.ADR.resized
     that.DAT_MOSI := this.DAT_MOSI
     this.DAT_MISO := that.DAT_MISO
     that.STB      := this.STB
