@@ -1,142 +1,134 @@
 package spinal.lib.bus.wishbone
 
 import spinal.core._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc._
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
-/** This is the slave facotory fot the wishbone bus
-  * @param config the wishbone bus configuration fort he intercon
-  */
-class WishboneInterconFactory(config: WishboneConfig){
-  val masters = mutable.ListBuffer[Wishbone]()
-  val slaves = mutable.Map[Wishbone,SizeMapping]()
+object WishboneConnectors{
+  def direct(m : Wishbone, s : Wishbone) : Unit = m >> s
+}
 
-  /** Queue a slave to be connected
-    * must have same configuration as the intercon
-    * @param slave a slave wishbone bus interface
-    * @param mapping the address range that the slave wishbone bus will be mapped to
+case class WishboneInterconFactory(){
+  case class MasterModel(var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct)
+  case class SlaveModel(mapping : SizeMapping, var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct, var transactionLock : Boolean = true)
+  case class ConnectionModel(m : Wishbone, s : Wishbone, var connector : (Wishbone,Wishbone) => Unit = WishboneConnectors.direct)
+
+
+  val masters = mutable.LinkedHashMap[Wishbone, MasterModel]()
+  val slaves = mutable.LinkedHashMap[Wishbone, SlaveModel]()
+  val connections = ArrayBuffer[ConnectionModel]()
+
+  /** Modify a connection
+    * @param bus the bus
     */
-  def addSlave(slave : Wishbone, mapping : SizeMapping): Unit = {
-    slaves += (slave -> mapping)
+  def setConnector(bus : Wishbone)( connector : (Wishbone,Wishbone) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
+    case (Some(m), _) =>    m.connector = connector
+    case (None, Some(s)) => s.connector = connector
   }
 
-  /** Queue a list of slaves to be connected
-    * must have same configuration as the intercon
-    * @param slaves a list of tuples made of the salve bus and his address mapping
+  /** Modify a connection
+    * @param m the master where the conenction start
+    * @param s the slave that is connected to the master
+    * @example{{{
+    * interconnect.setConnector(dBus, slowBus){(m,s) =>
+    *   m.cmd.halfPipe() >> s.cmd
+    *   m.rsp            << s.rsp
+    * }
+    * }}}
     */
-  def addSlaves(slaves : Seq[(Wishbone,SizeMapping)]): Unit = {
-    for(slave <- slaves)
-      addSlave(slave._1, slave._2)
+  def setConnector(m : Wishbone, s : Wishbone)(connector : (Wishbone,Wishbone) => Unit): Unit = connections.find(e => e.m == m && e.s == s) match {
+    case Some(c) => c.connector = connector
   }
 
-  /** Queue a slave to be connected, add an adapter if needed
-    * @param slave a slave wishbone bus interfaces
-    * @param mapping the address range that the slave wishbone bus will be mapped to
-    * @param allowAddressResize allow to resize the address line, default to true
-    * @param allowDataResize allow to resize the data line, default to false
-    * @param allowTagResize allow to resize TGA,TGD,TGC line, default to false
+  /** add a slave to the intercon, and specify its address space
+    * @param bus the slave device
+    * @param mapping the address defined via [[spinal.lib.bus.misc.SizeMapping]]
     */
-  def addSlaveWithAdapter(slave : Wishbone,
-                          mapping : SizeMapping,
-                          allowAddressResize : Boolean = true,
-                          allowDataResize : Boolean = false,
-                          allowTagResize : Boolean = false): Unit = {
-    val adapter = new WishboneAdapter(config,
-                                      slave.config,
-                                      allowAddressResize,
-                                      allowDataResize,
-                                      allowTagResize)
-    slave << adapter.io.wbs
-    slaves += (adapter.io.wbm -> mapping)
+  def addSlave(bus: Wishbone,mapping: SizeMapping) : this.type = {
+    slaves(bus) = SlaveModel(mapping)
+    this
   }
 
-  /** Queue a list of slaves to be connected, add an adapter if needed
-    * @param slaves a list of tuples made of the salve bus and his address mapping
-    * @param allowAddressResize allow to resize the address line, default to true
-    * @param allowDataResize allow to resize the data line, default to false
-    * @param allowTagResize allow to resize TGA,TGD,TGC line, default to false
+  /** add multiple slave to the intercon, and specify their address space
+    * @param orders
+    * @example{{{
+    * interconnect.addSlaves(
+    *   ram.io.buses(0)     -> SizeMapping(0x00000,  64 kB),
+    *   ram.io.buses(1)     -> SizeMapping(0x00000,  64 kB),
+    *   peripherals.io.bus  -> SizeMapping(0x70000,  64 Byte),
+    *   flashXip.io.bus     -> SizeMapping(0x80000, 512 kB),
+    *   slowBus             -> DefaultMapping
+    * )
+    * }}}
     */
-  def addSlavesWithAdapter( slaves : Seq[(Wishbone,SizeMapping)],
-                            allowAddressResize  : Boolean = true,
-                            allowDataResize     : Boolean = false,
-                            allowTagResize      : Boolean = false): Unit = {
-    for(slave <- slaves)
-      addSlaveWithAdapter(slave._1,
-                          slave._2,
-                          allowAddressResize,
-                          allowDataResize,
-                          allowTagResize)
+  def addSlaves(orders : (Wishbone,SizeMapping)*) : this.type = {
+    orders.foreach(order => addSlave(order._1,order._2))
+    this
   }
+
   /** Queue a master to be connected
-    * must have same configuration as the intercon
-    * @param master a slave wishbone bus interface
+    * @param bus a master wishbone device
+    * @param accesses a list of slaves device to connect the master with
     */
-  def addMaster(master : Wishbone) : Unit = {
-    masters += master
+  def addMaster(bus : Wishbone, accesses : Seq[Wishbone]) : this.type = {
+    masters(bus) = MasterModel()
+    for(s <- accesses) connections += ConnectionModel(bus, s)
+    this
   }
 
-  /** Queue a list of masters to be connected
-    * must have same configuration as the intercon
-    * @param masters a list of master wishbone bus interface
+  /** Queue a master to be connected
+    * @param specs a tuple of master wishbone device and a list of slaves device to connect the master with
+    * @example{{{
+    * interconnect.addMasters(
+    *   dBus   -> List(ram.io.buses(0), slowBus),
+    *   iBus   -> List(ram.io.buses(1), slowBus),
+    *   slowBus-> List(peripherals.io.bus, flashXip.io.bus)
+    * )
     */
-  def addMasters(masters : Seq[Wishbone]) : Unit = {
-    this.masters ++= masters
+  def addMasters(specs : (Wishbone,Seq[Wishbone])*) : this.type = {
+    specs.foreach(spec => addMaster(spec._1,spec._2))
+    this
   }
 
-  /** Queue a master to be connected, add an adapter if needed
-    * @param master a masters wishbone bus interfaces
-    * @param allowAddressResize allow to resize the address line, default to true
-    * @param allowDataResize allow to resize the data line, default to false
-    * @param allowTagResize allow to resize TGA,TGD,TGC line, default to false
-    */
-  def addMasterWithAdapter( master : Wishbone,
-                            allowAddressResize  : Boolean = true,
-                            allowDataResize     : Boolean = false,
-                            allowTagResize      : Boolean = false) : Unit = {
-    val adapter = new WishboneAdapter(master.config,
-                                      config, allowAddressResize,
-                                      allowDataResize,
-                                      allowTagResize)
-    master >> adapter.io.wbm
-    masters += adapter.io.wbs
-  }
+  def build(): Unit ={
+    val connectionsInput  = mutable.HashMap[ConnectionModel,Wishbone]()
+    val connectionsOutput = mutable.HashMap[ConnectionModel,Wishbone]()
 
-  /** Queue a list of masters to be connected, add an adapter if needed
-    * @param masters a list of masters wishbone bus interfaces
-    * @param allowAddressResize allow to resize the address line, default to true
-    * @param allowDataResize allow to resize the data line, default to false
-    * @param allowTagResize allow to resize TGA,TGD,TGC line, default to false
-    */
-  def addMastersWithAdapter(masters : Seq[Wishbone],
-                            allowAddressResize  : Boolean = true,
-                            allowDataResize     : Boolean = false,
-                            allowTagResize      : Boolean = false) : Unit = {
-    for(master <- masters)
-      addMasterWithAdapter( master,
-                            allowAddressResize,
-                            allowDataResize,
-                            allowTagResize)
-  }
-
-  /** Create the wishbone intercon and connect all the masters and slaves to it
-    */
-  def build() = new Area {
-    val arbiters = for(slave <- slaves.unzip._1) yield new Area{
-      val arbiter = new WishboneArbiter(slave.config, masters.size)
-      arbiter.io.output >> slave
-      arbiter.setPartialName(slave,"arbiter")
+    for((bus, model) <- masters){
+      val busConnections = connections.filter(_.m == bus)
+      val busSlaves = busConnections.map(c => slaves(c.s))
+      val decoder = new WishboneDecoder(bus.config, busSlaves.map(_.mapping))
+      decoder.setCompositeName(bus, "decoder")
+      model.connector(bus, decoder.io.input)
+      for((connection, decoderOutput) <- (busConnections, decoder.io.outputs).zipped) {
+        connectionsInput(connection) = decoderOutput
+      }
     }
 
-    val decoders = for(master <- masters) yield new Area{
-      val decoder = new WishboneDecoder(master.config, slaves.unzip._2.toList)
-      decoder.io.input << master
-      decoder.setPartialName(master,"decoder")
+    for((bus, model) <- slaves){
+      val busConnections = connections.filter(_.s == bus)
+      val busMasters = busConnections.map(c => masters(c.m))
+      val arbiter = new WishboneArbiter(bus.config, busMasters.size)
+      arbiter.setCompositeName(bus, "arbiter")
+      model.connector(arbiter.io.output, bus)
+      for((connection, arbiterInput) <- (busConnections, arbiter.io.inputs).zipped) {
+        connectionsOutput(connection) = arbiterInput
+      }
     }
 
-    for((arbiter,count_arb) <- (arbiters).zipWithIndex){
-      for((decoder,count_dec) <- (decoders).zipWithIndex){
-        decoder.decoder.io.outputs(count_arb) >> arbiter.arbiter.io.inputs(count_dec)
+    for(connection <- connections){
+      val m = connectionsInput(connection)
+      val s = connectionsOutput(connection)
+      if(m.config == s.config) {
+        connection.connector(m, s)
+      }else{
+        val tmp = cloneOf(s)
+        m >> tmp //Adapte the bus kind.
+        connection.connector(tmp,s)
       }
     }
   }
+  //Will make SpinalHDL calling the build function at the end of the current component elaboration
+  Component.current.addPrePopTask(build)
 }

@@ -17,16 +17,21 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
     val busMasters = Vec(slave(Wishbone(config)),n_masters)
     val busSlaves = Vec(master(Wishbone(config)),decodings.size)
   }
-  val intercon = new WishboneInterconFactory(config)
+  val intercon = new WishboneInterconFactory()
   val slaves = io.busSlaves zip decodings
-  intercon.addMasters(io.busMasters)
-  intercon.addSlaves(slaves)
-  intercon.build()
+  val masters = io.busMasters.map(_ -> io.busSlaves)
+
+  for( slave <- slaves){
+    intercon.addSlave(slave._1 , slave._2)
+  }
+  for( master <- masters){
+    intercon.addMaster(master._1,master._2)
+  }
 }
 
 class SpinalSimWishboneSimInterconTester extends FunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
+    val fixture = SimConfig.withWave.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>
       def send_transaction(id: BigInt,master: Wishbone,slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit@suspendable = {
         val scoreboard_master = ScoreboardInOrder[WishboneTransaction]()
