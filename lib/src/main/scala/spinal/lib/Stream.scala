@@ -224,7 +224,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false): Stream[T] = {
+  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "m2sPipe")
 
     val rValid = RegInit(False)
@@ -238,10 +238,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
       rData := this.payload
     }
 
+    if(flush != null) rValid clearWhen(flush)
+
     ret.valid := rValid
     ret.payload := rData
-
-
     ret
   }
 
@@ -287,22 +287,24 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def halfPipe(): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "halfPipe")
 
-    val rValid = RegInit(False)
-    val rReady = RegInit(True)
-    val rPayload = Reg(payloadType)
+    val regs = new Area {
+      val valid = RegInit(False)
+      val ready = RegInit(True)
+      val payload = Reg(payloadType)
+    }.setCompositeName(ret, "regs")
 
-    when(!rValid){
-      rValid := this.valid
-      rReady := !this.valid
-      rPayload := this.payload
+    when(!regs.valid){
+      regs.valid := this.valid
+      regs.ready := !this.valid
+      regs.payload := this.payload
     } otherwise {
-      rValid := !ret.ready
-      rReady := ret.ready
+      regs.valid := !ret.ready
+      regs.ready := ret.ready
     }
 
-    ret.valid := rValid
-    ret.payload := rPayload
-    this.ready := rReady
+    ret.valid := regs.valid
+    ret.payload := regs.payload
+    this.ready := regs.ready
     ret
   }
 
@@ -564,7 +566,7 @@ object StreamFifo{
 }
 
 class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component {
-  require(depth > 1)
+  require(depth >= 0)
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
@@ -572,50 +574,66 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
     val occupancy    = out UInt (log2Up(depth + 1) bits)
     val availability = out UInt (log2Up(depth + 1) bits)
   }
-  val ram = Mem(dataType, depth)
-  val pushPtr = Counter(depth)
-  val popPtr = Counter(depth)
-  val ptrMatch = pushPtr === popPtr
-  val risingOccupancy = RegInit(False)
-  val pushing = io.push.fire
-  val popping = io.pop.fire
-  val empty = ptrMatch & !risingOccupancy
-  val full = ptrMatch & risingOccupancy
 
-  io.push.ready := !full
-  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
-  io.pop.payload := ram.readSync(popPtr.valueNext)
+  val logic = depth match {
+    case 0 => new Area {
+      io.push >> io.pop
+      io.occupancy := 0
+      io.availability := 0
+    }
+    case 1 => new Area{
+      io.push.m2sPipe(flush = io.flush) >> io.pop
+      io.occupancy := U(io.pop.valid)
+      io.availability := U(!io.pop.valid)
+    }
+    case _ => new Area {
+      val ram = Mem(dataType, depth)
+      val pushPtr = Counter(depth)
+      val popPtr = Counter(depth)
+      val ptrMatch = pushPtr === popPtr
+      val risingOccupancy = RegInit(False)
+      val pushing = io.push.fire
+      val popping = io.pop.fire
+      val empty = ptrMatch & !risingOccupancy
+      val full = ptrMatch & risingOccupancy
 
-  when(pushing =/= popping) {
-    risingOccupancy := pushing
-  }
-  when(pushing) {
-    ram(pushPtr.value) := io.push.payload
-    pushPtr.increment()
-  }
-  when(popping) {
-    popPtr.increment()
-  }
+      io.push.ready := !full
+      io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
+      io.pop.payload := ram.readSync(popPtr.valueNext)
 
-  val ptrDif = pushPtr - popPtr
-  if (isPow2(depth)) {
-    io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-    io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
-  } else {
-    when(ptrMatch) {
-      io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
-      io.availability := Mux(risingOccupancy, U(0), U(depth))
-    } otherwise {
-      io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
-      io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
+      when(pushing =/= popping) {
+        risingOccupancy := pushing
+      }
+      when(pushing) {
+        ram(pushPtr.value) := io.push.payload
+        pushPtr.increment()
+      }
+      when(popping) {
+        popPtr.increment()
+      }
+
+      val ptrDif = pushPtr - popPtr
+      if (isPow2(depth)) {
+        io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
+        io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
+      } else {
+        when(ptrMatch) {
+          io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
+          io.availability := Mux(risingOccupancy, U(0), U(depth))
+        } otherwise {
+          io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
+          io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
+        }
+      }
+
+      when(io.flush){
+        pushPtr.clear()
+        popPtr.clear()
+        risingOccupancy := False
+      }
     }
   }
 
-  when(io.flush){
-    pushPtr.clear()
-    popPtr.clear()
-    risingOccupancy := False
-  }
 }
 
 object StreamFifoLowLatency{
