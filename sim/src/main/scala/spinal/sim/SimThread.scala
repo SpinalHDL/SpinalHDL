@@ -4,10 +4,12 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.continuations._
 
 
-class SimThread(body: => Unit@suspendable, var time: Long) {
+
+
+class SimThread(body: => Unit@suspendable) {
   private val manager = SimManagerContext.current.manager
   private var nextStep: Unit => Unit = null
-  var waitingThreads = ArrayBuffer[SimThread]()
+  var waitingThreads = ArrayBuffer[() => Unit]()
 
 
 
@@ -15,14 +17,13 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
     val thread = SimManagerContext.current.thread
     assert(thread != this)
     if (!this.isDone) {
-      waitingThreads += thread
+      waitingThreads += thread.resume
       thread.suspend()
     }
   }
 
   def sleep(cycles: Long): Unit@suspendable = {
-    time += cycles
-    manager.scheduleThread(this)
+    manager.schedule(cycles, this)
     suspend()
   }
 
@@ -31,7 +32,7 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
       manager.sensitivities += new SimManagerSensitive {
         override def update() = {
           if (cond) {
-            manager.scheduleThread(SimThread.this)
+            manager.schedule(0, SimThread.this)
             false
           } else {
             true
@@ -56,15 +57,16 @@ class SimThread(body: => Unit@suspendable, var time: Long) {
   }
 
   def resume() = {
+    manager.context.thread = this
     if (nextStep != null) {
       val back = nextStep
       nextStep = null
       if (back != null) back()
     }
+    manager.context.thread = null
     if (isDone) {
       waitingThreads.foreach(thread => {
-        thread.time = time
-        SimManagerContext.current.manager.scheduleThread(thread)
+        SimManagerContext.current.manager.schedule(0)(thread())
       })
     }
   }
