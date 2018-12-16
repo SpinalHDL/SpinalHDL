@@ -3,7 +3,7 @@ package spinal.tester
 import spinal.core._
 import spinal.core.internals._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
@@ -1305,4 +1305,28 @@ object PlayNamingImprovment extends App{
 
 }
 
+object PlayDevBusSlaveFactoryDoubleRead{
+  class TestTopLevelDut extends Component {
 
+    val io = new Bundle {
+      val bus = slave(Apb3(Apb3Config(32, 32, 1, false)))
+      val dummy_r_0 = in Bits (16 bits)
+      val dummy_r_1 = in Bits (16 bits)
+      val dummy_w_0 = out Bits (16 bits)
+      val dummy_w_1 = out Bits (16 bits)
+    }
+
+    val factory = new Apb3SlaveFactory(io.bus, selId = 0)
+
+    factory.read(io.dummy_r_0, 0x03, 0)
+    factory.read(io.dummy_r_1, 0x03, 16)
+    factory.drive(io.dummy_w_0, 0x00, 0)
+    factory.drive(io.dummy_w_1, 0x00, 8)
+
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TestTopLevelDut())
+  }
+}
