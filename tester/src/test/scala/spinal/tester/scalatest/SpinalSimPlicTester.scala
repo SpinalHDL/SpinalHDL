@@ -70,7 +70,7 @@ class SpinalSimPlicTester extends FunSuite {
       dut.clockDomain.waitSampling(10)
       assert(dut.io.targets.toInt === 0)
       var sourcesPending =  Array.fill(sourceCount)(false)
-      Suspendable.repeat(5000){
+      Suspendable.repeat(2000){
         val priorities = Array.fill(sourceCount)(Random.nextInt(4))
         val enables = Array.fill(targetCount)(Array.fill(sourceCount)(Random.nextBoolean()))
         val thresholds = Array.fill(targetCount)(Random.nextInt(priorityWidth))

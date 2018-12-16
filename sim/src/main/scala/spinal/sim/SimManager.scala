@@ -13,17 +13,18 @@ trait SimManagerSensitive{
   def update() : Boolean
 }
 
-class SimCallSchedule(val time: Long, val call : ()  => Unit)
+class SimCallSchedule(val time: Long, val call : ()  => Unit){
+  var next : SimCallSchedule = null
+}
 
 class SimSuccess extends Exception
 class SimFailure(message : String) extends Exception (message)
 
 class SimManager(val raw : SimRaw) {
-  val threads = mutable.ArrayBuffer[SimCallSchedule]()
+  var threads : SimCallSchedule = null
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   val commandBuffer = mutable.ArrayBuffer[() => Unit]()
   val onEndListeners = mutable.ArrayBuffer[() => Unit]()
-  var schedulingOffset = 0
   var time = 0l
   private var retains = 0
   var userData : Any = null
@@ -47,9 +48,17 @@ class SimManager(val raw : SimRaw) {
 
   def schedule(thread : SimCallSchedule): Unit = {
     assert(thread.time >= time)
-    threads.indexWhere(thread.time < _.time, schedulingOffset) match {
-      case -1 => threads += thread
-      case idx => threads.insert(idx, thread)
+    var ptr = threads
+    ptr match {
+      case null => threads = thread
+      case _ if ptr.time > thread.time => thread.next = threads; threads = thread
+      case _ => {
+        while(ptr.next != null && ptr.next.time <= thread.time){
+          ptr = ptr.next
+        }
+        thread.next = ptr.next
+        ptr.next = thread
+      }
     }
   }
 
@@ -105,7 +114,7 @@ class SimManager(val raw : SimRaw) {
       var forceDeltaCycle = false
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
-      while (((continueWhile || retains != 0) && threads.nonEmpty/* && simContinue*/) || forceDeltaCycle) {
+      while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
         //Process sensitivities
 
 //        evalNanoTime -= System.nanoTime()
@@ -123,7 +132,7 @@ class SimManager(val raw : SimRaw) {
 //        evalNanoTime += System.nanoTime()
 
         //Sleep until the next activity
-        val nextTime = if(forceDeltaCycle) time else threads.head.time
+        val nextTime = if(forceDeltaCycle) time else threads.time
         val delta = nextTime - time
         time = nextTime
         if (delta != 0) {
@@ -131,17 +140,15 @@ class SimManager(val raw : SimRaw) {
         }
 
         //Execute pending threads
-        var threadsToRunCount = 0
-        val threadsCount = threads.length
-        while (threadsToRunCount < threadsCount && threads(threadsToRunCount).time == nextTime) {
-          threadsToRunCount += 1
+        var tPtr = threads
+        while (tPtr != null && tPtr.time == nextTime) {
+          tPtr = tPtr.next
         }
-        schedulingOffset = threadsToRunCount
-        var threadId = 0
-        while (threadId != threadsToRunCount) {
-          val thread = threads(threadId)
-          thread.call()
-          threadId += 1
+        var tPtr2 = threads
+        threads = tPtr
+        while (tPtr2 != tPtr) {
+          tPtr2.call()
+          tPtr2 = tPtr2.next
         }
 
 
@@ -171,9 +178,6 @@ class SimManager(val raw : SimRaw) {
           commandBuffer.foreach(_ ())
           commandBuffer.clear()
         }
-
-        threads.remove(0, threadsToRunCount)
-        schedulingOffset = 0
       }
       if(retains != 0){
         throw new SimFailure("Simulation ended while there was still some retains")
