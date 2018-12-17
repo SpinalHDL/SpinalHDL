@@ -43,6 +43,7 @@ class SimSuccess extends Exception
 class SimFailure(message : String) extends Exception (message)
 
 class SimManager(val raw : SimRaw) {
+  Affinity.setAffinity(1)
   var threads : SimCallSchedule = null
 
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()

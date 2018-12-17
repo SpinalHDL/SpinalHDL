@@ -40,8 +40,9 @@ class NativeThread{
 
   val thread = new Thread (){
     override def run(): Unit = {
+      Affinity.setAffinity(1)
       LockSupport.park()
-      while(true){
+      while(true){1
         i += 1
         NativeThread.this.suspend()
       }
@@ -91,6 +92,7 @@ class NativeThread{
 
 
 object BenchPerf extends App{
+  Affinity.setAffinity(1)
   for(repeat <- 0 until 1000) {
     val t1 = new NativeThread
     var i = 0
@@ -112,7 +114,7 @@ object TestAffinity extends App{
   for(repeat <- 0 until 4) {
     val t = new Thread(){
       override def run(): Unit = {
-        Affinity.setAffinity(1)
+//        Affinity.setAffinity(1)
         while(true){}
       }
     }
