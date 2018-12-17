@@ -1,12 +1,11 @@
 package spinal
 
+import scala.annotation.StaticAnnotation
 import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations.suspendable
 
 package object sim {
   import scala.collection.IterableLike
-  import scala.util.continuations._
-
+  class suspendable extends StaticAnnotation
   implicit class cpsIterable[A, Repr](xs: IterableLike[A, Repr]) {
     def suspendable = new {
       def foreach[B](f: A => Any@suspendable): Unit@suspendable = {

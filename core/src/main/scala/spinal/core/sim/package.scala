@@ -25,14 +25,12 @@ import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-import scala.util.continuations.cps
 
 /**
   * Simulation package
   */
 package object sim {
-
-  type suspendable = cps[Unit]
+  type suspendable = spinal.sim.suspendable
 
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 

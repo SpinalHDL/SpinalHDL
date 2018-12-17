@@ -24,7 +24,7 @@ import java.io.File
 
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -211,7 +211,13 @@ class SimCompiled[T <: Component](backend: VerilatorBackend, dut: T){
     val sim = new SimVerilator(backend, backend.instanciate(allocatedName, backendSeed))
     sim.userData = backend.config.signals
 
-    val manager = new SimManager(sim)
+    val manager = new SimManager(sim){
+      val spinalGlobalData =  GlobalData.get
+      override def setupJvmThread(thread: Thread): Unit = {
+        super.setupJvmThread(thread)
+        GlobalData.it.set(spinalGlobalData)
+      }
+    }
     manager.userData = dut
 
     println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.waveFormat != WaveFormat.NONE) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.${backend.config.waveFormat.ext}" else ", without wave"}")

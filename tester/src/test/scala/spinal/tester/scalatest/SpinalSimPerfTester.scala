@@ -40,7 +40,7 @@ class SpinalSimPerfTester extends FunSuite {
 
       var model = 0
       Suspendable.repeat(times = 4) {
-        val times = 1000000
+        val times = 200000
         val startAt = System.nanoTime
         Suspendable.repeat(times = times) {
           dut.io.a #= Random.nextInt(256)
@@ -63,7 +63,7 @@ class SpinalSimPerfTester extends FunSuite {
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {
-        val times = 1000000
+        val times = 80000
         val startAt = System.nanoTime
         val t1, t2 = fork {
           val rand = new Random(1)
@@ -91,7 +91,7 @@ class SpinalSimPerfTester extends FunSuite {
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {
-        val times = 1000000
+        val times = 80000
         val startAt = System.nanoTime
         Suspendable.repeat(times = times) {
           val a, b, c = BigInt(Random.nextInt(256))
@@ -113,7 +113,7 @@ class SpinalSimPerfTester extends FunSuite {
       dut.clockDomain.forkStimulus(period = 10)
 
       Suspendable.repeat(times = 4) {
-        val times = 1000000
+        val times = 100000
         val startAt = System.nanoTime
         Suspendable.repeat(times = times) {
           sleep(0)

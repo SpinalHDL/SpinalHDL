@@ -33,6 +33,7 @@ class SimManager(val raw : SimRaw) {
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
+  def setupJvmThread(thread: Thread){}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = raw.getInt(bt)
   def getLong(bt : Signal) : Long = raw.getLong(bt)

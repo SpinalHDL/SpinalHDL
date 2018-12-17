@@ -113,7 +113,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
       }
 
 
-      (0 to 20).suspendable.foreach { e =>
+      (0 to 19).suspendable.foreach { e =>
         List(false, true).suspendable.foreach(value => checkBoolean(value, dut.io.bool))
 
         //checkInt
@@ -188,7 +188,6 @@ class SpinalSimVerilatorIoTest extends FunSuite {
           () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).suspendable.foreach(value => checkBigInt(value, dut.io.s127)),
           () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).suspendable.foreach(value => checkBigInt(value, dut.io.s128))
         )
-
 
 
         import SpinalSimVerilatorIoTest._
