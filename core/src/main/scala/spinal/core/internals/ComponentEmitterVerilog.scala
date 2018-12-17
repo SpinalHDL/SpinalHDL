@@ -40,7 +40,8 @@ class ComponentEmitterVerilog(
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
-  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
+  pc                                 : PhaseContext
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -749,13 +750,13 @@ class ComponentEmitterVerilog(
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
           case b: Bool       =>
-            " = " + (/*if (Random.nextBoolean()) "1" else */"0")
+            " = " + { if(pc.config.randBootFixValue) {"'0'"} else { if(Random.nextBoolean()) "'1'" else "'0'"} }
           case bv: BitVector =>
-            val rand = BigInt(0).toString(2)//BigInt(bv.getWidth, Random).toString(2)
+            val rand = (if(pc.config.randBootFixValue) {BigInt(0)} else { BigInt(bv.getBitsWidth, Random)}).toString(2)
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           case e: SpinalEnumCraft[_] =>
             val vec  = e.spinalEnum.elements.toVector
-            val rand = vec(/*Random.nextInt(vec.size)*/0)
+            val rand = if(pc.config.randBootFixValue) vec(0) else vec(Random.nextInt(vec.size))
             " = " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
@@ -815,7 +816,8 @@ class ComponentEmitterVerilog(
         builder ++= ")"
 
       }else if(mem.hasTag(randomBoot)){
-        builder ++= " := (others => (others => '1'))"
+        val value = if(pc.config.randBootFixValue) {"'1'"} else { if(Random.nextBoolean()) "'1'" else "'0'"}
+        builder ++= s" := (others => (others => $value))"
       }
       builder
     }
