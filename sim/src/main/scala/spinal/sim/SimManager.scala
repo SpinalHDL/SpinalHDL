@@ -1,5 +1,10 @@
 package spinal.sim
 
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.locks.LockSupport
+
+import net.openhft.affinity.Affinity
+
 import scala.collection.convert.WrapAsJava.asJavaIterator
 import scala.collection.mutable
 import scala.util.continuations._
@@ -17,13 +22,31 @@ class SimCallSchedule(val time: Long, val call : ()  => Unit){
   var next : SimCallSchedule = null
 }
 
+abstract class JvmThread(masterThread : Thread, creationThread : Thread) extends Thread{
+  var body : () => Unit = null
+
+  override def run(): Unit = {
+    Affinity.setAffinity(1)
+    LockSupport.unpark(creationThread)
+    while(true) {
+      LockSupport.park()
+      body()
+      bodyDone()
+      LockSupport.unpark(masterThread)
+    }
+  }
+
+  def bodyDone() : Unit
+}
+
 class SimSuccess extends Exception
 class SimFailure(message : String) extends Exception (message)
 
 class SimManager(val raw : SimRaw) {
   var threads : SimCallSchedule = null
+
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
-  val commandBuffer = mutable.ArrayBuffer[() => Unit]()
+  var commandBuffer = new ConcurrentLinkedQueue[() => Unit]()
   val onEndListeners = mutable.ArrayBuffer[() => Unit]()
   var time = 0l
   private var retains = 0
@@ -33,6 +56,32 @@ class SimManager(val raw : SimRaw) {
   context.manager = this
   SimManagerContext.threadLocal.set(context)
 
+
+  val masterThread = Thread.currentThread()
+  val jvmBusyThreads = mutable.ArrayBuffer[JvmThread]()
+  val jvmIdleThreads = mutable.Stack[JvmThread]()
+  def newJvmThread(body : => Unit) : Thread = synchronized{
+    if(jvmIdleThreads.isEmpty){
+      val newJvmThread = new JvmThread(masterThread, Thread.currentThread()){
+        override def bodyDone(): Unit = {
+          jvmBusyThreads.remove(jvmBusyThreads.indexOf(this))
+          jvmIdleThreads.push(this)
+        }
+      }
+      jvmIdleThreads.push(newJvmThread)
+      newJvmThread.start()
+      LockSupport.park()
+    } else{
+//      println(s"Reused :D ${jvmBusyThreads.length} ${jvmIdleThreads.length}")
+    }
+
+    val jvmThread = jvmIdleThreads.pop()
+    jvmThread.body = () => body
+
+    jvmBusyThreads += jvmThread
+    jvmThread
+  }
+
   def setupJvmThread(thread: Thread){}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = raw.getInt(bt)
@@ -40,11 +89,13 @@ class SimManager(val raw : SimRaw) {
   def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
   def setLong(bt : Signal, value : Long): Unit = {
     bt.dataType.checkLongRange(value, bt)
-    commandBuffer += (() => raw.setLong(bt, value))
+    commandBuffer.add(() => raw.setLong(bt, value))
+    assert(!commandBuffer.contains(null))
   }
   def setBigInt(bt : Signal, value : BigInt): Unit = {
     bt.dataType.checkBigIntRange(value, bt)
-    commandBuffer += (() => raw.setBigInt(bt, value))
+    commandBuffer.add(() => raw.setBigInt(bt, value))
+    assert(!commandBuffer.contains(null))
   }
 
   def schedule(thread : SimCallSchedule): Unit = {
@@ -88,11 +139,16 @@ class SimManager(val raw : SimRaw) {
 //    SimManagerContext.current.thread.suspend()
 //  }
 
+
   def run(body : => Unit@suspendable): Unit ={
     val startAt = System.nanoTime()
-    val tRoot = new SimThread(body)
+    def threadBody(body : => Unit@suspendable) : Unit@suspendable = {
+      body
+      throw new SimSuccess
+    }
+    val tRoot = new SimThread(threadBody(body))
     schedule(delay=0, tRoot)
-    runWhile(tRoot.nonDone)
+    runWhile(true)
     val endAt = System.nanoTime()
     val duration = (endAt - startAt)*1e-9
     println(f"""[Done] Simulation done in ${duration*1e3}%1.3f ms""")
@@ -174,10 +230,17 @@ class SimManager(val raw : SimRaw) {
 
 
         //Execute the threads commands
-        forceDeltaCycle = commandBuffer.nonEmpty
+        forceDeltaCycle = !commandBuffer.isEmpty
         if(forceDeltaCycle){
-          commandBuffer.foreach(_ ())
-          commandBuffer.clear()
+          if(commandBuffer == null) println("XXX")
+          val ptr = commandBuffer.iterator()
+          while(ptr.hasNext){
+            val c = ptr.next()
+            if (c == null)
+              println("YYY")
+            c()
+          }
+          commandBuffer = new ConcurrentLinkedQueue[() => Unit]()
         }
       }
       if(retains != 0){
@@ -191,6 +254,8 @@ class SimManager(val raw : SimRaw) {
         println(f"""[Error] Simulation failed at time=$time""")
         throw e
       }
+    } finally {
+      synchronized{(jvmIdleThreads ++ jvmBusyThreads).foreach(t => t.stop())}
     }
     onEndListeners.foreach(_())
     raw.end()

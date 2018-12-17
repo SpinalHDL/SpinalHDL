@@ -3,6 +3,8 @@ package spinal.tester.simThreadTests
 import java.util.concurrent.locks.LockSupport
 import java.util.concurrent.{CyclicBarrier, Semaphore}
 
+import net.openhft.affinity.Affinity
+
 
 class NativeThread{
   def info(str : String) = {}
@@ -88,7 +90,7 @@ class NativeThread{
 }
 
 
-object Bench extends App{
+object BenchPerf extends App{
   for(repeat <- 0 until 1000) {
     val t1 = new NativeThread
     var i = 0
@@ -104,3 +106,19 @@ object Bench extends App{
   }
   System.exit(0)
 }
+
+
+object TestAffinity extends App{
+  for(repeat <- 0 until 4) {
+    val t = new Thread(){
+      override def run(): Unit = {
+        Affinity.setAffinity(1)
+        while(true){}
+      }
+    }
+
+    t.start()
+  }
+  Thread.sleep(100000)
+}
+

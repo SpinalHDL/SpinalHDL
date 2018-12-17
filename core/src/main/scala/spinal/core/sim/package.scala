@@ -109,7 +109,13 @@ package object sim {
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
-  def waitUntil(cond: => Boolean): Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
+  def waitUntil(cond: => Boolean): Unit@suspendable = {
+    if(SimManagerContext.current == null)
+      println("AAA")
+    if(SimManagerContext.current.thread == null)
+      println("BBB")
+    SimManagerContext.current.thread.waitUntil(cond)
+  }
 
   /** Fork */
   def fork(body: => Unit@suspendable): SimThread = SimManagerContext.current.manager.newThread(body)

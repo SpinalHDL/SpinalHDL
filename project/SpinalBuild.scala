@@ -31,6 +31,7 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Sim",
       libraryDependencies += "commons-io" % "commons-io" % "2.4",
+      libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
       version := SpinalVersion.sim
     )
   )

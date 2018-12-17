@@ -13,7 +13,6 @@ class SimThread(body: => Unit@suspendable) {
   var waitingThreads = ArrayBuffer[() => Unit]()
 
   val masterContext = SimManagerContext.current
-  var started = false
   var exception : Throwable = null
   def join(): Unit@suspendable = {
     val thread = SimManagerContext.current.thread
@@ -45,8 +44,8 @@ class SimThread(body: => Unit@suspendable) {
     }
   }
 
-  def isDone: Boolean  = jvmThread.done
-  def nonDone: Boolean = !jvmThread.done
+  def isDone: Boolean  = done
+  def nonDone: Boolean = !done
 
   def suspend(): Unit@suspendable = {
     manager.context.thread = null
@@ -57,11 +56,6 @@ class SimThread(body: => Unit@suspendable) {
 
 
   def resume() = {
-    if(!started){
-      jvmThread.start()
-      LockSupport.park()
-      started = true
-    }
     LockSupport.unpark(jvmThread)
     LockSupport.park()
     if (isDone) {
@@ -72,23 +66,18 @@ class SimThread(body: => Unit@suspendable) {
     }
   }
 
-  val jvmThread = new Thread (){
-    var done = false
-
-    override def run(): Unit = {
-      manager.setupJvmThread(this)
-      SimManagerContext.threadLocal.set(masterContext)
-      SimThread.this.suspend()
-      manager.context.thread = SimThread.this
-      try {
-        body
-      } catch {
-        case e : Throwable => exception = e
-      }
-      manager.context.thread = null
-      done = true
-      LockSupport.unpark(masterContext.masterThread)
+  var done = false
+  val jvmThread = manager.newJvmThread {
+    manager.setupJvmThread(Thread.currentThread())
+    SimManagerContext.threadLocal.set(masterContext)
+    manager.context.thread = SimThread.this
+    try {
+      body
+    } catch {
+      case e : Throwable => exception = e
     }
+    manager.context.thread = null
+    done = true
   }
 
 

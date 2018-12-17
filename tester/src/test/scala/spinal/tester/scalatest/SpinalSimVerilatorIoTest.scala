@@ -234,7 +234,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
     }
     import scala.concurrent.duration._
 
-    futures.foreach(f => Await.result(f,10 seconds))
+    futures.foreach(f => Await.result(f,30 seconds))
   }
 
 
