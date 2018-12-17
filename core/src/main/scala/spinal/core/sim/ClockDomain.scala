@@ -22,6 +22,7 @@ package spinal.core.sim
 
 import spinal.core.{Bool, ClockDomain, EdgeKind, HIGH, LOW, Polarity}
 import spinal.core.sim._
+import spinal.sim.{SimCallSchedule}
 
 /**
   * Execute a reset sequence
@@ -55,11 +56,18 @@ object DoClock {
 
     var value = clk.toBoolean
 
-    while(true){
+    def t : Unit = {
       value = !value
       clk  #= value
-      sleep(period >> 1)
+      schedule(period >> 1)(t)
     }
+    t
+
+//    while(true){
+//      value = !value
+//      clk  #= value
+//      sleep(period >> 1)
+//    }
   }
 
 }

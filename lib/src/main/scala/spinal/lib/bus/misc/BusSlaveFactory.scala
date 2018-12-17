@@ -29,7 +29,7 @@ import spinal.core._
 import spinal.lib._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
@@ -626,7 +626,22 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
 
 
   component.addPrePopTask(() => {
+
+    // prohibit reading two signals on the same address / bit
+    for ((address, jobs) <- elementsPerAddress) {
+      val occupied_range = new ListBuffer[Int]
+      for (job <- jobs if job.isInstanceOf[BusSlaveFactoryRead]) {
+        val read_job = job.asInstanceOf[BusSlaveFactoryRead]
+        val current_bits = List.range(read_job.bitOffset, read_job.that.getBitsWidth + read_job.bitOffset, 1)
+        for (bit <- current_bits) {
+          assert(!occupied_range.contains(bit), s"BusSlaveFactory DOUBLE-READ-ERROR : bit $bit of bus address ${address.asInstanceOf[SingleMapping].address} should be written by ${read_job.that.getName()} but it is already occupied by another signal at the same address!")
+          occupied_range.append(bit)
+        }
+      }
+    }
+
     build()
+
     if (elementsOk.size != elements.size) {
       PendingError(s"$this isn't able generate the following requests :\n${(elements --= elementsOk).mkString("\n")} at \n${this.getScalaLocationLong}")
     }

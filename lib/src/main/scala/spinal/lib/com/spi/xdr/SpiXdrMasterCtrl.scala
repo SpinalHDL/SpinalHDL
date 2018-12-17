@@ -305,7 +305,7 @@ object SpiXdrMasterCtrl {
             val doLoad, doPayload, done = False
             val loadedValid = RegInit(False)
             val loadedAddress = Reg(UInt(24 bits))
-            val hit = loadedValid && loadedAddress === xipBus.cmd.payload
+            val hit = loadedValid && loadedAddress === (xipBus.cmd.payload(23 downto 2) @@ U"00")
 
             val IDLE, INSTRUCTION, ADDRESS, DUMMY, PAYLOAD = State()
             setEntry(IDLE)
@@ -321,7 +321,7 @@ object SpiXdrMasterCtrl {
                 cmd.kind := True
                 cmd.data := 1 << cmd.data.high
                 when(cmd.ready) {
-                  loadedAddress := xipBus.cmd.payload
+                  loadedAddress := xipBus.cmd.payload(23 downto 2) @@ U"00"
                   when(instructionEnable) {
                     goto(INSTRUCTION)
                   } otherwise {

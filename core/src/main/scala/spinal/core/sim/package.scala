@@ -137,6 +137,10 @@ package object sim {
     }
   }
 
+  def schedule(delay : Long)(body : => Unit) = {
+    SimManagerContext.current.manager.schedule(delay)(body)
+  }
+
 
 
   /**

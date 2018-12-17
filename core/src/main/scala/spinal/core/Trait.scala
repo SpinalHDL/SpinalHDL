@@ -20,7 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-import spinal.core.Nameable.NAMEABLE_REF_PREFIXED
+import spinal.core.Nameable._
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -233,9 +233,14 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       }
     }
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
         if(nameableRef.isNamed && other.component.isNamed)
           other.component.getName() + "_" + nameableRef.getName() + "_" + name
+        else
+          default
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+        if(nameableRef.isNamed && other.component.isNamed)
+          other.component.getName() + "_" + nameableRef.getName()
         else
           default
       case _ => super.getName(default)
@@ -245,7 +250,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+        nameableRef.isNamed && other.component.isNamed
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
         nameableRef.isNamed && other.component.isNamed
       case _ => super.isNamed
     }

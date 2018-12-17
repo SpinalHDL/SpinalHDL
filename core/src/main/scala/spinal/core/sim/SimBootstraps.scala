@@ -36,15 +36,15 @@ import sys.process._
   * Backend configuration for verilator
   */
 case class SpinalVerilatorBackendConfig[T <: Component](
-  rtl               : SpinalReport[T],
-  withWave          : Boolean = false,
-  workspacePath     : String = "./",
-  workspaceName     : String = null,
-  vcdPath           : String = null,
-  vcdPrefix         : String = null,
-  waveDepth         : Int = 0,
-  optimisationLevel : Int = 2,
-  simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                         rtl               : SpinalReport[T],
+                                                         waveFormat        : WaveFormat = WaveFormat.NONE,
+                                                         workspacePath     : String = "./",
+                                                         workspaceName     : String = null,
+                                                         vcdPath           : String = null,
+                                                         vcdPrefix         : String = null,
+                                                         waveDepth         : Int = 0,
+                                                         optimisationLevel : Int = 2,
+                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
 )
 
 
@@ -64,7 +64,10 @@ object SpinalVerilatorBackend {
     vconfig.vcdPrefix         = vcdPrefix
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
-    vconfig.withWave          = withWave
+    vconfig.waveFormat        = waveFormat match {
+      case WaveFormat.DEFAULT => WaveFormat.VCD
+      case _ => waveFormat
+    }
     vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
     vconfig.simulatorFlags        = simulatorFlags
@@ -211,7 +214,7 @@ class SimCompiled[T <: Component](backend: VerilatorBackend, dut: T){
     val manager = new SimManager(sim)
     manager.userData = dut
 
-    println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.withWave) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.vcd" else ", without wave"}")
+    println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.waveFormat != WaveFormat.NONE) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.${backend.config.waveFormat.ext}" else ", without wave"}")
 
     if(joinAll) {
       manager.runAll(body(dut))
@@ -257,23 +260,32 @@ object SimWorkspace {
   * SpinalSim configuration
   */
 case class SpinalSimConfig(
-  var _withWave          : Boolean = false,
   var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
   var _workspaceName     : String = null,
   var _waveDepth         : Int = 0, //0 => all
   var _spinalConfig      : SpinalConfig = SpinalConfig(),
   var _optimisationLevel : Int = 0,
   var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
-  var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String]()
+  var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
+  var _waveFormat       : WaveFormat = WaveFormat.NONE
 ){
+  def withVcdWave : this.type = {
+    _waveFormat = WaveFormat.VCD
+    this
+  }
+
+  def withFstWave : this.type = {
+    _waveFormat = WaveFormat.FST
+    this
+  }
 
   def withWave: this.type = {
-    _withWave = true
+    _waveFormat = WaveFormat.DEFAULT
     this
   }
 
   def withWave(depth: Int): this.type = {
-    _withWave = true
+    _waveFormat = WaveFormat.DEFAULT
     _waveDepth = depth
     this
   }
@@ -367,7 +379,7 @@ case class SpinalSimConfig(
     val startAt = System.nanoTime()
     val vConfig = SpinalVerilatorBackendConfig[T](
       rtl = report,
-      withWave = _withWave,
+      waveFormat = _waveFormat,
       workspacePath = s"${_workspacePath}/${_workspaceName}",
       vcdPath = s"${_workspacePath}/${_workspaceName}",
       vcdPrefix = null,
