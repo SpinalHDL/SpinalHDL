@@ -127,11 +127,6 @@ object SpinalBuild extends Build {
     baseDirectory in test := file("/out/"),
     fork := true,
 
-    //SpinalSim
-    addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
-    libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
-    scalacOptions += "-P:continuations:enable",
-
     profileName := "Dolu1990",
     publishMavenStyle := true,
     publishArtifact in Test := false,

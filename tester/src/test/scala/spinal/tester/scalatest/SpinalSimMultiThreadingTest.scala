@@ -25,10 +25,10 @@ class SpinalSimMultiThreadingTest extends FunSuite {
 
   test("Test1") {
     var faild = false
-    val threads = for (t <- 0 to 4) yield{
+    val threads = for (t <- 0 to 3) yield{
       new Thread {
         override def run() = {
-          for (i <- 0 to 8) {
+          for (i <- 0 to 5) {
             try {
               SimConfig
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))

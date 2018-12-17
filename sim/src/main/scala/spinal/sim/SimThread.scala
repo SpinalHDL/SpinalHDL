@@ -3,18 +3,14 @@ package spinal.sim
 import java.util.concurrent.locks.LockSupport
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.continuations._
 
-
-
-
-class SimThread(body: => Unit@suspendable) {
+class SimThread(body: => Unit) {
   private val manager = SimManagerContext.current.manager
   var waitingThreads = ArrayBuffer[() => Unit]()
 
-  val masterContext = SimManagerContext.current
+  val mainContext = SimManagerContext.current
   var exception : Throwable = null
-  def join(): Unit@suspendable = {
+  def join(): Unit = {
     val thread = SimManagerContext.current.thread
     assert(thread != this)
     if (!this.isDone) {
@@ -23,12 +19,12 @@ class SimThread(body: => Unit@suspendable) {
     }
   }
 
-  def sleep(cycles: Long): Unit@suspendable = {
+  def sleep(cycles: Long): Unit = {
     manager.schedule(cycles, this)
     suspend()
   }
 
-  def waitUntil(cond: => Boolean): Unit@suspendable = {
+  def waitUntil(cond: => Boolean): Unit = {
     if (!cond) {
       manager.sensitivities += new SimManagerSensitive {
         override def update() = {
@@ -47,10 +43,10 @@ class SimThread(body: => Unit@suspendable) {
   def isDone: Boolean  = done
   def nonDone: Boolean = !done
 
-  def suspend(): Unit@suspendable = {
+  def suspend(): Unit = {
     manager.context.thread = null
-    LockSupport.unpark(masterContext.masterThread)
-    LockSupport.park()
+    LockSupport.unpark(mainContext.masterThread)
+    jvmThread.park()
     manager.context.thread = SimThread.this
   }
 
@@ -69,93 +65,17 @@ class SimThread(body: => Unit@suspendable) {
   var done = false
   val jvmThread = manager.newJvmThread {
     manager.setupJvmThread(Thread.currentThread())
-    SimManagerContext.threadLocal.set(masterContext)
+    SimManagerContext.threadLocal.set(mainContext)
     manager.context.thread = SimThread.this
     try {
-      println(s"RUN $this at ${manager.time}")
       body
     } catch {
-      case e : Throwable => exception = e
+      case e : JvmThreadUnschedule =>
+        throw e
+      case e : Throwable =>
+        exception = e
     }
     manager.context.thread = null
     done = true
-
-    println(s"DONE $this at ${manager.time}")
   }
-
-
-
-
-
-
-//  private val manager = SimManagerContext.current.manager
-//  private var nextStep: Unit => Unit = null
-//  var waitingThreads = ArrayBuffer[() => Unit]()
-//
-//
-//
-//  def join(): Unit@suspendable = {
-//    val thread = SimManagerContext.current.thread
-//    assert(thread != this)
-//    if (!this.isDone) {
-//      waitingThreads += thread.resume
-//      thread.suspend()
-//    }
-//  }
-//
-//  def sleep(cycles: Long): Unit@suspendable = {
-//    manager.schedule(cycles, this)
-//    suspend()
-//  }
-//
-//  def waitUntil(cond: => Boolean): Unit@suspendable = {
-//    if (!cond) {
-//      manager.sensitivities += new SimManagerSensitive {
-//        override def update() = {
-//          if (cond) {
-//            manager.schedule(0, SimThread.this)
-//            false
-//          } else {
-//            true
-//          }
-//        }
-//      }
-//      suspend()
-//    }
-//  }
-//
-//  def isDone: Boolean = nextStep == null
-//  def nonDone: Boolean = nextStep != null
-//
-//  def suspend(): Unit@suspendable = {
-//    shift { k: (Unit => Unit) =>
-//      nextStep = k
-//    }
-//  }
-//
-//  def unschedule(): Unit ={
-//    nextStep = null
-//  }
-//
-//  def resume() = {
-//    manager.context.thread = this
-//    if (nextStep != null) {
-//      val back = nextStep
-//      nextStep = null
-//      if (back != null) back()
-//    }
-//    manager.context.thread = null
-//    if (isDone) {
-//      waitingThreads.foreach(thread => {
-//        SimManagerContext.current.manager.schedule(0)(thread())
-//      })
-//    }
-//  }
-//
-//
-//  reset {
-//    suspend()
-//    body
-//  }
-
 }

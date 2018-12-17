@@ -8,12 +8,12 @@ package object sim {
   class suspendable extends StaticAnnotation
   implicit class cpsIterable[A, Repr](xs: IterableLike[A, Repr]) {
     def suspendable = new {
-      def foreach[B](f: A => Any@suspendable): Unit@suspendable = {
+      def foreach[B](f: A => Any): Unit = {
         val it = xs.iterator
         while(it.hasNext) f(it.next)
       }
 
-      def map[R](f: A => R@suspendable): Seq[R]@suspendable ={
+      def map[R](f: A => R): Seq[R] ={
         val i = xs.iterator
         val ret = ArrayBuffer[R]()
         while(i.hasNext){
@@ -25,7 +25,7 @@ package object sim {
   }
 
 
-  def repeatSim(times : Long)(body : => Unit@suspendable): Unit@suspendable ={
+  def repeatSim(times : Long)(body : => Unit): Unit ={
     var idx = 0l
     while(idx != times){
       idx += 1

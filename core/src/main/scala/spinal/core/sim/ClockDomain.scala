@@ -29,7 +29,7 @@ import spinal.sim.{SimCallSchedule}
   */
 object DoReset {
 
-  def apply(reset: Bool, duration: Long, activeLevel: Polarity): Unit@suspendable = {
+  def apply(reset: Bool, duration: Long, activeLevel: Polarity): Unit = {
 
     reset #= (activeLevel match {
       case HIGH => true
@@ -51,7 +51,7 @@ object DoReset {
   */
 object DoClock {
 
-  def apply(clk: Bool, period: Long): Unit@suspendable = {
+  def apply(clk: Bool, period: Long): Unit = {
     assert(period >= 2)
 
     var value = clk.toBoolean
@@ -59,7 +59,7 @@ object DoClock {
     def t : Unit = {
       value = !value
       clk  #= value
-      schedule(period >> 1)(t)
+      delayed(period >> 1)(t)
     }
     t
 

@@ -111,10 +111,10 @@ object BenchPerf extends App{
 
 
 object TestAffinity extends App{
-  for(repeat <- 0 until 4) {
+  for(repeat <- 0 to 3) {
     val t = new Thread(){
       override def run(): Unit = {
-//        Affinity.setAffinity(1)
+        Affinity.setAffinity(repeat%3*2)
         while(true){}
       }
     }
@@ -123,4 +123,23 @@ object TestAffinity extends App{
   }
   Thread.sleep(100000)
 }
+
+
+object TestStates extends App{
+  val t = new Thread(){
+    override def run(): Unit = {
+      val startAt = System.currentTimeMillis()
+      while(System.currentTimeMillis() - startAt < 1000){}
+      Thread.sleep(1000)
+      println("t end")
+    }
+  }
+  println(t.isDaemon)
+  t.start()
+  while(true) {
+//    println(t.interrupt()isAlive)
+//    Thread.sleep(400)
+  }
+}
+
 

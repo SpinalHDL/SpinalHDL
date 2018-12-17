@@ -20,11 +20,11 @@ import scala.util.Random
 //      waitUntil(spi.sclk.)
 //    }
 //  }
-//  def expectWrite(data: Int, mod: ParameterMod): Unit@suspendable = {
+//  def expectWrite(data: Int, mod: ParameterMod): Unit = {
 //
 //  }
 //
-//  def read(data: Int, mod: ParameterMod): Unit@suspendable = {
+//  def read(data: Int, mod: ParameterMod): Unit = {
 //
 //  }
 //}
