@@ -72,12 +72,15 @@ class SimThread(body: => Unit@suspendable) {
     SimManagerContext.threadLocal.set(masterContext)
     manager.context.thread = SimThread.this
     try {
+      println(s"RUN $this at ${manager.time}")
       body
     } catch {
       case e : Throwable => exception = e
     }
     manager.context.thread = null
     done = true
+
+    println(s"DONE $this at ${manager.time}")
   }
 
 

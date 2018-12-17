@@ -30,8 +30,10 @@ abstract class JvmThread(masterThread : Thread, creationThread : Thread) extends
     LockSupport.unpark(creationThread)
     while(true) {
       LockSupport.park()
+      println(s"RUN $this")
       body()
       bodyDone()
+      println(s"DONE $this")
       LockSupport.unpark(masterThread)
     }
   }
@@ -64,7 +66,9 @@ class SimManager(val raw : SimRaw) {
   def newJvmThread(body : => Unit) : Thread = synchronized{
     if(jvmIdleThreads.isEmpty){
       val newJvmThread = new JvmThread(masterThread, Thread.currentThread()){
-        override def bodyDone(): Unit = {
+        override def bodyDone(): Unit = SimManager.this.synchronized{
+          if(jvmBusyThreads.indexOf(this) == -1)
+            println("MMMM")
           jvmBusyThreads.remove(jvmBusyThreads.indexOf(this))
           jvmIdleThreads.push(this)
         }
@@ -256,7 +260,7 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     } finally {
-      synchronized{(jvmIdleThreads ++ jvmBusyThreads).foreach(t => t.stop())}
+//      synchronized{(jvmIdleThreads ++ jvmBusyThreads).foreach(t => t.stop())}
     }
     onEndListeners.foreach(_())
     raw.end()
