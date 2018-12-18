@@ -61,9 +61,11 @@ class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
   var cpuAffinity = 0
+  var cpuCount = 0
   def newCpuAffinity() : Int = synchronized {
+    if(cpuCount == 0) cpuCount = Runtime.getRuntime.availableProcessors
     val ret = cpuAffinity
-    cpuAffinity = (cpuAffinity + 1) % Runtime.getRuntime.availableProcessors
+    cpuAffinity = (cpuAffinity + 1) % cpuCount
     ret
   }
 }
