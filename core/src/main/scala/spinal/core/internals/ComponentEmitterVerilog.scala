@@ -173,14 +173,14 @@ class ComponentEmitterVerilog(
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
           case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
-          case _ => emitAsyncronous(p)
+          case _ => emitAsynchronous(p)
         }
       } else {
-        emitAsyncronous(p)
+        emitAsynchronous(p)
       }
     })
 
-    syncGroups.valuesIterator.foreach(emitSyncronous(component, _))
+    syncGroups.valuesIterator.foreach(emitSynchronous(component, _))
 
     component.dslBody.walkStatements{
       case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
@@ -332,7 +332,7 @@ class ComponentEmitterVerilog(
     b ++= s"${tabStr}\n"
   }
 
-  def emitSyncronous(component: Component, group: SyncGroup): Unit = {
+  def emitSynchronous(component: Component, group: SyncGroup): Unit = {
     import group._
 
     def withReset = hasInit
@@ -375,11 +375,11 @@ class ComponentEmitterVerilog(
     }
   }
 
-  def emitAsyncronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
+  def emitAsynchronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
 
-  def emitAsyncronous(process: AsyncProcess): Unit = {
+  def emitAsynchronous(process: AsyncProcess): Unit = {
     process match {
-      case _ if emitAsyncronousAsAsign(process) =>
+      case _ if emitAsynchronousAsAsign(process) =>
         process.leafStatements.head match {
           case s: AssignmentStatement =>
             logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"

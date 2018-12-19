@@ -52,7 +52,7 @@ trait DummyTrait
 
 
 // Default configuration of clock domain is :
-// Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
+// Rising edge clock with optional asynchronous reset active high and optional active high clockEnable
 case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: Polarity = HIGH, softResetActiveLevel: Polarity = HIGH, clockEnableActiveLevel: Polarity = HIGH) {
   val useResetPin = resetKind match{
     case `ASYNC` | `SYNC` => true
@@ -243,16 +243,24 @@ class ClockDomain(val config      : ClockDomainConfig,
 
   val synchronizedWith = ArrayBuffer[ClockDomain]()
 
-  def isSyncronousWith(that: ClockDomain): Boolean = {
+  def isSynchronousWith(that: ClockDomain): Boolean = {
     if (this == that) return true
     if (this.clock == that.clock) return true
     if (synchronizedWith.contains(that)) return true
     return false
   }
 
-  def setSyncronousWith(that: ClockDomain) = {
+  def setSynchronousWith(that: ClockDomain) = {
     this.synchronizedWith += that
     that.synchronizedWith += this
+  }
+
+  def isSyncronousWith(that: ClockDomain): Boolean = {
+    return isSynchronousWith(that)
+  }
+
+  def setSyncronousWith(that: ClockDomain) = {
+    setSynchronousWith(that)
   }
 
   def apply[T](block: => T): T = {
