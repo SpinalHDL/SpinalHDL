@@ -9,6 +9,7 @@ import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
+import spinal.lib.graphic.Rgb
 import spinal.lib.io.{InOutWrapper, TriState}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import sun.nio.cs.ext.MS949
@@ -129,6 +130,21 @@ object PlayDevPullCkock{
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
+
+object PlayDevSubComponent{
+
+  class TopLevel extends Component {
+    val input = slave(Stream(Rgb(5,6,5)))
+    val output = master(Stream(Rgb(5,6,5)))
+    val fifoA = StreamFifo(Rgb(5,6,5), 8)
+    fifoA.io.push <> input
+    fifoA.io.pop <> output
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVerilog(new TopLevel()).toplevel
   }
 }
 
