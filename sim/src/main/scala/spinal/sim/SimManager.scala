@@ -1,6 +1,6 @@
 package spinal.sim
 
-import java.util.concurrent.locks.LockSupport
+import java.util.concurrent.CyclicBarrier
 
 import net.openhft.affinity.Affinity
 
@@ -24,29 +24,34 @@ class JvmThreadUnschedule extends Exception
 //Reusable thread
 abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffinity : Int) extends Thread{
   var body : () => Unit = null
-  private var unscheduleAsked = false
+  var unscheduleAsked = false
+  val barrier = new CyclicBarrier(2)
   def park() : Unit = {
-    LockSupport.park()
+    barrier.await()
     if(unscheduleAsked)
       throw new JvmThreadUnschedule()
   }
 
+  def unpark() : Unit = {
+    barrier.await()
+  }
+
   def unschedule(): Unit ={
     unscheduleAsked = true
-    LockSupport.unpark(this)
+    unpark()
   }
 
 
   override def run(): Unit = {
     Affinity.setAffinity(cpuAffinity)
-    LockSupport.unpark(creationThread)
+    barrier.await()
     try {
       while (true) {
         park()
         body()
         body = null
         bodyDone()
-        LockSupport.unpark(mainThread)
+        barrier.await()
       }
     } catch{
       case _ : JvmThreadUnschedule =>
@@ -73,8 +78,8 @@ object SimManager{
 class SimManager(val raw : SimRaw) {
   val cpuAffinity = SimManager.newCpuAffinity()
   Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
-  var threads : SimCallSchedule = null
   val mainThread = Thread.currentThread()
+  var threads : SimCallSchedule = null
 
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   var commandBuffer = mutable.ArrayBuffer[() => Unit]()
@@ -99,7 +104,7 @@ class SimManager(val raw : SimRaw) {
       }
       jvmIdleThreads.push(newJvmThread)
       newJvmThread.start()
-      LockSupport.park()
+      newJvmThread.barrier.await()
     }
 
     val jvmThread = jvmIdleThreads.pop()
@@ -146,7 +151,8 @@ class SimManager(val raw : SimRaw) {
   }
 
   def schedule(delay : Long, thread : SimThread): Unit = {
-    schedule( new SimCallSchedule(time + delay, thread.resume))
+    val s = new SimCallSchedule(time + delay, thread.resume)
+    schedule(s)
   }
 
 
@@ -267,10 +273,11 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     } finally {
-      (jvmIdleThreads ++ jvmBusyThreads).foreach(t => t.unschedule())
-      for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
-        while(t.isAlive()){Thread.sleep(0)}
-      }
+      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
+//      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
+//      for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
+//        while(t.isAlive()){Thread.sleep(0)}
+//      }
       raw.sleep(1)
       raw.end()
       onEndListeners.foreach(_())

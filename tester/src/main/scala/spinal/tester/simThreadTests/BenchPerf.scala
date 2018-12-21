@@ -13,52 +13,52 @@ class NativeThread{
 
 
 
-//  val barrier = new CyclicBarrier(2)
-//  var sync = false
-//  val thread = new Thread (){
-//    override def run(): Unit = {
-//      barrier.await()
-//      while(true){
-//        i += 1
-//        NativeThread.this.suspend()
-//      }
-//    }
-//  }.start()
-//
-//  def resume(): Unit ={
-//    barrier.await()
-//    barrier.await()
-//  }
-//
-//  def suspend(): Unit ={
-//    barrier.await()
-//    barrier.await()
-//  }
-
-
-  val master = Thread.currentThread()
-
+  val barrier = new CyclicBarrier(2)
+  var sync = false
   val thread = new Thread (){
     override def run(): Unit = {
-      Affinity.setAffinity(1)
-      LockSupport.park()
-      while(true){1
+      barrier.await()
+      while(true){
         i += 1
         NativeThread.this.suspend()
       }
     }
-  }
-  thread.start()
+  }.start()
 
   def resume(): Unit ={
-    LockSupport.unpark(thread)
-    LockSupport.park()
+    barrier.await()
+    barrier.await()
   }
 
   def suspend(): Unit ={
-    LockSupport.unpark(master)
-    LockSupport.park()
+    barrier.await()
+    barrier.await()
   }
+
+
+//  val master = Thread.currentThread()
+//
+//  val thread = new Thread (){
+//    override def run(): Unit = {
+//      Affinity.setAffinity(1)
+//      LockSupport.park()
+//      while(true){1
+//        i += 1
+//        NativeThread.this.suspend()
+//      }
+//    }
+//  }
+//  thread.start()
+//
+//  def resume(): Unit ={
+//    LockSupport.unpark(thread)
+//    LockSupport.park()
+//  }
+//
+//  def suspend(): Unit ={
+//    LockSupport.unpark(master)
+//    LockSupport.park()
+//  }
 
 
 

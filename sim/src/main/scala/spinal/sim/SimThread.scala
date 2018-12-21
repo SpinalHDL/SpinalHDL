@@ -1,6 +1,5 @@
 package spinal.sim
 
-import java.util.concurrent.locks.LockSupport
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -45,15 +44,15 @@ class SimThread(body: => Unit) {
 
   def suspend(): Unit = {
     manager.context.thread = null
-    LockSupport.unpark(mainContext.masterThread)
+    jvmThread.barrier.await()
     jvmThread.park()
     manager.context.thread = SimThread.this
   }
 
 
   def resume() = {
-    LockSupport.unpark(jvmThread)
-    LockSupport.park()
+    jvmThread.unpark()
+    jvmThread.barrier.await()
     if (isDone) {
       if(exception != null) throw exception
       waitingThreads.foreach(thread => {
@@ -71,6 +70,8 @@ class SimThread(body: => Unit) {
       body
     } catch {
       case e : JvmThreadUnschedule =>
+        manager.context.thread = null
+        done = true
         throw e
       case e : Throwable =>
         exception = e

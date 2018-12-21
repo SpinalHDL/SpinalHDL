@@ -110,10 +110,6 @@ package object sim {
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
   def waitUntil(cond: => Boolean): Unit = {
-    if(SimManagerContext.current == null)
-      println("AAA")
-    if(SimManagerContext.current.thread == null)
-      println("BBB")
     SimManagerContext.current.thread.waitUntil(cond)
   }
 
