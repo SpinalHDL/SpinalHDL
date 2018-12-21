@@ -274,10 +274,10 @@ class SimManager(val raw : SimRaw) {
       }
     } finally {
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
-//      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
-//      for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
-//        while(t.isAlive()){Thread.sleep(0)}
-//      }
+      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
+      for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
+        while(t.isAlive()){Thread.sleep(0)}
+      }
       raw.sleep(1)
       raw.end()
       onEndListeners.foreach(_())
