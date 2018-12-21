@@ -1,5 +1,7 @@
 language: scala
 
+dist: xenial
+
 notifications:
   email:
     on_success: never
