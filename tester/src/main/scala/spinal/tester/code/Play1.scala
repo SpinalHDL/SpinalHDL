@@ -4,7 +4,7 @@ package spinal.tester.code
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
-import _root_.com.sun.xml.internal.messaging.saaj.util.{ByteOutputStream, ByteInputStream}
+
 import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
@@ -1916,79 +1916,6 @@ object vhd_dirext_play {
 
 }
 
-
-object vhd_stdio_play {
-
-  def main(args: Array[String]) {
-    import scala.sys.process._
-    import java.io.File
-    // ("ghdl" #> new File("test.txt") !)
-    val in = new ByteOutputStream()
-    val out = new ByteInputStream()
-    val err = new ByteInputStream()
-    //scala.concurrent.SyncVar[java.io.OutputStream];
-    val stopAt = 1000 * 1000
-
-    val array = new Array[Byte](1000)
-    val barrier = new CyclicBarrier(2)
-    //    val io = new ProcessIO(in, out, err)
-    //    //  cmd.write("asd")
-    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
-    (s"ghdl -e --ieee=synopsys vhdl_file" !)
-    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
-    val io = new ProcessIO(
-      in => {
-        for (i <- 0 until stopAt) {
-          // while(cnt != i){}
-          //println("a")
-          in.write(i + "\n" getBytes "UTF-8")
-          in.flush()
-          barrier.await()
-          //Thread.sleep(500)
-
-        }
-        in.close()
-        println("finish")
-      }
-
-
-      ,
-      out => {
-        var cnt = 0
-        var bufferIndex = 0
-        var lastTime = System.nanoTime()
-        while (cnt != stopAt) {
-          if (out.available() != 0) {
-            bufferIndex += out.read(array, bufferIndex, out.available())
-            if (array.slice(0, bufferIndex).contains('\n')) {
-              bufferIndex = 0
-
-              val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
-              assert(i == cnt)
-              barrier.await()
-              cnt += 1
-              if (i % 10000 == 0) {
-                println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
-                lastTime = System.nanoTime()
-              }
-            }
-          }
-        }
-        out.close()
-        //scala.io.Source.fromInputStream(out).getLines.foreach(println)
-      },
-      err => {
-        scala.io.Source.fromInputStream(err).getLines.foreach(println)
-      })
-    process.run(io)
-    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
-    //    p.run(io)
-    //    p.run()
-    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
-    print("DONE")
-  }
-
-}
 
 
 object vhd_stdio_play2 {

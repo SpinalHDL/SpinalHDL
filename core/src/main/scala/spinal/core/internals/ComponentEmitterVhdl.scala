@@ -156,7 +156,7 @@ class ComponentEmitterVhdl(
     component.children.foreach(sub =>
       sub.getAllIo.foreach(io =>
         if(io.isOutput) {
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+          val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
           declarations ++= s"  signal $name : ${emitDataType(io)};\n"
           referencesOverrides(io) = name
         }

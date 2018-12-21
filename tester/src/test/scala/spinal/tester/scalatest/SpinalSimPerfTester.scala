@@ -33,6 +33,34 @@ class SpinalSimPerfTester extends FunSuite {
       .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
   }
 
+
+  test("TestStdSimIntThreadLess") {
+    compiled.doSim { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+      var model = -1
+      var times = 0
+      dut.clockDomain.onSampling{
+        assert(dut.io.result.toInt == model || model == -1)
+        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+        dut.io.a #= Random.nextInt(256)
+        dut.io.b #= Random.nextInt(256)
+        dut.io.c #= Random.nextInt(256)
+        times += 1
+      }
+
+      Suspendable.repeat(times = 4) {
+        val startAt = System.nanoTime
+        waitUntil(times == 2000000)
+        times = 0
+        val endAt = System.nanoTime
+        System.out.println((endAt - startAt) * 1e-6 + " ms")
+      }
+    }
+  }
+
+
   test("TestStdSimInt") {
     compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
@@ -57,6 +85,7 @@ class SpinalSimPerfTester extends FunSuite {
       }
     }
   }
+
 
   test("TestStdSimIntx2") {
     compiled.doSim { dut =>

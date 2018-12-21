@@ -20,7 +20,6 @@
 \*                                                                           */
 package spinal.core.internals
 
-import javax.xml.bind.annotation.XmlElementDecl.GLOBAL
 import spinal.core._
 import scala.collection.mutable
 

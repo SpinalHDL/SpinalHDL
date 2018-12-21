@@ -135,7 +135,7 @@ class ComponentEmitterVerilog(
     }
 
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
       declarations ++= emitExpressionWrap(io, name)
       referencesOverrides(io) = name
     }))
