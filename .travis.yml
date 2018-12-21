@@ -8,7 +8,7 @@ notifications:
 
 # See 'project/Version.scala'
 scala:
-   - 2.11.6
+   - 2.11.12
 
 sbt_args: -no-colors -J-Xss2m
 
