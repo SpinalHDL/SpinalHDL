@@ -18,7 +18,10 @@ script:
   - cat /home/travis/build/SpinalHDL/SpinalHDL/tester/src/test/python/spinal/common/../../../../../../RiscvTesterCached.vhd
 
 jdk:
-  - oraclejdk8
+  - oraclejdk9
+  - oraclejdk10
+  - oraclejdk11
+  - oraclejdk12
 #  - oraclejdk7
 #  - openjdk7
 
