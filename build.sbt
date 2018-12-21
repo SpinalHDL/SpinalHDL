@@ -15,8 +15,9 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   //SpinalSim
   addCompilerPlugin("org.scala-lang.plugins" % "scala-continuations-plugin_2.11.6" % "1.0.2"),
   libraryDependencies += "org.scala-lang.plugins" %% "scala-continuations-library" % "1.0.2",
-  scalacOptions += "-P:continuations:enable"
+  scalacOptions += "-P:continuations:enable",
 
+  libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
