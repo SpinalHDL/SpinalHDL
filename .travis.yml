@@ -15,7 +15,6 @@ sbt_args: -no-colors -J-Xss2m
 script:
   - sbt -jvm-opts travis/jvmopts.compile compile
   - sbt -jvm-opts travis/jvmopts.test test
-  - cat /home/travis/build/SpinalHDL/SpinalHDL/tester/src/test/python/spinal/common/../../../../../../RiscvTesterCached.vhd
 
 jdk:
   - openjdk9
