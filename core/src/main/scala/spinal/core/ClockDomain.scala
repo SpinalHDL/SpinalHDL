@@ -250,18 +250,16 @@ class ClockDomain(val config      : ClockDomainConfig,
     return false
   }
 
-  def setSynchronousWith(that: ClockDomain) = {
+  def setSynchronousWith(that: ClockDomain) : Unit = {
     this.synchronizedWith += that
     that.synchronizedWith += this
   }
 
-  def isSyncronousWith(that: ClockDomain): Boolean = {
-    return isSynchronousWith(that)
-  }
+  @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
+  def isSyncronousWith(that: ClockDomain): Boolean = isSynchronousWith(that)
 
-  def setSyncronousWith(that: ClockDomain) = {
-    setSynchronousWith(that)
-  }
+  @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
+  def setSyncronousWith(that: ClockDomain) = setSynchronousWith(that)
 
   def apply[T](block: => T): T = {
     push()
