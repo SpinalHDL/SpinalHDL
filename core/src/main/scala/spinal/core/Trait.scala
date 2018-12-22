@@ -89,7 +89,7 @@ trait MinMaxProvider {
 object GlobalData {
 
   /** Provide a thread local variable (Create a GlobalData for each thread) */
-  private val it = new ThreadLocal[GlobalData]
+  private [core] val it = new ThreadLocal[GlobalData]
 
   /** Return the GlobalData of the current thread */
   def get = it.get()

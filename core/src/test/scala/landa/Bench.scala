@@ -18,7 +18,7 @@ object Bench {
 
 
 object BenchSim {
-  def apply(factor : Double)(testbench: => Unit@suspendable ): Unit@suspendable = {
+  def apply(factor : Double)(testbench: => Unit ): Unit = {
     var retry = 0
     while (retry < 3) {
       val startAt = System.nanoTime

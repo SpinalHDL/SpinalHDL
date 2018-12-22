@@ -33,7 +33,7 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
     val fixture = SimConfig.withWave.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>
-      def send_transaction(id: BigInt,master: Wishbone,slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit@suspendable = {
+      def send_transaction(id: BigInt,master: Wishbone,slaves: Seq[(Wishbone,SizeMapping)],req: Int = 10): Unit = {
         val scoreboard_master = ScoreboardInOrder[WishboneTransaction]()
         val sequencer_master = WishboneSequencer{
           WishboneTransaction(data=id)

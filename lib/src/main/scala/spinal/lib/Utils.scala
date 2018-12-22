@@ -23,7 +23,6 @@ import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 
 import spinal.core._
-import sun.text.normalizer.UTF16
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
