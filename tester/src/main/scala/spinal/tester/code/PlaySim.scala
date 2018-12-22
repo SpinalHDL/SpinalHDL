@@ -63,7 +63,7 @@ object SimSTimedCall {
       def f = {
         dut.io.a #= dut.io.a.toInt + 1
       }
-      schedule(10)(f)
+      delayed(10)(f)
 
       sleep(1000)
     }

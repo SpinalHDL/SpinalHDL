@@ -77,28 +77,28 @@ class SpinalSimVerilatorIoTest extends FunSuite {
   var compiled : SimCompiled[SpinalSimVerilatorIoTestTop] = null
   def doTest: Unit ={
     compiled.doSim{ dut =>
-      def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
+      def checkBoolean(value : Boolean, that : Bool): Unit ={
         that #= value
         sleep(1)
         assert(that.toBoolean == value, that.getName() + " " + value)
         ()
       }
 
-      def checkInt(value : Int, that : BitVector): Unit@suspendable ={
+      def checkInt(value : Int, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toInt == value, that.getName() + " " + value)
         ()
       }
 
-      def checkLong(value : Long, that : BitVector): Unit@suspendable ={
+      def checkLong(value : Long, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toLong == value, that.getName() + " " + value)
         ()
       }
 
-      def checkBigInt(value : BigInt, that : BitVector): Unit@suspendable ={
+      def checkBigInt(value : BigInt, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)
@@ -113,7 +113,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
       }
 
 
-      (0 to 20).suspendable.foreach { e =>
+      (0 to 19).suspendable.foreach { e =>
         List(false, true).suspendable.foreach(value => checkBoolean(value, dut.io.bool))
 
         //checkInt
@@ -190,7 +190,6 @@ class SpinalSimVerilatorIoTest extends FunSuite {
         )
 
 
-
         import SpinalSimVerilatorIoTest._
         def newEnumTest(test : newEnumTest) = {
           repeatSim(40){
@@ -228,14 +227,14 @@ class SpinalSimVerilatorIoTest extends FunSuite {
   test("testMulticore") {
     import scala.concurrent.ExecutionContext.Implicits.global
 
-    val futures = for(i <- 0 to 31) yield {
+    val futures = for(i <- 0 to 15) yield {
       Future{
         doTest
       }
     }
     import scala.concurrent.duration._
 
-    futures.foreach(f => Await.result(f,10 seconds))
+    futures.foreach(f => Await.result(f,30 seconds))
   }
 
 

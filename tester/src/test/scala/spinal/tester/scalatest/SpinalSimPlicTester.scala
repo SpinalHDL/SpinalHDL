@@ -62,6 +62,7 @@ class SpinalSimPlicTester extends FunSuite {
     compiled.doSim("test") { dut =>
       println("PLIC SIM start")
       dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkSimSpeedPrinter()
 
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
 
