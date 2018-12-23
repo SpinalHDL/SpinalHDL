@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.ClockDomain.DivisionRate
+
 import scala.collection.mutable.ArrayBuffer
 
 sealed trait EdgeKind
@@ -63,27 +65,18 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
 
 object ClockDomain {
 
-  /** To use when you want to define a new clock domain by using internal signals */
-  def apply(clock       : Bool,
-            reset       : Bool = null,
-            dummyArg    : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
-            softReset   : Bool = null,
-            clockEnable : Bool = null,
-            frequency   : IClockDomainFrequency = UnknownFrequency(),
-            config      : ClockDomainConfig = GlobalData.get.commonClockConfig): ClockDomain = {
-    new ClockDomain(config, clock, reset, dummyArg, softReset, clockEnable, frequency)
-  }
+
 
   /**
-   *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.
-   */
+    *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.
+    */
   def internal(name            : String,
                config          : ClockDomainConfig = GlobalData.get.commonClockConfig,
                withReset       : Boolean = true,
                dummyArg        : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
                withSoftReset   : Boolean = false,
                withClockEnable : Boolean = false,
-               frequency       : IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+               frequency       : ClockFrequency = UnknownFrequency()): ClockDomain = {
 
     val clock = Bool()
     clock.setName(if (name != "") name + "_clk" else "clk")
@@ -106,7 +99,7 @@ object ClockDomain {
       clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }
 
-    val clockDomain = ClockDomain(clock, reset, dummyArg, softReset, clockEnable, frequency, config)
+    val clockDomain = ClockDomain(clock, reset, dummyArg, softReset, clockEnable, config,  frequency)
     clockDomain
   }
 
@@ -121,7 +114,7 @@ object ClockDomain {
                dummyArg        : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
                withSoftReset   : Boolean = false,
                withClockEnable : Boolean = false,
-               frequency       : IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+               frequency       : ClockFrequency = UnknownFrequency()): ClockDomain = {
 
     Component.push(null)
 
@@ -179,6 +172,50 @@ object ClockDomain {
       driver.findTag(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
     }
   }
+
+
+  trait DivisionRate {
+    def getValue: BigInt
+    def getMax:   BigInt
+    def getMin:   BigInt
+  }
+
+
+  case class UnknownDivisionRate() extends DivisionRate {
+    def getValue: BigInt = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+    def getMax:   BigInt = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+    def getMin:   BigInt = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+  }
+
+
+  case class FixedDivisionRate(value: BigInt) extends DivisionRate {
+    def getValue: BigInt = value
+    def getMax:   BigInt = value
+    def getMin:   BigInt = value
+  }
+
+
+  trait ClockFrequency {
+    def getValue: HertzNumber
+    def getMax:   HertzNumber
+    def getMin:   HertzNumber
+  }
+
+
+  case class UnknownFrequency() extends ClockFrequency {
+    def getValue: HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+    def getMax:   HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+    def getMin:   HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
+  }
+
+
+  case class FixedFrequency(value: HertzNumber) extends ClockFrequency {
+    def getValue: HertzNumber = value
+    def getMax:   HertzNumber = value
+    def getMin:   HertzNumber = value
+  }
+
+
 }
 
 
@@ -191,13 +228,14 @@ object ClockDomain {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain ClockDomain Documentation]]
   */
-class ClockDomain(val config      : ClockDomainConfig,
-                  val clock       : Bool,
-                  val reset       : Bool = null,
-                  dummyArg        : DummyTrait = null,
-                  val softReset   : Bool = null,
-                  val clockEnable : Bool = null,
-                  val frequency   : IClockDomainFrequency = UnknownFrequency()) {
+case class ClockDomain(clock       : Bool,
+                       reset       : Bool = null,
+                       dummyArg    : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
+                       softReset   : Bool = null,
+                       clockEnable : Bool = null,
+                       config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
+                       frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
+                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
 
@@ -270,7 +308,7 @@ class ClockDomain(val config      : ClockDomainConfig,
 
   /** Slow down the current clock to factor time */
   def newClockDomainSlowedBy(factor: BigInt): ClockDomain = factor match {
-    case x if x == 1 => this.clone()
+    case x if x == 1 => this.copy()
     case x if x > 1  => this{
       val counter = Reg(UInt(log2Up(factor) bits)) init (0)
       val tick = counter === factor - 1
@@ -278,7 +316,14 @@ class ClockDomain(val config      : ClockDomainConfig,
       when(tick) {
         counter := 0
       }
-      this.clone(clockEnable = RegNext(tick) init(False), config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+
+      val currentDivisionRate = if(ClockDomain.current.clockEnable == null) ClockDomain.FixedDivisionRate(1) else  ClockDomain.current.clockEnableDivisionRate
+      val divisionRate = new DivisionRate {
+        override def getValue: BigInt = currentDivisionRate.getValue*factor
+        override def getMax: BigInt = currentDivisionRate.getMax*factor
+        override def getMin: BigInt =  currentDivisionRate.getMin*factor
+      }
+      this.copy(clockEnable = RegNext(tick) init(False), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
@@ -290,41 +335,43 @@ class ClockDomain(val config      : ClockDomainConfig,
     }
   }
 
+  @deprecated("Use copy instead of clone", "1.3.0")
   def clone(config      : ClockDomainConfig = config,
             clock       : Bool = clock,
             reset       : Bool = reset,
             dummyArg    : DummyTrait = null,
-            softReset   : Bool = null,
+            softReset   : Bool = softReset,
             clockEnable : Bool = clockEnable): ClockDomain = {
-    new ClockDomain(config, clock, reset, dummyArg, softReset, clockEnable, frequency)
+    this.copy(clock, reset, dummyArg, softReset, clockEnable, config, frequency)
   }
 
   override def toString = clock.getName("???")
 
   def withRevertedClockEdge() = {
-    clone(config = config.copy(clockEdge = if(config.clockEdge == RISING) FALLING else RISING))
+    copy(config = config.copy(clockEdge = if(config.clockEdge == RISING) FALLING else RISING))
+  }
+
+  def samplingRate : IClockDomainFrequency = {
+    if(clockEnable == null) return frequency
+    try{
+      val f = new IClockDomainFrequency{
+        override def getValue: HertzNumber = frequency.getValue/BigDecimal(clockEnableDivisionRate.getValue)
+        override def getMax: HertzNumber = frequency.getMax/BigDecimal(clockEnableDivisionRate.getMin)
+        override def getMin: HertzNumber = frequency.getMin/BigDecimal(clockEnableDivisionRate.getMax)
+      }
+      //Test it
+      f.getValue
+      f.getMax
+      f.getMin
+
+      return f
+    } catch {
+      case _ : Throwable => return UnknownFrequency()
+    }
   }
 }
 
 
-trait IClockDomainFrequency {
-  def getValue: HertzNumber
-  def getMax:   HertzNumber
-  def getMin:   HertzNumber
-}
 
-
-case class UnknownFrequency() extends IClockDomainFrequency {
-  def getValue: HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
-  def getMax:   HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
-  def getMin:   HertzNumber = SpinalError("You are trying to get the frequency of a ClockDomain that doesn't know it")
-}
-
-
-case class FixedFrequency(value: HertzNumber) extends IClockDomainFrequency {
-  def getValue: HertzNumber = value
-  def getMax:   HertzNumber = value
-  def getMin:   HertzNumber = value
-}
 
 

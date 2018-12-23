@@ -44,7 +44,7 @@ class RiscvAvalon(coreConfig : RiscvCoreConfig,iCacheConfig : InstructionCacheCo
 
 
   val debugExtension = if(debug) {
-    val clockDomain = ClockDomain.current.clone(reset = io.debugResetIn)
+    val clockDomain = ClockDomain.current.copy(reset = io.debugResetIn)
     val extension = new DebugExtension(clockDomain)
     coreConfig.add(extension)
     extension

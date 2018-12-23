@@ -44,7 +44,7 @@ case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
     io.writeEnable := writeEnable
     val writeBuffer = RegNext(write)
     io.write := (clk ? writeBuffer(0))| writeBuffer(1)
-    def cd(edge : EdgeKind) = ClockDomain.current.clone(config = ClockDomain.current.config.copy(clockEdge = edge))
+    def cd(edge : EdgeKind) = ClockDomain.current.copy(config = ClockDomain.current.config.copy(clockEdge = edge))
     read(0) := cd(RISING)(RegNext(io.read))
     read(1) := cd(FALLING)(RegNext(io.read))
     io
