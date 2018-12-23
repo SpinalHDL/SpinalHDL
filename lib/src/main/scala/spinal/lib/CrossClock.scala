@@ -107,7 +107,7 @@ object ResetCtrl{
   }
 
   /**
-   * As asyncAssertSyncDeassert but directly drive the clockDomain reset with the syncronised signal.
+   * As asyncAssertSyncDeassert but directly drive the clockDomain reset with the synchronised signal.
    */
   def asyncAssertSyncDeassertDrive(input : Bool,
                                    clockDomain : ClockDomain,
