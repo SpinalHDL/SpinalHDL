@@ -34,12 +34,12 @@ package object sim {
 
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
-  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
     new SimConfigLegacy[T](_rtlGen = Some(() => rtl))
   }
 
-  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: SpinalReport[T]): SimConfigLegacy[T] = {
     new SimConfigLegacy[T](_spinalReport = Some(rtl))
   }

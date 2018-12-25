@@ -128,7 +128,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   def ===(that: SpinalEnumElement[T]): Bool = this === that.craft()
   def =/=(that: SpinalEnumElement[T]): Bool = this =/= that.craft()
 
-  @deprecated("Use =/= instead")
+  @deprecated("Use =/= instead","???")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
   private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match{

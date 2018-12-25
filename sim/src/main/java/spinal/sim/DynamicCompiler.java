@@ -120,7 +120,7 @@ public class DynamicCompiler {
 
         try {
             // Convert File to a URL
-            URL url = file.toURL(); // file:/classes/demo
+            URL url = file.toURI().toURL(); // file:/classes/demo
             URL[] urls = new URL[]{url};
 
             // Create a new class loader with the directory
@@ -150,7 +150,7 @@ public class DynamicCompiler {
 
         try {
             // Convert File to a URL
-            URL url = file.toURL(); // file:/classes/demo
+            URL url = file.toURI().toURL(); // file:/classes/demo
             URL[] urls = new URL[]{url};
 
             // Create a new class loader with the directory

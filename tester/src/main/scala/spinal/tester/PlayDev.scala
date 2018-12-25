@@ -1089,7 +1089,7 @@ class AlteraMemTagger extends PhaseNetlist{
     pc.walkDeclarations{
       case mem : Mem[_] =>
         mem.foreachStatements{
-          case s : MemReadSync => s.readUnderWrite
+          case s : MemReadSync =>
           case s : MemReadAsync =>
           case _ =>
         }

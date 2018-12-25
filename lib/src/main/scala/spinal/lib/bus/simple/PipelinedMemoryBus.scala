@@ -243,10 +243,12 @@ case class PipelinedMemoryBusInterconnect(){
   def setConnector(bus : PipelinedMemoryBus)( connector : (PipelinedMemoryBus,PipelinedMemoryBus) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
     case (Some(m), _) =>    m.connector = connector
     case (None, Some(s)) => s.connector = connector
+    case _ => ???
   }
 
   def setConnector(m : PipelinedMemoryBus, s : PipelinedMemoryBus)(connector : (PipelinedMemoryBus,PipelinedMemoryBus) => Unit): Unit = connections.find(e => e.m == m && e.s == s) match {
     case Some(c) => c.connector = connector
+    case _ => ???
   }
 
   def addSlave(bus: PipelinedMemoryBus,mapping: AddressMapping) : this.type = {

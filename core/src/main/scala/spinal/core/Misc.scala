@@ -230,12 +230,12 @@ object SpinalMap {
 /**
   * Sel operation
   */
-@deprecated("Use Select instead")
+@deprecated("Use Select instead", "???")
 object Sel{
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def apply[T <: Data](default: T, mappings: (Bool, T)*):T = seq(default,mappings)
 
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def seq[T <: Data](default: T, mappings: Seq[(Bool, T)]): T = {
     val result = cloneOf(default)
     result := default

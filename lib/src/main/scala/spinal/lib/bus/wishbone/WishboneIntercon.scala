@@ -25,6 +25,7 @@ case class WishboneInterconFactory(){
   def setConnector(bus : Wishbone)( connector : (Wishbone,Wishbone) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
     case (Some(m), _) =>    m.connector = connector
     case (None, Some(s)) => s.connector = connector
+    case _ => ???
   }
 
   /** Modify a connection
@@ -39,6 +40,7 @@ case class WishboneInterconFactory(){
     */
   def setConnector(m : Wishbone, s : Wishbone)(connector : (Wishbone,Wishbone) => Unit): Unit = connections.find(e => e.m == m && e.s == s) match {
     case Some(c) => c.connector = connector
+    case _ => ???
   }
 
   /** add a slave to the intercon, and specify its address space

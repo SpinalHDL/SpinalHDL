@@ -185,11 +185,11 @@ class SimCompiled[T <: Component](backend: VerilatorBackend, dut: T){
     doSimPostSeed(name, Random.nextLong(), false)(body)
   }
 
-  @deprecated("Use doSim instead")
+  @deprecated("Use doSim instead", "???")
   def doManagedSim(body: T => Unit): Unit = doSim("test")(body)
-  @deprecated("Use doSim instead")
+  @deprecated("Use doSim instead", "???")
   def doManagedSim(name: String)(body: T => Unit): Unit = doSim(name, Random.nextLong())(body)
-  @deprecated("Use doSim instead")
+  @deprecated("Use doSim instead", "???")
   def doManagedSim(name: String, seed: Long)(body: T => Unit): Unit = {
     Random.setSeed(seed)
     doSimPostSeed(name, Random.nextLong(), false)(body)
@@ -441,9 +441,10 @@ case class SimConfigLegacy[T <: Component](
   def doSimUntilVoid(name: String, seed: Long)(body: T => Unit): Unit = compile.doSimUntilVoid(name, seed)(body)
 
   def compile(): SimCompiled[T] = {
-    (_rtlGen, _spinalReport) match {
+    (_rtlGen, _spinalReport)  match {
       case (None, Some(report)) => _simConfig.compile(report)
       case (Some(gen), None)    => _simConfig.compile(gen())
+      case _ => ???
     }
   }
 }
