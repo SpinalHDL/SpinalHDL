@@ -4,23 +4,23 @@ package spinal.tester.code
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
-
 import spinal.core._
-import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
+import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4SpecRenamer}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
-import spinal.lib.eda.bench.{Bench, AlteraStdTargets, XilinxStdTargets, Rtl}
-import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadCmd, SblReadRet, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
-import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
+import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DebugExtension, DivExtension, MulExtension}
 import spinal.lib.experimental.MacrosClass
-import spinal.lib.graphic.{RgbConfig, Rgb}
-import spinal.lib.graphic.vga.{VgaCtrl, Vga}
+import spinal.lib.graphic.{Rgb, RgbConfig}
+import spinal.lib.graphic.vga.{Vga, VgaCtrl}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable
@@ -2629,16 +2629,36 @@ object PlaySel {
   }
 }
 
+
+object XilinxPatch {
+  def apply[T <: Component](c : T) : T = {
+    //Patch things
+    c.getGroupedIO(true).foreach{
+      case axi : AxiLite4 => AxiLite4SpecRenamer(axi)
+      case axi : Axi4 => Axi4SpecRenamer(axi)
+      case _ =>
+    }
+
+    //Builder pattern return the input argument
+    c
+  }
+}
+
+
 object PlayAxiLite4 {
   class TopLevel extends Component {
     val axiLiteConfig = AxiLite4Config(32, 32)
-    val peon   = slave(AxiLite4(axiLiteConfig))
-    val maitre = master(AxiLite4(axiLiteConfig))
-    peon >> maitre
+
+    val io = new Bundle {
+      val input = slave(AxiLite4(axiLiteConfig))
+      val output = master(AxiLite4(axiLiteConfig))
+    }
+
+    io.input >> io.output
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(XilinxPatch(new TopLevel))
   }
 }
 

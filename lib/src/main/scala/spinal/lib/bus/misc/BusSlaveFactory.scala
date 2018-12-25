@@ -315,7 +315,7 @@ trait BusSlaveFactory extends Area{
   }
 
 
-  @deprecated("Use createReadAndWrite instead")
+  @deprecated("Use createReadAndWrite instead", "???")
   def createReadWrite[T <: Data](dataType  : T,
                                  address   : BigInt,
                                  bitOffset : Int = 0): T = createReadAndWrite(dataType,address,bitOffset)

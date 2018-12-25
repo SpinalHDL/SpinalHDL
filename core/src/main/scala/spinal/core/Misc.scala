@@ -274,7 +274,7 @@ object Select{
 }
 
 
-@deprecated("Use cloneable instead")
+@deprecated("Use HardType instead", "???")
 object wrap{
   def apply[T <: Bundle](that : => T) : T = {
     val ret: T = that
@@ -283,7 +283,7 @@ object wrap{
   }
 }
 
-
+@deprecated("Use HardType instead", "???")
 object cloneable {
   def apply[T <: Bundle](that: => T): T = {
     val ret: T = that

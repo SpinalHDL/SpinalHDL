@@ -2973,7 +2973,7 @@ object PlayMuxDyn{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -2987,7 +2987,7 @@ object PlayMuxDynX{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3000,7 +3000,7 @@ object PlayMuxDyn2{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 object PlayNullPointer{
@@ -3012,7 +3012,7 @@ object PlayNullPointer{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3053,7 +3053,7 @@ object PlayCrossHearchy{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new ComponentY)
+    SpinalConfig().generateVhdl(new ComponentY)
   }
 }
 
@@ -3219,7 +3219,7 @@ object PlaRamMux{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel(J1Config(16,16)))
+    SpinalConfig().generateVhdl(new TopLevel(J1Config(16,16)))
   }
 }
 
@@ -3240,7 +3240,7 @@ object PlayAlu{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3257,7 +3257,7 @@ object PlayDontCareEnum{
     addPrePopTask(() => z := State.B)
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
-    SpinalConfig(debug = true).generateVerilog(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
+    SpinalConfig().generateVerilog(new TopLevel)
   }
 }
