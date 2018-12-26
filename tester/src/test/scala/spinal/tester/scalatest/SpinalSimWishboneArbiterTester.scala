@@ -24,7 +24,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
-      dut.io.busIN.suspendable.foreach{ bus =>
+      dut.io.busIN.foreach{ bus =>
         bus.CYC #= false
         bus.STB #= false
         bus.WE #= false
@@ -54,9 +54,9 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
       }
 
       receiver.slaveSink()
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
-        dut.io.busIN.suspendable.foreach{ bus =>
+        dut.io.busIN.foreach{ bus =>
         val dri = new WishboneDriver(bus,dut.clockDomain)
           masterPool += fork{
             val seq = WishboneSequencer{
@@ -71,7 +71,7 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
             }
           }
         }
-        masterPool.suspendable.foreach{process => process.join()}
+        masterPool.foreach{process => process.join()}
         dut.clockDomain.waitSampling(10)
       }
     }

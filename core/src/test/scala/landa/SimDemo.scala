@@ -41,7 +41,7 @@ object SimDemo {
                 .doSim(new Dut().setDefinitionName(s"Dut_${t}_${i}")) { dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
-                  Suspendable.repeat(times = 100) {
+                  for(repeat <- 0 until 100) {
                     val a, b, c = Random.nextInt(256)
                     dut.io.a #= a
                     dut.io.b #= b

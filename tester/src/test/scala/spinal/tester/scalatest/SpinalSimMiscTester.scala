@@ -40,7 +40,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -59,7 +59,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -105,7 +105,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge()
           if (dut.io.enable.toBoolean) {
@@ -125,7 +125,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(1000){
+      for(repeat <- 0 until 1000){
         dut.io.enable.randomize()
         dut.clockDomain.waitSampling(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -150,7 +150,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.deassertReset()
         sleep(10)
 
-        Suspendable.repeat(2000) {
+        for(repeat <- 0 until 2000) {
           dut.clockDomain.risingEdge()
           sleep(10)
           dut.clockDomain.fallingEdge()
@@ -161,7 +161,7 @@ class SpinalSimMiscTester extends FunSuite {
 
       fork {
         var counterModel = 0
-        Suspendable.repeat(1000) {
+        for(repeat <- 0 until 1000) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -182,7 +182,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -203,7 +203,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -222,7 +222,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -249,7 +249,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var modelA, modelB = false
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         dut.src.randomize()
         dut.sel.randomize()
         dut.clockDomain.waitSampling()

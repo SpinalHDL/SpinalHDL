@@ -117,7 +117,7 @@ package object sim {
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
   def forkJoin(bodys: (()=> Unit)*): Unit = {
     val threads = bodys.map(body => fork(body()))
-    threads.suspendable.foreach(thread => thread.join())
+    threads.foreach(thread => thread.join())
   }
 
   def forkSensitive(block : => Unit): Unit ={

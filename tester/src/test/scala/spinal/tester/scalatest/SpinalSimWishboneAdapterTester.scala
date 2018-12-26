@@ -56,7 +56,7 @@ class SpinalSimWishboneAdapterTester extends FunSuite{
 
       dri2.slaveSink()
 
-      Suspendable.repeat(1000){
+      for(repeat <- 0 until 1000){
         seq.generateTransactions(10)
         val ddd = fork{
           while(!seq.isEmpty){

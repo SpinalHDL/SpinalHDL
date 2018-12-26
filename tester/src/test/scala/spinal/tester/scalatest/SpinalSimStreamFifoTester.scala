@@ -44,7 +44,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
       //Pop data randomly and check that it match with the queueModel
       val popThread = fork{
         dut.io.pop.ready #= true
-        Suspendable.repeat(10000){
+        for(repeat <- 0 until 10000){
           dut.io.pop.ready.randomize()
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){

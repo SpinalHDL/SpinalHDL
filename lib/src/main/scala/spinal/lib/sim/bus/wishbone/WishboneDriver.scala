@@ -32,7 +32,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     */
   def sendBlockAsMaster(transactions: Seq[WishboneTransaction], we: Boolean): Unit = {
     bus.CYC #= true
-    transactions.dropRight(1).suspendable.foreach{ tran =>
+    transactions.dropRight(1).foreach{ tran =>
       bus.STB #= true
       sendAsMaster(tran, we)
       if(!bus.config.isPipelined){
@@ -59,7 +59,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
         counter = counter + 1
       }
     }
-    transactions.suspendable.foreach(sendAsMaster(_, true))
+    transactions.foreach(sendAsMaster(_, true))
     bus.STB #= false
     ackCounter.join()
     bus.CYC #= false
@@ -81,7 +81,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     * @param transactions a sequence of transactions that compouse the wishbone cycle
     */
   def sendBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit = {
-    transactions.suspendable.foreach{ transaction =>
+    transactions.foreach{ transaction =>
       sendAsSlave(transaction)
     }
   }
@@ -92,7 +92,7 @@ class WishboneDriver(bus: Wishbone, clockdomain: ClockDomain){
     */
   def sendPipelinedBlockAsSlave(transactions: Seq[WishboneTransaction]): Unit = {
     bus.ACK #= true
-    transactions.suspendable.foreach{ transaction =>
+    transactions.foreach{ transaction =>
       clockdomain.waitSamplingWhere(busStatus.isTransfer)
       transaction.driveAsSlave(bus)
     }

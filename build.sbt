@@ -71,6 +71,7 @@ lazy val sim = (project in file("sim"))
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
     libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
     libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
+    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
     version := SpinalVersion.sim
   )
 

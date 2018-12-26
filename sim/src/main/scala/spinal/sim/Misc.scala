@@ -9,7 +9,7 @@ object SimError{
   }
 }
 
-
+@deprecated("You can now use regular scala for loops as scala suspendable aren't use anymore.", "1.3.0")
 object Suspendable{
   def repeat(times : Long)(body : => Unit): Unit ={
     var idx = 0l

@@ -17,7 +17,7 @@ object UartDecoder {
       sleep(baudPeriod)
 
       var buffer = 0
-      (0 to 7).suspendable.foreach{ bitId =>
+      (0 to 7).foreach{ bitId =>
         if(uartPin.toBoolean)
           buffer |= 1 << bitId
         sleep(baudPeriod)

@@ -37,7 +37,7 @@ class SpinalSimMultiThreadingTest extends FunSuite {
                 .doSim (new SpinalSimMultiThreadingDut(i + t).setDefinitionName(s"SpinalSimMultiThreadingDut_${t}_${i}")){ dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
-                  Suspendable.repeat(times = 100000) {
+                  for(repeat <- 0 until 100000) {
                     val a, b, c = Random.nextInt(256)
                     dut.io.a #= a
                     dut.io.b #= b
