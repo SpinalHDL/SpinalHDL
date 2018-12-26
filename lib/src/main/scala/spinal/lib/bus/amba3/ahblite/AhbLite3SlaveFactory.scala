@@ -23,63 +23,55 @@
 ** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
 ** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
 \*                                                                           */
-package spinal.lib.bus.amba3.apb
-
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, SingleMapping}
 
 
-object Apb3Decoder{
 
-  def getOutputConfig(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) = inputConfig.copy(selWidth = decodings.size)
+class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
 
-  def apply(inputConfig: Apb3Config, decodings: Seq[SizeMapping]): Apb3Decoder = new Apb3Decoder(inputConfig, decodings)
+  override def readHalt  = {}
+  override def writeHalt = {}
 
-  def apply(master: Apb3, slaves: Seq[(Apb3, SizeMapping)]): Apb3Decoder = {
+  override def readAddress()  = bus.HADDR
+  override def writeAddress() = bus.HADDR
 
-    val decoder = new Apb3Decoder(master.config, slaves.map(_._2))
-    val router  = new Apb3Router(decoder.io.output.config)
+  override def busDataWidth: Int   = bus.HWDATA.getWidth
+  override def wordAddressInc: Int = if(incAddress == 0) super.wordAddressInc else incAddress
 
-    decoder.io.input <> master
-    router.io.input  <> decoder.io.output
 
-    (slaves.map(_._1), router.io.outputs).zipped.map(_ << _)
+  override def build(): Unit = {
 
-    decoder.setPartialName(master, "decoder")
+    val askWrite    = bus.HSEL & bus.HTRANS === 2 & bus.HWRITE
+    val askRead     = bus.HSEL & bus.HTRANS === 2 & !bus.HWRITE
+    val doWrite     = RegNext(askWrite, False )
+    val doRead      = RegNext(askRead, False )
+
+    val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
+
+    bus.HREADYOUT := True
+    bus.HRESP     := False
+    bus.HRDATA    := 0
+
+    def doMappedElements(jobs: Seq[BusSlaveFactoryElement]) = super.doMappedElements(
+      jobs      = jobs,
+      askWrite  = askWrite,
+      askRead   = askRead,
+      doWrite   = doWrite,
+      doRead    = doRead,
+      writeData = bus.HWDATA,
+      readData  = bus.HRDATA
+    )
+
+    /** Read/Write operation */
+    switch(addressDelay){
+      for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
+        is(address.asInstanceOf[SingleMapping].address){
+          doMappedElements(jobs)
+        }
+      }
+    }
   }
 }
-
-
-
-class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends Component {
-
-  assert(inputConfig.selWidth == 1, "Apb3Decoder: input sel width must be equal to 1")
-  assert(!SizeMapping.verifyOverlapping(decodings), "Apb3Decoder: overlapping found")
-
-  val io = new Bundle {
-    val input  = slave(Apb3(inputConfig))
-    val output = master(Apb3(Apb3Decoder.getOutputConfig(inputConfig,decodings)))
-  }
-
-  io.output.PADDR   := io.input.PADDR
-  io.output.PENABLE := io.input.PENABLE
-  io.output.PWRITE  := io.input.PWRITE
-  io.output.PWDATA  := io.input.PWDATA
-
-  for((decoding,psel) <- (decodings,io.output.PSEL.asBools).zipped){
-    psel := decoding.hit(io.input.PADDR) && io.input.PSEL.lsb
-  }
-
-  io.input.PREADY := io.output.PREADY
-  io.input.PRDATA := io.output.PRDATA
-
-  if(inputConfig.useSlaveError) io.input.PSLVERROR := io.output.PSLVERROR
-
-  when(io.input.PSEL.lsb && io.output.PSEL === 0){
-    io.input.PREADY := True
-    if(inputConfig.useSlaveError) io.input.PSLVERROR := True
-  }
-}
-

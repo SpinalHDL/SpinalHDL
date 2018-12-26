@@ -436,7 +436,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   private[core] def getMemSymbolCount(): Int = getWidth / getMemSymbolWidth
 
   def randBoot(): this.type = {
-    addTag(spinal.core.randomBoot)
+    if(!globalData.phaseContext.config.noRandBoot) addTag(spinal.core.randomBoot)
     this
   }
 

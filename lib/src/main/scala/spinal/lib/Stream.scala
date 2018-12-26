@@ -225,7 +225,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false): Stream[T] = {
-    val ret = Stream(payloadType)
+    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe")
 
     val rValid = RegInit(False)
     val rData = Reg(payloadType)
@@ -246,7 +246,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def s2mPipe(): Stream[T] = {
-    val ret = Stream(payloadType)
+    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe")
 
     val rValid = RegInit(False)
     val rBits = Reg(payloadType)
@@ -285,7 +285,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
   def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType)
+    val ret = Stream(payloadType).setCompositeName(this, "halfPipe")
 
     val rValid = RegInit(False)
     val rReady = RegInit(True)

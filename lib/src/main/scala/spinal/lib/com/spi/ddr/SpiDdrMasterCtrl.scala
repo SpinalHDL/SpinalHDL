@@ -10,8 +10,8 @@ import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
 
-case class DdrOutput() extends Bundle with IMasterSlave{
-  val write = Bits(2 bits)
+case class DdrOutput(rate : Int) extends Bundle with IMasterSlave{
+  val write = Bits(rate bits)
 
   override def asMaster(): Unit = {
     out(write)
@@ -26,9 +26,9 @@ case class DdrOutput() extends Bundle with IMasterSlave{
   }
 }
 
-case class DdrPin() extends Bundle with IMasterSlave{
+case class DdrPin(rate : Int) extends Bundle with IMasterSlave{
   val writeEnable = Bool
-  val read,write = Bits(2 bits)
+  val read,write = Bits(rate bits)
 
   override def asMaster(): Unit = {
     out(write,writeEnable)
@@ -49,14 +49,15 @@ case class DdrPin() extends Bundle with IMasterSlave{
 }
 
 
-case class SpiDdrParameter(dataWidth : Int = 2,
-                           ssWidth : Int = 1)
+case class SpiDdrParameter(dataWidth : Int,
+                           ioRate : Int,
+                           ssWidth : Int)
 
 case class SpiDdrMaster(p : SpiDdrParameter) extends Bundle with IMasterSlave{
   import p._
 
-  val sclk = DdrOutput()
-  val data = Vec(DdrPin(), dataWidth)
+  val sclk = DdrOutput(p.ioRate)
+  val data = Vec(DdrPin(p.ioRate), dataWidth)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 
   override def asMaster(): Unit = {
@@ -73,14 +74,14 @@ object SpiDdrMasterCtrl {
 
 
   def main(args: Array[String]): Unit = {
-    SpinalVerilog(new TopLevel(Parameters(8,12,SpiDdrParameter(dataWidth = 4,ssWidth = 3)).addAllMods()))
+    SpinalVerilog(new TopLevel(Parameters(8,12,SpiDdrParameter(dataWidth = 4,ssWidth = 3, ioRate = 1)).addFullDuplex(0)))
   }
 
 
 
 
   //  case class ParameterMapping(position : Int, phase : Int)
-  case class Mod(id : Int, writeMapping : Seq[Int], readMapping : Seq[Int]){
+  case class Mod(id : Int, clkRate : Int, ddr : Boolean, dataWidth : Int, writeMapping : Seq[Int], readMapping : Seq[Int]){
     assert(writeMapping.length == readMapping.length)
     def bitrate = readMapping.length
   }
@@ -89,33 +90,33 @@ object SpiDdrMasterCtrl {
                         spi : SpiDdrParameter,
                         mods : ArrayBuffer[Mod] = ArrayBuffer()){
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int): this.type ={
-      mods += Mod(id, List(0), List(1))
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = {
+      mods += Mod(id, rate, ddr, dataWidth, List(0), List(1))
       this
     }
-    def addHalfDuplex(id : Int, spiWidth : Int, ddr : Boolean): this.type = {
+    def addHalfDuplex(id : Int, rate : Int,ddr : Boolean, spiWidth : Int, dataWidth : Int = 8): this.type = {
       val low = 0 until spiWidth
       val top = spi.dataWidth until spi.dataWidth + spiWidth
       if(ddr)
-        mods += Mod(id, top ++ low, top ++ low)
+        mods += Mod(id, rate, ddr, spiWidth, top ++ low, top ++ low)
       else
-        mods += Mod(id, low, low)
+        mods += Mod(id, rate, ddr, spiWidth, low, low) //TODO should it be low high ?
       this
     }
-    def addAllMods(): this.type ={
-      if(dataWidth >= 2) addFullDuplex(0)
-      for((spiWidth, o) <- (2 to spi.dataWidth).filter(isPow2(_)).zipWithIndex){
-        addHalfDuplex(2+o*2, spiWidth, false)
-        if(spiWidth*2 <= dataWidth) addHalfDuplex(2+o*2 + 1, spiWidth, true)
-      }
-      this
-    }
+//    def addAllMods(): this.type ={
+//      if(dataWidth >= 2) addFullDuplex(0)
+//      for((spiWidth, o) <- (2 to spi.dataWidth).filter(isPow2(_)).zipWithIndex){
+//        addHalfDuplex(2+o*2, spiWidth, false)
+//        if(spiWidth*2 <= dataWidth) addHalfDuplex(2+o*2 + 1, spiWidth, true)
+//      }
+//      ???
+//      this
+//    }
   }
 
   case class Config(p: Parameters) extends Bundle {
     val kind = SpiKind()
     val sclkToogle = UInt(p.timerWidth bits)
-    val fullRate = Bool
     val mod = in UInt(log2Up(p.mods.map(_.id).max + 1) bits)
 
     val ss = ifGen(p.ssGen) (new Bundle {
@@ -158,7 +159,7 @@ object SpiDdrMasterCtrl {
     }
   }
 
-  class TopLevel(p: Parameters) extends Component {
+  class TopLevel(val p: Parameters) extends Component {
     setDefinitionName("SpiDdrMasterCtrl")
 
     val io = new Bundle {
@@ -213,7 +214,6 @@ object SpiDdrMasterCtrl {
         bus.drive(config.kind, baseAddress + 8, bitOffset = 0)
         bus.drive(config.mod, baseAddress + 8, bitOffset = 4)
         bus.drive(config.sclkToogle, baseAddress + 0x20)
-        bus.drive(config.fullRate  , baseAddress + 0x20, bitOffset = 31)
         bus.drive(config.ss.setup,   baseAddress + 0x24)
         bus.drive(config.ss.hold,    baseAddress + 0x28)
         bus.drive(config.ss.disable, baseAddress + 0x2C)
@@ -393,7 +393,7 @@ object SpiDdrMasterCtrl {
 
 
     val widths = p.mods.map(m => m.bitrate).distinct.sorted
-
+    val widthMax = widths.max
 
 
 
@@ -403,7 +403,9 @@ object SpiDdrMasterCtrl {
     val fsm = new Area {
       val state = RegInit(False)
       val counter = Reg(UInt(log2Up(p.dataWidth) bits)) init(0)
-      val counterPlus = counter +  io.config.mod.muxList(U(0), p.mods.map(m => m.id -> U(m.bitrate))).resized
+      val bitrateMax = p.mods.map(_.bitrate).max
+      val counterPlus = counter +  io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
+      val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1 || m.ddr)))
       val readFill, readDone = False
       val ss = RegInit(B((1 << p.spi.ssWidth) - 1, p.spi.ssWidth bits))
       io.spi.ss := ss
@@ -415,7 +417,7 @@ object SpiDdrMasterCtrl {
           when(timer.sclkToogleHit){
             state := !state
           }
-          when((timer.sclkToogleHit && state) || io.config.fullRate) {
+          when((timer.sclkToogleHit && state) || fastRate) {
             counter := counterPlus
             readFill := True
             when(counterPlus === 0){
@@ -459,13 +461,21 @@ object SpiDdrMasterCtrl {
     val maxBitRate = p.mods.map(m => m.bitrate).max
     val outputPhy = new Area {
 
-      val sclkWrite = Bits(2 bits)
+      val rates = p.mods.map(m => m.id -> log2Up(m.clkRate))
+      val sclkWrite = Bits(p.spi.ioRate bits)
       sclkWrite := 0
       when(io.cmd.valid && io.cmd.isData){
-        when(io.config.fullRate){
-          sclkWrite := !io.config.kind.cpha ## io.config.kind.cpha
-        } otherwise {
-          sclkWrite := (default -> (fsm.state ^ io.config.kind.cpha))
+        switch(io.config.mod) {
+          for (m <- p.mods) {
+            is(m.id){
+              m.clkRate match {
+                case 1 => sclkWrite := (default -> (fsm.state ^ io.config.kind.cpha))
+                case _ => for(bitId <- 0 until p.spi.ioRate){
+                  sclkWrite(bitId) := (if((bitId * m.clkRate / p.spi.ioRate) % 2 == 0) io.config.kind.cpha else !io.config.kind.cpha)
+                }
+              }
+            }
+          }
         }
       }
 
@@ -476,7 +486,7 @@ object SpiDdrMasterCtrl {
 
 
       val dataWrite = Bits(maxBitRate bits)
-      val widthSel = io.config.mod.muxList(U(0), p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate))))
+      val widthSel = io.config.mod.muxListDc( p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       dataWrite.assignDontCare()
       switch(widthSel){
         for((width, widthId) <- widths.zipWithIndex){
@@ -492,19 +502,18 @@ object SpiDdrMasterCtrl {
 
       switch(io.config.mod){
         for(mod <- p.mods){
-          val modIsDdr = mod.writeMapping.exists(_ >= p.spi.dataWidth)
           is(mod.id) {
             when(io.cmd.valid && io.cmd.write){
               mod.writeMapping.map(_ % p.spi.dataWidth).distinct.foreach(i => io.spi.data(i).writeEnable := True)
             }
 
-            when(io.config.fullRate){
+            if(mod.clkRate != 1){
+              val ratio = p.spi.ioRate / mod.clkRate * (if(mod.ddr) 1 else 2)
               for((targetId, sourceId) <- mod.writeMapping.zipWithIndex){
-                io.spi.data(targetId % p.spi.dataWidth).write(targetId / p.spi.dataWidth) := dataWrite(sourceId)
-                if(!modIsDdr) io.spi.data(targetId % p.spi.dataWidth).write(1-targetId / p.spi.dataWidth) := dataWrite(sourceId)
+                io.spi.data(targetId % p.spi.dataWidth).write(targetId / p.spi.dataWidth * ratio, ratio bits) := (default -> dataWrite(sourceId))
               }
-            } otherwise {
-              if(modIsDdr) {
+            } else {
+              if(mod.ddr) {
                 when(!fsm.state) {
                   for ((targetId, sourceId) <- mod.writeMapping.zipWithIndex if targetId < p.spi.dataWidth) {
                     io.spi.data(targetId % p.spi.dataWidth).write := (default -> dataWrite(sourceId))
@@ -529,12 +538,11 @@ object SpiDdrMasterCtrl {
     val inputPhy = new Area{
       def sync[T <: Data](that : T, init : T = null) = Delay(that,2,init=init)
       val mod = sync(io.config.mod)
-      val fullRate = sync(io.config.fullRate)
       val readFill = sync(fsm.readFill, False)
       val readDone = sync(fsm.readDone, False)
       val buffer = Reg(Bits(p.dataWidth - p.mods.map(_.bitrate).min bits))
       val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
-      val widthSel = mod.muxList(U(0),p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate))))
+      val widthSel = mod.muxListDc(p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       val dataWrite, dataRead = Bits(maxBitRate bits)
       val dataReadBuffer = RegNextWhen(Cat(io.spi.data.map(_.read(1))), !sync(fsm.state))
       val dataReadSource = Cat(io.spi.data.map(_.read(0))) ## dataReadBuffer
@@ -543,13 +551,14 @@ object SpiDdrMasterCtrl {
 
       switch(mod){
         for(mod <- p.mods){
-          //        val modIsDdr = mod.writeMapping.exists(_ >= p.spi.dataWidth)
           is(mod.id) {
-            when(fullRate){
+            if(mod.clkRate != 1){
+              assert(mod.clkRate == 2)
+              val ratio = p.spi.ioRate / mod.clkRate
               for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
-                dataRead(targetId) := io.spi.data(sourceId % p.spi.dataWidth).read(1 - sourceId / p.spi.dataWidth)
+                dataRead(targetId) := io.spi.data(sourceId % p.spi.dataWidth).read(((sourceId / p.spi.dataWidth - 1) & (mod.clkRate-1))*ratio)
               }
-            } otherwise {
+            } else {
               for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
                 dataRead(targetId) := dataReadSource(sourceId)
               }

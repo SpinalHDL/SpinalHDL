@@ -29,14 +29,14 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   val readAtRsp = readAtCmd.stage()
 
   val askWrite = (bus.write).allowPruning()
-  val askRead  = (!bus.read).allowPruning()
+  val askRead  = (bus.read).allowPruning()
   val doWrite  = (bus.waitRequestn &&  bus.write).allowPruning()
   val doRead   = (bus.waitRequestn && !bus.read).allowPruning()
 
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload
 
-  readAtCmd.valid := bus.read
+  readAtCmd.valid := doRead
   readAtCmd.payload := 0
 
   def readAddress() : UInt = bus.address

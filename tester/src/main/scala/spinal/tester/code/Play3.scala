@@ -1473,3 +1473,65 @@ object PlayWithResizeLeft extends App{
 
   SpinalVhdl(new TopLevel)
 }
+
+object PlayWithAhbLite3Interconnect extends App{
+
+  import spinal.lib._
+
+  class TopLevel extends Component{
+    val config = AhbLite3Config(32, 32)
+
+    val io = new Bundle{
+      val masters = Vec(slave(AhbLite3(config)), 3)
+      val slaves  = Vec(master(AhbLite3(config)), 3)
+    }
+
+     val customSlave = new DefaultAhbLite3Slave(config)
+    //val dSlave_0 = new DefaultAhbLite3Slave(config)
+    //val dSlave_1 = new DefaultAhbLite3Slave(config)
+
+    val decoder = AhbLite3CrossbarFactory(config)
+      .addSlaves(
+        io.slaves(0) -> SizeMapping(0x000000, 1 kB),
+        io.slaves(1) -> SizeMapping(0x100000, 1 kB),
+        io.slaves(2) -> SizeMapping(0x200000, 1 kB)
+      )
+      .addConnections(
+        io.masters(0) -> List(io.slaves(0)),
+        io.masters(1) -> List(io.slaves(1), io.slaves(2)),
+        io.masters(2) -> List(io.slaves(1), io.slaves(2))
+      )
+      .addGlobalDefaultSlave(customSlave.io)
+      /*.addDefaultSlaves(
+        io.masters(0) -> dSlave_0.io,
+        //  io.masters(1) -> dSlave_1.io,
+        io.masters(2) -> dSlave_1.io
+      )*/
+      .build()
+  }
+
+  SpinalConfig(
+    mode = VHDL
+  ).generate(new TopLevel)
+
+}
+
+object PlayWithAssert extends App{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val a,b = in Bool
+      val res = out Bool
+    }
+
+    assert(io.a & io.b, "Fake assert ")
+
+    io.res := io.a || io.b
+  }
+
+  SpinalConfig(
+    mode = VHDL,
+    noAssert = true
+  ).generate(new TopLevel)
+
+}
