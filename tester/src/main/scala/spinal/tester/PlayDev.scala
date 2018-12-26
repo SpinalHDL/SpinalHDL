@@ -10,7 +10,7 @@ import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.graphic.Rgb
-import spinal.lib.io.{InOutWrapper, TriState}
+import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import sun.nio.cs.ext.MS949
 
@@ -1125,6 +1125,19 @@ object PlayWithIndex extends App {
   }
 
   SpinalVhdl(new MyTopLevel)
+}
+
+
+object PlayTriStateArrayToTriState extends App {
+  class TopLevel extends Component{
+    val gpio = slave(TriStateArray(8 bits))
+    val led = master(TriState(Bool))
+
+    gpio.read.assignDontCare()
+    led <> gpio(2)
+  }
+
+  SpinalVerilog(new TopLevel)
 }
 
 
