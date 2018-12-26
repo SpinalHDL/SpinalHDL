@@ -66,9 +66,11 @@ class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
   var cpuAffinity = 0
-  var cpuCount = 0
+  lazy val cpuCount = {
+    val systemInfo = new oshi.SystemInfo
+    systemInfo.getHardware.getProcessor.getLogicalProcessorCount
+  }
   def newCpuAffinity() : Int = synchronized {
-    if(cpuCount == 0) cpuCount = Runtime.getRuntime.availableProcessors
     val ret = cpuAffinity
     cpuAffinity = (cpuAffinity + 1) % cpuCount
     ret
