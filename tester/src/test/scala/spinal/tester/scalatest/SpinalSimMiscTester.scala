@@ -30,6 +30,29 @@ object SpinalSimMiscTester{
 class SpinalSimMiscTester extends FunSuite {
   var compiled : SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
 
+  test("testForkSensitive"){
+    SimConfig.compile(new Component{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+      result := RegNext(a+b) init(0)
+      
+    }).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+      var counter = 0
+      while(counter < 100){
+        dut.a.randomize()
+        dut.b.randomize()
+        dut.clockDomain.waitSampling()
+        val buffer = (dut.a.toInt + dut.b.toInt) & 0xFF
+        dut.clockDomain.onNextSampling{
+          assert(dut.result.toInt == buffer)
+          counter += 1
+        }
+      }
+    }
+  }
+
+
   test("compile"){
     compiled = SimConfig.withWave.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
   }
