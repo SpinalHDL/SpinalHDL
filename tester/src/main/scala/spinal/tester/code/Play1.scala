@@ -4,23 +4,23 @@ package spinal.tester.code
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
-import _root_.com.sun.xml.internal.messaging.saaj.util.{ByteOutputStream, ByteInputStream}
 import spinal.core._
-import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
+import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4SpecRenamer}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
-import spinal.lib.eda.bench.{Bench, AlteraStdTargets, XilinxStdTargets, Rtl}
-import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadCmd, SblReadRet, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
-import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
+import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DebugExtension, DivExtension, MulExtension}
 import spinal.lib.experimental.MacrosClass
-import spinal.lib.graphic.{RgbConfig, Rgb}
-import spinal.lib.graphic.vga.{VgaCtrl, Vga}
+import spinal.lib.graphic.{Rgb, RgbConfig}
+import spinal.lib.graphic.vga.{Vga, VgaCtrl}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable
@@ -1917,79 +1917,6 @@ object vhd_dirext_play {
 }
 
 
-object vhd_stdio_play {
-
-  def main(args: Array[String]) {
-    import scala.sys.process._
-    import java.io.File
-    // ("ghdl" #> new File("test.txt") !)
-    val in = new ByteOutputStream()
-    val out = new ByteInputStream()
-    val err = new ByteInputStream()
-    //scala.concurrent.SyncVar[java.io.OutputStream];
-    val stopAt = 1000 * 1000
-
-    val array = new Array[Byte](1000)
-    val barrier = new CyclicBarrier(2)
-    //    val io = new ProcessIO(in, out, err)
-    //    //  cmd.write("asd")
-    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
-    (s"ghdl -e --ieee=synopsys vhdl_file" !)
-    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
-    val io = new ProcessIO(
-      in => {
-        for (i <- 0 until stopAt) {
-          // while(cnt != i){}
-          //println("a")
-          in.write(i + "\n" getBytes "UTF-8")
-          in.flush()
-          barrier.await()
-          //Thread.sleep(500)
-
-        }
-        in.close()
-        println("finish")
-      }
-
-
-      ,
-      out => {
-        var cnt = 0
-        var bufferIndex = 0
-        var lastTime = System.nanoTime()
-        while (cnt != stopAt) {
-          if (out.available() != 0) {
-            bufferIndex += out.read(array, bufferIndex, out.available())
-            if (array.slice(0, bufferIndex).contains('\n')) {
-              bufferIndex = 0
-
-              val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
-              assert(i == cnt)
-              barrier.await()
-              cnt += 1
-              if (i % 10000 == 0) {
-                println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
-                lastTime = System.nanoTime()
-              }
-            }
-          }
-        }
-        out.close()
-        //scala.io.Source.fromInputStream(out).getLines.foreach(println)
-      },
-      err => {
-        scala.io.Source.fromInputStream(err).getLines.foreach(println)
-      })
-    process.run(io)
-    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
-    //    p.run(io)
-    //    p.run()
-    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
-    print("DONE")
-  }
-
-}
-
 
 object vhd_stdio_play2 {
   def main(args: Array[String]) {
@@ -2702,16 +2629,36 @@ object PlaySel {
   }
 }
 
+
+object XilinxPatch {
+  def apply[T <: Component](c : T) : T = {
+    //Patch things
+    c.getGroupedIO(true).foreach{
+      case axi : AxiLite4 => AxiLite4SpecRenamer(axi)
+      case axi : Axi4 => Axi4SpecRenamer(axi)
+      case _ =>
+    }
+
+    //Builder pattern return the input argument
+    c
+  }
+}
+
+
 object PlayAxiLite4 {
   class TopLevel extends Component {
     val axiLiteConfig = AxiLite4Config(32, 32)
-    val peon   = slave(AxiLite4(axiLiteConfig))
-    val maitre = master(AxiLite4(axiLiteConfig))
-    peon >> maitre
+
+    val io = new Bundle {
+      val input = slave(AxiLite4(axiLiteConfig))
+      val output = master(AxiLite4(axiLiteConfig))
+    }
+
+    io.input >> io.output
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(XilinxPatch(new TopLevel))
   }
 }
 

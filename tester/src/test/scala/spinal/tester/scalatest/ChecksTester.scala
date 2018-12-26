@@ -31,6 +31,7 @@ object CheckTester{
 class ChecksTester extends FunSuite  {
   import CheckTester._
 
+
   test("literalWidth"){
     val t = SpinalVhdl(new Component{
       val a = B"32'h0"

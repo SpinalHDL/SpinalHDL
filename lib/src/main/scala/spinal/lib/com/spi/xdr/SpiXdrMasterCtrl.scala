@@ -4,13 +4,14 @@ package spinal.lib.com.spi.ddr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.spi.SpiKind
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
 
-case class DdrOutput(rate : Int) extends Bundle with IMasterSlave{
+case class XdrOutput(rate : Int) extends Bundle with IMasterSlave{
   val write = Bits(rate bits)
 
   override def asMaster(): Unit = {
@@ -18,6 +19,7 @@ case class DdrOutput(rate : Int) extends Bundle with IMasterSlave{
   }
 
   def toTriState(): TriState[Bool] ={
+    assert(rate == 2)
     val io = TriState(Bool)
     val clk = ClockDomain.readClockWire
     val writeBuffer = RegNext(write)
@@ -26,7 +28,7 @@ case class DdrOutput(rate : Int) extends Bundle with IMasterSlave{
   }
 }
 
-case class DdrPin(rate : Int) extends Bundle with IMasterSlave{
+case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
   val writeEnable = Bool
   val read,write = Bits(rate bits)
 
@@ -36,12 +38,13 @@ case class DdrPin(rate : Int) extends Bundle with IMasterSlave{
   }
 
   def toTriState(): TriState[Bool] ={
+    assert(rate == 2)
     val io = TriState(Bool)
     val clk = ClockDomain.readClockWire
     io.writeEnable := writeEnable
     val writeBuffer = RegNext(write)
     io.write := (clk ? writeBuffer(0))| writeBuffer(1)
-    def cd(edge : EdgeKind) = ClockDomain.current.clone(config = ClockDomain.current.config.copy(clockEdge = edge))
+    def cd(edge : EdgeKind) = ClockDomain.current.copy(config = ClockDomain.current.config.copy(clockEdge = edge))
     read(0) := cd(RISING)(RegNext(io.read))
     read(1) := cd(FALLING)(RegNext(io.read))
     io
@@ -49,15 +52,15 @@ case class DdrPin(rate : Int) extends Bundle with IMasterSlave{
 }
 
 
-case class SpiDdrParameter(dataWidth : Int,
+case class SpiXdrParameter(dataWidth : Int,
                            ioRate : Int,
                            ssWidth : Int)
 
-case class SpiDdrMaster(p : SpiDdrParameter) extends Bundle with IMasterSlave{
+case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlave{
   import p._
 
-  val sclk = DdrOutput(p.ioRate)
-  val data = Vec(DdrPin(p.ioRate), dataWidth)
+  val sclk = XdrOutput(p.ioRate)
+  val data = Vec(XdrPin(p.ioRate), dataWidth)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 
   override def asMaster(): Unit = {
@@ -68,56 +71,59 @@ case class SpiDdrMaster(p : SpiDdrParameter) extends Bundle with IMasterSlave{
 }
 
 
-object SpiDdrMasterCtrl {
+object SpiXdrMasterCtrl {
   def apply(p : Parameters) = new TopLevel(p)
 
 
 
   def main(args: Array[String]): Unit = {
-    SpinalVerilog(new TopLevel(Parameters(8,12,SpiDdrParameter(dataWidth = 4,ssWidth = 3, ioRate = 1)).addFullDuplex(0)))
+    SpinalVerilog(new TopLevel(Parameters(8,12,SpiXdrParameter(dataWidth = 4,ssWidth = 3, ioRate = 1)).addFullDuplex(0)))
   }
 
 
 
 
-  //  case class ParameterMapping(position : Int, phase : Int)
-  case class Mod(id : Int, clkRate : Int, ddr : Boolean, dataWidth : Int, writeMapping : Seq[Int], readMapping : Seq[Int]){
-    assert(writeMapping.length == readMapping.length)
+  case class WriteMapping(pin : Int, phase : Int, source : Int)
+  case class ReadMapping(pin : Int, phase : Int, target : Int)
+  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping]){
     def bitrate = readMapping.length
   }
   case class Parameters(dataWidth : Int,
                         timerWidth : Int,
-                        spi : SpiDdrParameter,
+                        spi : SpiXdrParameter,
                         mods : ArrayBuffer[Mod] = ArrayBuffer()){
+
+    val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = {
-      mods += Mod(id, rate, ddr, dataWidth, List(0), List(1))
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1)
+    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0): this.type = {
+      assert(isPow2(spi.ioRate))
+      if(rate == 1) {
+        val writeMapping = for (pinId <- (0 until spiWidth);
+                                phaseId <- (0 until spi.ioRate)) yield WriteMapping(pinId, phaseId, pinId)
+
+        val readMapping = for (pinId <- (0 until spiWidth)) yield ReadMapping(pinId + readPinOffset, 0, pinId)
+
+        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping)
+      } else {
+        val pinRate = rate / (if(ddr) 1 else 2)
+        val pinDuration =  spi.ioRate / pinRate
+        val writeMapping = for (pinId <- (0 until spiWidth);
+                                phaseId <- (0 until pinRate);
+                                durationId <- (0 until pinDuration)) yield WriteMapping(pinId, phaseId*pinDuration + durationId, (pinRate - phaseId - 1)*spiWidth + pinId)
+
+        val readMapping = for (pinId <- (0 until spiWidth);
+                               phaseId <- (0 until pinRate)) yield ReadMapping(pinId + readPinOffset, (phaseId*pinDuration-1) & (spi.ioRate-1), (pinRate - phaseId - 1)*spiWidth + pinId)
+        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping)
+      }
       this
     }
-    def addHalfDuplex(id : Int, rate : Int,ddr : Boolean, spiWidth : Int, dataWidth : Int = 8): this.type = {
-      val low = 0 until spiWidth
-      val top = spi.dataWidth until spi.dataWidth + spiWidth
-      if(ddr)
-        mods += Mod(id, rate, ddr, spiWidth, top ++ low, top ++ low)
-      else
-        mods += Mod(id, rate, ddr, spiWidth, low, low) //TODO should it be low high ?
-      this
-    }
-//    def addAllMods(): this.type ={
-//      if(dataWidth >= 2) addFullDuplex(0)
-//      for((spiWidth, o) <- (2 to spi.dataWidth).filter(isPow2(_)).zipWithIndex){
-//        addHalfDuplex(2+o*2, spiWidth, false)
-//        if(spiWidth*2 <= dataWidth) addHalfDuplex(2+o*2 + 1, spiWidth, true)
-//      }
-//      ???
-//      this
-//    }
   }
 
   case class Config(p: Parameters) extends Bundle {
     val kind = SpiKind()
     val sclkToogle = UInt(p.timerWidth bits)
-    val mod = in UInt(log2Up(p.mods.map(_.id).max + 1) bits)
+    val mod = in(p.ModType())
 
     val ss = ifGen(p.ssGen) (new Bundle {
       val activeHigh = Bits(p.spi.ssWidth bits)
@@ -125,6 +131,7 @@ object SpiDdrMasterCtrl {
       val hold = UInt(p.timerWidth bits)
       val disable = UInt(p.timerWidth bits)
     })
+
   }
 
   case class Cmd(p: Parameters) extends Bundle{
@@ -142,10 +149,26 @@ object SpiDdrMasterCtrl {
     val data = Bits(p.dataWidth bits)
   }
 
-
   case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
+                                     cpolInit : Boolean = false,
+                                     cphaInit : Boolean = false,
+                                     modInit : Int = 0,
+                                     sclkToogleInit : Int = 0,
+                                     ssSetupInit : Int = 0,
+                                     ssHoldInit : Int = 0,
+                                     ssDisableInit : Int = 0,
+                                     xipInstructionModInit: Int = 0,
+                                     xipAddressModInit : Int = 0,
+                                     xipDummyModInit : Int = 0,
+                                     xipPayloadModInit : Int = 0,
+                                     xipConfigWritable : Boolean = true,
+                                     xipEnableInit : Boolean = false,
+                                     xipInstructionEnableInit : Boolean = true,
+                                     xipInstructionDataInit : Int = 0x0B,
+                                     xipDummyCountInit : Int = 1,
+                                     xipDummyDataInit : Int = 0xFF,
                                      xip : XipBusParameters = null)
 
   case class XipBusParameters(addressWidth : Int, dataWidth : Int)
@@ -157,16 +180,27 @@ object SpiDdrMasterCtrl {
       master(cmd)
       slave(rsp)
     }
+
+    def fromPipelinedMemoryBus() = {
+      val accessBus = new PipelinedMemoryBus(PipelinedMemoryBusConfig(24,32))
+      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
+      cmd.ready <> accessBus.cmd.ready
+      cmd.payload <> accessBus.cmd.address
+
+      rsp.valid <> accessBus.rsp.valid
+      rsp.payload <> accessBus.rsp.data
+      accessBus
+    }
   }
 
   class TopLevel(val p: Parameters) extends Component {
-    setDefinitionName("SpiDdrMasterCtrl")
+    setDefinitionName("SpiXdrMasterCtrl")
 
     val io = new Bundle {
       val config = in(Config(p))
       val cmd = slave(Stream(Cmd(p)))
       val rsp = master(Flow(Rsp(p)))
-      val spi = master(master(SpiDdrMaster(p.spi)))
+      val spi = master(SpiXdrMaster(p.spi))
 
 
       def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(mapping : MemoryMappingParameters) = new Area {
@@ -218,27 +252,60 @@ object SpiDdrMasterCtrl {
         bus.drive(config.ss.hold,    baseAddress + 0x28)
         bus.drive(config.ss.disable, baseAddress + 0x2C)
 
-
+        if(xipEnableInit){
+          config.kind.cpol init(cpolInit)
+          config.kind.cpha init(cphaInit)
+          config.mod init(modInit)
+          config.sclkToogle init(sclkToogleInit)
+          config.ss.setup init(ssSetupInit)
+          config.ss.hold init(ssHoldInit)
+          config.ss.disable init(ssDisableInit)
+        }
 
         val xip = ifGen(mapping.xip != null) (new Area{
           val xipBus = XipBus(mapping.xip)
-          val enable = RegInit(False)
+          val enable = Reg(Bool)
+          val instructionMod = Reg(p.ModType)
           val instructionEnable = Reg(Bool)
           val instructionData = Reg(Bits(8 bits))
+          val addressMod = Reg(p.ModType)
           val dummyCount = Reg(UInt(4 bits))
           val dummyData = Reg(Bits(8 bits))
+          val dummyMod = Reg(p.ModType)
+          val payloadMod = Reg(p.ModType)
+
+          if(xipEnableInit){
+            enable init(True)
+            instructionMod init(xipInstructionModInit)
+            addressMod init(xipAddressModInit)
+            dummyMod init(xipDummyModInit)
+            payloadMod init(xipPayloadModInit)
+            instructionEnable init(Bool(xipInstructionEnableInit))
+            instructionData init(xipInstructionDataInit)
+            dummyCount init(xipDummyCountInit)
+            dummyData init(xipDummyDataInit)
+          } else {
+            enable init(True)
+          }
 
           bus.write(enable, baseAddress + 0x40)
-          bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
-          bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
-          bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
-          bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
+          if(xipConfigWritable) {
+            bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
+            bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
+            bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
+            bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
+
+            bus.write(instructionMod, baseAddress + 0x48, bitOffset = 0)
+            bus.write(addressMod, baseAddress + 0x48, bitOffset = 8)
+            bus.write(dummyMod, baseAddress + 0x48, bitOffset = 16)
+            bus.write(payloadMod, baseAddress + 0x48, bitOffset = 24)
+          }
 
           val fsm = new StateMachine{
             val doLoad, doPayload, done = False
             val loadedValid = RegInit(False)
             val loadedAddress = Reg(UInt(24 bits))
-            val hit = loadedValid && loadedAddress === xipBus.cmd.payload
+            val hit = loadedValid && loadedAddress === (xipBus.cmd.payload(23 downto 2) @@ U"00")
 
             val IDLE, INSTRUCTION, ADDRESS, DUMMY, PAYLOAD = State()
             setEntry(IDLE)
@@ -254,7 +321,7 @@ object SpiDdrMasterCtrl {
                 cmd.kind := True
                 cmd.data := 1 << cmd.data.high
                 when(cmd.ready) {
-                  loadedAddress := xipBus.cmd.payload
+                  loadedAddress := xipBus.cmd.payload(23 downto 2) @@ U"00"
                   when(instructionEnable) {
                     goto(INSTRUCTION)
                   } otherwise {
@@ -270,6 +337,7 @@ object SpiDdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := instructionData
+              config.mod := instructionMod
               when(cmd.ready) {
                 goto(ADDRESS)
               }
@@ -283,6 +351,7 @@ object SpiDdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := loadedAddress.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
+              config.mod := addressMod
               when(cmd.ready) {
                 counter := counter + 1
                 when(counter === 2) {
@@ -298,6 +367,7 @@ object SpiDdrMasterCtrl {
               cmd.write := True
               cmd.read := False
               cmd.data := dummyData
+              config.mod := dummyMod
               when(cmd.ready) {
                 counter := counter + 1
                 when(counter === dummyCount) {
@@ -309,6 +379,7 @@ object SpiDdrMasterCtrl {
 
             PAYLOAD.onEntry(counter := 0)
             PAYLOAD.whenIsActive{
+              config.mod := payloadMod
               when(doPayload) {
                 cmd.valid := True
                 cmd.kind := False
@@ -384,7 +455,7 @@ object SpiDdrMasterCtrl {
       })
       val sclkToogleHit = counter === io.config.sclkToogle
 
-      counter := counter + 1
+      counter := (counter + 1).resized
       when(reset){
         counter := 0
       }
@@ -404,8 +475,9 @@ object SpiDdrMasterCtrl {
       val state = RegInit(False)
       val counter = Reg(UInt(log2Up(p.dataWidth) bits)) init(0)
       val bitrateMax = p.mods.map(_.bitrate).max
-      val counterPlus = counter +  io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
-      val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1 || m.ddr)))
+      val counterPlus = counter + io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
+      val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
+      val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
       val readFill, readDone = False
       val ss = RegInit(B((1 << p.spi.ssWidth) - 1, p.spi.ssWidth bits))
       io.spi.ss := ss
@@ -417,12 +489,13 @@ object SpiDdrMasterCtrl {
           when(timer.sclkToogleHit){
             state := !state
           }
-          when((timer.sclkToogleHit && state) || fastRate) {
+          when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
             readFill := True
             when(counterPlus === 0){
               io.cmd.ready := True
               readDone := io.cmd.read
+              state := False
             }
           }
         } otherwise {
@@ -460,10 +533,11 @@ object SpiDdrMasterCtrl {
 
     val maxBitRate = p.mods.map(m => m.bitrate).max
     val outputPhy = new Area {
-
       val rates = p.mods.map(m => m.id -> log2Up(m.clkRate))
-      val sclkWrite = Bits(p.spi.ioRate bits)
-      sclkWrite := 0
+
+      //Generate SCLK
+      val sclkWrite = B(0, p.spi.ioRate bits)
+      io.spi.sclk.write := sclkWrite ^ B(sclkWrite.range -> io.config.kind.cpol)
       when(io.cmd.valid && io.cmd.isData){
         switch(io.config.mod) {
           for (m <- p.mods) {
@@ -480,11 +554,7 @@ object SpiDdrMasterCtrl {
       }
 
 
-      io.spi.sclk.write := sclkWrite ^ B(sclkWrite.range -> io.config.kind.cpol)
-
-
-
-
+      //Get raw data to put on MOSI
       val dataWrite = Bits(maxBitRate bits)
       val widthSel = io.config.mod.muxListDc( p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       dataWrite.assignDontCare()
@@ -497,37 +567,17 @@ object SpiDdrMasterCtrl {
       }
 
 
+      //Set MOSI signals
       io.spi.data.foreach(_.writeEnable := False)
       io.spi.data.foreach(_.write.assignDontCare())
-
       switch(io.config.mod){
         for(mod <- p.mods){
           is(mod.id) {
             when(io.cmd.valid && io.cmd.write){
-              mod.writeMapping.map(_ % p.spi.dataWidth).distinct.foreach(i => io.spi.data(i).writeEnable := True)
+              mod.writeMapping.map(_.pin).distinct.foreach(i => io.spi.data(i).writeEnable := True)
             }
-
-            if(mod.clkRate != 1){
-              val ratio = p.spi.ioRate / mod.clkRate * (if(mod.ddr) 1 else 2)
-              for((targetId, sourceId) <- mod.writeMapping.zipWithIndex){
-                io.spi.data(targetId % p.spi.dataWidth).write(targetId / p.spi.dataWidth * ratio, ratio bits) := (default -> dataWrite(sourceId))
-              }
-            } else {
-              if(mod.ddr) {
-                when(!fsm.state) {
-                  for ((targetId, sourceId) <- mod.writeMapping.zipWithIndex if targetId < p.spi.dataWidth) {
-                    io.spi.data(targetId % p.spi.dataWidth).write := (default -> dataWrite(sourceId))
-                  }
-                } otherwise {
-                  for ((targetId, sourceId) <- mod.writeMapping.zipWithIndex if targetId >= p.spi.dataWidth) {
-                    io.spi.data(targetId % p.spi.dataWidth).write := (default -> dataWrite(sourceId))
-                  }
-                }
-              } else {
-                for ((targetId, sourceId) <- mod.writeMapping.zipWithIndex) {
-                  io.spi.data(targetId % p.spi.dataWidth).write := (default -> dataWrite(sourceId))
-                }
-              }
+            for (mapping <- mod.writeMapping) {
+              io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source)
             }
           }
         }
@@ -544,23 +594,19 @@ object SpiDdrMasterCtrl {
       val bufferNext = Bits(p.dataWidth bits).assignDontCare().allowOverride
       val widthSel = mod.muxListDc(p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
       val dataWrite, dataRead = Bits(maxBitRate bits)
-      val dataReadBuffer = RegNextWhen(Cat(io.spi.data.map(_.read(1))), !sync(fsm.state))
-      val dataReadSource = Cat(io.spi.data.map(_.read(0))) ## dataReadBuffer
+      val dataReadBuffer = RegNextWhen(Cat(io.spi.data.map(_.read(0))), !sync(fsm.state))
 
       dataRead.assignDontCare()
 
       switch(mod){
         for(mod <- p.mods){
           is(mod.id) {
-            if(mod.clkRate != 1){
-              assert(mod.clkRate == 2)
-              val ratio = p.spi.ioRate / mod.clkRate
-              for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
-                dataRead(targetId) := io.spi.data(sourceId % p.spi.dataWidth).read(((sourceId / p.spi.dataWidth - 1) & (mod.clkRate-1))*ratio)
-              }
-            } else {
-              for((sourceId, targetId) <- mod.readMapping.zipWithIndex) {
-                dataRead(targetId) := dataReadSource(sourceId)
+            for(mapping <- mod.readMapping) {
+              if(mod.clkRate != 1 || mod.slowDdr) {
+                dataRead(mapping.target) := io.spi.data(mapping.pin).read(mapping.phase)
+              }else{
+                assert(mapping.phase == 0)
+                dataRead(mapping.target) := dataReadBuffer(mapping.pin)
               }
             }
           }

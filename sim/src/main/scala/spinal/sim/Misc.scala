@@ -1,6 +1,5 @@
 package spinal.sim
 
-import scala.util.continuations._
 object SimError{
   def apply(message : String): Unit ={
     System.out.flush()
@@ -12,7 +11,7 @@ object SimError{
 
 
 object Suspendable{
-  def repeat(times : Long)(body : => Unit@suspendable): Unit@suspendable ={
+  def repeat(times : Long)(body : => Unit): Unit ={
     var idx = 0l
     while(idx != times){
       idx += 1
@@ -20,3 +19,12 @@ object Suspendable{
     }
   }
 }
+
+object WaveFormat{
+  object VCD extends WaveFormat("vcd")
+  object FST extends WaveFormat("fst")
+  object DEFAULT extends WaveFormat
+  object NONE extends WaveFormat
+}
+
+class WaveFormat(val ext : String = "???")

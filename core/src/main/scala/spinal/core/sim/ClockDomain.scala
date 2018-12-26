@@ -22,13 +22,14 @@ package spinal.core.sim
 
 import spinal.core.{Bool, ClockDomain, EdgeKind, HIGH, LOW, Polarity}
 import spinal.core.sim._
+import spinal.sim.{SimCallSchedule}
 
 /**
   * Execute a reset sequence
   */
 object DoReset {
 
-  def apply(reset: Bool, duration: Long, activeLevel: Polarity): Unit@suspendable = {
+  def apply(reset: Bool, duration: Long, activeLevel: Polarity): Unit = {
 
     reset #= (activeLevel match {
       case HIGH => true
@@ -50,16 +51,23 @@ object DoReset {
   */
 object DoClock {
 
-  def apply(clk: Bool, period: Long): Unit@suspendable = {
+  def apply(clk: Bool, period: Long): Unit = {
     assert(period >= 2)
 
     var value = clk.toBoolean
 
-    while(true){
+    def t : Unit = {
       value = !value
       clk  #= value
-      sleep(period >> 1)
+      delayed(period >> 1)(t)
     }
+    t
+
+//    while(true){
+//      value = !value
+//      clk  #= value
+//      sleep(period >> 1)
+//    }
   }
 
 }
@@ -81,8 +89,7 @@ object SimSpeedPrinter {
     var cycleCounter = 0l
     var lastTime = System.nanoTime()
 
-    while(true){
-      cd.waitActiveEdge()
+    cd.onActiveEdges{
       cycleCounter += 1
 
       if((cycleCounter & 8191) == 0){

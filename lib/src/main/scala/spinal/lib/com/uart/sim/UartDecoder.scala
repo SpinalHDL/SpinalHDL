@@ -13,7 +13,7 @@ object UartDecoder {
       waitUntil(uartPin.toBoolean == false)
       sleep(baudPeriod/2)
 
-      assert(uartPin.toBoolean == false)
+      if(uartPin.toBoolean != false) println("UART FRAME ERROR")
       sleep(baudPeriod)
 
       var buffer = 0
@@ -23,8 +23,7 @@ object UartDecoder {
         sleep(baudPeriod)
       }
 
-      assert(uartPin.toBoolean == true)
-      print(buffer.toChar)
+      if(uartPin.toBoolean != true) println("UART FRAME ERROR") else  print(buffer.toChar)
     }
   }
 }

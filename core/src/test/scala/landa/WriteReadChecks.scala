@@ -38,25 +38,25 @@ object ReadWriteChecks {
 
   def main(args: Array[String]): Unit = {
     SimConfig.doSim(new Dut){ dut =>
-      def checkBoolean(value : Boolean, that : Bool): Unit@suspendable ={
+      def checkBoolean(value : Boolean, that : Bool): Unit ={
         that #= value
         sleep(1)
         assert(that.toBoolean == value, that.getName() + " " + value)
       }
 
-      def checkInt(value : Int, that : BitVector): Unit@suspendable ={
+      def checkInt(value : Int, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toInt == value, that.getName() + " " + value)
       }
 
-      def checkLong(value : Long, that : BitVector): Unit@suspendable ={
+      def checkLong(value : Long, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toLong == value, that.getName() + " " + value)
       }
 
-      def checkBigInt(value : BigInt, that : BitVector): Unit@suspendable ={
+      def checkBigInt(value : BigInt, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)

@@ -106,7 +106,6 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
  * Spinal configuration for the generation of the RTL 
  */
 case class SpinalConfig( mode                           : SpinalMode = null,
-                         @deprecated debug              : Boolean = false,
                          flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
                          debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
                          keepAll                        : Boolean = false,

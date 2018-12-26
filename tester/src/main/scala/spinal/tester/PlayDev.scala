@@ -3,13 +3,14 @@ package spinal.tester
 import spinal.core._
 import spinal.core.internals._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
-import spinal.lib.io.{InOutWrapper, TriState}
+import spinal.lib.graphic.Rgb
+import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import sun.nio.cs.ext.MS949
 
@@ -129,6 +130,21 @@ object PlayDevPullCkock{
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
+
+object PlayDevSubComponent{
+
+  class TopLevel extends Component {
+    val input = slave(Stream(Rgb(5,6,5)))
+    val output = master(Stream(Rgb(5,6,5)))
+    val fifoA = StreamFifo(Rgb(5,6,5), 8)
+    fifoA.io.push <> input
+    fifoA.io.pop <> output
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVerilog(new TopLevel()).toplevel
   }
 }
 
@@ -1073,7 +1089,7 @@ class AlteraMemTagger extends PhaseNetlist{
     pc.walkDeclarations{
       case mem : Mem[_] =>
         mem.foreachStatements{
-          case s : MemReadSync => s.readUnderWrite
+          case s : MemReadSync =>
           case s : MemReadAsync =>
           case _ =>
         }
@@ -1109,6 +1125,19 @@ object PlayWithIndex extends App {
   }
 
   SpinalVhdl(new MyTopLevel)
+}
+
+
+object PlayTriStateArrayToTriState extends App {
+  class TopLevel extends Component{
+    val gpio = slave(TriStateArray(8 bits))
+    val led = master(TriState(Bool))
+
+    gpio.read.assignDontCare()
+    led <> gpio(2)
+  }
+
+  SpinalVerilog(new TopLevel)
 }
 
 
@@ -1212,6 +1241,36 @@ object PlayInitBoot extends App {
 }
 
 
+object PlayErrorImprovment2 extends App {
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val state = out Bool
+    }
+    val a = RegInit(False)
+    io.state := a
+  }
+
+  val report = SpinalSystemVerilog(new MyTopLevel)
+  println("asd")
+}
+
+object PlayGenerate extends App {
+  class MyTopLevel extends Component{
+    val param = true
+    val data = param generate new Bundle{
+      val x = UInt(8 bits)
+    }
+
+    val logic = param generate new Area{
+      data.x := 0
+    }
+  }
+
+  val report = SpinalVerilog(new MyTopLevel)
+  println("asd")
+}
+
+
 object PlayErrorReportingImprovmenet extends App {
   class MyTopLevel extends Component{
     val a = B"0101010"
@@ -1275,4 +1334,28 @@ object PlayNamingImprovment extends App{
 
 }
 
+object PlayDevBusSlaveFactoryDoubleRead{
+  class TestTopLevelDut extends Component {
 
+    val io = new Bundle {
+      val bus = slave(Apb3(Apb3Config(32, 32, 1, false)))
+      val dummy_r_0 = in Bits (16 bits)
+      val dummy_r_1 = in Bits (16 bits)
+      val dummy_w_0 = out Bits (16 bits)
+      val dummy_w_1 = out Bits (16 bits)
+    }
+
+    val factory = new Apb3SlaveFactory(io.bus, selId = 0)
+
+    factory.read(io.dummy_r_0, 0x03, 0)
+    factory.read(io.dummy_r_1, 0x03, 16)
+    factory.drive(io.dummy_w_0, 0x00, 0)
+    factory.drive(io.dummy_w_1, 0x00, 8)
+
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TestTopLevelDut())
+  }
+}

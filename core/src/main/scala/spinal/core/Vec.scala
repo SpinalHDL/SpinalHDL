@@ -56,11 +56,6 @@ trait VecFactory {
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
 
-  @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = Vec.fill(size)(gen)
-
-  @deprecated //swap data and size
-  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = Vec.tabulate(size)(gen)
 
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 

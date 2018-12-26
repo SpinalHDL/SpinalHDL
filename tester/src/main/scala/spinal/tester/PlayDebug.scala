@@ -149,7 +149,7 @@ object PlayDebug{
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(debug=true).generateVhdl(new TopLevel()).toplevel
+    val toplevel = SpinalConfig().generateVhdl(new TopLevel()).toplevel
 
   }
 }

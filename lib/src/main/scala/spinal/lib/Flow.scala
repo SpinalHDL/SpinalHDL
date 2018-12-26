@@ -72,7 +72,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
-    val next = new Flow(payloadType)
+    val next = new Flow(payloadType).setCompositeName(this, "takeWhen")
     next.valid := this.valid && cond
     next.payload := this.payload
     return next
@@ -125,14 +125,14 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size)
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy")
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size)
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability")
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.availability)
