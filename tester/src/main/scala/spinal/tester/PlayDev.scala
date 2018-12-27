@@ -1458,3 +1458,40 @@ object SimPlayDeltaCycle{
     }
   }
 }
+
+object SimPlayDeltaCycle2{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val clkIn = in Bool()
+    val clkOut = out Bool()
+    val input = in(UInt(8 bits))
+    val output = out(UInt(8 bits))
+    val register = ClockDomain(clock = clkIn, config = ClockDomainConfig(resetKind = BOOT)) (Reg(UInt(8 bits)) init(0))
+    register := input
+    val registerPlusOne = register + 1
+    output := registerPlusOne
+    clkOut := clkIn
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSim{dut =>
+      def printState(header : String) = println(s"$header dut.clkIn=${dut.clkIn.toBoolean} dut.input=${dut.input.toInt} dut.output=${dut.output.toInt} dut.clkOut=${dut.clkOut.toBoolean} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      dut.clkIn #= false
+      dut.input #= 42
+      printState("A")
+      sleep(10)
+      printState("B")
+      dut.clkIn #= true
+      dut.input #= 1
+      printState("C")
+      sleep(0) //A delta cycle is anways forced, but the sleep 0 allow the thread to sneak in that forced delta cycle
+      printState("D")
+      sleep(0) //Let's go for another delta cycle
+      printState("E")
+      sleep(10)
+      printState("F")
+    }
+  }
+}

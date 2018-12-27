@@ -200,6 +200,7 @@ class SimManager(val raw : SimRaw) {
       var forceDeltaCycle = false
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
+      deltaCycle = -1
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
         //Process sensitivities
 
@@ -223,7 +224,11 @@ class SimManager(val raw : SimRaw) {
         time = nextTime
         if (delta != 0) {
           raw.sleep(delta)
+          deltaCycle = 0
+        } else {
+          deltaCycle += 1
         }
+
 
         //Execute pending threads
         var tPtr = threads
@@ -256,16 +261,13 @@ class SimManager(val raw : SimRaw) {
 //          }
         }
 
-
-
         //Execute the threads commands
-        forceDeltaCycle = !commandBuffer.isEmpty
-        if(forceDeltaCycle){
+        if(!commandBuffer.isEmpty){
           commandBuffer.foreach(_())
           commandBuffer.clear()
-          deltaCycle = deltaCycle + 1
+          forceDeltaCycle = true
         } else {
-          deltaCycle = 0
+          forceDeltaCycle = false
         }
       }
       if(retains != 0){
@@ -283,7 +285,6 @@ class SimManager(val raw : SimRaw) {
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
         while(t.isAlive()){Thread.sleep(0)}
       }
-      raw.sleep(1)
       raw.end()
       onEndListeners.foreach(_())
       SimManagerContext.threadLocal.set(null)
