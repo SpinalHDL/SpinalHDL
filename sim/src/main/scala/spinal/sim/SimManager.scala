@@ -200,27 +200,10 @@ class SimManager(val raw : SimRaw) {
       var forceDeltaCycle = false
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
-      deltaCycle = -1
+      deltaCycle = 0
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
-        //Process sensitivities
-
-//        evalNanoTime -= System.nanoTime()
-        deltaCycle += 1
-        var sensitivitiesCount = sensitivities.length
-        var sensitivitiesId = 0
-        while (sensitivitiesId < sensitivitiesCount) {
-          if (!sensitivities(sensitivitiesId).update()) {
-            sensitivitiesCount -= 1
-            sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
-            sensitivities.remove(sensitivitiesCount)
-          } else {
-            sensitivitiesId += 1
-          }
-        }
-//        evalNanoTime += System.nanoTime()
-
         //Sleep until the next activity
-        val nextTime = if(forceDeltaCycle || commandBuffer.nonEmpty) time else threads.time
+        val nextTime = if(forceDeltaCycle) time else threads.time
         val delta = nextTime - time
         time = nextTime
         if (delta != 0) {
@@ -260,13 +243,29 @@ class SimManager(val raw : SimRaw) {
         }
 
         //Execute the threads commands
-        if(!commandBuffer.isEmpty){
+        if(commandBuffer.nonEmpty){
           commandBuffer.foreach(_())
           commandBuffer.clear()
           forceDeltaCycle = true
         } else {
           forceDeltaCycle = false
         }
+
+        //Process sensitivities
+        deltaCycle += 1
+        var sensitivitiesCount = sensitivities.length
+        var sensitivitiesId = 0
+        while (sensitivitiesId < sensitivitiesCount) {
+          if (!sensitivities(sensitivitiesId).update()) {
+            sensitivitiesCount -= 1
+            sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
+            sensitivities.remove(sensitivitiesCount)
+          } else {
+            sensitivitiesId += 1
+          }
+        }
+
+        forceDeltaCycle |= commandBuffer.nonEmpty
       }
       if(retains != 0){
         throw new SimFailure("Simulation ended while there was still some retains")
