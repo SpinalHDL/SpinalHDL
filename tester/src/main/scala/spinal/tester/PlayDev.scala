@@ -1359,3 +1359,50 @@ object PlayDevBusSlaveFactoryDoubleRead{
     config.generateVerilog(new TestTopLevelDut())
   }
 }
+
+
+
+
+object SimAccessSubSignal {
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile(new TopLevel).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}
+
+
+object SimAccessSubSignal2 {
+  import spinal.core.sim._
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0)
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile{
+      val dut = new TopLevel
+      dut.counter.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}

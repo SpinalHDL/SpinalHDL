@@ -33,7 +33,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
 
       //Push data randomly and fill the queueModel with pushed transactions
       dut.io.push.valid #= false
-      dut.clockDomain.onSampling{
+      dut.clockDomain.onSamplings{
         if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
           queueModel.enqueue(dut.io.push.payload.toLong)
         }

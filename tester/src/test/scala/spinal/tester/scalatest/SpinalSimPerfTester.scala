@@ -41,7 +41,7 @@ class SpinalSimPerfTester extends FunSuite {
 
       var model = -1
       var times = 0
-      dut.clockDomain.onSampling{
+      dut.clockDomain.onSamplings{
         assert(dut.io.result.toInt == model || model == -1)
         model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
         dut.io.a #= Random.nextInt(256)

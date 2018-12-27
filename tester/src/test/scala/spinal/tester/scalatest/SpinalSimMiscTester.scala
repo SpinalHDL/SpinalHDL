@@ -35,7 +35,6 @@ class SpinalSimMiscTester extends FunSuite {
       val a,b = in UInt(8 bits)
       val result = out UInt(8 bits)
       result := RegNext(a+b) init(0)
-      
     }).doSim{dut =>
       dut.clockDomain.forkStimulus(10)
       var counter = 0

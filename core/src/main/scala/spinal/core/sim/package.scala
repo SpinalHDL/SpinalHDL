@@ -176,10 +176,10 @@ package object sim {
   /**
     * Add implicit function to Data
     */
-  implicit class SimDataPimper(bt: Data) {
+  implicit class SimDataPimper[T <: Data](bt: T) {
 
     def randomize(): Unit = bt.flattenForeach(_.randomize())
-    def simPublic(): Unit = bt.addTag(SimPublic)
+    def simPublic(): T = bt.addTag(SimPublic)
   }
 
 
@@ -539,7 +539,7 @@ package object sim {
       }
     }
 
-    def onSampling(body: => Unit): Unit ={
+    def onSamplings(body: => Unit): Unit ={
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
