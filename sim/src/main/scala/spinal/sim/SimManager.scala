@@ -86,7 +86,7 @@ class SimManager(val raw : SimRaw) {
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   var commandBuffer = mutable.ArrayBuffer[() => Unit]()
   val onEndListeners = mutable.ArrayBuffer[() => Unit]()
-  var time = 0l
+  var time, deltaCycle = 0l
   private var retains = 0
   var userData : Any = null
   val context = new SimManagerContext()
@@ -263,6 +263,9 @@ class SimManager(val raw : SimRaw) {
         if(forceDeltaCycle){
           commandBuffer.foreach(_())
           commandBuffer.clear()
+          deltaCycle = deltaCycle + 1
+        } else {
+          deltaCycle = 0
         }
       }
       if(retains != 0){

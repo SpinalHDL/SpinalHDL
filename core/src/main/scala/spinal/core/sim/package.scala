@@ -102,6 +102,7 @@ package object sim {
 
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
+  def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
 
   /** Success/Failure simulation */
   def simSuccess(): Unit = throw new SimSuccess()

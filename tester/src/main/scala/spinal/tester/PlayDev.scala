@@ -1406,3 +1406,55 @@ object SimAccessSubSignal2 {
     }
   }
 }
+
+
+
+object SimPlayDeltaCycle{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val a,b = in(UInt(8 bits))
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := a + b
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSimUntilVoid{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      def printState(header : String) = println(s"$header dut.a=${dut.a.toInt} dut.b=${dut.b.toInt} dut.result=${dut.result.toInt} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      //Threadfull code to randomize dut.a
+      fork{
+        while(true){
+          dut.clockDomain.waitSampling()
+          printState("Pre  dut.a.randomize()")
+          dut.a.randomize()
+          printState("Post dut.a.randomize()")
+        }
+      }
+
+      //Threadless code to randomize dut.b, behave the same than the threadfull example above (from a waveform point of view)
+      dut.clockDomain.onSamplings{
+        printState("Pre  dut.b.randomize()")
+        dut.b.randomize()
+        printState("Post dut.b.randomize()")
+      }
+
+      fork{
+        printState("Pre  ref init         ")
+        dut.clockDomain.waitSampling()
+        printState("Post ref init         ")
+        for(i <- 0 to 4){
+          val resultRef = (dut.a.toInt + dut.b.toInt) & 0xFF
+
+          printState("Pre  ref sampling     ")
+          dut.clockDomain.waitSampling()
+          printState("Post ref sampling     ")
+          assert(dut.result.toInt == resultRef)
+        }
+        simSuccess()
+      }
+    }
+  }
+}
