@@ -205,6 +205,7 @@ class SimManager(val raw : SimRaw) {
         //Process sensitivities
 
 //        evalNanoTime -= System.nanoTime()
+        deltaCycle += 1
         var sensitivitiesCount = sensitivities.length
         var sensitivitiesId = 0
         while (sensitivitiesId < sensitivitiesCount) {
@@ -219,16 +220,13 @@ class SimManager(val raw : SimRaw) {
 //        evalNanoTime += System.nanoTime()
 
         //Sleep until the next activity
-        val nextTime = if(forceDeltaCycle) time else threads.time
+        val nextTime = if(forceDeltaCycle || commandBuffer.nonEmpty) time else threads.time
         val delta = nextTime - time
         time = nextTime
         if (delta != 0) {
           raw.sleep(delta)
           deltaCycle = 0
-        } else {
-          deltaCycle += 1
         }
-
 
         //Execute pending threads
         var tPtr = threads
