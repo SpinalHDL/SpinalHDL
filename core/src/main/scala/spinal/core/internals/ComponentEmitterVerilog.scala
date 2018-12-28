@@ -40,7 +40,8 @@ class ComponentEmitterVerilog(
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
-  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
+  spinalConfig                       : SpinalConfig
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -483,7 +484,7 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "$error"
                 case `FAILURE` => "$fatal"
               }
-              if (assertStatement.kind == AssertStatementKind.ASSERT) {
+              if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
                 b ++= s"${tab}$keyword($cond) else begin\n"
                 b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
