@@ -41,7 +41,7 @@ class PhaseContext(val config: SpinalConfig) {
   val duplicationPostfix = if(config.mode == VHDL) "" else "_"
   val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
-  val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+  val enums               = mutable.LinkedHashMap[SpinalEnum,mutable.LinkedHashSet[SpinalEnumEncoding]]()
 
   val reservedKeyWords    = mutable.Set[String](
     //VHDL
@@ -947,13 +947,13 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //Feed enums with encodings
-    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
+    enums.keySet.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
     nodes.foreach(enum => {
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-    //give a name to unamed encodings
-    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
+    //give a name to unamed encodingss
+    val unamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
