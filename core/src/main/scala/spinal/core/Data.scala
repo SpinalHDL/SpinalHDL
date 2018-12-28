@@ -573,6 +573,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null
 
+  private [core] def formalPast(delay : Int) : this.type = {
+    val ret = cloneOf(this)
+    for((to, from) <- (ret.flatten, this.flatten).zipped){
+      to := from.formalPast(delay)
+    }
+    ret.asInstanceOf[this.type]
+  }
+
 }
 
 trait DataWrapper extends Data{

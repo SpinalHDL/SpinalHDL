@@ -1495,3 +1495,45 @@ object SimPlayDeltaCycle2{
     }
   }
 }
+
+
+object DebBugFormal extends App{
+  case class rleBus[T <: Data](val dataType: HardType[T], val depth: Int) extends Bundle {
+    val data = dataType()
+    val lenght = Bits(depth bits)
+  }
+
+  case class rle[T <: Data](val dataType: HardType[T], val depth: Int) extends Component{
+    val io = new Bundle{
+      val input = in(dataType())
+      val enable = in(Bool)
+      val output = master(Flow(rleBus(dataType,depth)))
+    }
+
+    io.output.valid := False
+
+    val input = RegNextWhen(io.input,io.enable) init(dataType().getZero)
+    val isNew = io.input =/= input
+    val count = Reg(UInt(depth bits)) init(0)
+    io.output.lenght := count.asBits
+    io.output.data := input
+
+    when(isNew && io.enable){
+      count := 0
+      io.output.valid := True && io.enable
+    } otherwise {
+      count := count + 1
+    }
+
+    /////////////////////////////
+    // FORMAL
+    /////////////////////////////
+    GenerationFlags.formal{
+      when(True){
+        assert(io.input =/= Formal.past(io.output.data))
+      }
+    }
+  }
+
+  SpinalConfig().includeFormal.generateSystemVerilog(new rle(Rgb(5,6,7),8))
+}
