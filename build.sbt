@@ -53,7 +53,8 @@ lazy val all = (project in file("."))
     defaultSettings,
     name := "SpinalHDL all",
     version := SpinalVersion.all,
-    publishArtifact := false
+    publishArtifact := false,
+    publishLocal := {}
   )
   .aggregate(sim, core, lib, debugger, tester)
 
@@ -118,7 +119,8 @@ lazy val debugger = (project in file("debugger"))
     resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
     libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
     libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
-    publishArtifact := false
+    publishArtifact := false,
+    publishLocal := {}
   )
 .dependsOn(sim, core, lib/*, ip*/)
 
@@ -127,7 +129,8 @@ lazy val demo = (project in file("demo"))
     defaultSettings,
     name := "SpinalHDL Demo",
     version := SpinalVersion.demo,
-    publishArtifact := false
+    publishArtifact := false,
+    publishLocal := {}
   )
   .dependsOn(sim, core, lib, debugger)
 
@@ -140,7 +143,8 @@ lazy val tester = (project in file("tester"))
     baseDirectory in (Test) := file("./"),
 
     libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
-    publishArtifact := false
+    publishArtifact := false,
+    publishLocal := {}
   )
   .dependsOn(sim, core, lib, debugger,demo)
 
