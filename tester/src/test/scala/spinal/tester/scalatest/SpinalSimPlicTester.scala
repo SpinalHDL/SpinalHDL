@@ -62,6 +62,7 @@ class SpinalSimPlicTester extends FunSuite {
     compiled.doSim("test") { dut =>
       println("PLIC SIM start")
       dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkSimSpeedPrinter()
 
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
 
@@ -70,18 +71,18 @@ class SpinalSimPlicTester extends FunSuite {
       dut.clockDomain.waitSampling(10)
       assert(dut.io.targets.toInt === 0)
       var sourcesPending =  Array.fill(sourceCount)(false)
-      Suspendable.repeat(5000){
+      for(repeat <- 0 until 2000){
         val priorities = Array.fill(sourceCount)(Random.nextInt(4))
         val enables = Array.fill(targetCount)(Array.fill(sourceCount)(Random.nextBoolean()))
         val thresholds = Array.fill(targetCount)(Random.nextInt(priorityWidth))
 
-        (0 until sourceCount).suspendable.foreach{ gatewayIdx =>
+        (0 until sourceCount).foreach{ gatewayIdx =>
           val gatewayId = idMapping(gatewayIdx)
           apb.write(gatewayPriorityOffset + 4*gatewayId, priorities(gatewayIdx))
         }
-        (0 until targetCount).suspendable.foreach{ targetId =>
+        (0 until targetCount).foreach{ targetId =>
           apb.write(targetThresholdOffset + (targetId<<targetThresholdShift), thresholds(targetId))
-          (0 until sourceCount).suspendable.foreach{ gatewayIdx =>
+          (0 until sourceCount).foreach{ gatewayIdx =>
             val gatewayId = idMapping(gatewayIdx)
             val mask = 1l << (gatewayId % 32)
             val address = targetEnableOffset + (targetId<<targetEnableShift) + 4*(gatewayId/32)
@@ -89,7 +90,7 @@ class SpinalSimPlicTester extends FunSuite {
             apb.write(address, (old & ~ mask) | (if(enables(targetId)(gatewayIdx)) mask else 0))
           }
         }
-        Suspendable.repeat(Random.nextInt(6)) {
+        for(repeat2 <- 0 until Random.nextInt(6)) {
 //          for (i <- 0 until Random.nextInt(4) * Random.nextInt(4) / 2) {
           val sourceId = Random.nextInt(sourceCount)
           sourcesPending(sourceId) = true
@@ -105,7 +106,7 @@ class SpinalSimPlicTester extends FunSuite {
         var continue = true
         while(continue){
           continue = false
-          (0 until targetCount).suspendable.foreach { targetId =>
+          (0 until targetCount).foreach { targetId =>
             val sourceId = (0 to sourceCount, idMapping).zipped.toSeq.sortBy(_._2).map(_._1).reduceLeft { (l, r) =>
               if (!sourcesPending(r) || !enables(targetId)(r) || (sourcesPending(l) && enables(targetId)(l) && priorities(l) >= priorities(r))) {
                 l
@@ -131,7 +132,7 @@ class SpinalSimPlicTester extends FunSuite {
             val claimResult = apb.read(targetClaimOffset + (targetId << targetClaimShift))
             assert(claimResult == expectedClaim)
             assert(dut.io.targets.toBigInt.testBit(targetId) == interrupt)
-            (0 until sourceCount).suspendable.foreach { sourceId =>
+            (0 until sourceCount).foreach { sourceId =>
               if(Random.nextFloat() < 0.1) {
                 val gatwayId = idMapping(sourceId)
                 val isPending = apb.read(gatewayPendingOffset + (gatwayId << gatewayPendingShift)) != 0
@@ -140,7 +141,7 @@ class SpinalSimPlicTester extends FunSuite {
             }
           }
         }
-        claims.suspendable.foreach(claim => apb.write(targetClaimOffset + (claim._1 << targetClaimShift), claim._2))
+        claims.foreach(claim => apb.write(targetClaimOffset + (claim._1 << targetClaimShift), claim._2))
         dut.clockDomain.waitSampling(10)
       }
       println(simTime())

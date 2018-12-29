@@ -246,7 +246,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     data.assignFromBits(readBits)
   }
 
-  @deprecated
+  @deprecated("Use readSync with the corresponding arguments", "???")
   def readSyncCC(address: UInt, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare): T = {
     readSync(address, enable, readUnderWrite, true)
   }

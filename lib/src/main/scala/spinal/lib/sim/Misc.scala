@@ -73,17 +73,15 @@ class PhaseContext{
 }
 
 object Phase{
-  val threadLocal = new ThreadLocal[PhaseContext]
-  def context = threadLocal.get()
+  def context = SimManagerContext.current.get[PhaseContext](Phase)
   def boot() : Unit = {
     SimManagerContext.current.manager.retain()
-    threadLocal.set(new PhaseContext)
-    SimManagerContext.current.manager.onEnd(threadLocal.remove())
+    SimManagerContext.current.set(this, new PhaseContext)
   }
   def setup: Phase = context.setup
   def stimulus: Phase = context.stimulus
   def flush: Phase = context.flush
   def check:  Phase = context.check
   private def end:  Phase = context.check
-  def isUsed = threadLocal.get() != null
+  def isUsed = SimManagerContext.current.contains(Phase)
 }

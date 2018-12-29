@@ -34,7 +34,7 @@ object CoreSimTest {
         val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
         cd.forkStimulus(period = 10)
 
-        Suspendable.repeat(times = 100) {
+        for(repeat <- 0 to 100) {
           val a, b, c = Random.nextInt(256)
           dut.io.a #= a
           dut.io.b #= b

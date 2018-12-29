@@ -957,7 +957,7 @@ object PlayPatch{
     )
   }
 
-  case class SimpleBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
+  case class PipelinedMemoryBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
     // Check the generic parameters
     val enable     = Bool // Bus can be used when 'enable' is high
     val writeMode  = Bool // High to write data, low to read data
@@ -965,7 +965,7 @@ object PlayPatch{
     val writeData  = Bits(dataWidth bits)
     val readData   = Bits(dataWidth bits)
 
-    def delayed(delayCnt : Int = 1): SimpleBus = {
+    def delayed(delayCnt : Int = 1): PipelinedMemoryBus = {
       require (delayCnt >= 0, "Error: delayCnt has to be at least 0")
       val ret = cloneOf(this)
 
@@ -979,14 +979,14 @@ object PlayPatch{
     }
 
     //Can be used to connect that to this
-    def << (that : SimpleBus): Unit ={
+    def << (that : PipelinedMemoryBus): Unit ={
       that.enable    := this.enable
       that.writeMode := this.writeMode
       that.address   := this.address
       that.writeData := this.writeData
       this.readData  := that.readData
     }
-    def >>(that : SimpleBus): Unit = that << this
+    def >>(that : PipelinedMemoryBus): Unit = that << this
 
     // This is called by 'apply' when the master-object is called with data (-> side effect write/read data)
     override def asMaster() : Unit = {
@@ -1002,9 +1002,9 @@ object PlayPatch{
   }
 
 
-  val cpuBus = SimpleBus(32,32)
+  val cpuBus = PipelinedMemoryBus(32,32)
   val peripheralBus = cpuBus.delayed(4)   //This instance of the bus will be drived by the cpuBus with 4 cycle delay in each directions
-  val somewereElse = SimpleBus(32,32)
+  val somewereElse = PipelinedMemoryBus(32,32)
   somewereElse << peripheralBus
 
   case class HandShake(payloadWidth : Int) extends Bundle with IMasterSlave{

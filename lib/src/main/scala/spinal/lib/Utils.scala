@@ -23,7 +23,6 @@ import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 
 import spinal.core._
-import sun.text.normalizer.UTF16
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -634,7 +633,7 @@ trait DataCarrier[T <: Data] {
   def fire: Bool
   def valid: Bool
   def payload: T
-  @deprecated("Shoud use payload instead of data. Or directly myStream.myBundleElement in place of myStream.data.myBundleElement")
+  @deprecated("Shoud use payload instead of data. Or directly myStream.myBundleElement in place of myStream.data.myBundleElement", "???")
   //def data : T = payload
   def freeRun(): this.type
 }
@@ -735,7 +734,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
-  def orR: Bool = pimped.reduce(_ || _)
+  def orR: Bool = pimped.asBits =/= 0
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
 }

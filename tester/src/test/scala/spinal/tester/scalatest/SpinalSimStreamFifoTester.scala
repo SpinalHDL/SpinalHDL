@@ -33,7 +33,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
 
       //Push data randomly and fill the queueModel with pushed transactions
       dut.io.push.valid #= false
-      dut.clockDomain.onSampling{
+      dut.clockDomain.onSamplings{
         if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
           queueModel.enqueue(dut.io.push.payload.toLong)
         }
@@ -44,7 +44,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
       //Pop data randomly and check that it match with the queueModel
       val popThread = fork{
         dut.io.pop.ready #= true
-        Suspendable.repeat(1000000){
+        for(repeat <- 0 until 10000){
           dut.io.pop.ready.randomize()
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
@@ -100,7 +100,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
         scoreboard.pushDut(payload)
       }
 
-      waitUntil(scoreboard.matches == 400000)
+      waitUntil(scoreboard.matches == 10000)
     }
   }
 
@@ -144,7 +144,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
         scoreboard.pushDut(payload)
       }
 
-      waitUntil(scoreboard.matches == 40000)
+      waitUntil(scoreboard.matches == 10000)
     }
   }
 }

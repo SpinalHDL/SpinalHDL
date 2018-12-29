@@ -71,7 +71,7 @@ class SpinalSimClockDomainTest extends FunSuite {
           val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
           cd.forkStimulus(period = 10)
 
-          Suspendable.repeat(times = 10000) {
+          for(repeat2 <- 0 until 10000) {
             val a, b, c = Random.nextInt(256)
             dut.io.a #= a
             dut.io.b #= b
@@ -117,7 +117,7 @@ class SpinalSimClockDomainTest extends FunSuite {
         .doSim(resetKind.toString) { dut =>
           dut.clockDomain.forkStimulus(period = 10)
           var model = BigInt(0)
-          Suspendable.repeat(times = 10000) {
+          for(repeat <- 0 until 10000) {
             dut.io.a.randomize()
             dut.io.b.randomize()
             dut.io.c.randomize()
@@ -138,7 +138,7 @@ class SpinalSimClockDomainTest extends FunSuite {
       .doSim(new SpinalSimClockDomainTest.SpinalSimClockDomainTest4){ dut =>
         dut.clockDomain.forkStimulus(period = 10)
         var model = 42
-        Suspendable.repeat(times = 10000) {
+        for(repeat <- 0 until 10000) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge();sleep(0)
           if(dut.io.enable.toBoolean) model = (model + 1) & 0xFF
@@ -155,7 +155,7 @@ class SpinalSimClockDomainTest extends FunSuite {
         var model = 42
         dut.io.enable #= false
         dut.clockDomain.waitActiveEdge(1)
-        Suspendable.repeat(times = 10000) {
+        for(repeat <- 0 until 10000) {
           dut.io.enable.randomize()
           val waited = Random.nextInt(10)
           dut.clockDomain.waitActiveEdge(waited); sleep(0)

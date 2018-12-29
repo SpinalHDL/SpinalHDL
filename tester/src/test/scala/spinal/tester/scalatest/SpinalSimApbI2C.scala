@@ -41,7 +41,7 @@ case class DataWrite_i2c(value: Byte, ack: Boolean)   extends I2CEvent {
 
 case class Apb3Sim(dut: Apb3, clockDomain: ClockDomain){
 
-  def initIO(): Unit@suspendable = {
+  def initIO(): Unit = {
     dut.PSEL #= 0
     dut.PADDR.randomize()
     dut.PENABLE.randomize()
@@ -49,7 +49,7 @@ case class Apb3Sim(dut: Apb3, clockDomain: ClockDomain){
     dut.PWDATA.randomize()
   }
 
-  def write(address: BigInt, data: BigInt, sel: BigInt = 1): Unit@suspendable ={
+  def write(address: BigInt, data: BigInt, sel: BigInt = 1): Unit ={
     dut.PADDR   #= address
     dut.PSEL    #= sel
     dut.PENABLE #= false
@@ -62,7 +62,7 @@ case class Apb3Sim(dut: Apb3, clockDomain: ClockDomain){
     initIO()
   }
 
-  def read(address: BigInt, sel: BigInt = 1): BigInt@suspendable = {
+  def read(address: BigInt, sel: BigInt = 1): BigInt = {
     dut.PADDR   #= address
     dut.PSEL    #= sel
     dut.PENABLE #= false
@@ -82,7 +82,7 @@ class OpenDrainSoftConnection(interconnect: OpenDrainInterconnect){
 
   var _value = true
 
-  def write(value: Boolean): Unit@suspendable ={
+  def write(value: Boolean): Unit ={
     if(_value != value){
       _value = value
       interconnect.evaluate()
@@ -125,7 +125,7 @@ class OpenDrainInterconnect(clockDomain: ClockDomain){
     reader #= true
   }
 
-  def evaluate(): Unit @suspendable  = {
+  def evaluate(): Unit   = {
     var newValue = true
 
     for(soft <- softConnections){
@@ -289,7 +289,7 @@ class SpinalSimApbI2C extends FunSuite {
     var bufferCmd = new ListBuffer[I2CEvent]()
 
 
-    def polling_rx_ack(): (Byte, Byte)@suspendable  ={
+    def polling_rx_ack(): (Byte, Byte)  ={
       var status = BigInt(0)
 
       while((status & I2C_RX_VALID) != I2C_RX_VALID){
@@ -302,7 +302,7 @@ class SpinalSimApbI2C extends FunSuite {
       return (dataRead.toByte, (status & 0x01) toByte)
     }
 
-    def stop(): Unit@suspendable = {
+    def stop(): Unit = {
       apb.write(reg.status_master, I2C_MASTER_STOP)
 
       bufferCmd += Stop_i2c()
@@ -314,7 +314,7 @@ class SpinalSimApbI2C extends FunSuite {
       }
     }
 
-    def write(data: Int): Unit@suspendable  ={
+    def write(data: Int): Unit  ={
 
       apb.write(reg.tx_data, data | I2C_TX_VALID | I2C_TX_ENABLE )
 
@@ -325,7 +325,7 @@ class SpinalSimApbI2C extends FunSuite {
       ()
     }
 
-    def read(ack: Boolean): Byte@suspendable = {
+    def read(ack: Boolean): Byte = {
 
       apb.write(reg.rx_data, I2C_RX_LISTEN)
 
@@ -341,7 +341,7 @@ class SpinalSimApbI2C extends FunSuite {
     }
 
 
-    def  start(isRestart: Boolean = false): Unit@suspendable = {
+    def  start(isRestart: Boolean = false): Unit = {
       apb.write(reg.rx_ack, I2C_RX_LISTEN)
       apb.write(reg.status_master, I2C_MASTER_START)
 
@@ -349,7 +349,7 @@ class SpinalSimApbI2C extends FunSuite {
       ()
     }
 
-    def restart(): Unit@suspendable = start(true)
+    def restart(): Unit = start(true)
 
     def checkCmd(slave: ListBuffer[I2CEvent]) = {
       assert(bufferCmd.zip(slave).map(i2c => i2c._1 == i2c._2).reduce( _ && _ ), s"Mismatch between slave and master \nMaster : \n ${bufferCmd.mkString("\n ")} \nSlave : \n ${slave.mkString("\n ")}")

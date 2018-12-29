@@ -68,7 +68,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       nativeRom                   = config.inlineRom,
       nativeRomFilePrefix         = targetPath,
       emitedComponentRef          = emitedComponentRef,
-      emitedRtlSourcesPath        = report.generatedSourcesPaths
+      emitedRtlSourcesPath        = report.generatedSourcesPaths,
+      spinalConfig                = pc.config
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {

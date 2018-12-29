@@ -29,7 +29,7 @@ import spinal.core._
 import spinal.lib._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 
 
@@ -315,7 +315,37 @@ trait BusSlaveFactory extends Area{
   }
 
 
-  @deprecated("Use createReadAndWrite instead")
+  def createReadAndSetOnSet[T <: Data](dataType  : T,
+                                       address   : BigInt,
+                                       bitOffset : Int = 0):T= {
+    readAndSetOnSet(Reg(dataType), address, bitOffset)
+  }
+
+
+  def readAndSetOnSet[T <: Data](that      : T,
+                                 address   : BigInt,
+                                 bitOffset : Int = 0): T = {
+    setOnSet(that, address, bitOffset)
+    read(that, address, bitOffset)
+    that
+  }
+
+
+  def setOnSet[T <: Data](that      : T,
+                          address   : BigInt,
+                          bitOffset : Int = 0): T = {
+    val bitSets = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
+    when(isWriting(address)){
+      for(i <- 0 until widthOf(that)){
+        when(bitSets(i)){
+          that.assignFromBits(B"1", i, 1 bits)
+        }
+      }
+    }
+    that
+  }
+
+  @deprecated("Use createReadAndWrite instead", "???")
   def createReadWrite[T <: Data](dataType  : T,
                                  address   : BigInt,
                                  bitOffset : Int = 0): T = createReadAndWrite(dataType,address,bitOffset)
@@ -626,7 +656,22 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
 
 
   component.addPrePopTask(() => {
+
+    // prohibit reading two signals on the same address / bit
+    for ((address, jobs) <- elementsPerAddress) {
+      val occupied_range = new ListBuffer[Int]
+      for (job <- jobs if job.isInstanceOf[BusSlaveFactoryRead]) {
+        val read_job = job.asInstanceOf[BusSlaveFactoryRead]
+        val current_bits = List.range(read_job.bitOffset, read_job.that.getBitsWidth + read_job.bitOffset, 1)
+        for (bit <- current_bits) {
+          assert(!occupied_range.contains(bit), s"BusSlaveFactory DOUBLE-READ-ERROR : bit $bit of bus address ${address.asInstanceOf[SingleMapping].address} should be written by ${read_job.that.getName()} but it is already occupied by another signal at the same address!")
+          occupied_range.append(bit)
+        }
+      }
+    }
+
     build()
+
     if (elementsOk.size != elements.size) {
       PendingError(s"$this isn't able generate the following requests :\n${(elements --= elementsOk).mkString("\n")} at \n${this.getScalaLocationLong}")
     }

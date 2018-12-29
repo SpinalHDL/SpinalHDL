@@ -45,3 +45,27 @@ object SimSynchronouExample {
     }
   }
 }
+
+
+
+object SimSTimedCall {
+  class Dut extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+    }
+    io.result := (io.a + io.b - io.c)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SimConfig.withWave.doSim(new Dut, "choubaka"){ dut =>
+      dut.io.a #= 5
+      def f = {
+        dut.io.a #= dut.io.a.toInt + 1
+      }
+      delayed(10)(f)
+
+      sleep(1000)
+    }
+  }
+}

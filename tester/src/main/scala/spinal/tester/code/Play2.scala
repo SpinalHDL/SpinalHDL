@@ -570,10 +570,10 @@ object PlayPerf {
 object PlayBug43{
 
   /* Bus configuration  */
-  case class SimpleBusConfig(val dataWidth:Int=32, val addrWidth:Int=32)
+  case class PipelinedMemoryBusConfig(val dataWidth:Int=32, val addrWidth:Int=32)
 
   /* Bus definition */
-  case class SimpleBus(val config:SimpleBusConfig) extends Bundle with IMasterSlave {
+  case class PipelinedMemoryBus(val config:PipelinedMemoryBusConfig) extends Bundle with IMasterSlave {
     val cs   = Bool
     val rwn  = Bool
     val dIn  = Bits(config.dataWidth bits)
@@ -591,17 +591,17 @@ object PlayBug43{
 
 
   /* Factory */
-  trait SimpleBusSlaveFactoryElement
+  trait PipelinedMemoryBusSlaveFactoryElement
 
-  case class SimpleBusSlaveFactoryRead(that : Data, address : BigInt) extends SimpleBusSlaveFactoryElement
-  case class SimpleBusSlaveFactoryWrite(that : Data, address : BigInt) extends SimpleBusSlaveFactoryElement
+  case class PipelinedMemoryBusSlaveFactoryRead(that : Data, address : BigInt) extends PipelinedMemoryBusSlaveFactoryElement
+  case class PipelinedMemoryBusSlaveFactoryWrite(that : Data, address : BigInt) extends PipelinedMemoryBusSlaveFactoryElement
 
-  class SimpleBusSlaveFactory(bus : SimpleBus) extends Area {
+  class PipelinedMemoryBusSlaveFactory(bus : PipelinedMemoryBus) extends Area {
 
-    val elements = ArrayBuffer[SimpleBusSlaveFactoryElement]()
+    val elements = ArrayBuffer[PipelinedMemoryBusSlaveFactoryElement]()
 
-    def read(that : Data, address : BigInt ): Unit = elements += SimpleBusSlaveFactoryRead(that, address)
-    def write(that: Data, address : BigInt ): Unit = elements += SimpleBusSlaveFactoryWrite(that, address)
+    def read(that : Data, address : BigInt ): Unit = elements += PipelinedMemoryBusSlaveFactoryRead(that, address)
+    def write(that: Data, address : BigInt ): Unit = elements += PipelinedMemoryBusSlaveFactoryWrite(that, address)
 
     component.addPrePopTask(() =>{
 
@@ -609,8 +609,8 @@ object PlayBug43{
       when(bus.cs){
         when(bus.rwn){
 
-          for (e <- elements ; if e.isInstanceOf[SimpleBusSlaveFactoryWrite]){
-            val w = e.asInstanceOf[SimpleBusSlaveFactoryWrite]
+          for (e <- elements ; if e.isInstanceOf[PipelinedMemoryBusSlaveFactoryWrite]){
+            val w = e.asInstanceOf[PipelinedMemoryBusSlaveFactoryWrite]
             when(w.address === bus.addr){
               w.that := bus.dIn
             }
@@ -618,8 +618,8 @@ object PlayBug43{
 
         } otherwise {
 
-          for (e <- elements ; if e.isInstanceOf[SimpleBusSlaveFactoryRead]){
-            val w = e.asInstanceOf[SimpleBusSlaveFactoryRead]
+          for (e <- elements ; if e.isInstanceOf[PipelinedMemoryBusSlaveFactoryRead]){
+            val w = e.asInstanceOf[PipelinedMemoryBusSlaveFactoryRead]
             when(w.address === bus.addr){
               bus.dOut := w.that.asBits
             }
@@ -632,14 +632,14 @@ object PlayBug43{
   }
 
   /* Top Level */
-  class PlaySimpleBus(dataWidth : Int, addrWidth:Int ) extends Component{
+  class PlayPipelinedMemoryBus(dataWidth : Int, addrWidth:Int ) extends Component{
 
     val io = new Bundle{
-      val bus    = slave(SimpleBus(SimpleBusConfig(dataWidth,addrWidth)))
+      val bus    = slave(PipelinedMemoryBus(PipelinedMemoryBusConfig(dataWidth,addrWidth)))
       val reg1   = out Bits(dataWidth bits)
     }
 
-    val factory = new SimpleBusSlaveFactory(io.bus)
+    val factory = new PipelinedMemoryBusSlaveFactory(io.bus)
     val reg1 = Reg(Bits( dataWidth bits )) init(0)
 
     factory.read(reg1, 0x00112233l)
@@ -648,7 +648,7 @@ object PlayBug43{
 
   }
   def main(args: Array[String]) {
-    SpinalVhdl(new PlaySimpleBus(32,32))
+    SpinalVhdl(new PlayPipelinedMemoryBus(32,32))
   }
 
 
@@ -2973,7 +2973,7 @@ object PlayMuxDyn{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -2987,7 +2987,7 @@ object PlayMuxDynX{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3000,7 +3000,7 @@ object PlayMuxDyn2{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 object PlayNullPointer{
@@ -3012,7 +3012,7 @@ object PlayNullPointer{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3053,7 +3053,7 @@ object PlayCrossHearchy{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new ComponentY)
+    SpinalConfig().generateVhdl(new ComponentY)
   }
 }
 
@@ -3219,7 +3219,7 @@ object PlaRamMux{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel(J1Config(16,16)))
+    SpinalConfig().generateVhdl(new TopLevel(J1Config(16,16)))
   }
 }
 
@@ -3240,7 +3240,7 @@ object PlayAlu{
 
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 
@@ -3257,7 +3257,7 @@ object PlayDontCareEnum{
     addPrePopTask(() => z := State.B)
   }
   def main(args: Array[String]) {
-    SpinalConfig(debug = true).generateVhdl(new TopLevel)
-    SpinalConfig(debug = true).generateVerilog(new TopLevel)
+    SpinalConfig().generateVhdl(new TopLevel)
+    SpinalConfig().generateVerilog(new TopLevel)
   }
 }

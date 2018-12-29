@@ -30,6 +30,28 @@ object SpinalSimMiscTester{
 class SpinalSimMiscTester extends FunSuite {
   var compiled : SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
 
+  test("testForkSensitive"){
+    SimConfig.compile(new Component{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+      result := RegNext(a+b) init(0)
+    }).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+      var counter = 0
+      while(counter < 100){
+        dut.a.randomize()
+        dut.b.randomize()
+        dut.clockDomain.waitSampling()
+        val buffer = (dut.a.toInt + dut.b.toInt) & 0xFF
+        dut.clockDomain.onNextSampling{
+          assert(dut.result.toInt == buffer)
+          counter += 1
+        }
+      }
+    }
+  }
+
+
   test("compile"){
     compiled = SimConfig.withWave.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
   }
@@ -40,7 +62,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -59,7 +81,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -105,7 +127,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
-        Suspendable.repeat(100) {
+        for(repeat <- 0 until 100) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge()
           if (dut.io.enable.toBoolean) {
@@ -125,7 +147,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(1000){
+      for(repeat <- 0 until 1000){
         dut.io.enable.randomize()
         dut.clockDomain.waitSampling(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -150,7 +172,7 @@ class SpinalSimMiscTester extends FunSuite {
         dut.clockDomain.deassertReset()
         sleep(10)
 
-        Suspendable.repeat(2000) {
+        for(repeat <- 0 until 2000) {
           dut.clockDomain.risingEdge()
           sleep(10)
           dut.clockDomain.fallingEdge()
@@ -161,7 +183,7 @@ class SpinalSimMiscTester extends FunSuite {
 
       fork {
         var counterModel = 0
-        Suspendable.repeat(1000) {
+        for(repeat <- 0 until 1000) {
           dut.io.enable.randomize()
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.io.enable.toBoolean) {
@@ -182,7 +204,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -203,7 +225,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -222,7 +244,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var counterModel = 0
-      Suspendable.repeat(100) {
+      for(repeat <- 0 until 100) {
         dut.io.enable.randomize()
         dut.clockDomain.waitActiveEdge(); sleep(0)
         if (dut.io.enable.toBoolean) {
@@ -249,7 +271,7 @@ class SpinalSimMiscTester extends FunSuite {
       dut.clockDomain.forkStimulus(10)
 
       var modelA, modelB = false
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         dut.src.randomize()
         dut.sel.randomize()
         dut.clockDomain.waitSampling()

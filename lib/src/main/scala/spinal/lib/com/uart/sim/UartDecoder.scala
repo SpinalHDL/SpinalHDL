@@ -13,18 +13,17 @@ object UartDecoder {
       waitUntil(uartPin.toBoolean == false)
       sleep(baudPeriod/2)
 
-      assert(uartPin.toBoolean == false)
+      if(uartPin.toBoolean != false) println("UART FRAME ERROR")
       sleep(baudPeriod)
 
       var buffer = 0
-      (0 to 7).suspendable.foreach{ bitId =>
+      (0 to 7).foreach{ bitId =>
         if(uartPin.toBoolean)
           buffer |= 1 << bitId
         sleep(baudPeriod)
       }
 
-      assert(uartPin.toBoolean == true)
-      print(buffer.toChar)
+      if(uartPin.toBoolean != true) println("UART FRAME ERROR") else  print(buffer.toChar)
     }
   }
 }

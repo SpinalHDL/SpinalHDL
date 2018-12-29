@@ -106,7 +106,6 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
  * Spinal configuration for the generation of the RTL 
  */
 case class SpinalConfig( mode                           : SpinalMode = null,
-                         @deprecated debug              : Boolean = false,
                          flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
                          debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
                          keepAll                        : Boolean = false,
@@ -118,6 +117,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
                          netlistFileName                : String = null,
                          dumpWave                       : DumpWaveConfig = null,
                          globalPrefix                   : String = "",
+                         var formalAsserts              : Boolean = false,
                          anonymSignalPrefix             : String = null,
                          device                         : Device = Device(),
                          inlineRom                      : Boolean = false,
@@ -167,7 +167,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
   def withoutAssert : SpinalConfig = this.copy(noAssert = true)
 
   def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
-  def includeFormal : this.type = {flags += GenerationFlags.formal; this}
+  def includeFormal : this.type = {flags += GenerationFlags.formal; formalAsserts = true; this}
   def includeSimulation : this.type = {flags += GenerationFlags.simulation; this}
 }
 class GenerationFlags {

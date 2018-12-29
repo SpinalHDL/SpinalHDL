@@ -444,3 +444,45 @@ object StateMachineTry3Example {
 }
 
 
+
+
+object StateMachineSimExample {
+  class TopLevel extends Component {
+    val counter = out(Reg(UInt(8 bits)) init (0))
+
+    val fsm = new StateMachine {
+      val stateA, stateB, stateC = new State
+      setEntry(stateA)
+      stateA.whenIsActive {
+        goto(stateB)
+      }
+      stateB.whenIsActive {
+        goto(stateC)
+      }
+      stateC.onEntry(counter := 0)
+      stateC.whenIsActive {
+        counter := counter + 1
+        when(counter === 3) {
+          goto(stateA)
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+    SimConfig.compile{
+      val dut = new TopLevel
+      dut.fsm.stateReg.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 until 20){
+        dut.clockDomain.waitSampling()
+        println(dut.fsm.stateToEnumElement(dut.fsm.stateC) == dut.fsm.stateReg.toEnum)
+      }
+    }
+  }
+}
+

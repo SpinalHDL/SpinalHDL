@@ -92,7 +92,7 @@ object SimManagedTest {
       dut.io.a #= 42l
       sleep(10)
 
-      def doStuff(bt: UInt, value : Long): Long@suspendable = {
+      def doStuff(bt: UInt, value : Long): Long = {
         bt #= value
         sleep(40)
         bt.toLong + 1

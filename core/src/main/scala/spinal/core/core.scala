@@ -356,6 +356,15 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def BooleanPimped[T <: Data](that : Boolean) = new BooleanPimped(that)
 
 
+  //For backward compatibility
+  type IClockDomainFrequency = ClockDomain.ClockFrequency
+  type FixedFrequency = ClockDomain.FixedFrequency
+  type UnknownFrequency = ClockDomain.UnknownFrequency
+  def FixedFrequency(value: HertzNumber) = ClockDomain.FixedFrequency(value)
+  def UnknownFrequency() = ClockDomain.UnknownFrequency()
+
+
+
   /**
     * Assertion
     */

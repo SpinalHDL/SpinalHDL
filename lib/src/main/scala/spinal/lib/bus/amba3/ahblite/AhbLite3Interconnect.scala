@@ -123,7 +123,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
   }
 
   /** Get a list of all masters */
-  def masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSet
+  def masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSeq.distinct
 
 
   /** Build the crossbar */

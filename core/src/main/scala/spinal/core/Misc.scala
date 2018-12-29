@@ -230,12 +230,12 @@ object SpinalMap {
 /**
   * Sel operation
   */
-@deprecated("Use Select instead")
+@deprecated("Use Select instead", "???")
 object Sel{
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def apply[T <: Data](default: T, mappings: (Bool, T)*):T = seq(default,mappings)
 
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def seq[T <: Data](default: T, mappings: Seq[(Bool, T)]): T = {
     val result = cloneOf(default)
     result := default
@@ -274,7 +274,7 @@ object Select{
 }
 
 
-@deprecated("Use cloneable instead")
+@deprecated("Use HardType instead", "???")
 object wrap{
   def apply[T <: Bundle](that : => T) : T = {
     val ret: T = that
@@ -283,7 +283,7 @@ object wrap{
   }
 }
 
-
+@deprecated("Use HardType instead", "???")
 object cloneable {
   def apply[T <: Bundle](that: => T): T = {
     val ret: T = that

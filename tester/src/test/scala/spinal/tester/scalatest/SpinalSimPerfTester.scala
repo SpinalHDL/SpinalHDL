@@ -33,16 +33,44 @@ class SpinalSimPerfTester extends FunSuite {
       .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
   }
 
+
+  test("TestStdSimIntThreadLess") {
+    compiled.doSim { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+      var model = -1
+      var times = 0
+      dut.clockDomain.onSamplings{
+        assert(dut.io.result.toInt == model || model == -1)
+        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+        dut.io.a #= Random.nextInt(256)
+        dut.io.b #= Random.nextInt(256)
+        dut.io.c #= Random.nextInt(256)
+        times += 1
+      }
+
+      for(repeat <- 0 until 4) {
+        val startAt = System.nanoTime
+        waitUntil(times == 2000000)
+        times = 0
+        val endAt = System.nanoTime
+        System.out.println((endAt - startAt) * 1e-6 + " ms")
+      }
+    }
+  }
+
+
   test("TestStdSimInt") {
     compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
       dut.clockDomain.forkSimSpeedPrinter(0.2)
 
       var model = 0
-      Suspendable.repeat(times = 4) {
-        val times = 1000000
+      for(repeat <- 0 until 4) {
+        val times = 200000
         val startAt = System.nanoTime
-        Suspendable.repeat(times = times) {
+        for(repeat2 <- 0 until times) {
           dut.io.a #= Random.nextInt(256)
           dut.io.b #= Random.nextInt(256)
           dut.io.c #= Random.nextInt(256)
@@ -58,16 +86,17 @@ class SpinalSimPerfTester extends FunSuite {
     }
   }
 
+
   test("TestStdSimIntx2") {
     compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
-      Suspendable.repeat(times = 4) {
-        val times = 1000000
+      for(repeat <- 0 until 4) {
+        val times = 80000
         val startAt = System.nanoTime
         val t1, t2 = fork {
           val rand = new Random(1)
-          Suspendable.repeat(times = times) {
+          for(repeat2 <- 0 until times) {
             val a, b, c = rand.nextInt(256)
             dut.io.a #= a
             dut.io.b #= b
@@ -90,10 +119,10 @@ class SpinalSimPerfTester extends FunSuite {
     compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
-      Suspendable.repeat(times = 4) {
-        val times = 1000000
+      for(repeat <- 0 until 4) {
+        val times = 80000
         val startAt = System.nanoTime
-        Suspendable.repeat(times = times) {
+        for(repeat2 <- 0 until times) {
           val a, b, c = BigInt(Random.nextInt(256))
           dut.io.a #= a
           dut.io.b #= b
@@ -112,10 +141,10 @@ class SpinalSimPerfTester extends FunSuite {
     compiled.doSim { dut =>
       dut.clockDomain.forkStimulus(period = 10)
 
-      Suspendable.repeat(times = 4) {
-        val times = 1000000
+      for(repeat <- 0 until 4) {
+        val times = 100000
         val startAt = System.nanoTime
-        Suspendable.repeat(times = times) {
+        for(repeat2 <- 0 until times) {
           sleep(0)
         }
         val endAt = System.nanoTime

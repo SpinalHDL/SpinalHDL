@@ -25,23 +25,21 @@ import spinal.sim._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-import scala.util.continuations.cps
 
 /**
   * Simulation package
   */
 package object sim {
-
-  type suspendable = cps[Unit]
+  type suspendable = spinal.sim.suspendable
 
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
-  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: => T): SimConfigLegacy[T] = {
     new SimConfigLegacy[T](_rtlGen = Some(() => rtl))
   }
 
-  @deprecated("Use SimConfig.???.compile(new Dut) instead")
+  @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
   def SimConfig[T <: Component](rtl: SpinalReport[T]): SimConfigLegacy[T] = {
     new SimConfigLegacy[T](_spinalReport = Some(rtl))
   }
@@ -104,22 +102,45 @@ package object sim {
 
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
+  def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
 
   /** Success/Failure simulation */
   def simSuccess(): Unit = throw new SimSuccess()
   def simFailure(message: String = ""): Unit = throw new SimFailure(message)
 
   /** Sleep / WaitUntil */
-  def sleep(cycles: Long): Unit@suspendable = SimManagerContext.current.thread.sleep(cycles)
-  def waitUntil(cond: => Boolean): Unit@suspendable = SimManagerContext.current.thread.waitUntil(cond)
-
-  /** Fork */
-  def fork(body: => Unit@suspendable): SimThread = SimManagerContext.current.manager.newThread(body)
-  def forkJoin(bodys: (()=> Unit@suspendable)*): Unit@suspendable = {
-    val threads = bodys.map(body => fork(body()))
-    threads.suspendable.foreach(thread => thread.join())
+  def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
+  def waitUntil(cond: => Boolean): Unit = {
+    SimManagerContext.current.thread.waitUntil(cond)
   }
 
+  /** Fork */
+  def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
+  def forkJoin(bodys: (()=> Unit)*): Unit = {
+    val threads = bodys.map(body => fork(body()))
+    threads.foreach(thread => thread.join())
+  }
+
+  def forkSensitive(block : => Unit): Unit ={
+    SimManagerContext.current.manager.sensitivities += new SimManagerSensitive(){
+      override def update(): Boolean = {
+        block
+        true
+      }
+    }
+  }
+
+  def forkSensitiveWhile(block : => Boolean): Unit ={
+    SimManagerContext.current.manager.sensitivities += new SimManagerSensitive(){
+      override def update(): Boolean = {
+        block
+      }
+    }
+  }
+
+  def delayed(delay : Long)(body : => Unit) = {
+    SimManagerContext.current.manager.schedule(delay)(body)
+  }
 
   /**
     * Add implicit function to BaseType for simulation
@@ -156,10 +177,10 @@ package object sim {
   /**
     * Add implicit function to Data
     */
-  implicit class SimDataPimper(bt: Data) {
+  implicit class SimDataPimper[T <: Data](bt: T) {
 
     def randomize(): Unit = bt.flattenForeach(_.randomize())
-    def simPublic(): Unit = bt.addTag(SimPublic)
+    def simPublic(): T = bt.addTag(SimPublic)
   }
 
 
@@ -295,25 +316,10 @@ package object sim {
       manager.setLong(signal, 1)
     }
 
-    def onSampling(body: => Unit): Unit ={
-      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
-      val manager = SimManagerContext.current.manager
-      val signal  = getSignal(manager, cd.clock)
-      var last    = manager.getLong(signal)
 
-      manager.sensitivities += new SimManagerSensitive {
-        override def update() = {
-          val current = manager.getLong(signal)
-          if(last != edgeValue && current == edgeValue && isSamplingEnable)
-            body
-          last = current
-          true
-        }
-      }
-    }
 
-    def waitSampling(): Unit@suspendable = waitSampling(1)
-    def waitSampling(count: Int): Unit@suspendable ={
+    def waitSampling(): Unit = waitSampling(1)
+    def waitSampling(count: Int): Unit ={
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
@@ -329,7 +335,7 @@ package object sim {
       }
     }
 
-    def waitSamplingWhere(condAnd: => Boolean): Unit@suspendable = {
+    def waitSamplingWhere(condAnd: => Boolean): Unit = {
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1l else 0l
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
@@ -343,8 +349,8 @@ package object sim {
       }
     }
 
-    def waitEdge(): Unit@suspendable = waitRisingEdge(1)
-    def waitEdge(count : Int): Unit@suspendable = {
+    def waitEdge(): Unit = waitRisingEdge(1)
+    def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
@@ -359,7 +365,7 @@ package object sim {
       }
     }
 
-    def waitEdgeWhere(condAnd: => Boolean): Unit@suspendable = {
+    def waitEdgeWhere(condAnd: => Boolean): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
@@ -372,8 +378,8 @@ package object sim {
       }
     }
 
-    def waitRisingEdge(): Unit@suspendable = waitRisingEdge(1)
-    def waitRisingEdge(count: Int): Unit@suspendable ={
+    def waitRisingEdge(): Unit = waitRisingEdge(1)
+    def waitRisingEdge(count: Int): Unit ={
       val manager = SimManagerContext.current.manager
       val signal = getSignal(manager, cd.clock)
       var last = manager.getLong(signal)
@@ -387,7 +393,7 @@ package object sim {
       }
     }
 
-    def waitRisingEdgeWhere(condAnd: => Boolean): Unit@suspendable = {
+    def waitRisingEdgeWhere(condAnd: => Boolean): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
@@ -400,8 +406,8 @@ package object sim {
       }
     }
 
-    def waitFallingEdge(): Unit@suspendable = waitFallingEdge(1)
-    def waitFallingEdge(count: Int = 1): Unit@suspendable = {
+    def waitFallingEdge(): Unit = waitFallingEdge(1)
+    def waitFallingEdge(count: Int = 1): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
@@ -416,7 +422,7 @@ package object sim {
       }
     }
 
-    def waitFallingEdgeWhere(condAnd: => Boolean): Unit@suspendable = {
+    def waitFallingEdgeWhere(condAnd: => Boolean): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
       var last    = manager.getLong(signal)
@@ -429,8 +435,8 @@ package object sim {
       }
     }
 
-    def waitActiveEdge(): Unit@suspendable = waitActiveEdge(1)
-    def waitActiveEdge(count: Int = 1): Unit@suspendable = {
+    def waitActiveEdge(): Unit = waitActiveEdge(1)
+    def waitActiveEdge(count: Int = 1): Unit = {
       if (cd.config.clockEdge == spinal.core.RISING) {
         waitRisingEdge(count)
       }else{
@@ -438,7 +444,7 @@ package object sim {
       }
     }
 
-    def waitActiveEdgeWhere(condAnd: => Boolean): Unit@suspendable = {
+    def waitActiveEdgeWhere(condAnd: => Boolean): Unit = {
       if(cd.config.clockEdge == spinal.core.RISING) {
         waitRisingEdgeWhere(condAnd)
       }else {
@@ -446,7 +452,7 @@ package object sim {
       }
     }
 
-    def doStimulus(period: Long): Unit@suspendable = {
+    def doStimulus(period: Long): Unit = {
       assert(period >= 2)
 
       if(cd.hasClockEnableSignal) assertClockEnable()
@@ -492,6 +498,80 @@ package object sim {
 
     def forkStimulus(period: Long) = fork(doStimulus(period))
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) = SimSpeedPrinter(cd, printPeriod)
+
+    def onRisingEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last == 0 && current == 1) block
+        last = current
+      }
+    }
+
+    def onFallingEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last == 1 && current == 0) block
+        last = current
+      }
+    }
+
+    def onActiveEdges(block : => Unit): Unit = {
+      if (cd.config.clockEdge == spinal.core.RISING) {
+        onRisingEdges(block)
+      }else{
+        onFallingEdges(block)
+      }
+    }
+
+    def onEdges(block : => Unit): Unit ={
+      val manager = SimManagerContext.current.manager
+      val signal = getSignal(manager, cd.clock)
+      var last = manager.getInt(signal)
+      forkSensitive{
+        val current = manager.getInt(signal)
+        if(last != current) block
+        last = current
+      }
+    }
+
+    def onSamplings(body: => Unit): Unit ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = SimManagerContext.current.manager
+      val signal  = getSignal(manager, cd.clock)
+      var last    = manager.getInt(signal)
+
+      forkSensitive {
+        val current = manager.getInt(signal)
+        if(last != edgeValue && current == edgeValue && isSamplingEnable)
+          body
+        last = current
+      }
+    }
+
+    def onNextSampling(body: => Unit): Unit ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = SimManagerContext.current.manager
+      val signal  = getSignal(manager, cd.clock)
+      var last    = manager.getInt(signal)
+
+      forkSensitiveWhile {
+        val current = manager.getInt(signal)
+        if(last != edgeValue && current == edgeValue && isSamplingEnable) {
+          body
+          false
+        }else {
+          last = current
+          true
+        }
+      }
+    }
+
 
     def assertReset(): Unit         = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def deassertReset(): Unit       = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH

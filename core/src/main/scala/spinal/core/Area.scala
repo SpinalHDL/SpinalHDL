@@ -100,7 +100,7 @@ object ImplicitArea{
   *
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain/ ClockDomain Documentation]]
   */
-class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
+class ClockingArea(val clockDomain: ClockDomain) extends Area with DelayedInit {
 
   clockDomain.push()
 
@@ -124,7 +124,7 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
   else
     ClockDomain.current.readClockEnableWire | !clockEnable
 
-  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
+  val clockDomain = ClockDomain.current.copy(clockEnable = newClockEnable)
 
   clockDomain.push()
 
@@ -162,7 +162,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit 
     if(cumulative) (ClockDomain.current.readResetWire | reset) else reset
   }
 
-  val clockDomain = ClockDomain.current.clone(reset = newReset)
+  val clockDomain = ClockDomain.current.copy(reset = newReset)
   clockDomain.push()
 
   override def delayedInit(body: => Unit) = {

@@ -156,7 +156,7 @@ class ComponentEmitterVhdl(
     component.children.foreach(sub =>
       sub.getAllIo.foreach(io =>
         if(io.isOutput) {
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+          val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
           declarations ++= s"  signal $name : ${emitDataType(io)};\n"
           referencesOverrides(io) = name
         }
@@ -198,14 +198,14 @@ class ComponentEmitterVhdl(
       if(p.leafStatements.nonEmpty) {
         p.leafStatements.head match {
           case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
-          case _ => emitAsyncronous(p)
+          case _ => emitAsynchronous(p)
         }
       } else {
-        emitAsyncronous(p)
+        emitAsynchronous(p)
       }
     })
 
-    syncGroups.valuesIterator.foreach(emitSyncronous(component, _))
+    syncGroups.valuesIterator.foreach(emitSynchronous(component, _))
 
     component.dslBody.walkStatements{
       case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
@@ -398,7 +398,7 @@ class ComponentEmitterVhdl(
     b ++= s"${tabStr}\n"
   }
 
-  def emitSyncronous(component: Component, group: SyncGroup): Unit = {
+  def emitSynchronous(component: Component, group: SyncGroup): Unit = {
     import group._
 
     def withReset = hasInit
@@ -448,7 +448,7 @@ class ComponentEmitterVhdl(
     referenceSetStop()
   }
 
-  def emitAsyncronous(process: AsyncProcess): Unit = {
+  def emitAsynchronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
         case s: AssignmentStatement =>
