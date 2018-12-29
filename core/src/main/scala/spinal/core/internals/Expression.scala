@@ -276,34 +276,34 @@ object InferWidth
   */
 object Operator {
   object Formal{
-    abstract class Past extends UnaryOperator
+    abstract class Past(val delay : Int) extends UnaryOperator
 
-    class PastBool extends Past {
+    class PastBool(delay : Int) extends Past(delay) {
       override def getTypeObject = TypeBool
       override def opName: String = "$past(Bool)"
     }
 
-    abstract class PastBitvector extends Past with Widthable {
+    abstract class PastBitvector(delay : Int) extends Past(delay) with Widthable {
       override type T = Expression with WidthProvider
       override private[core] def calcWidth = source.getWidth
     }
 
-    class PastBits extends PastBitvector{
+    class PastBits(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeBits
       override def opName: String = "$past(Bits)"
     }
 
-    class PastUInt extends PastBitvector{
+    class PastUInt(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeUInt
       override def opName: String = "$past(UInt)"
     }
 
-    class PastSInt extends PastBitvector{
+    class PastSInt(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeSInt
       override def opName: String = "$past(SInt)"
     }
 
-    class PastEnum(enumDef: SpinalEnum) extends Past with InferableEnumEncodingImpl{
+    class PastEnum(enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override def opName: String = "$past(Enum)"
 

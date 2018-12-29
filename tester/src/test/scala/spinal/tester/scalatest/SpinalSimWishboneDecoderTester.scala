@@ -30,7 +30,7 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
       dut.io.busIN.WE #= false
       dut.io.busIN.ADR #= 0
       dut.io.busIN.DAT_MOSI #= 0
-      dut.io.busOUT.suspendable.foreach{ bus =>
+      dut.io.busOUT.foreach{ bus =>
         if(bus.config.isPipelined) bus.STALL #= false
         bus.ACK #= false
         bus.DAT_MOSI #= 0
@@ -49,18 +49,18 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
         sco.pushRef(WishboneTransaction.sampleAsMaster(bus))
       }
 
-      dut.io.busOUT.suspendable.foreach{busOut =>
+      dut.io.busOUT.foreach{busOut =>
         WishboneMonitor(busOut, dut.clockDomain){ bus =>
         sco.pushDut(WishboneTransaction.sampleAsMaster(bus))
         }
       }
 
-      dut.io.busOUT.suspendable.foreach{busOut =>
+      dut.io.busOUT.foreach{busOut =>
         val driver = new WishboneDriver(busOut, dut.clockDomain)
         driver.slaveSink()
       }
 
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         seq.generateTransactions(1000)
         val ddd = fork{
           while(!seq.isEmpty){

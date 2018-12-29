@@ -40,7 +40,8 @@ class ComponentEmitterVerilog(
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
-  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
+  spinalConfig                       : SpinalConfig
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -483,7 +484,7 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "$error"
                 case `FAILURE` => "$fatal"
               }
-              if (assertStatement.kind == AssertStatementKind.ASSERT) {
+              if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
                 b ++= s"${tab}$keyword($cond) else begin\n"
                 b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
@@ -1323,7 +1324,7 @@ end
     case  e: BitVectorRangedAccessFixed               => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating            => accessBitVectorFloating(e)
 
-    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)})"
+    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
     case e : Operator.Formal.Rise                     => s"$$rise(${emitExpression(e.source)})"
     case e : Operator.Formal.Fall                     => s"$$rise(${emitExpression(e.source)})"
     case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"

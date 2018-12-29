@@ -54,12 +54,12 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
           }
         }
 
-        scala.util.Random.shuffle(slaves).suspendable.foreach{slave =>
+        scala.util.Random.shuffle(slaves).foreach{slave =>
           driver_slave(slave).slaveSink()
           monitor_slave(slave, scoreboard_master)
           (0 to req).foreach{x => sequencer_master.addTransaction(WishboneTransaction(data=id).randomAdressInRange(slave._2))}
         }
-        (1 to sequencer_master.transactions.size).suspendable.foreach{ x =>
+        (1 to sequencer_master.transactions.size).foreach{ x =>
             driver_master.drive(sequencer_master.nextTransaction,true)
             dut.clockDomain.waitSampling()
         }
@@ -70,7 +70,7 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
 
       SimTimeout(dut.io.busMasters.size*dut.io.busSlaves.size*10*100)
 
-      dut.io.busMasters.suspendable.foreach{ bus =>
+      dut.io.busMasters.foreach{ bus =>
         bus.CYC #= false
         bus.STB #= false
         bus.WE #= false
@@ -79,7 +79,7 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
         if(bus.config.useLOCK) bus.LOCK #= false
       }
 
-      dut.io.busSlaves.suspendable.foreach{ bus =>
+      dut.io.busSlaves.foreach{ bus =>
         bus.ACK #= false
         bus.DAT_MISO #= 0
       }
@@ -90,13 +90,13 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
       val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
       val sss = scala.collection.mutable.ListBuffer[((Wishbone,Int),(Wishbone,SizeMapping))]()
 
-      scala.util.Random.shuffle(masters.zipWithIndex).suspendable.foreach{master =>
+      scala.util.Random.shuffle(masters.zipWithIndex).foreach{master =>
         masterPool += fork{
           send_transaction(master._2,master._1,slaves,1)
         }
       }
 
-      masterPool.suspendable.foreach{process => process.join()}
+      masterPool.foreach{process => process.join()}
       dut.clockDomain.waitSampling(10)
     }
   }

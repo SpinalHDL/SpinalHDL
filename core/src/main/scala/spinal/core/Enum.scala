@@ -207,6 +207,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
     this.assignFrom(new EnumPoison(spinalEnum))
     this
   }
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastEnum(this.spinalEnum, delay))
 }
 
 

@@ -1201,13 +1201,13 @@ object PlayAssertFormal extends App {
     }
     GenerationFlags.formal{
       import spinal.core.Formal._
-      val a = past(B"1010")
+//      val a = past(B"1010")
       val b = rise(False)
       val c = fall(False)
       val d = changed(False)
       val f = stable(False)
       val g = initstate()
-      assume(!initstate() && changed(True))
+      assume(!initstate() && changed(True) && past(B"1010",4) === 0)
     }
 
   }
@@ -1358,4 +1358,182 @@ object PlayDevBusSlaveFactoryDoubleRead{
     val config = SpinalConfig()
     config.generateVerilog(new TestTopLevelDut())
   }
+}
+
+
+
+
+object SimAccessSubSignal {
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile(new TopLevel).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}
+
+
+object SimAccessSubSignal2 {
+  import spinal.core.sim._
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0)
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile{
+      val dut = new TopLevel
+      dut.counter.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}
+
+
+
+object SimPlayDeltaCycle{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val a,b = in(UInt(8 bits))
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := a + b
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSimUntilVoid{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      def printState(header : String) = println(s"$header dut.a=${dut.a.toInt} dut.b=${dut.b.toInt} dut.result=${dut.result.toInt} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      //Threadfull code to randomize dut.a
+      fork{
+        while(true){
+          dut.clockDomain.waitSampling()
+          printState("Pre  dut.a.randomize()")
+          dut.a.randomize()
+          printState("Post dut.a.randomize()")
+        }
+      }
+
+      //Threadless code to randomize dut.b, behave the same than the threadfull example above (from a waveform point of view)
+      dut.clockDomain.onSamplings{
+        printState("Pre  dut.b.randomize()")
+        dut.b.randomize()
+        printState("Post dut.b.randomize()")
+      }
+
+      fork{
+        printState("Pre  ref init         ")
+        dut.clockDomain.waitSampling()
+        printState("Post ref init         ")
+        for(i <- 0 to 4){
+          val resultRef = (dut.a.toInt + dut.b.toInt) & 0xFF
+
+          printState("Pre  ref sampling     ")
+          dut.clockDomain.waitSampling()
+          printState("Post ref sampling     ")
+          assert(dut.result.toInt == resultRef)
+        }
+        simSuccess()
+      }
+    }
+  }
+}
+
+object SimPlayDeltaCycle2{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val clkIn = in Bool()
+    val clkOut = out Bool()
+    val input = in(UInt(8 bits))
+    val output = out(UInt(8 bits))
+    val register = ClockDomain(clock = clkIn, config = ClockDomainConfig(resetKind = BOOT)) (Reg(UInt(8 bits)) init(0))
+    register := input
+    val registerPlusOne = register + 1
+    output := registerPlusOne
+    clkOut := clkIn
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSim{dut =>
+      def printState(header : String) = println(s"$header dut.clkIn=${dut.clkIn.toBoolean} dut.input=${dut.input.toInt} dut.output=${dut.output.toInt} dut.clkOut=${dut.clkOut.toBoolean} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      dut.clkIn #= false
+      dut.input #= 42
+      printState("A")
+      sleep(10)
+      printState("B")
+      dut.clkIn #= true
+      dut.input #= 1
+      printState("C")
+      sleep(0) //A delta cycle is anways forced, but the sleep 0 allow the thread to sneak in that forced delta cycle
+      printState("D")
+      sleep(0) //Let's go for another delta cycle
+      printState("E")
+      sleep(10)
+      printState("F")
+    }
+  }
+}
+
+
+object DebBugFormal extends App{
+  case class rleBus[T <: Data](val dataType: HardType[T], val depth: Int) extends Bundle {
+    val data = dataType()
+    val lenght = Bits(depth bits)
+  }
+
+  case class rle[T <: Data](val dataType: HardType[T], val depth: Int) extends Component{
+    val io = new Bundle{
+      val input = in(dataType())
+      val enable = in(Bool)
+      val output = master(Flow(rleBus(dataType,depth)))
+    }
+
+    io.output.valid := False
+
+    val input = RegNextWhen(io.input,io.enable) init(dataType().getZero)
+    val isNew = io.input =/= input
+    val count = Reg(UInt(depth bits)) init(0)
+    io.output.lenght := count.asBits
+    io.output.data := input
+
+    when(isNew && io.enable){
+      count := 0
+      io.output.valid := True && io.enable
+    } otherwise {
+      count := count + 1
+    }
+
+    /////////////////////////////
+    // FORMAL
+    /////////////////////////////
+    GenerationFlags.formal{
+      when(True){
+        assert(io.input =/= Formal.past(io.output.data))
+      }
+    }
+  }
+
+  SpinalConfig().includeFormal.generateSystemVerilog(new rle(Rgb(5,6,7),8))
 }

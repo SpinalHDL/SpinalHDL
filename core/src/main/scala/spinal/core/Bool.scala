@@ -253,6 +253,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def =/=(that: MaskedBoolean): Bool = that =/= this
 
   def init(value : Boolean) : Bool = this.init(Bool(value))
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBool(delay))
 }
 
 /**

@@ -66,9 +66,11 @@ class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
   var cpuAffinity = 0
-  var cpuCount = 0
+  lazy val cpuCount = {
+    val systemInfo = new oshi.SystemInfo
+    systemInfo.getHardware.getProcessor.getLogicalProcessorCount
+  }
   def newCpuAffinity() : Int = synchronized {
-    if(cpuCount == 0) cpuCount = Runtime.getRuntime.availableProcessors
     val ret = cpuAffinity
     cpuAffinity = (cpuAffinity + 1) % cpuCount
     ret
@@ -84,7 +86,7 @@ class SimManager(val raw : SimRaw) {
   val sensitivities = mutable.ArrayBuffer[SimManagerSensitive]()
   var commandBuffer = mutable.ArrayBuffer[() => Unit]()
   val onEndListeners = mutable.ArrayBuffer[() => Unit]()
-  var time = 0l
+  var time, deltaCycle = 0l
   private var retains = 0
   var userData : Any = null
   val context = new SimManagerContext()
@@ -198,29 +200,15 @@ class SimManager(val raw : SimRaw) {
       var forceDeltaCycle = false
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
+      deltaCycle = 0
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
-        //Process sensitivities
-
-//        evalNanoTime -= System.nanoTime()
-        var sensitivitiesCount = sensitivities.length
-        var sensitivitiesId = 0
-        while (sensitivitiesId < sensitivitiesCount) {
-          if (!sensitivities(sensitivitiesId).update()) {
-            sensitivitiesCount -= 1
-            sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
-            sensitivities.remove(sensitivitiesCount)
-          } else {
-            sensitivitiesId += 1
-          }
-        }
-//        evalNanoTime += System.nanoTime()
-
         //Sleep until the next activity
         val nextTime = if(forceDeltaCycle) time else threads.time
         val delta = nextTime - time
         time = nextTime
         if (delta != 0) {
           raw.sleep(delta)
+          deltaCycle = 0
         }
 
         //Execute pending threads
@@ -254,14 +242,30 @@ class SimManager(val raw : SimRaw) {
 //          }
         }
 
-
-
         //Execute the threads commands
-        forceDeltaCycle = !commandBuffer.isEmpty
-        if(forceDeltaCycle){
+        if(commandBuffer.nonEmpty){
           commandBuffer.foreach(_())
           commandBuffer.clear()
+          forceDeltaCycle = true
+        } else {
+          forceDeltaCycle = false
         }
+
+        //Process sensitivities
+        deltaCycle += 1
+        var sensitivitiesCount = sensitivities.length
+        var sensitivitiesId = 0
+        while (sensitivitiesId < sensitivitiesCount) {
+          if (!sensitivities(sensitivitiesId).update()) {
+            sensitivitiesCount -= 1
+            sensitivities(sensitivitiesId) = sensitivities(sensitivitiesCount)
+            sensitivities.remove(sensitivitiesCount)
+          } else {
+            sensitivitiesId += 1
+          }
+        }
+
+        forceDeltaCycle |= commandBuffer.nonEmpty
       }
       if(retains != 0){
         throw new SimFailure("Simulation ended while there was still some retains")
@@ -278,7 +282,6 @@ class SimManager(val raw : SimRaw) {
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){
         while(t.isAlive()){Thread.sleep(0)}
       }
-      raw.sleep(1)
       raw.end()
       onEndListeners.foreach(_())
       SimManagerContext.threadLocal.set(null)

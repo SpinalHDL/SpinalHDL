@@ -58,7 +58,7 @@ class SpinalSimAccessSubComponents extends FunSuite{
 
   test("simulate"){
     compiled.doSim{ dut =>
-      Suspendable.repeat(1000) {
+      for(repeat <- 0 until 1000) {
         dut.io.a.randomize()
         dut.io.b.randomize()
         sleep(1)

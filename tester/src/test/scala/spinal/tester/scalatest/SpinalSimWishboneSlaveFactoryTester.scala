@@ -45,7 +45,7 @@ class SpinalSimWishboneSlaveFactoryTester extends FunSuite{
       //     scoreboard.pushDut(WishboneTransaction.sampleAsMaster(bus))
       // }
 
-      Suspendable.repeat(1000){
+      for(repeat <- 0 until 1000){
         driver.drive(for(x <- 1 to 10) yield WishboneTransaction(address=10).randomizeData(dut.io.bus.config.dataWidth),true)
         dut.clockDomain.waitSampling(10)
         driver.drive(for(x <- 1 to 10) yield WishboneTransaction(address=10),false)

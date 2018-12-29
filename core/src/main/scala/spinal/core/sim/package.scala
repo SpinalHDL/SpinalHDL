@@ -102,6 +102,7 @@ package object sim {
 
   /** Return the current simulation time */
   def simTime(): Long = SimManagerContext.current.manager.time
+  def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
 
   /** Success/Failure simulation */
   def simSuccess(): Unit = throw new SimSuccess()
@@ -117,7 +118,7 @@ package object sim {
   def fork(body: => Unit): SimThread = SimManagerContext.current.manager.newThread(body)
   def forkJoin(bodys: (()=> Unit)*): Unit = {
     val threads = bodys.map(body => fork(body()))
-    threads.suspendable.foreach(thread => thread.join())
+    threads.foreach(thread => thread.join())
   }
 
   def forkSensitive(block : => Unit): Unit ={
@@ -129,7 +130,7 @@ package object sim {
     }
   }
 
-  def forkSensitiveWithBreak(block : => Boolean): Unit ={
+  def forkSensitiveWhile(block : => Boolean): Unit ={
     SimManagerContext.current.manager.sensitivities += new SimManagerSensitive(){
       override def update(): Boolean = {
         block
@@ -176,10 +177,10 @@ package object sim {
   /**
     * Add implicit function to Data
     */
-  implicit class SimDataPimper(bt: Data) {
+  implicit class SimDataPimper[T <: Data](bt: T) {
 
     def randomize(): Unit = bt.flattenForeach(_.randomize())
-    def simPublic(): Unit = bt.addTag(SimPublic)
+    def simPublic(): T = bt.addTag(SimPublic)
   }
 
 
@@ -539,7 +540,7 @@ package object sim {
       }
     }
 
-    def onSampling(body: => Unit): Unit ={
+    def onSamplings(body: => Unit): Unit ={
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
@@ -552,6 +553,25 @@ package object sim {
         last = current
       }
     }
+
+    def onNextSampling(body: => Unit): Unit ={
+      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
+      val manager = SimManagerContext.current.manager
+      val signal  = getSignal(manager, cd.clock)
+      var last    = manager.getInt(signal)
+
+      forkSensitiveWhile {
+        val current = manager.getInt(signal)
+        if(last != edgeValue && current == edgeValue && isSamplingEnable) {
+          body
+          false
+        }else {
+          last = current
+          true
+        }
+      }
+    }
+
 
     def assertReset(): Unit         = resetSim #= cd.config.resetActiveLevel == spinal.core.HIGH
     def deassertReset(): Unit       = resetSim #= cd.config.resetActiveLevel != spinal.core.HIGH

@@ -96,10 +96,8 @@ class SpinalSimSpiXdrMaster extends FunSuite {
 
           if(read) rspScoreboard.pushRef(readData)
           val spiThread = fork{
-            var beat = 0
-            Suspendable.repeat(mod.dataWidth/mod.bitrate){
-              var counter = 0
-              Suspendable.repeat(if (mod.clkRate == 1) (sclkToogle+1) * (if(mod.slowDdr) 1 else 2) else 1) {
+            for(beat <- 0 until mod.dataWidth/mod.bitrate){
+              for(counter <- 0 until (if (mod.clkRate == 1) (sclkToogle+1) * (if(mod.slowDdr) 1 else 2) else 1)) {
                 dut.clockDomain.waitSampling()
                 if(mod.clkRate != 1){
                   assert(dut.io.spi.sclk.write.toInt == ((0 until dut.p.spi.ioRate).filter(i => i/(dut.p.spi.ioRate/mod.clkRate) % 2 == 1).map(1 << _).reduce(_ | _) ^ (if(cpol ^ cpha) (1 << dut.p.spi.ioRate)-1 else 0)))
@@ -120,15 +118,13 @@ class SpinalSimSpiXdrMaster extends FunSuite {
                   assert(dut.io.spi.data(m.pin).writeEnable.toBoolean == write)
                   assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beatBuffer + 1)*mod.bitrate) & 1))
                 }
-                counter += 1
               }
-              beat += 1
             }
           }
 
           dut.clockDomain.waitSamplingWhere(dut.io.cmd.ready.toBoolean)
           dut.io.cmd.valid #= false
-          Suspendable.repeat(Random.nextInt(4)){
+          for(repeat <- 0 until Random.nextInt(4)){
             dut.clockDomain.waitSampling()
             assert(dut.io.spi.sclk.write.toInt == (if(cpol) 3 else 0))
             dut.io.spi.data.foreach(data => assert(data.writeEnable.toBoolean == false))

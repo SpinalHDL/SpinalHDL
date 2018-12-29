@@ -87,6 +87,7 @@ case class WishboneInterconFactory(){
     *   iBus   -> List(ram.io.buses(1), slowBus),
     *   slowBus-> List(peripherals.io.bus, flashXip.io.bus)
     * )
+    * }}}
     */
   def addMasters(specs : (Wishbone,Seq[Wishbone])*) : this.type = {
     specs.foreach(spec => addMaster(spec._1,spec._2))

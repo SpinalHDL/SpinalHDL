@@ -26,7 +26,7 @@ class WishboneMonitor(bus: Wishbone, clockdomain: ClockDomain){
   fork{
     while(true){
       clockdomain.waitSamplingWhere(busStatus.isAck)
-      callbacks.suspendable.foreach{_(bus)}
+      callbacks.foreach{_(bus)}
     }
   }
 }
