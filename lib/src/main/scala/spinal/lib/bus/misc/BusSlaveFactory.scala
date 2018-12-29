@@ -316,8 +316,8 @@ trait BusSlaveFactory extends Area{
 
 
   def readAndSetOnSet[T <: Data](that      : T,
-                                   address   : BigInt,
-                                   bitOffset : Int = 0): T = {
+                                 address   : BigInt,
+                                 bitOffset : Int = 0): T = {
     setOnSet(that, address, bitOffset)
     read(that, address, bitOffset)
     that
