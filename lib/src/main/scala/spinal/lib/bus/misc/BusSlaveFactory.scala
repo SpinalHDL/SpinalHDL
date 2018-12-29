@@ -315,6 +315,13 @@ trait BusSlaveFactory extends Area{
   }
 
 
+  def createReadAndSetOnSet[T <: Data](dataType  : T,
+                                       address   : BigInt,
+                                       bitOffset : Int = 0):T= {
+    readAndSetOnSet(Reg(dataType), address, bitOffset)
+  }
+
+
   def readAndSetOnSet[T <: Data](that      : T,
                                  address   : BigInt,
                                  bitOffset : Int = 0): T = {
