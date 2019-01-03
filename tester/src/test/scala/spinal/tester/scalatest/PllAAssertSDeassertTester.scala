@@ -2,7 +2,6 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib.{ResetCtrl, CounterFreeRun, Counter}
-import spinal.lib.com.uart._
 
 
 

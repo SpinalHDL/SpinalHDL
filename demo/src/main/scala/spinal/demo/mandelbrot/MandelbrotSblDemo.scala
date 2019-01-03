@@ -6,7 +6,8 @@ import java.awt.Color
 import spinal.core._
 import spinal.lib._
 import spinal.lib.experimental.bus.sbl._
-import spinal.lib.com.uart._
+import spinal.lib.peripheral.uart.{Uart, UartParameter}
+import spinal.lib.peripheral.uart.controller.UartController
 import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga._
 
@@ -27,11 +28,11 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
   }
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
-      val ctrl = new UartCtrl()
-      ctrl.io.config.clockDivider := BigInt((coreClk.frequency.getValue / 57.6e3 / 8).toLong)
-      ctrl.io.config.frame.dataLength := 7
-      ctrl.io.config.frame.parity := UartParityType.NONE
-      ctrl.io.config.frame.stop := UartStopType.ONE
+      val ctrl = new UartController(UartParameter.default())
+//      ctrl.io.config.clockDivider := BigInt((coreClk.frequency.getValue / 57.6e3 / 8).toLong)
+//      ctrl.io.config.frame.dataLength := 7
+//      ctrl.io.config.frame.parity := UartParityType.NONE
+//      ctrl.io.config.frame.stop := UartStopType.ONE
       ctrl.io.uart <> io.uart
       
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()

@@ -33,10 +33,10 @@ def sendRandomByte(dut, queueTx, queueRx):
 @cocotb.coroutine
 def sendRandomPackets(dut, queueTx, queueRx):
     dut.io_uart_write_valid <= 0
-    dut.io_uart_config_frame_dataLength <= 7;
-    dut.io_uart_config_frame_stop <= UartStopType_ONE;
-    dut.io_uart_config_frame_parity <= UartParityType_EVEN;
-    dut.io_uart_config_clockDivider <= 2;
+    dut.io_uart_storage_frame_dataLength <= 7;
+    dut.io_uart_storage_frame_stop <= UartStopType_ONE;
+    dut.io_uart_storage_frame_parity <= UartParityType_EVEN;
+    dut.io_uart_storage_clockDivider <= 2;
 
     while True:
         yield RisingEdge(dut.clk)
@@ -77,25 +77,25 @@ def checkTx(dut,queue):
     dutTx = dut.io_uart_uart_txd
     while True:
         yield FallingEdge(dutTx)
-        baudCycles = (int(dut.io_uart_config_clockDivider)+1)*8
+        baudCycles = (int(dut.io_uart_storage_clockDivider)+1)*8
         assert not queue.empty()
         data = queue.get()
         yield checkPin(0,baudCycles,dutTx,dut.clk)
 
-        if int(dut.io_uart_config_frame_parity) == UartParityType_EVEN:
+        if int(dut.io_uart_storage_frame_parity) == UartParityType_EVEN:
           parity = 0
         else:
           parity = 1
 
-        for i in range(0,int(dut.io_uart_config_frame_dataLength)+1):
+        for i in range(0,int(dut.io_uart_storage_frame_dataLength)+1):
             value = (data >> i) & 1
             parity ^= value
             yield checkPin(value, baudCycles, dutTx, dut.clk)
 
-        if int(dut.io_uart_config_frame_parity) != UartParityType_NONE:
+        if int(dut.io_uart_storage_frame_parity) != UartParityType_NONE:
             yield checkPin(parity, baudCycles, dutTx, dut.clk)
 
-        for i in range(0, int(dut.io_uart_config_frame_stop) + 1):
+        for i in range(0, int(dut.io_uart_storage_frame_stop) + 1):
             yield checkPin(1, baudCycles, dutTx, dut.clk)
 
 

@@ -3,7 +3,6 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.lib.{Delay, LatencyAnalysis}
-import spinal.lib.com.uart._
 import spinal.lib.math.SIntMath
 import spinal.tester.scalatest.FixedPointTester.FixedPointTester
 

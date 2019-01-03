@@ -2,7 +2,9 @@ package spinal.tester.code
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.uart._
+import spinal.lib.peripheral.uart.{Uart, UartParameter}
+import spinal.lib.peripheral.uart.controller.UartController
+import spinal.lib.peripheral.uart.controller.UartControllerIo
 
 object SpinalLibTest {
 
@@ -48,8 +50,8 @@ object SpinalLibTest {
 
       //val arbiter = new StreamArbiterIO(new BundleA,4)
 
-      val uart = new UartCtrlIo(UartCtrlGenerics())
-      val uartX = new UartCtrlIo(UartCtrlGenerics())
+      val uart = new UartControllerIo(UartParameter.default())
+      val uartX = new UartControllerIo(UartParameter.default())
 
      // val fifo = new StreamFifoIo(Bits(36 bit),256)
     }
@@ -57,10 +59,10 @@ object SpinalLibTest {
     /*val fifo = new StreamFifo(Bits(36 bit),256)
     fifo.io <> io.fifo*/
 
-    val uartCtrl = new UartCtrl()
+    val uartCtrl = new UartController(UartParameter.default())
     io.uart <> uartCtrl.io
 
-    val uartCtrlX = new UartCtrl()
+    val uartCtrlX = new UartController(UartParameter.default())
     io.uartX <> uartCtrlX.io
 
 

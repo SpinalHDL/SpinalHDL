@@ -4,7 +4,7 @@ import org.scalatest.{Stepwise, Sequential, Suites}
 import spinal.core._
 import spinal.lib._
 import spinal.lib.com.jtag.Jtag
-import spinal.lib.com.uart.Uart
+import spinal.lib.peripheral.uart.Uart
 import spinal.lib.io.TriStateArray
 import spinal.lib.memory.sdram.{IS42x320D, SdramInterface}
 import spinal.lib.{master, slave}

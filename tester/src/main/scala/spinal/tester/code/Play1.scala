@@ -14,13 +14,15 @@ import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadCmd, SblReadRet, SblWriteCmd}
-import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DebugExtension, DivExtension, MulExtension}
 import spinal.lib.experimental.MacrosClass
 import spinal.lib.graphic.{Rgb, RgbConfig}
 import spinal.lib.graphic.vga.{Vga, VgaCtrl}
+import spinal.lib.peripheral.uart.{Uart, UartConfig}
+import spinal.lib.peripheral.uart.controller.UartController
+import spinal.lib.peripheral.uart.controller.UartControllerIo
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable

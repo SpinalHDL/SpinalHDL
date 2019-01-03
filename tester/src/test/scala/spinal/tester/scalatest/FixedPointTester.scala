@@ -1,7 +1,6 @@
 package spinal.tester.scalatest
 
 import spinal.core._
-import spinal.lib.com.uart._
 import spinal.tester.scalatest.FixedPointTester.FixedPointTester
 
 object FixedPointTester{

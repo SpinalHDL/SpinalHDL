@@ -3,13 +3,14 @@ package spinal.tester
 import spinal.core._
 import spinal.core.internals._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio, Apb3SlaveFactory}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
 import spinal.lib.eda.bench._
+import spinal.lib.peripheral.gpio.{Apb3Gpio, GpioParameter, GpioConfig}
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -754,7 +755,7 @@ object PlayDevAnalog2{
 object PlayDevAnalog3{
   def main(args: Array[String]) {
     SpinalConfig().generateVhdl({
-      val toplevel = Apb3Gpio(32)
+      val toplevel = Apb3Gpio(GpioParameter.default(), GpioConfig.default())
       toplevel.rework{
         import toplevel._
         io.gpio.setAsDirectionLess.allowDirectionLessIo
@@ -788,7 +789,7 @@ object PlayDevAnalog4{
     driver <> io.gpio
   }
   def main(args: Array[String]) {
-    SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
+    SpinalVhdl(InOutWrapper(Apb3Gpio(GpioParameter.default(), GpioConfig.default())))
 //    SpinalVhdl(InOutWrapper(new Toplevel))
     print("done")
   }

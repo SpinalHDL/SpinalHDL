@@ -13,13 +13,15 @@ import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.experimental.bus.neutral.NeutralStreamDma
-import spinal.lib.com.uart._
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
 import spinal.lib.graphic.{Rgb, RgbConfig}
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
 import spinal.lib.io.ReadableOpenDrain
+import spinal.lib.peripheral.uart.{Uart, UartParameter, UartConfig}
+import spinal.lib.peripheral.uart.controller.UartController
+import spinal.lib.peripheral.uart.controller.UartControllerIo
 
 
 import scala.collection.mutable
@@ -83,7 +85,7 @@ object PlayB6 {
     val notUsed = False
 
 
-    val uartCtrl = new UartCtrl()
+    val uartCtrl = new UartController(UartParameter.default())
     val writeCmd = Stream(Bits(8 bits))
     writeCmd.queue(16).haltWhen(True) >> uartCtrl.io.write
 
@@ -726,7 +728,7 @@ object PlayB8 {
 
   def main(args: Array[String]): Unit = {
 //    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
-    SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
+    SpinalConfig.shell(Seq("-aa"))(new UartController(UartParameter.default()))
   }
 }
 
@@ -2808,25 +2810,14 @@ object PlyBusSlaveFactory32{
     ctrl.writeMultiWord(r,4)
     ctrl.readMultiWord(r,4)
 
-   val uartCtrlConfig = UartCtrlMemoryMappedConfig(
-      uartCtrlConfig = UartCtrlGenerics(
-        dataWidthMax      = 8,
-        clockDividerWidth = 20,
-        preSamplingSize   = 1,
-        samplingSize      = 5,
-        postSamplingSize  = 2
-      ),
-      txFifoDepth = 16,
-      rxFifoDepth = 16
-    )
   val uart = master(Uart())
   val interrupt = out Bool
 
 
-  val uartCtrl = new UartCtrl(uartCtrlConfig.uartCtrlConfig)
+  val uartCtrl = new UartController(UartParameter.default())
   uart <> uartCtrl.io.uart
 
-  val bridge = uartCtrl.driveFrom16(ctrl,uartCtrlConfig,0x80)
+  val bridge = uartCtrl.driveFrom(ctrl,UartParameter.default(),UartConfig.default(),0x80)
   interrupt := bridge.interruptCtrl.interrupt
 
   }

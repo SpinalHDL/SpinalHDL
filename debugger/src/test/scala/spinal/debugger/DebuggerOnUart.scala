@@ -3,7 +3,8 @@ package spinal.debugger
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.uart._
+import spinal.lib.peripheral.uart.{Uart, UartParameter, UartParityType, UartStopType}
+import spinal.lib.peripheral.uart.controller.UartController
 
 
 object DebuggerOnUart {
@@ -32,11 +33,11 @@ object DebuggerOnUart {
 
     val counter = CounterFreeRun(1024)
 
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.config.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
-    uartCtrl.io.config.frame.dataLength := 7
-    uartCtrl.io.config.frame.parity := UartParityType.NONE
-    uartCtrl.io.config.frame.stop := UartStopType.ONE
+    val uartCtrl = new UartController(UartParameter.default())
+    uartCtrl.io.storage.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
+    uartCtrl.io.storage.frame.dataLength := 7
+    uartCtrl.io.storage.frame.parity := UartParityType.NONE
+    uartCtrl.io.storage.frame.stop := UartStopType.ONE
     uartCtrl.io.uart <> io.uart
 
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()

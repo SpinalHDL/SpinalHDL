@@ -6,7 +6,6 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.com.jtag.Jtag
-import spinal.lib.com.uart.{Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig, Apb3UartCtrl}
 import spinal.lib.cpu.riscv.impl.Utils.BR
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
@@ -16,7 +15,8 @@ import spinal.lib.graphic.vga.{Vga, Axi4VgaCtrlGenerics, Axi4VgaCtrl}
 import spinal.lib.io.TriStateArray
 import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
-
+import spinal.lib.peripheral.gpio.{Apb3Gpio, GpioParameter, GpioConfig}
+import spinal.lib.peripheral.uart.{Apb3Uart, UartParameter, UartConfig, Uart}
 
 case class PinsecConfig(axiFrequency : HertzNumber,
                         onChipRamSize : BigInt,
@@ -191,25 +191,19 @@ class Pinsec(config: PinsecConfig) extends Component{
     )
 
     val gpioACtrl = Apb3Gpio(
-      gpioWidth = 32
+      ctrlParameter = GpioParameter.default(),
+      ctrlConfig = GpioConfig.default()
     )
     val gpioBCtrl = Apb3Gpio(
-      gpioWidth = 32
+      ctrlParameter = GpioParameter.default(),
+      ctrlConfig = GpioConfig.default()
     )
     val timerCtrl = PinsecTimerCtrl()
 
-    val uartCtrlConfig = UartCtrlMemoryMappedConfig(
-      uartCtrlConfig = UartCtrlGenerics(
-        dataWidthMax      = 8,
-        clockDividerWidth = 20,
-        preSamplingSize   = 1,
-        samplingSize      = 5,
-        postSamplingSize  = 2
-      ),
-      txFifoDepth = 16,
-      rxFifoDepth = 16
+    val uartCtrl = Apb3Uart(
+        ctrlParameter = UartParameter.default(),
+        ctrlConfig = UartConfig.default(115200)
     )
-    val uartCtrl = Apb3UartCtrl(uartCtrlConfig)
 
 
     val vgaCtrlConfig = Axi4VgaCtrlGenerics(
