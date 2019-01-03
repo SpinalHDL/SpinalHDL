@@ -16,7 +16,7 @@ import spinal.lib.graphic.vga.{Vga, Axi4VgaCtrlGenerics, Axi4VgaCtrl}
 import spinal.lib.io.TriStateArray
 import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
-
+import spinal.lib.peripheral.io.gpio.Apb3Gpio
 
 case class PinsecConfig(axiFrequency : HertzNumber,
                         onChipRamSize : BigInt,
@@ -191,9 +191,11 @@ class Pinsec(config: PinsecConfig) extends Component{
     )
 
     val gpioACtrl = Apb3Gpio(
+      config = apbBridge.apbConfig,
       gpioWidth = 32
     )
     val gpioBCtrl = Apb3Gpio(
+      config = apbBridge.apbConfig,
       gpioWidth = 32
     )
     val timerCtrl = PinsecTimerCtrl()
