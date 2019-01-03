@@ -23,18 +23,13 @@
 ** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
 ** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
 \*                                                                           */
-package spinal.lib.bus.amba3.apb
+
+package spinal.lib.peripheral.io.gpio.controller
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.io.{TriStateArray, TriState}
-
-
-object Apb3Gpio{
-
-  def getApb3Config() = Apb3Config(addressWidth = 4,dataWidth = 32)
-}
-
+import spinal.lib.bus.misc.{BusSlaveFactoryAddressWrapper, BusSlaveFactory}
 
 /*
  * gpioRead  -> 0x00 Read only register to read the physical pin values
@@ -42,17 +37,29 @@ object Apb3Gpio{
  * gpioDirection -> 0x08 Read-Write register to set the GPIO pin directions. When set, the corresponding pin is set as output.
  **/
 
-case class Apb3Gpio(gpioWidth: Int) extends Component {
+case class GpioCtrlConfig(gpioWidth: Int) extends Bundle {
+  val write = Bits(gpioWidth bits)
+  val writeEnable = Bits(gpioWidth bits)
+}
 
+class GpioController(gpioWidth: Int) extends Component {
   val io = new Bundle {
-    val apb  = slave(Apb3(Apb3Gpio.getApb3Config()))
+    val config = in(GpioCtrlConfig(gpioWidth))
     val gpio = master(TriStateArray(gpioWidth bits))
   }
 
-  val ctrl = Apb3SlaveFactory(io.apb)
+  io.gpio.writeEnable := io.config.writeEnable
+  io.gpio.write := io.config.write
 
-  ctrl.read(io.gpio.read, 0)
-  ctrl.driveAndRead(io.gpio.write, 4)
-  ctrl.driveAndRead(io.gpio.writeEnable, 8)
-  io.gpio.writeEnable.getDrivingReg init(0)
+  def driveFrom(busCtrl: BusSlaveFactory, gpioWidth: Int) = new Area {
+    require(busCtrl.busDataWidth == 16 || busCtrl.busDataWidth == 32)
+    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl, 0)
+ 
+    val gpioConfigReg = Reg(io.config)
+    gpioConfigReg.writeEnable init(0) 
+
+    busCtrlWrapped.read(io.gpio.read, 0)
+    busCtrlWrapped.driveAndRead(io.config.write, 4)
+    busCtrlWrapped.driveAndRead(io.config.writeEnable, 8)
+  }
 }
