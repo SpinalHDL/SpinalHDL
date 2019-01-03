@@ -23,36 +23,29 @@
 ** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
 ** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
 \*                                                                           */
-package spinal.lib.bus.amba3.apb
+
+package spinal.lib.peripheral.gpio
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.io.{TriStateArray, TriState}
+import spinal.lib.bus.wishbone._
+import spinal.lib.peripheral.gpio.controller.GpioController
 
 
-object Apb3Gpio{
-
-  def getApb3Config() = Apb3Config(addressWidth = 4,dataWidth = 32)
-}
-
-
-/*
- * gpioRead  -> 0x00 Read only register to read the physical pin values
- * gpioWrite -> 0x04 Read-Write register to access the output values
- * gpioDirection -> 0x08 Read-Write register to set the GPIO pin directions. When set, the corresponding pin is set as output.
- **/
-
-case class Apb3Gpio(gpioWidth: Int) extends Component {
-
-  val io = new Bundle {
-    val apb  = slave(Apb3(Apb3Gpio.getApb3Config()))
-    val gpio = master(TriStateArray(gpioWidth bits))
+class WishboneGpio(
+  ctrlParameter: GpioParameter,
+  ctrlConfig: GpioConfig,
+  busConfig: WishboneConfig = WishboneConfig(12, 32)
+) extends Component {
+  val io = new Bundle{
+    val wb = slave(Wishbone(busConfig))
+    val gpio = master(TriStateArray(ctrlParameter.gpioWidth bits))
   }
 
-  val ctrl = Apb3SlaveFactory(io.apb)
+  val gpioCtrl = new GpioController(ctrlParameter)
+  gpioCtrl.io.gpio <> io.gpio
 
-  ctrl.read(io.gpio.read, 0)
-  ctrl.driveAndRead(io.gpio.write, 4)
-  ctrl.driveAndRead(io.gpio.writeEnable, 8)
-  io.gpio.writeEnable.getDrivingReg init(0)
+  val busCtrl = WishboneSlaveFactory(io.wb)
+  val bridge = gpioCtrl.driveFrom(busCtrl, ctrlParameter, ctrlConfig)
 }

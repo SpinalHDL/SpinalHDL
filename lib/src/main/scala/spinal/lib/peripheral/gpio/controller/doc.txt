@@ -1,0 +1,19 @@
+===== GPIO Documentation =====
+
+Please move this to the offical SpinalHDL documentation!
+
+==== IP-Core addresses =====
+
+0x10: read
+  0-31: [R ]
+    Read the physical pin value.
+
+0x14: write
+  0-31: [RW]
+    Access to the output value.
+
+0x18: writeEnable
+  0-31: [RW]
+    Set the pin directions. When set, the corresponding pin is set as output.
+    default: 0x0
+
