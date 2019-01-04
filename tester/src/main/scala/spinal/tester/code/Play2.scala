@@ -1965,7 +1965,7 @@ object PlayNameableIssue3{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(globalPrefix = "yolo_").generateVhdl(new TopLevel().setDefinitionName("miaou"))
+    SpinalConfig().withPrivateNamespace.generateVhdl(new TopLevel())
   }
 }
 

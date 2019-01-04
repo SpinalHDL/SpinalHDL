@@ -32,6 +32,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {
+    packageName     = pc.privateNamespaceName + packageName
+    enumPackageName = pc.privateNamespaceName + enumPackageName
     val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName

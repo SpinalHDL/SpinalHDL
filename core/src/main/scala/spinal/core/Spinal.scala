@@ -117,6 +117,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
                          netlistFileName                : String = null,
                          dumpWave                       : DumpWaveConfig = null,
                          globalPrefix                   : String = "",
+                         var privateNamespace           : Boolean = false,
                          var formalAsserts              : Boolean = false,
                          anonymSignalPrefix             : String = null,
                          device                         : Device = Device(),
@@ -158,6 +159,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
 
   def isSystemVerilog = mode == SystemVerilog
 
+  def withPrivateNamespace : this.type = { privateNamespace = true; this }
 
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
