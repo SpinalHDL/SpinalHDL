@@ -96,6 +96,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     /** Size */
     def Byte   = BigInt(i)
+    def Bytes  = BigInt(i)
     def KiB    = BigInt(i) << 10
     def MiB    = BigInt(i) << 20
     def GiB    = BigInt(i) << 30
@@ -133,6 +134,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     /** Size */
     def Byte = (i)
+    def Bytes = (i)
     def KiB  = (i) << 10
     def MiB  = (i) << 20
     def GiB  = (i) << 30
