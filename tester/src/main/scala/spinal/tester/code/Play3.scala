@@ -855,7 +855,7 @@ object PinsecSpartan6Plus{
   def main(args: Array[String]) {
     val config = PinsecConfig.default.copy(
       axiFrequency = 50 MHz,
-      onChipRamSize = 36 kB,
+      onChipRamSize = 36 KiB,
       sdramLayout = W9825G6JH6.layout,
       sdramTimings = W9825G6JH6.timingGrade7
     )
@@ -868,7 +868,7 @@ object PinsecSmall{
   def main(args: Array[String]) {
     val config = PinsecConfig.default.copy(
       axiFrequency = 50 MHz,
-      onChipRamSize = 36 kB,
+      onChipRamSize = 36 KiB,
       sdramLayout = W9825G6JH6.layout,
       sdramTimings = W9825G6JH6.timingGrade7
     )
@@ -1492,9 +1492,9 @@ object PlayWithAhbLite3Interconnect extends App{
 
     val decoder = AhbLite3CrossbarFactory(config)
       .addSlaves(
-        io.slaves(0) -> SizeMapping(0x000000, 1 kB),
-        io.slaves(1) -> SizeMapping(0x100000, 1 kB),
-        io.slaves(2) -> SizeMapping(0x200000, 1 kB)
+        io.slaves(0) -> SizeMapping(0x000000, 1 KiB),
+        io.slaves(1) -> SizeMapping(0x100000, 1 KiB),
+        io.slaves(2) -> SizeMapping(0x200000, 1 KiB)
       )
       .addConnections(
         io.masters(0) -> List(io.slaves(0)),
