@@ -1,0 +1,46 @@
+===== UART Documentation =====
+
+Please move this to the offical SpinalHDL documentation!
+
+==== IP-Core addresses =====
+
+0x10: read/write
+  0-7: [R ]
+    Read the data value of a received frame.
+  0-7: [ W]
+    Data which should be send.
+  16: [R]
+    Is set during a valid read operation.
+
+0x14: status
+  0: [RW]
+    Enable the write interrupt.
+  1: [RW]
+    Enable the read interrupt.
+  8: [RW]
+    Read status from the write interrupt.
+  9: [RW]
+    Read status from the read interrupt.
+  16-23: [R ]
+    Remaining space in the transmit fifo.
+  24-31: [R ]
+    Count of elements in the receive fifo.
+
+0x18: clock divider
+  0-31: [RW]
+    Change clock divider value after next tick. Register width may vary in
+    different SoC configurations.
+
+0x1c: frame configuration
+  0-02: [RW]
+    Number of data bits send in one frame.
+  8-9: [RW]
+    Type of parity bit.
+    00: NONE
+    01: EVEN
+    10: ODD
+  16: [RW]
+    Type of stop bit.
+    0: ONE
+    1: TWO
+
