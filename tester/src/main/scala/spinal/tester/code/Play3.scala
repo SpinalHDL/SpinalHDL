@@ -13,7 +13,6 @@ import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
 import spinal.lib.fsm._
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -1534,4 +1533,41 @@ object PlayWithAssert extends App{
     noAssert = true
   ).generate(new TopLevel)
 
+}
+
+object PlayWithRandomBoot extends App {
+  class TopLevel extends Component {
+
+    object MyEnum extends SpinalEnum{
+      val S0, S1, S2, S3, S4, S5 = newElement()
+    }
+
+    val io = new Bundle{
+      val cond = in Bool
+
+      val a = out Bits(32 bits)
+      val b = out Bool
+      val c = out(MyEnum)
+    }
+
+    val a = Reg(Bits(32 bits)) randBoot()
+    val b = Reg(Bool) randBoot()
+    val c = Reg(MyEnum) randBoot()
+
+    when(io.cond){
+      a := 0
+      b := False
+      c := MyEnum.S3
+    }
+
+    io.a := a
+    io.b := b
+    io.c := c
+
+  }
+
+  SpinalConfig(
+    mode = Verilog,
+    randBootFixValue = false
+  ).generate(new TopLevel)
 }
