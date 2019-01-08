@@ -751,7 +751,7 @@ class ComponentEmitterVerilog(
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
           case b: Bool       =>
-            " = " + { if(pc.config.randBootFixValue) {"'0'"} else { if(Random.nextBoolean()) "'1'" else "'0'"} }
+            " = " + { if(pc.config.randBootFixValue) {"0"} else { if(Random.nextBoolean()) "1" else "0"} }
           case bv: BitVector =>
             val rand = (if(pc.config.randBootFixValue) {BigInt(0)} else { BigInt(bv.getBitsWidth, Random)}).toString(2)
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
