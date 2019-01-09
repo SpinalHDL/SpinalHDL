@@ -237,8 +237,9 @@ object Axi4{
     val area = new Area {
       val result = UInt(address.getWidth bits)
       val highCat = if (address.getWidth > 12) address(address.high downto 12) else U""
-      val sizeValue = (0 to bytePerWord).map(idx => idx === size).asBits.asUInt
-      val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12)
+      val sizeValue = (0 to log2Up(bytePerWord)).map(idx => idx === size).asBits.asUInt // U(1) << size
+      val alignMask = (sizeValue - 1).resize(12)
+      val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12) & ~alignMask
       val baseIncr = base + sizeValue
       val wrapCaseMax = 3 + log2Up(bytePerWord)
       val wrapCaseWidth = log2Up(wrapCaseMax + 1)
