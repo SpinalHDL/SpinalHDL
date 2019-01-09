@@ -1,0 +1,561 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>fsm - spinal.lib.fsm</title>
+          <meta name="description" content="fsm - spinal.lib.fsm" />
+          <meta name="keywords" content="fsm spinal.lib.fsm" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../index.html';
+            var hash = 'spinal.lib.fsm.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../lib/package_big.png" />
+        <p id="owner"><a href="../../package.html" class="extype" name="spinal">spinal</a>.<a href="../package.html" class="extype" name="spinal.lib">lib</a></p>
+        <h1>fsm</h1><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">fsm</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.fsm.EntryPoint" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="EntryPointextendsAnyRef"></a>
+      <a id="EntryPoint:EntryPoint"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="EntryPoint.html"><span class="name">EntryPoint</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@EntryPointextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">This trait indicate the entry point of the state machine
+</p>
+    </li><li name="spinal.lib.fsm.State" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateextendsAreawithScalaLocated"></a>
+      <a id="State:State"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="State.html"><span class="name">State</span></a><span class="result"> extends <a href="../../core/Area.html" class="extype" name="spinal.core.Area">Area</a> with <a href="../../core/ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateextendsAreawithScalaLocated" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">State
+</p>
+    </li><li name="spinal.lib.fsm.StateBoot" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateBootextendsState"></a>
+      <a id="StateBoot:StateBoot"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateBoot.html"><span class="name">StateBoot</span></a><span class="result"> extends <a href="State.html" class="extype" name="spinal.lib.fsm.State">State</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateBootextendsState" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateCompletionTrait" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="StateCompletionTraitextendsAnyRef"></a>
+      <a id="StateCompletionTrait:StateCompletionTrait"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="StateCompletionTrait.html"><span class="name">StateCompletionTrait</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateCompletionTraitextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateDelay" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="StateDelayextendsStatewithStateCompletionTrait"></a>
+      <a id="StateDelay:StateDelay"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateDelay.html"><span class="name">StateDelay</span></a><span class="result"> extends <a href="State.html" class="extype" name="spinal.lib.fsm.State">State</a> with <a href="StateCompletionTrait.html" class="extype" name="spinal.lib.fsm.StateCompletionTrait">StateCompletionTrait</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateDelayextendsStatewithStateCompletionTrait" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">State Delay
+</p><div class="fullcomment"><div class="comment cmt"><p>State Delay
+</p></div><dl class="attributes block"> <div class="block">Example:
+               <ol><li class="cmt"><p></p><pre><span class="kw">val</span> fsm = <span class="kw">new</span> StateMachine {
+   ...
+  <span class="kw">val</span> sDelay: State = <span class="kw">new</span> StateDelay(<span class="num">10</span> us){
+    whenCompleted {
+      goto(sIdle)
+    }
+  }
+  ...
+}</pre></li></ol>
+            </div></dl></div>
+    </li><li name="spinal.lib.fsm.StateFsm" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateFsm[T&lt;:spinal.lib.fsm.StateMachineAccessor]extendsStatewithStateCompletionTrait"></a>
+      <a id="StateFsm[T&lt;:StateMachineAccessor]:StateFsm[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateFsm.html"><span class="name">StateFsm</span></a><span class="tparams">[<span name="T">T &lt;: <a href="StateMachineAccessor.html" class="extype" name="spinal.lib.fsm.StateMachineAccessor">StateMachineAccessor</a></span>]</span><span class="result"> extends <a href="State.html" class="extype" name="spinal.lib.fsm.State">State</a> with <a href="StateCompletionTrait.html" class="extype" name="spinal.lib.fsm.StateCompletionTrait">StateCompletionTrait</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateFsm[T&lt;:spinal.lib.fsm.StateMachineAccessor]extendsStatewithStateCompletionTrait" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Use to execute a State machine into a stateMachine
+</p>
+    </li><li name="spinal.lib.fsm.StateMachine" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="StateMachineextendsAreawithStateMachineAccessorwithScalaLocated"></a>
+      <a id="StateMachine:StateMachine"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachine.html"><span class="name">StateMachine</span></a><span class="result"> extends <a href="../../core/Area.html" class="extype" name="spinal.core.Area">Area</a> with <a href="StateMachineAccessor.html" class="extype" name="spinal.lib.fsm.StateMachineAccessor">StateMachineAccessor</a> with <a href="../../core/ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineextendsAreawithStateMachineAccessorwithScalaLocated" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">State machine
+</p><div class="fullcomment"><div class="comment cmt"><p>State machine
+</p></div><dl class="attributes block"> <div class="block">Example:
+               <ol><li class="cmt"><p></p><pre><span class="kw">val</span> fsm = <span class="kw">new</span> StateMachine {
+  <span class="kw">val</span> sIdle: State = StateEntryPoint{
+    ...
+  }
+  <span class="kw">val</span> sState1: State = <span class="kw">new</span> State {
+    whenIsActive{
+      goto(sIdle)
+    }
+  }
+  ...
+}</pre></li></ol>
+            </div></dl></div>
+    </li><li name="spinal.lib.fsm.StateMachineAccessor" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="StateMachineAccessorextendsAnyRef"></a>
+      <a id="StateMachineAccessor:StateMachineAccessor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineAccessor.html"><span class="name">StateMachineAccessor</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineAccessorextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineEnum" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineEnumextendsSpinalEnum"></a>
+      <a id="StateMachineEnum:StateMachineEnum"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineEnum.html"><span class="name">StateMachineEnum</span></a><span class="result"> extends <a href="../../core/SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineEnumextendsSpinalEnum" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineSharableRegUInt" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineSharableRegUIntextendsAnyRef"></a>
+      <a id="StateMachineSharableRegUInt:StateMachineSharableRegUInt"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineSharableRegUInt.html"><span class="name">StateMachineSharableRegUInt</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineSharableRegUIntextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateParallelFsm" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateParallelFsmextendsStatewithStateCompletionTrait"></a>
+      <a id="StateParallelFsm:StateParallelFsm"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="StateParallelFsm.html"><span class="name">StateParallelFsm</span></a><span class="result"> extends <a href="State.html" class="extype" name="spinal.lib.fsm.State">State</a> with <a href="StateCompletionTrait.html" class="extype" name="spinal.lib.fsm.StateCompletionTrait">StateCompletionTrait</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateParallelFsmextendsStatewithStateCompletionTrait" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Run several state machine in parallel
+</p>
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.fsm.State" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="State"></a>
+      <a id="State:State"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="State$.html"><span class="name">State</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@State" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateEntryPoint" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateEntryPoint"></a>
+      <a id="StateEntryPoint:StateEntryPoint"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateEntryPoint$.html"><span class="name">StateEntryPoint</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateEntryPoint" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Define the Entry point state
+</p>
+    </li><li name="spinal.lib.fsm.StateMachineSharableUIntKey" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineSharableUIntKey"></a>
+      <a id="StateMachineSharableUIntKey:StateMachineSharableUIntKey"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineSharableUIntKey$.html"><span class="name">StateMachineSharableUIntKey</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineSharableUIntKey" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineSimExample" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineSimExample"></a>
+      <a id="StateMachineSimExample:StateMachineSimExample"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineSimExample$.html"><span class="name">StateMachineSimExample</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineSimExample" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineSimpleExample" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineSimpleExample"></a>
+      <a id="StateMachineSimpleExample:StateMachineSimpleExample"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineSimpleExample$.html"><span class="name">StateMachineSimpleExample</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineSimpleExample" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineStyle1" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineStyle1"></a>
+      <a id="StateMachineStyle1:StateMachineStyle1"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineStyle1$.html"><span class="name">StateMachineStyle1</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineStyle1" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineStyle2" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineStyle2"></a>
+      <a id="StateMachineStyle2:StateMachineStyle2"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineStyle2$.html"><span class="name">StateMachineStyle2</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineStyle2" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineStyle3" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineStyle3"></a>
+      <a id="StateMachineStyle3:StateMachineStyle3"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineStyle3$.html"><span class="name">StateMachineStyle3</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineStyle3" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineTry2Example" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineTry2Example"></a>
+      <a id="StateMachineTry2Example:StateMachineTry2Example"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineTry2Example$.html"><span class="name">StateMachineTry2Example</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineTry2Example" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineTry3Example" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineTry3Example"></a>
+      <a id="StateMachineTry3Example:StateMachineTry3Example"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineTry3Example$.html"><span class="name">StateMachineTry3Example</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineTry3Example" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineTry6Example" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineTry6Example"></a>
+      <a id="StateMachineTry6Example:StateMachineTry6Example"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineTry6Example$.html"><span class="name">StateMachineTry6Example</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineTry6Example" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineTryExample" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineTryExample"></a>
+      <a id="StateMachineTryExample:StateMachineTryExample"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineTryExample$.html"><span class="name">StateMachineTryExample</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineTryExample" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StateMachineWithInnerExample" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StateMachineWithInnerExample"></a>
+      <a id="StateMachineWithInnerExample:StateMachineWithInnerExample"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StateMachineWithInnerExample$.html"><span class="name">StateMachineWithInnerExample</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StateMachineWithInnerExample" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.fsm.StatesSerialFsm" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="StatesSerialFsm"></a>
+      <a id="StatesSerialFsm:StatesSerialFsm"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="StatesSerialFsm$.html"><span class="name">StatesSerialFsm</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.lib.fsm.package@StatesSerialFsm" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Run several state machine in Serie
+</p>
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

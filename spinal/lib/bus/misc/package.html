@@ -1,0 +1,393 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>misc - spinal.lib.bus.misc</title>
+          <meta name="description" content="misc - spinal.lib.bus.misc" />
+          <meta name="keywords" content="misc spinal.lib.bus.misc" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../index.html';
+            var hash = 'spinal.lib.bus.misc.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../package.html" class="extype" name="spinal.lib.bus">bus</a></p>
+        <h1>misc</h1><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">misc</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.bus.misc.AddressMapping" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="AddressMappingextendsAnyRef"></a>
+      <a id="AddressMapping:AddressMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="AddressMapping.html"><span class="name">AddressMapping</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@AddressMappingextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactory" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryextendsArea"></a>
+      <a id="BusSlaveFactory:BusSlaveFactory"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactory.html"><span class="name">BusSlaveFactory</span></a><span class="result"> extends <a href="../../../core/Area.html" class="extype" name="spinal.core.Area">Area</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryextendsArea" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Bus slave factory is a tool that provide an abstract and smooth way to define register bank
+</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryAddressWrapperextendsBusSlaveFactory"></a>
+      <a id="BusSlaveFactoryAddressWrapper:BusSlaveFactoryAddressWrapper"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryAddressWrapper.html"><span class="name">BusSlaveFactoryAddressWrapper</span></a><span class="result"> extends <a href="BusSlaveFactory.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactory">BusSlaveFactory</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryAddressWrapperextendsBusSlaveFactory" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryConfig" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="BusSlaveFactoryConfigextendsProductwithSerializable"></a>
+      <a id="BusSlaveFactoryConfig:BusSlaveFactoryConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryConfig.html"><span class="name">BusSlaveFactoryConfig</span></a><span class="params">(<span name="wordEndianness">wordEndianness: <a href="../../Endianness.html" class="extype" name="spinal.lib.Endianness">Endianness</a> = <span class="symbol"><span class="name"><a href="../../../package.html">LITTLE</a></span></span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Configuration of the bus Slave Factory
+</p><div class="fullcomment"><div class="comment cmt"><p>Configuration of the bus Slave Factory
+</p></div><dl class="paramcmts block"><dt class="param">wordEndianness</dt><dd class="cmt"><p>Endianness for the multiWrite or multiRead operations</p></dd></dl></div>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryDelayed" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="BusSlaveFactoryDelayedextendsBusSlaveFactory"></a>
+      <a id="BusSlaveFactoryDelayed:BusSlaveFactoryDelayed"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryDelayed.html"><span class="name">BusSlaveFactoryDelayed</span></a><span class="result"> extends <a href="BusSlaveFactory.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactory">BusSlaveFactory</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryDelayedextendsBusSlaveFactory" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">BusSlaveFactoryDelayed captures each primitives (BusSlaveFactoryElement) into a data-model
+</p><div class="fullcomment"><div class="comment cmt"><p>BusSlaveFactoryDelayed captures each primitives (BusSlaveFactoryElement) into a data-model
+</p></div><dl class="attributes block"> <div class="block">Example:
+               <ol><li class="cmt"><p></p><pre><span class="kw">class</span> Apb3SlaveFactory(bus : Apb3) <span class="kw">extends</span> BusSlaveFactoryDelayed{
+    <span class="kw">override</span> <span class="kw">def</span> build(): <span class="std">Unit</span> = { ... }
+    <span class="kw">override</span> <span class="kw">def</span> busDataWidth: <span class="std">Int</span> = bus.config.dataWidth
+ }</pre></li></ol>
+            </div></dl></div>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryElement" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryElementextendsAnyRef"></a>
+      <a id="BusSlaveFactoryElement:BusSlaveFactoryElement"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryElement.html"><span class="name">BusSlaveFactoryElement</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryElementextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Base element
+</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryNonStopWrite" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryNonStopWriteextendsBusSlaveFactoryElementwithProductwithSerializable"></a>
+      <a id="BusSlaveFactoryNonStopWrite:BusSlaveFactoryNonStopWrite"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryNonStopWrite.html"><span class="name">BusSlaveFactoryNonStopWrite</span></a><span class="params">(<span name="that">that: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>, <span name="bitOffset">bitOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="documentation">documentation: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="BusSlaveFactoryElement.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryElement">BusSlaveFactoryElement</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryNonStopWriteextendsBusSlaveFactoryElementwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Ask to constantly drive that with the data bus
+bitOffset specify where that get bits from the request
+</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryOnReadAtAddress" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryOnReadAtAddressextendsBusSlaveFactoryElementwithProductwithSerializable"></a>
+      <a id="BusSlaveFactoryOnReadAtAddress:BusSlaveFactoryOnReadAtAddress"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryOnReadAtAddress.html"><span class="name">BusSlaveFactoryOnReadAtAddress</span></a><span class="params">(<span name="address">address: <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a></span>, <span name="haltSensitive">haltSensitive: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="documentation">documentation: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="doThat">doThat: () ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result"> extends <a href="BusSlaveFactoryElement.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryElement">BusSlaveFactoryElement</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryOnReadAtAddressextendsBusSlaveFactoryElementwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt"> Ask to execute doThat when a read access is done on address</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryOnWriteAtAddress" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryOnWriteAtAddressextendsBusSlaveFactoryElementwithProductwithSerializable"></a>
+      <a id="BusSlaveFactoryOnWriteAtAddress:BusSlaveFactoryOnWriteAtAddress"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryOnWriteAtAddress.html"><span class="name">BusSlaveFactoryOnWriteAtAddress</span></a><span class="params">(<span name="address">address: <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a></span>, <span name="haltSensitive">haltSensitive: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="documentation">documentation: <span class="extype" name="scala.Predef.String">String</span></span>, <span name="doThat">doThat: () ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result"> extends <a href="BusSlaveFactoryElement.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryElement">BusSlaveFactoryElement</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryOnWriteAtAddressextendsBusSlaveFactoryElementwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Ask to execute doThat when a write access is done on address</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryRead" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BusSlaveFactoryReadextendsBusSlaveFactoryElementwithProductwithSerializable"></a>
+      <a id="BusSlaveFactoryRead:BusSlaveFactoryRead"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryRead.html"><span class="name">BusSlaveFactoryRead</span></a><span class="params">(<span name="that">that: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>, <span name="address">address: <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a></span>, <span name="bitOffset">bitOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="documentation">documentation: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="BusSlaveFactoryElement.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryElement">BusSlaveFactoryElement</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryReadextendsBusSlaveFactoryElementwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Ask to make that readable when an access is done on address
+bitOffset specify where that is placed on the answer
+</p>
+    </li><li name="spinal.lib.bus.misc.BusSlaveFactoryWrite" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="BusSlaveFactoryWriteextendsBusSlaveFactoryElementwithProductwithSerializable"></a>
+      <a id="BusSlaveFactoryWrite:BusSlaveFactoryWrite"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BusSlaveFactoryWrite.html"><span class="name">BusSlaveFactoryWrite</span></a><span class="params">(<span name="that">that: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>, <span name="address">address: <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a></span>, <span name="bitOffset">bitOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="documentation">documentation: <span class="extype" name="scala.Predef.String">String</span></span>)</span><span class="result"> extends <a href="BusSlaveFactoryElement.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryElement">BusSlaveFactoryElement</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@BusSlaveFactoryWriteextendsBusSlaveFactoryElementwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Ask to make that writable when a access is done on address.</p><div class="fullcomment"><div class="comment cmt"><p>Ask to make that writable when a access is done on address.
+bitOffset specify where <code>that</code> get bits from the request
+</p></div></div>
+    </li><li name="spinal.lib.bus.misc.MaskMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MaskMappingextendsAddressMappingwithProductwithSerializable"></a>
+      <a id="MaskMapping:MaskMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="MaskMapping.html"><span class="name">MaskMapping</span></a><span class="params">(<span name="base">base: <span class="extype" name="scala.BigInt">BigInt</span></span>, <span name="mask">mask: <span class="extype" name="scala.BigInt">BigInt</span></span>)</span><span class="result"> extends <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@MaskMappingextendsAddressMappingwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.misc.SingleMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SingleMappingextendsAddressMappingwithProductwithSerializable"></a>
+      <a id="SingleMapping:SingleMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SingleMapping.html"><span class="name">SingleMapping</span></a><span class="params">(<span name="address">address: <span class="extype" name="scala.BigInt">BigInt</span></span>)</span><span class="result"> extends <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@SingleMappingextendsAddressMappingwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.misc.SizeMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SizeMappingextendsAddressMappingwithProductwithSerializable"></a>
+      <a id="SizeMapping:SizeMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SizeMapping.html"><span class="name">SizeMapping</span></a><span class="params">(<span name="base">base: <span class="extype" name="scala.BigInt">BigInt</span></span>, <span name="size">size: <span class="extype" name="scala.BigInt">BigInt</span></span>)</span><span class="result"> extends <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@SizeMappingextendsAddressMappingwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.bus.misc.DefaultMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DefaultMapping"></a>
+      <a id="DefaultMapping:DefaultMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="DefaultMapping$.html"><span class="name">DefaultMapping</span></a><span class="result"> extends <a href="AddressMapping.html" class="extype" name="spinal.lib.bus.misc.AddressMapping">AddressMapping</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@DefaultMapping" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.misc.SizeMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SizeMapping"></a>
+      <a id="SizeMapping:SizeMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="SizeMapping$.html"><span class="name">SizeMapping</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.bus.misc.package@SizeMapping" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

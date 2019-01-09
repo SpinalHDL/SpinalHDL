@@ -1,0 +1,223 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>pinsec - spinal.lib.soc.pinsec</title>
+          <meta name="description" content="pinsec - spinal.lib.soc.pinsec" />
+          <meta name="keywords" content="pinsec spinal.lib.soc.pinsec" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../index.html';
+            var hash = 'spinal.lib.soc.pinsec.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../package.html" class="extype" name="spinal.lib.soc">soc</a></p>
+        <h1>pinsec</h1><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">pinsec</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.soc.pinsec.Pinsec" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecextendsComponent"></a>
+      <a id="Pinsec:Pinsec"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Pinsec.html"><span class="name">Pinsec</span></a><span class="result"> extends <a href="../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.soc.pinsec.PinsecConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecConfigextendsProductwithSerializable"></a>
+      <a id="PinsecConfig:PinsecConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PinsecConfig.html"><span class="name">PinsecConfig</span></a><span class="params">(<span name="axiFrequency">axiFrequency: <a href="../../../core/HertzNumber.html" class="extype" name="spinal.core.HertzNumber">HertzNumber</a></span>, <span name="onChipRamSize">onChipRamSize: <span class="extype" name="scala.BigInt">BigInt</span></span>, <span name="sdramLayout">sdramLayout: <a href="../../memory/sdram/SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="sdramTimings">sdramTimings: <a href="../../memory/sdram/SdramTimings.html" class="extype" name="spinal.lib.memory.sdram.SdramTimings">SdramTimings</a></span>, <span name="cpu">cpu: <a href="../../cpu/riscv/impl/RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>, <span name="iCache">iCache: <a href="../../cpu/riscv/impl/InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.soc.pinsec.PinsecTimerCtrl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecTimerCtrlextendsComponentwithProductwithSerializable"></a>
+      <a id="PinsecTimerCtrl:PinsecTimerCtrl"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PinsecTimerCtrl.html"><span class="name">PinsecTimerCtrl</span></a><span class="params">()</span><span class="result"> extends <a href="../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecTimerCtrlextendsComponentwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.soc.pinsec.PinsecTimerCtrlExternal" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecTimerCtrlExternalextendsBundlewithProductwithSerializable"></a>
+      <a id="PinsecTimerCtrlExternal:PinsecTimerCtrlExternal"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PinsecTimerCtrlExternal.html"><span class="name">PinsecTimerCtrlExternal</span></a><span class="params">()</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecTimerCtrlExternalextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.soc.pinsec.Pinsec" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Pinsec"></a>
+      <a id="Pinsec:Pinsec"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Pinsec$.html"><span class="name">Pinsec</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@Pinsec" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.soc.pinsec.PinsecConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecConfig"></a>
+      <a id="PinsecConfig:PinsecConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PinsecConfig$.html"><span class="name">PinsecConfig</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecConfig" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.soc.pinsec.PinsecTimerCtrl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PinsecTimerCtrl"></a>
+      <a id="PinsecTimerCtrl:PinsecTimerCtrl"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PinsecTimerCtrl$.html"><span class="name">PinsecTimerCtrl</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.soc.pinsec.package@PinsecTimerCtrl" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Created by PIC32F_USER on 25/08/2016.</p>
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

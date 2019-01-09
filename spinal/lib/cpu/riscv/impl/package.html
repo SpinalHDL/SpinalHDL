@@ -1,0 +1,1039 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>impl - spinal.lib.cpu.riscv.impl</title>
+          <meta name="description" content="impl - spinal.lib.cpu.riscv.impl" />
+          <meta name="keywords" content="impl spinal.lib.cpu.riscv.impl" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../../index.html';
+            var hash = 'spinal.lib.cpu.riscv.impl.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../../package.html" class="extype" name="spinal.lib.cpu">cpu</a>.<a href="../package.html" class="extype" name="spinal.lib.cpu.riscv">riscv</a></p>
+        <h1>impl</h1><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">impl</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.cpu.riscv.impl.Alu" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AluextendsComponent"></a>
+      <a id="Alu:Alu"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Alu.html"><span class="name">Alu</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@AluextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.BranchPrediction" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="BranchPredictionextendsAnyRef"></a>
+      <a id="BranchPrediction:BranchPrediction"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="BranchPrediction.html"><span class="name">BranchPrediction</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@BranchPredictionextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.BranchPredictorLine" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="BranchPredictorLineextendsBundlewithProductwithSerializable"></a>
+      <a id="BranchPredictorLine:BranchPredictorLine"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="BranchPredictorLine.html"><span class="name">BranchPredictorLine</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@BranchPredictorLineextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreDataBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreDataBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="CoreDataBus:CoreDataBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreDataBus.html"><span class="name">CoreDataBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreDataBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreDataCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreDataCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreDataCmd:CoreDataCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreDataCmd.html"><span class="name">CoreDataCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreDataCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreDecodeOutput" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreDecodeOutputextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreDecodeOutput:CoreDecodeOutput"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreDecodeOutput.html"><span class="name">CoreDecodeOutput</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreDecodeOutputextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreExecute0Output" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreExecute0OutputextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreExecute0Output:CoreExecute0Output"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreExecute0Output.html"><span class="name">CoreExecute0Output</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreExecute0OutputextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreExecute1Output" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreExecute1OutputextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreExecute1Output:CoreExecute1Output"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreExecute1Output.html"><span class="name">CoreExecute1Output</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreExecute1OutputextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreFetchOutput" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreFetchOutputextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreFetchOutput:CoreFetchOutput"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreFetchOutput.html"><span class="name">CoreFetchOutput</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreFetchOutputextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreInstructionBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreInstructionBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="CoreInstructionBus:CoreInstructionBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreInstructionBus.html"><span class="name">CoreInstructionBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreInstructionBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreInstructionCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreInstructionCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreInstructionCmd:CoreInstructionCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreInstructionCmd.html"><span class="name">CoreInstructionCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreInstructionCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreInstructionRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreInstructionRspextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreInstructionRsp:CoreInstructionRsp"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreInstructionRsp.html"><span class="name">CoreInstructionRsp</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreInstructionRspextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreWriteBack0Output" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreWriteBack0OutputextendsBundlewithProductwithSerializable"></a>
+      <a id="CoreWriteBack0Output:CoreWriteBack0Output"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreWriteBack0Output.html"><span class="name">CoreWriteBack0Output</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="RiscvCoreConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig">RiscvCoreConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreWriteBack0OutputextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataBusKind" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="DataBusKindextendsAnyRef"></a>
+      <a id="DataBusKind:DataBusKind"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="DataBusKind.html"><span class="name">DataBusKind</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataBusKindextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCache" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheextendsComponent"></a>
+      <a id="DataCache:DataCache"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCache.html"><span class="name">DataCache</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheConfigextendsProductwithSerializable"></a>
+      <a id="DataCacheConfig:DataCacheConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheConfig.html"><span class="name">DataCacheConfig</span></a><span class="params">(<span name="cacheSize">cacheSize: <span class="extype" name="scala.Int">Int</span></span>, <span name="bytePerLine">bytePerLine: <span class="extype" name="scala.Int">Int</span></span>, <span name="wayCount">wayCount: <span class="extype" name="scala.Int">Int</span></span>, <span name="addressWidth">addressWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="cpuDataWidth">cpuDataWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="memDataWidth">memDataWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheCpuBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheCpuBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="DataCacheCpuBus:DataCacheCpuBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheCpuBus.html"><span class="name">DataCacheCpuBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheCpuBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheCpuCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheCpuCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="DataCacheCpuCmd:DataCacheCpuCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheCpuCmd.html"><span class="name">DataCacheCpuCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheCpuCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheCpuRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheCpuRspextendsBundlewithProductwithSerializable"></a>
+      <a id="DataCacheCpuRsp:DataCacheCpuRsp"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheCpuRsp.html"><span class="name">DataCacheCpuRsp</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheCpuRspextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheMemBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheMemBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="DataCacheMemBus:DataCacheMemBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheMemBus.html"><span class="name">DataCacheMemBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheMemBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheMemCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheMemCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="DataCacheMemCmd:DataCacheMemCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheMemCmd.html"><span class="name">DataCacheMemCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheMemCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheMemRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheMemRspextendsBundlewithProductwithSerializable"></a>
+      <a id="DataCacheMemRsp:DataCacheMemRsp"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheMemRsp.html"><span class="name">DataCacheMemRsp</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="DataCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheConfig">DataCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheMemRspextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionBusKind" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="InstructionBusKindextendsAnyRef"></a>
+      <a id="InstructionBusKind:InstructionBusKind"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionBusKind.html"><span class="name">InstructionBusKind</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionBusKindextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCache" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheextendsComponent"></a>
+      <a id="InstructionCache:InstructionCache"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCache.html"><span class="name">InstructionCache</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheConfigextendsProductwithSerializable"></a>
+      <a id="InstructionCacheConfig:InstructionCacheConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheConfig.html"><span class="name">InstructionCacheConfig</span></a><span class="params">(<span name="cacheSize">cacheSize: <span class="extype" name="scala.Int">Int</span></span>, <span name="bytePerLine">bytePerLine: <span class="extype" name="scala.Int">Int</span></span>, <span name="wayCount">wayCount: <span class="extype" name="scala.Int">Int</span></span>, <span name="wrappedMemAccess">wrappedMemAccess: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="addressWidth">addressWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="cpuDataWidth">cpuDataWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="memDataWidth">memDataWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheCpuBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="InstructionCacheCpuBus:InstructionCacheCpuBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheCpuBus.html"><span class="name">InstructionCacheCpuBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheCpuBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheCpuCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="InstructionCacheCpuCmd:InstructionCacheCpuCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheCpuCmd.html"><span class="name">InstructionCacheCpuCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheCpuCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheCpuRspextendsBundlewithProductwithSerializable"></a>
+      <a id="InstructionCacheCpuRsp:InstructionCacheCpuRsp"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheCpuRsp.html"><span class="name">InstructionCacheCpuRsp</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheCpuRspextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheFlushBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheFlushBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="InstructionCacheFlushBus:InstructionCacheFlushBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheFlushBus.html"><span class="name">InstructionCacheFlushBus</span></a><span class="params">()</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheFlushBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheMemBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheMemBusextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="InstructionCacheMemBus:InstructionCacheMemBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheMemBus.html"><span class="name">InstructionCacheMemBus</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheMemBusextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheMemCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheMemCmdextendsBundlewithProductwithSerializable"></a>
+      <a id="InstructionCacheMemCmd:InstructionCacheMemCmd"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheMemCmd.html"><span class="name">InstructionCacheMemCmd</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheMemCmdextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheMemRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheMemRspextendsBundlewithProductwithSerializable"></a>
+      <a id="InstructionCacheMemRsp:InstructionCacheMemRsp"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheMemRsp.html"><span class="name">InstructionCacheMemRsp</span></a><span class="params">()</span><span class="params">(<span class="implicit">implicit </span><span name="p">p: <a href="InstructionCacheConfig.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheConfig">InstructionCacheConfig</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheMemRspextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.IrqUsage" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="IrqUsageextendsProductwithSerializable"></a>
+      <a id="IrqUsage:IrqUsage"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="IrqUsage.html"><span class="name">IrqUsage</span></a><span class="params">(<span name="isException">isException: <span class="extype" name="scala.Boolean">Boolean</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@IrqUsageextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.RegFileReadKind" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="RegFileReadKindextendsAnyRef"></a>
+      <a id="RegFileReadKind:RegFileReadKind"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <a href="RegFileReadKind.html"><span class="name">RegFileReadKind</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@RegFileReadKindextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.RiscvCore" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="RiscvCoreextendsComponent"></a>
+      <a id="RiscvCore:RiscvCore"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="RiscvCore.html"><span class="name">RiscvCore</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@RiscvCoreextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.RiscvCoreConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="RiscvCoreConfigextendsProductwithSerializable"></a>
+      <a id="RiscvCoreConfig:RiscvCoreConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="RiscvCoreConfig.html"><span class="name">RiscvCoreConfig</span></a><span class="params">(<span name="pcWidth">pcWidth: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">32</span></span>, <span name="addrWidth">addrWidth: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">32</span></span>, <span name="startAddress">startAddress: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">0</span></span>, <span name="bypassExecute0">bypassExecute0: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="bypassExecute1">bypassExecute1: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="bypassWriteBack">bypassWriteBack: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="bypassWriteBackBuffer">bypassWriteBackBuffer: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="collapseBubble">collapseBubble: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="branchPrediction">branchPrediction: <a href="BranchPrediction.html" class="extype" name="spinal.lib.cpu.riscv.impl.BranchPrediction">BranchPrediction</a> = <span class="symbol"><span class="name"><a href="static$.html">static</a></span></span></span>, <span name="regFileReadyKind">regFileReadyKind: <a href="RegFileReadKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.RegFileReadKind">RegFileReadKind</a> = <span class="symbol"><span class="name"><a href="sync$.html">sync</a></span></span></span>, <span name="fastFetchCmdPcCalculation">fastFetchCmdPcCalculation: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="dynamicBranchPredictorCacheSizeLog2">dynamicBranchPredictorCacheSizeLog2: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">4</span></span>, <span name="branchPredictorHistoryWidth">branchPredictorHistoryWidth: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">2</span></span>, <span name="invalidInstructionIrqId">invalidInstructionIrqId: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">0</span></span>, <span name="unalignedMemoryAccessIrqId">unalignedMemoryAccessIrqId: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">1</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@RiscvCoreConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.cpu.riscv.impl.AluMain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AluMain"></a>
+      <a id="AluMain:AluMain"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="AluMain$.html"><span class="name">AluMain</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@AluMain" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreDataBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreDataBus"></a>
+      <a id="CoreDataBus:CoreDataBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreDataBus$.html"><span class="name">CoreDataBus</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreDataBus" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.CoreInstructionBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="CoreInstructionBus"></a>
+      <a id="CoreInstructionBus:CoreInstructionBus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="CoreInstructionBus$.html"><span class="name">CoreInstructionBus</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@CoreInstructionBus" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheCpuCmdKind" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheCpuCmdKind"></a>
+      <a id="DataCacheCpuCmdKind:DataCacheCpuCmdKind"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheCpuCmdKind$.html"><span class="name">DataCacheCpuCmdKind</span></a><span class="result"> extends <a href="../../../../core/SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheCpuCmdKind" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.DataCacheMain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="DataCacheMain"></a>
+      <a id="DataCacheMain:DataCacheMain"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="DataCacheMain$.html"><span class="name">DataCacheMain</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@DataCacheMain" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.InstructionCacheMain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="InstructionCacheMain"></a>
+      <a id="InstructionCacheMain:InstructionCacheMain"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="InstructionCacheMain$.html"><span class="name">InstructionCacheMain</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@InstructionCacheMain" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.RiscvCore" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="RiscvCore"></a>
+      <a id="RiscvCore:RiscvCore"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="RiscvCore$.html"><span class="name">RiscvCore</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@RiscvCore" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.Utils" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Utils"></a>
+      <a id="Utils:Utils"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Utils$.html"><span class="name">Utils</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@Utils" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.UtilsTest" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="UtilsTest"></a>
+      <a id="UtilsTest:UtilsTest"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="UtilsTest$.html"><span class="name">UtilsTest</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@UtilsTest" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.async" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="async"></a>
+      <a id="async:async"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="async$.html"><span class="name">async</span></a><span class="result"> extends <a href="RegFileReadKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.RegFileReadKind">RegFileReadKind</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@async" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.bench" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="bench"></a>
+      <a id="bench:bench"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="bench/package.html"><span class="name">bench</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@bench" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.build" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="build"></a>
+      <a id="build:build"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="build/package.html"><span class="name">build</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@build" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.cmdStream_rspFlow" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="cmdStream_rspFlow"></a>
+      <a id="cmdStream_rspFlow:cmdStream_rspFlow"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="cmdStream_rspFlow$.html"><span class="name">cmdStream_rspFlow</span></a><span class="result"> extends <a href="InstructionBusKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionBusKind">InstructionBusKind</a> with <a href="DataBusKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataBusKind">DataBusKind</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@cmdStream_rspFlow" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.cmdStream_rspStream" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="cmdStream_rspStream"></a>
+      <a id="cmdStream_rspStream:cmdStream_rspStream"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="cmdStream_rspStream$.html"><span class="name">cmdStream_rspStream</span></a><span class="result"> extends <a href="InstructionBusKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionBusKind">InstructionBusKind</a> with <a href="DataBusKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataBusKind">DataBusKind</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@cmdStream_rspStream" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.disable" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="disable"></a>
+      <a id="disable:disable"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="disable$.html"><span class="name">disable</span></a><span class="result"> extends <a href="BranchPrediction.html" class="extype" name="spinal.lib.cpu.riscv.impl.BranchPrediction">BranchPrediction</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@disable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.dynamic" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="dynamic"></a>
+      <a id="dynamic:dynamic"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="dynamic$.html"><span class="name">dynamic</span></a><span class="result"> extends <a href="BranchPrediction.html" class="extype" name="spinal.lib.cpu.riscv.impl.BranchPrediction">BranchPrediction</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@dynamic" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.extension" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="extension"></a>
+      <a id="extension:extension"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="extension/package.html"><span class="name">extension</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@extension" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.static" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="static"></a>
+      <a id="static:static"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="static$.html"><span class="name">static</span></a><span class="result"> extends <a href="BranchPrediction.html" class="extype" name="spinal.lib.cpu.riscv.impl.BranchPrediction">BranchPrediction</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@static" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.cpu.riscv.impl.sync" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sync"></a>
+      <a id="sync:sync"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="sync$.html"><span class="name">sync</span></a><span class="result"> extends <a href="RegFileReadKind.html" class="extype" name="spinal.lib.cpu.riscv.impl.RegFileReadKind">RegFileReadKind</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.cpu.riscv.impl.package@sync" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

@@ -1,0 +1,1159 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>SpinalConfig - spinal.core.SpinalConfig</title>
+          <meta name="description" content="SpinalConfig - spinal.core.SpinalConfig" />
+          <meta name="keywords" content="SpinalConfig spinal.core.SpinalConfig" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../lib/template.js"></script>
+      <script type="text/javascript" src="../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../index.html';
+            var hash = 'spinal.core.SpinalConfig';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="type">
+      <div id="definition">
+        <a href="SpinalConfig$.html" title="See companion object"><img alt="Class/Object" src="../../lib/class_to_object_big.png" /></a>
+        <p id="owner"><a href="../package.html" class="extype" name="spinal">spinal</a>.<a href="package.html" class="extype" name="spinal.core">core</a></p>
+        <h1><a href="SpinalConfig$.html" title="See companion object">SpinalConfig</a></h1><h3><span class="morelinks"><div>
+            Related Docs:
+            <a href="SpinalConfig$.html" title="See companion object">object SpinalConfig</a>
+            | <a href="package.html" class="extype" name="spinal.core">package core</a>
+          </div></span></h3><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <span class="name">SpinalConfig</span><span class="params">(<span name="mode">mode: <a href="SpinalMode.html" class="extype" name="spinal.core.SpinalMode">SpinalMode</a> = <span class="symbol">null</span></span>, <span name="flags">flags: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Any">Any</span>] = <span class="symbol">mutable.HashSet[Any]()</span></span>, <span name="debugComponents">debugComponents: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Predef.Class">Class</span>[_]] = <span class="symbol">mutable.HashSet[Class[_]]()</span></span>, <span name="keepAll">keepAll: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="defaultConfigForClockDomains">defaultConfigForClockDomains: <a href="ClockDomainConfig.html" class="extype" name="spinal.core.ClockDomainConfig">ClockDomainConfig</a> = <span class="symbol">ClockDomainConfig()</span></span>, <span name="onlyStdLogicVectorAtTopLevelIo">onlyStdLogicVectorAtTopLevelIo: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="defaultClockDomainFrequency">defaultClockDomainFrequency: <a href="package.html#IClockDomainFrequency=spinal.core.ClockDomain.ClockFrequency" class="extmbr" name="spinal.core.IClockDomainFrequency">IClockDomainFrequency</a> = <span class="symbol"><span class="name"><a href="package.html#UnknownFrequency():spinal.core.ClockDomain.UnknownFrequency">UnknownFrequency()</a></span></span></span>, <span name="targetDirectory">targetDirectory: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;.&quot;</span></span>, <span name="oneFilePerComponent">oneFilePerComponent: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="netlistFileName">netlistFileName: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>, <span name="dumpWave">dumpWave: <a href="DumpWaveConfig.html" class="extype" name="spinal.core.DumpWaveConfig">DumpWaveConfig</a> = <span class="symbol">null</span></span>, <span name="globalPrefix">globalPrefix: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;&quot;</span></span>, <span name="formalAsserts">formalAsserts: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="anonymSignalPrefix">anonymSignalPrefix: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>, <span name="device">device: <a href="Device.html" class="extype" name="spinal.core.Device">Device</a> = <span class="symbol">Device()</span></span>, <span name="inlineRom">inlineRom: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="genVhdlPkg">genVhdlPkg: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="verbose">verbose: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="mergeAsyncProcess">mergeAsyncProcess: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="asyncResetCombSensitivity">asyncResetCombSensitivity: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="anonymSignalUniqueness">anonymSignalUniqueness: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="noRandBoot">noRandBoot: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="noAssert">noAssert: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="phasesInserters">phasesInserters: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[(<span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>]) ⇒ <span class="extype" name="scala.Unit">Unit</span>] = <span class="defval" name="ArrayBuffer[(ArrayBuffer[Phase]) =&gt; Unit]()">...</span></span>, <span name="transformationPhases">transformationPhases: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>] = <span class="symbol">ArrayBuffer[Phase]()</span></span>, <span name="memBlackBoxers">memBlackBoxers: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>] = <span class="defval" name="ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)">...</span></span>, <span name="rtlHeader">rtlHeader: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"><div class="comment cmt"><p>Spinal configuration for the generation of the RTL
+</p></div><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.Serializable">Serializable</span>, <span class="extype" name="java.io.Serializable">Serializable</span>, <span class="extype" name="scala.Product">Product</span>, <span class="extype" name="scala.Equals">Equals</span>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By Inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="spinal.core.SpinalConfig"><span>SpinalConfig</span></li><li class="in" name="scala.Serializable"><span>Serializable</span></li><li class="in" name="java.io.Serializable"><span>Serializable</span></li><li class="in" name="scala.Product"><span>Product</span></li><li class="in" name="scala.Equals"><span>Equals</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show All</span></li>
+            </ol>
+          </div>
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        <div id="constructors" class="members">
+              <h3>Instance Constructors</h3>
+              <ol><li name="spinal.core.SpinalConfig#&lt;init&gt;" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="&lt;init&gt;(mode:spinal.core.SpinalMode,flags:scala.collection.mutable.HashSet[Any],debugComponents:scala.collection.mutable.HashSet[Class[_]],keepAll:Boolean,defaultConfigForClockDomains:spinal.core.ClockDomainConfig,onlyStdLogicVectorAtTopLevelIo:Boolean,defaultClockDomainFrequency:spinal.core.IClockDomainFrequency,targetDirectory:String,oneFilePerComponent:Boolean,netlistFileName:String,dumpWave:spinal.core.DumpWaveConfig,globalPrefix:String,formalAsserts:Boolean,anonymSignalPrefix:String,device:spinal.core.Device,inlineRom:Boolean,genVhdlPkg:Boolean,verbose:Boolean,mergeAsyncProcess:Boolean,asyncResetCombSensitivity:Boolean,anonymSignalUniqueness:Boolean,noRandBoot:Boolean,noAssert:Boolean,phasesInserters:scala.collection.mutable.ArrayBuffer[scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]=&gt;Unit],transformationPhases:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase],memBlackBoxers:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase],rtlHeader:String):spinal.core.SpinalConfig"></a>
+      <a id="&lt;init&gt;:SpinalConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">new</span>
+      </span>
+      <span class="symbol">
+        <span class="name">SpinalConfig</span><span class="params">(<span name="mode">mode: <a href="SpinalMode.html" class="extype" name="spinal.core.SpinalMode">SpinalMode</a> = <span class="symbol">null</span></span>, <span name="flags">flags: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Any">Any</span>] = <span class="symbol">mutable.HashSet[Any]()</span></span>, <span name="debugComponents">debugComponents: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Predef.Class">Class</span>[_]] = <span class="symbol">mutable.HashSet[Class[_]]()</span></span>, <span name="keepAll">keepAll: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="defaultConfigForClockDomains">defaultConfigForClockDomains: <a href="ClockDomainConfig.html" class="extype" name="spinal.core.ClockDomainConfig">ClockDomainConfig</a> = <span class="symbol">ClockDomainConfig()</span></span>, <span name="onlyStdLogicVectorAtTopLevelIo">onlyStdLogicVectorAtTopLevelIo: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="defaultClockDomainFrequency">defaultClockDomainFrequency: <a href="package.html#IClockDomainFrequency=spinal.core.ClockDomain.ClockFrequency" class="extmbr" name="spinal.core.IClockDomainFrequency">IClockDomainFrequency</a> = <span class="symbol"><span class="name"><a href="package.html#UnknownFrequency():spinal.core.ClockDomain.UnknownFrequency">UnknownFrequency()</a></span></span></span>, <span name="targetDirectory">targetDirectory: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;.&quot;</span></span>, <span name="oneFilePerComponent">oneFilePerComponent: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="netlistFileName">netlistFileName: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>, <span name="dumpWave">dumpWave: <a href="DumpWaveConfig.html" class="extype" name="spinal.core.DumpWaveConfig">DumpWaveConfig</a> = <span class="symbol">null</span></span>, <span name="globalPrefix">globalPrefix: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;&quot;</span></span>, <span name="formalAsserts">formalAsserts: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="anonymSignalPrefix">anonymSignalPrefix: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>, <span name="device">device: <a href="Device.html" class="extype" name="spinal.core.Device">Device</a> = <span class="symbol">Device()</span></span>, <span name="inlineRom">inlineRom: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="genVhdlPkg">genVhdlPkg: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="verbose">verbose: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="mergeAsyncProcess">mergeAsyncProcess: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="asyncResetCombSensitivity">asyncResetCombSensitivity: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="anonymSignalUniqueness">anonymSignalUniqueness: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="noRandBoot">noRandBoot: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="noAssert">noAssert: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">false</span></span>, <span name="phasesInserters">phasesInserters: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[(<span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>]) ⇒ <span class="extype" name="scala.Unit">Unit</span>] = <span class="defval" name="ArrayBuffer[(ArrayBuffer[Phase]) =&gt; Unit]()">...</span></span>, <span name="transformationPhases">transformationPhases: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>] = <span class="symbol">ArrayBuffer[Phase]()</span></span>, <span name="memBlackBoxers">memBlackBoxers: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>] = <span class="defval" name="ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)">...</span></span>, <span name="rtlHeader">rtlHeader: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">null</span></span>)</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@&lt;init&gt;(mode:spinal.core.SpinalMode,flags:scala.collection.mutable.HashSet[Any],debugComponents:scala.collection.mutable.HashSet[Class[_]],keepAll:Boolean,defaultConfigForClockDomains:spinal.core.ClockDomainConfig,onlyStdLogicVectorAtTopLevelIo:Boolean,defaultClockDomainFrequency:spinal.core.IClockDomainFrequency,targetDirectory:String,oneFilePerComponent:Boolean,netlistFileName:String,dumpWave:spinal.core.DumpWaveConfig,globalPrefix:String,formalAsserts:Boolean,anonymSignalPrefix:String,device:spinal.core.Device,inlineRom:Boolean,genVhdlPkg:Boolean,verbose:Boolean,mergeAsyncProcess:Boolean,asyncResetCombSensitivity:Boolean,anonymSignalUniqueness:Boolean,noRandBoot:Boolean,noAssert:Boolean,phasesInserters:scala.collection.mutable.ArrayBuffer[scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]=&gt;Unit],transformationPhases:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase],memBlackBoxers:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase],rtlHeader:String):spinal.core.SpinalConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="scala.AnyRef#!=" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a>
+      <a id="!=(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <a id="##():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@##():Int" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a>
+      <a id="==(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#addStandardMemBlackboxing" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="addStandardMemBlackboxing(policy:spinal.core.MemBlackboxingPolicy):SpinalConfig.this.type"></a>
+      <a id="addStandardMemBlackboxing(MemBlackboxingPolicy):SpinalConfig.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">addStandardMemBlackboxing</span><span class="params">(<span name="policy">policy: <a href="MemBlackboxingPolicy.html" class="extype" name="spinal.core.MemBlackboxingPolicy">MemBlackboxingPolicy</a></span>)</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@addStandardMemBlackboxing(policy:spinal.core.MemBlackboxingPolicy):SpinalConfig.this.type" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#addTransformationPhase" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="addTransformationPhase(phase:spinal.core.internals.Phase):spinal.core.SpinalConfig"></a>
+      <a id="addTransformationPhase(Phase):SpinalConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">addTransformationPhase</span><span class="params">(<span name="phase">phase: <a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a></span>)</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@addTransformationPhase(phase:spinal.core.internals.Phase):spinal.core.SpinalConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#anonymSignalPrefix" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="anonymSignalPrefix:String"></a>
+      <a id="anonymSignalPrefix:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">anonymSignalPrefix</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@anonymSignalPrefix:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#anonymSignalUniqueness" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="anonymSignalUniqueness:Boolean"></a>
+      <a id="anonymSignalUniqueness:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">anonymSignalUniqueness</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@anonymSignalUniqueness:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#apply" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="apply[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]"></a>
+      <a id="apply[T&lt;:Component](⇒T):SpinalReport[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">apply</span><span class="tparams">[<span name="T">T &lt;: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>]</span><span class="params">(<span name="gen">gen: ⇒ <span class="extype" name="spinal.core.SpinalConfig.apply.T">T</span></span>)</span><span class="result">: <a href="SpinalReport.html" class="extype" name="spinal.core.SpinalReport">SpinalReport</a>[<span class="extype" name="spinal.core.SpinalConfig.apply.T">T</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@apply[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#applyToGlobalData" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="applyToGlobalData(globalData:spinal.core.GlobalData):Unit"></a>
+      <a id="applyToGlobalData(GlobalData):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">applyToGlobalData</span><span class="params">(<span name="globalData">globalData: <a href="GlobalData.html" class="extype" name="spinal.core.GlobalData">GlobalData</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@applyToGlobalData(globalData:spinal.core.GlobalData):Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <a id="asInstanceOf[T0]:T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#asyncResetCombSensitivity" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="asyncResetCombSensitivity:Boolean"></a>
+      <a id="asyncResetCombSensitivity:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asyncResetCombSensitivity</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@asyncResetCombSensitivity:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#clone" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a>
+      <a id="clone():AnyRef"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@clone():Object" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#debugComponents" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="debugComponents:scala.collection.mutable.HashSet[Class[_]]"></a>
+      <a id="debugComponents:HashSet[Class[_]]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">debugComponents</span><span class="result">: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Predef.Class">Class</span>[_]]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@debugComponents:scala.collection.mutable.HashSet[Class[_]]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#defaultClockDomainFrequency" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="defaultClockDomainFrequency:spinal.core.IClockDomainFrequency"></a>
+      <a id="defaultClockDomainFrequency:IClockDomainFrequency"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">defaultClockDomainFrequency</span><span class="result">: <a href="package.html#IClockDomainFrequency=spinal.core.ClockDomain.ClockFrequency" class="extmbr" name="spinal.core.IClockDomainFrequency">IClockDomainFrequency</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@defaultClockDomainFrequency:spinal.core.IClockDomainFrequency" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#defaultConfigForClockDomains" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="defaultConfigForClockDomains:spinal.core.ClockDomainConfig"></a>
+      <a id="defaultConfigForClockDomains:ClockDomainConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">defaultConfigForClockDomains</span><span class="result">: <a href="ClockDomainConfig.html" class="extype" name="spinal.core.ClockDomainConfig">ClockDomainConfig</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@defaultConfigForClockDomains:spinal.core.ClockDomainConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#device" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="device:spinal.core.Device"></a>
+      <a id="device:Device"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">device</span><span class="result">: <a href="Device.html" class="extype" name="spinal.core.Device">Device</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@device:spinal.core.Device" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#dumpWave" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="dumpWave(depth:Int,vcdPath:String):spinal.core.SpinalConfig"></a>
+      <a id="dumpWave(Int,String):SpinalConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">dumpWave</span><span class="params">(<span name="depth">depth: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">0</span></span>, <span name="vcdPath">vcdPath: <span class="extype" name="scala.Predef.String">String</span> = <span class="symbol">&quot;wave.vcd&quot;</span></span>)</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@dumpWave(depth:Int,vcdPath:String):spinal.core.SpinalConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#dumpWave" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="dumpWave:spinal.core.DumpWaveConfig"></a>
+      <a id="dumpWave:DumpWaveConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">dumpWave</span><span class="result">: <a href="DumpWaveConfig.html" class="extype" name="spinal.core.DumpWaveConfig">DumpWaveConfig</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@dumpWave:spinal.core.DumpWaveConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#eq" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a>
+      <a id="eq(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#finalize" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <a id="finalize():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#flags" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="flags:scala.collection.mutable.HashSet[Any]"></a>
+      <a id="flags:HashSet[Any]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">flags</span><span class="result">: <span class="extype" name="scala.collection.mutable.HashSet">HashSet</span>[<span class="extype" name="scala.Any">Any</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@flags:scala.collection.mutable.HashSet[Any]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#formalAsserts" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="formalAsserts:Boolean"></a>
+      <a id="formalAsserts:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">var</span>
+      </span>
+      <span class="symbol">
+        <span class="name">formalAsserts</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@formalAsserts:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#genVhdlPkg" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="genVhdlPkg:Boolean"></a>
+      <a id="genVhdlPkg:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">genVhdlPkg</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@genVhdlPkg:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#generate" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="generate[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]"></a>
+      <a id="generate[T&lt;:Component](⇒T):SpinalReport[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">generate</span><span class="tparams">[<span name="T">T &lt;: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>]</span><span class="params">(<span name="gen">gen: ⇒ <span class="extype" name="spinal.core.SpinalConfig.generate.T">T</span></span>)</span><span class="result">: <a href="SpinalReport.html" class="extype" name="spinal.core.SpinalReport">SpinalReport</a>[<span class="extype" name="spinal.core.SpinalConfig.generate.T">T</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@generate[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#generateSystemVerilog" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="generateSystemVerilog[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]"></a>
+      <a id="generateSystemVerilog[T&lt;:Component](⇒T):SpinalReport[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">generateSystemVerilog</span><span class="tparams">[<span name="T">T &lt;: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>]</span><span class="params">(<span name="gen">gen: ⇒ <span class="extype" name="spinal.core.SpinalConfig.generateSystemVerilog.T">T</span></span>)</span><span class="result">: <a href="SpinalReport.html" class="extype" name="spinal.core.SpinalReport">SpinalReport</a>[<span class="extype" name="spinal.core.SpinalConfig.generateSystemVerilog.T">T</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@generateSystemVerilog[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#generateVerilog" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="generateVerilog[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]"></a>
+      <a id="generateVerilog[T&lt;:Component](⇒T):SpinalReport[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">generateVerilog</span><span class="tparams">[<span name="T">T &lt;: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>]</span><span class="params">(<span name="gen">gen: ⇒ <span class="extype" name="spinal.core.SpinalConfig.generateVerilog.T">T</span></span>)</span><span class="result">: <a href="SpinalReport.html" class="extype" name="spinal.core.SpinalReport">SpinalReport</a>[<span class="extype" name="spinal.core.SpinalConfig.generateVerilog.T">T</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@generateVerilog[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#generateVhdl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="generateVhdl[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]"></a>
+      <a id="generateVhdl[T&lt;:Component](⇒T):SpinalReport[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">generateVhdl</span><span class="tparams">[<span name="T">T &lt;: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>]</span><span class="params">(<span name="gen">gen: ⇒ <span class="extype" name="spinal.core.SpinalConfig.generateVhdl.T">T</span></span>)</span><span class="result">: <a href="SpinalReport.html" class="extype" name="spinal.core.SpinalReport">SpinalReport</a>[<span class="extype" name="spinal.core.SpinalConfig.generateVhdl.T">T</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@generateVhdl[T&lt;:spinal.core.Component](gen:=&gt;T):spinal.core.SpinalReport[T]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#getClass" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <a id="getClass():Class[_]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#globalPrefix" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="globalPrefix:String"></a>
+      <a id="globalPrefix:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">globalPrefix</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@globalPrefix:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#includeFormal" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="includeFormal:SpinalConfig.this.type"></a>
+      <a id="includeFormal:SpinalConfig.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">includeFormal</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@includeFormal:SpinalConfig.this.type" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#includeSimulation" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="includeSimulation:SpinalConfig.this.type"></a>
+      <a id="includeSimulation:SpinalConfig.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">includeSimulation</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@includeSimulation:SpinalConfig.this.type" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#includeSynthesis" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="includeSynthesis:SpinalConfig.this.type"></a>
+      <a id="includeSynthesis:SpinalConfig.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">includeSynthesis</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@includeSynthesis:SpinalConfig.this.type" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#inlineRom" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="inlineRom:Boolean"></a>
+      <a id="inlineRom:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">inlineRom</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@inlineRom:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#isSystemVerilog" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="isSystemVerilog:Boolean"></a>
+      <a id="isSystemVerilog:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isSystemVerilog</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@isSystemVerilog:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#keepAll" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="keepAll:Boolean"></a>
+      <a id="keepAll:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">keepAll</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@keepAll:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#memBlackBoxers" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="memBlackBoxers:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]"></a>
+      <a id="memBlackBoxers:ArrayBuffer[Phase]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">memBlackBoxers</span><span class="result">: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@memBlackBoxers:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#mergeAsyncProcess" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="mergeAsyncProcess:Boolean"></a>
+      <a id="mergeAsyncProcess:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">mergeAsyncProcess</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@mergeAsyncProcess:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#mode" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="mode:spinal.core.SpinalMode"></a>
+      <a id="mode:SpinalMode"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">mode</span><span class="result">: <a href="SpinalMode.html" class="extype" name="spinal.core.SpinalMode">SpinalMode</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@mode:spinal.core.SpinalMode" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#ne" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a>
+      <a id="ne(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#netlistFileName" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="netlistFileName:String"></a>
+      <a id="netlistFileName:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">netlistFileName</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@netlistFileName:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#noAssert" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="noAssert:Boolean"></a>
+      <a id="noAssert:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">noAssert</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@noAssert:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#noRandBoot" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="noRandBoot:Boolean"></a>
+      <a id="noRandBoot:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">noRandBoot</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@noRandBoot:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#notify" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <a id="notify():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@notify():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <a id="notifyAll():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#oneFilePerComponent" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="oneFilePerComponent:Boolean"></a>
+      <a id="oneFilePerComponent:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">oneFilePerComponent</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@oneFilePerComponent:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#onlyStdLogicVectorAtTopLevelIo" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="onlyStdLogicVectorAtTopLevelIo:Boolean"></a>
+      <a id="onlyStdLogicVectorAtTopLevelIo:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">onlyStdLogicVectorAtTopLevelIo</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@onlyStdLogicVectorAtTopLevelIo:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#phasesInserters" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="phasesInserters:scala.collection.mutable.ArrayBuffer[scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]=&gt;Unit]"></a>
+      <a id="phasesInserters:ArrayBuffer[(ArrayBuffer[Phase])⇒Unit]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">phasesInserters</span><span class="result">: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[(<span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>]) ⇒ <span class="extype" name="scala.Unit">Unit</span>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@phasesInserters:scala.collection.mutable.ArrayBuffer[scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]=&gt;Unit]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#rtlHeader" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="rtlHeader:String"></a>
+      <a id="rtlHeader:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">rtlHeader</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@rtlHeader:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a>
+      <a id="synchronized[T0](⇒T0):T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#targetDirectory" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="targetDirectory:String"></a>
+      <a id="targetDirectory:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">targetDirectory</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@targetDirectory:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#transformationPhases" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="transformationPhases:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]"></a>
+      <a id="transformationPhases:ArrayBuffer[Phase]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">transformationPhases</span><span class="result">: <span class="extype" name="scala.collection.mutable.ArrayBuffer">ArrayBuffer</span>[<a href="internals/Phase.html" class="extype" name="spinal.core.internals.Phase">Phase</a>]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@transformationPhases:scala.collection.mutable.ArrayBuffer[spinal.core.internals.Phase]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.SpinalConfig#verbose" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="verbose:Boolean"></a>
+      <a id="verbose:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">verbose</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@verbose:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <a id="wait():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@wait():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a>
+      <a id="wait(Long,Int):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a>
+      <a id="wait(Long):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.SpinalConfig#withoutAssert" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="withoutAssert:spinal.core.SpinalConfig"></a>
+      <a id="withoutAssert:SpinalConfig"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">withoutAssert</span><span class="result">: <a href="" class="extype" name="spinal.core.SpinalConfig">SpinalConfig</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.SpinalConfig@withoutAssert:spinal.core.SpinalConfig" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="scala.Serializable">
+              <h3>Inherited from <span class="extype" name="scala.Serializable">Serializable</span></h3>
+            </div><div class="parent" name="java.io.Serializable">
+              <h3>Inherited from <span class="extype" name="java.io.Serializable">Serializable</span></h3>
+            </div><div class="parent" name="scala.Product">
+              <h3>Inherited from <span class="extype" name="scala.Product">Product</span></h3>
+            </div><div class="parent" name="scala.Equals">
+              <h3>Inherited from <span class="extype" name="scala.Equals">Equals</span></h3>
+            </div><div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

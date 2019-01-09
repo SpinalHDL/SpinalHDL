@@ -1,0 +1,206 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>plic - spinal.lib.misc.plic</title>
+          <meta name="description" content="plic - spinal.lib.misc.plic" />
+          <meta name="keywords" content="plic spinal.lib.misc.plic" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../index.html';
+            var hash = 'spinal.lib.misc.plic.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../package.html" class="extype" name="spinal.lib.misc">misc</a></p>
+        <h1>plic</h1><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">plic</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.misc.plic.PlicGateway" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="PlicGatewayextendsArea"></a>
+      <a id="PlicGateway:PlicGateway"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicGateway.html"><span class="name">PlicGateway</span></a><span class="result"> extends <a href="../../../core/Area.html" class="extype" name="spinal.core.Area">Area</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicGatewayextendsArea" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.misc.plic.PlicGatewayActiveHigh" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PlicGatewayActiveHighextendsPlicGatewaywithProductwithSerializable"></a>
+      <a id="PlicGatewayActiveHigh:PlicGatewayActiveHigh"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicGatewayActiveHigh.html"><span class="name">PlicGatewayActiveHigh</span></a><span class="params">(<span name="source">source: <a href="../../../core/Bool.html" class="extype" name="spinal.core.Bool">Bool</a></span>, <span name="id">id: <span class="extype" name="scala.Int">Int</span></span>, <span name="priorityWidth">priorityWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <a href="PlicGateway.html" class="extype" name="spinal.lib.misc.plic.PlicGateway">PlicGateway</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicGatewayActiveHighextendsPlicGatewaywithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.misc.plic.PlicMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PlicMappingextendsProductwithSerializable"></a>
+      <a id="PlicMapping:PlicMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicMapping.html"><span class="name">PlicMapping</span></a><span class="params">(<span name="gatewayPriorityOffset">gatewayPriorityOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="gatewayPendingOffset">gatewayPendingOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetEnableOffset">targetEnableOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetThresholdOffset">targetThresholdOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetClaimOffset">targetClaimOffset: <span class="extype" name="scala.Int">Int</span></span>, <span name="gatewayPriorityShift">gatewayPriorityShift: <span class="extype" name="scala.Int">Int</span></span>, <span name="gatewayPendingShift">gatewayPendingShift: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetThresholdShift">targetThresholdShift: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetClaimShift">targetClaimShift: <span class="extype" name="scala.Int">Int</span></span>, <span name="targetEnableShift">targetEnableShift: <span class="extype" name="scala.Int">Int</span></span>, <span name="gatewayPriorityWriteGen">gatewayPriorityWriteGen: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="gatewayPriorityReadGen">gatewayPriorityReadGen: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="gatewayPendingReadGen">gatewayPendingReadGen: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="targetThresholdWriteGen">targetThresholdWriteGen: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="targetThresholdReadGen">targetThresholdReadGen: <span class="extype" name="scala.Boolean">Boolean</span></span>, <span name="targetEnableWriteGen">targetEnableWriteGen: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>, <span name="targetEnableReadGen">targetEnableReadGen: <span class="extype" name="scala.Boolean">Boolean</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicMappingextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.misc.plic.PlicTarget" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PlicTargetextendsAreawithProductwithSerializable"></a>
+      <a id="PlicTarget:PlicTarget"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicTarget.html"><span class="name">PlicTarget</span></a><span class="params">(<span name="gateways">gateways: <span class="extype" name="scala.Seq">Seq</span>[<a href="PlicGateway.html" class="extype" name="spinal.lib.misc.plic.PlicGateway">PlicGateway</a>]</span>, <span name="priorityWidth">priorityWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <a href="../../../core/Area.html" class="extype" name="spinal.core.Area">Area</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicTargetextendsAreawithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.misc.plic.PlicMapper" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PlicMapper"></a>
+      <a id="PlicMapper:PlicMapper"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicMapper$.html"><span class="name">PlicMapper</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicMapper" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.misc.plic.PlicMapping" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="PlicMapping"></a>
+      <a id="PlicMapping:PlicMapping"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="PlicMapping$.html"><span class="name">PlicMapping</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.misc.plic.package@PlicMapping" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

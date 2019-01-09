@@ -1,0 +1,308 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>sim - spinal.lib.wishbone.sim</title>
+          <meta name="description" content="sim - spinal.lib.wishbone.sim" />
+          <meta name="keywords" content="sim spinal.lib.wishbone.sim" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../index.html';
+            var hash = 'spinal.lib.wishbone.sim.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../package.html" class="extype" name="spinal.lib.wishbone">wishbone</a></p>
+        <h1>sim</h1><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sim</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.wishbone.sim.AddressRange" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AddressRangeextendsProductwithSerializable"></a>
+      <a id="AddressRange:AddressRange"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="AddressRange.html"><span class="name">AddressRange</span></a><span class="params">(<span name="base">base: <span class="extype" name="scala.BigInt">BigInt</span></span>, <span name="size">size: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@AddressRangeextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneDriver" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneDriverextendsAnyRef"></a>
+      <a id="WishboneDriver:WishboneDriver"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneDriver.html"><span class="name">WishboneDriver</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneDriverextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">This is a helping class for driving the wishbone bus</p>
+    </li><li name="spinal.lib.wishbone.sim.WishboneMonitor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneMonitorextendsAnyRef"></a>
+      <a id="WishboneMonitor:WishboneMonitor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneMonitor.html"><span class="name">WishboneMonitor</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneMonitorextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">This is a helping class for executing code when an acknoledge happend on the bus</p>
+    </li><li name="spinal.lib.wishbone.sim.WishboneSequencer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneSequencerextendsAnyRef"></a>
+      <a id="WishboneSequencer:WishboneSequencer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneSequencer.html"><span class="name">WishboneSequencer</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneSequencerextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneStatus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneStatusextendsAnyRef"></a>
+      <a id="WishboneStatus:WishboneStatus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneStatus.html"><span class="name">WishboneStatus</span></a><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneStatusextendsAnyRef" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneTransaction" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneTransactionextendsProductwithSerializable"></a>
+      <a id="WishboneTransaction:WishboneTransaction"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneTransaction.html"><span class="name">WishboneTransaction</span></a><span class="params">(<span name="address">address: <span class="extype" name="scala.BigInt">BigInt</span> = <span class="symbol">0</span></span>, <span name="data">data: <span class="extype" name="scala.BigInt">BigInt</span> = <span class="symbol">0</span></span>, <span name="tga">tga: <span class="extype" name="scala.BigInt">BigInt</span> = <span class="symbol">0</span></span>, <span name="tgc">tgc: <span class="extype" name="scala.BigInt">BigInt</span> = <span class="symbol">0</span></span>, <span name="tgd">tgd: <span class="extype" name="scala.BigInt">BigInt</span> = <span class="symbol">0</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneTransactionextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.wishbone.sim.AddressRange" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="AddressRange"></a>
+      <a id="AddressRange:AddressRange"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="AddressRange$.html"><span class="name">AddressRange</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@AddressRange" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneDriver" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneDriver"></a>
+      <a id="WishboneDriver:WishboneDriver"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneDriver$.html"><span class="name">WishboneDriver</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneDriver" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneMonitor" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneMonitor"></a>
+      <a id="WishboneMonitor:WishboneMonitor"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneMonitor$.html"><span class="name">WishboneMonitor</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneMonitor" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneSequencer" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneSequencer"></a>
+      <a id="WishboneSequencer:WishboneSequencer"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneSequencer$.html"><span class="name">WishboneSequencer</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneSequencer" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneStatus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneStatus"></a>
+      <a id="WishboneStatus:WishboneStatus"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneStatus$.html"><span class="name">WishboneStatus</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneStatus" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.wishbone.sim.WishboneTransaction" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="WishboneTransaction"></a>
+      <a id="WishboneTransaction:WishboneTransaction"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="WishboneTransaction$.html"><span class="name">WishboneTransaction</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.wishbone.sim.package@WishboneTransaction" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

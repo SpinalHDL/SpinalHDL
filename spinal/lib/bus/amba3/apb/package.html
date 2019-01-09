@@ -1,0 +1,309 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>apb - spinal.lib.bus.amba3.apb</title>
+          <meta name="description" content="apb - spinal.lib.bus.amba3.apb" />
+          <meta name="keywords" content="apb spinal.lib.bus.amba3.apb" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../../index.html';
+            var hash = 'spinal.lib.bus.amba3.apb.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../../package.html" class="extype" name="spinal.lib.bus">bus</a>.<a href="../package.html" class="extype" name="spinal.lib.bus.amba3">amba3</a></p>
+        <h1>apb</h1><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">apb</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.bus.amba3.apb.Apb3" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3extendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="Apb3:Apb3"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3.html"><span class="name">Apb3</span></a><span class="params">(<span name="config">config: <a href="Apb3Config.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3Config">Apb3Config</a></span>)</span><span class="result"> extends <a href="../../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3extendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">AMBA 3 APB Protocol interface
+</p>
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Config" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3ConfigextendsProductwithSerializable"></a>
+      <a id="Apb3Config:Apb3Config"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Config.html"><span class="name">Apb3Config</span></a><span class="params">(<span name="addressWidth">addressWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="dataWidth">dataWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="selWidth">selWidth: <span class="extype" name="scala.Int">Int</span> = <span class="symbol">1</span></span>, <span name="useSlaveError">useSlaveError: <span class="extype" name="scala.Boolean">Boolean</span> = <span class="symbol">true</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3ConfigextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Decoder" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3DecoderextendsComponent"></a>
+      <a id="Apb3Decoder:Apb3Decoder"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Decoder.html"><span class="name">Apb3Decoder</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3DecoderextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Gpio" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3GpioextendsComponentwithProductwithSerializable"></a>
+      <a id="Apb3Gpio:Apb3Gpio"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Gpio.html"><span class="name">Apb3Gpio</span></a><span class="params">(<span name="gpioWidth">gpioWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3GpioextendsComponentwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Router" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3RouterextendsComponent"></a>
+      <a id="Apb3Router:Apb3Router"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Router.html"><span class="name">Apb3Router</span></a><span class="result"> extends <a href="../../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3RouterextendsComponent" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3SlaveFactory" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3SlaveFactoryextendsBusSlaveFactoryDelayed"></a>
+      <a id="Apb3SlaveFactory:Apb3SlaveFactory"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">class</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3SlaveFactory.html"><span class="name">Apb3SlaveFactory</span></a><span class="result"> extends <a href="../../misc/BusSlaveFactoryDelayed.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryDelayed">BusSlaveFactoryDelayed</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3SlaveFactoryextendsBusSlaveFactoryDelayed" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.bus.amba3.apb.Apb3" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3"></a>
+      <a id="Apb3:Apb3"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3$.html"><span class="name">Apb3</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Decoder" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3Decoder"></a>
+      <a id="Apb3Decoder:Apb3Decoder"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Decoder$.html"><span class="name">Apb3Decoder</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3Decoder" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Gpio" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3Gpio"></a>
+      <a id="Apb3Gpio:Apb3Gpio"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Gpio$.html"><span class="name">Apb3Gpio</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3Gpio" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3Router" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3Router"></a>
+      <a id="Apb3Router:Apb3Router"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3Router$.html"><span class="name">Apb3Router</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3Router" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.Apb3SlaveFactory" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Apb3SlaveFactory"></a>
+      <a id="Apb3SlaveFactory:Apb3SlaveFactory"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Apb3SlaveFactory$.html"><span class="name">Apb3SlaveFactory</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@Apb3SlaveFactory" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.bus.amba3.apb.sim" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="sim"></a>
+      <a id="sim:sim"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <a href="sim/package.html"><span class="name">sim</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../../index.html#spinal.lib.bus.amba3.apb.package@sim" title="Permalink" target="_top">
+        <img src="../../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

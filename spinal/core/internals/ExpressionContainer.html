@@ -1,0 +1,641 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>ExpressionContainer - spinal.core.internals.ExpressionContainer</title>
+          <meta name="description" content="ExpressionContainer - spinal.core.internals.ExpressionContainer" />
+          <meta name="keywords" content="ExpressionContainer spinal.core.internals.ExpressionContainer" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../index.html';
+            var hash = 'spinal.core.internals.ExpressionContainer';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="type">
+      <div id="definition">
+        <img alt="Trait" src="../../../lib/trait_big.png" />
+        <p id="owner"><a href="../../package.html" class="extype" name="spinal">spinal</a>.<a href="../package.html" class="extype" name="spinal.core">core</a>.<a href="package.html" class="extype" name="spinal.core.internals">internals</a></p>
+        <h1>ExpressionContainer</h1><h3><span class="morelinks"><div>Related Doc:
+            <a href="package.html" class="extype" name="spinal.core.internals">package internals</a>
+          </div></span></h3><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ExpressionContainer</span><span class="result"> extends <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div><div class="toggleContainer block">
+            <span class="toggle">Known Subclasses</span>
+            <div class="subClasses hiddenContent"><a href="Operator$$SInt$$Add.html" class="extype" name="spinal.core.internals.Operator.SInt.Add">Add</a>, <a href="Operator$$UInt$$Add.html" class="extype" name="spinal.core.internals.Operator.UInt.Add">Add</a>, <a href="Operator$$BitVector$$Add.html" class="extype" name="spinal.core.internals.Operator.BitVector.Add">Add</a>, <a href="AnalogDriver.html" class="extype" name="spinal.core.internals.AnalogDriver">AnalogDriver</a>, <a href="AnalogDriverBitVector.html" class="extype" name="spinal.core.internals.AnalogDriverBitVector">AnalogDriverBitVector</a>, <a href="AnalogDriverBits.html" class="extype" name="spinal.core.internals.AnalogDriverBits">AnalogDriverBits</a>, <a href="AnalogDriverBool.html" class="extype" name="spinal.core.internals.AnalogDriverBool">AnalogDriverBool</a>, <a href="AnalogDriverEnum.html" class="extype" name="spinal.core.internals.AnalogDriverEnum">AnalogDriverEnum</a>, <a href="AnalogDriverSInt.html" class="extype" name="spinal.core.internals.AnalogDriverSInt">AnalogDriverSInt</a>, <a href="AnalogDriverUInt.html" class="extype" name="spinal.core.internals.AnalogDriverUInt">AnalogDriverUInt</a>, <a href="Operator$$Bits$$And.html" class="extype" name="spinal.core.internals.Operator.Bits.And">And</a>, <a href="Operator$$Bool$$And.html" class="extype" name="spinal.core.internals.Operator.Bool.And">And</a>, <a href="Operator$$SInt$$And.html" class="extype" name="spinal.core.internals.Operator.SInt.And">And</a>, <a href="Operator$$BitVector$$And.html" class="extype" name="spinal.core.internals.Operator.BitVector.And">And</a>, <a href="Operator$$UInt$$And.html" class="extype" name="spinal.core.internals.Operator.UInt.And">And</a>, <a href="AssertStatement.html" class="extype" name="spinal.core.internals.AssertStatement">AssertStatement</a>, <a href="AssignmentExpression.html" class="extype" name="spinal.core.internals.AssignmentExpression">AssignmentExpression</a>, <a href="AssignmentStatement.html" class="extype" name="spinal.core.internals.AssignmentStatement">AssignmentStatement</a>, <a href="../BaseType.html" class="extype" name="spinal.core.BaseType">BaseType</a>, <a href="BinaryMultiplexer.html" class="extype" name="spinal.core.internals.BinaryMultiplexer">BinaryMultiplexer</a>, <a href="BinaryMultiplexerBits.html" class="extype" name="spinal.core.internals.BinaryMultiplexerBits">BinaryMultiplexerBits</a>, <a href="BinaryMultiplexerBool.html" class="extype" name="spinal.core.internals.BinaryMultiplexerBool">BinaryMultiplexerBool</a>, <a href="BinaryMultiplexerEnum.html" class="extype" name="spinal.core.internals.BinaryMultiplexerEnum">BinaryMultiplexerEnum</a>, <a href="BinaryMultiplexerSInt.html" class="extype" name="spinal.core.internals.BinaryMultiplexerSInt">BinaryMultiplexerSInt</a>, <a href="BinaryMultiplexerUInt.html" class="extype" name="spinal.core.internals.BinaryMultiplexerUInt">BinaryMultiplexerUInt</a>, <a href="BinaryMultiplexerWidthable.html" class="extype" name="spinal.core.internals.BinaryMultiplexerWidthable">BinaryMultiplexerWidthable</a>, <a href="BinaryOperator.html" class="extype" name="spinal.core.internals.BinaryOperator">BinaryOperator</a>, <a href="BinaryOperatorWidthableInputs.html" class="extype" name="spinal.core.internals.BinaryOperatorWidthableInputs">BinaryOperatorWidthableInputs</a>, <a href="BitAssignmentFixed.html" class="extype" name="spinal.core.internals.BitAssignmentFixed">BitAssignmentFixed</a>, <a href="BitAssignmentFloating.html" class="extype" name="spinal.core.internals.BitAssignmentFloating">BitAssignmentFloating</a>, <a href="../BitVector.html" class="extype" name="spinal.core.BitVector">BitVector</a>, <a href="BitVectorAssignmentExpression.html" class="extype" name="spinal.core.internals.BitVectorAssignmentExpression">BitVectorAssignmentExpression</a>, <a href="BitVectorBitAccessFixed.html" class="extype" name="spinal.core.internals.BitVectorBitAccessFixed">BitVectorBitAccessFixed</a>, <a href="BitVectorBitAccessFloating.html" class="extype" name="spinal.core.internals.BitVectorBitAccessFloating">BitVectorBitAccessFloating</a>, <a href="BitVectorLiteral.html" class="extype" name="spinal.core.internals.BitVectorLiteral">BitVectorLiteral</a>, <a href="BitVectorRangedAccessFixed.html" class="extype" name="spinal.core.internals.BitVectorRangedAccessFixed">BitVectorRangedAccessFixed</a>, <a href="BitVectorRangedAccessFloating.html" class="extype" name="spinal.core.internals.BitVectorRangedAccessFloating">BitVectorRangedAccessFloating</a>, <a href="../Bits.html" class="extype" name="spinal.core.Bits">Bits</a>, <a href="BitsBitAccessFixed.html" class="extype" name="spinal.core.internals.BitsBitAccessFixed">BitsBitAccessFixed</a>, <a href="BitsBitAccessFloating.html" class="extype" name="spinal.core.internals.BitsBitAccessFloating">BitsBitAccessFloating</a>, <a href="BitsLiteral.html" class="extype" name="spinal.core.internals.BitsLiteral">BitsLiteral</a>, <a href="BitsRangedAccessFixed.html" class="extype" name="spinal.core.internals.BitsRangedAccessFixed">BitsRangedAccessFixed</a>, <a href="BitsRangedAccessFloating.html" class="extype" name="spinal.core.internals.BitsRangedAccessFloating">BitsRangedAccessFloating</a>, <a href="../Bool.html" class="extype" name="spinal.core.Bool">Bool</a>, <a href="BoolLiteral.html" class="extype" name="spinal.core.internals.BoolLiteral">BoolLiteral</a>, <a href="BoolPoison.html" class="extype" name="spinal.core.internals.BoolPoison">BoolPoison</a>, <a href="Cast.html" class="extype" name="spinal.core.internals.Cast">Cast</a>, <a href="CastBitVectorToBitVector.html" class="extype" name="spinal.core.internals.CastBitVectorToBitVector">CastBitVectorToBitVector</a>, <a href="CastBitsToEnum.html" class="extype" name="spinal.core.internals.CastBitsToEnum">CastBitsToEnum</a>, <a href="CastBitsToSInt.html" class="extype" name="spinal.core.internals.CastBitsToSInt">CastBitsToSInt</a>, <a href="CastBitsToUInt.html" class="extype" name="spinal.core.internals.CastBitsToUInt">CastBitsToUInt</a>, <a href="CastBoolToBits.html" class="extype" name="spinal.core.internals.CastBoolToBits">CastBoolToBits</a>, <a href="CastEnumToBits.html" class="extype" name="spinal.core.internals.CastEnumToBits">CastEnumToBits</a>, <a href="CastEnumToEnum.html" class="extype" name="spinal.core.internals.CastEnumToEnum">CastEnumToEnum</a>, <a href="CastSIntToBits.html" class="extype" name="spinal.core.internals.CastSIntToBits">CastSIntToBits</a>, <a href="CastSIntToUInt.html" class="extype" name="spinal.core.internals.CastSIntToUInt">CastSIntToUInt</a>, <a href="CastUIntToBits.html" class="extype" name="spinal.core.internals.CastUIntToBits">CastUIntToBits</a>, <a href="CastUIntToSInt.html" class="extype" name="spinal.core.internals.CastUIntToSInt">CastUIntToSInt</a>, <a href="Operator$$Bits$$Cat.html" class="extype" name="spinal.core.internals.Operator.Bits.Cat">Cat</a>, <a href="Operator$$Formal$$Changed.html" class="extype" name="spinal.core.internals.Operator.Formal.Changed">Changed</a>, <a href="ConstantOperator.html" class="extype" name="spinal.core.internals.ConstantOperator">ConstantOperator</a>, <a href="ConstantOperatorWidthableInputs.html" class="extype" name="spinal.core.internals.ConstantOperatorWidthableInputs">ConstantOperatorWidthableInputs</a>, <a href="DataAssignmentStatement.html" class="extype" name="spinal.core.internals.DataAssignmentStatement">DataAssignmentStatement</a>, <a href="DeclarationStatement.html" class="extype" name="spinal.core.internals.DeclarationStatement">DeclarationStatement</a>, <a href="Operator$$UInt$$Div.html" class="extype" name="spinal.core.internals.Operator.UInt.Div">Div</a>, <a href="Operator$$SInt$$Div.html" class="extype" name="spinal.core.internals.Operator.SInt.Div">Div</a>, <a href="Operator$$BitVector$$Div.html" class="extype" name="spinal.core.internals.Operator.BitVector.Div">Div</a>, <a href="../EnumLiteral.html" class="extype" name="spinal.core.EnumLiteral">EnumLiteral</a>, <a href="../EnumPoison.html" class="extype" name="spinal.core.EnumPoison">EnumPoison</a>, <a href="Operator$$Bits$$Equal.html" class="extype" name="spinal.core.internals.Operator.Bits.Equal">Equal</a>, <a href="Operator$$UInt$$Equal.html" class="extype" name="spinal.core.internals.Operator.UInt.Equal">Equal</a>, <a href="Operator$$BitVector$$Equal.html" class="extype" name="spinal.core.internals.Operator.BitVector.Equal">Equal</a>, <a href="Operator$$Bool$$Equal.html" class="extype" name="spinal.core.internals.Operator.Bool.Equal">Equal</a>, <a href="Operator$$Enum$$Equal.html" class="extype" name="spinal.core.internals.Operator.Enum.Equal">Equal</a>, <a href="Operator$$SInt$$Equal.html" class="extype" name="spinal.core.internals.Operator.SInt.Equal">Equal</a>, <a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>, <a href="Operator$$Formal$$Fall.html" class="extype" name="spinal.core.internals.Operator.Formal.Fall">Fall</a>, <a href="InitAssignmentStatement.html" class="extype" name="spinal.core.internals.InitAssignmentStatement">InitAssignmentStatement</a>, <a href="Operator$$Formal$$InitState.html" class="extype" name="spinal.core.internals.Operator.Formal.InitState">InitState</a>, <a href="LeafStatement.html" class="extype" name="spinal.core.internals.LeafStatement">LeafStatement</a>, <a href="Literal.html" class="extype" name="spinal.core.internals.Literal">Literal</a>, <a href="../Mem.html" class="extype" name="spinal.core.Mem">Mem</a>, <a href="../MemPortStatement.html" class="extype" name="spinal.core.MemPortStatement">MemPortStatement</a>, <a href="../MemReadAsync.html" class="extype" name="spinal.core.MemReadAsync">MemReadAsync</a>, <a href="../MemReadSync.html" class="extype" name="spinal.core.MemReadSync">MemReadSync</a>, <a href="../MemReadWrite.html" class="extype" name="spinal.core.MemReadWrite">MemReadWrite</a>, <a href="../MemWrite.html" class="extype" name="spinal.core.MemWrite">MemWrite</a>, <a href="Operator$$SInt$$Minus.html" class="extype" name="spinal.core.internals.Operator.SInt.Minus">Minus</a>, <a href="Operator$$UInt$$Mod.html" class="extype" name="spinal.core.internals.Operator.UInt.Mod">Mod</a>, <a href="Operator$$SInt$$Mod.html" class="extype" name="spinal.core.internals.Operator.SInt.Mod">Mod</a>, <a href="Operator$$BitVector$$Mod.html" class="extype" name="spinal.core.internals.Operator.BitVector.Mod">Mod</a>, <a href="Modifier.html" class="extype" name="spinal.core.internals.Modifier">Modifier</a>, <a href="Operator$$SInt$$Mul.html" class="extype" name="spinal.core.internals.Operator.SInt.Mul">Mul</a>, <a href="Operator$$UInt$$Mul.html" class="extype" name="spinal.core.internals.Operator.UInt.Mul">Mul</a>, <a href="Operator$$BitVector$$Mul.html" class="extype" name="spinal.core.internals.Operator.BitVector.Mul">Mul</a>, <a href="Multiplexer.html" class="extype" name="spinal.core.internals.Multiplexer">Multiplexer</a>, <a href="MultiplexerBits.html" class="extype" name="spinal.core.internals.MultiplexerBits">MultiplexerBits</a>, <a href="MultiplexerBool.html" class="extype" name="spinal.core.internals.MultiplexerBool">MultiplexerBool</a>, <a href="MultiplexerEnum.html" class="extype" name="spinal.core.internals.MultiplexerEnum">MultiplexerEnum</a>, <a href="MultiplexerSInt.html" class="extype" name="spinal.core.internals.MultiplexerSInt">MultiplexerSInt</a>, <a href="MultiplexerUInt.html" class="extype" name="spinal.core.internals.MultiplexerUInt">MultiplexerUInt</a>, <a href="MultiplexerWidthable.html" class="extype" name="spinal.core.internals.MultiplexerWidthable">MultiplexerWidthable</a>, <a href="Operator$$Bits$$Not.html" class="extype" name="spinal.core.internals.Operator.Bits.Not">Not</a>, <a href="Operator$$UInt$$Not.html" class="extype" name="spinal.core.internals.Operator.UInt.Not">Not</a>, <a href="Operator$$SInt$$Not.html" class="extype" name="spinal.core.internals.Operator.SInt.Not">Not</a>, <a href="Operator$$Bool$$Not.html" class="extype" name="spinal.core.internals.Operator.Bool.Not">Not</a>, <a href="Operator$$Bits$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.Bits.NotEqual">NotEqual</a>, <a href="Operator$$UInt$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.UInt.NotEqual">NotEqual</a>, <a href="Operator$$BitVector$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.BitVector.NotEqual">NotEqual</a>, <a href="Operator$$Enum$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.Enum.NotEqual">NotEqual</a>, <a href="Operator$$Bool$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.Bool.NotEqual">NotEqual</a>, <a href="Operator$$SInt$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.SInt.NotEqual">NotEqual</a>, <a href="Operator.html" class="extype" name="spinal.core.internals.Operator">Operator</a>, <a href="Operator$$Bool$$Or.html" class="extype" name="spinal.core.internals.Operator.Bool.Or">Or</a>, <a href="Operator$$BitVector$$Or.html" class="extype" name="spinal.core.internals.Operator.BitVector.Or">Or</a>, <a href="Operator$$UInt$$Or.html" class="extype" name="spinal.core.internals.Operator.UInt.Or">Or</a>, <a href="Operator$$Bits$$Or.html" class="extype" name="spinal.core.internals.Operator.Bits.Or">Or</a>, <a href="Operator$$SInt$$Or.html" class="extype" name="spinal.core.internals.Operator.SInt.Or">Or</a>, <a href="Operator$$Formal$$Past.html" class="extype" name="spinal.core.internals.Operator.Formal.Past">Past</a>, <a href="Operator$$Formal$$PastBits.html" class="extype" name="spinal.core.internals.Operator.Formal.PastBits">PastBits</a>, <a href="Operator$$Formal$$PastBitvector.html" class="extype" name="spinal.core.internals.Operator.Formal.PastBitvector">PastBitvector</a>, <a href="Operator$$Formal$$PastBool.html" class="extype" name="spinal.core.internals.Operator.Formal.PastBool">PastBool</a>, <a href="Operator$$Formal$$PastEnum.html" class="extype" name="spinal.core.internals.Operator.Formal.PastEnum">PastEnum</a>, <a href="Operator$$Formal$$PastSInt.html" class="extype" name="spinal.core.internals.Operator.Formal.PastSInt">PastSInt</a>, <a href="Operator$$Formal$$PastUInt.html" class="extype" name="spinal.core.internals.Operator.Formal.PastUInt">PastUInt</a>, <a href="RangedAssignmentFixed.html" class="extype" name="spinal.core.internals.RangedAssignmentFixed">RangedAssignmentFixed</a>, <a href="RangedAssignmentFloating.html" class="extype" name="spinal.core.internals.RangedAssignmentFloating">RangedAssignmentFloating</a>, <a href="Resize.html" class="extype" name="spinal.core.internals.Resize">Resize</a>, <a href="ResizeBits.html" class="extype" name="spinal.core.internals.ResizeBits">ResizeBits</a>, <a href="ResizeSInt.html" class="extype" name="spinal.core.internals.ResizeSInt">ResizeSInt</a>, <a href="ResizeUInt.html" class="extype" name="spinal.core.internals.ResizeUInt">ResizeUInt</a>, <a href="Operator$$Formal$$Rise.html" class="extype" name="spinal.core.internals.Operator.Formal.Rise">Rise</a>, <a href="../SInt.html" class="extype" name="spinal.core.SInt">SInt</a>, <a href="SIntBitAccessFixed.html" class="extype" name="spinal.core.internals.SIntBitAccessFixed">SIntBitAccessFixed</a>, <a href="SIntBitAccessFloating.html" class="extype" name="spinal.core.internals.SIntBitAccessFloating">SIntBitAccessFloating</a>, <a href="SIntLiteral.html" class="extype" name="spinal.core.internals.SIntLiteral">SIntLiteral</a>, <a href="SIntRangedAccessFixed.html" class="extype" name="spinal.core.internals.SIntRangedAccessFixed">SIntRangedAccessFixed</a>, <a href="SIntRangedAccessFloating.html" class="extype" name="spinal.core.internals.SIntRangedAccessFloating">SIntRangedAccessFloating</a>, <a href="Operator$$SInt$$ShiftLeftByInt.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftLeftByInt">ShiftLeftByInt</a>, <a href="Operator$$UInt$$ShiftLeftByInt.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftLeftByInt">ShiftLeftByInt</a>, <a href="Operator$$Bits$$ShiftLeftByInt.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftLeftByInt">ShiftLeftByInt</a>, <a href="Operator$$BitVector$$ShiftLeftByInt.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftLeftByInt">ShiftLeftByInt</a>, <a href="Operator$$SInt$$ShiftLeftByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftLeftByIntFixedWidth">ShiftLeftByIntFixedWidth</a>, <a href="Operator$$BitVector$$ShiftLeftByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftLeftByIntFixedWidth">ShiftLeftByIntFixedWidth</a>, <a href="Operator$$UInt$$ShiftLeftByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftLeftByIntFixedWidth">ShiftLeftByIntFixedWidth</a>, <a href="Operator$$Bits$$ShiftLeftByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftLeftByIntFixedWidth">ShiftLeftByIntFixedWidth</a>, <a href="Operator$$UInt$$ShiftLeftByUInt.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftLeftByUInt">ShiftLeftByUInt</a>, <a href="Operator$$BitVector$$ShiftLeftByUInt.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftLeftByUInt">ShiftLeftByUInt</a>, <a href="Operator$$Bits$$ShiftLeftByUInt.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftLeftByUInt">ShiftLeftByUInt</a>, <a href="Operator$$SInt$$ShiftLeftByUInt.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftLeftByUInt">ShiftLeftByUInt</a>, <a href="Operator$$Bits$$ShiftLeftByUIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftLeftByUIntFixedWidth">ShiftLeftByUIntFixedWidth</a>, <a href="Operator$$UInt$$ShiftLeftByUIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftLeftByUIntFixedWidth">ShiftLeftByUIntFixedWidth</a>, <a href="Operator$$BitVector$$ShiftLeftByUIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftLeftByUIntFixedWidth">ShiftLeftByUIntFixedWidth</a>, <a href="Operator$$SInt$$ShiftLeftByUIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftLeftByUIntFixedWidth">ShiftLeftByUIntFixedWidth</a>, <a href="Operator$$BitVector$$ShiftRightByInt.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftRightByInt">ShiftRightByInt</a>, <a href="Operator$$UInt$$ShiftRightByInt.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftRightByInt">ShiftRightByInt</a>, <a href="Operator$$Bits$$ShiftRightByInt.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftRightByInt">ShiftRightByInt</a>, <a href="Operator$$SInt$$ShiftRightByInt.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftRightByInt">ShiftRightByInt</a>, <a href="Operator$$UInt$$ShiftRightByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftRightByIntFixedWidth">ShiftRightByIntFixedWidth</a>, <a href="Operator$$BitVector$$ShiftRightByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftRightByIntFixedWidth">ShiftRightByIntFixedWidth</a>, <a href="Operator$$Bits$$ShiftRightByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftRightByIntFixedWidth">ShiftRightByIntFixedWidth</a>, <a href="Operator$$SInt$$ShiftRightByIntFixedWidth.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftRightByIntFixedWidth">ShiftRightByIntFixedWidth</a>, <a href="Operator$$Bits$$ShiftRightByUInt.html" class="extype" name="spinal.core.internals.Operator.Bits.ShiftRightByUInt">ShiftRightByUInt</a>, <a href="Operator$$BitVector$$ShiftRightByUInt.html" class="extype" name="spinal.core.internals.Operator.BitVector.ShiftRightByUInt">ShiftRightByUInt</a>, <a href="Operator$$UInt$$ShiftRightByUInt.html" class="extype" name="spinal.core.internals.Operator.UInt.ShiftRightByUInt">ShiftRightByUInt</a>, <a href="Operator$$SInt$$ShiftRightByUInt.html" class="extype" name="spinal.core.internals.Operator.SInt.ShiftRightByUInt">ShiftRightByUInt</a>, <a href="Operator$$UInt$$Smaller.html" class="extype" name="spinal.core.internals.Operator.UInt.Smaller">Smaller</a>, <a href="Operator$$SInt$$Smaller.html" class="extype" name="spinal.core.internals.Operator.SInt.Smaller">Smaller</a>, <a href="Operator$$SInt$$SmallerOrEqual.html" class="extype" name="spinal.core.internals.Operator.SInt.SmallerOrEqual">SmallerOrEqual</a>, <a href="Operator$$UInt$$SmallerOrEqual.html" class="extype" name="spinal.core.internals.Operator.UInt.SmallerOrEqual">SmallerOrEqual</a>, <a href="../SpinalEnumCraft.html" class="extype" name="spinal.core.SpinalEnumCraft">SpinalEnumCraft</a>, <a href="Operator$$Formal$$Stable.html" class="extype" name="spinal.core.internals.Operator.Formal.Stable">Stable</a>, <a href="Statement.html" class="extype" name="spinal.core.internals.Statement">Statement</a>, <a href="StatementDoubleLinkedContainer.html" class="extype" name="spinal.core.internals.StatementDoubleLinkedContainer">StatementDoubleLinkedContainer</a>, <a href="StatementDoubleLinkedContainerElement.html" class="extype" name="spinal.core.internals.StatementDoubleLinkedContainerElement">StatementDoubleLinkedContainerElement</a>, <a href="Operator$$BitVector$$Sub.html" class="extype" name="spinal.core.internals.Operator.BitVector.Sub">Sub</a>, <a href="Operator$$UInt$$Sub.html" class="extype" name="spinal.core.internals.Operator.UInt.Sub">Sub</a>, <a href="Operator$$SInt$$Sub.html" class="extype" name="spinal.core.internals.Operator.SInt.Sub">Sub</a>, <a href="SubAccess.html" class="extype" name="spinal.core.internals.SubAccess">SubAccess</a>, <a href="SwitchStatement.html" class="extype" name="spinal.core.internals.SwitchStatement">SwitchStatement</a>, <a href="SwitchStatementKeyBool.html" class="extype" name="spinal.core.internals.SwitchStatementKeyBool">SwitchStatementKeyBool</a>, <a href="TreeStatement.html" class="extype" name="spinal.core.internals.TreeStatement">TreeStatement</a>, <a href="../UInt.html" class="extype" name="spinal.core.UInt">UInt</a>, <a href="UIntBitAccessFixed.html" class="extype" name="spinal.core.internals.UIntBitAccessFixed">UIntBitAccessFixed</a>, <a href="UIntBitAccessFloating.html" class="extype" name="spinal.core.internals.UIntBitAccessFloating">UIntBitAccessFloating</a>, <a href="UIntLiteral.html" class="extype" name="spinal.core.internals.UIntLiteral">UIntLiteral</a>, <a href="UIntRangedAccessFixed.html" class="extype" name="spinal.core.internals.UIntRangedAccessFixed">UIntRangedAccessFixed</a>, <a href="UIntRangedAccessFloating.html" class="extype" name="spinal.core.internals.UIntRangedAccessFloating">UIntRangedAccessFloating</a>, <a href="UnaryOperator.html" class="extype" name="spinal.core.internals.UnaryOperator">UnaryOperator</a>, <a href="UnaryOperatorWidthableInputs.html" class="extype" name="spinal.core.internals.UnaryOperatorWidthableInputs">UnaryOperatorWidthableInputs</a>, <a href="WhenStatement.html" class="extype" name="spinal.core.internals.WhenStatement">WhenStatement</a>, <a href="Operator$$Bool$$Xor.html" class="extype" name="spinal.core.internals.Operator.Bool.Xor">Xor</a>, <a href="Operator$$UInt$$Xor.html" class="extype" name="spinal.core.internals.Operator.UInt.Xor">Xor</a>, <a href="Operator$$Bits$$Xor.html" class="extype" name="spinal.core.internals.Operator.Bits.Xor">Xor</a>, <a href="Operator$$SInt$$Xor.html" class="extype" name="spinal.core.internals.Operator.SInt.Xor">Xor</a>, <a href="Operator$$BitVector$$Xor.html" class="extype" name="spinal.core.internals.Operator.BitVector.Xor">Xor</a></div>
+          </div></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By Inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="spinal.core.internals.ExpressionContainer"><span>ExpressionContainer</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show All</span></li>
+            </ol>
+          </div>
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        
+
+        <div id="values" class="values members">
+              <h3>Abstract Value Members</h3>
+              <ol><li name="spinal.core.internals.ExpressionContainer#foreachExpression" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="foreachExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit"></a>
+      <a id="foreachExpression((Expression)⇒Unit):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">foreachExpression</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@foreachExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.internals.ExpressionContainer#remapExpressions" visbl="pub" data-isabs="true" fullComment="no" group="Ungrouped">
+      <a id="remapExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit"></a>
+      <a id="remapExpressions((Expression)⇒Expression):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">remapExpressions</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@remapExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        <div id="values" class="values members">
+              <h3>Concrete Value Members</h3>
+              <ol><li name="scala.AnyRef#!=" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a>
+      <a id="!=(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <a id="##():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@##():Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a>
+      <a id="==(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <a id="asInstanceOf[T0]:T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="scala.AnyRef#clone" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a>
+      <a id="clone():AnyRef"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@clone():Object" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#eq" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a>
+      <a id="eq(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#equals" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="equals(x$1:Any):Boolean"></a>
+      <a id="equals(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">equals</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@equals(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#finalize" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <a id="finalize():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.internals.ExpressionContainer#foreachDrivingExpression" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="foreachDrivingExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit"></a>
+      <a id="foreachDrivingExpression((Expression)⇒Unit):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">foreachDrivingExpression</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@foreachDrivingExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#getClass" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <a id="getClass():Class[_]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#hashCode" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hashCode():Int"></a>
+      <a id="hashCode():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@hashCode():Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="scala.AnyRef#ne" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a>
+      <a id="ne(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.internals.ExpressionContainer#normalizeInputs" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="normalizeInputs:Unit"></a>
+      <a id="normalizeInputs:Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">normalizeInputs</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@normalizeInputs:Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#notify" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <a id="notify():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@notify():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <a id="notifyAll():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.internals.ExpressionContainer#remapDrivingExpressions" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="remapDrivingExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit"></a>
+      <a id="remapDrivingExpressions((Expression)⇒Expression):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">remapDrivingExpressions</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@remapDrivingExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a>
+      <a id="synchronized[T0](⇒T0):T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#toString" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toString():String"></a>
+      <a id="toString():String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@toString():String" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <a id="wait():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@wait():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a>
+      <a id="wait(Long,Int):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a>
+      <a id="wait(Long):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.internals.ExpressionContainer#walkDrivingExpressions" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="walkDrivingExpressions(func:spinal.core.internals.Expression=&gt;Unit):Unit"></a>
+      <a id="walkDrivingExpressions((Expression)⇒Unit):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">walkDrivingExpressions</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@walkDrivingExpressions(func:spinal.core.internals.Expression=&gt;Unit):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.internals.ExpressionContainer#walkExpression" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="walkExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit"></a>
+      <a id="walkExpression((Expression)⇒Unit):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">walkExpression</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <span class="extype" name="scala.Unit">Unit</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@walkExpression(func:spinal.core.internals.Expression=&gt;Unit):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.internals.ExpressionContainer#walkRemapDrivingExpressions" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="walkRemapDrivingExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit"></a>
+      <a id="walkRemapDrivingExpressions((Expression)⇒Expression):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">walkRemapDrivingExpressions</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@walkRemapDrivingExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.internals.ExpressionContainer#walkRemapExpressions" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="walkRemapExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit"></a>
+      <a id="walkRemapExpressions((Expression)⇒Expression):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">walkRemapExpressions</span><span class="params">(<span name="func">func: (<a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a>) ⇒ <a href="Expression.html" class="extype" name="spinal.core.internals.Expression">Expression</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.ExpressionContainer@walkRemapExpressions(func:spinal.core.internals.Expression=&gt;spinal.core.internals.Expression):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

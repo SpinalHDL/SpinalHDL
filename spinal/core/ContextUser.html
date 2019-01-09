@@ -1,0 +1,625 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>ContextUser - spinal.core.ContextUser</title>
+          <meta name="description" content="ContextUser - spinal.core.ContextUser" />
+          <meta name="keywords" content="ContextUser spinal.core.ContextUser" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../lib/template.js"></script>
+      <script type="text/javascript" src="../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../index.html';
+            var hash = 'spinal.core.ContextUser';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="type">
+      <div id="definition">
+        <img alt="Trait" src="../../lib/trait_big.png" />
+        <p id="owner"><a href="../package.html" class="extype" name="spinal">spinal</a>.<a href="package.html" class="extype" name="spinal.core">core</a></p>
+        <h1>ContextUser</h1><h3><span class="morelinks"><div>Related Doc:
+            <a href="package.html" class="extype" name="spinal.core">package core</a>
+          </div></span></h3><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ContextUser</span><span class="result"> extends <a href="GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a> with <a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a>, <a href="GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div><div class="toggleContainer block">
+            <span class="toggle">Known Subclasses</span>
+            <div class="subClasses hiddenContent"><a href="../lib/cpu/riscv/impl/Utils$$ALU$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.ALU">ALU</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3">AhbLite3</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3Arbiter.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3Arbiter">AhbLite3Arbiter</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3Decoder.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3Decoder">AhbLite3Decoder</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3Master.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3Master">AhbLite3Master</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3OnChipRam.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3OnChipRam">AhbLite3OnChipRam</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3OnChipRom.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3OnChipRom">AhbLite3OnChipRom</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3SlaveFactory.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3SlaveFactory">AhbLite3SlaveFactory</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3ToApb3Bridge.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3ToApb3Bridge">AhbLite3ToApb3Bridge</a>, <a href="../lib/bus/amba3/ahblite/AhbLite3ToApb3BridgePhase$.html" class="extype" name="spinal.lib.bus.amba3.ahblite.AhbLite3ToApb3BridgePhase">AhbLite3ToApb3BridgePhase</a>, <a href="../lib/cpu/riscv/impl/Alu.html" class="extype" name="spinal.lib.cpu.riscv.impl.Alu">Alu</a>, <a href="internals/AnalogDriverEnum.html" class="extype" name="spinal.core.internals.AnalogDriverEnum">AnalogDriverEnum</a>, <a href="../lib/bus/amba3/apb/Apb3.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3">Apb3</a>, <a href="../lib/bus/amba3/apb/Apb3Decoder.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3Decoder">Apb3Decoder</a>, <a href="../lib/bus/amba3/apb/Apb3Gpio.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3Gpio">Apb3Gpio</a>, <a href="../lib/com/i2c/Apb3I2cCtrl.html" class="extype" name="spinal.lib.com.i2c.Apb3I2cCtrl">Apb3I2cCtrl</a>, <a href="../lib/bus/amba3/apb/Apb3Router.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3Router">Apb3Router</a>, <a href="../lib/bus/amba3/apb/Apb3SlaveFactory.html" class="extype" name="spinal.lib.bus.amba3.apb.Apb3SlaveFactory">Apb3SlaveFactory</a>, <a href="../lib/com/spi/Apb3SpiMasterCtrl.html" class="extype" name="spinal.lib.com.spi.Apb3SpiMasterCtrl">Apb3SpiMasterCtrl</a>, <a href="../lib/com/spi/Apb3SpiSlaveCtrl.html" class="extype" name="spinal.lib.com.spi.Apb3SpiSlaveCtrl">Apb3SpiSlaveCtrl</a>, <a href="../lib/com/spi/ddr/Apb3SpiXdrMasterCtrl.html" class="extype" name="spinal.lib.com.spi.ddr.Apb3SpiXdrMasterCtrl">Apb3SpiXdrMasterCtrl</a>, <a href="../lib/com/uart/Apb3UartCtrl.html" class="extype" name="spinal.lib.com.uart.Apb3UartCtrl">Apb3UartCtrl</a>, <a href="../lib/experimental/bus/amba3/apb/Apb3OverStream$$ApbCmd.html" class="extype" name="spinal.lib.experimental.bus.amba3.apb.Apb3OverStream.ApbCmd">ApbCmd</a>, <a href="Area.html" class="extype" name="spinal.core.Area">Area</a>, <a href="internals/AssertStatement.html" class="extype" name="spinal.core.internals.AssertStatement">AssertStatement</a>, <a href="internals/AssignmentStatement.html" class="extype" name="spinal.core.internals.AssignmentStatement">AssignmentStatement</a>, <a href="../lib/bus/simple/AsyncMemoryBus.html" class="extype" name="spinal.lib.bus.simple.AsyncMemoryBus">AsyncMemoryBus</a>, <a href="../lib/bus/simple/AsyncMemoryBusFactory.html" class="extype" name="spinal.lib.bus.simple.AsyncMemoryBusFactory">AsyncMemoryBusFactory</a>, <a href="../lib/bus/avalon/AvalonMM.html" class="extype" name="spinal.lib.bus.avalon.AvalonMM">AvalonMM</a>, <a href="../lib/bus/avalon/AvalonMMSlaveFactory.html" class="extype" name="spinal.lib.bus.avalon.AvalonMMSlaveFactory">AvalonMMSlaveFactory</a>, <a href="../lib/com/uart/AvalonMMUartCtrl.html" class="extype" name="spinal.lib.com.uart.AvalonMMUartCtrl">AvalonMMUartCtrl</a>, <a href="../lib/graphic/vga/AvalonMMVgaCtrl.html" class="extype" name="spinal.lib.graphic.vga.AvalonMMVgaCtrl">AvalonMMVgaCtrl</a>, <a href="../lib/bus/avalon/AvalonReadDma.html" class="extype" name="spinal.lib.bus.avalon.AvalonReadDma">AvalonReadDma</a>, <a href="../lib/bus/avalon/AvalonReadDmaCmd.html" class="extype" name="spinal.lib.bus.avalon.AvalonReadDmaCmd">AvalonReadDmaCmd</a>, <a href="../lib/bus/amba4/axi/Axi4.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4">Axi4</a>, <a href="../lib/bus/amba4/axi/Axi4Ar.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4Ar">Axi4Ar</a>, <a href="../lib/bus/amba4/axi/Axi4ArUnburstified.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ArUnburstified">Axi4ArUnburstified</a>, <a href="../lib/bus/amba4/axi/Axi4Arw.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4Arw">Axi4Arw</a>, <a href="../lib/bus/amba4/axi/Axi4ArwUnburstified.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ArwUnburstified">Axi4ArwUnburstified</a>, <a href="../lib/bus/amba4/axi/Axi4Aw.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4Aw">Axi4Aw</a>, <a href="../lib/bus/amba4/axi/Axi4AwUnburstified.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4AwUnburstified">Axi4AwUnburstified</a>, <a href="../lib/bus/amba4/axi/Axi4Ax.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4Ax">Axi4Ax</a>, <a href="../lib/bus/amba4/axi/Axi4AxUnburstified.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4AxUnburstified">Axi4AxUnburstified</a>, <a href="../lib/bus/amba4/axi/Axi4B.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4B">Axi4B</a>, <a href="../lib/bus/amba4/axi/Axi4R.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4R">Axi4R</a>, <a href="../lib/bus/amba4/axi/Axi4ReadOnly.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ReadOnly">Axi4ReadOnly</a>, <a href="../lib/bus/amba4/axi/Axi4ReadOnlyArbiter.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ReadOnlyArbiter">Axi4ReadOnlyArbiter</a>, <a href="../lib/bus/amba4/axi/Axi4ReadOnlyDecoder.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ReadOnlyDecoder">Axi4ReadOnlyDecoder</a>, <a href="../lib/bus/amba4/axi/Axi4ReadOnlyErrorSlave.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ReadOnlyErrorSlave">Axi4ReadOnlyErrorSlave</a>, <a href="../lib/bus/amba4/axi/Axi4Shared.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4Shared">Axi4Shared</a>, <a href="../lib/bus/amba4/axi/Axi4SharedArbiter.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedArbiter">Axi4SharedArbiter</a>, <a href="../lib/bus/amba4/axi/Axi4SharedDecoder.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedDecoder">Axi4SharedDecoder</a>, <a href="../lib/bus/amba4/axi/Axi4SharedErrorSlave.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedErrorSlave">Axi4SharedErrorSlave</a>, <a href="../lib/bus/amba4/axi/Axi4SharedOnChipRam.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedOnChipRam">Axi4SharedOnChipRam</a>, <a href="../lib/memory/sdram/Axi4SharedSdramCtrl.html" class="extype" name="spinal.lib.memory.sdram.Axi4SharedSdramCtrl">Axi4SharedSdramCtrl</a>, <a href="../lib/bus/amba4/axi/Axi4SharedToApb3Bridge.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedToApb3Bridge">Axi4SharedToApb3Bridge</a>, <a href="../lib/bus/amba4/axi/Axi4SharedToBram.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4SharedToBram">Axi4SharedToBram</a>, <a href="../lib/bus/amba4/axi/Axi4ToApb3BridgePhase$.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ToApb3BridgePhase">Axi4ToApb3BridgePhase</a>, <a href="../lib/bus/amba4/axi/Axi4ToBRAMPhase$.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4ToBRAMPhase">Axi4ToBRAMPhase</a>, <a href="../lib/graphic/vga/Axi4VgaCtrl.html" class="extype" name="spinal.lib.graphic.vga.Axi4VgaCtrl">Axi4VgaCtrl</a>, <a href="../lib/bus/amba4/axi/Axi4W.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4W">Axi4W</a>, <a href="../lib/bus/amba4/axi/Axi4WriteOnly.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4WriteOnly">Axi4WriteOnly</a>, <a href="../lib/bus/amba4/axi/Axi4WriteOnlyArbiter.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4WriteOnlyArbiter">Axi4WriteOnlyArbiter</a>, <a href="../lib/bus/amba4/axi/Axi4WriteOnlyDecoder.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4WriteOnlyDecoder">Axi4WriteOnlyDecoder</a>, <a href="../lib/bus/amba4/axi/Axi4WriteOnlyErrorSlave.html" class="extype" name="spinal.lib.bus.amba4.axi.Axi4WriteOnlyErrorSlave">Axi4WriteOnlyErrorSlave</a>, <a href="../lib/bus/amba4/axilite/AxiLite4.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4">AxiLite4</a>, <a href="../lib/bus/amba4/axilite/AxiLite4Ax.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4Ax">AxiLite4Ax</a>, <a href="../lib/bus/amba4/axilite/AxiLite4B.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4B">AxiLite4B</a>, <a href="../lib/bus/amba4/axilite/AxiLite4R.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4R">AxiLite4R</a>, <a href="../lib/bus/amba4/axilite/AxiLite4ReadOnly.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4ReadOnly">AxiLite4ReadOnly</a>, <a href="../lib/bus/amba4/axilite/AxiLite4SimpleReadDma.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4SimpleReadDma">AxiLite4SimpleReadDma</a>, <a href="../lib/bus/amba4/axilite/AxiLite4SimpleReadDmaCmd.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4SimpleReadDmaCmd">AxiLite4SimpleReadDmaCmd</a>, <a href="../lib/bus/amba4/axilite/AxiLite4SlaveFactory.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4SlaveFactory">AxiLite4SlaveFactory</a>, <a href="../lib/bus/amba4/axilite/AxiLite4W.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4W">AxiLite4W</a>, <a href="../lib/bus/amba4/axilite/AxiLite4WriteOnly.html" class="extype" name="spinal.lib.bus.amba4.axilite.AxiLite4WriteOnly">AxiLite4WriteOnly</a>, <a href="../lib/cpu/riscv/impl/Utils$$BR$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.BR">BR</a>, <a href="../lib/bus/bram/BRAM.html" class="extype" name="spinal.lib.bus.bram.BRAM">BRAM</a>, <a href="../lib/bus/bram/BRAMDecoder.html" class="extype" name="spinal.lib.bus.bram.BRAMDecoder">BRAMDecoder</a>, <a href="../lib/bus/bram/BRAMSlaveFactory.html" class="extype" name="spinal.lib.bus.bram.BRAMSlaveFactory">BRAMSlaveFactory</a>, <a href="BaseType.html" class="extype" name="spinal.core.BaseType">BaseType</a>, <a href="internals/BinaryMultiplexerEnum.html" class="extype" name="spinal.core.internals.BinaryMultiplexerEnum">BinaryMultiplexerEnum</a>, <a href="BitVector.html" class="extype" name="spinal.core.BitVector">BitVector</a>, <a href="Bits.html" class="extype" name="spinal.core.Bits">Bits</a>, <a href="BlackBox.html" class="extype" name="spinal.core.BlackBox">BlackBox</a>, <a href="BlackBoxULogic.html" class="extype" name="spinal.core.BlackBoxULogic">BlackBoxULogic</a>, <a href="../lib/graphic/vga/BlinkingVgaCtrl.html" class="extype" name="spinal.lib.graphic.vga.BlinkingVgaCtrl">BlinkingVgaCtrl</a>, <a href="../lib/experimental/bus/neutral/NeutralStreamDma$$Block.html" class="extype" name="spinal.lib.experimental.bus.neutral.NeutralStreamDma.Block">Block</a>, <a href="Bool.html" class="extype" name="spinal.core.Bool">Bool</a>, <a href="BoolEdges.html" class="extype" name="spinal.core.BoolEdges">BoolEdges</a>, <a href="../lib/cpu/riscv/impl/BranchPredictorLine.html" class="extype" name="spinal.lib.cpu.riscv.impl.BranchPredictorLine">BranchPredictorLine</a>, <a href="../lib/BufferCC.html" class="extype" name="spinal.lib.BufferCC">BufferCC</a>, <a href="Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a>, <a href="BundleCase.html" class="extype" name="spinal.core.BundleCase">BundleCase</a>, <a href="../lib/bus/misc/BusSlaveFactory.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactory">BusSlaveFactory</a>, <a href="../lib/bus/misc/BusSlaveFactoryAddressWrapper.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryAddressWrapper">BusSlaveFactoryAddressWrapper</a>, <a href="../lib/bus/misc/BusSlaveFactoryDelayed.html" class="extype" name="spinal.lib.bus.misc.BusSlaveFactoryDelayed">BusSlaveFactoryDelayed</a>, <a href="../lib/cpu/riscv/impl/Utils$$CSR$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.CSR">CSR</a>, <a href="internals/CastBitsToEnum.html" class="extype" name="spinal.core.internals.CastBitsToEnum">CastBitsToEnum</a>, <a href="internals/CastEnumToEnum.html" class="extype" name="spinal.core.internals.CastEnumToEnum">CastEnumToEnum</a>, <a href="ClockEnableArea.html" class="extype" name="spinal.core.ClockEnableArea">ClockEnableArea</a>, <a href="ClockingArea.html" class="extype" name="spinal.core.ClockingArea">ClockingArea</a>, <a href="../lib/com/spi/ddr/SpiXdrMasterCtrl$$Cmd.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.Cmd">Cmd</a>, <a href="Component.html" class="extype" name="spinal.core.Component">Component</a>, <a href="../lib/com/spi/ddr/SpiXdrMasterCtrl$$Config.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.Config">Config</a>, <a href="../lib/cpu/riscv/impl/CoreDataBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreDataBus">CoreDataBus</a>, <a href="../lib/cpu/riscv/impl/CoreDataCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreDataCmd">CoreDataCmd</a>, <a href="../lib/cpu/riscv/impl/CoreDecodeOutput.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreDecodeOutput">CoreDecodeOutput</a>, <a href="../lib/cpu/riscv/impl/CoreExecute0Output.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreExecute0Output">CoreExecute0Output</a>, <a href="../lib/cpu/riscv/impl/CoreExecute1Output.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreExecute1Output">CoreExecute1Output</a>, <a href="../lib/cpu/riscv/impl/CoreFetchOutput.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreFetchOutput">CoreFetchOutput</a>, <a href="../lib/cpu/riscv/impl/CoreInstructionBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreInstructionBus">CoreInstructionBus</a>, <a href="../lib/cpu/riscv/impl/CoreInstructionCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreInstructionCmd">CoreInstructionCmd</a>, <a href="../lib/cpu/riscv/impl/CoreInstructionRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreInstructionRsp">CoreInstructionRsp</a>, <a href="../lib/cpu/riscv/impl/CoreWriteBack0Output.html" class="extype" name="spinal.lib.cpu.riscv.impl.CoreWriteBack0Output">CoreWriteBack0Output</a>, <a href="../lib/Counter.html" class="extype" name="spinal.lib.Counter">Counter</a>, <a href="../lib/CounterUpDown.html" class="extype" name="spinal.lib.CounterUpDown">CounterUpDown</a>, <a href="../lib/experimental/bus/neutral/NeutralStreamDma$$Ctrl.html" class="extype" name="spinal.lib.experimental.bus.neutral.NeutralStreamDma.Ctrl">Ctrl</a>, <a href="../lib/experimental/bus/neutral/NeutralStreamDma$$CtrlCmd.html" class="extype" name="spinal.lib.experimental.bus.neutral.NeutralStreamDma.CtrlCmd">CtrlCmd</a>, <a href="Data.html" class="extype" name="spinal.core.Data">Data</a>, <a href="internals/DataAssignmentStatement.html" class="extype" name="spinal.core.internals.DataAssignmentStatement">DataAssignmentStatement</a>, <a href="../lib/cpu/riscv/impl/DataCache.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCache">DataCache</a>, <a href="../lib/cpu/riscv/impl/DataCacheCpuBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheCpuBus">DataCacheCpuBus</a>, <a href="../lib/cpu/riscv/impl/DataCacheCpuCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheCpuCmd">DataCacheCpuCmd</a>, <a href="../lib/cpu/riscv/impl/DataCacheCpuCmdKind$.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheCpuCmdKind">DataCacheCpuCmdKind</a>, <a href="../lib/cpu/riscv/impl/DataCacheCpuRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheCpuRsp">DataCacheCpuRsp</a>, <a href="../lib/cpu/riscv/impl/DataCacheMemBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheMemBus">DataCacheMemBus</a>, <a href="../lib/cpu/riscv/impl/DataCacheMemCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheMemCmd">DataCacheMemCmd</a>, <a href="../lib/cpu/riscv/impl/DataCacheMemRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCacheMemRsp">DataCacheMemRsp</a>, <a href="DataWrapper.html" class="extype" name="spinal.core.DataWrapper">DataWrapper</a>, <a href="../lib/cpu/riscv/impl/extension/DebugExtensionBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.extension.DebugExtensionBus">DebugExtensionBus</a>, <a href="../lib/cpu/riscv/impl/extension/DebugExtensionCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.extension.DebugExtensionCmd">DebugExtensionCmd</a>, <a href="../lib/cpu/riscv/impl/extension/DebugExtensionIo.html" class="extype" name="spinal.lib.cpu.riscv.impl.extension.DebugExtensionIo">DebugExtensionIo</a>, <a href="../lib/cpu/riscv/impl/extension/DebugExtensionRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.extension.DebugExtensionRsp">DebugExtensionRsp</a>, <a href="internals/DeclarationStatement.html" class="extype" name="spinal.core.internals.DeclarationStatement">DeclarationStatement</a>, <a href="../lib/bus/amba3/ahblite/DefaultAhbLite3Slave.html" class="extype" name="spinal.lib.bus.amba3.ahblite.DefaultAhbLite3Slave">DefaultAhbLite3Slave</a>, <a href="EnumLiteral.html" class="extype" name="spinal.core.EnumLiteral">EnumLiteral</a>, <a href="EnumPoison.html" class="extype" name="spinal.core.EnumPoison">EnumPoison</a>, <a href="internals/Operator$$Enum$$Equal.html" class="extype" name="spinal.core.internals.Operator.Enum.Equal">Equal</a>, <a href="../lib/experimental/math/Floating.html" class="extype" name="spinal.lib.experimental.math.Floating">Floating</a>, <a href="../lib/experimental/math/FloatingCompareResult.html" class="extype" name="spinal.lib.experimental.math.FloatingCompareResult">FloatingCompareResult</a>, <a href="../lib/Flow.html" class="extype" name="spinal.lib.Flow">Flow</a>, <a href="../lib/FlowCCByToggle.html" class="extype" name="spinal.lib.FlowCCByToggle">FlowCCByToggle</a>, <a href="../lib/Fragment.html" class="extype" name="spinal.lib.Fragment">Fragment</a>, <a href="../lib/FragmentToBitsStates$.html" class="extype" name="spinal.lib.FragmentToBitsStates">FragmentToBitsStates</a>, <a href="../lib/graphic/vga/VgaCtrl$HVArea.html" class="extype" name="spinal.lib.graphic.vga.VgaCtrl.HVArea">HVArea</a>, <a href="../lib/com/i2c/I2c.html" class="extype" name="spinal.lib.com.i2c.I2c">I2c</a>, <a href="../lib/com/i2c/I2cCtrl$$I2cAddress.html" class="extype" name="spinal.lib.com.i2c.I2cCtrl.I2cAddress">I2cAddress</a>, <a href="../lib/com/i2c/I2cIoFilter.html" class="extype" name="spinal.lib.com.i2c.I2cIoFilter">I2cIoFilter</a>, <a href="../lib/com/i2c/I2cSlave.html" class="extype" name="spinal.lib.com.i2c.I2cSlave">I2cSlave</a>, <a href="../lib/com/i2c/I2cSlaveBus.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveBus">I2cSlaveBus</a>, <a href="../lib/com/i2c/I2cSlaveCmd.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveCmd">I2cSlaveCmd</a>, <a href="../lib/com/i2c/I2cSlaveCmdMode$.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveCmdMode">I2cSlaveCmdMode</a>, <a href="../lib/com/i2c/I2cSlaveConfig.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveConfig">I2cSlaveConfig</a>, <a href="../lib/com/i2c/I2cSlaveIo.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveIo">I2cSlaveIo</a>, <a href="../lib/com/i2c/I2cSlaveRsp.html" class="extype" name="spinal.lib.com.i2c.I2cSlaveRsp">I2cSlaveRsp</a>, <a href="../lib/cpu/riscv/impl/Utils$$IMM.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.IMM">IMM</a>, <a href="ImplicitArea.html" class="extype" name="spinal.core.ImplicitArea">ImplicitArea</a>, <a href="internals/InferableEnumEncodingImpl.html" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a>, <a href="internals/InitAssignmentStatement.html" class="extype" name="spinal.core.internals.InitAssignmentStatement">InitAssignmentStatement</a>, <a href="../lib/cpu/riscv/impl/InstructionCache.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCache">InstructionCache</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheCpuBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuBus">InstructionCacheCpuBus</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheCpuCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuCmd">InstructionCacheCpuCmd</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheCpuRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheCpuRsp">InstructionCacheCpuRsp</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheFlushBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheFlushBus">InstructionCacheFlushBus</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheMemBus.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheMemBus">InstructionCacheMemBus</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheMemCmd.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheMemCmd">InstructionCacheMemCmd</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheMemRsp.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheMemRsp">InstructionCacheMemRsp</a>, <a href="../lib/cpu/riscv/impl/Utils$$InstructionCtrl.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.InstructionCtrl">InstructionCtrl</a>, <a href="../lib/misc/InterruptCtrl.html" class="extype" name="spinal.lib.misc.InterruptCtrl">InterruptCtrl</a>, <a href="../lib/com/jtag/Jtag.html" class="extype" name="spinal.lib.com.jtag.Jtag">Jtag</a>, <a href="../lib/system/debugger/JtagAvalonDebugger.html" class="extype" name="spinal.lib.system.debugger.JtagAvalonDebugger">JtagAvalonDebugger</a>, <a href="../lib/system/debugger/JtagAxi4SharedDebugger.html" class="extype" name="spinal.lib.system.debugger.JtagAxi4SharedDebugger">JtagAxi4SharedDebugger</a>, <a href="../lib/system/debugger/JtagBridge.html" class="extype" name="spinal.lib.system.debugger.JtagBridge">JtagBridge</a>, <a href="../lib/com/jtag/JtagFsm.html" class="extype" name="spinal.lib.com.jtag.JtagFsm">JtagFsm</a>, <a href="../lib/com/jtag/JtagInstruction.html" class="extype" name="spinal.lib.com.jtag.JtagInstruction">JtagInstruction</a>, <a href="../lib/com/jtag/JtagInstructionFlowFragmentPush.html" class="extype" name="spinal.lib.com.jtag.JtagInstructionFlowFragmentPush">JtagInstructionFlowFragmentPush</a>, <a href="../lib/com/jtag/JtagInstructionIdcode.html" class="extype" name="spinal.lib.com.jtag.JtagInstructionIdcode">JtagInstructionIdcode</a>, <a href="../lib/com/jtag/JtagInstructionRead.html" class="extype" name="spinal.lib.com.jtag.JtagInstructionRead">JtagInstructionRead</a>, <a href="../lib/com/jtag/JtagInstructionWrite.html" class="extype" name="spinal.lib.com.jtag.JtagInstructionWrite">JtagInstructionWrite</a>, <a href="../lib/com/jtag/JtagInstructionWriteSimpleExample.html" class="extype" name="spinal.lib.com.jtag.JtagInstructionWriteSimpleExample">JtagInstructionWriteSimpleExample</a>, <a href="../lib/com/jtag/JtagState$.html" class="extype" name="spinal.lib.com.jtag.JtagState">JtagState</a>, <a href="../lib/com/jtag/JtagTap.html" class="extype" name="spinal.lib.com.jtag.JtagTap">JtagTap</a>, <a href="internals/LeafStatement.html" class="extype" name="spinal.core.internals.LeafStatement">LeafStatement</a>, <a href="../lib/cpu/riscv/impl/InstructionCache$LineInfo.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCache.LineInfo">LineInfo</a>, <a href="../lib/cpu/riscv/impl/DataCache$LineInfo.html" class="extype" name="spinal.lib.cpu.riscv.impl.DataCache.LineInfo">LineInfo</a>, <a href="../lib/cpu/riscv/impl/Utils$$M$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.M">M</a>, <a href="../lib/cpu/riscv/impl/Utils$$MFS$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.MFS">MFS</a>, <a href="../lib/cpu/riscv/impl/Utils$$MSK$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.MSK">MSK</a>, <a href="../lib/cpu/riscv/impl/Utils$$MWR$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.MWR">MWR</a>, <a href="Mem.html" class="extype" name="spinal.core.Mem">Mem</a>, <a href="../lib/experimental/bus/neutral/NeutralStreamDma$$Mem.html" class="extype" name="spinal.lib.experimental.bus.neutral.NeutralStreamDma.Mem">Mem</a>, <a href="../lib/experimental/bus/neutral/NeutralStreamDma$$MemCmd.html" class="extype" name="spinal.lib.experimental.bus.neutral.NeutralStreamDma.MemCmd">MemCmd</a>, <a href="MemPortStatement.html" class="extype" name="spinal.core.MemPortStatement">MemPortStatement</a>, <a href="MemReadAsync.html" class="extype" name="spinal.core.MemReadAsync">MemReadAsync</a>, <a href="../lib/MemReadPort.html" class="extype" name="spinal.lib.MemReadPort">MemReadPort</a>, <a href="MemReadSync.html" class="extype" name="spinal.core.MemReadSync">MemReadSync</a>, <a href="MemReadWrite.html" class="extype" name="spinal.core.MemReadWrite">MemReadWrite</a>, <a href="MemWrite.html" class="extype" name="spinal.core.MemWrite">MemWrite</a>, <a href="../lib/MemWriteCmd.html" class="extype" name="spinal.lib.MemWriteCmd">MemWriteCmd</a>, <a href="MemWritePayload.html" class="extype" name="spinal.core.MemWritePayload">MemWritePayload</a>, <a href="../lib/math/MixedDivider.html" class="extype" name="spinal.lib.math.MixedDivider">MixedDivider</a>, <a href="../lib/math/MixedDividerCmd.html" class="extype" name="spinal.lib.math.MixedDividerCmd">MixedDividerCmd</a>, <a href="../lib/math/MixedDividerRsp.html" class="extype" name="spinal.lib.math.MixedDividerRsp">MixedDividerRsp</a>, <a href="../lib/experimental/chisel/Module.html" class="extype" name="spinal.lib.experimental.chisel.Module">Module</a>, <a href="MultiData.html" class="extype" name="spinal.core.MultiData">MultiData</a>, <a href="internals/MultiplexerEnum.html" class="extype" name="spinal.core.internals.MultiplexerEnum">MultiplexerEnum</a>, <a href="Nameable.html" class="extype" name="spinal.core.Nameable">Nameable</a>, <a href="NameableByComponent.html" class="extype" name="spinal.core.NameableByComponent">NameableByComponent</a>, <a href="../lib/NoData.html" class="extype" name="spinal.lib.NoData">NoData</a>, <a href="internals/Operator$$Enum$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.Enum.NotEqual">NotEqual</a>, <a href="../lib/cpu/riscv/impl/Utils$$OP0$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.OP0">OP0</a>, <a href="../lib/cpu/riscv/impl/Utils$$OP1$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.OP1">OP1</a>, <a href="../lib/cpu/riscv/impl/Utils$$PC$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.PC">PC</a>, <a href="../lib/misc/pdm/PDMCore.html" class="extype" name="spinal.lib.misc.pdm.PDMCore">PDMCore</a>, <a href="internals/Operator$$Formal$$PastEnum.html" class="extype" name="spinal.core.internals.Operator.Formal.PastEnum">PastEnum</a>, <a href="../lib/bus/amba3/ahblite/DefaultAhbLite3Slave$Phase$.html" class="extype" name="spinal.lib.bus.amba3.ahblite.DefaultAhbLite3Slave.Phase">Phase</a>, <a href="../lib/soc/pinsec/Pinsec.html" class="extype" name="spinal.lib.soc.pinsec.Pinsec">Pinsec</a>, <a href="../lib/soc/pinsec/PinsecTimerCtrl.html" class="extype" name="spinal.lib.soc.pinsec.PinsecTimerCtrl">PinsecTimerCtrl</a>, <a href="../lib/soc/pinsec/PinsecTimerCtrlExternal.html" class="extype" name="spinal.lib.soc.pinsec.PinsecTimerCtrlExternal">PinsecTimerCtrlExternal</a>, <a href="../lib/bus/simple/PipelinedMemoryBus.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBus">PipelinedMemoryBus</a>, <a href="../lib/bus/simple/PipelinedMemoryBusArbiter.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusArbiter">PipelinedMemoryBusArbiter</a>, <a href="../lib/bus/simple/PipelinedMemoryBusCmd.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusCmd">PipelinedMemoryBusCmd</a>, <a href="../lib/bus/simple/PipelinedMemoryBusDecoder.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusDecoder">PipelinedMemoryBusDecoder</a>, <a href="../lib/bus/simple/PipelinedMemoryBusRsp.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusRsp">PipelinedMemoryBusRsp</a>, <a href="../lib/bus/simple/PipelinedMemoryBusSlaveFactory.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusSlaveFactory">PipelinedMemoryBusSlaveFactory</a>, <a href="../lib/bus/simple/PipelinedMemoryBusToApbBridge.html" class="extype" name="spinal.lib.bus.simple.PipelinedMemoryBusToApbBridge">PipelinedMemoryBusToApbBridge</a>, <a href="../lib/misc/plic/PlicGateway.html" class="extype" name="spinal.lib.misc.plic.PlicGateway">PlicGateway</a>, <a href="../lib/misc/plic/PlicGatewayActiveHigh.html" class="extype" name="spinal.lib.misc.plic.PlicGatewayActiveHigh">PlicGatewayActiveHigh</a>, <a href="../lib/misc/plic/PlicTarget.html" class="extype" name="spinal.lib.misc.plic.PlicTarget">PlicTarget</a>, <a href="../lib/misc/Prescaler.html" class="extype" name="spinal.lib.misc.Prescaler">Prescaler</a>, <a href="../lib/PulseCCByToggle.html" class="extype" name="spinal.lib.PulseCCByToggle">PulseCCByToggle</a>, <a href="Ram_1w_1ra.html" class="extype" name="spinal.core.Ram_1w_1ra">Ram_1w_1ra</a>, <a href="Ram_1w_1rs.html" class="extype" name="spinal.core.Ram_1w_1rs">Ram_1w_1rs</a>, <a href="Ram_1wors.html" class="extype" name="spinal.core.Ram_1wors">Ram_1wors</a>, <a href="Ram_1wrs.html" class="extype" name="spinal.core.Ram_1wrs">Ram_1wrs</a>, <a href="Ram_2c_1w_1rs.html" class="extype" name="spinal.core.Ram_2c_1w_1rs">Ram_2c_1w_1rs</a>, <a href="Ram_2wrs.html" class="extype" name="spinal.core.Ram_2wrs">Ram_2wrs</a>, <a href="../lib/ReadRetLinked.html" class="extype" name="spinal.lib.ReadRetLinked">ReadRetLinked</a>, <a href="../lib/io/ReadableOpenDrain.html" class="extype" name="spinal.lib.io.ReadableOpenDrain">ReadableOpenDrain</a>, <a href="../lib/experimental/math/RecFloating.html" class="extype" name="spinal.lib.experimental.math.RecFloating">RecFloating</a>, <a href="../lib/misc/plic/PlicTarget$Request.html" class="extype" name="spinal.lib.misc.plic.PlicTarget.Request">Request</a>, <a href="ResetArea.html" class="extype" name="spinal.core.ResetArea">ResetArea</a>, <a href="../lib/bus/avalon/AvalonMM$$Response$.html" class="extype" name="spinal.lib.bus.avalon.AvalonMM.Response">Response</a>, <a href="../lib/graphic/Rgb.html" class="extype" name="spinal.lib.graphic.Rgb">Rgb</a>, <a href="../lib/cpu/riscv/impl/build/RiscvAhbLite3.html" class="extype" name="spinal.lib.cpu.riscv.impl.build.RiscvAhbLite3">RiscvAhbLite3</a>, <a href="../lib/cpu/riscv/impl/build/RiscvAvalon.html" class="extype" name="spinal.lib.cpu.riscv.impl.build.RiscvAvalon">RiscvAvalon</a>, <a href="../lib/cpu/riscv/impl/build/RiscvAxi4.html" class="extype" name="spinal.lib.cpu.riscv.impl.build.RiscvAxi4">RiscvAxi4</a>, <a href="../lib/cpu/riscv/impl/RiscvCore.html" class="extype" name="spinal.lib.cpu.riscv.impl.RiscvCore">RiscvCore</a>, <a href="../lib/com/spi/ddr/SpiXdrMasterCtrl$$Rsp.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.Rsp">Rsp</a>, <a href="../lib/blackbox/lattice/ice40/SB_PLL40_CORE.html" class="extype" name="spinal.lib.blackbox.lattice.ice40.SB_PLL40_CORE">SB_PLL40_CORE</a>, <a href="../lib/blackbox/lattice/ice40/SB_PLL40_PAD.html" class="extype" name="spinal.lib.blackbox.lattice.ice40.SB_PLL40_PAD">SB_PLL40_PAD</a>, <a href="SFix.html" class="extype" name="spinal.core.SFix">SFix</a>, <a href="SFix2D.html" class="extype" name="spinal.core.SFix2D">SFix2D</a>, <a href="SInt.html" class="extype" name="spinal.core.SInt">SInt</a>, <a href="../lib/experimental/bus/sbl/SblCmd.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblCmd">SblCmd</a>, <a href="../lib/experimental/bus/sbl/SblReadCmd.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblReadCmd">SblReadCmd</a>, <a href="../lib/experimental/bus/sbl/SblReadDma.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblReadDma">SblReadDma</a>, <a href="../lib/experimental/bus/sbl/SblReadDmaCmd.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblReadDmaCmd">SblReadDmaCmd</a>, <a href="../lib/experimental/bus/sbl/SblReadRet.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblReadRet">SblReadRet</a>, <a href="../lib/experimental/bus/sbl/SblWriteCmd.html" class="extype" name="spinal.lib.experimental.bus.sbl.SblWriteCmd">SblWriteCmd</a>, <a href="../lib/memory/sdram/SdramCtrl.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrl">SdramCtrl</a>, <a href="../lib/memory/sdram/SdramCtrlAxi4SharedContext.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlAxi4SharedContext">SdramCtrlAxi4SharedContext</a>, <a href="../lib/memory/sdram/SdramCtrlBackendCmd.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlBackendCmd">SdramCtrlBackendCmd</a>, <a href="../lib/memory/sdram/SdramCtrlBackendTask$.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlBackendTask">SdramCtrlBackendTask</a>, <a href="../lib/memory/sdram/SdramCtrlBank.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlBank">SdramCtrlBank</a>, <a href="../lib/memory/sdram/SdramCtrlBus.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlBus">SdramCtrlBus</a>, <a href="../lib/memory/sdram/SdramCtrlCmd.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlCmd">SdramCtrlCmd</a>, <a href="../lib/memory/sdram/SdramCtrlFrontendState$.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlFrontendState">SdramCtrlFrontendState</a>, <a href="../lib/memory/sdram/SdramCtrlRsp.html" class="extype" name="spinal.lib.memory.sdram.SdramCtrlRsp">SdramCtrlRsp</a>, <a href="../lib/memory/sdram/SdramInterface.html" class="extype" name="spinal.lib.memory.sdram.SdramInterface">SdramInterface</a>, <a href="../lib/experimental/com/serial/SerialCheckerPhysical.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerPhysical">SerialCheckerPhysical</a>, <a href="../lib/experimental/com/serial/SerialCheckerPhysicalToSerial.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerPhysicalToSerial">SerialCheckerPhysicalToSerial</a>, <a href="../lib/experimental/com/serial/SerialCheckerPhysicalfromSerial.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerPhysicalfromSerial">SerialCheckerPhysicalfromSerial</a>, <a href="../lib/experimental/com/serial/SerialCheckerRx.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerRx">SerialCheckerRx</a>, <a href="../lib/experimental/com/serial/SerialCheckerRxState$.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerRxState">SerialCheckerRxState</a>, <a href="../lib/experimental/com/serial/SerialCheckerTx.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerTx">SerialCheckerTx</a>, <a href="../lib/experimental/com/serial/SerialCheckerTxState$.html" class="extype" name="spinal.lib.experimental.com.serial.SerialCheckerTxState">SerialCheckerTxState</a>, <a href="../lib/experimental/com/serial/SerialLinkRx.html" class="extype" name="spinal.lib.experimental.com.serial.SerialLinkRx">SerialLinkRx</a>, <a href="../lib/experimental/com/serial/SerialLinkRxState$.html" class="extype" name="spinal.lib.experimental.com.serial.SerialLinkRxState">SerialLinkRxState</a>, <a href="../lib/experimental/com/serial/SerialLinkRxToTx.html" class="extype" name="spinal.lib.experimental.com.serial.SerialLinkRxToTx">SerialLinkRxToTx</a>, <a href="../lib/experimental/com/serial/SerialLinkTx.html" class="extype" name="spinal.lib.experimental.com.serial.SerialLinkTx">SerialLinkTx</a>, <a href="../lib/experimental/com/serial/SerialLinkTxState$.html" class="extype" name="spinal.lib.experimental.com.serial.SerialLinkTxState">SerialLinkTxState</a>, <a href="../lib/experimental/com/serial/UnderTest/SerialSafeLayerRxState$.html" class="extype" name="spinal.lib.experimental.com.serial.UnderTest.SerialSafeLayerRxState">SerialSafeLayerRxState</a>, <a href="../lib/experimental/com/serial/UnderTest/SerialSafeLayerTx.html" class="extype" name="spinal.lib.experimental.com.serial.UnderTest.SerialSafeLayerTx">SerialSafeLayerTx</a>, <a href="../lib/experimental/com/serial/UnderTest/SerialSafelLayerRx.html" class="extype" name="spinal.lib.experimental.com.serial.UnderTest.SerialSafelLayerRx">SerialSafelLayerRx</a>, <a href="../lib/math/SignedDivider.html" class="extype" name="spinal.lib.math.SignedDivider">SignedDivider</a>, <a href="../lib/math/SignedDividerCmd.html" class="extype" name="spinal.lib.math.SignedDividerCmd">SignedDividerCmd</a>, <a href="../lib/math/SignedDividerRsp.html" class="extype" name="spinal.lib.math.SignedDividerRsp">SignedDividerRsp</a>, <a href="../lib/com/jtag/SimpleJtagTap.html" class="extype" name="spinal.lib.com.jtag.SimpleJtagTap">SimpleJtagTap</a>, <a href="../lib/com/sio/Sio.html" class="extype" name="spinal.lib.com.sio.Sio">Sio</a>, <a href="SlowArea.html" class="extype" name="spinal.core.SlowArea">SlowArea</a>, <a href="../lib/com/spi/SpiKind.html" class="extype" name="spinal.lib.com.spi.SpiKind">SpiKind</a>, <a href="../lib/com/spi/SpiMaster.html" class="extype" name="spinal.lib.com.spi.SpiMaster">SpiMaster</a>, <a href="../lib/com/spi/SpiMasterCmd.html" class="extype" name="spinal.lib.com.spi.SpiMasterCmd">SpiMasterCmd</a>, <a href="../lib/com/spi/SpiMasterCtrl.html" class="extype" name="spinal.lib.com.spi.SpiMasterCtrl">SpiMasterCtrl</a>, <a href="../lib/com/spi/SpiMasterCtrlCmdData.html" class="extype" name="spinal.lib.com.spi.SpiMasterCtrlCmdData">SpiMasterCtrlCmdData</a>, <a href="../lib/com/spi/SpiMasterCtrlCmdMode$.html" class="extype" name="spinal.lib.com.spi.SpiMasterCtrlCmdMode">SpiMasterCtrlCmdMode</a>, <a href="../lib/com/spi/SpiMasterCtrlCmdSs.html" class="extype" name="spinal.lib.com.spi.SpiMasterCtrlCmdSs">SpiMasterCtrlCmdSs</a>, <a href="../lib/com/spi/SpiMasterCtrlConfig.html" class="extype" name="spinal.lib.com.spi.SpiMasterCtrlConfig">SpiMasterCtrlConfig</a>, <a href="../lib/com/spi/SpiSlave.html" class="extype" name="spinal.lib.com.spi.SpiSlave">SpiSlave</a>, <a href="../lib/com/spi/SpiSlaveCtrl.html" class="extype" name="spinal.lib.com.spi.SpiSlaveCtrl">SpiSlaveCtrl</a>, <a href="../lib/com/spi/SpiSlaveCtrlIo.html" class="extype" name="spinal.lib.com.spi.SpiSlaveCtrlIo">SpiSlaveCtrlIo</a>, <a href="../lib/com/spi/ddr/SpiXdrMaster.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMaster">SpiXdrMaster</a>, <a href="SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a>, <a href="SpinalEnumCraft.html" class="extype" name="spinal.core.SpinalEnumCraft">SpinalEnumCraft</a>, <a href="SpinalEnumElement.html" class="extype" name="spinal.core.SpinalEnumElement">SpinalEnumElement</a>, <a href="SpinalEnumEncoding.html" class="extype" name="spinal.core.SpinalEnumEncoding">SpinalEnumEncoding</a>, <a href="../lib/fsm/State.html" class="extype" name="spinal.lib.fsm.State">State</a>, <a href="../lib/fsm/StateBoot.html" class="extype" name="spinal.lib.fsm.StateBoot">StateBoot</a>, <a href="../lib/fsm/StateDelay.html" class="extype" name="spinal.lib.fsm.StateDelay">StateDelay</a>, <a href="../lib/fsm/StateFsm.html" class="extype" name="spinal.lib.fsm.StateFsm">StateFsm</a>, <a href="../lib/fsm/StateMachine.html" class="extype" name="spinal.lib.fsm.StateMachine">StateMachine</a>, <a href="../lib/fsm/StateMachineEnum.html" class="extype" name="spinal.lib.fsm.StateMachineEnum">StateMachineEnum</a>, <a href="../lib/fsm/StateParallelFsm.html" class="extype" name="spinal.lib.fsm.StateParallelFsm">StateParallelFsm</a>, <a href="internals/Statement.html" class="extype" name="spinal.core.internals.Statement">Statement</a>, <a href="internals/StatementDoubleLinkedContainer.html" class="extype" name="spinal.core.internals.StatementDoubleLinkedContainer">StatementDoubleLinkedContainer</a>, <a href="internals/StatementDoubleLinkedContainerElement.html" class="extype" name="spinal.core.internals.StatementDoubleLinkedContainerElement">StatementDoubleLinkedContainerElement</a>, <a href="../lib/Stream.html" class="extype" name="spinal.lib.Stream">Stream</a>, <a href="../lib/StreamArbiter.html" class="extype" name="spinal.lib.StreamArbiter">StreamArbiter</a>, <a href="../lib/StreamCCByToggle.html" class="extype" name="spinal.lib.StreamCCByToggle">StreamCCByToggle</a>, <a href="../lib/StreamDemux.html" class="extype" name="spinal.lib.StreamDemux">StreamDemux</a>, <a href="../lib/StreamDispatcherSequencial.html" class="extype" name="spinal.lib.StreamDispatcherSequencial">StreamDispatcherSequencial</a>, <a href="../lib/StreamFifo.html" class="extype" name="spinal.lib.StreamFifo">StreamFifo</a>, <a href="../lib/StreamFifoCC.html" class="extype" name="spinal.lib.StreamFifoCC">StreamFifoCC</a>, <a href="../lib/StreamFifoLowLatency.html" class="extype" name="spinal.lib.StreamFifoLowLatency">StreamFifoLowLatency</a>, <a href="../lib/StreamFlowArbiter.html" class="extype" name="spinal.lib.StreamFlowArbiter">StreamFlowArbiter</a>, <a href="../lib/StreamFork.html" class="extype" name="spinal.lib.StreamFork">StreamFork</a>, <a href="../lib/StreamFragmentBitsDispatcher.html" class="extype" name="spinal.lib.StreamFragmentBitsDispatcher">StreamFragmentBitsDispatcher</a>, <a href="../lib/StreamToStreamFragmentBits.html" class="extype" name="spinal.lib.StreamToStreamFragmentBits">StreamToStreamFragmentBits</a>, <a href="internals/SwitchStatement.html" class="extype" name="spinal.core.internals.SwitchStatement">SwitchStatement</a>, <a href="internals/SwitchStatementElement.html" class="extype" name="spinal.core.internals.SwitchStatementElement">SwitchStatementElement</a>, <a href="../lib/system/debugger/SystemDebugger.html" class="extype" name="spinal.lib.system.debugger.SystemDebugger">SystemDebugger</a>, <a href="../lib/system/debugger/SystemDebuggerMemBus.html" class="extype" name="spinal.lib.system.debugger.SystemDebuggerMemBus">SystemDebuggerMemBus</a>, <a href="../lib/system/debugger/SystemDebuggerMemCmd.html" class="extype" name="spinal.lib.system.debugger.SystemDebuggerMemCmd">SystemDebuggerMemCmd</a>, <a href="../lib/system/debugger/SystemDebuggerRemoteBus.html" class="extype" name="spinal.lib.system.debugger.SystemDebuggerRemoteBus">SystemDebuggerRemoteBus</a>, <a href="../lib/system/debugger/SystemDebuggerRsp.html" class="extype" name="spinal.lib.system.debugger.SystemDebuggerRsp">SystemDebuggerRsp</a>, <a href="../lib/Timeout.html" class="extype" name="spinal.lib.Timeout">Timeout</a>, <a href="../lib/misc/Timer.html" class="extype" name="spinal.lib.misc.Timer">Timer</a>, <a href="../lib/cpu/riscv/impl/InstructionCacheMain$$TopLevel.html" class="extype" name="spinal.lib.cpu.riscv.impl.InstructionCacheMain.TopLevel">TopLevel</a>, <a href="../lib/cpu/riscv/impl/UtilsTest$$TopLevel.html" class="extype" name="spinal.lib.cpu.riscv.impl.UtilsTest.TopLevel">TopLevel</a>, <a href="../lib/com/spi/ddr/SpiXdrMasterCtrl$$TopLevel.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineStyle1$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineStyle1.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineWithInnerExample$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineWithInnerExample.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineTry6Example$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineTry6Example.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineTryExample$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineTryExample.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineTry2Example$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineTry2Example.TopLevel">TopLevel</a>, <a href="../lib/cpu/riscv/impl/bench/CoreUut$$TopLevel.html" class="extype" name="spinal.lib.cpu.riscv.impl.bench.CoreUut.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineSimpleExample$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineSimpleExample.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineTry3Example$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineTry3Example.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineSimExample$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineSimExample.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineStyle2$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineStyle2.TopLevel">TopLevel</a>, <a href="../lib/fsm/StateMachineStyle3$$TopLevel.html" class="extype" name="spinal.lib.fsm.StateMachineStyle3.TopLevel">TopLevel</a>, <a href="internals/TreeStatement.html" class="extype" name="spinal.core.internals.TreeStatement">TreeStatement</a>, <a href="../lib/io/TriState.html" class="extype" name="spinal.lib.io.TriState">TriState</a>, <a href="../lib/io/TriStateArray.html" class="extype" name="spinal.lib.io.TriStateArray">TriStateArray</a>, <a href="../lib/io/TriStateOutput.html" class="extype" name="spinal.lib.io.TriStateOutput">TriStateOutput</a>, <a href="UFix.html" class="extype" name="spinal.core.UFix">UFix</a>, <a href="UFix2D.html" class="extype" name="spinal.core.UFix2D">UFix2D</a>, <a href="UInt.html" class="extype" name="spinal.core.UInt">UInt</a>, <a href="UInt2D.html" class="extype" name="spinal.core.UInt2D">UInt2D</a>, <a href="../lib/com/uart/Uart.html" class="extype" name="spinal.lib.com.uart.Uart">Uart</a>, <a href="../lib/com/uart/UartCtrl.html" class="extype" name="spinal.lib.com.uart.UartCtrl">UartCtrl</a>, <a href="../lib/com/uart/UartCtrlConfig.html" class="extype" name="spinal.lib.com.uart.UartCtrlConfig">UartCtrlConfig</a>, <a href="../lib/com/uart/UartCtrlFrameConfig.html" class="extype" name="spinal.lib.com.uart.UartCtrlFrameConfig">UartCtrlFrameConfig</a>, <a href="../lib/com/uart/UartCtrlIo.html" class="extype" name="spinal.lib.com.uart.UartCtrlIo">UartCtrlIo</a>, <a href="../lib/com/uart/UartCtrlRx.html" class="extype" name="spinal.lib.com.uart.UartCtrlRx">UartCtrlRx</a>, <a href="../lib/com/uart/UartCtrlRxState$.html" class="extype" name="spinal.lib.com.uart.UartCtrlRxState">UartCtrlRxState</a>, <a href="../lib/com/uart/UartCtrlTx.html" class="extype" name="spinal.lib.com.uart.UartCtrlTx">UartCtrlTx</a>, <a href="../lib/com/uart/UartCtrlTxState$.html" class="extype" name="spinal.lib.com.uart.UartCtrlTxState">UartCtrlTxState</a>, <a href="../lib/com/uart/UartCtrlUsageExample.html" class="extype" name="spinal.lib.com.uart.UartCtrlUsageExample">UartCtrlUsageExample</a>, <a href="../lib/com/uart/UartParityType$.html" class="extype" name="spinal.lib.com.uart.UartParityType">UartParityType</a>, <a href="../lib/com/uart/UartStopType$.html" class="extype" name="spinal.lib.com.uart.UartStopType">UartStopType</a>, <a href="../lib/math/UnsignedDivider.html" class="extype" name="spinal.lib.math.UnsignedDivider">UnsignedDivider</a>, <a href="../lib/math/UnsignedDividerCmd.html" class="extype" name="spinal.lib.math.UnsignedDividerCmd">UnsignedDividerCmd</a>, <a href="../lib/math/UnsignedDividerRsp.html" class="extype" name="spinal.lib.math.UnsignedDividerRsp">UnsignedDividerRsp</a>, <a href="Vec.html" class="extype" name="spinal.core.Vec">Vec</a>, <a href="../lib/graphic/vga/Vga.html" class="extype" name="spinal.lib.graphic.vga.Vga">Vga</a>, <a href="../lib/graphic/vga/VgaCtrl.html" class="extype" name="spinal.lib.graphic.vga.VgaCtrl">VgaCtrl</a>, <a href="../lib/graphic/vga/VgaTimings.html" class="extype" name="spinal.lib.graphic.vga.VgaTimings">VgaTimings</a>, <a href="../lib/graphic/vga/VgaTimingsHV.html" class="extype" name="spinal.lib.graphic.vga.VgaTimingsHV">VgaTimingsHV</a>, <a href="../lib/graphic/VideoDma.html" class="extype" name="spinal.lib.graphic.VideoDma">VideoDma</a>, <a href="../lib/graphic/VideoDmaMem.html" class="extype" name="spinal.lib.graphic.VideoDmaMem">VideoDmaMem</a>, <a href="../lib/cpu/riscv/impl/Utils$$WB$.html" class="extype" name="spinal.lib.cpu.riscv.impl.Utils.WB">WB</a>, <a href="internals/WhenStatement.html" class="extype" name="spinal.core.internals.WhenStatement">WhenStatement</a>, <a href="../lib/bus/wishbone/Wishbone.html" class="extype" name="spinal.lib.bus.wishbone.Wishbone">Wishbone</a>, <a href="../lib/bus/wishbone/WishboneAdapter.html" class="extype" name="spinal.lib.bus.wishbone.WishboneAdapter">WishboneAdapter</a>, <a href="../lib/bus/wishbone/WishboneArbiter.html" class="extype" name="spinal.lib.bus.wishbone.WishboneArbiter">WishboneArbiter</a>, <a href="../lib/bus/wishbone/WishboneDecoder.html" class="extype" name="spinal.lib.bus.wishbone.WishboneDecoder">WishboneDecoder</a>, <a href="../../WishboneGpio.html" class="extype" name="WishboneGpio">WishboneGpio</a>, <a href="../lib/bus/wishbone/WishboneSlaveFactory.html" class="extype" name="spinal.lib.bus.wishbone.WishboneSlaveFactory">WishboneSlaveFactory</a>, <a href="../lib/com/spi/WishboneSpiMasterCtrl.html" class="extype" name="spinal.lib.com.spi.WishboneSpiMasterCtrl">WishboneSpiMasterCtrl</a>, <a href="../lib/com/spi/WishboneSpiSlaveCtrl.html" class="extype" name="spinal.lib.com.spi.WishboneSpiSlaveCtrl">WishboneSpiSlaveCtrl</a>, <a href="../lib/com/uart/WishboneUartCtrl.html" class="extype" name="spinal.lib.com.uart.WishboneUartCtrl">WishboneUartCtrl</a>, <a href="../lib/WrapWithReg$$Wrapper.html" class="extype" name="spinal.lib.WrapWithReg.Wrapper">Wrapper</a>, <a href="XFix.html" class="extype" name="spinal.core.XFix">XFix</a>, <a href="../lib/com/spi/ddr/XdrOutput.html" class="extype" name="spinal.lib.com.spi.ddr.XdrOutput">XdrOutput</a>, <a href="../lib/com/spi/ddr/XdrPin.html" class="extype" name="spinal.lib.com.spi.ddr.XdrPin">XdrPin</a>, <a href="../lib/com/spi/ddr/SpiXdrMasterCtrl$$XipBus.html" class="extype" name="spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.XipBus">XipBus</a>, <a href="../lib/eda/altera/ip/alt_inbuf.html" class="extype" name="spinal.lib.eda.altera.ip.alt_inbuf">alt_inbuf</a>, <a href="../lib/eda/altera/ip/alt_inbuf_diff.html" class="extype" name="spinal.lib.eda.altera.ip.alt_inbuf_diff">alt_inbuf_diff</a>, <a href="../lib/eda/altera/ip/alt_outbuf.html" class="extype" name="spinal.lib.eda.altera.ip.alt_outbuf">alt_outbuf</a>, <a href="../lib/eda/altera/ip/alt_outbuf_diff.html" class="extype" name="spinal.lib.eda.altera.ip.alt_outbuf_diff">alt_outbuf_diff</a>, <a href="../lib/eda/altera/ip/alt_outbuf_tri.html" class="extype" name="spinal.lib.eda.altera.ip.alt_outbuf_tri">alt_outbuf_tri</a>, <a href="../lib/eda/altera/ip/alt_outbuf_tri_diff.html" class="extype" name="spinal.lib.eda.altera.ip.alt_outbuf_tri_diff">alt_outbuf_tri_diff</a>, <a href="binaryOneHot$.html" class="extype" name="spinal.core.binaryOneHot">binaryOneHot</a>, <a href="binarySequential$.html" class="extype" name="spinal.core.binarySequential">binarySequential</a>, <a href="inferred$.html" class="extype" name="spinal.core.inferred">inferred</a>, <a href="native$.html" class="extype" name="spinal.core.native">native</a></div>
+          </div></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By Inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="spinal.core.ContextUser"><span>ContextUser</span></li><li class="in" name="spinal.core.ScalaLocated"><span>ScalaLocated</span></li><li class="in" name="spinal.core.GlobalDataUser"><span>GlobalDataUser</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show All</span></li>
+            </ol>
+          </div>
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="scala.AnyRef#!=" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a>
+      <a id="!=(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <a id="##():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@##():Int" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a>
+      <a id="==(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <a id="asInstanceOf[T0]:T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="scala.AnyRef#clone" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a>
+      <a id="clone():AnyRef"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@clone():Object" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.ContextUser#component" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="component:spinal.core.Component"></a>
+      <a id="component:Component"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">component</span><span class="result">: <a href="Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@component:spinal.core.Component" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#eq" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a>
+      <a id="eq(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#equals" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="equals(x$1:Any):Boolean"></a>
+      <a id="equals(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">equals</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@equals(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#finalize" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <a id="finalize():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#getClass" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <a id="getClass():Class[_]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="spinal.core.ContextUser#getInstanceCounter" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="getInstanceCounter:Int"></a>
+      <a id="getInstanceCounter:Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getInstanceCounter</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@getInstanceCounter:Int" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.ScalaLocated#getScalaLocationLong" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaLocationLong:String"></a>
+      <a id="getScalaLocationLong:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaLocationLong</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@getScalaLocationLong:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#getScalaLocationShort" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaLocationShort:String"></a>
+      <a id="getScalaLocationShort:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaLocationShort</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@getScalaLocationShort:String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#getScalaTrace" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaTrace():Throwable"></a>
+      <a id="getScalaTrace():Throwable"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaTrace</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Throwable">Throwable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@getScalaTrace():Throwable" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.GlobalDataUser#globalData" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="globalData:spinal.core.GlobalData"></a>
+      <a id="globalData:GlobalData"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">globalData</span><span class="result">: <a href="GlobalData.html" class="extype" name="spinal.core.GlobalData">GlobalData</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@globalData:spinal.core.GlobalData" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a></dd></dl></div>
+    </li><li name="scala.AnyRef#hashCode" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hashCode():Int"></a>
+      <a id="hashCode():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@hashCode():Int" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="scala.AnyRef#ne" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a>
+      <a id="ne(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notify" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <a id="notify():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@notify():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <a id="notifyAll():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.ContextUser#parentScope" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="parentScope:spinal.core.internals.ScopeStatement"></a>
+      <a id="parentScope:ScopeStatement"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">var</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentScope</span><span class="result">: <a href="internals/ScopeStatement.html" class="extype" name="spinal.core.internals.ScopeStatement">ScopeStatement</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@parentScope:spinal.core.internals.ScopeStatement" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.core.ScalaLocated#setScalaLocated" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="setScalaLocated(source:spinal.core.ScalaLocated):ScalaLocated.this.type"></a>
+      <a id="setScalaLocated(ScalaLocated):ContextUser.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">setScalaLocated</span><span class="params">(<span name="source">source: <a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>)</span><span class="result">: <a href="" class="extype" name="spinal.core.ContextUser">ContextUser</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@setScalaLocated(source:spinal.core.ScalaLocated):ScalaLocated.this.type" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a>
+      <a id="synchronized[T0](⇒T0):T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#toString" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toString():String"></a>
+      <a id="toString():String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@toString():String" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <a id="wait():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@wait():Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a>
+      <a id="wait(Long,Int):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a>
+      <a id="wait(Long):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../index.html#spinal.core.ContextUser@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="spinal.core.ScalaLocated">
+              <h3>Inherited from <a href="ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></h3>
+            </div><div class="parent" name="spinal.core.GlobalDataUser">
+              <h3>Inherited from <a href="GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a></h3>
+            </div><div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

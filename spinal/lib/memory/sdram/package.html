@@ -1,0 +1,410 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>sdram - spinal.lib.memory.sdram</title>
+          <meta name="description" content="sdram - spinal.lib.memory.sdram" />
+          <meta name="keywords" content="sdram spinal.lib.memory.sdram" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../../index.html';
+            var hash = 'spinal.lib.memory.sdram.package';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="value">
+      <div id="definition">
+        <img alt="Package" src="../../../../lib/package_big.png" />
+        <p id="owner"><a href="../../../package.html" class="extype" name="spinal">spinal</a>.<a href="../../package.html" class="extype" name="spinal.lib">lib</a>.<a href="../package.html" class="extype" name="spinal.lib.memory">memory</a></p>
+        <h1>sdram</h1><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">package</span>
+      </span>
+      <span class="symbol">
+        <span class="name">sdram</span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        
+        
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        <div id="types" class="types members">
+              <h3>Type Members</h3>
+              <ol><li name="spinal.lib.memory.sdram.Axi4SharedSdramCtrl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Axi4SharedSdramCtrlextendsComponentwithProductwithSerializable"></a>
+      <a id="Axi4SharedSdramCtrl:Axi4SharedSdramCtrl"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="Axi4SharedSdramCtrl.html"><span class="name">Axi4SharedSdramCtrl</span></a><span class="params">(<span name="axiDataWidth">axiDataWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="axiIdWidth">axiIdWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="layout">layout: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="timing">timing: <a href="SdramTimings.html" class="extype" name="spinal.lib.memory.sdram.SdramTimings">SdramTimings</a></span>, <span name="CAS">CAS: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <a href="../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@Axi4SharedSdramCtrlextendsComponentwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrl[T&lt;:spinal.core.Data]extendsComponentwithProductwithSerializable"></a>
+      <a id="SdramCtrl[T&lt;:Data]:SdramCtrl[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrl.html"><span class="name">SdramCtrl</span></a><span class="tparams">[<span name="T">T &lt;: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>]</span><span class="params">(<span name="l">l: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="t">t: <a href="SdramTimings.html" class="extype" name="spinal.lib.memory.sdram.SdramTimings">SdramTimings</a></span>, <span name="CAS">CAS: <span class="extype" name="scala.Int">Int</span></span>, <span name="contextType">contextType: <span class="extype" name="spinal.lib.memory.sdram.SdramCtrl.T">T</span></span>)</span><span class="result"> extends <a href="../../../core/Component.html" class="extype" name="spinal.core.Component">Component</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrl[T&lt;:spinal.core.Data]extendsComponentwithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlAxi4SharedContext" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlAxi4SharedContextextendsBundlewithProductwithSerializable"></a>
+      <a id="SdramCtrlAxi4SharedContext:SdramCtrlAxi4SharedContext"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlAxi4SharedContext.html"><span class="name">SdramCtrlAxi4SharedContext</span></a><span class="params">(<span name="idWidth">idWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlAxi4SharedContextextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlBackendCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlBackendCmd[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable"></a>
+      <a id="SdramCtrlBackendCmd[T&lt;:Data]:SdramCtrlBackendCmd[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlBackendCmd.html"><span class="name">SdramCtrlBackendCmd</span></a><span class="tparams">[<span name="T">T &lt;: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>]</span><span class="params">(<span name="c">c: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="contextType">contextType: <span class="extype" name="spinal.lib.memory.sdram.SdramCtrlBackendCmd.T">T</span></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlBackendCmd[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlBank" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlBankextendsBundlewithProductwithSerializable"></a>
+      <a id="SdramCtrlBank:SdramCtrlBank"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlBank.html"><span class="name">SdramCtrlBank</span></a><span class="params">(<span name="c">c: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlBankextendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlBus" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlBus[T&lt;:spinal.core.Data]extendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="SdramCtrlBus[T&lt;:Data]:SdramCtrlBus[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlBus.html"><span class="name">SdramCtrlBus</span></a><span class="tparams">[<span name="T">T &lt;: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>]</span><span class="params">(<span name="c">c: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="contextType">contextType: <span class="extype" name="spinal.lib.memory.sdram.SdramCtrlBus.T">T</span></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlBus[T&lt;:spinal.core.Data]extendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlCmd" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlCmd[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable"></a>
+      <a id="SdramCtrlCmd[T&lt;:Data]:SdramCtrlCmd[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlCmd.html"><span class="name">SdramCtrlCmd</span></a><span class="tparams">[<span name="T">T &lt;: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>]</span><span class="params">(<span name="c">c: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="contextType">contextType: <span class="extype" name="spinal.lib.memory.sdram.SdramCtrlCmd.T">T</span></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlCmd[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlRsp" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlRsp[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable"></a>
+      <a id="SdramCtrlRsp[T&lt;:Data]:SdramCtrlRsp[T]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlRsp.html"><span class="name">SdramCtrlRsp</span></a><span class="tparams">[<span name="T">T &lt;: <a href="../../../core/Data.html" class="extype" name="spinal.core.Data">Data</a></span>]</span><span class="params">(<span name="c">c: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>, <span name="contextType">contextType: <span class="extype" name="spinal.lib.memory.sdram.SdramCtrlRsp.T">T</span></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlRsp[T&lt;:spinal.core.Data]extendsBundlewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramInterface" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramInterfaceextendsBundlewithIMasterSlavewithProductwithSerializable"></a>
+      <a id="SdramInterface:SdramInterface"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramInterface.html"><span class="name">SdramInterface</span></a><span class="params">(<span name="g">g: <a href="SdramLayout.html" class="extype" name="spinal.lib.memory.sdram.SdramLayout">SdramLayout</a></span>)</span><span class="result"> extends <a href="../../../core/Bundle.html" class="extype" name="spinal.core.Bundle">Bundle</a> with <a href="../../IMasterSlave.html" class="extype" name="spinal.lib.IMasterSlave">IMasterSlave</a> with <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramInterfaceextendsBundlewithIMasterSlavewithProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramLayout" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramLayoutextendsProductwithSerializable"></a>
+      <a id="SdramLayout:SdramLayout"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramLayout.html"><span class="name">SdramLayout</span></a><span class="params">(<span name="bankWidth">bankWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="columnWidth">columnWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="rowWidth">rowWidth: <span class="extype" name="scala.Int">Int</span></span>, <span name="dataWidth">dataWidth: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramLayoutextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramTimings" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramTimingsextendsProductwithSerializable"></a>
+      <a id="SdramTimings:SdramTimings"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">case class</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramTimings.html"><span class="name">SdramTimings</span></a><span class="params">(<span name="bootRefreshCount">bootRefreshCount: <span class="extype" name="scala.Int">Int</span></span>, <span name="tPOW">tPOW: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tREF">tREF: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tRC">tRC: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tRFC">tRFC: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tRAS">tRAS: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tRP">tRP: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="tRCD">tRCD: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="cMRD">cMRD: <span class="extype" name="scala.Int">Int</span></span>, <span name="tWR">tWR: <a href="../../../core/TimeNumber.html" class="extype" name="spinal.core.TimeNumber">TimeNumber</a></span>, <span name="cWR">cWR: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result"> extends <span class="extype" name="scala.Product">Product</span> with <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramTimingsextendsProductwithSerializable" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        <div id="values" class="values members">
+              <h3>Value Members</h3>
+              <ol><li name="spinal.lib.memory.sdram.Axi4SharedSdramCtrl" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="Axi4SharedSdramCtrl"></a>
+      <a id="Axi4SharedSdramCtrl:Axi4SharedSdramCtrl"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="Axi4SharedSdramCtrl$.html"><span class="name">Axi4SharedSdramCtrl</span></a><span class="result"> extends <span class="extype" name="scala.Serializable">Serializable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@Axi4SharedSdramCtrl" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <p class="shortcomment cmt">Created by PIC32F_USER on 28/08/2016.</p>
+    </li><li name="spinal.lib.memory.sdram.IS42x320D" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="IS42x320D"></a>
+      <a id="IS42x320D:IS42x320D"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="IS42x320D$.html"><span class="name">IS42x320D</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@IS42x320D" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.MT48LC16M16A2" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="MT48LC16M16A2"></a>
+      <a id="MT48LC16M16A2:MT48LC16M16A2"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="MT48LC16M16A2$.html"><span class="name">MT48LC16M16A2</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@MT48LC16M16A2" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlBackendTask" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlBackendTask"></a>
+      <a id="SdramCtrlBackendTask:SdramCtrlBackendTask"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlBackendTask$.html"><span class="name">SdramCtrlBackendTask</span></a><span class="result"> extends <a href="../../../core/SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlBackendTask" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlFrontendState" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlFrontendState"></a>
+      <a id="SdramCtrlFrontendState:SdramCtrlFrontendState"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlFrontendState$.html"><span class="name">SdramCtrlFrontendState</span></a><span class="result"> extends <a href="../../../core/SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlFrontendState" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.SdramCtrlMain" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="SdramCtrlMain"></a>
+      <a id="SdramCtrlMain:SdramCtrlMain"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="SdramCtrlMain$.html"><span class="name">SdramCtrlMain</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@SdramCtrlMain" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="spinal.lib.memory.sdram.W9825G6JH6" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="W9825G6JH6"></a>
+      <a id="W9825G6JH6:W9825G6JH6"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">object</span>
+      </span>
+      <span class="symbol">
+        <a href="W9825G6JH6$.html"><span class="name">W9825G6JH6</span></a>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../../index.html#spinal.lib.memory.sdram.package@W9825G6JH6" title="Permalink" target="_top">
+        <img src="../../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>

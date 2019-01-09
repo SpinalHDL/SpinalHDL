@@ -1,0 +1,753 @@
+<!DOCTYPE html >
+<html>
+        <head>
+          <title>InferableEnumEncodingImpl - spinal.core.internals.InferableEnumEncodingImpl</title>
+          <meta name="description" content="InferableEnumEncodingImpl - spinal.core.internals.InferableEnumEncodingImpl" />
+          <meta name="keywords" content="InferableEnumEncodingImpl spinal.core.internals.InferableEnumEncodingImpl" />
+          <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+          
+      <link href="../../../lib/template.css" media="screen" type="text/css" rel="stylesheet" />
+      <link href="../../../lib/diagrams.css" media="screen" type="text/css" rel="stylesheet" id="diagrams-css" />
+      <script type="text/javascript" src="../../../lib/jquery.js" id="jquery-js"></script>
+      <script type="text/javascript" src="../../../lib/jquery-ui.js"></script>
+      <script type="text/javascript" src="../../../lib/template.js"></script>
+      <script type="text/javascript" src="../../../lib/tools.tooltip.js"></script>
+      
+      <script type="text/javascript">
+         if(top === self) {
+            var url = '../../../index.html';
+            var hash = 'spinal.core.internals.InferableEnumEncodingImpl';
+            var anchor = window.location.hash;
+            var anchor_opt = '';
+            if (anchor.length >= 1)
+              anchor_opt = '@' + anchor.substring(1);
+            window.location.href = url + '#' + hash + anchor_opt;
+         }
+   	  </script>
+    
+        </head>
+        <body class="type">
+      <div id="definition">
+        <img alt="Trait" src="../../../lib/trait_big.png" />
+        <p id="owner"><a href="../../package.html" class="extype" name="spinal">spinal</a>.<a href="../package.html" class="extype" name="spinal.core">core</a>.<a href="package.html" class="extype" name="spinal.core.internals">internals</a></p>
+        <h1>InferableEnumEncodingImpl</h1><h3><span class="morelinks"><div>Related Doc:
+            <a href="package.html" class="extype" name="spinal.core.internals">package internals</a>
+          </div></span></h3><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      </div>
+
+      <h4 id="signature" class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">trait</span>
+      </span>
+      <span class="symbol">
+        <span class="name">InferableEnumEncodingImpl</span><span class="result"> extends <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a> with <a href="InferableEnumEncoding.html" class="extype" name="spinal.core.internals.InferableEnumEncoding">InferableEnumEncoding</a> with <a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a> with <a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>
+      </span>
+      </h4>
+      
+          <div id="comment" class="fullcommenttop"><div class="toggleContainer block">
+          <span class="toggle">Linear Supertypes</span>
+          <div class="superTypes hiddenContent"><a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a>, <a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a>, <a href="../GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a>, <a href="InferableEnumEncoding.html" class="extype" name="spinal.core.internals.InferableEnumEncoding">InferableEnumEncoding</a>, <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a>, <span class="extype" name="scala.AnyRef">AnyRef</span>, <span class="extype" name="scala.Any">Any</span></div>
+        </div><div class="toggleContainer block">
+            <span class="toggle">Known Subclasses</span>
+            <div class="subClasses hiddenContent"><a href="AnalogDriverEnum.html" class="extype" name="spinal.core.internals.AnalogDriverEnum">AnalogDriverEnum</a>, <a href="BinaryMultiplexerEnum.html" class="extype" name="spinal.core.internals.BinaryMultiplexerEnum">BinaryMultiplexerEnum</a>, <a href="CastBitsToEnum.html" class="extype" name="spinal.core.internals.CastBitsToEnum">CastBitsToEnum</a>, <a href="CastEnumToEnum.html" class="extype" name="spinal.core.internals.CastEnumToEnum">CastEnumToEnum</a>, <a href="../EnumLiteral.html" class="extype" name="spinal.core.EnumLiteral">EnumLiteral</a>, <a href="../EnumPoison.html" class="extype" name="spinal.core.EnumPoison">EnumPoison</a>, <a href="Operator$$Enum$$Equal.html" class="extype" name="spinal.core.internals.Operator.Enum.Equal">Equal</a>, <a href="MultiplexerEnum.html" class="extype" name="spinal.core.internals.MultiplexerEnum">MultiplexerEnum</a>, <a href="Operator$$Enum$$NotEqual.html" class="extype" name="spinal.core.internals.Operator.Enum.NotEqual">NotEqual</a>, <a href="Operator$$Formal$$PastEnum.html" class="extype" name="spinal.core.internals.Operator.Formal.PastEnum">PastEnum</a>, <a href="../SpinalEnumCraft.html" class="extype" name="spinal.core.SpinalEnumCraft">SpinalEnumCraft</a></div>
+          </div></div>
+        
+
+      <div id="mbrsel">
+        <div id="textfilter"><span class="pre"></span><span class="input"><input id="mbrsel-input" type="text" accesskey="/" /></span><span class="post"></span></div>
+        <div id="order">
+              <span class="filtertype">Ordering</span>
+              <ol>
+                
+                <li class="alpha in"><span>Alphabetic</span></li>
+                <li class="inherit out"><span>By Inheritance</span></li>
+              </ol>
+            </div>
+        <div id="ancestors">
+                <span class="filtertype">Inherited<br />
+                </span>
+                <ol id="linearization">
+                  <li class="in" name="spinal.core.internals.InferableEnumEncodingImpl"><span>InferableEnumEncodingImpl</span></li><li class="in" name="spinal.core.ContextUser"><span>ContextUser</span></li><li class="in" name="spinal.core.ScalaLocated"><span>ScalaLocated</span></li><li class="in" name="spinal.core.GlobalDataUser"><span>GlobalDataUser</span></li><li class="in" name="spinal.core.internals.InferableEnumEncoding"><span>InferableEnumEncoding</span></li><li class="in" name="spinal.core.internals.EnumEncoded"><span>EnumEncoded</span></li><li class="in" name="scala.AnyRef"><span>AnyRef</span></li><li class="in" name="scala.Any"><span>Any</span></li>
+                </ol>
+              </div><div id="ancestors">
+            <span class="filtertype"></span>
+            <ol>
+              <li class="hideall out"><span>Hide All</span></li>
+              <li class="showall in"><span>Show All</span></li>
+            </ol>
+          </div>
+        <div id="visbl">
+            <span class="filtertype">Visibility</span>
+            <ol><li class="public in"><span>Public</span></li><li class="all out"><span>All</span></li></ol>
+          </div>
+      </div>
+
+      <div id="template">
+        <div id="allMembers">
+        
+
+        
+
+        <div id="values" class="values members">
+              <h3>Abstract Value Members</h3>
+              <ol><li name="spinal.core.internals.EnumEncoded#getDefinition" visbl="pub" data-isabs="true" fullComment="yes" group="Ungrouped">
+      <a id="getDefinition:spinal.core.SpinalEnum"></a>
+      <a id="getDefinition:SpinalEnum"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">abstract </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getDefinition</span><span class="result">: <a href="../SpinalEnum.html" class="extype" name="spinal.core.SpinalEnum">SpinalEnum</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getDefinition:spinal.core.SpinalEnum" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a></dd></dl></div>
+    </li></ol>
+            </div>
+
+        <div id="values" class="values members">
+              <h3>Concrete Value Members</h3>
+              <ol><li name="scala.AnyRef#!=" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="!=(x$1:Any):Boolean"></a>
+      <a id="!=(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $bang$eq" class="name">!=</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@!=(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef###" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="##():Int"></a>
+      <a id="##():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $hash$hash" class="name">##</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@##():Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#==" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="==(x$1:Any):Boolean"></a>
+      <a id="==(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span title="gt4s: $eq$eq" class="name">==</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@==(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#asInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="asInstanceOf[T0]:T0"></a>
+      <a id="asInstanceOf[T0]:T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">asInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Any.asInstanceOf.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@asInstanceOf[T0]:T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#bootInferration" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="bootInferration():Unit"></a>
+      <a id="bootInferration():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">bootInferration</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@bootInferration():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a> → <a href="InferableEnumEncoding.html" class="extype" name="spinal.core.internals.InferableEnumEncoding">InferableEnumEncoding</a></dd></dl></div>
+    </li><li name="scala.AnyRef#clone" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="clone():Object"></a>
+      <a id="clone():AnyRef"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">clone</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.AnyRef">AnyRef</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@clone():Object" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.CloneNotSupportedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.ContextUser#component" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="component:spinal.core.Component"></a>
+      <a id="component:Component"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">component</span><span class="result">: <a href="../Component.html" class="extype" name="spinal.core.Component">Component</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@component:spinal.core.Component" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a></dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#copyEncodingConfig" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="copyEncodingConfig(that:spinal.core.internals.InferableEnumEncodingImpl):Unit"></a>
+      <a id="copyEncodingConfig(InferableEnumEncodingImpl):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">copyEncodingConfig</span><span class="params">(<span name="that">that: <a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@copyEncodingConfig(that:spinal.core.internals.InferableEnumEncodingImpl):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#eq" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="eq(x$1:AnyRef):Boolean"></a>
+      <a id="eq(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">eq</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@eq(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#equals" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="equals(x$1:Any):Boolean"></a>
+      <a id="equals(Any):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">equals</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Any">Any</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@equals(x$1:Any):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#finalize" visbl="prt" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="finalize():Unit"></a>
+      <a id="finalize():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">finalize</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@finalize():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Attributes</dt><dd>protected[<a href="../../../java$lang.html" class="extype" name="java.lang">java.lang</a>] </dd><dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="symbol">classOf[java.lang.Throwable]</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#fixEncoding" visbl="pub" data-isabs="false" fullComment="no" group="Ungrouped">
+      <a id="fixEncoding(e:spinal.core.SpinalEnumEncoding):Unit"></a>
+      <a id="fixEncoding(SpinalEnumEncoding):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">fixEncoding</span><span class="params">(<span name="e">e: <a href="../SpinalEnumEncoding.html" class="extype" name="spinal.core.SpinalEnumEncoding">SpinalEnumEncoding</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@fixEncoding(e:spinal.core.SpinalEnumEncoding):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      
+    </li><li name="scala.AnyRef#getClass" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getClass():Class[_]"></a>
+      <a id="getClass():Class[_]"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getClass</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.Class">Class</span>[_]</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getClass():Class[_]" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#getEncoding" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getEncoding:spinal.core.SpinalEnumEncoding"></a>
+      <a id="getEncoding:SpinalEnumEncoding"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getEncoding</span><span class="result">: <a href="../SpinalEnumEncoding.html" class="extype" name="spinal.core.SpinalEnumEncoding">SpinalEnumEncoding</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getEncoding:spinal.core.SpinalEnumEncoding" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a> → <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a></dd></dl></div>
+    </li><li name="spinal.core.ContextUser#getInstanceCounter" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getInstanceCounter:Int"></a>
+      <a id="getInstanceCounter:Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getInstanceCounter</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getInstanceCounter:Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#getScalaLocationLong" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaLocationLong:String"></a>
+      <a id="getScalaLocationLong:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaLocationLong</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getScalaLocationLong:String" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#getScalaLocationShort" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaLocationShort:String"></a>
+      <a id="getScalaLocationShort:String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaLocationShort</span><span class="result">: <span class="extype" name="scala.Predef.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getScalaLocationShort:String" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#getScalaTrace" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="getScalaTrace():Throwable"></a>
+      <a id="getScalaTrace():Throwable"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">getScalaTrace</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Throwable">Throwable</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@getScalaTrace():Throwable" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.GlobalDataUser#globalData" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="globalData:spinal.core.GlobalData"></a>
+      <a id="globalData:GlobalData"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">val</span>
+      </span>
+      <span class="symbol">
+        <span class="name">globalData</span><span class="result">: <a href="../GlobalData.html" class="extype" name="spinal.core.GlobalData">GlobalData</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@globalData:spinal.core.GlobalData" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a></dd></dl></div>
+    </li><li name="scala.AnyRef#hashCode" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="hashCode():Int"></a>
+      <a id="hashCode():Int"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">hashCode</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Int">Int</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@hashCode():Int" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.Any#isInstanceOf" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <a id="isInstanceOf[T0]:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">isInstanceOf</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@isInstanceOf[T0]:Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>Any</dd></dl></div>
+    </li><li name="scala.AnyRef#ne" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="ne(x$1:AnyRef):Boolean"></a>
+      <a id="ne(AnyRef):Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">ne</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.AnyRef">AnyRef</span></span>)</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@ne(x$1:AnyRef):Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notify" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notify():Unit"></a>
+      <a id="notify():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notify</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@notify():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#notifyAll" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="notifyAll():Unit"></a>
+      <a id="notifyAll():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">notifyAll</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@notifyAll():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="spinal.core.ContextUser#parentScope" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="parentScope:spinal.core.internals.ScopeStatement"></a>
+      <a id="parentScope:ScopeStatement"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">var</span>
+      </span>
+      <span class="symbol">
+        <span class="name">parentScope</span><span class="result">: <a href="ScopeStatement.html" class="extype" name="spinal.core.internals.ScopeStatement">ScopeStatement</a></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@parentScope:spinal.core.internals.ScopeStatement" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a></dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#propagateEncoding" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="propagateEncoding:Boolean"></a>
+      <a id="propagateEncoding:Boolean"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">propagateEncoding</span><span class="result">: <span class="extype" name="scala.Boolean">Boolean</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@propagateEncoding:Boolean" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a> → <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a></dd></dl></div>
+    </li><li name="spinal.core.ScalaLocated#setScalaLocated" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="setScalaLocated(source:spinal.core.ScalaLocated):ScalaLocated.this.type"></a>
+      <a id="setScalaLocated(ScalaLocated):InferableEnumEncodingImpl.this.type"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">setScalaLocated</span><span class="params">(<span name="source">source: <a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></span>)</span><span class="result">: <a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a>.this.type</span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@setScalaLocated(source:spinal.core.ScalaLocated):ScalaLocated.this.type" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></dd></dl></div>
+    </li><li name="spinal.core.internals.InferableEnumEncodingImpl#swapEncoding" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="swapEncoding(encoding:spinal.core.SpinalEnumEncoding):Unit"></a>
+      <a id="swapEncoding(SpinalEnumEncoding):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">swapEncoding</span><span class="params">(<span name="encoding">encoding: <a href="../SpinalEnumEncoding.html" class="extype" name="spinal.core.SpinalEnumEncoding">SpinalEnumEncoding</a></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@swapEncoding(encoding:spinal.core.SpinalEnumEncoding):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd><a href="" class="extype" name="spinal.core.internals.InferableEnumEncodingImpl">InferableEnumEncodingImpl</a> → <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a></dd></dl></div>
+    </li><li name="scala.AnyRef#synchronized" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="synchronized[T0](x$1:=&gt;T0):T0"></a>
+      <a id="synchronized[T0](⇒T0):T0"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">synchronized</span><span class="tparams">[<span name="T0">T0</span>]</span><span class="params">(<span name="arg0">arg0: ⇒ <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>)</span><span class="result">: <span class="extype" name="java.lang.AnyRef.synchronized.T0">T0</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@synchronized[T0](x$1:=&gt;T0):T0" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd></dl></div>
+    </li><li name="scala.AnyRef#toString" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="toString():String"></a>
+      <a id="toString():String"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier"></span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">toString</span><span class="params">()</span><span class="result">: <span class="extype" name="java.lang.String">String</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@toString():String" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef → Any</dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait():Unit"></a>
+      <a id="wait():Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">()</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@wait():Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long,x$2:Int):Unit"></a>
+      <a id="wait(Long,Int):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>, <span name="arg1">arg1: <span class="extype" name="scala.Int">Int</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@wait(x$1:Long,x$2:Int):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li><li name="scala.AnyRef#wait" visbl="pub" data-isabs="false" fullComment="yes" group="Ungrouped">
+      <a id="wait(x$1:Long):Unit"></a>
+      <a id="wait(Long):Unit"></a>
+      <h4 class="signature">
+      <span class="modifier_kind">
+        <span class="modifier">final </span>
+        <span class="kind">def</span>
+      </span>
+      <span class="symbol">
+        <span class="name">wait</span><span class="params">(<span name="arg0">arg0: <span class="extype" name="scala.Long">Long</span></span>)</span><span class="result">: <span class="extype" name="scala.Unit">Unit</span></span>
+      </span>
+      </h4><span class="permalink">
+      <a href="../../../index.html#spinal.core.internals.InferableEnumEncodingImpl@wait(x$1:Long):Unit" title="Permalink" target="_top">
+        <img src="../../../lib/permalink.png" alt="Permalink" />
+      </a>
+    </span>
+      <div class="fullcomment"><dl class="attributes block"> <dt>Definition Classes</dt><dd>AnyRef</dd><dt>Annotations</dt><dd>
+                <span class="name">@throws</span><span class="args">(<span>
+      
+      <span class="defval" name="classOf[java.lang.InterruptedException]">...</span>
+    </span>)</span>
+              
+        </dd></dl></div>
+    </li></ol>
+            </div>
+
+        
+
+        
+        </div>
+
+        <div id="inheritedMembers">
+        <div class="parent" name="spinal.core.ContextUser">
+              <h3>Inherited from <a href="../ContextUser.html" class="extype" name="spinal.core.ContextUser">ContextUser</a></h3>
+            </div><div class="parent" name="spinal.core.ScalaLocated">
+              <h3>Inherited from <a href="../ScalaLocated.html" class="extype" name="spinal.core.ScalaLocated">ScalaLocated</a></h3>
+            </div><div class="parent" name="spinal.core.GlobalDataUser">
+              <h3>Inherited from <a href="../GlobalDataUser.html" class="extype" name="spinal.core.GlobalDataUser">GlobalDataUser</a></h3>
+            </div><div class="parent" name="spinal.core.internals.InferableEnumEncoding">
+              <h3>Inherited from <a href="InferableEnumEncoding.html" class="extype" name="spinal.core.internals.InferableEnumEncoding">InferableEnumEncoding</a></h3>
+            </div><div class="parent" name="spinal.core.internals.EnumEncoded">
+              <h3>Inherited from <a href="EnumEncoded.html" class="extype" name="spinal.core.internals.EnumEncoded">EnumEncoded</a></h3>
+            </div><div class="parent" name="scala.AnyRef">
+              <h3>Inherited from <span class="extype" name="scala.AnyRef">AnyRef</span></h3>
+            </div><div class="parent" name="scala.Any">
+              <h3>Inherited from <span class="extype" name="scala.Any">Any</span></h3>
+            </div>
+        
+        </div>
+
+        <div id="groupedMembers">
+        <div class="group" name="Ungrouped">
+              <h3>Ungrouped</h3>
+              
+            </div>
+        </div>
+
+      </div>
+
+      <div id="tooltip"></div>
+
+      <div id="footer">  </div>
+
+
+    </body>
+      </html>
