@@ -1,0 +1,23 @@
+===== Machine Timer Documentation =====
+
+Please move this to the offical SpinalHDL documentation!
+
+==== IP-Core addresses =====
+
+0x10: read
+  0-31: [R ]
+    Read lower 32 Bit of mtime
+
+0x14: read
+  0-31: [R ]
+    Read upper 32 Bit of mtime
+
+0x18: read/write
+  0-31: [RW]
+    Lower 32 Bit of mtimecmp.
+    -> A write to this address will clear the interrupt.
+
+0x1c: read/write
+  0-31: [RW]
+    Lower 32 Bit of mtimecmp.
+    -> A write to this address will clear the interrupt.
