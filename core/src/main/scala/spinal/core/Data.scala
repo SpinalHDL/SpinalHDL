@@ -332,6 +332,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
 
+  def asCloneOf[T <: Data](dataType: HardType[T]) : T = {
+    val ret = dataType()
+    ret.assignFromBits(this.asBits)
+    ret
+  }
+
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
     this
