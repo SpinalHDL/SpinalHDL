@@ -169,6 +169,7 @@ class ComponentEmitterVerilog(
     emitSubComponents(openSubIo)
     emitAnalogs()
     emitMuxes()
+    emitEnumDebugLogic()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -373,6 +374,24 @@ class ComponentEmitterVerilog(
       }
       logics ++= s"    endcase\n"
       logics ++= s"  end\n\n"
+    }
+  }
+
+  def emitEnumDebugLogic(): Unit ={
+    if(enumDebugStringList.nonEmpty) {
+      logics ++= "  `ifndef SYNTHESIS\n"
+      for((signal, name, charCount) <- enumDebugStringList){
+        def normalizeString(that : String) = that + " " * (charCount - that.length)
+        logics ++= s"  always @(*) begin\n"
+        logics ++= s"    case(${emitReference(signal, false)})\n"
+        for(e <- signal.spinalEnum.elements) {
+          logics ++= s"""      ${emitEnumLiteral(e, signal.encoding)} : $name = "${normalizeString(e.getName())}";\n"""
+        }
+        logics ++= s"""      default : $name = "${"?" * charCount}";\n"""
+        logics ++= s"    endcase\n"
+        logics ++= s"  end\n"
+      }
+      logics ++= "  `endif\n\n"
     }
   }
 
@@ -765,14 +784,32 @@ class ComponentEmitterVerilog(
   }
 
   var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
-
+  val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
   def emitSignals(): Unit = {
+    val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo) {
           declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
         }
+        if(spinalConfig._withEnumString) {
+          signal match {
+            case signal: SpinalEnumCraft[_] => {
+              val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
+              val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
+              enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
+              enumDebugStringList += Tuple3(signal , name, stringWidth)
+            }
+            case _ =>
+          }
+        }
       case mem: Mem[_] =>
+    }
+
+    if(enumDebugStringList.nonEmpty) {
+      declarations ++= "  `ifndef SYNTHESIS\n"
+      declarations ++= enumDebugStringBuilder.toString
+      declarations ++= "  `endif\n\n"
     }
   }
 
