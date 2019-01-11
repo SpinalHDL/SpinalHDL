@@ -496,8 +496,8 @@ package object sim {
 
     }
 
-    def forkStimulus(period: Long) = fork(doStimulus(period))
-    def forkSimSpeedPrinter(printPeriod: Double = 1.0) = SimSpeedPrinter(cd, printPeriod)
+    def forkStimulus(period: Long) : Unit = fork(doStimulus(period))
+    def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 
     def onRisingEdges(block : => Unit): Unit ={
       val manager = SimManagerContext.current.manager
