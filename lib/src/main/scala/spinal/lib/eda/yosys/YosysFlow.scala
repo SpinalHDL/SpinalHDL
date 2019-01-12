@@ -56,4 +56,42 @@ class YosysFlow(rtl: SpinalReport[_],workDir: String = "."){
                       dumpVCD= vcd.getAbsolutePath(),
                       workDir=logs.getAbsolutePath()).run()
     }
+
+    def synthesize(target: String) : String = {
+      val logs = new File(workDir,"logs")
+      logs.mkdirs
+      val opt = new Yosys(logs.getAbsolutePath())
+      rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog",new File(c).getAbsolutePath()))
+      val json = new File(workDir,rtl.toplevelName+".json")
+      opt.addCommand("synth_"+ target,"-top",rtl.toplevelName,"-json",json.getAbsolutePath())
+      opt.run()
+      json.getAbsolutePath()
+    }
+
+    def nextpnr_ice40(target: String,pack: String, jsonPath : String = "", pcfPath : String): String = {
+      val logs = new File(workDir,"logs")
+      val json = new File(if(jsonPath.isEmpty) synthesize("ice40") else jsonPath)
+      val pcf = new File(pcfPath)
+      val asc = new File(workDir,rtl.toplevelName+".asc")
+      NextPNR_ice40(json = json.getAbsolutePath(),
+                    pcf = pcf.getAbsolutePath(),
+                    asc = asc.getAbsolutePath(),
+                    no_tmdriv = true,
+                    freq = 0 Hz,
+                    pack_only = false,
+                    verbose = true,
+                    quiet = false,
+                    seed = "",
+                    randomize_seed = true,
+                    gui = false,
+                    target = target,
+                    pack = pack,
+                    promote_logic = false,
+                    no_promote_globals = false,
+                    opt_timing = false,
+                    tmfuzz = false,
+                    pcf_allow_unconstrained = false,
+                    workDir  = logs.getAbsolutePath()).run()
+      asc.getAbsolutePath()
+    }
 }

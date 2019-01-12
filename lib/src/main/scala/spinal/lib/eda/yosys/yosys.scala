@@ -71,6 +71,6 @@ object testo{
       // println(t)
       // t.!
       //"yosys-smtbmc -s z3 --presat --noprogress -t 50 --append 0 --dump-vcd trace.vcd --dump-vlogtb trace_tb.v --dump-smtc trace.smtc testCounter.sv.smt2".!
-      println(NextPNR_ice40("dddd","fghhgfh"))
+      //println(NextPNR_ice40("dddd","fghhgfh"))
     }
 }
