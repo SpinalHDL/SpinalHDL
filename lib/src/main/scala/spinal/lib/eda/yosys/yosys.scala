@@ -1,13 +1,9 @@
 package spinal.lib.eda.yosys
-import scala.collection.mutable._
+
 import java.io.File
 import java.io.PrintWriter
-import java.nio.file.Paths
-
-//import org.apache.commons.io.FileUtils
-//import spinal.core._
 import scala.sys.process._
-
+import scala.collection.mutable._
 
 case class YosysComand(command: String, opt: String*){
   def toList: List[String] = {
@@ -62,15 +58,3 @@ class Yosys(val workDir: String = "."){
   override def toString(): String = commands.mkString("yosys -p'","; ","'") //I want to belive
 }
 
-object testo{
-    def main(args: Array[String]): Unit = {
-      // val file: String = "testCounter"
-      // val command : Yosys = YosysFlow.read_sv(file+".sv","testCounter") + YosysFlow.model("testCounter",Mode.bmc) + YosysFlow.write_smt2(file)
-      // command.run("ttttt.sy")
-      // val t = FormalCommand("testCounter.smt2",mode=Mode.bmc, step = 100,dumpVCD="test.vcd",dumpSmtc="trace.smt").toString
-      // println(t)
-      // t.!
-      //"yosys-smtbmc -s z3 --presat --noprogress -t 50 --append 0 --dump-vcd trace.vcd --dump-vlogtb trace_tb.v --dump-smtc trace.smtc testCounter.sv.smt2".!
-      //println(NextPNR_ice40("dddd","fghhgfh"))
-    }
-}

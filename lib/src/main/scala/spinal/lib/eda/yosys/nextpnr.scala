@@ -1,14 +1,6 @@
 package spinal.lib.eda.yosys
-import scala.collection.mutable._
-import java.io.File
-import java.io.PrintWriter
-import java.nio.file.Paths
 
-import org.apache.commons.io.FileUtils
 import spinal.core._
-import scala.sys.process._
-
-
 
 //  -l [ --log ] arg            log file, all log messages are written to this file regardless of -q
 //  --debug                     debug output
@@ -52,11 +44,6 @@ trait NextPNR extends Executable{
     ret.toString
   }
 }
-
-
-
-
-
 
 object Ice40{
   val lp384 = "lp384"
