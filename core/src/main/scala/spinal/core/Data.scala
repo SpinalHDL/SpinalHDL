@@ -253,7 +253,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  @deprecated("use setAsDirectionLess instead")
+  @deprecated("use setAsDirectionLess instead","???")
   def asDirectionLess(): this.type = setAsDirectionLess()
 
   /** Set baseType to reg */
@@ -546,7 +546,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         if(c.getClass.isAssignableFrom(pt)){
           val copy =  constructor.newInstance(c).asInstanceOf[this.type]
           if(copy.isInstanceOf[Bundle])
-            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
+            copy.asInstanceOf[Bundle].hardtype = (HardType(constructor.newInstance(c).asInstanceOf[this.type]))
           return cleanCopy(copy)
         }
       }

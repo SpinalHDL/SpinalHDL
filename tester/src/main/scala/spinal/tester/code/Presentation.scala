@@ -1027,7 +1027,7 @@ object t14{
   class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
     // some logic
     val json = decompose(MandelbrotJsonReport(p, p.uid.toString))(DefaultFormats)
-    GlobalData.get.addJsonReport(pretty(render(json)))
+    GlobalData.get.addJsonReport(prettyRender(json))
   }
 
 }

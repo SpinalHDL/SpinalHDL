@@ -479,7 +479,7 @@ package object sim {
           cd.assertReset()
           val clk = clockSim
           var value = clk.toBoolean
-          spinal.sim.repeatSim(32){
+          for(repeat <- 0 to 31){
             value = !value
             clk #= value
             sleep(period >> 1)
