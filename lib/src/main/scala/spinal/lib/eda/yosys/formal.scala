@@ -12,7 +12,7 @@ object Mode extends Enumeration{
   val bmc: String = ""
   val cover: String = "-c"
   val prove: String = "-i"
-  val live: String = "live"
+  val live: String = "-g"
 }
 
 object Solver extends Enumeration{
@@ -30,8 +30,10 @@ case class FormalCommand( smt2: String,
                           dumpVerilogTB: String = "",
                           dumpSmtc: String = "",
                           append: Int = 0,
-                          opt: String = ""){
+                          opt: String = "",
+                          workDir: String=".") extends Executable{
 
+  override val logFile = "yosys-smtbmc.log"
   def dumpTrace(path: String) = this.copy(dumpVCD = path)
   def dumpVerilogTestBench(path: String) = this.copy(dumpVerilogTB = path)
   def bmc = this.copy(mode = Mode.bmc)
@@ -40,18 +42,18 @@ case class FormalCommand( smt2: String,
 
   override def toString(): String = {
     val ret = new StringBuilder("yosys-smtbmc ")
-    ret.append(s"-s ${solver} ")
-    ret.append("--presat --noprogress ")
-    if(top.nonEmpty) ret.append(s"-m ${top} ")
-    if(dumpSmtc.nonEmpty) ret.append(s"--dump-smtc ${dumpSmtc} ")
-    ret.append(s"-t ${skip}:${stepSize}:${step} ")
-    ret.append(s"-t ${step} ")
-    ret.append(s"${mode} ")
-    if(dumpVCD.nonEmpty) ret.append(s"--dump-vcd ${dumpVCD} ")
-    if(dumpVerilogTB.nonEmpty) ret.append("--dump-vlogtb ${dumpVerilogTB} ")
-    ret.append(s"--append ${append} ")
-    if(opt.nonEmpty) ret.append(s"-S ${opt} ")
-    ret.append(smt2)
+                                ret.append(s"-s ${solver} ")
+                                ret.append("--presat --noprogress ")
+                                ret.append(s"-t ${skip}:${stepSize}:${step} ")
+                                ret.append(s"-t ${step} ")
+                                ret.append(s"${mode} ")
+                                ret.append(s"--append ${append} ")
+    if(top.nonEmpty)            ret.append(s"-m ${top} ")
+    if(dumpSmtc.nonEmpty)       ret.append(s"--dump-smtc ${dumpSmtc} ")
+    if(dumpVCD.nonEmpty)        ret.append(s"--dump-vcd ${dumpVCD} ")
+    if(dumpVerilogTB.nonEmpty)  ret.append("--dump-vlogtb ${dumpVerilogTB} ")
+    if(opt.nonEmpty)            ret.append(s"-S ${opt} ")
+                                ret.append(smt2)
 
     ret.toString()
   }
