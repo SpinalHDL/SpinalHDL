@@ -14,7 +14,7 @@ case class YosysComand(command: String, opt: String*){
   override def toString(): String = (command +: opt).mkString(" ").toString
 }
 
-class Yosys(val workDir: String = "."){
+class Yosys{
   val logFile = "yosys.log"
   val commands = ListBuffer[YosysComand]()
 
@@ -27,14 +27,14 @@ class Yosys(val workDir: String = "."){
     this
   }
 
-  def save(file: String = "yosys.sy") = {
+  def save(file: String = "yosys.sy",workDir: String = ".") = {
     val sy = new PrintWriter(new File(workDir,file))
     commands.foreach(c => sy.println(c.toString))
     sy.close()
   }
 
-  def run(file: String = "yosys.sy"): Unit = {                                  // the copypaste of shame
-    save(file)
+  def run(file: String = "yosys.sy",workDir: String = "."): Unit = {   // the copypaste of shame
+    save(file,workDir)
     val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
     val str = new PrintWriter(new File(workDir,logFile))
     str.println(this.toString)

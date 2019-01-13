@@ -31,23 +31,24 @@ object YosysFlow{
 }
 
 class YosysFlow(rtl: SpinalReport[_],workDir: String = "."){
-    def formal(mode: String = Mode.bmc, multiclock: Boolean = false) = {
+    def formal(mode: String = Mode.bmc, multiclock: Boolean = false, step: Int = 20) = {
         val logs = new File(workDir,"logs")
         logs.mkdirs
 
-        val opt = new Yosys(logs.getAbsolutePath())
+        val opt = new Yosys
         rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog","-sv",new File(c).getAbsolutePath()))
         opt.addCommand("prep","-top",rtl.toplevelName)
         opt.append(YosysFlow.model(rtl.toplevelName,mode,multiclock))
         val smt2 = new File(logs.toString,rtl.toplevelName + ".smt2")
         opt.addCommand("write_smt2","-wires",smt2.getAbsolutePath())
-        opt.run()
+        opt.run(workDir=logs.getAbsolutePath())
 
-        val vcd = new File(workDir,"test.vcd")
+        val vcd = new File(workDir,rtl.toplevelName+".vcd")
         FormalCommand(smt2 = smt2.getAbsolutePath(),
                       top = rtl.toplevelName,
                       solver = Solver.z3,
                       mode = mode,
+                      step = step,
                       dumpVCD= vcd.getAbsolutePath(),
                       workDir=logs.getAbsolutePath()).run()
     }
@@ -55,11 +56,11 @@ class YosysFlow(rtl: SpinalReport[_],workDir: String = "."){
     def synthesize(target: String) : String = {
       val logs = new File(workDir,"logs")
       logs.mkdirs
-      val opt = new Yosys(logs.getAbsolutePath())
+      val opt = new Yosys()
       rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog",new File(c).getAbsolutePath()))
       val json = new File(workDir,rtl.toplevelName+".json")
       opt.addCommand("synth_"+ target,"-top",rtl.toplevelName,"-json",json.getAbsolutePath())
-      opt.run()
+      opt.run(workDir=logs.getAbsolutePath())
       json.getAbsolutePath()
     }
 
