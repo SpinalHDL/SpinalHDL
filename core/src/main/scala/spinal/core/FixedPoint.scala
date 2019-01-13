@@ -37,13 +37,13 @@ trait UFixFactory extends TypeFactory{
 
 
 trait SFixCast {
-  @deprecated
+  @deprecated("Use xxx.toSFix instead", "???")
   def toSFix(sint: SInt) = sint.toSFix
 }
 
 
 trait UFixCast {
-  @deprecated
+  @deprecated("Use xxx.toUFix instead", "???")
   def toUFix(uint: UInt): UFix = uint.toUFix
 }
 
@@ -224,7 +224,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
 
   def :=(that: Int): Unit   = this := BigInt(that)
   def :=(that: Long): Unit  = this := BigInt(that)
-  def :=(that: Float): Unit = this := BigDecimal(that)
+  def :=(that: Float): Unit = this := BigDecimal(that.toDouble)
 
   def :=(that: BigDecimal): Unit = {
     assert(that <= this.maxValue, s"Literal $that is to big to be assigned in $this")
@@ -339,7 +339,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
   def :=(that: Int): Unit   = this := BigInt(that)
   def :=(that: Long): Unit  = this := BigInt(that)
-  def :=(that: Float): Unit = this := BigDecimal(that)
+  def :=(that: Float): Unit = this := BigDecimal(that.toDouble)
 
   def :=(that: BigDecimal): Unit = {
     assert(that >= 0)

@@ -11,10 +11,14 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   baseDirectory in test := file("/out/"),
   fork := true,
 
-
   libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
 
-  //sbt clean reload publishSigned
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
+  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
+  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+
+//sbt clean reload publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
   publishArtifact in Test := false,
@@ -49,12 +53,14 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
  )
 
 lazy val all = (project in file("."))
+  .enablePlugins(ScalaUnidocPlugin)
   .settings(
     defaultSettings,
     name := "SpinalHDL all",
     version := SpinalVersion.all,
     publishArtifact := false,
-    publishLocal := {}
+    publishLocal := {},
+    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
   .aggregate(sim, core, lib, debugger, tester)
 
@@ -148,3 +154,15 @@ lazy val tester = (project in file("tester"))
   )
   .dependsOn(sim, core, lib, debugger,demo)
 
+//To publish the scala doc :
+//rm -rf ghpages
+//sbt clean compile unidoc
+//git clone https://github.com/SpinalHDL/SpinalHDL.git -b gh-pages --depth=1 ghpages
+//rm -rf ghpages/*
+//cp -r target/scala-2.11/unidoc/* ghpages
+//cd ghpages
+//git add *
+//git commit -m "publish doc"
+//git push
+//cd ..
+//rm -rf ghpages

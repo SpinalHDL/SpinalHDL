@@ -254,6 +254,18 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       })
     }
 
+    def pkgNot(kind: String): (String, String) = {
+      val ret = new StringBuilder()
+
+      (s"function pkg_not (value : $kind) return $kind", {
+        ret ++= s"    variable ret : $kind(value'high downto 0);\n"
+        ret ++= s"  begin\n"
+        ret ++= s"    ret := not value;\n"
+        ret ++= s"    return ret;\n"
+        ret ++= s"  end pkg_not;\n\n"
+        ret.result()
+      })
+    }
 
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
 
@@ -263,6 +275,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       funcs += pkgExtractBool(kind)
       funcs += pkgExtract(kind)
       funcs += pkgCat(kind)
+      funcs += pkgNot(kind)
     })
 
     val ret = new StringBuilder()

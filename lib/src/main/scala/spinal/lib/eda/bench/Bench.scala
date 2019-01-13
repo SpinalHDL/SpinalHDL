@@ -46,7 +46,7 @@ object Bench{
           val report = results(rtl)(target).value.get.get
           println(s"${target.getFamilyName()} -> ${(report.getFMax / 1e6).toInt} Mhz ${report.getArea()}")
         } catch {
-          case _ : Throwable =>  println(s"${target.getFamilyName()} -> FAILED")
+          case t : Throwable =>  println(s"${target.getFamilyName()} -> FAILED")
         }
       }
     }

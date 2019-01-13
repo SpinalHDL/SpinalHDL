@@ -212,10 +212,10 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
 
 
   val victim = new Area{
-    val requestIn = Stream(cloneable(new Bundle{
+    val requestIn = Stream(new Bundle{
       val way = UInt(log2Up(wayCount) bits)
       val address = UInt(p.addressWidth bits)
-    }))
+    })
     requestIn.valid := False
     requestIn.payload.assignDontCare()
 
@@ -326,10 +326,10 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val writebackWayId = U(0) //Only one way compatible
     val writebackWayInfo = Vec(waysRead.map(_.tag))(writebackWayId)
 
-    val cpuRspIn = Stream(wrap(new Bundle{
+    val cpuRspIn = Stream(new Bundle{
       val fromBypass = Bool
       val wayId = UInt(log2Up(wayCount) bits)
-    }))
+    })
 
     cpuRspIn.valid := False
     cpuRspIn.fromBypass := False

@@ -117,7 +117,12 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
-    if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    val ret = if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    ret match {
+      case ret : Bundle => ret.hardtype = this
+      case _ =>
+    }
+    ret
   }
   def getBitsWidth = t.getBitsWidth
 }
@@ -278,7 +283,7 @@ object Select{
 object wrap{
   def apply[T <: Bundle](that : => T) : T = {
     val ret: T = that
-    ret.cloneFunc = () => that
+    ret.hardtype = HardType(that)
     ret
   }
 }
@@ -287,7 +292,7 @@ object wrap{
 object cloneable {
   def apply[T <: Bundle](that: => T): T = {
     val ret: T = that
-    ret.cloneFunc = () => that
+    ret.hardtype = HardType(that)
     ret
   }
 }

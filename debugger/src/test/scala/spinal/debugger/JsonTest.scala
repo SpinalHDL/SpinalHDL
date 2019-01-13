@@ -41,7 +41,7 @@ object JsonTest {
     import net.liftweb.json.JsonDSL._
 
     val person = json.extract[Person]
-    println(pretty(render(decompose(person))))
+    println(prettyRender(decompose(person)))
 
     case class Winner(id: Long, numbers: List[Int])
     case class Lotto(id: Long, winningNumbers: List[Int], winners: List[Winner], drawDate: Option[java.util.Date])
@@ -60,7 +60,7 @@ object JsonTest {
               (("winner-id" -> w.id) ~
                 ("numbers" -> w.numbers))}))
 
-    println(pretty(render(j)))
+    println(prettyRender(j))
 
 
     println("done")
