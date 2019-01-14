@@ -151,9 +151,9 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
 
 
   val lineLoader = new Area{
-    val requestIn = Stream(wrap(new Bundle{
+    val requestIn = Stream(new Bundle{
       val addr = UInt(addressWidth bit)
-    }))
+    })
 
 
     if(wrappedMemAccess)

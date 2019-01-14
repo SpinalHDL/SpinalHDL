@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 
+class Dummy
 //object Axi4SharedWidthDivider{
 //  def getOutputConfig(inputConfig : Axi4Config,factor : Int) = inputConfig.copy(dataWidth = inputConfig.dataWidth/factor)
 //}

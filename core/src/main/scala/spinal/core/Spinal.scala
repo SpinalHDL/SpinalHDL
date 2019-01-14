@@ -105,33 +105,36 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
 /**
  * Spinal configuration for the generation of the RTL 
  */
-case class SpinalConfig( mode                           : SpinalMode = null,
-                         flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
-                         debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
-                         keepAll                        : Boolean = false,
-                         defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
-                         onlyStdLogicVectorAtTopLevelIo : Boolean = false,
-                         defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
-                         targetDirectory                : String = ".",
-                         oneFilePerComponent            : Boolean = false,
-                         netlistFileName                : String = null,
-                         dumpWave                       : DumpWaveConfig = null,
-                         globalPrefix                   : String = "",
-                         var formalAsserts              : Boolean = false,
-                         anonymSignalPrefix             : String = null,
-                         device                         : Device = Device(),
-                         inlineRom                      : Boolean = false,
-                         genVhdlPkg                     : Boolean = true,
-                         verbose                        : Boolean = false,
-                         mergeAsyncProcess              : Boolean = true,
-                         asyncResetCombSensitivity      : Boolean = false,
-                         anonymSignalUniqueness         : Boolean = false,
-                         noRandBoot                     : Boolean = false,
-                         noAssert                       : Boolean = false,
-                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
-                         rtlHeader                      : String = null
+case class SpinalConfig(mode                           : SpinalMode = null,
+                        flags                          : mutable.HashSet[Any] = mutable.HashSet[Any](),
+                        debugComponents                : mutable.HashSet[Class[_]] = mutable.HashSet[Class[_]](),
+                        keepAll                        : Boolean = false,
+                        defaultConfigForClockDomains   : ClockDomainConfig = ClockDomainConfig(),
+                        onlyStdLogicVectorAtTopLevelIo : Boolean = false,
+                        defaultClockDomainFrequency    : IClockDomainFrequency = UnknownFrequency(),
+                        targetDirectory                : String = ".",
+                        oneFilePerComponent            : Boolean = false,
+                        netlistFileName                : String = null,
+                        dumpWave                       : DumpWaveConfig = null,
+                        globalPrefix                   : String = "",
+                        var privateNamespace           : Boolean = false,
+                        var formalAsserts              : Boolean = false,
+                        anonymSignalPrefix             : String = null,
+                        device                         : Device = Device(),
+                        inlineRom                      : Boolean = false,
+                        genVhdlPkg                     : Boolean = true,
+                        verbose                        : Boolean = false,
+                        mergeAsyncProcess              : Boolean = true,
+                        asyncResetCombSensitivity      : Boolean = false,
+                        anonymSignalUniqueness         : Boolean = false,
+                        noRandBoot                     : Boolean = false,
+                        randBootFixValue               : Boolean = true,
+                        noAssert                       : Boolean = false,
+                        phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+                        transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+                        memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
+                        rtlHeader                      : String = null,
+                        private [core] var _withEnumString : Boolean = true
 ){
 
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
@@ -158,6 +161,7 @@ case class SpinalConfig( mode                           : SpinalMode = null,
 
   def isSystemVerilog = mode == SystemVerilog
 
+  def withPrivateNamespace : this.type = { privateNamespace = true; this }
 
   def addStandardMemBlackboxing(policy: MemBlackboxingPolicy): this.type = {
     memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
@@ -165,7 +169,10 @@ case class SpinalConfig( mode                           : SpinalMode = null,
   }
 
   def withoutAssert : SpinalConfig = this.copy(noAssert = true)
-
+  def withoutEnumString() : this.type = {
+    _withEnumString = false
+    this
+  }
   def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
   def includeFormal : this.type = {flags += GenerationFlags.formal; formalAsserts = true; this}
   def includeSimulation : this.type = {flags += GenerationFlags.simulation; this}

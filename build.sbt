@@ -11,10 +11,14 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   baseDirectory in test := file("/out/"),
   fork := true,
 
-
   libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
 
-  //sbt clean reload publishSigned
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
+  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
+  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+
+//sbt clean reload publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
   publishArtifact in Test := false,

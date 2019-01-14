@@ -9,6 +9,7 @@ import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
+import spinal.lib.eda.bench._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1536,4 +1537,66 @@ object DebBugFormal extends App{
   }
 
   SpinalConfig().includeFormal.generateSystemVerilog(new rle(Rgb(5,6,7),8))
+}
+
+
+object PlayOneHotSynthesisBench extends App{
+  class BenchFpga(width : Int) extends Rtl{
+    override def getName(): String = "Bench" + width
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val sel = in Bits(width bits)
+      val inputs = in Vec(Bits(8 bits), width)
+      val output = out(RegNext(MuxOH(sel, inputs)))
+      setDefinitionName(BenchFpga.this.getName())
+    })
+  }
+
+
+
+  val rtls = List(2,3,4,5,6,7,8,16).map(width => new BenchFpga(width))
+
+  val targets = XilinxStdTargets(
+    vivadoArtix7Path = "/eda/Xilinx/Vivado/2017.2/bin"
+  ) ++ AlteraStdTargets(
+    quartusCycloneIVPath = "/eda/intelFPGA_lite/17.0/quartus/bin/",
+    quartusCycloneVPath  = "/eda/intelFPGA_lite/17.0/quartus/bin/"
+  )
+
+
+  Bench(rtls, targets, "/eda/tmp/")
+}
+
+
+object PlayDevSpinalSim extends App{
+  import spinal.core.sim._
+  SimConfig.allOptimisation.compile(new Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+    }
+
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+  }).doSim { dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+    dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+    var model = -1
+    var times = 0
+    var a,b,c = 0;
+    dut.clockDomain.onSamplings{
+      assert(dut.io.result.toInt == model || model == -1)
+      model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+      dut.io.a #= a
+      dut.io.b #= b
+      dut.io.c #= c
+      a = (a + 1) & 0xFF
+      b = (b + 2) & 0xFF
+      c = (c + 3) & 0xFF
+      times += 1
+    }
+
+    sleep(1000000000)
+
+  }
 }

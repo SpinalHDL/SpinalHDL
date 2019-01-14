@@ -107,7 +107,7 @@ class   MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   implicit val formats = DefaultFormats
   //++ LogicAnalyser.jsonSerDes
   val json = decompose(MandelbrotJsonReport(p, p.uid.toString))
-  GlobalData.get.addJsonReport(pretty(render(json)))
+  GlobalData.get.addJsonReport(prettyRender(json))
 }
 case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
                                 uid : String,

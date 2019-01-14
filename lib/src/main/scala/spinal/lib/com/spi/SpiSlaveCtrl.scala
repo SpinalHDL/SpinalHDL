@@ -62,8 +62,8 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
     require(rxFifoDepth >= 1)
     require(txFifoDepth >= 1)
 
-    require(rxFifoDepth < 32.kB)
-    require(txFifoDepth < 32.kB)
+    require(rxFifoDepth < 32.KiB)
+    require(txFifoDepth < 32.KiB)
 
     val busWithOffset = new BusSlaveFactoryAddressWrapper(bus, baseAddress)
 
@@ -125,7 +125,7 @@ case class SpiSlaveCtrl(generics : SpiSlaveCtrlGenerics) extends Component{
     when(normalizedSclkEdges.rise){
       buffer := (buffer ## spi.mosi).resized
     }
-    when(normalizedSclkEdges.toogle){
+    when(normalizedSclkEdges.toggle){
       counter.increment()
     }
   }

@@ -31,7 +31,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   val askWrite = (bus.write).allowPruning()
   val askRead  = (bus.read).allowPruning()
   val doWrite  = (bus.waitRequestn &&  bus.write).allowPruning()
-  val doRead   = (bus.waitRequestn && !bus.read).allowPruning()
+  val doRead   = (bus.waitRequestn &&  bus.read).allowPruning()
 
   bus.readDataValid := readAtRsp.valid
   bus.readData := readAtRsp.payload

@@ -253,7 +253,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  @deprecated("use setAsDirectionLess instead")
+  @deprecated("use setAsDirectionLess instead","???")
   def asDirectionLess(): this.type = setAsDirectionLess()
 
   /** Set baseType to reg */
@@ -331,6 +331,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits): Unit
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
+
+  def as[T <: Data](dataType: HardType[T]) : T = {
+    val ret = dataType()
+    ret.assignFromBits(this.asBits)
+    ret
+  }
 
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
@@ -540,7 +546,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         if(c.getClass.isAssignableFrom(pt)){
           val copy =  constructor.newInstance(c).asInstanceOf[this.type]
           if(copy.isInstanceOf[Bundle])
-            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
+            copy.asInstanceOf[Bundle].hardtype = (HardType(constructor.newInstance(c).asInstanceOf[this.type]))
           return cleanCopy(copy)
         }
       }

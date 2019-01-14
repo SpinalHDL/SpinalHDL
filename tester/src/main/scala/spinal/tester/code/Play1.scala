@@ -641,12 +641,12 @@ object PlayFix {
   class TopLevel extends Component {
     val ufix = UFix(8 exp, 12 bit)
     val uint = UInt(3 bit)
-    ufix := toUFix(uint)
+    ufix := uint.toUFix
     val uintBack = U(ufix)
 
     val sfix = SFix(7 exp, 12 bit)
     val sint = SInt(3 bit)
-    sfix := toSFix(sint)
+    sfix := (sint).toSFix
     val sintBack = S(sfix)
 
 
@@ -945,84 +945,43 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  object LeadingZeros {
-    def apply(input: Bits): UInt = {
-      val zeros = UInt(log2Up(input.getWidth+1) bits)
-
-      // https://electronics.stackexchange.com/questions/196914/verilog-synthesize-high-speed-leading-zero-count
-
-      val input_padded = if ( (input.getWidth & 1) == 1) input ## True else input
-
-      // Encode pairs: 00 -> 10 (2 zeros), 01 -> 01 (1 leading zero), 10 and 11 -> 00 (no leading zeros)
-      val encoded = Bits(input_padded.getWidth bits)
-
-      var i = 0
-      while(i<input_padded.getWidth){
-        encoded(i+1 downto i) := input_padded(i+1 downto i).mux(
-          B"00" -> B"10",
-          B"01" -> B"01",
-          B"10" -> B"00",
-          B"11" -> B"00")
-        i = i + 2
-      }
-
-      var tree_in = Bits
-      tree_in := encoded
-
-      // Reduce tree
-      var n = 2
-      var tree_in_padded = Bits
-
-      while(n <= zeros.getWidth){
-        var pad_length =  (2*n - tree_in.getWidth % (2*n)) % (2*n)
-        var pad_vec = Bits(pad_length bits).setAll
-
-        tree_in_padded = Bits((tree_in.getWidth + pad_length) bits)
-        tree_in_padded = if (pad_length == 0) tree_in else (tree_in ## pad_vec)
-        //            tree_in_padded.setAll
-        //            when(True){
-        //                tree_in_padded(tree_in.range) := tree_in
-        //            }
-
-        var reduced = Bits(tree_in_padded.getWidth/(2*n)*(n+1) bits)
-
-        var i = 0
-        while(i < tree_in_padded.getWidth/2/n){
-          var pair  = tree_in_padded((i+1)*(2*n)-1 downto i*(2*n))
-          var left  = pair(n-1+n downto n)
-          var right = pair(n-1   downto 0)
-
-          when(left.msb && right.msb){
-            reduced((i+1)*(n+1)-1 downto i*(n+1)) := (n -> True, default -> False)
-          }
-            .elsewhen(!left.msb){
-              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"0" ## left
-            }.
-            otherwise{
-              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"01" ## right(n-2 downto 0)
-            }
-          i = i + 1
-        }
-
-        tree_in = reduced
-        n += 1
-
-        if(n > zeros.getWidth){
-          zeros := reduced.resize(zeros.getWidth).asUInt
-        }
-      }
-
-      zeros
+  import spinal.core.sim._
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val gbaPixel = in(Rgb(5, 5, 5))
+      val gbaPixelClock = in Bool
     }
-  }
-  class TopLevel() extends Component{
-    val toto = Bits
-//    toto.as
+    val gbaPixelClockDomain = ClockDomain(io.gbaPixelClock)
+    val gbaPixelLogic = new ClockingArea(gbaPixelClockDomain){
+      val pixel = Reg(Rgb(8,8,8)) simPublic()
+      pixel := rgb555To888(io.gbaPixel)
+    }
+
+    def rgb555To888(input: Rgb): Rgb = {
+      val output = Rgb(8, 8, 8)
+      output.r := (input.r << 3) | (input.r >> 2).resized
+      output.g := (input.g << 3) | (input.g >> 2).resized
+      output.b := (input.b << 3) | (input.b >> 2).resized
+
+      output
+    }
   }
 
   def main(args: Array[String]): Unit = {
-//    SpinalVhdl(new TopLevel)
-    SpinalVerilog(new TopLevel)
+    val compiled = SimConfig.withWave.compile(new TopLevel)
+
+    compiled.doSim("PixelTest") { dut =>
+      dut.gbaPixelClockDomain.forkStimulus(10)
+      SimTimeout(1000000 * 10)
+
+      dut.io.gbaPixel.r #= 10 //01010 in binary
+      dut.io.gbaPixel.g #= 10
+      dut.io.gbaPixel.b #= 10
+
+      dut.gbaPixelClockDomain.waitSampling(1)
+      sleep(0)
+      println(dut.gbaPixelLogic.pixel.r.toInt.toBinaryString) //This assertions fails currently
+    }
   }
 }
 
@@ -1635,9 +1594,9 @@ object PlayStream {
     val decode = new Area{
 
 
-        val source = slave Stream (wrap(new Bundle{
+        val source = slave Stream (new Bundle{
           val a = Bool
-        }))
+        })
         val sink = master (source.clone)
 
         source >> sink
@@ -2616,7 +2575,7 @@ object PlaySel {
   class TopLevel extends Component {
     val a, b, c = in(UInt(4 bit))
 
-    val output = out(Sel(U"0000",
+    val output = out(Select(U"0000",
       (a > U"1000") -> a,
       (a > U"1100") -> b,
       (a > U"1010") -> c)
@@ -2752,31 +2711,6 @@ object PlayFunyMux {
 }
 
 
-object PlayVec8 {
-  class TopLevel extends Component {
-    val inputs = List.fill(4)(List.fill(4)(wrap(new Bundle{
-      val a = in Bool
-      val b = wrap(new Bundle{
-        val c = in(Vec(wrap(new Bundle{
-          val d = in Bool
-        }),4))
-      })
-    })))
-    val select0 = in UInt(2 bit)
-    val select1 = in UInt(2 bit)
-    val select2 = in UInt(2 bit)
-    val vec = Vec(inputs.map(a => Vec(a.map(b => b.b))))
-
-    val output = out Bool()
-    output := vec(select0)(select1).c(select2).d
-  }
-
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
-    println("Done")
-  }
-}
 
 object PlayBitWidth {
   class TopLevel extends Component {
@@ -2911,3 +2845,5 @@ object PlayScala {
     CC.componentLists.foreach { x ⇒ x.someCommonMethod() }
   }
 */
+
+

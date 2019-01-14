@@ -41,6 +41,7 @@ class ComponentEmitterVerilog(
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
+  pc                                 : PhaseContext,
   spinalConfig                       : SpinalConfig
 ) extends ComponentEmitter {
 
@@ -169,6 +170,7 @@ class ComponentEmitterVerilog(
     emitSubComponents(openSubIo)
     emitAnalogs()
     emitMuxes()
+    emitEnumDebugLogic()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -373,6 +375,24 @@ class ComponentEmitterVerilog(
       }
       logics ++= s"    endcase\n"
       logics ++= s"  end\n\n"
+    }
+  }
+
+  def emitEnumDebugLogic(): Unit ={
+    if(enumDebugStringList.nonEmpty) {
+      logics ++= "  `ifndef SYNTHESIS\n"
+      for((signal, name, charCount) <- enumDebugStringList){
+        def normalizeString(that : String) = that + " " * (charCount - that.length)
+        logics ++= s"  always @(*) begin\n"
+        logics ++= s"    case(${emitReference(signal, false)})\n"
+        for(e <- signal.spinalEnum.elements) {
+          logics ++= s"""      ${emitEnumLiteral(e, signal.encoding)} : $name = "${normalizeString(e.getName())}";\n"""
+        }
+        logics ++= s"""      default : $name = "${"?" * charCount}";\n"""
+        logics ++= s"    endcase\n"
+        logics ++= s"  end\n"
+      }
+      logics ++= "  `endif\n\n"
     }
   }
 
@@ -750,13 +770,13 @@ class ComponentEmitterVerilog(
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
           case b: Bool       =>
-            " = " + (/*if (Random.nextBoolean()) "1" else */"0")
+            " = " + { if(pc.config.randBootFixValue) {"0"} else { if(Random.nextBoolean()) "1" else "0"} }
           case bv: BitVector =>
-            val rand = BigInt(0).toString(2)//BigInt(bv.getWidth, Random).toString(2)
+            val rand = (if(pc.config.randBootFixValue) {BigInt(0)} else { BigInt(bv.getBitsWidth, Random)}).toString(2)
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           case e: SpinalEnumCraft[_] =>
             val vec  = e.spinalEnum.elements.toVector
-            val rand = vec(/*Random.nextInt(vec.size)*/0)
+            val rand = if(pc.config.randBootFixValue) vec(0) else vec(Random.nextInt(vec.size))
             " = " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
@@ -765,14 +785,32 @@ class ComponentEmitterVerilog(
   }
 
   var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
-
+  val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
   def emitSignals(): Unit = {
+    val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo) {
           declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
         }
+        if(spinalConfig._withEnumString) {
+          signal match {
+            case signal: SpinalEnumCraft[_] => {
+              val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
+              val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
+              enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
+              enumDebugStringList += Tuple3(signal , name, stringWidth)
+            }
+            case _ =>
+          }
+        }
       case mem: Mem[_] =>
+    }
+
+    if(enumDebugStringList.nonEmpty) {
+      declarations ++= "  `ifndef SYNTHESIS\n"
+      declarations ++= enumDebugStringBuilder.toString
+      declarations ++= "  `endif\n\n"
     }
   }
 
@@ -816,7 +854,8 @@ class ComponentEmitterVerilog(
         builder ++= ")"
 
       }else if(mem.hasTag(randomBoot)){
-        builder ++= " := (others => (others => '1'))"
+        val value = if(pc.config.randBootFixValue) {"'1'"} else { if(Random.nextBoolean()) "'1'" else "'0'"}
+        builder ++= s" := (others => (others => $value))"
       }
       builder
     }
