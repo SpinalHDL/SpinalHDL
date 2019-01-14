@@ -107,8 +107,8 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       require(cmdFifoDepth >= 1)
       require(rspFifoDepth >= 1)
 
-      require(cmdFifoDepth < 32.kB)
-      require(rspFifoDepth < 32.kB)
+      require(cmdFifoDepth < 32.KiB)
+      require(rspFifoDepth < 32.KiB)
 
       //CMD
       val cmdLogic = new Area {

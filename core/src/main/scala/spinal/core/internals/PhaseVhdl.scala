@@ -32,6 +32,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {
+    packageName     = pc.privateNamespaceName + packageName
+    enumPackageName = pc.privateNamespaceName + enumPackageName
     val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
@@ -56,7 +58,16 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentEmitterVhdl(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, config.asyncResetCombSensitivity, if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmitterVhdl(
+      c                         = component,
+      vhdlBase                  = this,
+      algoIdIncrementalBase     = allocateAlgoIncrementaleBase,
+      mergeAsyncProcess         = config.mergeAsyncProcess,
+      asyncResetCombSensitivity = config.asyncResetCombSensitivity,
+      anonymSignalPrefix        = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
+      emitedComponentRef        = emitedComponentRef,
+      pc                        = pc
+    )
 
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
@@ -243,6 +254,18 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       })
     }
 
+    def pkgNot(kind: String): (String, String) = {
+      val ret = new StringBuilder()
+
+      (s"function pkg_not (value : $kind) return $kind", {
+        ret ++= s"    variable ret : $kind(value'high downto 0);\n"
+        ret ++= s"  begin\n"
+        ret ++= s"    ret := not value;\n"
+        ret ++= s"    return ret;\n"
+        ret ++= s"  end pkg_not;\n\n"
+        ret.result()
+      })
+    }
 
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
 
@@ -252,6 +275,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       funcs += pkgExtractBool(kind)
       funcs += pkgExtract(kind)
       funcs += pkgCat(kind)
+      funcs += pkgNot(kind)
     })
 
     val ret = new StringBuilder()

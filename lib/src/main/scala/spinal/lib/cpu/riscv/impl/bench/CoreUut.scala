@@ -15,12 +15,12 @@ object CoreUut{
 
     val io = new Bundle{
       val i_cmd = master Stream CoreInstructionCmd()
-      val i_rsp = slave Stream wrap(new Bundle{
+      val i_rsp = slave Stream (new Bundle{
         val instruction = Bits(32 bit)
         val pc = UInt(p.addrWidth bit)
       })
       val d = master(CoreDataBus())
-      val iCheck = master(Flow(wrap(new Bundle{
+      val iCheck = master(Flow((new Bundle{
         val address = UInt(p.addrWidth bit)
         val data = Bits(32 bit)
       })))

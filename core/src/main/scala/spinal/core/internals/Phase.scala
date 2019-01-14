@@ -37,6 +37,7 @@ class PhaseContext(val config: SpinalConfig) {
   var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
+  def privateNamespaceName = config.globalPrefix + (if(config.privateNamespace) topLevel.definitionName + "_" else "")
 
   val duplicationPostfix = if(config.mode == VHDL) "" else "_"
   val globalScope         = new NamingScope(duplicationPostfix)
@@ -746,14 +747,17 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     globalData.nodeAreNamed = true
 
     if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
-
+    if(topLevel.definitionName == null) {
+      topLevel.definitionName = pc.config.globalPrefix + topLevel.getClass.getSimpleName.replace("$",".").split("\\.").head
+    }
     for (c <- sortedComponents) {
       c.nameElements()
-      if(c.definitionName == null) {
-        //        c.definitionName = pc.config.globalPrefix + c.getClass.getName.replace("$",".").split("\\.").last
-        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName.replace("$",".").split("\\.").head
+      if(c != topLevel) {
+        if (c.definitionName == null) {
+          c.definitionName = privateNamespaceName + c.getClass.getSimpleName.replace("$", ".").split("\\.").head
+        }
       }
-      if(c.definitionName == ""){
+      if (c.definitionName == "") {
         c.definitionName = "unamed"
       }
       c match {
@@ -2006,16 +2010,10 @@ object SpinalVhdlBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    def initVhdlBase[T <: VhdlBase](base: T) = {
-      base.packageName     = pc.config.globalPrefix + base.packageName
-      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
-      base
-    }
-
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
-    phases += initVhdlBase(new PhaseVhdl(pc, report))
+    phases += new PhaseVhdl(pc, report)
 
     for(inserter <-config.phasesInserters){
       inserter(phases)

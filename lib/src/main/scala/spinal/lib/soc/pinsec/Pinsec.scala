@@ -29,7 +29,7 @@ object PinsecConfig{
   def default = {
     val config = PinsecConfig(
       axiFrequency = 100 MHz,
-      onChipRamSize  = 4 kB,
+      onChipRamSize  = 4 KiB,
       sdramLayout = IS42x320D.layout,
       sdramTimings = IS42x320D.timingGrade7,
       cpu = RiscvCoreConfig(
@@ -228,7 +228,7 @@ class Pinsec(config: PinsecConfig) extends Component{
     axiCrossbar.addSlaves(
       ram.io.axi       -> (0x00000000L,   onChipRamSize),
       sdramCtrl.io.axi -> (0x40000000L,   sdramLayout.capacity),
-      apbBridge.io.axi -> (0xF0000000L,   1 MB)
+      apbBridge.io.axi -> (0xF0000000L,   1 MiB)
     )
 
     axiCrossbar.addConnections(
@@ -258,12 +258,12 @@ class Pinsec(config: PinsecConfig) extends Component{
     val apbDecoder = Apb3Decoder(
       master = apbBridge.io.apb,
       slaves = List(
-        gpioACtrl.io.apb -> (0x00000, 4 kB),
-        gpioBCtrl.io.apb -> (0x01000, 4 kB),
-        uartCtrl.io.apb  -> (0x10000, 4 kB),
-        timerCtrl.io.apb -> (0x20000, 4 kB),
-        vgaCtrl.io.apb   -> (0x30000, 4 kB),
-        core.io.debugBus -> (0xF0000, 4 kB)
+        gpioACtrl.io.apb -> (0x00000, 4 KiB),
+        gpioBCtrl.io.apb -> (0x01000, 4 KiB),
+        uartCtrl.io.apb  -> (0x10000, 4 KiB),
+        timerCtrl.io.apb -> (0x20000, 4 KiB),
+        vgaCtrl.io.apb   -> (0x30000, 4 KiB),
+        core.io.debugBus -> (0xF0000, 4 KiB)
       )
     )
 

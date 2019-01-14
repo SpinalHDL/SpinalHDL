@@ -56,10 +56,10 @@ case class WishboneInterconFactory(){
     * @param orders
     * @example{{{
     * interconnect.addSlaves(
-    *   ram.io.buses(0)     -> SizeMapping(0x00000,  64 kB),
-    *   ram.io.buses(1)     -> SizeMapping(0x00000,  64 kB),
+    *   ram.io.buses(0)     -> SizeMapping(0x00000,  64 KiB),
+    *   ram.io.buses(1)     -> SizeMapping(0x00000,  64 KiB),
     *   peripherals.io.bus  -> SizeMapping(0x70000,  64 Byte),
-    *   flashXip.io.bus     -> SizeMapping(0x80000, 512 kB),
+    *   flashXip.io.bus     -> SizeMapping(0x80000, 512 KiB),
     *   slowBus             -> DefaultMapping
     * )
     * }}}
