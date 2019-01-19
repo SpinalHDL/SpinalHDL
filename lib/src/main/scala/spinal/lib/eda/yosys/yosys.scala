@@ -6,12 +6,12 @@ import scala.sys.process._
 import scala.collection.mutable._
 
 case class YosysComand(command: String, opt: String*){
-  def toList: List[String] = {
-    val ret = List(command) ++ opt
-    println(ret)
-    ret
-  }
+  def toList: List[String] = List(command) ++ opt
   override def toString(): String = (command +: opt).mkString(" ").toString
+}
+
+object Yosys{
+  def apply() = new Yosys()
 }
 
 class Yosys{
