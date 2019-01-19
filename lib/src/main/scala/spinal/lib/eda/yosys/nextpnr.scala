@@ -17,7 +17,6 @@ import spinal.core._
 //  --save arg                  project file to write
 //  --load arg                  project file to read
 
-//heresy?
 trait NextPNR extends Executable{
   val json: String
   val freq: HertzNumber
@@ -30,10 +29,11 @@ trait NextPNR extends Executable{
   val no_tmdriv: Boolean
 
   val family: String = "generic"
+
   override def toString(): String = {
     val ret = new StringBuilder(s"nextpnr-${family} ")
                             ret.append(s"--json ${json} ")                  // --json arg               JSON design file to ingest
-    if(freq.toDouble > 0 )  ret.append(s"--freq ${freq/BigDecimal(1e6)} ")  // --freq arg               set target frequency for design in MHz
+    if(freq.toDouble > 0 )  ret.append(s"--freq ${freq.toDouble/1000000} ") // --freq arg               set target frequency for design in MHz
     if(pack_only)           ret.append("--pack-only ")                      // --pack-only              pack design only without placement or routing
     if(verbose)             ret.append("--verbose ")                        // -v [ --verbose ]         verbose output
     if(quiet)               ret.append("--quiet ")                          // -q [ --quiet ]           quiet mode, only errors and warnings displayed
@@ -86,7 +86,6 @@ object Ice40{
 //  --hx1k                      set device type to iCE40HX1K
 //  --hx8k                      set device type to iCE40HX8K
 //  --up5k                      set device type to iCE40UP5K
-
 //  --read arg                  asc bitstream file to read
 
 case class NextPNR_ice40( json: String,
@@ -96,7 +95,7 @@ case class NextPNR_ice40( json: String,
                           freq: HertzNumber = 0 Hz,
                           pack_only: Boolean = false,
                           verbose: Boolean = false,
-                          quiet: Boolean = false,
+                          quiet: Boolean = true,
                           seed: String = "",
                           randomize_seed: Boolean = true,
                           gui: Boolean = false,
@@ -110,17 +109,24 @@ case class NextPNR_ice40( json: String,
                           workDir : String = ".") extends NextPNR {
   override val family = "ice40"
 
+  def openGui = this.copy(gui=true)
+  def targetFrequency(frequency: HertzNumber) = this.copy(freq=frequency,no_tmdriv=false)
+  def seed(seed: String) = this.copy(seed=seed,randomize_seed=false)
+
+  def setTarget(target: String, pack: String="") = this.copy(target=target,pack=pack)
+  def withPCF(path: String) = this.copy(pcf=path)
+
   override def toString(): String = {
     val ret = new StringBuilder(super.toString())
                                 ret.append(s"--pcf ${pcf} ")              // --pcf arg                  PCF constraints file to ingest
                                 ret.append(s"--${target} ")
-                                ret.append(s"--package ${pack} ")         // --package arg              set device package
                                 ret.append(s"--asc ${asc} ")              //  --asc arg                   asc bitstream file to write
-    if(promote_logic)           ret.append("--promote-logic ")            //  --promote-logic           enable promotion of 'logic' globals (in addition to clk/ce/sr by default)
-    if(no_promote_globals)      ret.append("--no-promote-globals ")       // --no-promote-globals       disable all global promotion
-    if(opt_timing)              ret.append("--opt-timing ")               // --opt-timing               run post-placement timing optimisation pass
-    if(tmfuzz)                  ret.append("--tmfuzz ")                   // --tmfuzz                   run path delay estimate fuzzer
-    if(pcf_allow_unconstrained) ret.append("--pcf-allow-unconstrained ")  // --pcf-allow-unconstrained  don't require PCF to constrain all IO
+    if(pack.nonEmpty)           ret.append(s"--package ${pack} ")         // --package arg              set device package
+    if(promote_logic)           ret.append( "--promote-logic ")           //  --promote-logic           enable promotion of 'logic' globals (in addition to clk/ce/sr by default)
+    if(no_promote_globals)      ret.append( "--no-promote-globals ")      // --no-promote-globals       disable all global promotion
+    if(opt_timing)              ret.append( "--opt-timing ")              // --opt-timing               run post-placement timing optimisation pass
+    if(tmfuzz)                  ret.append( "--tmfuzz ")                  // --tmfuzz                   run path delay estimate fuzzer
+    if(pcf_allow_unconstrained) ret.append( "--pcf-allow-unconstrained ") // --pcf-allow-unconstrained  don't require PCF to constrain all IO
     ret.toString
   }
 
