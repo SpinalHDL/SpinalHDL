@@ -1203,8 +1203,8 @@ object PlayAssertFormal extends App {
     GenerationFlags.formal{
       import spinal.core.Formal._
 //      val a = past(B"1010")
-      val b = rise(False)
-      val c = fall(False)
+      val b = rose(False)
+      val c = fell(False)
       val d = changed(False)
       val f = stable(False)
       val g = initstate()
