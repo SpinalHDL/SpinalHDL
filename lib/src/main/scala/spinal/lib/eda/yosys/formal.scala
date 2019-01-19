@@ -9,11 +9,16 @@ object Mode extends Enumeration{
 
 object Solver extends Enumeration{
   val z3: String = "z3"
+  val boolector: String = "boolector"
+  val cvc4: String = "cvc4"
+  val yices: String = "yices"
+  val abc: String = "abc"
+  val mathsat: String = "mathsat"
 }
 
 case class FormalCommand( smt2: String,
                           top: String = "",
-                          solver: String = Solver.z3,
+                          solver: String = Solver.abc,
                           step: Int = 20,
                           skip: Int = 0,
                           stepSize: Int = 1,
@@ -25,17 +30,20 @@ case class FormalCommand( smt2: String,
                           opt: String = "",
                           workDir: String=".") extends Executable{
 
-  override val logFile = "yosys-smtbmc.log"
+  override val logFile = s"yosys-{solver}.log"
   def dumpTrace(path: String) = this.copy(dumpVCD = path)
   def dumpVerilogTestBench(path: String) = this.copy(dumpVerilogTB = path)
-  def bmc = this.copy(mode = Mode.bmc)
+  def use(solver: String) = this.copy(solver = solver)
+  def step(step: Int,skip: Int = 0, stepSize: Int = 1) = this.copy(step = step,skip = skip, stepSize = stepSize)
+  def bmc   = this.copy(mode = Mode.bmc)
   def cover = this.copy(mode = Mode.cover)
   def prove = this.copy(mode = Mode.prove)
+  def live  = this.copy(mode = Mode.live)
 
   override def toString(): String = {
     val ret = new StringBuilder("yosys-smtbmc ")
                                 ret.append(s"-s ${solver} ")
-                                ret.append("--presat --noprogress ")
+                                ret.append("--presat --unroll --noprogress ")
                                 ret.append(s"-t ${skip}:${stepSize}:${step} ")
                                 ret.append(s"-t ${step} ")
                                 ret.append(s"${mode} ")
