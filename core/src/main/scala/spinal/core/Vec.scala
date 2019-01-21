@@ -105,8 +105,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   if(component != null) component.addPrePopTask(() => {
     for(i <- elements.indices){
       val e = elements(i)._2
-      OwnableRef.proposal(e, this)
-      e.setPartialName(i.toString, weak = true)
+      if(OwnableRef.proposal(e, this)) e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
     }
   })
 

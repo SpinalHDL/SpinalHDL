@@ -47,8 +47,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     case component =>
       component.addPrePopTask(() => {
         elements.foreach { case (n, e) =>
-          OwnableRef.proposal(e, this)
-          e.setPartialName(n, weak = true)
+          if(OwnableRef.proposal(e, this)) e.setPartialName(n.toString, Nameable.DATAMODEL_WEAK)
         }
       })
   }

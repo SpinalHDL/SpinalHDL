@@ -1935,13 +1935,14 @@ object PlaySyntaxCheck{
 
 object PlayNameableIssue{
   class TopLevel extends Component {
-    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
-    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
-    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+    val io = new Bundle {
+      val x = in UInt(32 bits)
+    }
+    val y = Vec(io.x)
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 

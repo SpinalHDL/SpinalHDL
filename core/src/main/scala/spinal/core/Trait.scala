@@ -292,12 +292,15 @@ object OwnableRef {
       ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
   }
 
-  def proposal(ownable: Any, owner: Any) = {
+  def proposal(ownable: Any, owner: Any) : Boolean = {
     if(ownable.isInstanceOf[OwnableRef]) {
       val ownableTmp = ownable.asInstanceOf[OwnableRef]
-      if(ownableTmp.refOwner == null)
+      if(ownableTmp.refOwner == null) {
         ownableTmp.asInstanceOf[OwnableRef].setRefOwner(owner)
+        return true
+      }
     }
+    return false
   }
 }
 
