@@ -95,6 +95,15 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 object Data {
 
+  /**
+    * This function will create a signal path through the component hierarchy to finalComponent to read the srcData signal
+    * @param srcData Data that you want to read
+    * @param finalComponent Location where you want to read the srcData signal
+    * @param useCache If multiple doPull are done on the same signal, allow to reuse the previously created paths
+    * @param propagateName The signals created through the hierarchy will get the same name than srcData
+    * @tparam T Type of the srcData
+    * @return Readable signal in the finalComponent which is driven by srcData
+    */
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
 
     val startComponent = srcData.component
@@ -113,6 +122,7 @@ object Data {
     //Find commonComponent and fill the risePath
     val risePath = ArrayBuffer[Component]()
 
+    //Find the first common parent component between finalComponent and srcData.component
     val commonComponent = {
       var srcPtr = srcData.component
       var dstPtr = finalComponent
@@ -153,7 +163,7 @@ object Data {
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
 
-    //Fall path
+    //Build the path from srcData to the commonComponent (falling path)
     while(currentComponent != commonComponent){
       if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
@@ -176,7 +186,7 @@ object Data {
       }
     }
 
-    //Rise path
+    //Build the path from commonComponent to the targetComponent (rising path)
     for(riseTo <- risePath.reverseIterator){
       if(useCache && riseTo.pulledDataCache.contains(srcData)){
         currentComponent = riseTo
