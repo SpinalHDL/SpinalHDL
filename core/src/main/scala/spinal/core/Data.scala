@@ -95,12 +95,12 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 object Data {
 
-  /**
-    * This function will create a signal path through the component hierarchy to finalComponent to read the srcData signal
+  /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
+    *
     * @param srcData Data that you want to read
     * @param finalComponent Location where you want to read the srcData signal
     * @param useCache If multiple doPull are done on the same signal, allow to reuse the previously created paths
-    * @param propagateName The signals created through the hierarchy will get the same name than srcData
+    * @param propagateName The signals created through the hierarchy will get the same name as srcData
     * @tparam T Type of the srcData
     * @return Readable signal in the finalComponent which is driven by srcData
     */
