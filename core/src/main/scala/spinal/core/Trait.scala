@@ -565,7 +565,7 @@ trait SpinalTagReady {
   }
 
   def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
-    for (spinalTag <- spinalTags) addTag(spinalTag)
+    for (tag <- tags) addTag(tag)
     this
   }
 
