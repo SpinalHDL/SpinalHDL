@@ -1033,8 +1033,7 @@ end
       case port: MemWrite     =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadSync  =>
-        if(port.readUnderWrite == readFirst)
-          cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadWrite =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadAsync =>
