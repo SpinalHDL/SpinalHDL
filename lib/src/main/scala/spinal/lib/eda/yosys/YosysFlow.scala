@@ -2,6 +2,7 @@ package spinal.lib.eda.yosys
 
 import java.io.File
 import spinal.core._
+import scala.collection._
 
 object YosysFlow{
     def model(name: String, mode: String, multiclock: Boolean=false) : Yosys ={
@@ -32,16 +33,16 @@ object YosysFlow{
 
 class YosysFlow(rtl: SpinalReport[_],workDir: String = "."){
     def formal(mode: String = Mode.bmc, solver: String = Solver.abc,multiclock: Boolean = false, step: Int = 20) : FormalCommand = {
-        val logs = new File(workDir,"logs")
-        logs.mkdirs
+        val wkr = new File(workDir)
+        wkr.mkdirs
 
-        val opt = Yosys()
+        val opt = Yosys(rtl.toplevelName+".ys", wkr.getAbsolutePath())
         rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog","-sv",new File(c).getAbsolutePath()))
         opt.addCommand("prep","-top",rtl.toplevelName)
         opt.append(YosysFlow.model(rtl.toplevelName,mode,multiclock))
-        val smt2 = new File(logs.toString,rtl.toplevelName + ".smt2")
+        val smt2 = new File(wkr.toString,rtl.toplevelName + ".smt2")
         opt.addCommand("write_smt2","-wires",smt2.getAbsolutePath())
-        opt.run(workDir=logs.getAbsolutePath())
+        opt.run()
 
         val vcd = new File(workDir,rtl.toplevelName+".vcd")
         FormalCommand(smt2 = smt2.getAbsolutePath(),
@@ -50,28 +51,37 @@ class YosysFlow(rtl: SpinalReport[_],workDir: String = "."){
                       mode = mode,
                       step = step,
                       dumpVCD= vcd.getAbsolutePath(),
-                      workDir=logs.getAbsolutePath())
+                      workDir= wkr.getAbsolutePath())
     }
 
     def synthesize(target: String) : String = {
-      val logs = new File(workDir,"logs")
-      logs.mkdirs
-      val opt = Yosys()
-      rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog",new File(c).getAbsolutePath()))
+      val wkr = new File(workDir)
+      wkr.mkdirs
+      val opt = Yosys(rtl.toplevelName+".ys", wkr.getAbsolutePath())
+      // rtl.rtlSourcesPaths.foreach(c => opt.addCommand("read_verilog",new File(c).getAbsolutePath()))
+      rtl.rtlSourcesPaths.foreach(c => opt.addInputFile(new File(c).getAbsolutePath(),"verilog"))
+
       val json = new File(workDir,rtl.toplevelName+".json")
-      opt.addCommand("synth_"+ target,"-top",rtl.toplevelName,"-json",json.getAbsolutePath())
-      opt.run(workDir=logs.getAbsolutePath())
+      opt.addCommand("synth_"+ target,"-top",rtl.toplevelName)
+      opt.addOutputFile(json.getAbsolutePath(),"json")
+      opt.run()
       json.getAbsolutePath()
     }
 
     def nextpnr_ice40(jsonPath : String = "", pcfPath : String = ""): NextPNR_ice40 = {
-      val logs = new File(workDir,"logs")
+      val wrk = new File(workDir)
       val json = new File(if(jsonPath.isEmpty) synthesize("ice40") else jsonPath)
       val pcf = new File(workDir,pcfPath)
       val asc = new File(workDir,rtl.toplevelName+".asc")
       NextPNR_ice40(json = json.getAbsolutePath(),
                     pcf = pcf.getAbsolutePath(),
                     asc = asc.getAbsolutePath(),
-                    workDir  = logs.getAbsolutePath())
+                    workDir  = wrk.getAbsolutePath())
     }
+}
+
+class YosysReport{
+  val modelsPaths = mutable.LinkedHashSet[(String,String)]()
+  val binaryPaths = mutable.LinkedHashSet[(String,String)]()
+
 }
