@@ -3,12 +3,12 @@
 SpinalHDL is:
 - A language to describe digital hardware 
 - Compatible with EDA tools as it generate the corresponding VHDL/Verilog file
-- Much more powerfull than VHDL, Verilog and SystemVerilog by its syntaxes and features
+- Much more powerful than VHDL, Verilog and SystemVerilog by its syntaxes and features
 - Much less verbose than VHDL, Verilog and SystemVerilog
 - Not an HLS, nor based on the event driven paradigm
 - Only generating what you asked him in a one to one way (no black-magic, no blackbox)
 - Not introducing Area/Performance overhead in your design (versus a hand written VHDL/Verilog)
-- Based on the RTL description paradigm, but can go much futher
+- Based on the RTL description paradigm, but can go much further
 - Allowing you to use Object Oriented Programming and Functional Programming to elaborate your hardware and verify it
 - Free and can be used in the industry without any license
 
@@ -58,7 +58,7 @@ Your freedoms are :
 - Your hardware description is yours (.scala files)
 
 Your obligations (and my wish) are :
-- If you modify the SpinalHDL core (the compiler itself), please, share your improvments.
+- If you modify the SpinalHDL core (the compiler itself), please, share your improvements.
 
 Also, SpinalHDL is provided "as is", without warranty of any kind.
 
