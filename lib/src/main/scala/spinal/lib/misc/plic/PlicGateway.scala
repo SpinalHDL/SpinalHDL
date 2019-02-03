@@ -11,6 +11,7 @@ abstract class PlicGateway(val id : Int, priorityWidth : Int) extends Area{
   val priority = UInt(priorityWidth bits)
   def doClaim() : Unit
   def doCompletion() : Unit
+  def driveFrom(bus : BusSlaveFactory, offset : Int) : Unit
 }
 
 case class PlicGatewayActiveHigh(source : Bool,override val id : Int, priorityWidth : Int) extends PlicGateway(id = id, priorityWidth = priorityWidth){

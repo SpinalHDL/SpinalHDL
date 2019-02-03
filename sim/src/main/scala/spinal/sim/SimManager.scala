@@ -224,20 +224,7 @@ class SimManager(val raw : SimRaw) {
 
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
-//          if(false) {
-            raw.eval()
-//          } else {
-////            evalNanoTime -= System.nanoTime()
-//            raw.eval()
-//            val nano =  System.nanoTime()
-////            evalNanoTime += nano
-//            val elabsedTime = nano - evalNanoTimeRef
-//            if(elabsedTime > 1000000000){
-//              println(s"[Info] Simulator evaluation use ${100*evalNanoTime/elabsedTime}% of the processing")
-//              evalNanoTimeRef = nano
-//              evalNanoTime = 0
-//            }
-//          }
+          raw.eval()
         }
 
         //Execute the threads commands

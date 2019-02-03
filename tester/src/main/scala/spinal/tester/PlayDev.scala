@@ -750,50 +750,6 @@ object PlayDevAnalog2{
 
 
 
-
-object PlayDevAnalog3{
-  def main(args: Array[String]) {
-    SpinalConfig().generateVhdl({
-      val toplevel = Apb3Gpio(32)
-      toplevel.rework{
-        import toplevel._
-        io.gpio.setAsDirectionLess.allowDirectionLessIo
-        val analog = inout(Analog(Bits(32 bits))).setName("analog")
-        io.gpio.read := analog
-        for(i <- 0 to 31){
-          when(io.gpio.writeEnable(i)){
-            analog(i) := io.gpio.write(i)
-          }
-        }
-        toplevel
-      }
-    })
-    print("done")
-  }
-}
-
-
-
-object PlayDevAnalog4{
-
-  class Toplevel extends Component{
-    val io = new Bundle {
-      val gpio = master(TriState(UInt(32 bits)))
-    }
-
-
-    val driver = TriState(UInt(32 bits))
-    driver.writeEnable := True
-    driver.write := 42
-    driver <> io.gpio
-  }
-  def main(args: Array[String]) {
-    SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
-//    SpinalVhdl(InOutWrapper(new Toplevel))
-    print("done")
-  }
-}
-
 object PlayDevBug3{
   case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
     addGeneric("io_width", U(io_width, 32 bits))
