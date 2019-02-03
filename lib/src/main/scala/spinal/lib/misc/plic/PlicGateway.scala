@@ -24,4 +24,5 @@ case class PlicGatewayActiveHigh(source : Bool,override val id : Int, priorityWi
   }
   override def doClaim(): Unit = ip := False
   override def doCompletion(): Unit = waitCompletion := False
+  override def driveFrom(bus: BusSlaveFactory, offset: Int): Unit = {}
 }
