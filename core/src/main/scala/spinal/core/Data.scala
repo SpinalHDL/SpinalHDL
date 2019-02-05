@@ -503,7 +503,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
-        that.setAsDirectionLess()
+        that.purify()
         that
       }
 
