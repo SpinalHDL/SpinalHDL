@@ -88,7 +88,7 @@ object weakCloneOf {
       case _ => cloneOf(that)
     }
 
-    ret.flatten.foreach {
+    ret.flattenForeach{
       case bv: BitVector => bv.unfixWidth()
       case _             =>
     }
