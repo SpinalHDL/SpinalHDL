@@ -27,10 +27,10 @@ jobs:
       jdk: openjdk10
     - <<: *host
       jdk: openjdk11
-    - <<: *host
-      jdk: openjdk7
-    - <<: *host
-      jdk: oraclejdk7
+#    - <<: *host
+#      jdk: openjdk7
+#    - <<: *host
+#      jdk: oraclejdk7
     - os: linux
       services: docker
       language: minimal
