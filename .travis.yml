@@ -2,6 +2,22 @@ dist: xenial
 
 jobs:
   include:
+    - os: linux
+      services: docker
+      language: minimal
+      install: skip
+      addons:
+        apt:
+          packages:
+          - pass
+      script: ./travis.sh -c
+      deploy:
+        provider: script
+        skip_cleanup: true
+        script: ./travis.sh -d
+        on:
+          repo: 1138-4EB/SpinalHDL
+          branch: dockerize
     - &host
       language: scala
       # See 'project/Version.scala'
@@ -31,19 +47,3 @@ jobs:
 #      jdk: openjdk7
 #    - <<: *host
 #      jdk: oraclejdk7
-    - os: linux
-      services: docker
-      language: minimal
-      install: skip
-      addons:
-        apt:
-          packages:
-          - pass
-      script: ./travis.sh -c
-      deploy:
-        provider: script
-        skip_cleanup: true
-        script: ./travis.sh -d
-        on:
-          repo: 1138-4EB/SpinalHDL
-          branch: dockerize
