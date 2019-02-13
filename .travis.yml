@@ -4,32 +4,34 @@ notifications:
   email:
     on_success: never
 
-language: scala
-
-# See 'project/Version.scala'
-scala: 2.11.12
-sbt_args: -no-colors -J-Xss2m
-script:
-  - sbt -jvm-opts travis/jvmopts.compile compile
-  - sbt -jvm-opts travis/jvmopts.test test
-
-jdk:
-  - openjdk9
-  - openjdk10
-  - oraclejdk11
-#  - oraclejdk7
-#  - openjdk7
-
-before_install:
-  - ./beforeInstall
-  - export PATH=$(pwd)/../ghdl/bin:$PATH
-  - export COCOTB=$(pwd)/../cocotb
-
-before_cache:
-  # Tricks to avoid unnecessary cache updates
-  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
-  - find $HOME/.sbt -name "*.lock" -delete
-cache:
-  directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
+jobs:
+  include:
+    - &host
+      language: scala
+      # See 'project/Version.scala'
+      scala: 2.11.12
+      jdk: openjdk9
+      sbt_args: -no-colors -J-Xss2m
+      script:
+        - sbt -jvm-opts travis/jvmopts.compile compile
+        - sbt -jvm-opts travis/jvmopts.test test
+      before_install:
+        - ./beforeInstall
+        - export PATH=$(pwd)/../ghdl/bin:$PATH
+        - export COCOTB=$(pwd)/../cocotb
+      before_cache:
+        # Tricks to avoid unnecessary cache updates
+        - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+        - find $HOME/.sbt -name "*.lock" -delete
+      cache:
+        directories:
+          - $HOME/.ivy2/cache
+          - $HOME/.sbt/boot/
+    - <<: *host
+      jdk: openjdk10
+    - <<: *host
+      jdk: openjdk11
+    - <<: *host
+      jdk: openjdk7
+    - <<: *host
+      jdk: oraclejdk7
