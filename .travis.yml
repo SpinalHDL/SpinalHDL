@@ -1,9 +1,5 @@
 dist: xenial
 
-notifications:
-  email:
-    on_success: never
-
 jobs:
   include:
     - &host
