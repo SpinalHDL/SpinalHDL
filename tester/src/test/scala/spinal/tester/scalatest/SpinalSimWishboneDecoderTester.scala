@@ -9,6 +9,7 @@ import spinal.lib.bus.misc._
 import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
+import scala.util.Random
 
 class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMapping]) extends Component{
   val io = new Bundle{
@@ -39,10 +40,9 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
       SimTimeout(1000*10000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
       val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
-      val maxAddr = 2099
 
       val seq = WishboneSequencer{
-        WishboneTransaction().randomizeAddress(maxAddr).randomizeData(200)
+        WishboneTransaction().randomAdressInRange(Random.shuffle(decodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
       }
 
       val monIN = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
@@ -90,7 +90,6 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
   }
 
   test("DecoderSelectorBug"){
-    val size = 2
     val config = WishboneConfig(32,16)
     val decodings = List(SizeMapping(0x2000,12 Bytes),SizeMapping(0x1000, 12 Bytes))
     testDecoder(config,decodings,"DecoderSelectorBug")
