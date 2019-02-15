@@ -18,29 +18,29 @@ import spinal.core._
 //  --load arg                  project file to read
 
 trait NextPNR extends Executable{
-  val json: String
-  val freq: HertzNumber
-  val pack_only: Boolean
-  val verbose: Boolean
-  val quiet: Boolean
-  val seed: String
-  val randomize_seed: Boolean
-  val gui: Boolean
-  val no_tmdriv: Boolean
+  val _json: String
+  val _freq: HertzNumber
+  val _pack_only: Boolean
+  val _verbose: Boolean
+  val _quiet: Boolean
+  val _seed: String
+  val _randomize_seed: Boolean
+  val _gui: Boolean
+  val _no_tmdriv: Boolean
 
   val family: String = "generic"
 
   override def toString(): String = {
     val ret = new StringBuilder(s"nextpnr-${family} ")
-                            ret.append(s"--json ${json} ")                  // --json arg               JSON design file to ingest
-    if(freq.toDouble > 0 )  ret.append(s"--freq ${freq.toDouble/1000000} ") // --freq arg               set target frequency for design in MHz
-    if(pack_only)           ret.append("--pack-only ")                      // --pack-only              pack design only without placement or routing
-    if(verbose)             ret.append("--verbose ")                        // -v [ --verbose ]         verbose output
-    if(quiet)               ret.append("--quiet ")                          // -q [ --quiet ]           quiet mode, only errors and warnings displayed
-    if(seed.nonEmpty)       ret.append("--seed ${seed} ")                   // --seed arg               seed value for random number generator
-    else if(randomize_seed) ret.append("--randomize-seed ")                 // -r [ --randomize-seed ]  randomize seed value for random number generator
-    if(no_tmdriv)           ret.append("--no-tmdriv ")                      // --no-tmdriv              disable timing-driven placement
-    if(gui)                 ret.append("--gui ")                            // --gui                    start gui
+                              ret.append(s"--json ${_json} ")                   // --json arg               JSON design file to ingest
+    if(_freq.toDouble > 0 )   ret.append(s"--freq ${_freq.toDouble/1000000} ")  // --freq arg               set target frequency for design in MHz
+    if(_pack_only)            ret.append("--pack-only ")                        // --pack-only              pack design only without placement or routing
+    if(_verbose)              ret.append("--verbose ")                          // -v [ --verbose ]         verbose output
+    if(_quiet)                ret.append("--quiet ")                            // -q [ --quiet ]           quiet mode, only errors and warnings displayed
+    if(_seed.nonEmpty)        ret.append("--seed ${_seed} ")                    // --seed arg               seed value for random number generator
+    else if(_randomize_seed)  ret.append("--randomize-seed ")                   // -r [ --randomize-seed ]  randomize seed value for random number generator
+    if(_no_tmdriv)            ret.append("--no-tmdriv ")                        // --no-tmdriv              disable timing-driven placement
+    if(_gui)                  ret.append("--gui ")                              // --gui                    start gui
     ret.toString
   }
 }
@@ -88,46 +88,53 @@ object Ice40{
 //  --up5k                      set device type to iCE40UP5K
 //  --read arg                  asc bitstream file to read
 
-case class NextPNR_ice40( json: String,
-                          pcf: String,
-                          asc: String,
-                          no_tmdriv: Boolean = true,
-                          freq: HertzNumber = 0 Hz,
-                          pack_only: Boolean = false,
-                          verbose: Boolean = false,
-                          quiet: Boolean = true,
-                          seed: String = "",
-                          randomize_seed: Boolean = true,
-                          gui: Boolean = false,
-                          target : String = Ice40.hx1k,
-                          pack : String = Ice40.pack.ct256,
-                          promote_logic: Boolean = false,
-                          no_promote_globals : Boolean = false,
-                          opt_timing: Boolean = false,
-                          tmfuzz: Boolean = false,
-                          pcf_allow_unconstrained : Boolean = false,
-                          workDir : String = ".") extends NextPNR {
+case class NextPNR_ice40( _json: String="",
+                          _pcf: String="",
+                          _asc: String="nextpnr_ice40.asc",
+                          _no_tmdriv: Boolean = true,
+                          _freq: HertzNumber = 0 Hz,
+                          _pack_only: Boolean = false,
+                          _verbose: Boolean = false,
+                          _quiet: Boolean = true,
+                          _seed: String = "",
+                          _randomize_seed: Boolean = true,
+                          _gui: Boolean = false,
+                          _target : String = Ice40.hx1k,
+                          _pack : String = Ice40.pack.ct256,
+                          _promote_logic: Boolean = false,
+                          _no_promote_globals : Boolean = false,
+                          _opt_timing: Boolean = false,
+                          _tmfuzz: Boolean = false,
+                          _pcf_allow_unconstrained : Boolean = false,
+                          workDir : String = ".") extends NextPNR with Makable{
   override val family = "ice40"
 
-  def openGui = this.copy(gui=true)
-  def targetFrequency(frequency: HertzNumber) = this.copy(freq=frequency,no_tmdriv=false)
-  def seed(seed: String) = this.copy(seed=seed,randomize_seed=false)
+  def openGui = this.copy(_gui=true)
+  def targetFrequency(frequency: HertzNumber) = this.copy(_freq=frequency,_no_tmdriv=false)
+  def seed(seed: String) = this.copy(_seed=seed,_randomize_seed=false)
+  def json(j: String) = this.copy(_json=j)
+  def asc(a: String) = this.copy(_asc=a)
 
-  def setTarget(target: String, pack: String="") = this.copy(target=target,pack=pack)
-  def withPCF(path: String) = this.copy(pcf=path)
+  def setTarget(target: String, pack: String="") = this.copy(_target=target,_pack=pack)
+  def withPCF(path: String, allowUncostrained: Boolean = false) = this.copy(_pcf=path,_pcf_allow_unconstrained = allowUncostrained)
+  def workPath(path: String) = this.copy(workDir=path)
 
   override def toString(): String = {
     val ret = new StringBuilder(super.toString())
-                                ret.append(s"--pcf ${pcf} ")              // --pcf arg                  PCF constraints file to ingest
-                                ret.append(s"--${target} ")
-                                ret.append(s"--asc ${asc} ")              //  --asc arg                   asc bitstream file to write
-    if(pack.nonEmpty)           ret.append(s"--package ${pack} ")         // --package arg              set device package
-    if(promote_logic)           ret.append( "--promote-logic ")           //  --promote-logic           enable promotion of 'logic' globals (in addition to clk/ce/sr by default)
-    if(no_promote_globals)      ret.append( "--no-promote-globals ")      // --no-promote-globals       disable all global promotion
-    if(opt_timing)              ret.append( "--opt-timing ")              // --opt-timing               run post-placement timing optimisation pass
-    if(tmfuzz)                  ret.append( "--tmfuzz ")                  // --tmfuzz                   run path delay estimate fuzzer
-    if(pcf_allow_unconstrained) ret.append( "--pcf-allow-unconstrained ") // --pcf-allow-unconstrained  don't require PCF to constrain all IO
+                                  ret.append(s"--pcf ${_pcf} ")             // --pcf arg                  PCF constraints file to ingest
+                                  ret.append(s"--${target} ")
+                                  ret.append(s"--asc ${_asc} ")             //  --asc arg                   asc bitstream file to write
+    if(_pack.nonEmpty)            ret.append(s"--package ${_pack} ")        // --package arg              set device package
+    if(_promote_logic)            ret.append( "--promote-logic ")           //  --promote-logic           enable promotion of 'logic' globals (in addition to clk/ce/sr by default)
+    if(_no_promote_globals)       ret.append( "--no-promote-globals ")      // --no-promote-globals       disable all global promotion
+    if(_opt_timing)               ret.append( "--opt-timing ")              // --opt-timing               run post-placement timing optimisation pass
+    if(_tmfuzz)                   ret.append( "--tmfuzz ")                  // --tmfuzz                   run path delay estimate fuzzer
+    if(_pcf_allow_unconstrained)  ret.append( "--pcf-allow-unconstrained ") // --pcf-allow-unconstrained  don't require PCF to constrain all IO
     ret.toString
   }
 
+  //make stuff
+  def target = _asc
+  override def makeComand: String =
+    this.copy(/* _pcf = getPrerequisiteFromName(".*.pcf"), */ _json = getPrerequisiteFromName(".*.json")).toString
 }
