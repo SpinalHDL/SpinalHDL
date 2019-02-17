@@ -122,7 +122,7 @@ class SpinalSimWishboneSimInterconTester extends FunSuite{
   }
 
   test("InterconSelectorBug"){
-    val masters = 1
+    val masters = 2
     val slaves = 2
     val config = WishboneConfig(32,16)
     val decodings = List(SizeMapping(0x2000,12 Bytes),SizeMapping(0x1000, 12 Bytes))
