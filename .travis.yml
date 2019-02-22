@@ -16,8 +16,8 @@ jobs:
         skip_cleanup: true
         script: ./travis.sh -d
         on:
-          repo: 1138-4EB/SpinalHDL
-          branch: dockerize
+          repo: SpinalHDL/SpinalHDL
+          branch: master
     - &host
       language: scala
       # See 'project/Version.scala'
