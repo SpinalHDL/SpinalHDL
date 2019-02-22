@@ -26,19 +26,10 @@ case class ScoreboardInOrder[T]() {
 
   if(Phase.isUsed){
     Phase.check{
-      if(dut.nonEmpty || ref.nonEmpty){
-        if(dut.nonEmpty){
-          println("Unmatched DUT transaction : \n")
-          dut.foreach(d => println(d))
-        }
-
-        if(ref.nonEmpty){
-          println("Unmatched reference transaction :\n")
-          ref.foreach(d => println(d))
-        }
-        Phase.check.onEnd(simFailure())
-      }
+      checkEmptyness()
     }
+  } else {
+
   }
 
   def pushDut(that : T) : Unit = {
@@ -51,11 +42,13 @@ case class ScoreboardInOrder[T]() {
     check()
   }
 
+  def compare(ref : T, dut : T) = !(ref != dut)
+
   def check(): Unit ={
     if(ref.nonEmpty && dut.nonEmpty){
       val dutHead = dut.dequeue()
       val refHead = ref.dequeue()
-      if(dutHead != refHead){
+      if(!compare(dutHead, refHead)){
         println("Transaction missmatch :")
         println("REF :")
         println(refHead)
@@ -66,4 +59,69 @@ case class ScoreboardInOrder[T]() {
       matches += 1
     }
   }
+
+  def checkEmptyness(): Unit ={
+    if(dut.nonEmpty || ref.nonEmpty){
+      if(dut.nonEmpty){
+        println("Unmatched DUT transaction : \n")
+        dut.foreach(d => println(d))
+      }
+
+      if(ref.nonEmpty){
+        println("Unmatched reference transaction :\n")
+        ref.foreach(d => println(d))
+      }
+      Phase.check.onEnd(simFailure())
+    }
+  }
 }
+
+
+
+//case class ScoreboardOutOfOrder[T]() {
+//  val dut,ref = mutable.HashMap[Any, mutable.Queue[T]]()
+//  var matches = 0
+//
+//  if(Phase.isUsed){
+//    Phase.check{
+//      if(dut.nonEmpty || ref.nonEmpty){
+//        if(dut.nonEmpty){
+//          println("Unmatched DUT transaction : \n")
+//          dut.foreach(d => println(d))
+//        }
+//
+//        if(ref.nonEmpty){
+//          println("Unmatched reference transaction :\n")
+//          ref.foreach(d => println(d))
+//        }
+//        Phase.check.onEnd(simFailure())
+//      }
+//    }
+//  }
+//
+//  def pushDut(that : T, channel : Any) : Unit = {
+//    dut.enqueue(that)
+//    check(channel)
+//  }
+//
+//  def pushRef(that : T, channel : Any) : Unit = {
+//    ref.enqueue(that)
+//    check(channel)
+//  }
+//
+//  def check(channel : Any): Unit ={
+//    if(ref.nonEmpty && dut.nonEmpty){
+//      val dutHead = dut.dequeue()
+//      val refHead = ref.dequeue()
+//      if(dutHead != refHead){
+//        println("Transaction missmatch :")
+//        println("REF :")
+//        println(refHead)
+//        println("DUT :")
+//        println(dutHead)
+//        simFailure()
+//      }
+//      matches += 1
+//    }
+//  }
+//}
