@@ -276,6 +276,11 @@ case class PipelinedMemoryBusInterconnect(){
     this
   }
 
+  def addConnection(m : PipelinedMemoryBus, s : PipelinedMemoryBus) : this.type = {
+    connections += ConnectionModel(m, s)
+    this
+  }
+
   def build(): Unit ={
     val connectionsInput  = mutable.HashMap[ConnectionModel,PipelinedMemoryBus]()
     val connectionsOutput = mutable.HashMap[ConnectionModel,PipelinedMemoryBus]()

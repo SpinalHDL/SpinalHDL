@@ -201,6 +201,9 @@ class GlobalData(val config : SpinalConfig) {
 
   def addPostBackendTask(task: => Unit): Unit = postBackendTask += (() => task)
   def addJsonReport(report: String): Unit = jsonReports += report
+
+
+  val userDatabase      = mutable.LinkedHashMap[Any, Any]()
 }
 
 
@@ -481,6 +484,36 @@ trait Nameable extends OwnableRef with ContextUser{
       doThat(obj)
     })
   }
+
+  def reflectNames(): Unit = {
+    Misc.reflect(this, (name, obj) => {
+      obj match {
+        case component: Component =>
+          if (component.parent == this.component) {
+            component.setPartialName(name, weak = true)
+            OwnableRef.proposal(component, this)
+          }
+        case namable: Nameable =>
+          if (!namable.isInstanceOf[ContextUser]) {
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else {
+            for (kind <- component.children) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == namable) {
+                kind.setPartialName(name, weak = true)
+                OwnableRef.proposal(kind, this)
+              }
+            }
+          }
+        case _ =>
+      }
+    })
+  }
+
 }
 
 
