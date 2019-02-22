@@ -36,9 +36,6 @@ class WishboneDecoder(config : WishboneConfig, decodings : Seq[SizeMapping]) ext
     val input = slave(Wishbone(config))
     val outputs = Vec(master(Wishbone(config)),decodings.size)
   }
-  //default some master output flow control signal to false,
-  //so we don't create involuntary latched logic
-  io.outputs.map(_.CYC := False)
 
   //permanently drive some slave iunput signal to save on logic usage
   io.outputs.map{ out =>
@@ -58,13 +55,14 @@ class WishboneDecoder(config : WishboneConfig, decodings : Seq[SizeMapping]) ext
   // the selector will use the decodings list to select the right slave based on the address line
   val selector = Vec(decodings.map(_.hit(io.input.ADR) && io.input.CYC))
 
+  // Generate the CYC sygnal for the selected slave
+  (io.outputs.map(_.CYC), selector).zipped.foreach(_ := _)
   //Implementing the multiplexer logic, it thakes the one Hot bit vector/bit array as input
-  io.input.CYC      <> MuxOH(selector, Vec(io.outputs.map(_.CYC)))
-  io.input.ACK      <> MuxOH(selector, Vec(io.outputs.map(_.ACK)))
-  io.input.DAT_MISO <> MuxOH(selector, Vec(io.outputs.map(_.DAT_MISO)))
+  io.input.ACK      := MuxOH(selector, Vec(io.outputs.map(_.ACK)))
+  io.input.DAT_MISO := MuxOH(selector, Vec(io.outputs.map(_.DAT_MISO)))
 
-  if(config.useSTALL) io.input.STALL    <> MuxOH(selector, Vec(io.outputs.map(_.STALL)))
-  if(config.useERR)   io.input.ERR      <> MuxOH(selector, Vec(io.outputs.map(_.ERR)))
-  if(config.useRTY)   io.input.RTY      <> MuxOH(selector, Vec(io.outputs.map(_.RTY)))
-  if(config.useTGD)   io.input.TGD_MISO <> MuxOH(selector, Vec(io.outputs.map(_.TGD_MISO)))
+  if(config.useSTALL) io.input.STALL    := MuxOH(selector, Vec(io.outputs.map(_.STALL)))
+  if(config.useERR)   io.input.ERR      := MuxOH(selector, Vec(io.outputs.map(_.ERR)))
+  if(config.useRTY)   io.input.RTY      := MuxOH(selector, Vec(io.outputs.map(_.RTY)))
+  if(config.useTGD)   io.input.TGD_MISO := MuxOH(selector, Vec(io.outputs.map(_.TGD_MISO)))
 }
