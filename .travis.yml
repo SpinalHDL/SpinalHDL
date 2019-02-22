@@ -10,6 +10,7 @@ jobs:
         apt:
           packages:
           - pass
+      env: DOCKER=spinalhdl/dev
       script: ./travis.sh -c
       deploy:
         provider: script
