@@ -2,8 +2,9 @@ package spinal.lib.eda.yosys
 
 // -v verbose (repeat to increase verbosity)
 
-case class IcePack(_asc: String = "",
+case class IcePack(_asc: String = "icepack.asc",
                    _bin: String = "icepack.bin",
+                   _unpack: Boolean = false,
                    _deepsleep: Boolean = false,
                    _writeCram: Boolean = false,
                    _writeCramFill: Boolean = false,
@@ -17,6 +18,7 @@ case class IcePack(_asc: String = "",
   override val logFile = "icepack.log"
   def bin(b: String) = this.copy(_bin = b)
   def asc(a: String) = this.copy(_asc = a)
+  def unpack = this.copy(_unpack = true)
   def disableDeepSleep = this.copy(_deepsleep = false)
   def writeCram = this.copy(_writeCram = true)
   def writeCramFill = this.copy(_writeCramFill = true)
@@ -27,7 +29,7 @@ case class IcePack(_asc: String = "",
 
   override def toString(): String = {
     val ret = new StringBuilder("icepack ")
-    //if (_unpack) ret.append("-u ") // -u unpack mode (implied when called as 'iceunpack')
+    if (_unpack) ret.append("-u ") // -u unpack mode (implied when called as 'iceunpack')
     if (_deepsleep) ret.append("-s ") // -s disable final deep-sleep SPI flash command after bitstream is loaded
     if (_writeCram) ret.append("-b ") // -b write cram bitmap as netpbm file
     if (_writeCramFill) ret.append("-f ") // -f write cram bitmap (fill tiles) as netpbm file
@@ -35,15 +37,22 @@ case class IcePack(_asc: String = "",
     if (_writeOnlyBram) ret.append("-r ") // -r write bram data, not cram, to the netpbm file
     if (_writeBank.nonEmpty) _writeBank.foreach(v => ret.append(s"-B${v} ")) // -B0, -B1, -B2, -B3 only include the specified bank in the netpbm file
 
-    ret.append(s"${_asc} ")
-    ret.append(s"${_bin} ")
+    if(_unpack){
+      ret.append(s"${_bin} ")
+      ret.append(s"${_asc} ")
+    } else {
+      ret.append(s"${_asc} ")
+      ret.append(s"${_bin} ")
+    }
+
     ret.toString()
   }
 
   //make stuff
-  def target: String = _bin
+  def target: String = if(_unpack) _asc else _bin
   override def makeComand: String =
-    this.copy(_asc = getPrerequisiteFromName(".*.asc")).toString
+    if(_unpack) this.copy(_bin = getPrerequisiteFromName(".*.bin")).toString
+    else        this.copy(_asc = getPrerequisiteFromName(".*.asc")).toString
 }
 
 // Simple programming tool for FTDI-based Lattice iCE programmers.
@@ -82,9 +91,10 @@ case class IceProg(_bin: String = "",
                    _interface: String = "A",
                    _slow: Boolean = false,
                    _offset: Long = 0,
+                   _targetname: String = "program",
                    workDir: String = ".")
     extends Executable
-    with Makable {
+    with MakablePhony {
 
   override val logFile = "iceprog.log"
 
@@ -92,6 +102,7 @@ case class IceProg(_bin: String = "",
   def device(devString: String) = this.copy(_device = devString)
   def interface(interface: String) = this.copy(_interface = interface)
   def offset(offset: Long) = this.copy(_offset = offset)
+  def name(n: String) = this.copy(_targetname = n)
   def workPath(path: String) = this.copy(workDir = path)
 
   override def toString(): String = {
@@ -116,7 +127,7 @@ case class IceProg(_bin: String = "",
   }
 
   //makepart
-  def target: String = "program"
+  def target: String = _targetname
   override def makeComand: String =
     this.copy(_bin = getPrerequisiteFromName(".*.bin")).toString
 }

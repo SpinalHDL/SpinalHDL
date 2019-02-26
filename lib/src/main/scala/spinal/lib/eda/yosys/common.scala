@@ -12,7 +12,7 @@ trait Executable {
   val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
   def runComand: String = this.toString
 
-  def run(): Unit = {
+  def run(): Int = {
     val wrkDir = new File(workDir)
     wrkDir.mkdir
     val lgDir = new File(wrkDir, logPath)
@@ -33,25 +33,31 @@ trait Executable {
       }
       override def buffer[T](f: => T) = f
     }
-    if (isWindows)
-      Process("cmd /C " + this.runComand, wrkDir) ! (log)
-    else
-      Process(this.runComand, wrkDir) ! (log)
+    val ret: Int = if (isWindows)
+                Process("cmd /C " + this.runComand, wrkDir) ! (log)
+              else
+                Process(this.runComand, wrkDir) ! (log)
     str.close()
+    ret
   }
 
 }
 
 trait Makable{
-  def target: String
   val prerequisite = new mutable.MutableList[Makable]()
+  def isPhony: Boolean = false
+  def isFile : Boolean = false
+  def target: String
+
   def addPrerequisite(pre: Makable*) = prerequisite ++= pre
   def makeComand: String = this.toString
-  def isFile : Boolean = prerequisite.isEmpty
+
   def makejob: String = {
+    val phony = if(isPhony) ".PHONY: " + target + "\n"
+                else        ""
     val targets = target + " : "
     val prerequisites = prerequisite.map(x => x.target).mkString(" ")
-    val ret = if(!isFile) targets + prerequisites + "\n\t" + makeComand
+    val ret = if(!isFile) phony+targets + prerequisites + "\n\t" + makeComand
               else ""
     ret
   }
@@ -81,7 +87,15 @@ trait Makable{
   }
 }
 
-case class InputFile(file: String,workDir: String=".") extends Makable{
+trait MakablePhony extends Makable{
+  override def isPhony : Boolean = true
+}
+
+trait MakableFile extends Makable{
+  override def isFile : Boolean = true
+}
+
+case class InputFile(file: String,workDir: String=".") extends MakableFile{
   def target : String = new File(workDir,file).toString
 }
 
@@ -94,7 +108,38 @@ object testMake {
   }
   def main(args: Array[String]): Unit = {
     //val x = IceProg() <| IcePack() <| IceBram() <| InputFile("test.asc")
-    val x = InputFile("test.asc") |> IceBram() |> IcePack() |> IceProg()
-    println(x.makefile)
+    val x = InputFile("test.asc") |> IceBram() |> IcePack()
+    val y = x |> IceProg().name("test")
+    val z = x |> IceProg().name("test2")
+    // println(x.makefile)
+    // println("--------------")
+    // println(y.makefile)
+    // println("--------------")
+    println("--------------")
+
+    println(CreateMakefile(x,y,z))
   }
+}
+
+object CreateMakefile{
+  def apply[T <: Makable](op: T*): String = {
+    val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
+    val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty)
+    val ret = jobStrigs.mkString("\n\n")
+    ret
+  }
+}
+
+trait PassFail extends Makable{
+  override def makeComand: String = "rm PASS FAIL;" //+ super.makeComand + "&& $(date) > PASS || $(date) > FAIL"
+  override def target = "PASS"
+  def makejob: String = {
+    val phony = if(isPhony) ".PHONY: " + target + "\n"
+                else        ""
+    val targets = target + " : "
+    val prerequisites = prerequisite.map(x => x.target).mkString(" ")
+    val ret = if(!isFile) phony+targets + prerequisites + "\n\t" + makeComand
+              else ""
+    ret
+  } z
 }
