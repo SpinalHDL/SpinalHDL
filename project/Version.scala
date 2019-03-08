@@ -4,7 +4,7 @@ object SpinalVersion {
 
   val isSnapshot = false
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
-  private val major = "1.3.1"
+  private val major = "1.3.2"
   val all         = s"$major$snapshot"
   val sim         = s"$major$snapshot"
   val core        = s"$major$snapshot"

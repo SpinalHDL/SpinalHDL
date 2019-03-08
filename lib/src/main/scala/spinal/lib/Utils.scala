@@ -99,6 +99,9 @@ object OHMasking{
     Vec(that.head +: bitsFirst.asBools.tail)
   }
 
+  //Avoid combinatorial loop on the first
+  def first(that : Seq[Bool]) : Vec[Bool] = first(Vec(that))
+
   /** returns an one hot encoded vector with only MSB of the word present */
   def last[T <: Data](that : T) : T = {
     val input = Reverse(that.asBits.asUInt)

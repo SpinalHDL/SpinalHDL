@@ -18,10 +18,7 @@ class FlowMonitor[T <: Data](Flow : Flow[T], clockDomain: ClockDomain){
     this
   }
 
-  fork{
-    while(true) {
-      clockDomain.waitSamplingWhere(Flow.valid.toBoolean)
-      callbacks.foreach(_ (Flow.payload))
-    }
+  clockDomain.onSamplings{
+    if(Flow.valid.toBoolean) callbacks.foreach(_ (Flow.payload))
   }
 }

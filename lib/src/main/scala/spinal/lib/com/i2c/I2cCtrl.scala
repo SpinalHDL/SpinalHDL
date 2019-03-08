@@ -118,13 +118,13 @@ object I2cCtrl {
    *
    * rxData -> 0x08
    * - value -> R[7:0]
-   * - valid -> R[8]
-   * - listen -> W[9], cleared when read
+   * - valid -> R[8], cleared when read
+   * - listen -> W[9]
    *
    * rxAck -> 0x0C
    * - value -> R[0]
-   * - valid -> R[8]
-   * - listen -> W[9], cleared when read
+   * - valid -> R[8], cleared when read
+   * - listen -> W[9]
    * 
    * interrupt -> 0x20
    * - rxDataEnable -> RW[0]

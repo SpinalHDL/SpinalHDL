@@ -201,6 +201,9 @@ class GlobalData(val config : SpinalConfig) {
 
   def addPostBackendTask(task: => Unit): Unit = postBackendTask += (() => task)
   def addJsonReport(report: String): Unit = jsonReports += report
+
+
+  val userDatabase      = mutable.LinkedHashMap[Any, Any]()
 }
 
 
@@ -292,12 +295,15 @@ object OwnableRef {
       ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
   }
 
-  def proposal(ownable: Any, owner: Any) = {
+  def proposal(ownable: Any, owner: Any) : Boolean = {
     if(ownable.isInstanceOf[OwnableRef]) {
       val ownableTmp = ownable.asInstanceOf[OwnableRef]
-      if(ownableTmp.refOwner == null)
+      if(ownableTmp.refOwner == null) {
         ownableTmp.asInstanceOf[OwnableRef].setRefOwner(owner)
+        return true
+      }
     }
+    return false
   }
 }
 
@@ -478,6 +484,36 @@ trait Nameable extends OwnableRef with ContextUser{
       doThat(obj)
     })
   }
+
+  def reflectNames(): Unit = {
+    Misc.reflect(this, (name, obj) => {
+      obj match {
+        case component: Component =>
+          if (component.parent == this.component) {
+            component.setPartialName(name, weak = true)
+            OwnableRef.proposal(component, this)
+          }
+        case namable: Nameable =>
+          if (!namable.isInstanceOf[ContextUser]) {
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else {
+            for (kind <- component.children) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == namable) {
+                kind.setPartialName(name, weak = true)
+                OwnableRef.proposal(kind, this)
+              }
+            }
+          }
+        case _ =>
+      }
+    })
+  }
+
 }
 
 
@@ -562,7 +598,7 @@ trait SpinalTagReady {
   }
 
   def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
-    for (spinalTag <- spinalTags) addTag(spinalTag)
+    for (tag <- tags) addTag(tag)
     this
   }
 

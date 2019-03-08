@@ -591,77 +591,13 @@ object PlayDevMiaou{
 }
 
 object PlayDevBugx{
-  class TopLevel extends Component {
-    val a, b, c, d = in Bits(8 bits)
-    val sel = UInt(2 bits)
-    val result = Bits(8 bits)
-    def rec(that : Bits, level : Int) : Bits = if(level != 0)
-      rec(~ that, level -1)
-    else
-      that
-//    switch(sel){
-//      is(0) { result := rec(a, 10) }
-//      is(1) { result := rec(b, 10) }
-//      is(2) { result := rec(c, 10) }
-//      is(3) { result := rec(d, 10) }
-//    }
-    result := Vec(List(a,b,c,d).map(rec(_, 65)))(sel)
-
-
-//      def rec(that : UInt, level : Int) : UInt = if(level != 0)
-//        rec(RegNext(that), level -1)
-//      else
-//        that
-//      result := rec(a & b, 4000)
-//    val a,b = in UInt(8 bits)
-//    val result = out UInt(7 bits)
-//
-//    result := a + b
-//
-//    val sub = StreamFifo(Bool, 10)
-
-//    val mask = MaskedLiteral("10-")
-//    val input = in Bits(3 bits)
-//    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
-//    val sel = in UInt(2 bits)
-//    val inputsA = in Vec(Bits(8 bits), 4)
-//    val inputsB = in Vec(Bool, 4)
-////    val outputA = out(inputsA(sel))
-//    val outputB = out(inputsB(sel))
-//
-//    val xx = Bits(4 bits)
-//    xx := inputsA(sel)
-//    val x = UInt(8 bits)
-//    val y = SInt(6 bits)
-//    y := x.asSInt
-//    val outputs = Vec(Vec(out(Reg(Bool)),3), 2)
-//
-//    outputs.foreach(_.foreach(_ := False))
-//    val x = U"0000000" >> -1
-//    case class MyReg() extends Bundle {
-//      val reg = UInt(32 bits)
-//
-//      def byteCount = reg(12 downto 0)
-//    }
-//
-//
-//    val reg = Reg(MyReg())
-//
-//
-//    reg.byteCount(7 downto 0).assignFromBits(B"x42")
-
-//
-//    val reg = Reg(Bits(32 bits))
-//    val sel = in UInt(2 bits)
-//    reg := 0
-////    reg(12 downto 1)(9 downto 2) := B"x00"
-//    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
-////    reg(16 downto 4)(5) := True
-  }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(verbose  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
-    print("done")
+    SpinalVerilog(new Component{
+      val mem = Mem(Bits(8 bits), 256)
+      slave(mem.readSyncPort)
+      slave(mem.writePort)
+    }.setDefinitionName("Dma"))
   }
 }
 
@@ -749,50 +685,6 @@ object PlayDevAnalog2{
 }
 
 
-
-
-object PlayDevAnalog3{
-  def main(args: Array[String]) {
-    SpinalConfig().generateVhdl({
-      val toplevel = Apb3Gpio(32)
-      toplevel.rework{
-        import toplevel._
-        io.gpio.setAsDirectionLess.allowDirectionLessIo
-        val analog = inout(Analog(Bits(32 bits))).setName("analog")
-        io.gpio.read := analog
-        for(i <- 0 to 31){
-          when(io.gpio.writeEnable(i)){
-            analog(i) := io.gpio.write(i)
-          }
-        }
-        toplevel
-      }
-    })
-    print("done")
-  }
-}
-
-
-
-object PlayDevAnalog4{
-
-  class Toplevel extends Component{
-    val io = new Bundle {
-      val gpio = master(TriState(UInt(32 bits)))
-    }
-
-
-    val driver = TriState(UInt(32 bits))
-    driver.writeEnable := True
-    driver.write := 42
-    driver <> io.gpio
-  }
-  def main(args: Array[String]) {
-    SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
-//    SpinalVhdl(InOutWrapper(new Toplevel))
-    print("done")
-  }
-}
 
 object PlayDevBug3{
   case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
@@ -1203,8 +1095,8 @@ object PlayAssertFormal extends App {
     GenerationFlags.formal{
       import spinal.core.Formal._
 //      val a = past(B"1010")
-      val b = rise(False)
-      val c = fall(False)
+      val b = rose(False)
+      val c = fell(False)
       val d = changed(False)
       val f = stable(False)
       val g = initstate()

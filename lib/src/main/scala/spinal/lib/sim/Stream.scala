@@ -20,12 +20,9 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
     this
   }
 
-  fork{
-    while(true) {
-      clockDomain.waitSampling()
-      if (stream.valid.toBoolean && stream.ready.toBoolean) {
-        callbacks.foreach(_ (stream.payload))
-      }
+  clockDomain.onSamplings{
+    if (stream.valid.toBoolean && stream.ready.toBoolean) {
+      callbacks.foreach(_ (stream.payload))
     }
   }
 }

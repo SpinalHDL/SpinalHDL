@@ -132,7 +132,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a fifo and return its pop stream
   */
   def queue(size: Int): Stream[T] = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue")
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue", true)
     fifo.setPartialName(this,"fifo")
     fifo.io.push << this
     fifo.io.pop
@@ -141,7 +141,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to an clock crossing fifo and return its pop stream
   */
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queue")
+    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queue", true)
     fifo.io.push << this
     return fifo.io.pop
   }
@@ -149,13 +149,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a fifo and return its pop stream and its occupancy
   */
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy")
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability")
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.availability)
   }
@@ -163,7 +163,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
   */
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
-    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queueWithPushOccupancy")
+    val fifo = new StreamFifoCC(payloadType, size, pushClock, popClock).setCompositeName(this,"queueWithPushOccupancy", true)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.pushOccupancy)
   }
@@ -225,7 +225,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe")
+    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
 
     val rValid = RegInit(False)
     val rData = Reg(payloadType)
@@ -246,7 +246,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def s2mPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe")
+    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
 
     val rValid = RegInit(False)
     val rBits = Reg(payloadType)

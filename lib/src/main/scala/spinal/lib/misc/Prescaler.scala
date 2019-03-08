@@ -21,8 +21,9 @@ case class Prescaler(width : Int) extends Component{
   io.overflow := counter === io.limit
 
 
-  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt) = new Area {
-    busCtrl.driveAndRead(io.limit,baseAddress)
+  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt, readLimit : Boolean = true) = new Area {
+    busCtrl.drive(io.limit,baseAddress)
+    if(readLimit) busCtrl.read(io.limit,baseAddress)
     io.clear := busCtrl.isWriting(baseAddress)
   }
 }

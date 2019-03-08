@@ -64,7 +64,7 @@ trait VhdlBase extends VhdlVerilogBase{
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
     if(encoding.isNative)
-      return enum.getName()
+      return enumPackageName + "." + enum.getName()
     else
       return enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }

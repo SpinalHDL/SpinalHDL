@@ -21,7 +21,7 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
 
 class SpinalSimWishboneArbiterTester extends FunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
+    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       dut.io.busIN.foreach{ bus =>
@@ -78,22 +78,32 @@ class SpinalSimWishboneArbiterTester extends FunSuite{
   }
 
   test("classicWishboneArbiter"){
-    val size = 100
+    val size = 20
     val config = WishboneConfig(32,8)
-    testArbiter(config,20,"classicWishboneArbiter")
+    testArbiter(config,size,"classicWishboneArbiter")
   }
 
 
   test("pipelinedWishboneArbiter"){
-    val size = 100
+    val size = 20
     val config = WishboneConfig(32,8).pipelined
-    testArbiter(config,20,"pipelinedWishboneArbiter")
+    testArbiter(config,size,"pipelinedWishboneArbiter")
   }
 
   test("classicWishboneArbiterSEL"){
-    val size = 100
+    val size = 20
     val config = WishboneConfig(32,8,selWidth = 2,useERR = true,useLOCK = true)
-    testArbiter(config,20,"classicWishboneArbiterSEL")
+    testArbiter(config,size,"classicWishboneArbiterSEL")
+  }
+
+  test("WishboneArbiterBug"){
+    val size = 2
+    val config = WishboneConfig(addressWidth=32,
+                                dataWidth=8,
+                                // selWidth=2,
+                                useRTY=true)
+                                // useERR=true)
+    testArbiter(config,size,"WishboneArbiterBug")
   }
   // test("pipelinedWishboneDecoder"){
   //   val size = 100

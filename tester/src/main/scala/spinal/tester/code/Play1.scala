@@ -945,43 +945,31 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  import spinal.core.sim._
-  class TopLevel extends Component {
+  case class Poly (size : Int, sizePoly : Int) extends Component {
+
     val io = new Bundle {
-      val gbaPixel = in(Rgb(5, 5, 5))
-      val gbaPixelClock = in Bool
-    }
-    val gbaPixelClockDomain = ClockDomain(io.gbaPixelClock)
-    val gbaPixelLogic = new ClockingArea(gbaPixelClockDomain){
-      val pixel = Reg(Rgb(8,8,8)) simPublic()
-      pixel := rgb555To888(io.gbaPixel)
+      val wData = in Bits(size bits)
+      val rData = out Bits(size bits)
+      val rValid = in Bool
+      val wValid = in Bool
+      val wAddress = in UInt(log2Up(sizePoly) bits)
+      val rAddress = in UInt(log2Up(sizePoly) bits)
     }
 
-    def rgb555To888(input: Rgb): Rgb = {
-      val output = Rgb(8, 8, 8)
-      output.r := (input.r << 3) | (input.r >> 2).resized
-      output.g := (input.g << 3) | (input.g >> 2).resized
-      output.b := (input.b << 3) | (input.b >> 2).resized
-
-      output
+    var initValue : Array[Bits] = new Array[Bits](sizePoly)
+    for (i <- 0 until sizePoly) {
+      initValue(i) = 0
     }
+
+    val mem = Mem(Bits(size bits), sizePoly ) init initValue
+
+    mem.write(io.wAddress, io.wData, io.wValid)
+    io.rData := mem.readSync(io.rAddress, io.rValid, readUnderWrite = writeFirst)
   }
 
   def main(args: Array[String]): Unit = {
-    val compiled = SimConfig.withWave.compile(new TopLevel)
-
-    compiled.doSim("PixelTest") { dut =>
-      dut.gbaPixelClockDomain.forkStimulus(10)
-      SimTimeout(1000000 * 10)
-
-      dut.io.gbaPixel.r #= 10 //01010 in binary
-      dut.io.gbaPixel.g #= 10
-      dut.io.gbaPixel.b #= 10
-
-      dut.gbaPixelClockDomain.waitSampling(1)
-      sleep(0)
-      println(dut.gbaPixelLogic.pixel.r.toInt.toBinaryString) //This assertions fails currently
-    }
+    SpinalVhdl(Poly(3,6))
+    SpinalVerilog(Poly(3,6))
   }
 }
 
