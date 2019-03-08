@@ -1225,7 +1225,7 @@ end
 
   def emitEnumPoison(e: EnumPoison): String = {
     val width = e.encoding.getWidth(e.enum)
-    s"(${width}'${"x" * width})"
+    s"(${width}'b${"x" * width})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
