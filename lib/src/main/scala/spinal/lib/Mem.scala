@@ -54,6 +54,25 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
+  def streamReadSyncMultiPort(cmd: Seq[Stream[UInt]], crossClock:Boolean = false) : Vec[Stream[T]] = {
+    val ret = Vec(Stream(mem.wordType), cmd.length)
+
+
+    val selectOh = OHMasking.first(cmd.map(_.valid))
+    val selectCmd = Stream(mem.addressType)
+    selectCmd.valid := cmd.map(_.valid).orR
+    selectCmd.payload := MuxOH(selectOh.asBits, cmd.map(_.payload))
+    val retOh = RegNextWhen(selectOh, selectCmd.ready)
+    val retRsp = mem.streamReadSync(selectCmd)
+    retRsp.ready := (ret, retOh).zipped.map(_.ready && _).orR
+    for(i <- 0 until cmd.length){
+      cmd(i).ready := selectCmd.ready && selectOh(i)
+      ret(i).valid := retRsp.valid && retOh(i)
+      ret(i).payload := retRsp.payload
+    }
+    ret
+  }
+
   def flowReadSync(cmd : Flow[UInt]) : Flow[T] = {
     val ret = Flow(mem.wordType)
     ret.valid := RegNext(cmd.valid)

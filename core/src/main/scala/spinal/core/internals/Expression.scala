@@ -315,13 +315,13 @@ object Operator {
     }
 
 
-    class Rise extends UnaryOperator{
-      override def opName: String = "$rise(Bool)"
+    class Rose extends UnaryOperator{
+      override def opName: String = "$rose(Bool)"
       override def getTypeObject: Any = TypeBool
     }
 
-    class Fall extends UnaryOperator{
-      override def opName: String = "$rise(Bool)"
+    class Fell extends UnaryOperator{
+      override def opName: String = "$fell(Bool)"
       override def getTypeObject: Any = TypeBool
     }
 
@@ -329,13 +329,13 @@ object Operator {
 
     class Changed extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "$changed(...)"
+      override def opName: String = "!$stable(...)"
     }
 
 
     class Stable extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "$changed(...)"
+      override def opName: String = "$stable(...)"
     }
 
     class InitState extends Expression{

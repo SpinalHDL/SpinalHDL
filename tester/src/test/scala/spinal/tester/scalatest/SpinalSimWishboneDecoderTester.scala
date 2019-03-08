@@ -9,6 +9,7 @@ import spinal.lib.bus.misc._
 import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
+import scala.util.Random
 
 class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMapping]) extends Component{
   val io = new Bundle{
@@ -22,7 +23,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
 
 class SpinalSimWishboneDecoderTester extends FunSuite{
   def testDecoder(config : WishboneConfig,decodings : Seq[SizeMapping],description : String = ""): Unit = {
-    val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneDecoderComponent(config,decodings))
+    val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneDecoderComponent(config,decodings))
     fixture.doSim(description){ dut =>
       dut.clockDomain.forkStimulus(period=10)
       dut.io.busIN.CYC #= false
@@ -39,10 +40,9 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
       SimTimeout(1000*10000)
       val sco = ScoreboardInOrder[WishboneTransaction]()
       val dri = new WishboneDriver(dut.io.busIN, dut.clockDomain)
-      val maxAddr = 2099
 
       val seq = WishboneSequencer{
-        WishboneTransaction().randomizeAddress(maxAddr).randomizeData(200)
+        WishboneTransaction().randomAdressInRange(Random.shuffle(decodings).head).randomizeData(Math.pow(2,config.dataWidth).toInt-1)
       }
 
       val monIN = WishboneMonitor(dut.io.busIN, dut.clockDomain){ bus =>
@@ -87,5 +87,11 @@ class SpinalSimWishboneDecoderTester extends FunSuite{
     val config = WishboneConfig(32,8).pipelined
     val decodings = for(i <- 1 to 20) yield SizeMapping(i*size,size-1)
     testDecoder(config,decodings,"pipelinedWishboneDecoder")
+  }
+
+  test("DecoderSelectorBug"){
+    val config = WishboneConfig(32,16)
+    val decodings = List(SizeMapping(0x2000,12 Bytes),SizeMapping(0x1000, 12 Bytes))
+    testDecoder(config,decodings,"DecoderSelectorBug")
   }
 }

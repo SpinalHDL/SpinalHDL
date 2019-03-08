@@ -72,7 +72,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
-    val next = new Flow(payloadType).setCompositeName(this, "takeWhen")
+    val next = new Flow(payloadType).setCompositeName(this, "takeWhen", true)
     next.valid := this.valid && cond
     next.payload := this.payload
     return next
@@ -109,7 +109,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
         ret.payload := this.payload
       }
       ret
-    }.setCompositeName(this, "m2sPipe")
+    }.setCompositeName(this, "m2sPipe", true)
   }
 
   def stage() : Flow[T] = this.m2sPipe()
@@ -125,14 +125,14 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy")
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithOccupancy", true)
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
   def queueWithAvailability(size: Int): (Stream[T], UInt) = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability")
+    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queueWithAvailability", true)
     fifo.io.push << this.toStream
     fifo.io.push.ready.allowPruning()
     return (fifo.io.pop, fifo.io.availability)

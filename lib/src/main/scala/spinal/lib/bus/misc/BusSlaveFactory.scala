@@ -165,6 +165,12 @@ trait BusSlaveFactory extends Area{
     bitMapping.foreach{ case (bitId, that) => write(that, address, bitId) }
   }
 
+  def read[T <: Data](address    : BigInt,
+                       bitMapping : (Int, Data)*): Unit = {
+    bitMapping.foreach{ case (bitId, that) => read(that, address, bitId) }
+  }
+
+
   /**
     * Make that readable and writable at address and placed at bitOffset in the word
     */
@@ -411,7 +417,7 @@ trait BusSlaveFactory extends Area{
                               address       : BigInt,
                               bitOffset     : Int = 0,
                               documentation : String = null): T = {
-    val reg = Reg(that)
+    val reg = Reg(that).setCompositeName(that, "_driver", true)
     write(reg, address, bitOffset, documentation)
     read(reg, address, bitOffset,  documentation)
     that := reg

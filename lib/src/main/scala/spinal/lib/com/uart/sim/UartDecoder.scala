@@ -23,7 +23,7 @@ object UartDecoder {
         sleep(baudPeriod)
       }
 
-      if(uartPin.toBoolean != true) println("UART FRAME ERROR") else  print(buffer.toChar)
+      if(uartPin.toBoolean != true) println("UART FRAME ERROR") else if(buffer.toChar != '\r') print(buffer.toChar)
     }
   }
 }

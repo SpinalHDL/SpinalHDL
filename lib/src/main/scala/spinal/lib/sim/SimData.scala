@@ -7,6 +7,7 @@ import scala.collection.mutable
 import scala.language.dynamics
 
 object SimData{
+  def apply() = new SimData()
   def copy(hard : Data) = new SimData().load(hard)
 
   implicit def dataToSimData(data : Data) : SimData = copy(data)
@@ -14,6 +15,9 @@ object SimData{
 
 class SimData extends Dynamic{
   val values = mutable.LinkedHashMap[String,Any]()
+
+  def apply(name : String) = values(name)
+  def update(name : String, value: BigInt) = updateDynamic(name)(value)
 
   def updateDynamic(name: String)(value: BigInt) = values(name) = value
   def selectDynamic(name: String) = values(name)
@@ -71,7 +75,7 @@ class SimData extends Dynamic{
     val str = new StringBuilder()
     for((name, value) <- values) value match{
       case value : BigInt => {
-        str ++= s"$tab$name : $value\n"
+        str ++= s"$tab$name : 0x${value.toString(16)}\n"
       }
       case value : SimData => {
         str ++= s"$tab$name\n"
