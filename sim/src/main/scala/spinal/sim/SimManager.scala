@@ -259,6 +259,7 @@ class SimManager(val raw : SimRaw) {
       case e : SimSuccess =>
       case e : Throwable => {
         println(f"""[Error] Simulation failed at time=$time""")
+        raw.sleep(1)
         throw e
       }
     } finally {

@@ -28,8 +28,6 @@ case class ScoreboardInOrder[T]() {
     Phase.check{
       checkEmptyness()
     }
-  } else {
-
   }
 
   def pushDut(that : T) : Unit = {
@@ -48,7 +46,7 @@ case class ScoreboardInOrder[T]() {
     if(ref.nonEmpty && dut.nonEmpty){
       val dutHead = dut.dequeue()
       val refHead = ref.dequeue()
-      if(!compare(dutHead, refHead)){
+      if(!compare(refHead, dutHead)){
         println("Transaction missmatch :")
         println("REF :")
         println(refHead)
@@ -71,7 +69,7 @@ case class ScoreboardInOrder[T]() {
         println("Unmatched reference transaction :\n")
         ref.foreach(d => println(d))
       }
-      Phase.check.onEnd(simFailure())
+      if(Phase.isUsed) Phase.check.onEnd(simFailure()) else simFailure()
     }
   }
 }
