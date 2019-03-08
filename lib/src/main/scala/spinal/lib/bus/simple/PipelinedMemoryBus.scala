@@ -265,7 +265,7 @@ case class PipelinedMemoryBusInterconnect(){
   def noTransactionLockOn(slaves : Seq[PipelinedMemoryBus]) : Unit = slaves.foreach(noTransactionLockOn(_))
 
 
-  def addMaster(bus : PipelinedMemoryBus, accesses : Seq[PipelinedMemoryBus]) : this.type = {
+  def addMaster(bus : PipelinedMemoryBus, accesses : Seq[PipelinedMemoryBus] = Nil) : this.type = {
     masters(bus) = MasterModel()
     for(s <- accesses) connections += ConnectionModel(bus, s)
     this
