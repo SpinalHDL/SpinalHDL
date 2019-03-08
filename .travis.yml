@@ -1,92 +1,50 @@
-language: scala
-
 dist: xenial
 
-notifications:
-  email:
-    on_success: never
-
-# See 'project/Version.scala'
-scala:
-   - 2.11.12
-
-sbt_args: -no-colors -J-Xss2m
-
-script:
-  - sbt -jvm-opts travis/jvmopts.compile compile
-  - sbt -jvm-opts travis/jvmopts.test test
-
-jdk:
-  - openjdk9
-  - openjdk10
-  - oraclejdk11
-#  - oraclejdk7
-#  - openjdk7
-
-before_install:
-  # JDK fix
-  - cat /etc/hosts # optionally check the content *before*
-  - sudo hostname "$(hostname | cut -c1-63)"
-  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
-  - cat /etc/hosts # optionally check the content *after*
-  - cd ..
-
-  # GHDL
-  - sudo apt-get install libgnat-4.9 zlib1g-dev -y
-  - wget https://github.com/tgingold/ghdl/releases/download/v0.34/ghdl-v0.34-mcode-ubuntu.tgz
-  - mkdir ghdl
-  - tar -xvzf ghdl-v0.34-mcode-ubuntu.tgz -C ghdl
-  - export PATH=$(pwd)/ghdl/bin:$PATH
-  - echo export PATH=$(pwd)/ghdl/bin:'$PATH' >> ~/.bashrc
-
-
-# iverilog (debian package 9.7 contain bugs)
-  - sudo apt-get install -y gperf readline-common bison flex
-  - wget https://github.com/steveicarus/iverilog/archive/v10_0.tar.gz
-  - tar -xvf v10_0.tar.gz
-  - cd iverilog-10_0
-  - autoconf
-  - ./configure
-  - make -j$(nproc)
-  - sudo make install
-  - cd ..
-
-  # cocotb
-  - sudo apt-get install -y git make gcc g++ swig python-dev
-  - git clone https://github.com/potentialventures/cocotb
-  - cd cocotb
-  - git reset --hard a463cee498346cb26fc215ced25c088039490665
-  - cd ..
-  - export COCOTB=$(pwd)/cocotb
-
-  # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  - cd SpinalHDL/tester/src/test/python/spinal/Dummy
-  - make TOPLEVEL_LANG=verilog
-  - make TOPLEVEL_LANG=vhdl
-  - cd ../../../../../../..
-
-  # Verilator
-  - sudo apt-get install git make autoconf g++ flex bison -y  # First time prerequisites
-  - git clone http://git.veripool.org/git/verilator   # Only first time
-  - unset VERILATOR_ROOT  # For bash
-  - cd verilator
-  - git pull        # Make sure we're up-to-date
-  - git checkout verilator_3_916
-  - autoconf        # Create ./configure script
-  - ./configure
-  - make -j$(nproc)
-  - sudo make install
-  - cd ..
-
-  - cd SpinalHDL
-
-
-before_cache:
-  # Tricks to avoid unnecessary cache updates
-  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
-  - find $HOME/.sbt -name "*.lock" -delete
-
-cache:
-  directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot/
+jobs:
+  include:
+    - os: linux
+      services: docker
+      language: minimal
+      install: skip
+      addons:
+        apt:
+          packages:
+          - pass
+      env: DOCKER=spinalhdl/dev
+      script: ./travis.sh -c
+      deploy:
+        provider: script
+        skip_cleanup: true
+        script: ./travis.sh -d
+        on:
+          repo: SpinalHDL/SpinalHDL
+          branch: master
+    - &host
+      language: scala
+      # See 'project/Version.scala'
+      scala: 2.11.12
+      jdk: openjdk9
+      sbt_args: -no-colors -J-Xss2m
+      script:
+        - sbt -jvm-opts travis/jvmopts.compile compile
+        - sbt -jvm-opts travis/jvmopts.test test
+      before_install:
+        - ./travis.sh -i
+        - export PATH=$(pwd)/../ghdl/bin:$PATH
+        - export COCOTB=$(pwd)/../cocotb
+      before_cache:
+        # Tricks to avoid unnecessary cache updates
+        - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+        - find $HOME/.sbt -name "*.lock" -delete
+      cache:
+        directories:
+          - $HOME/.ivy2/cache
+          - $HOME/.sbt/boot/
+    - <<: *host
+      jdk: openjdk10
+    - <<: *host
+      jdk: openjdk11
+#    - <<: *host
+#      jdk: openjdk7
+#    - <<: *host
+#      jdk: oraclejdk7

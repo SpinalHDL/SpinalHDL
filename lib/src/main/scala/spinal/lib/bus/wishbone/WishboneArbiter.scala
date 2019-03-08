@@ -32,7 +32,6 @@ object WishboneArbiter{
   * @constructor create a WishboneArbiter instance
   * @param config it will use for configuring all the input/output wishbone port
   * @param inputCount the number of master interface
-  * @param priority wich interface is considerate first in the roundrobin algorithm
   */
 class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Component{
   val io = new Bundle{
@@ -40,38 +39,35 @@ class WishboneArbiter(config : WishboneConfig, inputCount : Int) extends Compone
     val output = master(Wishbone(config))
   }
 
-  //default some slave output flow control signal to false,
-  //so we don't create involuntary latched logic
-                      io.inputs.map(_.ACK := False)
-  if(config.useSTALL) io.inputs.map(_.STALL := False)
-  if(config.useERR)   io.inputs.map(_.ERR := False)
-  if(config.useRTY)   io.inputs.map(_.RTY := False)
-
-  //permanently connect DAT_MISO and TGD_MISO (if used) for save on logic usage
-  /**@todo: in.TGD_MISO seams a typo.. if regression still checks up, change the regression test*/
+  //Permanently connect DAT_MISO and TGD_MISO (if used) for save on logic usage
   io.inputs.map{ in =>
     in.DAT_MISO := io.output.DAT_MISO
     Wishbone.driveWeak(io.output.TGD_MISO, in.TGD_MISO, null, false, false)
   }
 
-  //implement a blocking round robin algorytm.
+  //Implement a blocking round robin algorithm.
   //The channel will remain selected is either LOCK or CYC are equals to true
   //and pass to the next channel after the master clears CYC and LOCK
   //this output a One Hot encoded vector/bit array
   val requests =  if(config.useLOCK)  Vec(io.inputs.map(func => func.CYC && !func.LOCK))
                   else                Vec(io.inputs.map(_.CYC))
-  val maskLock = Reg(Bits(inputCount bits)) init(1)
 
-  val selector = RegNextWhen(OHMasking.roundRobin(requests.asBits, maskLock), !io.output.CYC) init(1)
-  when(io.output.CYC && selector =/= 0){
+  val maskLock : Vec[Bool] = RegInit(B(1,inputCount bits).asBools)
+  val roundRobin : Vec[Bool] = OHMasking.roundRobin(requests, maskLock)
+
+  val selector : Vec[Bool] = RegNext(roundRobin,roundRobin.getZero)
+  when(io.output.CYC && selector.orR){
     maskLock := selector
   }
-  //Implementing the multiplexer logic, it thakes the one Hot bit vector/bit array as input
-  MuxOH(selector, Vec(io.inputs.map(_.ACK))) := io.output.ACK
-  if(config.useSTALL) MuxOH(selector, Vec(io.inputs.map(_.STALL)))  := io.output.STALL
-  if(config.useERR)   MuxOH(selector, Vec(io.inputs.map(_.ERR)))    := io.output.ERR
-  if(config.useRTY)   MuxOH(selector, Vec(io.inputs.map(_.RTY)))    := io.output.RTY
 
+  //Implement the selector for the output slave signals
+  //This is ok becouse the signal is assumed as oneHotEncoded
+                      (io.inputs.map(_.ACK),   selector).zipped.foreach(_ := _ && io.output.ACK)
+  if(config.useSTALL) (io.inputs.map(_.STALL), selector).zipped.foreach(_ := _ && io.output.STALL)
+  if(config.useERR)   (io.inputs.map(_.ERR),   selector).zipped.foreach(_ := _ && io.output.ERR)
+  if(config.useRTY)   (io.inputs.map(_.RTY),   selector).zipped.foreach(_ := _ && io.output.RTY)
+
+  //Implement the selector for the input slave signals
   io.output.CYC       := MuxOH(selector, Vec(io.inputs.map(_.CYC)))
   io.output.STB       := MuxOH(selector, Vec(io.inputs.map(_.STB)))
   io.output.WE        := MuxOH(selector, Vec(io.inputs.map(_.WE)))

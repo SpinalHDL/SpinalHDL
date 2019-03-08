@@ -56,7 +56,7 @@ lazy val all = (project in file("."))
   .enablePlugins(ScalaUnidocPlugin)
   .settings(
     defaultSettings,
-    name := "SpinalHDL all",
+    name := "SpinalHDL-all",
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
@@ -76,7 +76,7 @@ def gitHash = (try {
 lazy val sim = (project in file("sim"))
   .settings(
     defaultSettings,
-    name := "SpinalHDL Sim",
+    name := "SpinalHDL-sim",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
     libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
     libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
@@ -87,7 +87,7 @@ lazy val sim = (project in file("sim"))
 lazy val core = (project in file("core"))
   .settings(
     defaultSettings,
-    name := "SpinalHDL Core",
+    name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
     resolvers += Resolver.sonatypeRepo("public"),
@@ -110,7 +110,7 @@ lazy val core = (project in file("core"))
 lazy val lib = (project in file("lib"))
   .settings(
     defaultSettings,
-    name := "SpinalHDL Lib",
+    name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
     version := SpinalVersion.lib
   )
@@ -133,7 +133,7 @@ lazy val debugger = (project in file("debugger"))
 lazy val demo = (project in file("demo"))
   .settings(
     defaultSettings,
-    name := "SpinalHDL Demo",
+    name := "SpinalHDL-demo",
     version := SpinalVersion.demo,
     publishArtifact := false,
     publishLocal := {}
@@ -144,7 +144,7 @@ lazy val demo = (project in file("demo"))
 lazy val tester = (project in file("tester"))
   .settings(
     defaultSettings,
-    name := "SpinalHDL tester",
+    name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),
 

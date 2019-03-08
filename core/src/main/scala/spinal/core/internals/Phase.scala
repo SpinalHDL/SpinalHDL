@@ -739,6 +739,9 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
   }
 }
 
+object classNameOf{
+  def apply(that : Any): String = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+}
 
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
@@ -748,13 +751,13 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 
     if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
     if(topLevel.definitionName == null) {
-      topLevel.definitionName = pc.config.globalPrefix + topLevel.getClass.getSimpleName.replace("$",".").split("\\.").head
+      topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
     }
     for (c <- sortedComponents) {
       c.nameElements()
       if(c != topLevel) {
         if (c.definitionName == null) {
-          c.definitionName = privateNamespaceName + c.getClass.getSimpleName.replace("$", ".").split("\\.").head
+          c.definitionName = privateNamespaceName + classNameOf(c)
         }
       }
       if (c.definitionName == "") {

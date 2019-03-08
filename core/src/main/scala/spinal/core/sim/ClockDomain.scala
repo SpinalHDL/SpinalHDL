@@ -85,7 +85,7 @@ object ForkClock {
   */
 object SimSpeedPrinter {
 
-  def apply(cd: ClockDomain, printPeriod: Double): Unit = fork {
+  def apply(cd: ClockDomain, printPeriod: Double): Unit = {
     var cycleCounter = 0l
     var lastTime = System.nanoTime()
 
@@ -111,8 +111,7 @@ object SimSpeedPrinter {
   */
 object SimTimeout {
 
-  def apply(duration: Long): Unit = fork {
-    sleep(duration)
+  def apply(duration: Long): Unit = delayed(duration) {
     simFailure(s"Timeout trigger after $duration units of time")
   }
 }

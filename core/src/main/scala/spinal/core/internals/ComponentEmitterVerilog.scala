@@ -1033,8 +1033,7 @@ end
       case port: MemWrite     =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadSync  =>
-        if(port.readUnderWrite == readFirst)
-          cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadWrite =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadAsync =>
@@ -1046,7 +1045,7 @@ end
       def syncLogic(tab: String, b: StringBuilder): Unit ={
         ports.foreach{
           case port: MemWrite     => emitPort(port, tab, b)
-          case port: MemReadSync  => emitPort(port, tab, b)
+          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
           case port: MemReadWrite => emitPort(port, tab, b)
         }
       }
@@ -1226,7 +1225,7 @@ end
 
   def emitEnumPoison(e: EnumPoison): String = {
     val width = e.encoding.getWidth(e.enum)
-    s"(${width}'${"x" * width})"
+    s"(${width}'b${"x" * width})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1364,9 +1363,9 @@ end
     case  e: BitVectorRangedAccessFloating            => accessBitVectorFloating(e)
 
     case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
-    case e : Operator.Formal.Rise                     => s"$$rise(${emitExpression(e.source)})"
-    case e : Operator.Formal.Fall                     => s"$$rise(${emitExpression(e.source)})"
-    case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"
+    case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"
+    case e : Operator.Formal.Fell                     => s"$$fell(${emitExpression(e.source)})"
+    case e : Operator.Formal.Changed                  => s"!$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.InitState                => s"$$initstate()"
   }
