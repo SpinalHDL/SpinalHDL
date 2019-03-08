@@ -1045,7 +1045,7 @@ end
       def syncLogic(tab: String, b: StringBuilder): Unit ={
         ports.foreach{
           case port: MemWrite     => emitPort(port, tab, b)
-          case port: MemReadSync  => emitPort(port, tab, b)
+          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
           case port: MemReadWrite => emitPort(port, tab, b)
         }
       }
