@@ -29,9 +29,9 @@ case class FormalCommand(_smt2: String="",
                          _append: Long = 0,
                          _opt: String = "",
                          workDir: String = ".")
-    extends Executable with Makable{
+    extends Executable with Makeable with MakeableLog with PassFail{
 
-  override val logFile = s"yosys-{solver}.log"
+  override val logFile = s"yosys-smtbmc.log"
   def smt2(path: String) = this.copy(_smt2 = path)
   def top(path: String) = this.copy(_top = path)
   def solver(path: String) = this.copy(_solver = path)
@@ -65,7 +65,9 @@ case class FormalCommand(_smt2: String="",
   }
 
   //make stuff
-  def target = if(_dumpVerilogTB.isEmpty) "formal" else _dumpVerilogTB
+  //def target = List(if(_dumpVerilogTB.isEmpty) "formal" else _dumpVerilogTB)
+  def target = List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).filter(_.nonEmpty)
+  override def needs = List(".*.smt2")
   override def makeComand: String =
     this.copy(_smt2 = getPrerequisiteFromName(".*.smt2")).toString
 }

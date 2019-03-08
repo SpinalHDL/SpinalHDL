@@ -106,7 +106,7 @@ case class NextPNR_ice40( _json: String="",
                           _opt_timing: Boolean = false,
                           _tmfuzz: Boolean = false,
                           _pcf_allow_unconstrained : Boolean = false,
-                          workDir : String = ".") extends NextPNR with Makable{
+                          workDir : String = ".") extends NextPNR with Makeable{
   override val family = "ice40"
 
   def openGui = this.copy(_gui=true)
@@ -134,7 +134,7 @@ case class NextPNR_ice40( _json: String="",
   }
 
   //make stuff
-  def target = _asc
+  def target = List(_asc)
   override def makeComand: String =
     this.copy(/* _pcf = getPrerequisiteFromName(".*.pcf"), */ _json = getPrerequisiteFromName(".*.json")).toString
 }

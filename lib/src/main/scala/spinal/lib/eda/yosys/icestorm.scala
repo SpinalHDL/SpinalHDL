@@ -13,7 +13,7 @@ case class IcePack(_asc: String = "icepack.asc",
                    _writeBank: Seq[Int] = Seq.empty[Int],
                    workDir: String = ".")
     extends Executable
-    with Makable {
+    with Makeable {
 
   override val logFile = "icepack.log"
   def bin(b: String) = this.copy(_bin = b)
@@ -49,7 +49,8 @@ case class IcePack(_asc: String = "icepack.asc",
   }
 
   //make stuff
-  def target: String = if(_unpack) _asc else _bin
+  override def needs = List(if(_unpack) ".*.bin" else ".*.asc")
+  def target = List(if(_unpack) _asc else _bin)
   override def makeComand: String =
     if(_unpack) this.copy(_bin = getPrerequisiteFromName(".*.bin")).toString
     else        this.copy(_asc = getPrerequisiteFromName(".*.asc")).toString
@@ -94,7 +95,7 @@ case class IceProg(_bin: String = "",
                    _targetname: String = "program",
                    workDir: String = ".")
     extends Executable
-    with MakablePhony {
+    with MakeablePhony with MakeableLog with PassFail{
 
   override val logFile = "iceprog.log"
 
@@ -127,7 +128,9 @@ case class IceProg(_bin: String = "",
   }
 
   //makepart
-  def target: String = _targetname
+  override def needs = List(".*.bin")
+  def phonyTarget = _targetname
+  def target = List()
   override def makeComand: String =
     this.copy(_bin = getPrerequisiteFromName(".*.bin")).toString
 }
@@ -140,7 +143,7 @@ case class IceBram(_ascIn: String = "",
                    _depth: Long = 0,
                    workDir: String = ".")
     extends Executable
-    with Makable {
+    with Makeable {
   def ascIn(asc: String) = this.copy(_ascIn = asc)
   def ascOut(asc: String) = this.copy(_ascIn = asc)
   def seed(s: String) = this.copy(_random = true, _seed = s)
@@ -163,7 +166,8 @@ case class IceBram(_ascIn: String = "",
   }
 
   //make part
-  def target = _ascOut
+  override def needs = List(".*.asc")
+  def target = List(_ascOut)
   override def makeComand: String =
     this.copy(_ascIn = getPrerequisiteFromName(".*.asc")).toString
 }
@@ -172,7 +176,7 @@ case class IceCompr(_ascIn: String = "",
                     _ascOut: String = "icecompr.asc",
                     workDir: String = ".")
     extends Executable
-    with Makable {
+    with Makeable {
 
   def workPath(path: String) = this.copy(workDir = path)
   def ascIn(asc: String) = this.copy(_ascIn = asc)
@@ -186,7 +190,7 @@ case class IceCompr(_ascIn: String = "",
   }
 
   //make stuff
-  def target = _ascOut
+  def target = List(_ascOut)
   override def makeComand: String =
     this.copy(_ascIn = getPrerequisiteFromName(".*.asc")).toString
 }
