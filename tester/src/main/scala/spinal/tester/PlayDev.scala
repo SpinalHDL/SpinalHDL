@@ -17,6 +17,7 @@ import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
+import scala.util.Random
 
 
 
@@ -591,6 +592,9 @@ object PlayDevMiaou{
 }
 
 object PlayDevBugx{
+  val a,b,c = Reg(UInt(Random.nextInt(10) bits))
+  val sum = List(a,b,c).filter(widthOf(_) == 4).reduce(_ + _)
+
 
   def main(args: Array[String]) {
     SpinalVerilog(new Component{
