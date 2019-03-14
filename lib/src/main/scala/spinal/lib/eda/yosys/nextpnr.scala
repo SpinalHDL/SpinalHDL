@@ -1,6 +1,10 @@
 package spinal.lib.eda.yosys
 
 import spinal.core._
+import scala.collection._
+import java.nio.file.{Path, Paths}
+
+
 
 //  -l [ --log ] arg            log file, all log messages are written to this file regardless of -q
 //  --debug                     debug output
@@ -17,8 +21,8 @@ import spinal.core._
 //  --save arg                  project file to write
 //  --load arg                  project file to read
 
-trait NextPNR extends Executable{
-  val _json: String
+trait NextPNR{
+  val _json: Option[Path]
   val _freq: HertzNumber
   val _pack_only: Boolean
   val _verbose: Boolean
@@ -32,7 +36,7 @@ trait NextPNR extends Executable{
 
   override def toString(): String = {
     val ret = new StringBuilder(s"nextpnr-${family} ")
-                              ret.append(s"--json ${_json} ")                   // --json arg               JSON design file to ingest
+                              ret.append(s"--json ${_json.get} ")                   // --json arg               JSON design file to ingest
     if(_freq.toDouble > 0 )   ret.append(s"--freq ${_freq.toDouble/1000000} ")  // --freq arg               set target frequency for design in MHz
     if(_pack_only)            ret.append("--pack-only ")                        // --pack-only              pack design only without placement or routing
     if(_verbose)              ret.append("--verbose ")                          // -v [ --verbose ]         verbose output
@@ -88,9 +92,10 @@ object Ice40{
 //  --up5k                      set device type to iCE40UP5K
 //  --read arg                  asc bitstream file to read
 
-case class NextPNR_ice40( _json: String="",
-                          _pcf: String="",
-                          _asc: String="nextpnr_ice40.asc",
+/** Create the command line string for push and route (nextpnr-ice40)*/
+case class NextPNR_ice40( _json: Option[Path] = None,
+                          _pcf: Option[Path] = None,
+                          _asc: Option[Path] = None,
                           _no_tmdriv: Boolean = true,
                           _freq: HertzNumber = 0 Hz,
                           _pack_only: Boolean = false,
@@ -106,24 +111,56 @@ case class NextPNR_ice40( _json: String="",
                           _opt_timing: Boolean = false,
                           _tmfuzz: Boolean = false,
                           _pcf_allow_unconstrained : Boolean = false,
-                          workDir : String = ".") extends NextPNR with Makeable{
+                          prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]()) extends NextPNR with Makeable{
   override val family = "ice40"
-
+  /** open next-pnr gui */
   def openGui = this.copy(_gui=true)
-  def targetFrequency(frequency: HertzNumber) = this.copy(_freq=frequency,_no_tmdriv=false)
-  def seed(seed: String) = this.copy(_seed=seed,_randomize_seed=false)
-  def json(j: String) = this.copy(_json=j)
-  def asc(a: String) = this.copy(_asc=a)
 
+  /** Set the global clock target
+    *
+    * @param frequency the minimum frequency target
+    */
+  def targetFrequency(frequency: HertzNumber) = this.copy(_freq=frequency,_no_tmdriv=false)
+
+  /** Specify the seed for the pnr
+    *
+    * @param seed the seed string
+    */
+  def seed(seed: String) = this.copy(_seed=seed,_randomize_seed=false)
+
+  /** Specify the path where to read the json file
+    *
+    * @param json the path of the json file
+    */
+  def json(json: Path) = this.copy(_json=Some(json))
+
+  /** Specify the path where to save the asc file
+    * default: nextpnr-ice40.asc
+    *
+    * @param asc the path of the asc file
+    */
+  def asc(asc: Path) = this.copy(_asc=Some(asc))
+
+  /** Specify wich FPGA from the ice40 family target
+    * default: target=hx1k, pack=ct256
+    *
+    * @param target the name of the FPGA
+    * @param pack the package of the FPGA
+    */
   def setTarget(target: String, pack: String="") = this.copy(_target=target,_pack=pack)
-  def withPCF(path: String, allowUncostrained: Boolean = false) = this.copy(_pcf=path,_pcf_allow_unconstrained = allowUncostrained)
-  def workPath(path: String) = this.copy(workDir=path)
+
+  /** Specify the path of the pcf file
+    *
+    * @param path the path of the pcf file
+    * @param allowUncostrained a flag to allow all uncostrained I/O
+    */
+  def withPCF(path: Path, allowUncostrained: Boolean = false) = this.copy(_pcf=Some(path),_pcf_allow_unconstrained = allowUncostrained)
 
   override def toString(): String = {
     val ret = new StringBuilder(super.toString())
-                                  ret.append(s"--pcf ${_pcf} ")             // --pcf arg                  PCF constraints file to ingest
-                                  ret.append(s"--${target} ")
-                                  ret.append(s"--asc ${_asc} ")             //  --asc arg                   asc bitstream file to write
+                                  ret.append(s"--pcf ${_pcf.get} ")             // --pcf arg                  PCF constraints file to ingest
+                                  ret.append(s"--${_target} ")
+                                  ret.append(s"""--asc ${_asc.getOrElse(Paths.get("nextpnr-ice40.asc"))} """)             //  --asc arg                   asc bitstream file to write
     if(_pack.nonEmpty)            ret.append(s"--package ${_pack} ")        // --package arg              set device package
     if(_promote_logic)            ret.append( "--promote-logic ")           //  --promote-logic           enable promotion of 'logic' globals (in addition to clk/ce/sr by default)
     if(_no_promote_globals)       ret.append( "--no-promote-globals ")      // --no-promote-globals       disable all global promotion
@@ -133,8 +170,18 @@ case class NextPNR_ice40( _json: String="",
     ret.toString
   }
 
+  /** Change the output folder of all the target/output
+    *
+    * @param path the path where redirect all the outputs
+    */
+  def outputFolder(path: Path): NextPNR_ice40 ={
+    val newAsc  = if(_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
+    this.copy(_asc=newAsc)
+  }
+
   //make stuff
-  def target = List(_asc)
+  def target = List(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))
+  override def needs = List("json","pcf")
   override def makeComand: String =
-    this.copy(/* _pcf = getPrerequisiteFromName(".*.pcf"), */ _json = getPrerequisiteFromName(".*.json")).toString
+    this.withPCF(getPrerequisiteFromExtension("pcf")).json(getPrerequisiteFromExtension("json")).toString
 }
