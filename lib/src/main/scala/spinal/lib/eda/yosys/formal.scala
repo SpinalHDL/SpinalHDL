@@ -1,5 +1,9 @@
 package spinal.lib.eda.yosys
 
+import scala.collection._
+import java.nio.file.{Path, Paths}
+import org.apache.commons.io.FilenameUtils
+
 object Mode extends Enumeration {
   val bmc: String = ""
   val cover: String = "-c"
@@ -16,35 +20,104 @@ object Solver extends Enumeration {
   val mathsat: String = "mathsat"
 }
 
-case class FormalCommand(_smt2: String="",
+/** Create the command line string for formal verification (yosys-smtbmc) */
+case class FormalCommand(_smt2: Option[Path]=None,
                          _top: String = "",
                          _solver: String = Solver.abc,
                          _step: Long = 20,
                          _skip: Long = 0,
                          _stepSize: Long = 1,
                          _mode: String = Mode.bmc,
-                         _dumpVCD: String = "",
-                         _dumpVerilogTB: String = "",
-                         _dumpSmtc: String = "",
+                         _dumpVCD: Option[Path] = None,
+                         _dumpVerilogTB: Option[Path] = None,
+                         _dumpSmtc: Option[Path] = None,
                          _append: Long = 0,
                          _opt: String = "",
-                         workDir: String = ".")
-    extends Executable with Makeable with MakeableLog with PassFail{
+                         prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
+    extends Makeable with MakeableLog with PassFail{
 
   override val logFile = s"yosys-smtbmc.log"
-  def smt2(path: String) = this.copy(_smt2 = path)
-  def top(path: String) = this.copy(_top = path)
-  def solver(path: String) = this.copy(_solver = path)
-  def dumpVCD(path: String) = this.copy(_dumpVCD = path)
-  def dumpVerilogTB(path: String) = this.copy(_dumpVerilogTB = path)
-  def dumpSMTC(path: String) = this.copy(_dumpSmtc = path)
+
+  /** Specify the smt2 input file
+    *
+    * @param path the path were the smt2 model reside
+    */
+  def smt2(path: Path) = this.copy(_smt2 = Some(path))
+
+  /** Specify the top-level module
+    *
+    * @param top the name of the top level module
+    */
+  def top(top: String) = this.copy(_top = top)
+
+  /** Specify the sat solver to use
+    * deafult: abc
+    *
+    * @param solver the name of the solver to use
+    */
+  def solver(solver: String) = this.copy(_solver = solver)
+
+  /** Specify the path where to save the vcd trace
+    * default: not generate
+    *
+    * @param path the path where to save the vcd trace
+    */
+  def dumpVCD(path: Path) = this.copy(_dumpVCD = Some(path))
+
+  /** Specify the path where to save the verilog testbench
+    * default: not generate
+    *
+    * @param path the path where to save the verilog testbench
+    */
+  def dumpVerilogTB(path: Path) = this.copy(_dumpVerilogTB = Some(path))
+
+  /** Specify the path where to save the smtc model
+    * default: not generate
+    *
+    * @param path he path where to save the smtc model
+    */
+  def dumpSMTC(path: Path) = this.copy(_dumpSmtc = Some(path))
+
+
+  /** Specify for how many step to check the model
+    * default: step = 20, skip = 0, stepSize = 1
+    *
+    * @param step the number of step to check
+    * @param skip the number of the to ignore before checking
+    * @param stepSize the number of how many step ignore after a check
+    */
   def step(step: Long, skip: Long = 0, stepSize: Long = 1) =
     this.copy(_step = step, _skip = skip, _stepSize = stepSize)
+
+  /** Specify how many step continue after the model is checked, usefull in cover mode
+    * default: 0
+    *
+    * @param step the number of step to append
+    */
   def append(step: Long) = this.copy(_append = step)
+
+  /** Bounded model chawcking mode*/
   def bmc = this.copy(_mode = Mode.bmc)
+
+  /** Cover mode*/
   def cover = this.copy(_mode = Mode.cover)
+
+  /** Prove/K-induction mode*/
   def prove = this.copy(_mode = Mode.prove)
+
+  /** Liveness check mode*/
   def live = this.copy(_mode = Mode.live)
+
+  /** Change the output folder of all the target/output
+    *
+    * @param path the path where redirect all the outputs
+    */
+  def outputFolder(path: Path): FormalCommand ={
+    val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
+    val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
+    val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
+    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
+  }
 
   override def toString(): String = {
     val ret = new StringBuilder("yosys-smtbmc ")
@@ -55,19 +128,17 @@ case class FormalCommand(_smt2: String="",
     ret.append(s"${_mode} ")
     ret.append(s"--append ${_append} ")
     if (_top.nonEmpty) ret.append(s"-m ${_top} ")
-    if (_dumpSmtc.nonEmpty) ret.append(s"--dump-smtc ${_dumpSmtc} ")
-    if (_dumpVCD.nonEmpty) ret.append(s"--dump-vcd ${_dumpVCD} ")
-    if (_dumpVerilogTB.nonEmpty) ret.append("--dump-vlogtb ${dumpVerilogTB} ")
+    if (_dumpSmtc.isDefined) ret.append(s"--dump-smtc ${_dumpSmtc.get} ")
+    if (_dumpVCD.isDefined) ret.append(s"--dump-vcd ${_dumpVCD.get} ")
+    if (_dumpVerilogTB.isDefined) ret.append("--dump-vlogtb ${dumpVerilogTB.get} ")
     if (_opt.nonEmpty) ret.append(s"-S ${_opt} ")
-    ret.append(_smt2)
+    ret.append(_smt2.get)
 
     ret.toString()
   }
 
   //make stuff
-  //def target = List(if(_dumpVerilogTB.isEmpty) "formal" else _dumpVerilogTB)
-  def target = List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).filter(_.nonEmpty)
-  override def needs = List(".*.smt2")
-  override def makeComand: String =
-    this.copy(_smt2 = getPrerequisiteFromName(".*.smt2")).toString
+  def target = List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
+  override def needs = List("smt2")
+  override def makeComand: String = this.smt2(getPrerequisiteFromExtension("smt2")).toString
 }
