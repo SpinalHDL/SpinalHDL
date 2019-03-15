@@ -156,6 +156,10 @@ class GlobalData(val config : SpinalConfig) {
           if (scalaLocateds.contains(s)) {
             scalaLocatedComponents += c.getClass
           }
+          s match {
+            case s : SwitchStatement => if(s.elements.exists(scalaLocateds.contains(_))) scalaLocatedComponents += c.getClass
+            case _ =>
+          }
           s.walkExpression(e => {
             if (scalaLocateds.contains(e)) {
               scalaLocatedComponents += c.getClass
