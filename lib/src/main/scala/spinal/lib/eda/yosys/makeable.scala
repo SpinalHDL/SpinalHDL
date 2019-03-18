@@ -2,45 +2,63 @@ package spinal.lib.eda.yosys
 
 import java.io._
 import java.io.PrintWriter
+import java.nio.file.{Path, Paths}
 import scala.sys.process._
 import scala.collection._
 import spinal.core._
 
-trait Makeable extends WorkDir{
-  val prerequisite = new mutable.MutableList[Makeable]()
+import org.apache.commons.io.FilenameUtils
+
+trait Makeable{
+  def outputFolder(path: Path): Makeable
+  val prerequisite: mutable.MutableList[Makeable]
   def needs: Seq[String] = Seq[String]()
-  def target: Seq[String]
+  def target: Seq[Path] = Seq[Path]()
 
   def makeComand: String = this.toString
 
   def addPrerequisite(pre: Makeable*) = prerequisite ++= pre
-  def getPrerequisiteString: String = prerequisite.flatMap(pre => needs.map(pre.getTargetFromName(_))).mkString(" ")
-  def getTargetString: String = target.map(getPath(_)).mkString(" ")
+  def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs:_*).mkString(" ")
+
+  def getTargetString: String = target.map(_.normalize.toString).mkString(" ")
   def getCommandString: String = makeComand
 
-  def getPrerequisiteFromName(str: String) : String = {
-    val pre: mutable.MutableList[String] = prerequisite.flatMap(_.target)
-    val ret = pre.find(_.matches(str))
-    assert(!ret.isEmpty, s"""Prerequisite ${str} not found in ${this.getClass.getSimpleName}:${pre.mkString("[",",","]")}""")
-    getPath(ret.get).toString
-  }
-
-  def getTargetFromName(str: String) : String = {
-    val ret = target.find(_.matches(str))
-    assert(!ret.isEmpty, s"""Target ${str} not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
-    getPath(ret.get).toString
-  }
-  def getAllTargetsFromName(str: String*) : Seq[String] = {
-    val ret = str.flatMap(x => target.filter(_.matches(x)))
-    //assert(!ret.isEmpty, s"""Target ${str} not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
-    ret.map(getPath(_).toString)
-  }
-
-  def getAllPrerequisiteFromName(str: String*) : Seq[String] = {
+  def getPrerequisiteFromExtension(str: String) : Path = {
     val pre = prerequisite.flatMap(_.target)
-    val ret = str.flatMap(x => pre.filter(_.matches(x)))
-    //assert(!ret.isEmpty, s"""Prerequisite ${str} not found in ${this.getClass.getSimpleName}:${pre.mkString("[",",","]")}""")
-    ret.map(getPath(_).toString)
+    val ret = pre.find(x => FilenameUtils.isExtension(x.toString, str))
+    assert(!ret.isEmpty, s"""Prerequisite with extension "${str}" not found in ${this.getClass.getSimpleName}:${pre.mkString("[",",","]")}""")
+    ret.get
+  }
+  def getPrerequisiteFromName(str: String) : Path = {
+    val pre = prerequisite.flatMap(_.target)
+    val ret = pre.find(_.endsWith(str))
+    assert(!ret.isEmpty, s"""Prerequisite with name "${str}" not found in ${this.getClass.getSimpleName}:${pre.mkString("[",",","]")}""")
+    ret.get
+  }
+
+  def getTargetFromExtension(str: String) : Path = {
+    val ret = target.find(x => FilenameUtils.isExtension(x.toString, str))
+    println(target)
+    assert(!ret.isEmpty, s"""Target with extension "${str}" not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
+    ret.get
+  }
+
+  def getTargetFromName(str: String) : Path = {
+    val ret = target.find(_.endsWith(str))
+    println(target)
+    assert(!ret.isEmpty, s"""Target with name "${str}" not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
+    ret.get
+  }
+
+  def getAllTargetsFromExtension(str: String*) : Seq[Path] = {
+    val ret = target.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
+    ret
+  }
+
+  def getAllPrerequisiteFromExtension(str: String*) : Seq[Path] = {
+    val pre = prerequisite.flatMap(_.target)
+    val ret = pre.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
+    ret
   }
 
   def |>(pre: Makeable): pre.type = {
@@ -60,37 +78,43 @@ trait Makeable extends WorkDir{
   }
 }
 
+
 trait MakableFile extends Makeable{
   override def makejob : String = ""
 }
 
 trait MakeablePhony extends Makeable{
-  def phonyTarget: String
-  def getPhonyString: String = ".PHONY: " + phonyTarget
-  override def getTargetString : String = List(phonyTarget,super.getTargetString).mkString(" ")
+  val phony: Option[String]
+  def phony(name: String): Makeable
+  def getPhonyString: String = if(phony.nonEmpty) ".PHONY: " + phony.get else ""
+  override def target = if(phony.nonEmpty) super.target :+ Paths.get(phony.get) else super.target
   override def makejob: String = getPhonyString + "\n" + super.makejob
 }
 
 trait PassFail extends Makeable{
-  def passFileName = "PASS"
-  override def getTargetString : String = List(getPath(passFileName),super.getTargetString).mkString(" ")
-  override def getCommandString: String = super.getCommandString + " && date > " + getPath(passFileName).toString
+  val passFile : Option[Path]
+  def pass(name: Path): Makeable
+  override def target = if(passFile.nonEmpty) super.target :+ passFile.get else super.target
+  override def getCommandString: String = if(passFile.nonEmpty) super.getCommandString + " && date > " + passFile.get else super.getCommandString
 }
 
 trait MakeableLog extends Makeable{
-  def logFile = this.getClass.getSimpleName + ".log"
-  override def getCommandString : String = super.getCommandString + " &> " + getPath(logFile).toString
+  val logFile: Option[Path]
+  def log(name: Path): Makeable
+  def getLogFile: Path = logFile.getOrElse(Paths.get(this.getClass.getSimpleName + ".log"))
+  override def getCommandString : String = super.getCommandString + " &> " + getLogFile.toString
 }
 
 
 object InputFile{
-    def apply(file: String): InputFile = InputFile(List(file))
-    def apply(file: String,workDir: String): InputFile = InputFile(List(file),workDir)
-    def apply[T <: Component](report: SpinalReport[T]): InputFile = InputFile(report.rtlSourcesPaths.toSeq)
+    def apply(file: Path): InputFile = InputFile(List(file))
+    def apply(file: String): InputFile = apply(Paths.get(file))
+    def apply[T <: Component](report: SpinalReport[T]): InputFile = InputFile(report.rtlSourcesPaths.map(Paths.get(_)).toSeq)
 }
 
-case class InputFile(file: Seq[String],workDir: String=".") extends MakableFile{
-  override def target = file
+case class InputFile(file: Seq[Path],prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]()) extends MakableFile{
+  def outputFolder(path: Path): InputFile = this
+  override def target = super.target ++ file.map(_.normalize)
 }
 
 object CreateMakefile{
@@ -103,26 +127,28 @@ object CreateMakefile{
 
     def collectTetsTarget(target: String = "test")(op: Makeable*): String = {
         val nodes = (op.flatMap(_.prerequisite) ++ op).collect { case o: PassFail => o }
-        val ret = nodes.map( x => x.getPath(x.passFileName)).distinct
+        val ret = nodes.flatMap( _.passFile).distinct
         ret.mkString(s""".PHONY: ${target}\n${target} : """," ","")
     }
 
-    def createFolderStructure(op: Makeable*): Unit = {
-        val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
-        nodes.foreach(_.createDir)
+    def createTarget(target: String = "test")(op: Makeable*): String = {
+        val targets = op.flatMap(_.target)
+        targets.mkString(s""".PHONY: ${target}\n${target} : """," ","")
     }
 
+        // @TODO
     def makeFolderStructure(op: Makeable*): String = {
         val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
-        val folders = nodes.map(_.workDir).distinct
-        s"""DIRS=${folders.mkString(" ")}\n$$(info $$(shell mkdir -p $$(DIRS)))"""
+        val folders = nodes.flatMap(_.target).flatMap(x => Option(x.getParent))//.getParent.normalize.toString)).distinct
+        if(folders.nonEmpty) s"""DIRS=${folders.mkString(" ")}\n$$(info $$(shell mkdir -p $$(DIRS)))"""
+        else                    ""
     }
 
     def makeClear(op: Makeable*): String = {
         val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
-        val logs = nodes.collect{ case o:MakeableLog => o}.map(x => x.getPath(x.logFile))
-        val targets = nodes.flatMap(x => x.target.map(x.getPath(_)))
-        val folders = nodes.map(_.workDir).distinct.filterNot(_ == ".")
+        val logs = nodes.collect{ case o:MakeableLog => o}.map(_.logFile)
+        val targets = nodes.flatMap(_.target)
+        val folders = targets.map(_.getParent.normalize.toString).distinct
         val toDelete = (logs ++ targets ++ folders).distinct
         s""".PHONY: clear\nclear:\n\trm ${toDelete.mkString(" ")}"""
     }
@@ -131,19 +157,16 @@ object CreateMakefile{
 object testMake {
     def main(args: Array[String]): Unit = {
       //val test =  InputFile(synt) |> YosysFlow.synthesize() |> IceBram() |> IcePack(workDir="a333")
-      val x = InputFile("test.asc") |> IceBram() |> IcePack(workDir="a333")
-      val y = x |> IceProg().name("test")
-      val z = x |> IceProg().name("test2")
-      val t1 = x |> IceProg(workDir="a1")
-      val t2 = x |> IceProg(workDir="a2")
-      val t3 = x |> IceProg(workDir="a3")
-      val t4 = x |> IceProg(workDir="a4")
+      val x = InputFile("test.asc") |> IceBram() |> IcePack()
+      val y = x |> IceProg()
+      val z = x |> IceProg()
+
       println("--------------")
 
-      println(CreateMakefile.makeFolderStructure(x,y,z,t1,t2,t3,t4))
-      println(CreateMakefile.collectTetsTarget()(x,y,z,t1,t2,t3,t4))
-      println(CreateMakefile(x,y,z,t1,t2,t3,t4))
-      println(CreateMakefile.makeClear(x,y,z,t1,t2,t3,t4))
+      println(CreateMakefile.makeFolderStructure(x,y,z))
+      println(CreateMakefile.collectTetsTarget()(x,y,z))
+      println(CreateMakefile(x,y,z))
+      println(CreateMakefile.makeClear(x,y,z))
     }
   }
 

@@ -33,10 +33,11 @@ case class FormalCommand(_smt2: Option[Path]=None,
                          _dumpSmtc: Option[Path] = None,
                          _append: Long = 0,
                          _opt: String = "",
+                         passFile: Option[Path] = None,
+                         logFile: Option[Path] = None,
+                         phony: Option[String] = None,
                          prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends Makeable with MakeableLog with PassFail{
-
-  override val logFile = s"yosys-smtbmc.log"
+    extends Makeable with MakeablePhony with MakeableLog with PassFail{
 
   /** Specify the smt2 input file
     *
@@ -78,7 +79,6 @@ case class FormalCommand(_smt2: Option[Path]=None,
     */
   def dumpSMTC(path: Path) = this.copy(_dumpSmtc = Some(path))
 
-
   /** Specify for how many step to check the model
     * default: step = 20, skip = 0, stepSize = 1
     *
@@ -119,6 +119,10 @@ case class FormalCommand(_smt2: Option[Path]=None,
     this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
   }
 
+  def phony(name: String): FormalCommand = this.copy(phony=Some(name))
+  def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): FormalCommand = this.copy(logFile=Some(file))
+  def pass(file: Path = Paths.get("PASS")): FormalCommand = this.copy(passFile=Some(file))
+
   override def toString(): String = {
     val ret = new StringBuilder("yosys-smtbmc ")
     ret.append(s"-s ${_solver} ")
@@ -138,7 +142,7 @@ case class FormalCommand(_smt2: Option[Path]=None,
   }
 
   //make stuff
-  def target = List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
+  override def target = super.target ++ List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
   override def needs = List("smt2")
   override def makeComand: String = this.smt2(getPrerequisiteFromExtension("smt2")).toString
 }

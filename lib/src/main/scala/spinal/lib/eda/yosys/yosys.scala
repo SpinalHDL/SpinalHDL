@@ -137,13 +137,14 @@ object Yosys {
   * //this will make so the file "design.json" will be saved in "test/json/design.json"
   * }}}
   */
-case class Yosys(commands: mutable.ListBuffer[YosysScript] =
-                   mutable.ListBuffer[YosysScript](),
-                 prerequisite: mutable.MutableList[Makeable] =
-                   mutable.MutableList[Makeable]())
+case class Yosys( passFile: Option[Path] = None,
+                  logFile: Option[Path] = None,
+                  phony: Option[String] = None,
+                  commands: mutable.ListBuffer[YosysScript] = mutable.ListBuffer[YosysScript](),
+                  prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
     extends Makeable
-    with MakeableLog {
-  override val logFile = "yosys.log"
+    with MakeableLog with MakeablePhony with PassFail{
+
   // override def runComand = {
   //   assert(
   //     commands(0).isInstanceOf[Input],
@@ -256,9 +257,13 @@ case class Yosys(commands: mutable.ListBuffer[YosysScript] =
     this.copy(commands=com)
   }
 
+  def phony(name: String): Yosys = this.copy(phony=Some(name))
+  def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): Yosys = this.copy(logFile=Some(file))
+  def pass(file: Path = Paths.get("PASS")): Yosys = this.copy(passFile=Some(file))
+
   override def toString(): String = commands.mkString("yosys -p'", "; ", "'")
 
   //needed for Makable
-  def target = commands.collect { case o: Output => o }.map(_.file)
+  override def target = super.target ++ commands.collect { case o: Output => o }.map(_.file)
   override def needs = commands.collect { case i: Input => i }.map(x => FilenameUtils.getExtension(x.file.toString))
 }

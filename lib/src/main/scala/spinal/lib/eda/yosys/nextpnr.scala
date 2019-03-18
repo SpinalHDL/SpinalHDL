@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 //  --save arg                  project file to write
 //  --load arg                  project file to read
 
-trait NextPNR{
+trait NextPNR extends PassFail{
   val _json: Option[Path]
   val _freq: HertzNumber
   val _pack_only: Boolean
@@ -56,31 +56,32 @@ object Ice40{
   val hx1k  = "hx1k"
   val hx8k  = "hx8k"
   val up5k  = "up5k"
-  object pack{
-    val swg16tr  = "swg16tr"
-    val uwg30    = "uwg30"
-    val cm36     = "cm36"
-    val cm49     = "cm49"
-    val cm81     = "cm81"
-    val cm81_4k  = "cm81:4k"
-    val cm121_4k = "cm121:4k"
-    val cm121    = "cm121"
-    val cm225_4k = "cm225:4k"
-    val cm225    = "cm225"
-    val qn32     = "qn32"
-    val sg48     = "sg48"
-    val qn84     = "qn84"
-    val cb81     = "cb81"
-    val cb121    = "cb121"
-    val cb132    = "cb132"
-    val cb132_4k = "cb132:4k"
-    val vq100    = "vq100"
-    val tq144    = "tq144"
-    val tq144_4k = "tq144:4k"
-    val bg121_4k = "bg121:4k"
-    val bg121    = "bg121"
-    val ct256    = "ct257"
-  }
+}
+
+object Ice40Package{
+  val swg16tr  = "swg16tr"
+  val uwg30    = "uwg30"
+  val cm36     = "cm36"
+  val cm49     = "cm49"
+  val cm81     = "cm81"
+  val cm81_4k  = "cm81:4k"
+  val cm121_4k = "cm121:4k"
+  val cm121    = "cm121"
+  val cm225_4k = "cm225:4k"
+  val cm225    = "cm225"
+  val qn32     = "qn32"
+  val sg48     = "sg48"
+  val qn84     = "qn84"
+  val cb81     = "cb81"
+  val cb121    = "cb121"
+  val cb132    = "cb132"
+  val cb132_4k = "cb132:4k"
+  val vq100    = "vq100"
+  val tq144    = "tq144"
+  val tq144_4k = "tq144:4k"
+  val bg121_4k = "bg121:4k"
+  val bg121    = "bg121"
+  val ct256    = "ct257"
 }
 
 //Architecture specific options:
@@ -105,12 +106,15 @@ case class NextPNR_ice40( _json: Option[Path] = None,
                           _randomize_seed: Boolean = true,
                           _gui: Boolean = false,
                           _target : String = Ice40.hx1k,
-                          _pack : String = Ice40.pack.ct256,
+                          _pack : String = Ice40Package.ct256,
                           _promote_logic: Boolean = false,
                           _no_promote_globals : Boolean = false,
                           _opt_timing: Boolean = false,
                           _tmfuzz: Boolean = false,
                           _pcf_allow_unconstrained : Boolean = false,
+                          passFile: Option[Path] = None,
+                          logFile: Option[Path] = None,
+                          phony: Option[String] = None,
                           prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]()) extends NextPNR with Makeable{
   override val family = "ice40"
   /** open next-pnr gui */
@@ -175,12 +179,15 @@ case class NextPNR_ice40( _json: Option[Path] = None,
     * @param path the path where redirect all the outputs
     */
   def outputFolder(path: Path): NextPNR_ice40 ={
-    val newAsc  = if(_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
-    this.copy(_asc=newAsc)
+    this.asc(path.resolve(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))).copy(passFile=Some(path.resolve(passFile.getOrElse(Paths.get("PASS")))))
   }
 
+  def phony(name: String): NextPNR_ice40 = this.copy(phony=Some(name))
+  def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): NextPNR_ice40 = this.copy(logFile=Some(file))
+  def pass(file: Path = Paths.get("PASS")): NextPNR_ice40 = this.copy(passFile=Some(file))
+
   //make stuff
-  def target = List(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))
+  override def target = super.target ++ List(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))
   override def needs = List("json","pcf")
   override def makeComand: String =
     this.withPCF(getPrerequisiteFromExtension("pcf")).json(getPrerequisiteFromExtension("json")).toString
