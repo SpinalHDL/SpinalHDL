@@ -18,7 +18,7 @@ case class IcePack(_asc: Option[Path] = None,
                    _writeBank: Seq[Int] = Seq.empty[Int],
                    workDir: String = ".",
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends Makeable {
+    extends Makeable{
 
   //override val logFile = "icepack.log"
 
@@ -140,7 +140,7 @@ case class IceProg(_bin: Option[Path] = None,
                    logFile: Option[Path] = None,
                    phony: Option[String] = None,
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends MakeablePhony with MakeableLog with PassFail{
+    extends MakeablePhony with MakeableLog with PassFail with Executable{
 
   /** Specify the path of the bin file
     *
@@ -197,7 +197,7 @@ case class IceProg(_bin: Option[Path] = None,
     ret.append(s"-d ${_device} ")
     ret.append(s"-o ${_offset} ")
     if (_slow) ret.append("-s ")
-    ret.append(s"${_bin} ")
+    ret.append(s"${_bin.get} ")
     ret.toString()
   }
 
