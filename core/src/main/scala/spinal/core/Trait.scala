@@ -505,7 +505,7 @@ trait Nameable extends OwnableRef with ContextUser{
             namable.setPartialName(name, weak = true)
             OwnableRef.proposal(namable, this)
           } else {
-            for (kind <- component.children) {
+            if(component != null) for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setPartialName(name, weak = true)

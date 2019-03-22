@@ -29,53 +29,13 @@ object PlayDevRamZero{
 
 object PlayDevMem{
   class TopLevel extends Component {
-    val mem = Mem(Bits(32 bits), 64)
-    val p0 = new Bundle{
-      val address = in(mem.addressType())
-      val data = in(mem.wordType())
-      val mask = in(Bits(4 bits))
-      val enable = in Bool()
-    }
-    when(p0.enable) {
-      mem.write(p0.address, p0.data, mask = p0.mask)
-    }
-
-    val p1 = new Bundle{
-      val address = in(mem.addressType())
-      val data = out(mem.wordType())
-    }
-    p1.data := mem.readSync(p1.address, True)
-
-
-    val p2 = new Bundle{
-      val address = in(mem.addressType())
-      val data = out(mem.wordType())
-    }
-    p2.data := mem.readAsync(p2.address)
-    val xx = RegNext(True)
-
-    println(LatencyAnalysis(p0.address, p2.data))
-
-    val p3 = new Bundle{
-      val address = in(mem.addressType())
-      val data = in(mem.wordType())
-      val mask = in(Bits(4 bits))
-      val enable = in Bool()
-      val wr = in Bool()
-    }
-//
-//    mem.readWriteSync(
-//      address = p3.address  ,
-//      data = p3.data  ,
-//      enable = p3.enable  ,
-//      write = p3.wr  ,
-//      mask = p3.mask
-//    )
-
+    val output = out UInt(9 bits)
+    output := null
+    println("Miaou")
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig().addStandardMemBlackboxing(blackboxAll).generateVhdl(new TopLevel()).printPruned()
+    SpinalVhdl(new TopLevel)
   }
 }
 
