@@ -116,7 +116,8 @@ case class FormalCommand(_smt2: Option[Path]=None,
     val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
     val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
     val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
-    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
+    val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC,passFile=newPass)
   }
 
   def phony(name: String): FormalCommand = this.copy(phony=Some(name))

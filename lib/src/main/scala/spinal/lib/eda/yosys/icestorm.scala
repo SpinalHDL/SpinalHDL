@@ -189,7 +189,8 @@ case class IceProg(_bin: Option[Path] = None,
     */
   def outputFolder(path: Path): IceProg ={
       val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
-      this.copy(_bin=newBin)
+      val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+      this.copy(_bin=newBin,passFile=newPass)
     }
 
   override def toString(): String = {

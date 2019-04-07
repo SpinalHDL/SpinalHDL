@@ -138,7 +138,7 @@ object Yosys {
   * }}}
   */
 case class Yosys( passFile: Option[Path] = None,
-                  logFile: Option[Path] = None,
+                  logFile: Option[Path] = Some(Paths.get("yosys.log")),
                   phony: Option[String] = None,
                   commands: mutable.ListBuffer[YosysScript] = mutable.ListBuffer[YosysScript](),
                   prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
@@ -248,13 +248,15 @@ case class Yosys( passFile: Option[Path] = None,
     * @param path the pat of the destination directory
     */
   def outputFolder(path: Path): Yosys ={
+    val newLog = if(logFile.nonEmpty) Some(path.resolve(logFile.get)) else None
+    val newPass = if(passFile.nonEmpty) Some(path.resolve(passFile.get)) else None
     val com = commands.map{ x =>
       x match{
        case o: Output => o.outputFolder(path)
        case _ => x
       }
     }
-    this.copy(commands=com)
+    this.copy(commands=com, passFile=newPass, logFile=newLog)
   }
 
   def phony(name: String): Yosys = this.copy(phony=Some(name))

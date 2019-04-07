@@ -10,19 +10,65 @@ import spinal.core._
 import org.apache.commons.io.FilenameUtils
 
 object Makeable{
-  implicit class PimpMyTuple(val tuple: Product) extends AnyVal{
-    def toMakeableSeq: Seq[Makeable] = tuple.productIterator.collect{case make: Makeable => make}.toSeq
-    def makefile: String = {
-      val op = tuple.toMakeableSeq
-      val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
+  implicit class PimpMyMakeableList(val list: Seq[Makeable]) extends Executable{
+    val logFile = None
+    //def toMakeableSeq: Seq[Makeable] = tuple.productIterator.collect{case make: Makeable => make}.toSeq
+
+    def getNodes: Seq[Makeable] = list.flatMap(_.prerequisite) ++ list
+
+    def makejobs: String = {
+      val nodes = getNodes.distinct
       val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty)
-      val ret = jobStrigs.mkString("\n\n")
-      ret
+      jobStrigs.mkString("\n\n")
     }
 
     def |>(pre: Makeable): Makeable = {
-      toMakeableSeq.foreach(_ |> pre)
+      list.foreach(_ |> pre)
       pre
+    }
+
+    def bundleTest(target: String = "test"): String = {
+      val nodes = getNodes.collect { case o: PassFail => o }
+      val ret = nodes.flatMap( _.passFile).distinct
+      ret.mkString(s""".PHONY: ${target}\n${target} : """," ","")
+    }
+
+    def bundle(target: String)(filter: PartialFunction[Makeable,Makeable]): String = {
+      val nodes = getNodes.collect(filter)
+      val ret = nodes.flatMap( _.target).distinct
+      ret.mkString(s""".PHONY: ${target}\n${target} : """," ","")
+    }
+
+    def all(target: String = "all") = bundle(target){case x:Makeable => x}
+
+    def clean(target: String = "clean") = {
+      val nodes = getNodes.distinct
+      val inFile = nodes.collect{ case o:InputFile => o.target}.flatten.distinct
+      val files = nodes.flatMap(_.target).distinct diff inFile  //al file minus the inputs
+      val folders = files.flatMap(f => Option(f.getParent))
+      val pass = nodes.collect{ case o: PassFail => o.passFile }.flatten.distinct
+      val logs = nodes.collect{ case o: MakeableLog => o.logFile }.flatten.distinct
+      // val rootFiles = paths.map( f => if(Option(f.getParent).isEmpty) f.getFileName) //get all generated files without folders
+      // val ret = folders.mkString("FOLDERS= "," ","\n") + pass.mkString("FILES= "," ","\n") + logs.mkString("LOGS= "," ","\n") + s".PHONY:${target}\n${target}:\n\trm -rf $$LOGS $$FILES $$FOLDERS"
+      var ret = (logs ++ files ++ folders).mkString(s".PHONY:${target}\n${target}:\n\trm -rf "," ","")
+      ret
+    }
+
+    def mkdir: String = {
+      val nodes = getNodes.distinct
+      val files = nodes.flatMap(_.target).distinct
+      val folders = files.flatMap(f => Option(f.getParent))
+      var ret = folders.mkString("$(info creating dirs...$(shell mkdir -p "," "," ))")
+      ret
+    }
+
+    def makefile: String = List(all(), makejobs, bundleTest(), clean(), mkdir).mkString("\n\n")
+
+    override def runComand = {
+      val out = new PrintWriter("Makefile")
+      out.println(makefile)
+      out.close()
+      "make all"
     }
   }
 }
@@ -47,6 +93,7 @@ trait Makeable{
     assert(!ret.isEmpty, s"""Prerequisite with extension "${str}" not found in ${this.getClass.getSimpleName}:${pre.mkString("[",",","]")}""")
     ret.get
   }
+
   def getPrerequisiteFromName(str: String) : Path = {
     val pre = prerequisite.flatMap(_.target)
     val ret = pre.find(_.endsWith(str))
@@ -56,14 +103,12 @@ trait Makeable{
 
   def getTargetFromExtension(str: String) : Path = {
     val ret = target.find(x => FilenameUtils.isExtension(x.toString, str))
-    println(target)
     assert(!ret.isEmpty, s"""Target with extension "${str}" not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
     ret.get
   }
 
   def getTargetFromName(str: String) : Path = {
     val ret = target.find(_.endsWith(str))
-    println(target)
     assert(!ret.isEmpty, s"""Target with name "${str}" not found in ${this.getClass.getSimpleName}:${target.mkString("[",",","]")}""")
     ret.get
   }
@@ -81,6 +126,11 @@ trait Makeable{
 
   def |>(pre: Makeable): pre.type = {
     pre.prerequisite += this
+    pre
+  }
+
+  def |>(pre: Seq[Makeable]): Seq[Makeable] = {
+    pre.foreach(this |> _)
     pre
   }
 
@@ -135,6 +185,8 @@ case class InputFile(file: Seq[Path],prerequisite: mutable.MutableList[Makeable]
   override def target = super.target ++ file.map(_.normalize)
 }
 
+
+
 object CreateMakefile{
   def apply(op: Makeable*): String = {
     val nodes = (op.flatMap(_.prerequisite) ++ op).distinct
@@ -169,21 +221,5 @@ object CreateMakefile{
       val folders = targets.map(_.getParent.normalize.toString).distinct
       val toDelete = (logs ++ targets ++ folders).distinct
       s""".PHONY: clear\nclear:\n\trm ${toDelete.mkString(" ")}"""
-  }
-}
-
-object testMake {
-  def main(args: Array[String]): Unit = {
-    //val test =  InputFile(synt) |> YosysFlow.synthesize() |> IceBram() |> IcePack(workDir="a333")
-    val x = InputFile("test.asc") |> IceBram() |> IcePack()
-    val y = x |> IceProg()
-    val z = x |> IceProg()
-
-    println("--------------")
-
-    println(CreateMakefile.makeFolderStructure(x,y,z))
-    println(CreateMakefile.collectTetsTarget()(x,y,z))
-    println(CreateMakefile(x,y,z))
-    println(CreateMakefile.makeClear(x,y,z))
   }
 }
