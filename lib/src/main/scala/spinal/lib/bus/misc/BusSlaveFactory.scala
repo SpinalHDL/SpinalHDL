@@ -417,7 +417,7 @@ trait BusSlaveFactory extends Area{
                               address       : BigInt,
                               bitOffset     : Int = 0,
                               documentation : String = null): T = {
-    val reg = Reg(that).setCompositeName(that, "_driver", true)
+    val reg = Reg(that).setCompositeName(that, "driver", true)
     write(reg, address, bitOffset, documentation)
     read(reg, address, bitOffset,  documentation)
     that := reg
