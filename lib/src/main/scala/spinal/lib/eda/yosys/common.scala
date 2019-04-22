@@ -50,7 +50,7 @@ trait Executable{
   val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
   def runComand: String = this.toString
 
-  def run(): Int = {
+  def run(opt:String*): Int = {
     val dir = if(logFile.nonEmpty) Option(logFile.get.getParent) else None
     if(dir.nonEmpty) dir.get.toFile.mkdir
 
@@ -69,9 +69,9 @@ trait Executable{
       override def buffer[T](f: => T) = f
     }
     val ret: Int = if (isWindows)
-                Process("cmd /C " + this.runComand, dir.getOrElse(Paths.get(".")).toFile) ! (log)
+                Process("cmd /C " + this.runComand + opt.mkString(" "," ",""), dir.getOrElse(Paths.get(".")).toFile) ! (log)
               else
-                Process(this.runComand, dir.getOrElse(Paths.get(".")).toFile) ! (log)
+                Process(this.runComand + opt.mkString(" "," ",""), dir.getOrElse(Paths.get(".")).toFile) ! (log)
     if(logFile.nonEmpty) str.get.close()
     ret
   }
