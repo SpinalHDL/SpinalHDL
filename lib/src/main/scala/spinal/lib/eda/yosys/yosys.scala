@@ -260,22 +260,21 @@ case class Yosys( passFile: Option[Path] = None,
     old.copy(commands=com)
   }
 
-  /** Add this comand to a phony target
-    *
-    * @param name the name of the phony target
-    */
+  /** @inheritdoc */
   def phony(name: String): Yosys = this.copy(phony=Some(name))
 
-  /** Direct stdout/stderr to a file
-    *
-    * @param file the path of the log file
-    */
+  /** @inheritdoc */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): Yosys = this.copy(logFile=Some(file))
+
+  /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): Yosys = this.copy(passFile=Some(file))
 
   override def toString(): String = commands.mkString("yosys -p'", "; ", "'")
 
   //needed for Makable
+  /** @inheritdoc */
   override def target = super.target ++ commands.collect { case o: Output => o }.map(_.file)
+
+  /** @inheritdoc */
   override def needs = commands.collect { case i: Input => i }.map(x => FilenameUtils.getExtension(x.file.toString))
 }

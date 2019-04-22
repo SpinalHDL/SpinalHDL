@@ -178,39 +178,33 @@ case class NextPNR_ice40(
     ret.toString
   }
 
-  /** Change the output folder of all the target/output
-    *
-    * @param path the path where redirect all the outputs
-    */
+  /** @inheritdoc */
   override def outputFolder(path: Path): NextPNR_ice40 = {
     val old = super.outputFolder(path).asInstanceOf[this.type]
     val newAsc  = if (_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
     old.copy(_asc = newAsc)
   }
 
-  /** Add this comand to a phony target
-    *
-    * @param name the name of the phony target
-    */
+  /** @inheritdoc */
   def phony(name: String): NextPNR_ice40 = this.copy(phony = Some(name))
 
-  /** Direct stdout/stderr to a file
-    *
-    * @param file the path of the log file
-    */
+  /** @inheritdoc */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): NextPNR_ice40 =
     this.copy(logFile = Some(file))
 
-  /** Create a PASS file on comamnd succes
-    *
-    * @param file the path of the PASS file
-    */
+  /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): NextPNR_ice40 = this.copy(passFile = Some(file))
 
+
   //make stuff
+  /** @inheritdoc */
   override def target =
     super.target ++ List(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))
+
+  /** @inheritdoc */
   override def needs = List("json", "pcf")
+
+  /** @inheritdoc */
   override def makeComand: String =
     this.withPCF(getPrerequisiteFromExtension("pcf")).json(getPrerequisiteFromExtension("json")).toString
 }

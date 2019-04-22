@@ -108,10 +108,7 @@ case class FormalCommand(_smt2: Option[Path]=None,
   /** Liveness check mode*/
   def live = this.copy(_mode = Mode.live)
 
-  /** Change the output folder of all the target/output
-    *
-    * @param path the path where redirect all the outputs
-    */
+  /** @inheritdoc */
   override def outputFolder(path: Path): FormalCommand ={
     val old = super.outputFolder(path).asInstanceOf[this.type]
     val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
@@ -122,22 +119,14 @@ case class FormalCommand(_smt2: Option[Path]=None,
     old.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
   }
 
-  /** Add this comand to a phony target
-    *
-    * @param name the name of the phony target
-    */
+
+  /** @inheritdoc */
   def phony(name: String): FormalCommand = this.copy(phony=Some(name))
 
-  /** Direct stdout/stderr to a file
-    *
-    * @param file the path of the log file
-    */
+  /** @inheritdoc */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): FormalCommand = this.copy(logFile=Some(file))
 
-  /** Create a PASS file on comamnd succes
-    *
-    * @param file the path of the PASS file
-    */
+  /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): FormalCommand = this.copy(passFile=Some(file))
 
   override def toString(): String = {
@@ -160,7 +149,13 @@ case class FormalCommand(_smt2: Option[Path]=None,
 
   //make stuff
   // override def target = super.target ++ List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
+
+  /** @inheritdoc */
   override def target = super.target ++ List(_dumpVerilogTB,_dumpSmtc).flatten
+
+  /** @inheritdoc */
   override def needs = List("smt2")
+
+  /** @inheritdoc */
   override def makeComand: String = this.smt2(getPrerequisiteFromExtension("smt2")).toString
 }

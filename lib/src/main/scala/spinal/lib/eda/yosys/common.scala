@@ -48,6 +48,8 @@ trait Executable{
   val logFile: Option[Path]
 
   val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
+
+  /** The command that will be run, default to this.toString */
   def runComand: String = this.toString
 
   def run(opt:String*): Int = {

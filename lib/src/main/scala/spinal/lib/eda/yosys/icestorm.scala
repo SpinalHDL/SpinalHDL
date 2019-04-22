@@ -59,10 +59,7 @@ case class IcePack(_asc: Option[Path] = None,
     */
   def writeBank(value: Int*) = this.copy(_writeBank = value)
 
-  /** Change the output folder of all the target/output
-    *
-    * @param path the path where redirect all the outputs
-    */
+  /** @inheritdoc */
   override def outputFolder(path: Path): IcePack ={
     val old = super.outputFolder(path).asInstanceOf[this.type]
     val newAsc  = if(_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
@@ -93,8 +90,14 @@ case class IcePack(_asc: Option[Path] = None,
   }
 
   //make stuff
+
+  /** @inheritdoc */
   override def needs = List(if(_unpack) "bin" else "asc")
+
+  /** @inheritdoc */
   override def target = super.target ++ List(if(_unpack) _asc.get else _bin.get)
+
+  /** @inheritdoc */
   override def makeComand: String =
     if(_unpack) this.bin(getPrerequisiteFromExtension("bin")).toString
     else        this.asc(getPrerequisiteFromExtension("asc")).toString
@@ -129,7 +132,7 @@ case class IcePack(_asc: Option[Path] = None,
 //                           bricked and won't respond to erasing or programming.
 
 /** Compose the command line for programming/reading the FPGA (iceprog)
-  * @TODO implement readback
+  * @todo implement readback
   */
 case class IceProg(_bin: Option[Path] = None,
                    _device: String = "i:0x0403:0x6010",
@@ -184,10 +187,7 @@ case class IceProg(_bin: Option[Path] = None,
     */
   def targetname(name: String) = this.copy(_targetname = name)
 
-  /** Change the output folder of all the target/output
-    *
-    * @param path the path where redirect all the outputs
-    */
+  /** @inheritdoc */
   override def outputFolder(path: Path): IceProg ={
     val old = super.outputFolder(path).asInstanceOf[this.type]
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
@@ -202,35 +202,32 @@ case class IceProg(_bin: Option[Path] = None,
     ret.append(s"${_bin.get} ")
     ret.toString()
   }
-  /** Add this comand to a phony target
-    *
-    * @param name the name of the phony target
-    */
+
+  /** @inheritdoc */
   def phony(name: String): IceProg = this.copy(phony=Some(name))
 
-  /** Direct stdout/stderr to a file
-    *
-    * @param file the path of the log file
-    */
+  /** @inheritdoc */
   def log(file: Path): IceProg = this.copy(logFile=Some(file))
 
-  /** Create a PASS file on comamnd succes
-    *
-    * @param file the path of the PASS file
-    */
+  /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): IceProg = this.copy(passFile=Some(file))
 
   //makepart
+
+  /** @inheritdoc */
   override def needs = List("bin")
+
   def phonyTarget = _targetname
   override def target = super.target
+
+  /** @inheritdoc */
   override def makeComand: String =
     this.bin(getPrerequisiteFromExtension("bin")).toString
 }
 
 /** Compose the command line for replacin the bram data (icebram)
- * @TODO finish this and check
-*/
+ * @todo finish this and check
+ */
 case class IceBram(_hexFrom: Option[Path] = None,
                    _hexTo: Option[Path] = None,
                    _ascIn: Option[Path] = None,
@@ -283,10 +280,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
   /** the size of the random hex */
   def size(width: Long, depth: Long) = this.copy(_width = width, _depth = depth)
 
-  /** Change the output folder of all the target/output
-    *
-    * @param path the path where redirect all the outputs
-    */
+  /** @inheritdoc */
   override def outputFolder(path: Path): IceBram ={
       val newAsc  = if(_ascOut.nonEmpty) Some(path.resolve(_ascOut.get)) else None
       this.copy(_ascOut=newAsc)
@@ -307,8 +301,14 @@ case class IceBram(_hexFrom: Option[Path] = None,
   }
 
   //make part
+
+  /** @inheritdoc */
   override def needs = List("from.hex","hex")
+
+  /** @inheritdoc */
   override def target = super.target ++ List(_ascOut.getOrElse(Paths.get("icebram.asc")))
+
+  /** @inheritdoc */
   override def makeComand: String =
     if(_random) this.hexFrom(getPrerequisiteFromExtension("from.hex")).toString
     else this.ascIn(getPrerequisiteFromExtension("asc"))
