@@ -1401,6 +1401,7 @@ object PlayMakeable extends App{
   import org.apache.commons.io._
   import java.io._
   import spinal.lib.eda.yosys._
+  import spinal.lib.eda.yosys.string2path._
   import java.nio.file.{Path, Paths}
 
 
@@ -1420,8 +1421,8 @@ object PlayMakeable extends App{
         }
         cover(dutCounter.willOverflow)
         assert(dutCounter.value <= end)
-        assert(dutCounter.valueNext <= end -1)
-        // assert(dutCounter.valueNext <= end)
+        // assert(dutCounter.valueNext <= end -1)
+        assert(dutCounter.valueNext <= end)
         assert(start <= dutCounter.value)
         assert(start <= dutCounter.valueNext)
         assert((dutCounter.value === dutCounter.valueNext -1) || dutCounter.willOverflow || !dutCounter.willIncrement)
@@ -1430,17 +1431,16 @@ object PlayMakeable extends App{
     }
   }
   val test = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
-  val pw = new PrintWriter(new File("Makefile" ))
-  val form1 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test1")).append(100)
+  // val pw = new PrintWriter(new File("Makefile" ))
+  val form1 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder(Paths.get("test1")).append(100)
   val form2 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test2")).append(100)
   val form3 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test3")).append(100)
   val form4 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test4")).append(100)
   val make = InputFile(test) |> List(form1,form2,form3,form4)
   // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
-  make.run
-  pw.close()
+  // pw.close()
+  make.run("test","-j 4")
 }
-
 object PlayOneHotSynthesisBench extends App{
   class BenchFpga(width : Int) extends Rtl{
     override def getName(): String = "Bench" + width

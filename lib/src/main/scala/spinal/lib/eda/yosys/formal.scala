@@ -112,16 +112,32 @@ case class FormalCommand(_smt2: Option[Path]=None,
     *
     * @param path the path where redirect all the outputs
     */
-  def outputFolder(path: Path): FormalCommand ={
+  override def outputFolder(path: Path): FormalCommand ={
+    val old = super.outputFolder(path).asInstanceOf[this.type]
     val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
     val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
     val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
-    val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
-    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC,passFile=newPass)
+    // val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+    // val newLog = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+    old.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
   }
 
+  /** Add this comand to a phony target
+    *
+    * @param name the name of the phony target
+    */
   def phony(name: String): FormalCommand = this.copy(phony=Some(name))
+
+  /** Direct stdout/stderr to a file
+    *
+    * @param file the path of the log file
+    */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): FormalCommand = this.copy(logFile=Some(file))
+
+  /** Create a PASS file on comamnd succes
+    *
+    * @param file the path of the PASS file
+    */
   def pass(file: Path = Paths.get("PASS")): FormalCommand = this.copy(passFile=Some(file))
 
   override def toString(): String = {
@@ -143,7 +159,8 @@ case class FormalCommand(_smt2: Option[Path]=None,
   }
 
   //make stuff
-  override def target = super.target ++ List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
+  // override def target = super.target ++ List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten
+  override def target = super.target ++ List(_dumpVerilogTB,_dumpSmtc).flatten
   override def needs = List("smt2")
   override def makeComand: String = this.smt2(getPrerequisiteFromExtension("smt2")).toString
 }

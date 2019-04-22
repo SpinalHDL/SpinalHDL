@@ -247,19 +247,29 @@ case class Yosys( passFile: Option[Path] = None,
     *
     * @param path the pat of the destination directory
     */
-  def outputFolder(path: Path): Yosys ={
-    val newLog = if(logFile.nonEmpty) Some(path.resolve(logFile.get)) else None
-    val newPass = if(passFile.nonEmpty) Some(path.resolve(passFile.get)) else None
+  override def outputFolder(path: Path): Yosys ={
+    // val newLog = if(logFile.nonEmpty) Some(path.resolve(logFile.get)) else None
+    // val newPass = if(passFile.nonEmpty) Some(path.resolve(passFile.get)) else None
+    val old = super.outputFolder(path).asInstanceOf[this.type]
     val com = commands.map{ x =>
       x match{
        case o: Output => o.outputFolder(path)
        case _ => x
       }
     }
-    this.copy(commands=com, passFile=newPass, logFile=newLog)
+    old.copy(commands=com)
   }
 
+  /** Add this comand to a phony target
+    *
+    * @param name the name of the phony target
+    */
   def phony(name: String): Yosys = this.copy(phony=Some(name))
+
+  /** Direct stdout/stderr to a file
+    *
+    * @param file the path of the log file
+    */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): Yosys = this.copy(logFile=Some(file))
   def pass(file: Path = Paths.get("PASS")): Yosys = this.copy(passFile=Some(file))
 

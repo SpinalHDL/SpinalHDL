@@ -9,6 +9,10 @@ import spinal.core._
 
 import org.apache.commons.io.FilenameUtils
 
+object string2path{
+  implicit def string2Path(str:String): Path = Paths.get(str)
+}
+
 object Makeable{
   implicit class PimpMyMakeableList(val list: Seq[Makeable]) extends Executable{
     val logFile = None
@@ -19,7 +23,7 @@ object Makeable{
     def makejobs: String = {
       val nodes = getNodes.distinct
       val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty)
-      jobStrigs.mkString("\n\n")
+      jobStrigs.mkString("\n")
     }
 
     def |>(pre: Makeable): Makeable = {
@@ -62,19 +66,19 @@ object Makeable{
       ret
     }
 
-    def makefile: String = List(all(), makejobs, bundleTest(), clean(), mkdir).mkString("\n\n")
+    def makefile: String = List(mkdir, all(), bundleTest(), clean(), makejobs).mkString("\n\n")
 
     override def runComand = {
       val out = new PrintWriter("Makefile")
       out.println(makefile)
       out.close()
-      "make all"
+      "make"
     }
   }
 }
 
 trait Makeable{
-  def outputFolder(path: Path): Makeable
+  def outputFolder(path: Path): Makeable = this
   val prerequisite: mutable.MutableList[Makeable]
   def needs: Seq[String] = Seq[String]()
   def target: Seq[Path] = Seq[Path]()
@@ -148,7 +152,7 @@ trait Makeable{
 
 
 trait MakableFile extends Makeable{
-  def outputFolder(path: Path): this.type = this
+  //def outputFolder(path: Path): this.type = this
   override def makejob : String = ""
 }
 
@@ -162,16 +166,25 @@ trait MakeablePhony extends Makeable{
 
 trait PassFail extends Makeable{
   val passFile : Option[Path]
-  def pass(name: Path): Makeable
+  def pass(name: Path): PassFail
+  def getPassFile: Path = passFile.getOrElse(Paths.get("PASS"))
+  override def outputFolder(path: Path): PassFail = {
+    val old = super.outputFolder(path).asInstanceOf[PassFail]
+    if(passFile.nonEmpty) pass(path.resolve(getPassFile)) else old
+  }
   override def target = if(passFile.nonEmpty) super.target :+ passFile.get else super.target
-  override def getCommandString: String = if(passFile.nonEmpty) super.getCommandString + " && date > " + passFile.get else super.getCommandString
+  override def getCommandString: String = super.getCommandString + (if(passFile.nonEmpty) " && date > " + passFile.get else "")
 }
 
 trait MakeableLog extends Makeable{
   val logFile: Option[Path]
-  def log(name: Path): Makeable
+  def log(name: Path): MakeableLog
   def getLogFile: Path = logFile.getOrElse(Paths.get(this.getClass.getSimpleName + ".log"))
-  override def getCommandString : String = super.getCommandString + " &> " + getLogFile.toString
+  override def outputFolder(path: Path): MakeableLog = {
+    val old = super.outputFolder(path).asInstanceOf[MakeableLog]
+    if(logFile.nonEmpty) old.log(path.resolve(logFile.get)) else old
+  }
+  override def getCommandString : String = super.getCommandString + (if(logFile.nonEmpty) " &> " + logFile.get else "")
 }
 
 

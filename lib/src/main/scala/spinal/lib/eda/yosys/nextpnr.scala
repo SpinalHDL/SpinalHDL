@@ -182,15 +182,29 @@ case class NextPNR_ice40(
     *
     * @param path the path where redirect all the outputs
     */
-  def outputFolder(path: Path): NextPNR_ice40 = {
+  override def outputFolder(path: Path): NextPNR_ice40 = {
+    val old = super.outputFolder(path).asInstanceOf[this.type]
     val newAsc  = if (_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
-    val newPass = if (passFile.nonEmpty) Some(path.resolve(passFile.get)) else None
-    this.copy(_asc = newAsc, passFile = newPass)
+    old.copy(_asc = newAsc)
   }
 
+  /** Add this comand to a phony target
+    *
+    * @param name the name of the phony target
+    */
   def phony(name: String): NextPNR_ice40 = this.copy(phony = Some(name))
+
+  /** Direct stdout/stderr to a file
+    *
+    * @param file the path of the log file
+    */
   def log(file: Path = Paths.get(this.getClass.getSimpleName + ".log")): NextPNR_ice40 =
     this.copy(logFile = Some(file))
+
+  /** Create a PASS file on comamnd succes
+    *
+    * @param file the path of the PASS file
+    */
   def pass(file: Path = Paths.get("PASS")): NextPNR_ice40 = this.copy(passFile = Some(file))
 
   //make stuff
