@@ -73,16 +73,23 @@ object Bench{
       })
     }
 
-    val rtls = List(fifo128,fifo1024)
+    val rtls = List(fifo128)
 
+//    val targets = AlteraStdTargets(
+//      quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
+//      quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
+//      quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
+//    ) ++ XilinxStdTargets(
+//      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
+//    )
+
+//    val targets =  XilinxStdTargets(
+//      vivadoArtix7Path = "/media/miaou/HD/linux/Xilinx/Vivado/2018.3/bin"
+//    )
     val targets = AlteraStdTargets(
-      quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
-      quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
-      quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
-    ) ++ XilinxStdTargets(
-      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
+      quartusCycloneIVPath = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin",
+      quartusCycloneVPath  = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin"
     )
-
-    Bench(rtls, targets, "E:/tmp/")
+    Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
   }
 }

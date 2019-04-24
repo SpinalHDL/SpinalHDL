@@ -552,16 +552,17 @@ object PlayDevMiaou{
 }
 
 object PlayDevBugx{
-  val a,b,c = Reg(UInt(Random.nextInt(10) bits))
-  val sum = List(a,b,c).filter(widthOf(_) == 4).reduce(_ + _)
-
 
   def main(args: Array[String]) {
     SpinalVerilog(new Component{
-      val mem = Mem(Bits(8 bits), 256)
-      slave(mem.readSyncPort)
-      slave(mem.writePort)
-    }.setDefinitionName("Dma"))
+      val inputs =  Vec(UInt(6 bits), 4)
+      val outputs =  Vec(UInt(4 bits), 4)
+
+//      outputs(0) := inputs(0) // Error if, e.g., v1=Bool() and v2=Bits(1 bits)
+//      outputs(1).asBits := inputs(1).asBits // No error but doesn't work as expected
+      outputs(2) := inputs(2).as(outputs(2)) // Silently converts v2 to the same bit width as v1
+//      outputs(3).assignFromBits(inputs(3).asBits) // Silently converts v2 to the same bit width as v1
+    })
   }
 }
 
