@@ -2052,7 +2052,7 @@ class SwitchStatementKeyBool extends Expression {
 }
 
 
-class SwitchStatementElement(var keys: ArrayBuffer[Expression], var scopeStatement: ScopeStatement) extends ContextUser {
+class SwitchStatementElement(var keys: ArrayBuffer[Expression], var scopeStatement: ScopeStatement) extends ScalaLocated{
 }
 
 

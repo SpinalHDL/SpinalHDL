@@ -156,6 +156,10 @@ class GlobalData(val config : SpinalConfig) {
           if (scalaLocateds.contains(s)) {
             scalaLocatedComponents += c.getClass
           }
+          s match {
+            case s : SwitchStatement => if(s.elements.exists(scalaLocateds.contains(_))) scalaLocatedComponents += c.getClass
+            case _ =>
+          }
           s.walkExpression(e => {
             if (scalaLocateds.contains(e)) {
               scalaLocatedComponents += c.getClass
@@ -501,7 +505,7 @@ trait Nameable extends OwnableRef with ContextUser{
             namable.setPartialName(name, weak = true)
             OwnableRef.proposal(namable, this)
           } else {
-            for (kind <- component.children) {
+            if(component != null) for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setPartialName(name, weak = true)
