@@ -5,43 +5,40 @@ import spinal.lib._
 
 
 
-//
-//case class BmbArbiter(p: BmbParameter, portCount : Int, pendingRspMax : Int) extends Component{
-//  val io = new Bundle{
-//    val inputs = Vec(slave(Bmb(p)), portCount)
-//    val output = master(Bmb(p))
-//  }
-//  val logic = if(portCount == 1) new Area{
-//    io.output << io.inputs(0)
-//  } else new Area {
-//    val arbiterFactory = StreamArbiterFactory.lowerFirst.transactionLock
-//    val arbiter = arbiterFactory.build(PipelinedMemoryBusCmd(pipelinedMemoryBusConfig), portCount)
-//    (arbiter.io.inputs, io.inputs).zipped.foreach(_ <> _.cmd)
-//
-//    val rspRouteOh = Bits(portCount bits)
-//
-//    val rsp = if(!rspRouteQueue) new Area{
-//      assert(pendingRspMax == 1)
-//      val pending = RegInit(False) clearWhen(io.output.rsp.valid)
-//      val target = Reg(Bits(portCount bits))
-//      rspRouteOh := target
-//      when(io.output.cmd.fire && !io.output.cmd.write){
-//        target  := arbiter.io.chosenOH
-//        pending := True
-//      }
-//      io.output.cmd << arbiter.io.output.haltWhen(pending && !io.output.rsp.valid)
-//    } else new Area{
-//      val (outputCmdFork, routeCmdFork) = StreamFork2(arbiter.io.output)
-//      io.output.cmd << outputCmdFork
-//
-//      val rspRoute = routeCmdFork.translateWith(arbiter.io.chosenOH).throwWhen(routeCmdFork.write).queueLowLatency(size = pendingRspMax, latency = 1)
-//      rspRoute.ready := io.output.rsp.valid
-//      rspRouteOh := rspRoute.payload
-//    }
-//
-//    for ((input, id) <- io.inputs.zipWithIndex) {
-//      input.rsp.valid := io.output.rsp.valid && rspRouteOh(id)
-//      input.rsp.payload := io.output.rsp.payload
-//    }
-//  }
-//}
+
+case class BmbArbiter(inputsParameters: Seq[BmbParameter], outputParameter : BmbParameter, portCount : Int, pendingRspMax : Int) extends Component{
+  val io = new Bundle{
+    val inputs = Vec(inputsParameters.map(p => slave(Bmb(p))))
+    val output = master(Bmb(outputParameter))
+  }
+  val logic = if(portCount == 1) new Area{
+    io.output << io.inputs(0)
+  } else new Area {
+    val inputSourceWidth = inputsParameters.map(_.sourceWidth).max
+    val sourceRouteRange = inputSourceWidth + log2Up(inputsParameters.size)-1 downto inputSourceWidth
+    assert(sourceRouteRange.high < outputParameter.sourceWidth, "Not enough source bits")
+
+    val arbiterFactory = StreamArbiterFactory.lowerFirst.fragmentLock
+    val arbiter = arbiterFactory.build(Fragment(BmbCmd(outputParameter)), portCount)
+
+    //Connect arbiters inputs
+    for((s, m) <- (arbiter.io.inputs, io.inputs.map(_.cmd)).zipped){
+      s.arbitrationFrom(m)
+      s.last := m.last
+      s.weakAssignFrom(m)
+    }
+
+    //Connect arbiters outputs
+    io.output.cmd << arbiter.io.output
+    io.output.cmd.source(sourceRouteRange) := arbiter.io.chosen
+
+    //Connect responses
+    val rspSel = io.output.rsp.source(sourceRouteRange)
+    for((input, index) <- io.inputs.zipWithIndex){
+      input.rsp.valid := io.output.rsp.valid && rspSel === index
+      input.rsp.last := io.output.rsp.last
+      input.rsp.weakAssignFrom(io.output.rsp)
+    }
+    io.output.rsp.ready := io.inputs(rspSel).rsp.ready
+  }
+}
