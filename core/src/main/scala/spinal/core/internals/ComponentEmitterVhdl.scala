@@ -1037,19 +1037,20 @@ class ComponentEmitterVhdl(
   }
 
   def emitBlackBoxComponent(component: BlackBox): Unit = {
+
     declarations ++= s"\n  component ${component.definitionName} is\n"
     val genericFlat = component.genericElements
     if (genericFlat.size != 0) {
       declarations ++= s"    generic( \n"
-
+      //
       for (e <- genericFlat) {
         e match {
-          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${blackBoxReplaceTypeRegardingTag(component, emitDataType(bt, true))};\n"
-          case (name: String, s: String)        => declarations ++= s"      $name : string;\n"
-          case (name: String, i: Int)           => declarations ++= s"      $name : integer;\n"
-          case (name: String, d: Double)        => declarations ++= s"      $name : real;\n"
-          case (name: String, boolean: Boolean) => declarations ++= s"      $name : boolean;\n"
-          case (name: String, t: TimeNumber)    => declarations ++= s"      $name : time;\n"
+          case (name: String, bt: BaseType)     => declarations ++= s"      $name : ${emitDataType(bt, true)} ${(if(component.isDefaultGenericValue) s":= ${emitExpression(bt.head.source)}" else "")};\n"
+          case (name: String, s: String)        => declarations ++= s"      $name : string ${(if(component.isDefaultGenericValue) s":= ${"\""}${s}${"\""}" else "")};\n"
+          case (name: String, i: Int)           => declarations ++= s"      $name : integer ${(if(component.isDefaultGenericValue) s":= $i" else "")};\n"
+          case (name: String, d: Double)        => declarations ++= s"      $name : real ${(if(component.isDefaultGenericValue) s":= $d" else "")};\n"
+          case (name: String, boolean: Boolean) => declarations ++= s"      $name : boolean ${(if(component.isDefaultGenericValue) s":= $boolean" else "")};\n"
+          case (name: String, t: TimeNumber)    => declarations ++= s"      $name : time ${(if(component.isDefaultGenericValue) s":= ${t.decompose._1} ${t.decompose._2}" else "")};\n"
         }
       }
 

@@ -151,6 +151,8 @@ abstract class BlackBox extends Component{
 
   /** Replace std_logic by std_ulogic */
   def replaceStdLogicByStdULogic() = this.addTag(uLogic)
+
+  def isDefaultGenericValue = this.hasTag(addDefaultGenericValue)
 }
 
 
@@ -174,5 +176,13 @@ object uLogic extends SpinalTag {
   * Transform all unsigned/signed into std_logic_vector
   */
 object noNumericType extends SpinalTag {
+  override def moveToSyncNode = false
+}
+
+
+/**
+  * In VHDL add the generic value in the definition of the blackbox
+  */
+object addDefaultGenericValue extends SpinalTag{
   override def moveToSyncNode = false
 }

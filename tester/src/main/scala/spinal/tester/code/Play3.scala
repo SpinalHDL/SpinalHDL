@@ -1571,3 +1571,46 @@ object PlayWithRandomBoot extends App {
     randBootFixValue = false
   ).generate(new TopLevel)
 }
+
+object PlayWithGeneric extends App{
+
+  class BlackTest extends BlackBox{
+    val io = new Bundle{
+      val in1 = in UInt(32 bits)
+      val out1 = out UInt(32 bits)
+    }
+    val integer: Int = 32
+    addGeneric("vInteger", integer)
+    val double: Double = 3.2323
+    addGeneric("dDouble", double)
+    val time = DoubleBuilder(3.23).ns
+    addGeneric("tTime", time)
+    val booolean = true
+    addGeneric("bBoolean", booolean)
+    addGeneric("Biiits", U(32, 11 bits))
+
+
+   // addTag(addDefaultGenericValue)
+  }
+
+  class TopLevel extends Component {
+
+    val io = new Bundle{
+      val en = in Bool
+      val ctn = out UInt(32 bits)
+    }
+
+    val reg = Reg(UInt(32 bits)) init(0)
+
+    when(io.en){
+      reg := reg + 1
+    }
+
+    val bb = new BlackTest()
+    bb.io.in1 := reg
+
+    io.ctn := bb.io.out1
+  }
+
+  SpinalVhdl(new TopLevel)
+}

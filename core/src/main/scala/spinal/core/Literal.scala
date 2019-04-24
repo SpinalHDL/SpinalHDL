@@ -32,7 +32,6 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
   def apply(value: Int): T = this(BigInt(value))
   def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
-
   def apply(value: BigInt): T = getFactory(value, -1, this().setAsTypeNode())
   def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value).setAsTypeNode())
   def apply(value: String): T = bitVectorStringParser(this, value,  isSigned)
@@ -110,6 +109,13 @@ object B extends BitVectorLiteralFactory[Bits] {
   def apply(): Bits = new Bits()
   def apply(that: Data): Bits = that.asBits
   def apply(that: Data, width : BitCount): Bits = that.asBits.resize(width)
+  def apply(value : Seq[Bool]) : Bits = {
+    val ret = Bits(value.length bits)
+    for(i <- ret.range){
+      ret(i) := value(i)
+    }
+    ret
+  }
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
