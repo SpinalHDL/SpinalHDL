@@ -52,7 +52,7 @@ object Makeable {
       */
     def bundleTest(target: String = "test"): String = {
       val nodes = getNodes.collect { case o: PassFail => o }
-      val ret   = nodes.flatMap(_.passFile).distinct
+      val ret   = nodes.flatMap(_.getPass).distinct
       ret.mkString(s""".PHONY: ${target}\n${target} : """, " ", "")
     }
 
@@ -70,7 +70,7 @@ object Makeable {
       */
     def bundle(target: String)(filter: PartialFunction[Makeable, Makeable]): String = {
       val nodes = getNodes.collect(filter)
-      val ret   = nodes.flatMap(_.target).distinct
+      val ret   = nodes.flatMap(_.getTarget).distinct
       ret.mkString(s""".PHONY: ${target}\n${target} : """, " ", "")
     }
 
@@ -92,14 +92,17 @@ object Makeable {
       * @example{{{ List(JOB1,JOB2,JOB3).clean() }}}
       */
     def clean(target: String = "clean") = {
-      val nodes   = getNodes.distinct
-      val inFile  = nodes.collect { case o: InputFile => o.target }.flatten.distinct
-      val files   = nodes.flatMap(_.target).distinct diff inFile //al file minus the inputs
-      val folders = files.flatMap(f => Option(f.getParent))
-      val pass    = nodes.collect { case o: PassFail => o.passFile }.flatten.distinct
-      val logs    = nodes.collect { case o: MakeableLog => o.logFile }.flatten.distinct
-      var ret     = (logs ++ files ++ folders).mkString(s".PHONY:${target}\n${target}:\n\trm -rf ", " ", "")
-      ret
+      val nodes            = getNodes.distinct
+      val inFile           = nodes.collect { case o: InputFile => o.getTarget }.flatten.distinct
+      val files            = nodes.flatMap(_.getTarget).distinct diff inFile //al file minus the inputs
+      val folderUncomplete = files.flatMap(f => Option(f.getParent))
+      val folders          = folderUncomplete.flatMap(x => ((1 until x.getNameCount + 1).map(x.subpath(0, _)).reverse))
+      val pass             = nodes.collect { case o: PassFail => o.getPass }.flatten.distinct
+      val logs             = nodes.collect { case o: MakeableLog => o.getLog }.flatten.distinct
+      var rm               = (logs ++ files ++ pass).mkString(s"rm -rf ", " ", "")
+      val rmdir            = folders.mkString("rmdir ", " ", "")
+      println(folders)
+      s".PHONY:${target}\n${target}:\n\t" + rm + " && " + rmdir
     }
 
     /** Create script that will generate all the necessary folder structure
@@ -110,7 +113,7 @@ object Makeable {
       */
     def mkdir: String = {
       val nodes   = getNodes.distinct
-      val files   = nodes.flatMap(_.target).distinct
+      val files   = nodes.flatMap(_.getTarget).distinct
       val folders = files.flatMap(f => Option(f.getParent))
       var ret     = folders.mkString("$(info creating dirs...$(shell mkdir -p ", " ", " ))")
       ret
@@ -140,7 +143,12 @@ object Makeable {
 }
 
 trait Makeable {
-
+  //the pasepath is arcoded to the project folder
+  val basePath = Paths.get(".").toAbsolutePath().normalize
+  def relativize(s:Path) = {
+    println(s + " -> " + basePath.relativize(s))
+    basePath.relativize(s).normalize()
+  }
   /** Change the output folder of all the target/output
     *
     * @param path the path where redirect all the outputs
@@ -162,10 +170,10 @@ trait Makeable {
   def addPrerequisite(pre: Makeable*) = prerequisite ++= pre
 
   /** Create a string with all the prerequisite by their extention */
-  def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).mkString(" ")
+  def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(relativize(_)).mkString(" ")
 
   /** Create a string with all generated target file */
-  def getTargetString: String = target.map(_.normalize.toString).mkString(" ")
+  def getTargetString: String = getTarget.mkString(" ")
 
   /** Create the command string */
   def getCommandString: String = makeComand
@@ -186,7 +194,7 @@ trait Makeable {
     assert(!ret.isEmpty, s"""Prerequisite with extension "${str}" not found in ${this
       .getClass
       .getSimpleName}:${pre.mkString("[", ",", "]")}""")
-    ret.get
+    relativize(ret.get)
   }
 
   /** Get the prerequiste by his extension
@@ -205,7 +213,7 @@ trait Makeable {
     val ret = pre.find(_.endsWith(str))
     assert(!ret.isEmpty, s"""Prerequisite with name "${str}" not found in ${this.getClass.getSimpleName}:${pre
       .mkString("[", ",", "]")}""")
-    ret.get
+    relativize(ret.get)
   }
 
   /** Get the target by his extension
@@ -223,7 +231,7 @@ trait Makeable {
     assert(!ret.isEmpty, s"""Target with extension "${str}" not found in ${this
       .getClass
       .getSimpleName}:${target.mkString("[", ",", "]")}""")
-    ret.get
+    relativize(ret.get)
   }
 
   /** Get the target by his extension
@@ -240,7 +248,7 @@ trait Makeable {
     val ret = target.find(_.endsWith(str))
     assert(!ret.isEmpty, s"""Target with name "${str}" not found in ${this.getClass.getSimpleName}:${target
       .mkString("[", ",", "]")}""")
-    ret.get
+    relativize(ret.get)
   }
 
   /** Get all targets by their extension
@@ -255,7 +263,7 @@ trait Makeable {
     */
   def getAllTargetsFromExtension(str: String*): Seq[Path] = {
     val ret = target.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
-    ret
+    ret.map(relativize(_))
   }
 
   /** Get all prerequisites by their extension
@@ -271,7 +279,7 @@ trait Makeable {
   def getAllPrerequisiteFromExtension(str: String*): Seq[Path] = {
     val pre = prerequisite.flatMap(_.target)
     val ret = pre.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
-    ret
+    ret.map(relativize(_))
   }
 
   /** Add this to the dependency of the given comand
@@ -310,6 +318,8 @@ trait Makeable {
     preJob += makejob
     preJob.mkString("", "\n\n", "")
   }
+
+  def getTarget: Seq[Path] = target.map(relativize(_))
 }
 
 trait MakableFile extends Makeable {
@@ -349,6 +359,8 @@ trait PassFail extends Makeable {
     */
   def pass(name: Path): PassFail
 
+  def getPass: Option[Path] = if(passFile.nonEmpty) Some(relativize(passFile.get)) else None
+
   /** @inheritdoc */
   override def outputFolder(path: Path): PassFail = {
     val old = super.outputFolder(path).asInstanceOf[PassFail]
@@ -371,6 +383,8 @@ trait MakeableLog extends Makeable {
     * @param file the path of the log file
     */
   def log(name: Path): MakeableLog
+
+  def getLog: Option[Path] = if(logFile.nonEmpty) Some(relativize(logFile.get)) else None
 
   /** @inheritdoc */
   override def outputFolder(path: Path): MakeableLog = {
