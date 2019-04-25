@@ -149,7 +149,7 @@ class OpenDrainInterconnect(clockDomain: ClockDomain){
 
 
 
-class SpinalSimApbI2C extends FunSuite {
+class SpinalSimApbI2C extends FunSuite with TravisFold {
 
   case class I2CSlaveModel(sda: OpenDrainSoftConnection, scl: OpenDrainSoftConnection){
 

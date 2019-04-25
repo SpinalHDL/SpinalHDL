@@ -18,7 +18,7 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
   val ff = Reg(Bool)
   io.busmaster <> io.busslave
 }
-class SpinalSimWishboneSimTester extends FunSuite{
+class SpinalSimWishboneSimTester extends FunSuite with TravisFold{
   val compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8)))
   val compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8).pipelined))
 

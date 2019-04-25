@@ -21,7 +21,7 @@ class SpinalSimMultiThreadingDut(offset : Int) extends Component {
   //    io.result := rec(io.a + io.b - io.c, 1000)
 }
 
-class SpinalSimMultiThreadingTest extends FunSuite {
+class SpinalSimMultiThreadingTest extends FunSuite with TravisFold {
 
   test("Test1") {
     var faild = false

@@ -59,7 +59,7 @@ object SpinalSimClockDomainTest{
   }
 }
 
-class SpinalSimClockDomainTest extends FunSuite {
+class SpinalSimClockDomainTest extends FunSuite with TravisFold {
   val resetKinds = List(SYNC,ASYNC)
   test("Test1"){
     for(resetKind <- resetKinds) {

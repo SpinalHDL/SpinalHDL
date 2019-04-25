@@ -23,7 +23,7 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
   val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
 }
 
-class SpinalSimWishboneAdapterTester extends FunSuite{
+class SpinalSimWishboneAdapterTester extends FunSuite with TravisFold{
   def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT))
     fixture.doSim(description){ dut =>

@@ -35,7 +35,7 @@ import scala.util.Random
 
 
 
-class SpinalSimSpiXdrMaster extends FunSuite {
+class SpinalSimSpiXdrMaster extends FunSuite with TravisFold {
 
   var compiled : SimCompiled[SpiXdrMasterCtrl.TopLevel] = null
   test("compile"){

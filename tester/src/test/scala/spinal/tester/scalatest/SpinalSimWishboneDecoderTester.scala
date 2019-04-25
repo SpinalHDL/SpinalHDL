@@ -21,7 +21,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
   val decoder = WishboneDecoder(io.busIN,outs)
 }
 
-class SpinalSimWishboneDecoderTester extends FunSuite{
+class SpinalSimWishboneDecoderTester extends FunSuite with TravisFold{
   def testDecoder(config : WishboneConfig,decodings : Seq[SizeMapping],description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneDecoderComponent(config,decodings))
     fixture.doSim(description){ dut =>

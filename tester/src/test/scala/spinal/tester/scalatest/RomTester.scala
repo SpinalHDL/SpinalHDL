@@ -126,7 +126,7 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
   }
 }
 
-class SpinalSimRomTester extends FunSuite {
+class SpinalSimRomTester extends FunSuite with TravisFold {
   test("test1"){
     import spinal.core.sim._
     import spinal.sim._

@@ -44,7 +44,7 @@ object SpinalSimAccessSubComponents {
 
 }
 
-class SpinalSimAccessSubComponents extends FunSuite{
+class SpinalSimAccessSubComponents extends FunSuite with TravisFold{
   var compiled : SimCompiled[SpinalSimAccessSubComponents.Dut] = null
   test("compile"){
     compiled = SimConfig.withWave.compile{

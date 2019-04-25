@@ -12,7 +12,7 @@ import spinal.tester
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimStreamFifoTester extends FunSuite {
+class SpinalSimStreamFifoTester extends FunSuite with TravisFold {
   test("testBits"){
     //Compile the simulator
     val compiled = SimConfig.allOptimisation.compile(

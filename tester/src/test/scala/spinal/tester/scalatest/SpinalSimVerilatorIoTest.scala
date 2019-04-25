@@ -73,7 +73,7 @@ object SpinalSimVerilatorIoTest{
   }
 }
 
-class SpinalSimVerilatorIoTest extends FunSuite {
+class SpinalSimVerilatorIoTest extends FunSuite with TravisFold {
   var compiled : SimCompiled[SpinalSimVerilatorIoTestTop] = null
   def doTest: Unit ={
     compiled.doSim{ dut =>

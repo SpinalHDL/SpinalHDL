@@ -29,7 +29,7 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
   }
 }
 
-class SpinalSimWishboneSimInterconTester extends FunSuite{
+class SpinalSimWishboneSimInterconTester extends FunSuite with TravisFold{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
     val fixture = SimConfig.withWave.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>

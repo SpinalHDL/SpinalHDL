@@ -19,7 +19,7 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
   val arbiter = WishboneArbiter(io.busIN,io.busOUT)
 }
 
-class SpinalSimWishboneArbiterTester extends FunSuite{
+class SpinalSimWishboneArbiterTester extends FunSuite with TravisFold{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.withWave.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>
