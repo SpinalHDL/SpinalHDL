@@ -8,10 +8,12 @@ trait TravisFold extends FunSuite with BeforeAndAfterAllConfigMap{
   def isTravis: Boolean = sys.env.get("TRAVIS").nonEmpty
   override def beforeAll(configMap: ConfigMap) ={
       if(isTravis) println(s"travis_fold:start:${this.getClass.getSimpleName}")
+      super.beforeAll(configMap)
   }
 
   override def afterAll(configMap: ConfigMap) = {
       if(isTravis) println(s"travis_fold:end:${this.getClass.getSimpleName}")
+      super.afterAll(configMap)
   }
 }
 
