@@ -50,7 +50,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
 }
 
 
-case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
+case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7,lowLatency : Boolean = false) extends Component{
   val io = new Bundle{
     val input = slave(Axi4WriteOnly(axiConfig))
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
@@ -76,6 +76,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
+  if(lowLatency) allowData.setWhen(allowCmd && io.input.writeCmd.valid)
   cmdAllowedStart := io.input.writeCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.writeCmd.ready))
 
   //Decoding error managment
@@ -120,7 +121,8 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
                              readDecodings : Seq[SizeMapping],
                              writeDecodings : Seq[SizeMapping],
                              sharedDecodings : Seq[SizeMapping],
-                             pendingMax : Int = 7) extends Component{
+                             pendingMax : Int = 7,
+                             lowLatency : Boolean = false) extends Component{
   val io = new Bundle{
     val input = slave(Axi4Shared(axiConfig))
     val readOutputs   = Vec(master(Axi4ReadOnly(axiConfig)),readDecodings.size)
@@ -158,6 +160,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
+  if(lowLatency) allowData.setWhen(allowCmd && io.input.sharedCmd.valid && io.input.sharedCmd.write)
   cmdAllowedStart := io.input.sharedCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.sharedCmd.ready))
 
   //Decoding error managment

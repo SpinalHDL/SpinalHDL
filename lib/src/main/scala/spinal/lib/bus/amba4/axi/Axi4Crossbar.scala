@@ -26,6 +26,12 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
   val readOnlyBridger = mutable.HashMap[Axi4ReadOnly,(Axi4ReadOnly,Axi4ReadOnly) => Unit]()
   val writeOnlyBridger = mutable.HashMap[Axi4WriteOnly,(Axi4WriteOnly,Axi4WriteOnly) => Unit]()
   val masters = ArrayBuffer[Axi4Bus]()
+  var lowLatency = false
+
+  def decoderToArbiterLink(bus : Axi4ReadOnly) = if(lowLatency) bus.arValidPipe() else bus
+  def decoderToArbiterLink(bus : Axi4WriteOnly) = if(lowLatency) bus.awValidPipe() else bus
+  def decoderToArbiterLink(bus : Axi4Shared) = if(lowLatency) bus.arwValidPipe() else bus
+
   def addSlave(axi: Axi4Bus,mapping: SizeMapping) : this.type = {
     axi match {
       case axi: Axi4 => {
@@ -119,7 +125,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         )
         applyName(master,"decoder",decoder)
   
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.arValidPipe())).zipped.toMap
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
         readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
       }
       case master : Axi4WriteOnly => new Area{
@@ -128,11 +134,12 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         }.toSeq
         val decoder = Axi4WriteOnlyDecoder(
           axiConfig = master.config,
-          decodings = slaves.map(_._2.mapping)
+          decodings = slaves.map(_._2.mapping),
+          lowLatency = lowLatency
         )
         applyName(master,"decoder",decoder)
 
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.awValidPipe())).zipped.toMap
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
         writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
       }
       case master : Axi4Shared => new Area{
@@ -146,13 +153,14 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           axiConfig = master.config,
           readDecodings = readOnlySlaves.map(_._2.mapping),
           writeDecodings = writeOnlySlaves.map(_._2.mapping),
-          sharedDecodings = sharedSlaves.map(_._2.mapping)
+          sharedDecodings = sharedSlaves.map(_._2.mapping),
+          lowLatency = lowLatency
         )
         applyName(master,"decoder",decoder)
 
         masterToDecodedSlave(master) = (
           readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
-            -> List(decoder.io.readOutputs.map(_.arValidPipe()).toSeq , decoder.io.writeOutputs.map(_.awValidPipe()).toSeq , decoder.io.sharedOutputs.map(_.arwValidPipe()).toSeq).flatten
+            -> List(decoder.io.readOutputs.map(decoderToArbiterLink).toSeq , decoder.io.writeOutputs.map(decoderToArbiterLink).toSeq , decoder.io.sharedOutputs.map(decoderToArbiterLink).toSeq).flatten
         ).zipped.toMap
 
         sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
@@ -175,7 +183,10 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         val readConnections = config.connections
         readConnections.size match {
           case 0 => PendingError(s"$slave has no master}")
-          case 1 => slave << readConnections.head.master.asInstanceOf[Axi4ReadOnly]
+          case 1 if readConnections.head.master.isInstanceOf[Axi4ReadOnly] => readConnections.head.master match {
+            case m : Axi4ReadOnly => slave << m
+//            case m : Axi4Shared => slave << m.toAxi4ReadOnly()
+          }
           case _ => new Area {
             val arbiter = Axi4ReadOnlyArbiter(
               outputConfig = slave.config,
@@ -195,7 +206,10 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         val writeConnections = config.connections
         config.connections.size match {
           case 0 => PendingError(s"$slave has no master}")
-          case 1 => slave << writeConnections.head.master.asInstanceOf[Axi4WriteOnly]
+          case 1 if writeConnections.head.master.isInstanceOf[Axi4WriteOnly] => writeConnections.head.master match {
+            case m : Axi4WriteOnly => slave << m
+//            case m : Axi4Shared => slave << m.toAxi4WriteOnly()
+          }
           case _ => new Area {
             val arbiter = Axi4WriteOnlyArbiter(
               outputConfig = slave.config,
@@ -215,15 +229,15 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         val readConnections = connections.filter(_.master.isInstanceOf[Axi4ReadOnly])
         val writeConnections = connections.filter(_.master.isInstanceOf[Axi4WriteOnly])
         val sharedConnections = connections.filter(_.master.isInstanceOf[Axi4Shared])
-        if(readConnections.size + sharedConnections.size == 0){
-          PendingError(s"$slave has no master able to read it}")
-          return
-        }
+//        if(readConnections.size + sharedConnections.size == 0){
+//          PendingError(s"$slave has no master able to read it}")
+//          return
+//        }
 
-        if(writeConnections.size + sharedConnections.size == 0){
-          PendingError(s"$slave has no master able to write it}")
-          return
-        }
+//        if(writeConnections.size + sharedConnections.size == 0){
+//          PendingError(s"$slave has no master able to write it}")
+//          return
+//        }
 
         if(readConnections.size == 0 && writeConnections.size == 0 && sharedConnections.size == 0){
           slave << sharedConnections.head.master.asInstanceOf[Axi4Shared]
