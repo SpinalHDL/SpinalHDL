@@ -28,9 +28,9 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
   val masters = ArrayBuffer[Axi4Bus]()
   var lowLatency = false
 
-  def decoderToArbiterLink(bus : Axi4ReadOnly) = if(lowLatency) bus.arValidPipe() else bus
-  def decoderToArbiterLink(bus : Axi4WriteOnly) = if(lowLatency) bus.awValidPipe() else bus
-  def decoderToArbiterLink(bus : Axi4Shared) = if(lowLatency) bus.arwValidPipe() else bus
+  def decoderToArbiterLink(bus : Axi4ReadOnly) = if(!lowLatency) bus.arValidPipe() else bus
+  def decoderToArbiterLink(bus : Axi4WriteOnly) = if(!lowLatency) bus.awValidPipe() else bus
+  def decoderToArbiterLink(bus : Axi4Shared) = if(!lowLatency) bus.arwValidPipe() else bus
 
   def addSlave(axi: Axi4Bus,mapping: SizeMapping) : this.type = {
     axi match {
