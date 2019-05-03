@@ -43,24 +43,28 @@ case class BmbSlaveParameter(maximumPendingTransactionPerId : Int)
 
 case class BmbParameter(addressWidth : Int,
                         dataWidth : Int,
-                        sizeMax : Int,
+                        lengthWidth : Int,
                         sourceWidth : Int,
                         contextWidth : Int,
                         canRead : Boolean = true,
-                        canWrite : Boolean = true
-                        ){
+                        canWrite : Boolean = true,
+                        allowUnalignedBurst : Boolean  = true,
+                        allowSubWordBurst : Boolean  = true,
+                        maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(isPow2(dataWidth))
   def byteCount = dataWidth/8
   def sizeWidth = log2Up(log2Up(byteCount)+1)
   def maskWidth = byteCount
-  def beatMax = 1 << (sizeMax)
+  def allowBurst = lengthWidth != 0
 }
+
 
 case class BmbCmd(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
   val address = UInt(p.addressWidth bits)
   val size = UInt(p.sizeWidth bits)
+  val length = UInt(p.lengthWidth bits)
   val data = p.canWrite generate UInt(p.dataWidth bits)
   val mask = p.canWrite generate UInt(p.maskWidth bits)
   val context = Bits(p.contextWidth bits)
@@ -71,27 +75,16 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
   def setWrite = opcode := Bmb.Cmd.Opcode.WRITE
   def setRead = opcode := Bmb.Cmd.Opcode.READ
 
-  def sizeToBeatCountMinusOne() : UInt = {
-    val shift = log2Up(p.byteCount)
-    val ret = UInt(p.sizeMax - shift bits)
-    switch(size) {
-      for (beatLog2 <- shift to p.sizeMax) {
-        is(beatLog2){
-          ret := (1 << beatLog2) - 1
-        }
-      }
-    }
-    ret
-  }
 
   def weakAssignFrom(m : BmbCmd): Unit ={
     def s = this
     WeakConnector(m, s, m.source,  s.source,  defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = true , allowDrop = false)
-    WeakConnector(m, s, m.size,    s.size,    defaultValue = null, allowUpSize = false, allowDownSize = true , allowDrop = false)
-    WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare(), allowUpSize = false, allowDownSize = false, allowDrop = true )
-    WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare(), allowUpSize = false, allowDownSize = false, allowDrop = true)
+    WeakConnector(m, s, m.size,    s.size,    defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.length,  s.length,  defaultValue = null, allowUpSize = true, allowDownSize = false , allowDrop = false)
+    WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
+    WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
   }
 }
