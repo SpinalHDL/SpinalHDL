@@ -35,6 +35,15 @@ object Bmb{
       val ERROR = 1
     }
   }
+
+  def incr(address : UInt, p : BmbParameter) : UInt = {
+    val result = UInt(address.getWidth bits)
+    val highCat = if (address.getWidth > 12) address(address.high downto 12) else U""
+    val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12)
+    val alignMask = p.byteCount-1
+    result := (highCat @@ ((base + p.byteCount) & U(~alignMask).resized)).resized
+    result
+  }
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)
@@ -49,13 +58,12 @@ case class BmbParameter(addressWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
                         allowUnalignedBurst : Boolean  = true,
-                        allowSubWordBurst : Boolean  = true,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(isPow2(dataWidth))
   def byteCount = dataWidth/8
-  def sizeWidth = log2Up(log2Up(byteCount)+1)
   def maskWidth = byteCount
-  def allowBurst = lengthWidth != 0
+  def allowBurst = lengthWidth > log2Up(byteCount)
+  def beatCounterWidth = lengthWidth - log2Up(byteCount)
 }
 
 
@@ -63,7 +71,6 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
   val address = UInt(p.addressWidth bits)
-  val size = UInt(p.sizeWidth bits)
   val length = UInt(p.lengthWidth bits)
   val data = p.canWrite generate UInt(p.dataWidth bits)
   val mask = p.canWrite generate UInt(p.maskWidth bits)
@@ -81,7 +88,6 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.source,  s.source,  defaultValue = null, allowUpSize = true , allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = true , allowDrop = false)
-    WeakConnector(m, s, m.size,    s.size,    defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.length,  s.length,  defaultValue = null, allowUpSize = true, allowDownSize = false , allowDrop = false)
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)

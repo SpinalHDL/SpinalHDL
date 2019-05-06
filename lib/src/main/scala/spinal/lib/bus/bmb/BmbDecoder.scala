@@ -1,12 +1,14 @@
 package spinal.lib.bus.bmb
 
 import spinal.core._
-import spinal.lib.bus.misc.{AddressMapping, DefaultMapping}
+import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib._
 
 
 
-case class BmbDecoder(p : BmbParameter, mappings : Seq[AddressMapping], pendingMax : Int = 3) extends Component{
+case class BmbDecoder(p : BmbParameter,
+                      mappings : Seq[AddressMapping],
+                      pendingMax : Int = 3) extends Component{
   val io = new Bundle {
     val input = slave(Bmb(p))
     val outputs = Vec(master(Bmb(p)), mappings.size)
@@ -49,5 +51,22 @@ case class BmbDecoder(p : BmbParameter, mappings : Seq[AddressMapping], pendingM
       io.input.cmd.ready := False
       io.outputs.foreach(_.cmd.valid := False)
     }
+  }
+}
+
+
+object BmbDecoder{
+  def main(args: Array[String]): Unit = {
+    SpinalVerilog(new BmbDecoder(
+      p = BmbParameter(
+        addressWidth = 16,
+        dataWidth = 32,
+        lengthWidth = 5,
+        sourceWidth = 2,
+        contextWidth = 3
+      ),
+      mappings = List(SizeMapping(0x00, 0x10), SizeMapping(0x10, 0x10), SizeMapping(0x20, 0x10)),
+      pendingMax = 3
+    ))
   }
 }
