@@ -150,7 +150,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
 
       val outputs = if(hasDefaultSlave) decoder.io.outputs :+ decoder.io.defaultSlave else decoder.io.outputs
       masterToDecodedSlave(master) = (slaves.map(_._1), outputs).zipped.toMap
-      decoder.io.input <> master
+      decoder.io.input << master
 
       decoder.setPartialName(master, "decoder")
     }
@@ -167,7 +167,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
           input <> masterToDecodedSlave(master.master)(slave)
         }
 
-        arbiter.io.output <> slave
+        arbiter.io.output >> slave
         arbiter.setPartialName(slave, "arbiter")
     }
   }
