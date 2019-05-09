@@ -21,8 +21,10 @@
 package spinal
 
 import spinal.core.internals._
+
 import scala.annotation.elidable
 import scala.annotation.elidable._
+import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.language.experimental.macros
 
@@ -30,6 +32,9 @@ import scala.language.experimental.macros
 package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
+
+
+  type dontName = spinal.core.DontName @field
 
   /**
     * Scala implicit
