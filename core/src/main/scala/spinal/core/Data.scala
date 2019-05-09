@@ -175,7 +175,7 @@ object Data {
           push(currentComponent, currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setCompositeName(srcData,weak=true)
+            copy.setPartialName(srcData, "", weak=true)
           copy := currentData
           pop(currentComponent)
           currentData = copy
@@ -195,7 +195,7 @@ object Data {
         push(riseTo, riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setCompositeName(srcData,weak=true)
+          copy.setPartialName(srcData, "", weak=true)
         pop(riseTo)
         if (currentComponent != null) {
           push(currentComponent, riseTo.parentScope)
