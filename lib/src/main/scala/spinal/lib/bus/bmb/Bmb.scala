@@ -72,15 +72,15 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
   val opcode = Bits(1 bits)
   val address = UInt(p.addressWidth bits)
   val length = UInt(p.lengthWidth bits)
-  val data = p.canWrite generate UInt(p.dataWidth bits)
-  val mask = p.canWrite generate UInt(p.maskWidth bits)
+  val data = p.canWrite generate Bits(p.dataWidth bits)
+  val mask = p.canWrite generate Bits(p.maskWidth bits)
   val context = Bits(p.contextWidth bits)
 
   def isWrite = opcode === Bmb.Cmd.Opcode.WRITE
   def isRead = opcode === Bmb.Cmd.Opcode.READ
 
-  def setWrite = opcode := Bmb.Cmd.Opcode.WRITE
-  def setRead = opcode := Bmb.Cmd.Opcode.READ
+  def setWrite() = opcode := Bmb.Cmd.Opcode.WRITE
+  def setRead() = opcode := Bmb.Cmd.Opcode.READ
 
 
   def weakAssignFrom(m : BmbCmd): Unit ={
@@ -98,7 +98,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
 case class BmbRsp(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
-  val data = p.canRead generate UInt(p.dataWidth bits)
+  val data = p.canRead generate Bits(p.dataWidth bits)
   val context = Bits(p.contextWidth bits)
 
   def isSuccess = opcode === Bmb.Rsp.Opcode.SUCCESS
@@ -129,8 +129,14 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
 
   def <<(m : Bmb) : Unit = {
     val s = this
-    s.cmd << m.cmd
-    s.rsp >> m.rsp
+    s.cmd.arbitrationFrom(m.cmd)
+    m.rsp.arbitrationFrom(s.rsp)
+
+    s.cmd.last := m.cmd.last
+    m.rsp.last := s.rsp.last
+
+    s.cmd.weakAssignFrom(m.cmd)
+    m.rsp.weakAssignFrom(s.rsp)
   }
   def >>(s : Bmb) : Unit = s << this
 
