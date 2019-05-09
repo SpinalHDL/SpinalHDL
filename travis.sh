@@ -227,7 +227,7 @@ case "$1" in
     compileTest
   ;;
   "-c")
-    docker run --rm -itv $(pwd):/src -w /src spinalhdl/dev ./travis.sh -t
+    docker run --rm -ite TRAVIS="$TRAVIS" -v $(pwd):/src -w /src spinalhdl/dev ./travis.sh -t
   ;;
   "-d")
     deploy

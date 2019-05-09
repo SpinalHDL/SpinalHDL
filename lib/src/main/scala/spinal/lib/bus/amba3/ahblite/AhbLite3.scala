@@ -160,7 +160,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
     val high = HADDR(config.symboleRange) + Vec((0 to config.bytePerWord).map(idx => idx === HSIZE)).asBits.asUInt
 
     for(idx <- lowMask.range){
-      lowMask(idx)  := low <= idx
+      lowMask(idx)  := (if(idx != low.maxValue) low <= idx else True)
       highMask(idx) := high > idx
     }
 
