@@ -7,7 +7,7 @@ import java.util.concurrent.CyclicBarrier
 import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4SpecRenamer}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
@@ -21,6 +21,7 @@ import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DebugExt
 import spinal.lib.experimental.MacrosClass
 import spinal.lib.graphic.{Rgb, RgbConfig}
 import spinal.lib.graphic.vga.{Vga, VgaCtrl}
+import spinal.lib.io.TriStateArray
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable
@@ -945,31 +946,29 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  case class Poly (size : Int, sizePoly : Int) extends Component {
-
-    val io = new Bundle {
-      val wData = in Bits(size bits)
-      val rData = out Bits(size bits)
-      val rValid = in Bool
-      val wValid = in Bool
-      val wAddress = in UInt(log2Up(sizePoly) bits)
-      val rAddress = in UInt(log2Up(sizePoly) bits)
+  case class SubTop() extends Component{
+    val subClk, subReset = in Bool()
+    ClockDomain(subClk, subReset) {
+      val ctrl = Apb3Gpio(32, false)
+      slave(Apb3(Apb3Gpio.getApb3Config())) <> ctrl.io.apb
+      master(TriStateArray(32)) <> ctrl.io.gpio
     }
+  }
+  case class TopLevel() extends Component {
+    val subAClk, subBClk, subAReset, subBReset = in Bool()
 
-    var initValue : Array[Bits] = new Array[Bits](sizePoly)
-    for (i <- 0 until sizePoly) {
-      initValue(i) = 0
-    }
 
-    val mem = Mem(Bits(size bits), sizePoly ) init initValue
+    val subA = SubTop()
+    val subB = SubTop()
 
-    mem.write(io.wAddress, io.wData, io.wValid)
-    io.rData := mem.readSync(io.rAddress, io.rValid, readUnderWrite = writeFirst)
+    subA.subClk := subAClk
+    subB.subClk := subBClk
+    subA.subReset := subAReset
+    subB.subReset := subBReset
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(Poly(3,6))
-    SpinalVerilog(Poly(3,6))
+    SpinalVerilog(TopLevel())
   }
 }
 

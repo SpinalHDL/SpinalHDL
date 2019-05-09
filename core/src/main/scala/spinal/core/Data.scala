@@ -219,7 +219,7 @@ object Data {
 }
 
 
-trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
+trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef with OverridedEqualsHashCode {
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null

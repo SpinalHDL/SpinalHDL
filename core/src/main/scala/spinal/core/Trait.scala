@@ -743,7 +743,7 @@ object Driver {
   def executionTime: Double = (System.currentTimeMillis - startTime) / 1000.0
 }
 
-
+//Avoid having case class matching
 trait OverridedEqualsHashCode{
   override def equals(obj: scala.Any): Boolean = super.equals(obj)
   override def hashCode(): Int = super.hashCode()
