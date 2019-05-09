@@ -2126,7 +2126,8 @@ object UIntLiteral {
     val minimalWidth   = Math.max(poisonBitCount, valueBitCount)
     var bitCount       = specifiedBitCount
 
-    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0)
+      throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")

@@ -156,28 +156,35 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   ).resized
 
   // Route writeData
-  @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
-  val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queueLowLatency(routeBufferSize, latency = 0)
-  val routeDataInput = writeDataInputs.apply(routeBuffer.payload)
-  io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
-  io.output.writeData.payload  := routeDataInput.payload
-  writeDataInputs.zipWithIndex.foreach{case(input,idx) => {
-    input.ready := routeBuffer.valid && io.output.writeData.ready && routeBuffer.payload === idx
-  }}
-  routeBuffer.ready := io.output.writeData.fire && io.output.writeData.last
+  val writeLogic = if (writeInputsCount + sharedInputsCount != 0) new Area {
+    @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
+    val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queueLowLatency(routeBufferSize, latency = 0)
+    val routeDataInput = writeDataInputs.apply(routeBuffer.payload)
+    io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
+    io.output.writeData.payload := routeDataInput.payload
+    writeDataInputs.zipWithIndex.foreach { case (input, idx) => {
+      input.ready := routeBuffer.valid && io.output.writeData.ready && routeBuffer.payload === idx
+    }}
+    routeBuffer.ready := io.output.writeData.fire && io.output.writeData.last
 
-  // Route writeResp
-  @dontName val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
-  val writeIdPathRange = log2Up(writeInputsCount + sharedInputsCount) + widthOf(cmdOutputFork.id) - 1 downto widthOf(cmdOutputFork.id)
-  val writeRspIndex = io.output.writeRsp.id(writeIdPathRange)
-  val writeRspSels = (0 until writeInputsCount + sharedInputsCount).map(writeRspIndex === _)
-  for((input,sel)<- (writeRspInputs,writeRspSels).zipped){
-    input.valid := io.output.writeRsp.valid && sel
-    input.payload <> io.output.writeRsp.payload
-    input.id.removeAssignments()
-    input.id := io.output.writeRsp.id.resized
+    // Route writeResp
+    @dontName val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
+    val writeIdPathRange = log2Up(writeInputsCount + sharedInputsCount) + widthOf(cmdOutputFork.id) - 1 downto widthOf(cmdOutputFork.id)
+    val writeRspIndex = io.output.writeRsp.id(writeIdPathRange)
+    val writeRspSels = (0 until writeInputsCount + sharedInputsCount).map(writeRspIndex === _)
+    for ((input, sel) <- (writeRspInputs, writeRspSels).zipped) {
+      input.valid := io.output.writeRsp.valid && sel
+      input.payload <> io.output.writeRsp.payload
+      input.id.removeAssignments()
+      input.id := io.output.writeRsp.id.resized
+    }
+    io.output.writeRsp.ready := writeRspInputs.read(writeRspIndex).ready
+  } else new Area {
+    cmdRouteFork.ready := True
+    io.output.w.valid := False
+    io.output.w.payload.assignDontCare()
+    io.output.b.ready := True
   }
-  io.output.writeRsp.ready := writeRspInputs.read(writeRspIndex).ready
 
   // Route readResp
   @dontName val readRspInputs = (io.readInputs.map(_.readRsp) ++ io.sharedInputs.map(_.readRsp))

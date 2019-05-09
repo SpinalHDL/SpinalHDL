@@ -46,6 +46,26 @@ case class Axi4Shared(config: Axi4Config) extends Bundle with IMasterSlave with 
     ret
   }
 
+  def toAxi4ReadOnly() : Axi4ReadOnly = {
+    val ret = Axi4ReadOnly(config)
+    ret.ar.payload.assignSomeByName(this.arw.payload)
+    ret.ar.valid := this.arw.valid
+    this.arw.ready := ret.ar.ready
+    this.r << ret.r
+    ret
+  }
+
+  def toAxi4WriteOnly() : Axi4WriteOnly = {
+    val ret = Axi4WriteOnly(config)
+    ret.aw.payload.assignSomeByName(this.arw.payload)
+    ret.aw.valid := this.arw.valid && this.arw.write
+    this.arw.ready := ret.aw.ready
+    this.w >> ret.w
+    this.b << ret.b
+    ret
+  }
+
+
   def toFullConfig(): Axi4Shared = {
     val ret = Axi4Shared(config.toFullConfig())
     ret << this

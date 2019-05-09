@@ -160,7 +160,10 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     ret
   }
 
-  override def assignFromBits(bits: Bits): Unit = this := bits(0)
+  override def assignFromBits(bits: Bits): Unit = {
+    assert(widthOf(bits) == 1)
+    this := bits(0)
+  }
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
     assert(hi == 0, "assignFromBits hi != 0")
