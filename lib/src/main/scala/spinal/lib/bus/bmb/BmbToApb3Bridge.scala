@@ -5,6 +5,23 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
 
+
+object BmbToApb3Bridge{
+  def busCapabilities(addressWidth : Int,
+                      dataWidth : Int) = BmbParameter(
+    addressWidth  = addressWidth,
+    dataWidth     = dataWidth,
+    lengthWidth   = log2Up(dataWidth/8),
+    sourceWidth   = Int.MaxValue,
+    contextWidth  = Int.MaxValue,
+    canRead       = true,
+    canWrite      = true,
+    allowUnalignedBurst = false,
+    maximumPendingTransactionPerId = Int.MaxValue
+  )
+}
+
+
 case class BmbToApb3Bridge(apb3Config: Apb3Config,
                            bmbParameter : BmbParameter,
                            pipelineBridge : Boolean) extends Component{
@@ -41,8 +58,9 @@ case class BmbToApb3Bridge(apb3Config: Apb3Config,
     }
   }
 
-  io.input.rsp.source  := RegNextWhen(io.input.cmd.source,  io.input.cmd.ready)
-  io.input.rsp.context := RegNextWhen(io.input.cmd.context, io.input.cmd.ready)
+  bmbBuffer.rsp.source  := RegNextWhen(io.input.cmd.source,  io.input.cmd.ready)
+  bmbBuffer.rsp.context := RegNextWhen(io.input.cmd.context, io.input.cmd.ready)
+  bmbBuffer.rsp.last := True
 
   if(apb3Config.useSlaveError) {
     bmbBuffer.rsp.setSuccess()
