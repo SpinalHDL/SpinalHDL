@@ -164,7 +164,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   cmdAllowedStart := io.input.sharedCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.sharedCmd.ready))
 
   //Decoding error managment
-  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
+  val decodingErrorPossible = true
   val errorSlave = if(decodingErrorPossible) Axi4SharedErrorSlave(axiConfig) else null
 
   io.input.sharedCmd.ready := ((decodedCmdSels & (io.readOutputs.map(_.readCmd.ready) ++ io.writeOutputs.map(_.writeCmd.ready) ++ io.sharedOutputs.map(_.sharedCmd.ready)).asBits).orR || (decodedCmdError && errorSlave.io.axi.sharedCmd.ready)) && allowCmd
