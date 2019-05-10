@@ -44,6 +44,9 @@ log.txt
 *.out
 *.o
 *.bin
+*.so
+*.vpi
+*.vpl
 
 /tester/**/*.gtkw
 *.do
