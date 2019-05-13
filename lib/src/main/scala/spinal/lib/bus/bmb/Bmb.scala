@@ -23,6 +23,7 @@ object WeakConnector{
 }
 
 object Bmb{
+  val boundarySize = 4096
   object Cmd {
     object Opcode {
       val READ = 0
@@ -58,9 +59,11 @@ case class BmbParameter(addressWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
                         allowUnalignedBurst : Boolean  = true,
+                        allowUnalignedStartEnd : Boolean  = false,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(isPow2(dataWidth))
   def byteCount = dataWidth/8
+  def wordMask = byteCount-1
   def maskWidth = byteCount
   def allowBurst = lengthWidth > log2Up(byteCount)
   def beatCounterWidth = lengthWidth - log2Up(byteCount)
