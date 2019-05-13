@@ -88,7 +88,7 @@ class BmbInterconnect extends AbstractMemoryInterconnect [Bmb]{
     for((bus, model) <- slaves){
       val busConnections = connections.filter(_.s == bus)
       val busMasters = busConnections.map(c => masters(c.m))
-      val arbiter = new BmbArbiter(bus.p, busMasters.size, arbitrationPendingRspMaxDefault)
+      val arbiter = new BmbArbiter(bus.p, busMasters.size, arbitrationPendingRspMaxDefault, false)
       arbiter.setCompositeName(bus, "arbiter")
       model.connector(arbiter.io.output, bus)
       for((connection, arbiterInput) <- (busConnections, arbiter.io.inputs).zipped) {

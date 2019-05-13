@@ -58,12 +58,15 @@ case class BmbParameter(addressWidth : Int,
                         contextWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
-                        allowUnalignedBurst : Boolean  = true,
-                        allowUnalignedStartEnd : Boolean  = false,
+                        allowUnalignedWordBurst : Boolean  = true,
+                        allowUnalignedByteBurst : Boolean  = false,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
-  assert(isPow2(dataWidth))
+  assert(dataWidth % 8 == 0)
+  assert(isPow2(byteCount))
+  assert(!(allowUnalignedByteBurst && !allowUnalignedWordBurst))
   def byteCount = dataWidth/8
   def wordMask = byteCount-1
+  def wordRange = log2Up(byteCount) -1 downto 0
   def maskWidth = byteCount
   def allowBurst = lengthWidth > log2Up(byteCount)
   def beatCounterWidth = lengthWidth - log2Up(byteCount)
@@ -95,6 +98,14 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
+  }
+
+  def transferBeatCountMinusOne(): UInt = {
+    if(!p.allowUnalignedByteBurst){
+      length(length.high downto log2Up(p.byteCount))
+    } else {
+      ((U"0" @@ length) + address(p.wordRange))(length.high + 1 downto log2Up(p.byteCount))
+    }
   }
 }
 

@@ -5,7 +5,8 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib._
 
 
-
+//TODO no rspNoHit logic when there is a default
+//TODO optimized rspNoHit counter depending BMB parameters
 case class BmbDecoder(p : BmbParameter,
                       mappings : Seq[AddressMapping],
                       pendingMax : Int = 3) extends Component{
@@ -33,20 +34,42 @@ case class BmbDecoder(p : BmbParameter,
     rspPendingCounter := rspPendingCounter + U(io.input.cmd.lastFire) - U(io.input.rsp.lastFire)
     val rspHits = RegNextWhen(hits, io.input.cmd.fire)
     val rspPending = rspPendingCounter =/= 0
-    val rspNoHit = if (!hasDefault) !rspHits.orR else False
-    val rspNoHitDoIt = RegInit(False) clearWhen(io.input.rsp.fire) setWhen(io.input.cmd.fire && noHit && (io.input.cmd.isRead || io.input.cmd.last))
-    val rspNoHitDoItLast = RegNextWhen(io.input.cmd.last, io.input.cmd.fire)
+    val rspNoHitValid = if (!hasDefault) !rspHits.orR else False
+    val rspNoHit = !hasDefault generate new Area{
+      val doIt = RegInit(False) clearWhen(io.input.rsp.lastFire) setWhen(io.input.cmd.fire && noHit && io.input.cmd.last)
+      val singleBeatRsp = if(p.canRead) RegNextWhen(io.input.cmd.isWrite, io.input.cmd.fire) else True
+      val source = RegNextWhen(io.input.cmd.source, io.input.cmd.fire)
+      val context = RegNextWhen(io.input.cmd.context, io.input.cmd.fire)
+      val counter = p.canRead generate RegNextWhen(io.input.cmd.transferBeatCountMinusOne, io.input.cmd.fire)
+    }
 
-    io.input.rsp.valid := io.outputs.map(_.rsp.valid).orR || (rspPending && rspNoHit)
+    io.input.rsp.valid := io.outputs.map(_.rsp.valid).orR || (rspPending && rspNoHitValid)
     io.input.rsp.payload := io.outputs.map(_.rsp.payload).read(OHToUInt(rspHits))
-    when(rspNoHitDoIt) {
+    if(!hasDefault) when(rspNoHit.doIt) {
       io.input.rsp.valid := True
       io.input.rsp.setError()
-      io.input.rsp.last := rspNoHitDoItLast
+      io.input.rsp.source := rspNoHit.source
+      io.input.rsp.context := rspNoHit.context
+
+      //Manage io.input.rsp.last generation for multiple generation cases to save area
+      if(!p.allowUnalignedByteBurst && (1 << p.lengthWidth) <= p.byteCount){
+        io.input.rsp.last := True
+      } else {
+        io.input.rsp.last := False
+        if (p.canRead) {
+          io.input.rsp.last setWhen (rspNoHit.counter === 0)
+          when(io.input.rsp.fire) {
+            rspNoHit.counter := rspNoHit.counter - 1
+          }
+        }
+        if (p.canWrite) {
+          io.input.rsp.last setWhen (rspNoHit.singleBeatRsp)
+        }
+      }
     }
     for(output <- io.outputs) output.rsp.ready := io.input.rsp.ready
 
-    val cmdWait = (rspPending && (hits =/= rspHits || rspNoHit)) || rspPendingCounter === pendingMax
+    val cmdWait = (rspPending && (hits =/= rspHits || rspNoHitValid)) || rspPendingCounter === pendingMax
     when(cmdWait) {
       io.input.cmd.ready := False
       io.outputs.foreach(_.cmd.valid := False)

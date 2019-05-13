@@ -8,7 +8,8 @@ import spinal.lib._
 
 case class BmbArbiter(p : BmbParameter,
                       portCount : Int,
-                      pendingRspMax : Int) extends Component{
+                      pendingRspMax : Int,
+                      lowerFirstPriority : Boolean) extends Component{
   val sourceRouteWidth = log2Up(portCount)
   val inputSourceWidth = p.sourceWidth - sourceRouteWidth
   val inputsParameter = p.copy(sourceWidth = inputSourceWidth)
@@ -26,7 +27,12 @@ case class BmbArbiter(p : BmbParameter,
   } else new Area {
     assert(sourceRouteRange.high < p.sourceWidth, "Not enough source bits")
 
-    val arbiterFactory = StreamArbiterFactory.lowerFirst.fragmentLock
+    val arbiterFactory = StreamArbiterFactory.fragmentLock
+    if(lowerFirstPriority) {
+      arbiterFactory.lowerFirst
+    } else {
+      arbiterFactory.roundRobin
+    }
     val arbiter = arbiterFactory.build(Fragment(BmbCmd(p)), portCount)
 
     //Connect arbiters inputs
@@ -64,7 +70,8 @@ object BmbArbiter{
         contextWidth = 3
       ),
       portCount = 4,
-      pendingRspMax = 3
+      pendingRspMax = 3,
+      lowerFirstPriority = false
     ))
   }
 }
