@@ -38,16 +38,55 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
     (x*x*10).toInt
   }
 
-  fork{
-    stream.valid #= false
-    while(true) {
-      clockDomain.waitSampling(transactionDelay())
-      clockDomain.waitSamplingWhere(driver(stream.payload))
-      stream.valid #= true
-      clockDomain.waitSamplingWhere(stream.ready.toBoolean)
-      stream.valid #= false
+
+  //The  following commented threaded code is the equivalent to the following uncommented thread-less code (nearly)
+//  fork{
+//    stream.valid #= false
+//    while(true) {
+//      clockDomain.waitSampling(transactionDelay())
+//      clockDomain.waitSamplingWhere(driver(stream.payload))
+//      stream.valid #= true
+//      clockDomain.waitSamplingWhere(stream.ready.toBoolean)
+//      stream.valid #= false
+//      stream.payload.randomize()
+//    }
+//  }
+
+  var state = 0
+  var delay = transactionDelay()
+  stream.valid #= false
+  def fsm(): Unit = {
+    state match{
+      case 0 => {
+        if (delay == 0) {
+          state += 1
+          fsm()
+        } else {
+          delay -= 1
+          clockDomain.onNextSampling(fsm)
+        }
+      }
+      case 1 => {
+        if(driver(stream.payload)){
+          stream.valid #= true
+          state += 1
+        }
+        clockDomain.onNextSampling(fsm)
+      }
+      case 2 => {
+        if(stream.ready.toBoolean){
+          stream.valid #= false
+          stream.payload.randomize()
+          delay = transactionDelay()
+          state = 0
+          fsm()
+        } else {
+          clockDomain.onNextSampling(fsm)
+        }
+      }
     }
   }
+  clockDomain.onNextSampling(fsm)
 }
 
 object StreamReadyRandomizer {
