@@ -30,7 +30,7 @@ case class BmbDecoder(p : BmbParameter,
     io.input.cmd.ready := (hits, io.outputs).zipped.map(_ && _.cmd.ready).orR || noHit
 
     val rspPendingCounter = Reg(UInt(log2Up(pendingMax + 1) bits)) init(0)
-    rspPendingCounter := rspPendingCounter + U(io.input.cmd.firstFire) - U(io.input.rsp.lastFire)
+    rspPendingCounter := rspPendingCounter + U(io.input.cmd.lastFire) - U(io.input.rsp.lastFire)
     val rspHits = RegNextWhen(hits, io.input.cmd.fire)
     val rspPending = rspPendingCounter =/= 0
     val rspNoHit = if (!hasDefault) !rspHits.orR else False

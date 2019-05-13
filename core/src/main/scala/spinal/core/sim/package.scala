@@ -225,6 +225,21 @@ package object sim {
         bt #= BigInt(width, Random)
       }
     }
+
+    def randomizedBigInt() = {
+      val width = bt.getWidth
+      BigInt(width, Random)
+    }
+    def randomizedLong() = {
+      val width = bt.getWidth
+      assert(width < 64)
+      Random.nextLong() & ((1l << width) - 1)
+    }
+    def randomizedInt() = {
+      val width = bt.getWidth
+      assert(width < 32)
+      Random.nextInt() & ((1 << width) - 1)
+    }
   }
 
   /**
@@ -239,6 +254,21 @@ package object sim {
       }else {
         bt #= BigInt(width, Random)
       }
+    }
+
+    def randomizedBigInt() = {
+      val width = bt.getWidth
+      BigInt(width, Random)
+    }
+    def randomizedLong() = {
+      val width = bt.getWidth
+      assert(width < 64)
+      Random.nextLong() & ((1l << width) - 1)
+    }
+    def randomizedInt() = {
+      val width = bt.getWidth
+      assert(width < 32)
+      Random.nextInt() & ((1 << width) - 1)
     }
   }
 

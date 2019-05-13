@@ -39,8 +39,8 @@ case class BmbArbiter(p : BmbParameter,
     //Connect arbiters outputs
     io.output.cmd << arbiter.io.output
     io.output.cmd.source.removeAssignments()
-    io.output.cmd.source(sourceInputRange) := arbiter.io.chosen
-    io.output.cmd.source(sourceRouteRange) := arbiter.io.output.source
+    io.output.cmd.source(sourceRouteRange) := arbiter.io.chosen
+    io.output.cmd.source(sourceInputRange) := arbiter.io.output.source(sourceInputRange)
 
     //Connect responses
     val rspSel = io.output.rsp.source(sourceRouteRange)
