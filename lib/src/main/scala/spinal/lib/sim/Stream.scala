@@ -94,14 +94,11 @@ object StreamReadyRandomizer {
 }
 
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain, condition: () => Boolean){
-  fork{
-    while(true) {
-      if (condition()) {
-        stream.ready #= Random.nextBoolean()
-      } else {
-        stream.ready #= false
-      }
-      clockDomain.waitSampling()
+  clockDomain.onSamplings{
+    if (condition()) {
+      stream.ready #= Random.nextBoolean()
+    } else {
+      stream.ready #= false
     }
   }
 }
