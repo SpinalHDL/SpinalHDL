@@ -9,21 +9,28 @@ import spinal.lib._
 //TODO optimized rspNoHit counter depending BMB parameters
 case class BmbDecoder(p : BmbParameter,
                       mappings : Seq[AddressMapping],
+                      capabilities : Seq[BmbParameter],
                       pendingMax : Int = 3) extends Component{
   val io = new Bundle {
     val input = slave(Bmb(p))
     val outputs = Vec(master(Bmb(p)), mappings.size)
   }
   val hasDefault = mappings.contains(DefaultMapping)
-  val logic = if(hasDefault && mappings.size == 1){
+  val logic = if(hasDefault && mappings.size == 1 && p.canWrite == capabilities.head.canWrite && p.canRead == capabilities.head.canRead){
     io.outputs(0) <> io.input
   } else new Area {
     val hits = Vec(Bool, mappings.size)
-    for ((slaveBus, memorySpace, hit) <- (io.outputs, mappings, hits).zipped) yield {
+    for (portId <- 0 until mappings.length) yield {
+      val slaveBus = io.outputs(portId)
+      val memorySpace = mappings(portId)
+      val capability = capabilities(portId)
+      val hit = hits(portId)
       hit := (memorySpace match {
         case DefaultMapping => !hits.filterNot(_ == hit).orR
         case _ => memorySpace.hit(io.input.cmd.address)
       })
+      if(!capability.canWrite) hit clearWhen(io.input.cmd.isWrite)
+      if(!capability.canRead) hit clearWhen(io.input.cmd.isRead)
       slaveBus.cmd.valid := io.input.cmd.valid && hit
       slaveBus.cmd.payload := io.input.cmd.payload.resized
     }
@@ -74,22 +81,5 @@ case class BmbDecoder(p : BmbParameter,
       io.input.cmd.ready := False
       io.outputs.foreach(_.cmd.valid := False)
     }
-  }
-}
-
-
-object BmbDecoder{
-  def main(args: Array[String]): Unit = {
-    SpinalVerilog(new BmbDecoder(
-      p = BmbParameter(
-        addressWidth = 16,
-        dataWidth = 32,
-        lengthWidth = 5,
-        sourceWidth = 2,
-        contextWidth = 3
-      ),
-      mappings = List(SizeMapping(0x00, 0x10), SizeMapping(0x10, 0x10), SizeMapping(0x20, 0x10)),
-      pendingMax = 3
-    ))
   }
 }
