@@ -982,7 +982,7 @@ object StreamFragmentWidthAdapter{
     val outputWidth = widthOf(output.fragment)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
-      output.assignFromBits(input.asBits)
+      output.payload.assignFromBits(input.payload.asBits)
     } else if(inputWidth > outputWidth){
       require(inputWidth % outputWidth == 0 || padding)
       val factor = (inputWidth + outputWidth - 1) / outputWidth
