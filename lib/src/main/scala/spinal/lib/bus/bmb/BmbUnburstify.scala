@@ -3,55 +3,68 @@ package spinal.lib.bus.bmb
 import spinal.core._
 import spinal.lib._
 
-case class BmbUnburstify(p : BmbParameter) extends Component{
-  val outputParameter = p.copy(lengthWidth = log2Up(p.byteCount), contextWidth = p.contextWidth + 2)
-  val contextDropBit = p.contextWidth
-  val contextLastBit = p.contextWidth+1
+object BmbUnburstify{
+  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(lengthWidth = log2Up(inputParameter.byteCount), contextWidth = inputParameter.contextWidth + 2)
+}
+
+//TODO check inputParameter requirements
+case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
+  val outputParameter = BmbUnburstify.outputParameter(inputParameter)
+  val contextDropBit = inputParameter.contextWidth
+  val contextLastBit = inputParameter.contextWidth+1
 
   val io = new Bundle {
-    val input = Bmb(p)
-    val output = Bmb(outputParameter)
+    val input = slave(Bmb(inputParameter))
+    val output = master(Bmb(outputParameter))
   }
 
   val doResult = Bool
-  val addrIncrRange = (Math.min(11, p.addressWidth - 1) downto 0)
+  val addrIncrRange = (Math.min(11, inputParameter.addressWidth - 1) downto 0)
 
   val buffer = new Area{
     val valid       = RegInit(False)
     val opcode      = Reg(Bits(1 bits))
-    val source      = Reg(UInt(p.addressWidth bits))
-    val address     = Reg(UInt(p.addressWidth bits))
-    val context     = Reg(Bits(p.contextWidth bits))
-    val beat        = Reg(UInt(p.beatCounterWidth bits))
+    val source      = Reg(UInt(inputParameter.sourceWidth bits))
+    val address     = Reg(UInt(inputParameter.addressWidth bits))
+    val context     = Reg(Bits(inputParameter.contextWidth bits))
+    val beat        = Reg(UInt(inputParameter.beatCounterWidth bits))
     val last        = beat === 1
+    val addressIncr = Bmb.incr(address = address, p = inputParameter)
 
     when(io.output.cmd.fire) {
       beat := beat - 1
-      address(addrIncrRange) := Bmb.incr(address = address, p = p)(addrIncrRange)
+      address(addrIncrRange) := addressIncr(addrIncrRange)
       when(last){
         valid := False
       }
     }
   }
 
+  val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne()
+  val requireBuffer = cmdTransferBeatCount =/= 0
 
   io.output.cmd.data := io.input.cmd.data
   io.output.cmd.mask := io.input.cmd.mask
   io.output.cmd.last := True
 
   //payload muxes
-  when(buffer.valid && buffer.opcode === Bmb.Cmd.Opcode.READ) {
+  when(buffer.valid) {
     io.output.cmd.source := buffer.source
-    io.output.cmd.address := buffer.address
-    io.output.cmd.opcode := Bmb.Cmd.Opcode.READ
-    io.output.cmd.length := p.byteCount
-    io.output.cmd.context(p.contextWidth-1 downto 0) := buffer.context
+    io.output.cmd.address := buffer.addressIncr
+    io.output.cmd.opcode := buffer.opcode
+    io.output.cmd.length := inputParameter.byteCount-1
+    io.output.cmd.context(inputParameter.contextWidth-1 downto 0) := buffer.context
   } otherwise {
     io.output.cmd.source := io.input.cmd.source
     io.output.cmd.address := io.input.cmd.address
     io.output.cmd.opcode := io.input.cmd.opcode
-    io.output.cmd.length := io.input.cmd.length.max(p.byteCount)
-    io.output.cmd.context(p.contextWidth-1 downto 0) := io.input.cmd.context
+    when(requireBuffer) {
+      io.output.cmd.address(inputParameter.wordRange) := 0
+      io.output.cmd.length := inputParameter.byteCount-1 // (inputParameter.byteCount - io.input.cmd.length(inputParameter.wordRange)).resized
+    } otherwise {
+      io.output.cmd.length := io.input.cmd.length.resized
+    }
+    io.output.cmd.context(inputParameter.contextWidth-1 downto 0) := io.input.cmd.context
   }
 
 
@@ -69,10 +82,8 @@ case class BmbUnburstify(p : BmbParameter) extends Component{
     buffer.source := io.input.cmd.source
     buffer.address := io.input.cmd.address
     buffer.context := io.input.cmd.context
-    buffer.beat := io.input.cmd.length >> log2Up(p.byteCount)
+    buffer.beat    := cmdTransferBeatCount
     io.output.cmd.context(contextDropBit) := io.input.cmd.opcode === Bmb.Cmd.Opcode.WRITE
-
-    val requireBuffer = io.input.cmd.length < p.byteCount
     io.output.cmd.context(contextLastBit) := !requireBuffer
     buffer.valid := requireBuffer && io.output.cmd.fire
   }

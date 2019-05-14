@@ -41,8 +41,7 @@ object Bmb{
     val result = UInt(address.getWidth bits)
     val highCat = if (address.getWidth > 12) address(address.high downto 12) else U""
     val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12)
-    val alignMask = p.byteCount-1
-    result := (highCat @@ ((base + p.byteCount) & U(~alignMask).resized)).resized
+    result := (highCat @@ ((base + p.byteCount) & ~U(p.byteCount-1, widthOf(base) bits))).resized
     result
   }
 }
@@ -69,7 +68,7 @@ case class BmbParameter(addressWidth : Int,
   def wordRange = log2Up(byteCount) -1 downto 0
   def maskWidth = byteCount
   def allowBurst = lengthWidth > log2Up(byteCount)
-  def beatCounterWidth = lengthWidth - log2Up(byteCount)
+  def beatCounterWidth = lengthWidth - log2Up(byteCount) + (if(allowUnalignedByteBurst) 1 else 0)
 }
 
 
