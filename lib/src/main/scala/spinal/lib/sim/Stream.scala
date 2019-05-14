@@ -63,7 +63,6 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
           fsm()
         } else {
           delay -= 1
-          clockDomain.onNextSampling(fsm)
         }
       }
       case 1 => {
@@ -71,7 +70,6 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
           stream.valid #= true
           state += 1
         }
-        clockDomain.onNextSampling(fsm)
       }
       case 2 => {
         if(stream.ready.toBoolean){
@@ -80,13 +78,11 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
           delay = transactionDelay()
           state = 0
           fsm()
-        } else {
-          clockDomain.onNextSampling(fsm)
         }
       }
     }
   }
-  clockDomain.onNextSampling(fsm)
+  clockDomain.onSamplings(fsm)
 }
 
 object StreamReadyRandomizer {
