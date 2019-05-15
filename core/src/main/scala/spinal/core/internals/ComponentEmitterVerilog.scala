@@ -40,7 +40,9 @@ class ComponentEmitterVerilog(
   nativeRom                          : Boolean,
   nativeRomFilePrefix                : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
-  emitedRtlSourcesPath               : mutable.LinkedHashSet[String]
+  emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
+  pc                                 : PhaseContext,
+  spinalConfig                       : SpinalConfig
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -135,7 +137,7 @@ class ComponentEmitterVerilog(
     }
 
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
       declarations ++= emitExpressionWrap(io, name)
       referencesOverrides(io) = name
     }))
@@ -168,19 +170,20 @@ class ComponentEmitterVerilog(
     emitSubComponents(openSubIo)
     emitAnalogs()
     emitMuxes()
+    emitEnumDebugLogic()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
           case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
-          case _ => emitAsyncronous(p)
+          case _ => emitAsynchronous(p)
         }
       } else {
-        emitAsyncronous(p)
+        emitAsynchronous(p)
       }
     })
 
-    syncGroups.valuesIterator.foreach(emitSyncronous(component, _))
+    syncGroups.valuesIterator.foreach(emitSynchronous(component, _))
 
     component.dslBody.walkStatements{
       case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
@@ -227,6 +230,7 @@ class ComponentEmitterVerilog(
               case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
               case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
               case (name: String, b: Boolean)   => logics ++= s"    .${name}($b),\n"
+              case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
           logics.setCharAt(logics.size - 2, ' ')
@@ -332,7 +336,7 @@ class ComponentEmitterVerilog(
     b ++= s"${tabStr}\n"
   }
 
-  def emitSyncronous(component: Component, group: SyncGroup): Unit = {
+  def emitSynchronous(component: Component, group: SyncGroup): Unit = {
     import group._
 
     def withReset = hasInit
@@ -375,11 +379,29 @@ class ComponentEmitterVerilog(
     }
   }
 
-  def emitAsyncronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
+  def emitEnumDebugLogic(): Unit ={
+    if(enumDebugStringList.nonEmpty) {
+      logics ++= "  `ifndef SYNTHESIS\n"
+      for((signal, name, charCount) <- enumDebugStringList){
+        def normalizeString(that : String) = that + " " * (charCount - that.length)
+        logics ++= s"  always @(*) begin\n"
+        logics ++= s"    case(${emitReference(signal, false)})\n"
+        for(e <- signal.spinalEnum.elements) {
+          logics ++= s"""      ${emitEnumLiteral(e, signal.encoding)} : $name = "${normalizeString(e.getName())}";\n"""
+        }
+        logics ++= s"""      default : $name = "${"?" * charCount}";\n"""
+        logics ++= s"    endcase\n"
+        logics ++= s"  end\n"
+      }
+      logics ++= "  `endif\n\n"
+    }
+  }
 
-  def emitAsyncronous(process: AsyncProcess): Unit = {
+  def emitAsynchronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
+
+  def emitAsynchronous(process: AsyncProcess): Unit = {
     process match {
-      case _ if emitAsyncronousAsAsign(process) =>
+      case _ if emitAsynchronousAsAsign(process) =>
         process.leafStatements.head match {
           case s: AssignmentStatement =>
             logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
@@ -483,7 +505,7 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "$error"
                 case `FAILURE` => "$fatal"
               }
-              if (assertStatement.kind == AssertStatementKind.ASSERT) {
+              if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
                 b ++= s"${tab}$keyword($cond) else begin\n"
                 b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
@@ -749,13 +771,13 @@ class ComponentEmitterVerilog(
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
           case b: Bool       =>
-            " = " + (/*if (Random.nextBoolean()) "1" else */"0")
+            " = " + { if(pc.config.randBootFixValue) {"0"} else { if(Random.nextBoolean()) "1" else "0"} }
           case bv: BitVector =>
-            val rand = BigInt(0).toString(2)//BigInt(bv.getWidth, Random).toString(2)
+            val rand = (if(pc.config.randBootFixValue) {BigInt(0)} else { BigInt(bv.getBitsWidth, Random)}).toString(2)
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           case e: SpinalEnumCraft[_] =>
             val vec  = e.spinalEnum.elements.toVector
-            val rand = vec(/*Random.nextInt(vec.size)*/0)
+            val rand = if(pc.config.randBootFixValue) vec(0) else vec(Random.nextInt(vec.size))
             " = " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
@@ -764,14 +786,32 @@ class ComponentEmitterVerilog(
   }
 
   var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
-
+  val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
   def emitSignals(): Unit = {
+    val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
         if (!signal.isIo) {
           declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
         }
+        if(spinalConfig._withEnumString) {
+          signal match {
+            case signal: SpinalEnumCraft[_] => {
+              val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
+              val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
+              enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
+              enumDebugStringList += Tuple3(signal , name, stringWidth)
+            }
+            case _ =>
+          }
+        }
       case mem: Mem[_] =>
+    }
+
+    if(enumDebugStringList.nonEmpty) {
+      declarations ++= "  `ifndef SYNTHESIS\n"
+      declarations ++= enumDebugStringBuilder.toString
+      declarations ++= "  `endif\n\n"
     }
   }
 
@@ -815,7 +855,8 @@ class ComponentEmitterVerilog(
         builder ++= ")"
 
       }else if(mem.hasTag(randomBoot)){
-        builder ++= " := (others => (others => '1'))"
+        val value = if(pc.config.randBootFixValue) {"'1'"} else { if(Random.nextBoolean()) "'1'" else "'0'"}
+        builder ++= s" := (others => (others => $value))"
       }
       builder
     }
@@ -993,8 +1034,7 @@ end
       case port: MemWrite     =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadSync  =>
-        if(port.readUnderWrite == readFirst)
-          cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadWrite =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port: MemReadAsync =>
@@ -1006,7 +1046,7 @@ end
       def syncLogic(tab: String, b: StringBuilder): Unit ={
         ports.foreach{
           case port: MemWrite     => emitPort(port, tab, b)
-          case port: MemReadSync  => emitPort(port, tab, b)
+          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
           case port: MemReadWrite => emitPort(port, tab, b)
         }
       }
@@ -1186,7 +1226,7 @@ end
 
   def emitEnumPoison(e: EnumPoison): String = {
     val width = e.encoding.getWidth(e.enum)
-    s"(${width}'${"x" * width})"
+    s"(${width}'b${"x" * width})"
   }
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
@@ -1323,10 +1363,10 @@ end
     case  e: BitVectorRangedAccessFixed               => accessBitVectorFixed(e)
     case  e: BitVectorRangedAccessFloating            => accessBitVectorFloating(e)
 
-    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)})"
-    case e : Operator.Formal.Rise                     => s"$$rise(${emitExpression(e.source)})"
-    case e : Operator.Formal.Fall                     => s"$$rise(${emitExpression(e.source)})"
-    case e : Operator.Formal.Changed                  => s"$$changed(${emitExpression(e.source)})"
+    case e : Operator.Formal.Past                     => s"$$past(${emitExpression(e.source)}, ${e.delay})"
+    case e : Operator.Formal.Rose                     => s"$$rose(${emitExpression(e.source)})"
+    case e : Operator.Formal.Fell                     => s"$$fell(${emitExpression(e.source)})"
+    case e : Operator.Formal.Changed                  => s"!$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.InitState                => s"$$initstate()"
   }

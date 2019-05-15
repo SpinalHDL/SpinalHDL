@@ -1,8 +1,8 @@
 package spinal.sim
 
 import java.io.File
-import javax.tools.JavaFileObject
 
+import javax.tools.JavaFileObject
 import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
@@ -21,7 +21,7 @@ class VerilatorBackendConfig{
   var workspaceName: String  = null
   var vcdPath: String        = null
   var vcdPrefix: String      = null
-  var withWave               = true
+  var waveFormat             : WaveFormat = WaveFormat.NONE
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
 }
@@ -59,7 +59,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
       path
     }
   }
-  
+
   def clean(): Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
   }
@@ -72,7 +72,9 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
 #include <jni.h>
 
 #include "V${config.toplevelName}.h"
-#include "verilated_vcd_c.h"
+#ifdef TRACE
+#include "verilated_${config.waveFormat.ext}_c.h"
+#endif
 #include "V${config.toplevelName}__Syms.h"
 class ISignalAccess{
 public:
@@ -189,7 +191,7 @@ public:
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
-	  VerilatedVcdC tfp;
+	  Verilated${config.waveFormat.ext.capitalize}C tfp;
 	  #endif
 
     Wrapper_${uniqueId}(const char * name){
@@ -204,7 +206,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".vcd").c_str());
+      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
       #endif
     }
 
@@ -331,6 +333,13 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
 
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200
+
+    val waveArgs = config.waveFormat match {
+      case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"
+      case WaveFormat.VCD =>  "-CFLAGS -DTRACE --trace"
+      case WaveFormat.NONE => ""
+    }
+
     val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
@@ -343,7 +352,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
        | --trace-depth ${config.waveDepth}
        | -O3
        | -CFLAGS -O${config.optimisationLevel}
-       | ${if(config.withWave) "-CFLAGS -DTRACE --trace" else ""}
+       | $waveArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).mkString(" "))}

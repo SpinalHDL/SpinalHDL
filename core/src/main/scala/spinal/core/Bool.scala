@@ -160,7 +160,10 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     ret
   }
 
-  override def assignFromBits(bits: Bits): Unit = this := bits(0)
+  override def assignFromBits(bits: Bits): Unit = {
+    assert(widthOf(bits) == 1)
+    this := bits(0)
+  }
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
     assert(hi == 0, "assignFromBits hi != 0")
@@ -251,6 +254,10 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def ===(that: MaskedBoolean): Bool = that === this
   /** BitVector is not equal to MaskedLiteral */
   def =/=(that: MaskedBoolean): Bool = that =/= this
+
+  def init(value : Boolean) : Bool = this.init(Bool(value))
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBool(delay))
 }
 
 /**
@@ -259,6 +266,6 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 case class BoolEdges() extends Bundle{
   val rise, fall, toggle = Bool()
 
-  @deprecated("Use toggle")
+  @deprecated("Use toggle","???")
   def toogle = toggle
 }

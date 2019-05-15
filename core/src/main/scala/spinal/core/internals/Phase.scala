@@ -37,11 +37,12 @@ class PhaseContext(val config: SpinalConfig) {
   var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
+  def privateNamespaceName = config.globalPrefix + (if(config.privateNamespace) topLevel.definitionName + "_" else "")
 
   val duplicationPostfix = if(config.mode == VHDL) "" else "_"
   val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
-  val enums               = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+  val enums               = mutable.LinkedHashMap[SpinalEnum,mutable.LinkedHashSet[SpinalEnumEncoding]]()
 
   val reservedKeyWords    = mutable.Set[String](
     //VHDL
@@ -738,6 +739,9 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
   }
 }
 
+object classNameOf{
+  def apply(that : Any): String = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+}
 
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
@@ -746,14 +750,17 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     globalData.nodeAreNamed = true
 
     if (topLevel.getName() == null) topLevel.setName("toplevel", Nameable.DATAMODEL_WEAK)
-
+    if(topLevel.definitionName == null) {
+      topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
+    }
     for (c <- sortedComponents) {
       c.nameElements()
-      if(c.definitionName == null) {
-        //        c.definitionName = pc.config.globalPrefix + c.getClass.getName.replace("$",".").split("\\.").last
-        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName.replace("$",".").split("\\.").head
+      if(c != topLevel) {
+        if (c.definitionName == null) {
+          c.definitionName = privateNamespaceName + classNameOf(c)
+        }
       }
-      if(c.definitionName == ""){
+      if (c.definitionName == "") {
         c.definitionName = "unamed"
       }
       c match {
@@ -947,13 +954,13 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //Feed enums with encodings
-    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
+    enums.keySet.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
     nodes.foreach(enum => {
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-    //give a name to unamed encodings
-    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
+    //give a name to unamed encodingss
+    val unamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
@@ -1211,8 +1218,8 @@ class PhaseCheckCrossClock() extends PhaseCheck{
              """.stripMargin
           )
         }
-        def areSyncronous(a : ClockDomain, b : ClockDomain): Boolean ={
-          if(a.isSyncronousWith(b)){
+        def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
+          if(a.isSynchronousWith(b)){
             true
           }else{
             def getDriver(that : Bool): Bool ={
@@ -1223,7 +1230,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
               }
             }
             if(getDriver(a.clock) == getDriver(b.clock)){
-              a.setSyncronousWith(b)
+              a.setSynchronousWith(b)
               true
             }else{
               false
@@ -1233,12 +1240,12 @@ class PhaseCheckCrossClock() extends PhaseCheck{
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
           case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
-            if(!areSyncronous(node.getTag(classOf[ClockDomainTag]).get.clockDomain, clockDomain)) {
+            if(!areSynchronous(node.getTag(classOf[ClockDomainTag]).get.clockDomain, clockDomain)) {
               issue(node.asInstanceOf[BaseNode with ScalaLocated], node.getTag(classOf[ClockDomainTag]).get.clockDomain)
             }
           case node: BaseType =>
             if (node.isReg) {
-              if(!areSyncronous(node.clockDomain, clockDomain)) {
+              if(!areSynchronous(node.clockDomain, clockDomain)) {
                 issue(node, node.clockDomain)
               }
             } else {
@@ -1251,11 +1258,11 @@ class PhaseCheckCrossClock() extends PhaseCheck{
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
           case node: Mem[_] =>
           case node: MemReadSync =>
-            if(!areSyncronous(node.clockDomain, clockDomain)) {
+            if(!areSynchronous(node.clockDomain, clockDomain)) {
               issue(node, node.clockDomain)
             }
           case node: MemReadWrite =>
-            if(!areSyncronous(node.clockDomain, clockDomain)) {
+            if(!areSynchronous(node.clockDomain, clockDomain)) {
               issue(node, node.clockDomain)
             }
           case node: Expression =>
@@ -1493,7 +1500,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
             val bt = s.finalTarget
 
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutputOrInOut && bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is drived by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              PendingError(s"HIERARCHY VIOLATION : $bt is driven by ${s.source}, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
 
@@ -2006,16 +2013,10 @@ object SpinalVhdlBoot{
 
     phases += new PhaseAllocateNames(pc)
 
-    def initVhdlBase[T <: VhdlBase](base: T) = {
-      base.packageName     = pc.config.globalPrefix + base.packageName
-      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
-      base
-    }
-
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
-    phases += initVhdlBase(new PhaseVhdl(pc, report))
+    phases += new PhaseVhdl(pc, report)
 
     for(inserter <-config.phasesInserters){
       inserter(phases)

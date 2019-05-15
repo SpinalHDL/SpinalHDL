@@ -193,7 +193,7 @@ class LogicAnalyserParameter {
     exTriggers  .foreach(_.postBackend)
     implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
     val json = toJson
-    GlobalData.get.addJsonReport(pretty(render(json)))
+    GlobalData.get.addJsonReport(prettyRender(json))
   }
 
   def memAddressCount = 1 << memAddressWidth

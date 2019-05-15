@@ -97,7 +97,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     //Create the DMA for this VGA controller
     val dma = new SblReadDma(memoryBusConfig)
 
-    //Syncronise the frameStart event from the VGA to the current clock domain
+    //Synchronise the frameStart event from the VGA to the current clock domain
     val frameStart = StreamCCByToggle(vga.newFrameEvent, vgaClk, vgaMemoryClk)
     //Translate it into a DMA command and send it into the DMA
 //    dma.io.cmd.translateFrom(frameStart)((to, from) => {
@@ -129,7 +129,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     colorFlow.valid := io.vgaReadRet.valid
     colorFlow.payload.assignFromBits(io.vgaReadRet.payload.data)
 
-    //Translate the color Flow ino a Stream and syncronise/bufferise to the VgaClk by using a cross clock fifo
+    //Translate the color Flow ino a Stream and synchronise/bufferise to the VgaClk by using a cross clock fifo
     val fifoSize = 512
     val (colorStream, colorStreamOccupancy) = colorFlow.toStream.queueWithPushOccupancy(fifoSize, vgaMemoryClk, vgaClk)
     vga.ctrl.io.pixels << colorStream

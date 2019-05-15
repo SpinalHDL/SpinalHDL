@@ -21,8 +21,10 @@
 package spinal
 
 import spinal.core.internals._
+
 import scala.annotation.elidable
 import scala.annotation.elidable._
+import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.language.experimental.macros
 
@@ -30,6 +32,9 @@ import scala.language.experimental.macros
 package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
+
+
+  type dontName = spinal.core.DontName @field
 
   /**
     * Scala implicit
@@ -96,10 +101,25 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     /** Size */
     def Byte   = BigInt(i)
+    def Bytes  = BigInt(i)
+    def KiB    = BigInt(i) << 10
+    def MiB    = BigInt(i) << 20
+    def GiB    = BigInt(i) << 30
+    def TiB    = BigInt(i) << 40
+    def PiB    = BigInt(i) << 50
+    def EiB    = BigInt(i) << 60
+    def ZiB    = BigInt(i) << 70
+    def YiB    = BigInt(i) << 80
+
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def kB     = BigInt(i) << 10
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def MB     = BigInt(i) << 20
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def GB     = BigInt(i) << 30
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def TB     = BigInt(i) << 40
+
 
     /** Number of cycles */
     def cycles = new CyclesCount(i)
@@ -119,9 +139,23 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     /** Size */
     def Byte = (i)
+    def Bytes = (i)
+    def KiB  = (i) << 10
+    def MiB  = (i) << 20
+    def GiB  = (i) << 30
+    def TiB  = (i) << 40
+    def PiB  = (i) << 50
+    def EiB  = (i) << 60
+    def ZiB  = (i) << 70
+    def YiB  = (i) << 80
+
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def kB   = (i) << 10
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def MB   = (i) << 20
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def GB   = (i) << 30
+    @deprecated("Deprecated in favor of IEC units", "SpinalHDL 1.3.1")
     def TB   = (i) << 40
 
     /** Number of cycles */
@@ -354,6 +388,15 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
   implicit def BooleanPimped[T <: Data](that : Boolean) = new BooleanPimped(that)
+
+
+  //For backward compatibility
+  type IClockDomainFrequency = ClockDomain.ClockFrequency
+  type FixedFrequency = ClockDomain.FixedFrequency
+  type UnknownFrequency = ClockDomain.UnknownFrequency
+  def FixedFrequency(value: HertzNumber) = ClockDomain.FixedFrequency(value)
+  def UnknownFrequency() = ClockDomain.UnknownFrequency()
+
 
 
   /**

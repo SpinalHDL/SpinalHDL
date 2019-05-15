@@ -229,6 +229,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     this.assignFrom(UIntLiteral(BigInt(0), (BigInt(1) << this.getWidth) - 1, widthOf(this)))
     this
   }
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastUInt(delay))
 }
 
 

@@ -25,6 +25,32 @@ case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
     out(write,writeEnable)
     in(read)
   }
+
+  def apply(i : Int) : TriState[Bool] = {
+    val ret = TriState(Bool)
+
+    //Make ret readable
+    ret.read := this.read(i)
+    ret.write := this.write(i)
+    ret.writeEnable := this.writeEnable(i)
+
+    //Define a fonction which redirect write access of a userSignal to another signal
+    def writePatch(userSignal : BaseType, realSignal : BaseType) : Unit = {
+      userSignal.compositeAssign = new Assignable {
+        override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match {
+          case that: BaseType => realSignal.compositAssignFrom(that, realSignal, kind)
+        }
+        override def getRealSourceNoRec: BaseType = userSignal
+      }
+    }
+
+    //Make ret writable
+    writePatch(ret.read, this.read(i))
+    writePatch(ret.write, this.write(i))
+    writePatch(ret.writeEnable, this.writeEnable(i))
+
+    ret
+  }
 }
 
 

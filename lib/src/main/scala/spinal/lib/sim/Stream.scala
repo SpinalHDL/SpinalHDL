@@ -20,12 +20,9 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
     this
   }
 
-  fork{
-    while(true) {
-      clockDomain.waitSampling()
-      if (stream.valid.toBoolean && stream.ready.toBoolean) {
-        callbacks.foreach(_ (stream.payload))
-      }
+  clockDomain.onSamplings{
+    if (stream.valid.toBoolean && stream.ready.toBoolean) {
+      callbacks.foreach(_ (stream.payload))
     }
   }
 }
@@ -96,7 +93,7 @@ case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: Clo
 //  }
 //
 //  //Fork a thread which will call the body function each time a transaction is consumed on the given stream
-//  def onStreamFire[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(body : => Unit@suspendable): Unit = fork{
+//  def onStreamFire[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(body : => Unit): Unit = fork{
 //    while(true) {
 //      clockDomain.waitSampling()
 //      var dummy = if (stream.valid.toBoolean && stream.ready.toBoolean) {

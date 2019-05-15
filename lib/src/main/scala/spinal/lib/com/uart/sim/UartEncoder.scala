@@ -13,7 +13,7 @@ object UartEncoder {
         uartPin #= false
         sleep(baudPeriod)
 
-        (0 to 7).suspendable.foreach{ bitId =>
+        (0 to 7).foreach{ bitId =>
           uartPin #= ((buffer >> bitId) & 1) != 0
           sleep(baudPeriod)
         }

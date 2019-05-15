@@ -208,4 +208,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     this.assignFrom(SIntLiteral(BigInt(0), (BigInt(1) << this.getWidth) - 1, widthOf(this)))
     this
   }
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastSInt(delay))
 }

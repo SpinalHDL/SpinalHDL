@@ -23,6 +23,9 @@ package spinal.core
 import spinal.core.internals.Misc
 
 
+
+
+
 /**
   * Sometime, creating a Component to define some logic is overkill.
   * For this kind of cases you can use Area to define a group of signals/logic.
@@ -39,37 +42,10 @@ trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated {
 
   component.addPrePopTask(reflectNames)
 
-  def reflectNames(): Unit = {
-    Misc.reflect(this, (name, obj) => {
-      obj match {
-        case component: Component =>
-          if (component.parent == this.component) {
-            component.setPartialName(name, weak = true)
-            OwnableRef.proposal(component, this)
-          }
-        case namable: Nameable =>
-          if (!namable.isInstanceOf[ContextUser]) {
-            namable.setPartialName(name, weak = true)
-            OwnableRef.proposal(namable, this)
-          } else if (namable.asInstanceOf[ContextUser].component == component){
-            namable.setPartialName(name, weak = true)
-            OwnableRef.proposal(namable, this)
-          } else {
-            for (kind <- component.children) {
-              //Allow to name a component by his io reference into the parent component
-              if (kind.reflectIo == namable) {
-                kind.setPartialName(name, weak = true)
-                OwnableRef.proposal(kind, this)
-              }
-            }
-          }
-        case _ =>
-      }
-    })
-  }
-
   override def toString: String = component.getPath() + "/" + super.toString()
 }
+
+
 
 
 /**
@@ -100,7 +76,7 @@ object ImplicitArea{
   *
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain/ ClockDomain Documentation]]
   */
-class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
+class ClockingArea(val clockDomain: ClockDomain) extends Area with DelayedInit {
 
   clockDomain.push()
 
@@ -124,7 +100,7 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
   else
     ClockDomain.current.readClockEnableWire | !clockEnable
 
-  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
+  val clockDomain = ClockDomain.current.copy(clockEnable = newClockEnable)
 
   clockDomain.push()
 
@@ -162,7 +138,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit 
     if(cumulative) (ClockDomain.current.readResetWire | reset) else reset
   }
 
-  val clockDomain = ClockDomain.current.clone(reset = newReset)
+  val clockDomain = ClockDomain.current.copy(reset = newReset)
   clockDomain.push()
 
   override def delayedInit(body: => Unit) = {

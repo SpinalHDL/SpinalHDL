@@ -95,6 +95,15 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 object Data {
 
+  /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
+    *
+    * @param srcData Data that you want to read
+    * @param finalComponent Location where you want to read the srcData signal
+    * @param useCache If multiple doPull are done on the same signal, allow to reuse the previously created paths
+    * @param propagateName The signals created through the hierarchy will get the same name as srcData
+    * @tparam T Type of the srcData
+    * @return Readable signal in the finalComponent which is driven by srcData
+    */
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
 
     val startComponent = srcData.component
@@ -113,6 +122,7 @@ object Data {
     //Find commonComponent and fill the risePath
     val risePath = ArrayBuffer[Component]()
 
+    //Find the first common parent component between finalComponent and srcData.component
     val commonComponent = {
       var srcPtr = srcData.component
       var dstPtr = finalComponent
@@ -153,7 +163,7 @@ object Data {
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
 
-    //Fall path
+    //Build the path from srcData to the commonComponent (falling path)
     while(currentComponent != commonComponent){
       if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
@@ -165,7 +175,7 @@ object Data {
           push(currentComponent, currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setCompositeName(srcData,weak=true)
+            copy.setPartialName(srcData, "", weak=true)
           copy := currentData
           pop(currentComponent)
           currentData = copy
@@ -176,7 +186,7 @@ object Data {
       }
     }
 
-    //Rise path
+    //Build the path from commonComponent to the targetComponent (rising path)
     for(riseTo <- risePath.reverseIterator){
       if(useCache && riseTo.pulledDataCache.contains(srcData)){
         currentComponent = riseTo
@@ -185,7 +195,7 @@ object Data {
         push(riseTo, riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setCompositeName(srcData,weak=true)
+          copy.setPartialName(srcData, "", weak=true)
         pop(riseTo)
         if (currentComponent != null) {
           push(currentComponent, riseTo.parentScope)
@@ -209,7 +219,7 @@ object Data {
 }
 
 
-trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
+trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef with OverridedEqualsHashCode {
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
@@ -253,7 +263,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this
   }
 
-  @deprecated("use setAsDirectionLess instead")
+  @deprecated("use setAsDirectionLess instead","???")
   def asDirectionLess(): this.type = setAsDirectionLess()
 
   /** Set baseType to reg */
@@ -331,6 +341,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def assignFromBits(bits: Bits): Unit
   def assignFromBits(bits: Bits, hi: Int, low: Int): Unit
   def assignFromBits(bits: Bits, offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits, offset + bitCount.value - 1, offset)
+
+  def as[T <: Data](dataType: HardType[T]) : T = {
+    val ret = dataType()
+    ret.assignFromBits(this.asBits)
+    ret
+  }
 
   def assignDontCare(): this.type = {
     flatten.foreach(_.assignDontCare())
@@ -487,7 +503,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
       def cleanCopy[T <: Data](that: T): T = {
-        that.setAsDirectionLess()
+        that.purify()
         that
       }
 
@@ -540,7 +556,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         if(c.getClass.isAssignableFrom(pt)){
           val copy =  constructor.newInstance(c).asInstanceOf[this.type]
           if(copy.isInstanceOf[Bundle])
-            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
+            copy.asInstanceOf[Bundle].hardtype = (HardType(constructor.newInstance(c).asInstanceOf[this.type]))
           return cleanCopy(copy)
         }
       }
@@ -572,6 +588,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null
+
+  private [core] def formalPast(delay : Int) : this.type = {
+    val ret = cloneOf(this)
+    for((to, from) <- (ret.flatten, this.flatten).zipped){
+      to := from.formalPast(delay)
+    }
+    ret.asInstanceOf[this.type]
+  }
 
 }
 

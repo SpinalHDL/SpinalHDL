@@ -276,34 +276,34 @@ object InferWidth
   */
 object Operator {
   object Formal{
-    abstract class Past extends UnaryOperator
+    abstract class Past(val delay : Int) extends UnaryOperator
 
-    class PastBool extends Past {
+    class PastBool(delay : Int) extends Past(delay) {
       override def getTypeObject = TypeBool
       override def opName: String = "$past(Bool)"
     }
 
-    abstract class PastBitvector extends Past with Widthable {
+    abstract class PastBitvector(delay : Int) extends Past(delay) with Widthable {
       override type T = Expression with WidthProvider
       override private[core] def calcWidth = source.getWidth
     }
 
-    class PastBits extends PastBitvector{
+    class PastBits(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeBits
       override def opName: String = "$past(Bits)"
     }
 
-    class PastUInt extends PastBitvector{
+    class PastUInt(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeUInt
       override def opName: String = "$past(UInt)"
     }
 
-    class PastSInt extends PastBitvector{
+    class PastSInt(delay : Int) extends PastBitvector(delay) {
       override def getTypeObject = TypeSInt
       override def opName: String = "$past(SInt)"
     }
 
-    class PastEnum(enumDef: SpinalEnum) extends Past with InferableEnumEncodingImpl{
+    class PastEnum(enumDef: SpinalEnum, delay : Int) extends Past(delay)  with InferableEnumEncodingImpl{
       override def getTypeObject = TypeEnum
       override def opName: String = "$past(Enum)"
 
@@ -315,13 +315,13 @@ object Operator {
     }
 
 
-    class Rise extends UnaryOperator{
-      override def opName: String = "$rise(Bool)"
+    class Rose extends UnaryOperator{
+      override def opName: String = "$rose(Bool)"
       override def getTypeObject: Any = TypeBool
     }
 
-    class Fall extends UnaryOperator{
-      override def opName: String = "$rise(Bool)"
+    class Fell extends UnaryOperator{
+      override def opName: String = "$fell(Bool)"
       override def getTypeObject: Any = TypeBool
     }
 
@@ -329,13 +329,13 @@ object Operator {
 
     class Changed extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "$changed(...)"
+      override def opName: String = "!$stable(...)"
     }
 
 
     class Stable extends UnaryOperator{
       override def getTypeObject = TypeBool
-      override def opName: String = "$changed(...)"
+      override def opName: String = "$stable(...)"
     }
 
     class InitState extends Expression{
@@ -2052,7 +2052,7 @@ class SwitchStatementKeyBool extends Expression {
 }
 
 
-class SwitchStatementElement(var keys: ArrayBuffer[Expression], var scopeStatement: ScopeStatement) extends ContextUser {
+class SwitchStatementElement(var keys: ArrayBuffer[Expression], var scopeStatement: ScopeStatement) extends ScalaLocated{
 }
 
 
@@ -2126,7 +2126,8 @@ object UIntLiteral {
     val minimalWidth   = Math.max(poisonBitCount, valueBitCount)
     var bitCount       = specifiedBitCount
 
-    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0)
+      throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")

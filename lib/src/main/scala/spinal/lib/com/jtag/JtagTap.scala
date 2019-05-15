@@ -105,11 +105,13 @@ class SimpleJtagTap extends Component {
     val leds    = out Bits(8 bit)
   }
 
-  val tap = new JtagTap(io.jtag, 8)
-  val idcodeArea  = tap.idcode(B"x87654321")(instructionId=4)
-  val switchsArea = tap.read(io.switchs)    (instructionId=5)
-  val keysArea    = tap.read(io.keys)       (instructionId=6)
-  val ledsArea    = tap.write(io.leds)      (instructionId=7)
+  val ctrl = new ClockingArea(ClockDomain(io.jtag.tck)) {
+    val tap = new JtagTap(io.jtag, 8)
+    val idcodeArea = tap.idcode(B"x87654321")(instructionId = 4)
+    val switchsArea = tap.read(io.switchs)(instructionId = 5)
+    val keysArea = tap.read(io.keys)(instructionId = 6)
+    val ledsArea = tap.write(io.leds)(instructionId = 7)
+  }
 }
 
 

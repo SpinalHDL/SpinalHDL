@@ -4,23 +4,24 @@ package spinal.tester.code
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
-import _root_.com.sun.xml.internal.messaging.saaj.util.{ByteOutputStream, ByteInputStream}
 import spinal.core._
-import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
+import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4SpecRenamer}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
-import spinal.lib.eda.bench.{Bench, AlteraStdTargets, XilinxStdTargets, Rtl}
-import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadCmd, SblReadRet, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
-import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
+import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DebugExtension, DivExtension, MulExtension}
 import spinal.lib.experimental.MacrosClass
-import spinal.lib.graphic.{RgbConfig, Rgb}
-import spinal.lib.graphic.vga.{VgaCtrl, Vga}
+import spinal.lib.graphic.{Rgb, RgbConfig}
+import spinal.lib.graphic.vga.{Vga, VgaCtrl}
+import spinal.lib.io.TriStateArray
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable
@@ -641,12 +642,12 @@ object PlayFix {
   class TopLevel extends Component {
     val ufix = UFix(8 exp, 12 bit)
     val uint = UInt(3 bit)
-    ufix := toUFix(uint)
+    ufix := uint.toUFix
     val uintBack = U(ufix)
 
     val sfix = SFix(7 exp, 12 bit)
     val sint = SInt(3 bit)
-    sfix := toSFix(sint)
+    sfix := (sint).toSFix
     val sintBack = S(sfix)
 
 
@@ -945,84 +946,29 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  object LeadingZeros {
-    def apply(input: Bits): UInt = {
-      val zeros = UInt(log2Up(input.getWidth+1) bits)
-
-      // https://electronics.stackexchange.com/questions/196914/verilog-synthesize-high-speed-leading-zero-count
-
-      val input_padded = if ( (input.getWidth & 1) == 1) input ## True else input
-
-      // Encode pairs: 00 -> 10 (2 zeros), 01 -> 01 (1 leading zero), 10 and 11 -> 00 (no leading zeros)
-      val encoded = Bits(input_padded.getWidth bits)
-
-      var i = 0
-      while(i<input_padded.getWidth){
-        encoded(i+1 downto i) := input_padded(i+1 downto i).mux(
-          B"00" -> B"10",
-          B"01" -> B"01",
-          B"10" -> B"00",
-          B"11" -> B"00")
-        i = i + 2
-      }
-
-      var tree_in = Bits
-      tree_in := encoded
-
-      // Reduce tree
-      var n = 2
-      var tree_in_padded = Bits
-
-      while(n <= zeros.getWidth){
-        var pad_length =  (2*n - tree_in.getWidth % (2*n)) % (2*n)
-        var pad_vec = Bits(pad_length bits).setAll
-
-        tree_in_padded = Bits((tree_in.getWidth + pad_length) bits)
-        tree_in_padded = if (pad_length == 0) tree_in else (tree_in ## pad_vec)
-        //            tree_in_padded.setAll
-        //            when(True){
-        //                tree_in_padded(tree_in.range) := tree_in
-        //            }
-
-        var reduced = Bits(tree_in_padded.getWidth/(2*n)*(n+1) bits)
-
-        var i = 0
-        while(i < tree_in_padded.getWidth/2/n){
-          var pair  = tree_in_padded((i+1)*(2*n)-1 downto i*(2*n))
-          var left  = pair(n-1+n downto n)
-          var right = pair(n-1   downto 0)
-
-          when(left.msb && right.msb){
-            reduced((i+1)*(n+1)-1 downto i*(n+1)) := (n -> True, default -> False)
-          }
-            .elsewhen(!left.msb){
-              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"0" ## left
-            }.
-            otherwise{
-              reduced((i+1)*(n+1)-1 downto i*(n+1)) := B"01" ## right(n-2 downto 0)
-            }
-          i = i + 1
-        }
-
-        tree_in = reduced
-        n += 1
-
-        if(n > zeros.getWidth){
-          zeros := reduced.resize(zeros.getWidth).asUInt
-        }
-      }
-
-      zeros
+  case class SubTop() extends Component{
+    val subClk, subReset = in Bool()
+    ClockDomain(subClk, subReset) {
+      val ctrl = Apb3Gpio(32, false)
+      slave(Apb3(Apb3Gpio.getApb3Config())) <> ctrl.io.apb
+      master(TriStateArray(32)) <> ctrl.io.gpio
     }
   }
-  class TopLevel() extends Component{
-    val toto = Bits
-//    toto.as
+  case class TopLevel() extends Component {
+    val subAClk, subBClk, subAReset, subBReset = in Bool()
+
+
+    val subA = SubTop()
+    val subB = SubTop()
+
+    subA.subClk := subAClk
+    subB.subClk := subBClk
+    subA.subReset := subAReset
+    subB.subReset := subBReset
   }
 
   def main(args: Array[String]): Unit = {
-//    SpinalVhdl(new TopLevel)
-    SpinalVerilog(new TopLevel)
+    SpinalVerilog(TopLevel())
   }
 }
 
@@ -1635,9 +1581,9 @@ object PlayStream {
     val decode = new Area{
 
 
-        val source = slave Stream (wrap(new Bundle{
+        val source = slave Stream (new Bundle{
           val a = Bool
-        }))
+        })
         val sink = master (source.clone)
 
         source >> sink
@@ -1916,79 +1862,6 @@ object vhd_dirext_play {
 
 }
 
-
-object vhd_stdio_play {
-
-  def main(args: Array[String]) {
-    import scala.sys.process._
-    import java.io.File
-    // ("ghdl" #> new File("test.txt") !)
-    val in = new ByteOutputStream()
-    val out = new ByteInputStream()
-    val err = new ByteInputStream()
-    //scala.concurrent.SyncVar[java.io.OutputStream];
-    val stopAt = 1000 * 1000
-
-    val array = new Array[Byte](1000)
-    val barrier = new CyclicBarrier(2)
-    //    val io = new ProcessIO(in, out, err)
-    //    //  cmd.write("asd")
-    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
-    (s"ghdl -e --ieee=synopsys vhdl_file" !)
-    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
-    val io = new ProcessIO(
-      in => {
-        for (i <- 0 until stopAt) {
-          // while(cnt != i){}
-          //println("a")
-          in.write(i + "\n" getBytes "UTF-8")
-          in.flush()
-          barrier.await()
-          //Thread.sleep(500)
-
-        }
-        in.close()
-        println("finish")
-      }
-
-
-      ,
-      out => {
-        var cnt = 0
-        var bufferIndex = 0
-        var lastTime = System.nanoTime()
-        while (cnt != stopAt) {
-          if (out.available() != 0) {
-            bufferIndex += out.read(array, bufferIndex, out.available())
-            if (array.slice(0, bufferIndex).contains('\n')) {
-              bufferIndex = 0
-
-              val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
-              assert(i == cnt)
-              barrier.await()
-              cnt += 1
-              if (i % 10000 == 0) {
-                println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
-                lastTime = System.nanoTime()
-              }
-            }
-          }
-        }
-        out.close()
-        //scala.io.Source.fromInputStream(out).getLines.foreach(println)
-      },
-      err => {
-        scala.io.Source.fromInputStream(err).getLines.foreach(println)
-      })
-    process.run(io)
-    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
-    //    p.run(io)
-    //    p.run()
-    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
-    print("DONE")
-  }
-
-}
 
 
 object vhd_stdio_play2 {
@@ -2689,7 +2562,7 @@ object PlaySel {
   class TopLevel extends Component {
     val a, b, c = in(UInt(4 bit))
 
-    val output = out(Sel(U"0000",
+    val output = out(Select(U"0000",
       (a > U"1000") -> a,
       (a > U"1100") -> b,
       (a > U"1010") -> c)
@@ -2702,16 +2575,36 @@ object PlaySel {
   }
 }
 
+
+object XilinxPatch {
+  def apply[T <: Component](c : T) : T = {
+    //Patch things
+    c.getGroupedIO(true).foreach{
+      case axi : AxiLite4 => AxiLite4SpecRenamer(axi)
+      case axi : Axi4 => Axi4SpecRenamer(axi)
+      case _ =>
+    }
+
+    //Builder pattern return the input argument
+    c
+  }
+}
+
+
 object PlayAxiLite4 {
   class TopLevel extends Component {
     val axiLiteConfig = AxiLite4Config(32, 32)
-    val peon   = slave(AxiLite4(axiLiteConfig))
-    val maitre = master(AxiLite4(axiLiteConfig))
-    peon >> maitre
+
+    val io = new Bundle {
+      val input = slave(AxiLite4(axiLiteConfig))
+      val output = master(AxiLite4(axiLiteConfig))
+    }
+
+    io.input >> io.output
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(XilinxPatch(new TopLevel))
   }
 }
 
@@ -2805,31 +2698,6 @@ object PlayFunyMux {
 }
 
 
-object PlayVec8 {
-  class TopLevel extends Component {
-    val inputs = List.fill(4)(List.fill(4)(wrap(new Bundle{
-      val a = in Bool
-      val b = wrap(new Bundle{
-        val c = in(Vec(wrap(new Bundle{
-          val d = in Bool
-        }),4))
-      })
-    })))
-    val select0 = in UInt(2 bit)
-    val select1 = in UInt(2 bit)
-    val select2 = in UInt(2 bit)
-    val vec = Vec(inputs.map(a => Vec(a.map(b => b.b))))
-
-    val output = out Bool()
-    output := vec(select0)(select1).c(select2).d
-  }
-
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
-    println("Done")
-  }
-}
 
 object PlayBitWidth {
   class TopLevel extends Component {
@@ -2964,3 +2832,5 @@ object PlayScala {
     CC.componentLists.foreach { x ⇒ x.someCommonMethod() }
   }
 */
+
+

@@ -4,7 +4,6 @@ import org.scalatest.FunSuite
 import spinal.core.sim._
 import spinal.core._
 import spinal.lib._
-import spinal.sim.Suspendable
 
 class SpinalSimOneEntryRamTester extends FunSuite{
   test("general"){
@@ -28,7 +27,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
 
       var readSyncModel = 42
       var ramModel = 42
-      Suspendable.repeat(100){
+      for(repeat <- 0 to 100){
         dut.writePort.randomize()
         dut.readSyncPort.cmd.randomize()
         dut.readAsyncPort.address.randomize()
@@ -76,7 +75,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
       var readWriteModel = 42
       var readSyncModel = 42
       var ramModel = 42
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         dut.readWrite.enable.randomize()
         dut.readWrite.write.randomize()
         dut.readWrite.writeData.randomize()
@@ -119,7 +118,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
 
       var readSyncModel = 0xAA
       var ramModel = 0xAA
-      Suspendable.repeat(100){
+      for(repeat <- 0 until 100){
         dut.readSyncPort.cmd.randomize()
         dut.readAsyncPort.address.randomize()
 

@@ -20,7 +20,7 @@
 \*                                                                           */
 package spinal.core
 
-import spinal.core.Nameable.NAMEABLE_REF_PREFIXED
+import spinal.core.Nameable._
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -89,7 +89,7 @@ trait MinMaxProvider {
 object GlobalData {
 
   /** Provide a thread local variable (Create a GlobalData for each thread) */
-  private val it = new ThreadLocal[GlobalData]
+  private [core] val it = new ThreadLocal[GlobalData]
 
   /** Return the GlobalData of the current thread */
   def get = it.get()
@@ -141,7 +141,7 @@ class GlobalData(val config : SpinalConfig) {
   var nodeAreInferringEnumEncoding = false
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
-  val clockSyncronous       = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
+  val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
   val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
@@ -155,6 +155,10 @@ class GlobalData(val config : SpinalConfig) {
         c.dslBody.walkStatements(s => {
           if (scalaLocateds.contains(s)) {
             scalaLocatedComponents += c.getClass
+          }
+          s match {
+            case s : SwitchStatement => if(s.elements.exists(scalaLocateds.contains(_))) scalaLocatedComponents += c.getClass
+            case _ =>
           }
           s.walkExpression(e => {
             if (scalaLocateds.contains(e)) {
@@ -201,6 +205,9 @@ class GlobalData(val config : SpinalConfig) {
 
   def addPostBackendTask(task: => Unit): Unit = postBackendTask += (() => task)
   def addJsonReport(report: String): Unit = jsonReports += report
+
+
+  val userDatabase      = mutable.LinkedHashMap[Any, Any]()
 }
 
 
@@ -233,9 +240,14 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
       }
     }
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
         if(nameableRef.isNamed && other.component.isNamed)
           other.component.getName() + "_" + nameableRef.getName() + "_" + name
+        else
+          default
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+        if(nameableRef.isNamed && other.component.isNamed)
+          other.component.getName() + "_" + nameableRef.getName()
         else
           default
       case _ => super.getName(default)
@@ -245,7 +257,9 @@ trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def isNamed: Boolean = {
     (getMode, nameableRef) match{
-      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if this.component != other.component =>
+      case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
+        nameableRef.isNamed && other.component.isNamed
+      case (NAMEABLE_REF, other : NameableByComponent) if other.component != null && this.component != other.component =>
         nameableRef.isNamed && other.component.isNamed
       case _ => super.isNamed
     }
@@ -285,12 +299,15 @@ object OwnableRef {
       ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
   }
 
-  def proposal(ownable: Any, owner: Any) = {
+  def proposal(ownable: Any, owner: Any) : Boolean = {
     if(ownable.isInstanceOf[OwnableRef]) {
       val ownableTmp = ownable.asInstanceOf[OwnableRef]
-      if(ownableTmp.refOwner == null)
+      if(ownableTmp.refOwner == null) {
         ownableTmp.asInstanceOf[OwnableRef].setRefOwner(owner)
+        return true
+      }
     }
+    return false
   }
 }
 
@@ -471,6 +488,36 @@ trait Nameable extends OwnableRef with ContextUser{
       doThat(obj)
     })
   }
+
+  def reflectNames(): Unit = {
+    Misc.reflect(this, (name, obj) => {
+      obj match {
+        case component: Component =>
+          if (component.parent == this.component) {
+            component.setPartialName(name, weak = true)
+            OwnableRef.proposal(component, this)
+          }
+        case namable: Nameable =>
+          if (!namable.isInstanceOf[ContextUser]) {
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
+            namable.setPartialName(name, weak = true)
+            OwnableRef.proposal(namable, this)
+          } else {
+            if(component != null) for (kind <- component.children) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == namable) {
+                kind.setPartialName(name, weak = true)
+                OwnableRef.proposal(kind, this)
+              }
+            }
+          }
+        case _ =>
+      }
+    })
+  }
+
 }
 
 
@@ -555,7 +602,7 @@ trait SpinalTagReady {
   }
 
   def addTags[T <: SpinalTag](tags: Iterable[T]): this.type = {
-    for (spinalTag <- spinalTags) addTag(spinalTag)
+    for (tag <- tags) addTag(tag)
     this
   }
 
@@ -696,7 +743,7 @@ object Driver {
   def executionTime: Double = (System.currentTimeMillis - startTime) / 1000.0
 }
 
-
+//Avoid having case class matching
 trait OverridedEqualsHashCode{
   override def equals(obj: scala.Any): Boolean = super.equals(obj)
   override def hashCode(): Int = super.hashCode()

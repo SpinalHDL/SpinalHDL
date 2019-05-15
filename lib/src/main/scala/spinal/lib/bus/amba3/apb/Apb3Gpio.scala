@@ -42,16 +42,18 @@ object Apb3Gpio{
  * gpioDirection -> 0x08 Read-Write register to set the GPIO pin directions. When set, the corresponding pin is set as output.
  **/
 
-case class Apb3Gpio(gpioWidth: Int) extends Component {
+case class Apb3Gpio(gpioWidth: Int, withReadSync : Boolean) extends Component {
 
   val io = new Bundle {
     val apb  = slave(Apb3(Apb3Gpio.getApb3Config()))
     val gpio = master(TriStateArray(gpioWidth bits))
+    val value = out Bits(gpioWidth bits)
   }
 
-  val ctrl = Apb3SlaveFactory(io.apb)
+  io.value := (if(withReadSync) BufferCC(io.gpio.read) else io.gpio.read)
 
-  ctrl.read(io.gpio.read, 0)
+  val ctrl = Apb3SlaveFactory(io.apb)
+  ctrl.read(io.value, 0)
   ctrl.driveAndRead(io.gpio.write, 4)
   ctrl.driveAndRead(io.gpio.writeEnable, 8)
   io.gpio.writeEnable.getDrivingReg init(0)

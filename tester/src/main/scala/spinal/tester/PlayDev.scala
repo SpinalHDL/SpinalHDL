@@ -3,18 +3,21 @@ package spinal.tester
 import spinal.core._
 import spinal.core.internals._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Gpio, Apb3SlaveFactory}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4SpecRenamer}
 import spinal.lib.com.i2c._
 import spinal.lib.com.spi.ddr._
 import spinal.lib.com.spi.{Apb3SpiMasterCtrl, SpiMasterCtrlGenerics, SpiMasterCtrlMemoryMappedConfig}
-import spinal.lib.io.{InOutWrapper, TriState}
+import spinal.lib.eda.bench._
+import spinal.lib.graphic.Rgb
+import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
+import scala.util.Random
 
 
 
@@ -26,53 +29,13 @@ object PlayDevRamZero{
 
 object PlayDevMem{
   class TopLevel extends Component {
-    val mem = Mem(Bits(32 bits), 64)
-    val p0 = new Bundle{
-      val address = in(mem.addressType())
-      val data = in(mem.wordType())
-      val mask = in(Bits(4 bits))
-      val enable = in Bool()
-    }
-    when(p0.enable) {
-      mem.write(p0.address, p0.data, mask = p0.mask)
-    }
-
-    val p1 = new Bundle{
-      val address = in(mem.addressType())
-      val data = out(mem.wordType())
-    }
-    p1.data := mem.readSync(p1.address, True)
-
-
-    val p2 = new Bundle{
-      val address = in(mem.addressType())
-      val data = out(mem.wordType())
-    }
-    p2.data := mem.readAsync(p2.address)
-    val xx = RegNext(True)
-
-    println(LatencyAnalysis(p0.address, p2.data))
-
-    val p3 = new Bundle{
-      val address = in(mem.addressType())
-      val data = in(mem.wordType())
-      val mask = in(Bits(4 bits))
-      val enable = in Bool()
-      val wr = in Bool()
-    }
-//
-//    mem.readWriteSync(
-//      address = p3.address  ,
-//      data = p3.data  ,
-//      enable = p3.enable  ,
-//      write = p3.wr  ,
-//      mask = p3.mask
-//    )
-
+    val output = out UInt(9 bits)
+    output := null
+    println("Miaou")
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig().addStandardMemBlackboxing(blackboxAll).generateVhdl(new TopLevel()).printPruned()
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -129,6 +92,21 @@ object PlayDevPullCkock{
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
+
+object PlayDevSubComponent{
+
+  class TopLevel extends Component {
+    val input = slave(Stream(Rgb(5,6,5)))
+    val output = master(Stream(Rgb(5,6,5)))
+    val fifoA = StreamFifo(Rgb(5,6,5), 8)
+    fifoA.io.push <> input
+    fifoA.io.pop <> output
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVerilog(new TopLevel()).toplevel
   }
 }
 
@@ -574,77 +552,17 @@ object PlayDevMiaou{
 }
 
 object PlayDevBugx{
-  class TopLevel extends Component {
-    val a, b, c, d = in Bits(8 bits)
-    val sel = UInt(2 bits)
-    val result = Bits(8 bits)
-    def rec(that : Bits, level : Int) : Bits = if(level != 0)
-      rec(~ that, level -1)
-    else
-      that
-//    switch(sel){
-//      is(0) { result := rec(a, 10) }
-//      is(1) { result := rec(b, 10) }
-//      is(2) { result := rec(c, 10) }
-//      is(3) { result := rec(d, 10) }
-//    }
-    result := Vec(List(a,b,c,d).map(rec(_, 65)))(sel)
-
-
-//      def rec(that : UInt, level : Int) : UInt = if(level != 0)
-//        rec(RegNext(that), level -1)
-//      else
-//        that
-//      result := rec(a & b, 4000)
-//    val a,b = in UInt(8 bits)
-//    val result = out UInt(7 bits)
-//
-//    result := a + b
-//
-//    val sub = StreamFifo(Bool, 10)
-
-//    val mask = MaskedLiteral("10-")
-//    val input = in Bits(3 bits)
-//    val output = out((0 to 2).map(i => mask(i) === input(i)).asBits())
-//    val sel = in UInt(2 bits)
-//    val inputsA = in Vec(Bits(8 bits), 4)
-//    val inputsB = in Vec(Bool, 4)
-////    val outputA = out(inputsA(sel))
-//    val outputB = out(inputsB(sel))
-//
-//    val xx = Bits(4 bits)
-//    xx := inputsA(sel)
-//    val x = UInt(8 bits)
-//    val y = SInt(6 bits)
-//    y := x.asSInt
-//    val outputs = Vec(Vec(out(Reg(Bool)),3), 2)
-//
-//    outputs.foreach(_.foreach(_ := False))
-//    val x = U"0000000" >> -1
-//    case class MyReg() extends Bundle {
-//      val reg = UInt(32 bits)
-//
-//      def byteCount = reg(12 downto 0)
-//    }
-//
-//
-//    val reg = Reg(MyReg())
-//
-//
-//    reg.byteCount(7 downto 0).assignFromBits(B"x42")
-
-//
-//    val reg = Reg(Bits(32 bits))
-//    val sel = in UInt(2 bits)
-//    reg := 0
-////    reg(12 downto 1)(9 downto 2) := B"x00"
-//    reg(16 downto 4)(sel, 12 bits)(8 downto 1) := B"xFF"
-////    reg(16 downto 4)(5) := True
-  }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalConfig(verbose  = true,defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)).generateVerilog(new TopLevel())
-    print("done")
+    SpinalVerilog(new Component{
+      val inputs =  Vec(UInt(6 bits), 4)
+      val outputs =  Vec(UInt(4 bits), 4)
+
+//      outputs(0) := inputs(0) // Error if, e.g., v1=Bool() and v2=Bits(1 bits)
+//      outputs(1).asBits := inputs(1).asBits // No error but doesn't work as expected
+      outputs(2) := inputs(2).as(outputs(2)) // Silently converts v2 to the same bit width as v1
+//      outputs(3).assignFromBits(inputs(3).asBits) // Silently converts v2 to the same bit width as v1
+    })
   }
 }
 
@@ -732,50 +650,6 @@ object PlayDevAnalog2{
 }
 
 
-
-
-object PlayDevAnalog3{
-  def main(args: Array[String]) {
-    SpinalConfig().generateVhdl({
-      val toplevel = Apb3Gpio(32)
-      toplevel.rework{
-        import toplevel._
-        io.gpio.setAsDirectionLess.allowDirectionLessIo
-        val analog = inout(Analog(Bits(32 bits))).setName("analog")
-        io.gpio.read := analog
-        for(i <- 0 to 31){
-          when(io.gpio.writeEnable(i)){
-            analog(i) := io.gpio.write(i)
-          }
-        }
-        toplevel
-      }
-    })
-    print("done")
-  }
-}
-
-
-
-object PlayDevAnalog4{
-
-  class Toplevel extends Component{
-    val io = new Bundle {
-      val gpio = master(TriState(UInt(32 bits)))
-    }
-
-
-    val driver = TriState(UInt(32 bits))
-    driver.writeEnable := True
-    driver.write := 42
-    driver <> io.gpio
-  }
-  def main(args: Array[String]) {
-    SpinalVhdl(InOutWrapper(Apb3Gpio(32)))
-//    SpinalVhdl(InOutWrapper(new Toplevel))
-    print("done")
-  }
-}
 
 object PlayDevBug3{
   case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
@@ -1073,7 +947,7 @@ class AlteraMemTagger extends PhaseNetlist{
     pc.walkDeclarations{
       case mem : Mem[_] =>
         mem.foreachStatements{
-          case s : MemReadSync => s.readUnderWrite
+          case s : MemReadSync =>
           case s : MemReadAsync =>
           case _ =>
         }
@@ -1109,6 +983,19 @@ object PlayWithIndex extends App {
   }
 
   SpinalVhdl(new MyTopLevel)
+}
+
+
+object PlayTriStateArrayToTriState extends App {
+  class TopLevel extends Component{
+    val gpio = slave(TriStateArray(8 bits))
+    val led = master(TriState(Bool))
+
+    gpio.read.assignDontCare()
+    led <> gpio(2)
+  }
+
+  SpinalVerilog(new TopLevel)
 }
 
 
@@ -1172,13 +1059,13 @@ object PlayAssertFormal extends App {
     }
     GenerationFlags.formal{
       import spinal.core.Formal._
-      val a = past(B"1010")
-      val b = rise(False)
-      val c = fall(False)
+//      val a = past(B"1010")
+      val b = rose(False)
+      val c = fell(False)
       val d = changed(False)
       val f = stable(False)
       val g = initstate()
-      assume(!initstate() && changed(True))
+      assume(!initstate() && changed(True) && past(B"1010",4) === 0)
     }
 
   }
@@ -1305,4 +1192,268 @@ object PlayNamingImprovment extends App{
 
 }
 
+object PlayDevBusSlaveFactoryDoubleRead{
+  class TestTopLevelDut extends Component {
 
+    val io = new Bundle {
+      val bus = slave(Apb3(Apb3Config(32, 32, 1, false)))
+      val dummy_r_0 = in Bits (16 bits)
+      val dummy_r_1 = in Bits (16 bits)
+      val dummy_w_0 = out Bits (16 bits)
+      val dummy_w_1 = out Bits (16 bits)
+    }
+
+    val factory = new Apb3SlaveFactory(io.bus, selId = 0)
+
+    factory.read(io.dummy_r_0, 0x03, 0)
+    factory.read(io.dummy_r_1, 0x03, 16)
+    factory.drive(io.dummy_w_0, 0x00, 0)
+    factory.drive(io.dummy_w_1, 0x00, 8)
+
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TestTopLevelDut())
+  }
+}
+
+
+
+
+object SimAccessSubSignal {
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile(new TopLevel).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}
+
+
+object SimAccessSubSignal2 {
+  import spinal.core.sim._
+  class TopLevel extends Component {
+    val counter = Reg(UInt(8 bits)) init(0)
+    counter := counter + 1
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.compile{
+      val dut = new TopLevel
+      dut.counter.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 to 3){
+        dut.clockDomain.waitSampling()
+        println(dut.counter.toInt)
+      }
+    }
+  }
+}
+
+
+
+object SimPlayDeltaCycle{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val a,b = in(UInt(8 bits))
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := a + b
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSimUntilVoid{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      def printState(header : String) = println(s"$header dut.a=${dut.a.toInt} dut.b=${dut.b.toInt} dut.result=${dut.result.toInt} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      //Threadfull code to randomize dut.a
+      fork{
+        while(true){
+          dut.clockDomain.waitSampling()
+          printState("Pre  dut.a.randomize()")
+          dut.a.randomize()
+          printState("Post dut.a.randomize()")
+        }
+      }
+
+      //Threadless code to randomize dut.b, behave the same than the threadfull example above (from a waveform point of view)
+      dut.clockDomain.onSamplings{
+        printState("Pre  dut.b.randomize()")
+        dut.b.randomize()
+        printState("Post dut.b.randomize()")
+      }
+
+      fork{
+        printState("Pre  ref init         ")
+        dut.clockDomain.waitSampling()
+        printState("Post ref init         ")
+        for(i <- 0 to 4){
+          val resultRef = (dut.a.toInt + dut.b.toInt) & 0xFF
+
+          printState("Pre  ref sampling     ")
+          dut.clockDomain.waitSampling()
+          printState("Post ref sampling     ")
+          assert(dut.result.toInt == resultRef)
+        }
+        simSuccess()
+      }
+    }
+  }
+}
+
+object SimPlayDeltaCycle2{
+  import spinal.core.sim._
+
+  class TopLevel extends Component {
+    val clkIn = in Bool()
+    val clkOut = out Bool()
+    val input = in(UInt(8 bits))
+    val output = out(UInt(8 bits))
+    val register = ClockDomain(clock = clkIn, config = ClockDomainConfig(resetKind = BOOT)) (Reg(UInt(8 bits)) init(0))
+    register := input
+    val registerPlusOne = register + 1
+    output := registerPlusOne
+    clkOut := clkIn
+  }
+
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(new TopLevel).doSim{dut =>
+      def printState(header : String) = println(s"$header dut.clkIn=${dut.clkIn.toBoolean} dut.input=${dut.input.toInt} dut.output=${dut.output.toInt} dut.clkOut=${dut.clkOut.toBoolean} time=${simTime()} deltaCycle=${simDeltaCycle()}")
+
+      dut.clkIn #= false
+      dut.input #= 42
+      printState("A")
+      sleep(10)
+      printState("B")
+      dut.clkIn #= true
+      dut.input #= 1
+      printState("C")
+      sleep(0) //A delta cycle is anways forced, but the sleep 0 allow the thread to sneak in that forced delta cycle
+      printState("D")
+      sleep(0) //Let's go for another delta cycle
+      printState("E")
+      sleep(10)
+      printState("F")
+    }
+  }
+}
+
+
+object DebBugFormal extends App{
+  case class rleBus[T <: Data](val dataType: HardType[T], val depth: Int) extends Bundle {
+    val data = dataType()
+    val lenght = Bits(depth bits)
+  }
+
+  case class rle[T <: Data](val dataType: HardType[T], val depth: Int) extends Component{
+    val io = new Bundle{
+      val input = in(dataType())
+      val enable = in(Bool)
+      val output = master(Flow(rleBus(dataType,depth)))
+    }
+
+    io.output.valid := False
+
+    val input = RegNextWhen(io.input,io.enable) init(dataType().getZero)
+    val isNew = io.input =/= input
+    val count = Reg(UInt(depth bits)) init(0)
+    io.output.lenght := count.asBits
+    io.output.data := input
+
+    when(isNew && io.enable){
+      count := 0
+      io.output.valid := True && io.enable
+    } otherwise {
+      count := count + 1
+    }
+
+    /////////////////////////////
+    // FORMAL
+    /////////////////////////////
+    GenerationFlags.formal{
+      when(True){
+        assert(io.input =/= Formal.past(io.output.data))
+      }
+    }
+  }
+
+  SpinalConfig().includeFormal.generateSystemVerilog(new rle(Rgb(5,6,7),8))
+}
+
+
+object PlayOneHotSynthesisBench extends App{
+  class BenchFpga(width : Int) extends Rtl{
+    override def getName(): String = "Bench" + width
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val sel = in Bits(width bits)
+      val inputs = in Vec(Bits(8 bits), width)
+      val output = out(RegNext(MuxOH(sel, inputs)))
+      setDefinitionName(BenchFpga.this.getName())
+    })
+  }
+
+
+
+  val rtls = List(2,3,4,5,6,7,8,16).map(width => new BenchFpga(width))
+
+  val targets = XilinxStdTargets(
+    vivadoArtix7Path = "/eda/Xilinx/Vivado/2017.2/bin"
+  ) ++ AlteraStdTargets(
+    quartusCycloneIVPath = "/eda/intelFPGA_lite/17.0/quartus/bin/",
+    quartusCycloneVPath  = "/eda/intelFPGA_lite/17.0/quartus/bin/"
+  )
+
+
+  Bench(rtls, targets, "/eda/tmp/")
+}
+
+
+object PlayDevSpinalSim extends App{
+  import spinal.core.sim._
+  SimConfig.allOptimisation.compile(new Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+    }
+
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+  }).doSim { dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+    dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+    var model = -1
+    var times = 0
+    var a,b,c = 0;
+    dut.clockDomain.onSamplings{
+      assert(dut.io.result.toInt == model || model == -1)
+      model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+      dut.io.a #= a
+      dut.io.b #= b
+      dut.io.c #= c
+      a = (a + 1) & 0xFF
+      b = (b + 2) & 0xFF
+      c = (c + 3) & 0xFF
+      times += 1
+    }
+
+    sleep(1000000000)
+
+  }
+}

@@ -63,7 +63,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
  *
  * @example {{{
- *         object MyEnum extends SpinalEnum(binarySequancial){
+ *         object MyEnum extends SpinalEnum(binarySequential){
  *           val s1, s2, s3, s4 = newElement()
  *         }
  *         }}}
@@ -128,7 +128,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   def ===(that: SpinalEnumElement[T]): Bool = this === that.craft()
   def =/=(that: SpinalEnumElement[T]): Bool = this =/= that.craft()
 
-  @deprecated("Use =/= instead")
+  @deprecated("Use =/= instead","???")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
   private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = that match{
@@ -207,6 +207,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
     this.assignFrom(new EnumPoison(spinalEnum))
     this
   }
+
+  override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastEnum(this.spinalEnum, delay))
 }
 
 

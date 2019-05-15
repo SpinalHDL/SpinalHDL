@@ -137,7 +137,7 @@ object SimSubPublic {
     SimConfig.withWave.compile(new Dut).doSim{ dut =>
 //      dut.clockDomain.forkStimulus(period = 10)
 
-      Suspendable.repeat(1000) {
+      for(repeat <- 0 until 1000) {
         dut.io.a.randomize()
         dut.io.b.randomize()
         sleep(1)

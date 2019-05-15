@@ -31,6 +31,16 @@ object CheckTester{
 class ChecksTester extends FunSuite  {
   import CheckTester._
 
+
+  test("BlackBoxInputUnconnected"){
+    generationShouldFaild(new Component{
+      class Sub extends BlackBox{
+        val input = in Bool()
+      }
+      val sub = new Sub
+    })
+  }
+
   test("literalWidth"){
     val t = SpinalVhdl(new Component{
       val a = B"32'h0"

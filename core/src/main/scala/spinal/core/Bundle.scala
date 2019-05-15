@@ -38,25 +38,24 @@ import spinal.core.internals._
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bundle Bundle Documentation]]
   */
-class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
+class Bundle extends MultiData with Nameable {
 
-  var cloneFunc: () => Object = null
+  var hardtype: HardType[_] = null
 
   globalData.currentComponent match {
     case null =>
     case component =>
       component.addPrePopTask(() => {
         elements.foreach { case (n, e) =>
-          OwnableRef.proposal(e, this)
-          e.setPartialName(n, weak = true)
+          if(OwnableRef.proposal(e, this)) e.setPartialName(n.toString, Nameable.DATAMODEL_WEAK)
         }
       })
   }
 
   override def clone: Bundle = {
-    if (cloneFunc != null) {
-      val ret = cloneFunc().asInstanceOf[this.type].setAsDirectionLess
-      ret.cloneFunc = cloneFunc
+    if (hardtype != null) {
+      val ret = hardtype().asInstanceOf[this.type]
+      ret.hardtype = hardtype
       return ret
     }
     super.clone.asInstanceOf[Bundle]

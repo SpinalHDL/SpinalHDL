@@ -13,7 +13,6 @@ import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
 import spinal.lib.fsm._
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -855,7 +854,7 @@ object PinsecSpartan6Plus{
   def main(args: Array[String]) {
     val config = PinsecConfig.default.copy(
       axiFrequency = 50 MHz,
-      onChipRamSize = 36 kB,
+      onChipRamSize = 36 KiB,
       sdramLayout = W9825G6JH6.layout,
       sdramTimings = W9825G6JH6.timingGrade7
     )
@@ -868,7 +867,7 @@ object PinsecSmall{
   def main(args: Array[String]) {
     val config = PinsecConfig.default.copy(
       axiFrequency = 50 MHz,
-      onChipRamSize = 36 kB,
+      onChipRamSize = 36 KiB,
       sdramLayout = W9825G6JH6.layout,
       sdramTimings = W9825G6JH6.timingGrade7
     )
@@ -957,7 +956,7 @@ object PlayPatch{
     )
   }
 
-  case class SimpleBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
+  case class PipelinedMemoryBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
     // Check the generic parameters
     val enable     = Bool // Bus can be used when 'enable' is high
     val writeMode  = Bool // High to write data, low to read data
@@ -965,7 +964,7 @@ object PlayPatch{
     val writeData  = Bits(dataWidth bits)
     val readData   = Bits(dataWidth bits)
 
-    def delayed(delayCnt : Int = 1): SimpleBus = {
+    def delayed(delayCnt : Int = 1): PipelinedMemoryBus = {
       require (delayCnt >= 0, "Error: delayCnt has to be at least 0")
       val ret = cloneOf(this)
 
@@ -979,14 +978,14 @@ object PlayPatch{
     }
 
     //Can be used to connect that to this
-    def << (that : SimpleBus): Unit ={
+    def << (that : PipelinedMemoryBus): Unit ={
       that.enable    := this.enable
       that.writeMode := this.writeMode
       that.address   := this.address
       that.writeData := this.writeData
       this.readData  := that.readData
     }
-    def >>(that : SimpleBus): Unit = that << this
+    def >>(that : PipelinedMemoryBus): Unit = that << this
 
     // This is called by 'apply' when the master-object is called with data (-> side effect write/read data)
     override def asMaster() : Unit = {
@@ -1002,9 +1001,9 @@ object PlayPatch{
   }
 
 
-  val cpuBus = SimpleBus(32,32)
+  val cpuBus = PipelinedMemoryBus(32,32)
   val peripheralBus = cpuBus.delayed(4)   //This instance of the bus will be drived by the cpuBus with 4 cycle delay in each directions
-  val somewereElse = SimpleBus(32,32)
+  val somewereElse = PipelinedMemoryBus(32,32)
   somewereElse << peripheralBus
 
   case class HandShake(payloadWidth : Int) extends Bundle with IMasterSlave{
@@ -1492,9 +1491,9 @@ object PlayWithAhbLite3Interconnect extends App{
 
     val decoder = AhbLite3CrossbarFactory(config)
       .addSlaves(
-        io.slaves(0) -> SizeMapping(0x000000, 1 kB),
-        io.slaves(1) -> SizeMapping(0x100000, 1 kB),
-        io.slaves(2) -> SizeMapping(0x200000, 1 kB)
+        io.slaves(0) -> SizeMapping(0x000000, 1 KiB),
+        io.slaves(1) -> SizeMapping(0x100000, 1 KiB),
+        io.slaves(2) -> SizeMapping(0x200000, 1 KiB)
       )
       .addConnections(
         io.masters(0) -> List(io.slaves(0)),
@@ -1534,4 +1533,84 @@ object PlayWithAssert extends App{
     noAssert = true
   ).generate(new TopLevel)
 
+}
+
+object PlayWithRandomBoot extends App {
+  class TopLevel extends Component {
+
+    object MyEnum extends SpinalEnum{
+      val S0, S1, S2, S3, S4, S5 = newElement()
+    }
+
+    val io = new Bundle{
+      val cond = in Bool
+
+      val a = out Bits(32 bits)
+      val b = out Bool
+      val c = out(MyEnum)
+    }
+
+    val a = Reg(Bits(32 bits)) randBoot()
+    val b = Reg(Bool) randBoot()
+    val c = Reg(MyEnum) randBoot()
+
+    when(io.cond){
+      a := 0
+      b := False
+      c := MyEnum.S3
+    }
+
+    io.a := a
+    io.b := b
+    io.c := c
+
+  }
+
+  SpinalConfig(
+    mode = Verilog,
+    randBootFixValue = false
+  ).generate(new TopLevel)
+}
+
+object PlayWithGeneric extends App{
+
+  class BlackTest extends BlackBox{
+    val io = new Bundle{
+      val in1 = in UInt(32 bits)
+      val out1 = out UInt(32 bits)
+    }
+    val integer: Int = 32
+    addGeneric("vInteger", integer)
+    val double: Double = 3.2323
+    addGeneric("dDouble", double)
+    val time = DoubleBuilder(3.23).ns
+    addGeneric("tTime", time)
+    val booolean = true
+    addGeneric("bBoolean", booolean)
+    addGeneric("Biiits", U(32, 11 bits))
+
+
+   // addTag(addDefaultGenericValue)
+  }
+
+  class TopLevel extends Component {
+
+    val io = new Bundle{
+      val en = in Bool
+      val ctn = out UInt(32 bits)
+    }
+
+    val reg = Reg(UInt(32 bits)) init(0)
+
+    when(io.en){
+      reg := reg + 1
+    }
+
+    val bb = new BlackTest()
+    bb.io.in1 := reg
+
+    io.ctn := bb.io.out1
+  }
+
+  SpinalVhdl(new TopLevel)
 }

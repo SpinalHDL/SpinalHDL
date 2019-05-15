@@ -25,10 +25,10 @@ class SpinalSimMultiThreadingTest extends FunSuite {
 
   test("Test1") {
     var faild = false
-    val threads = for (t <- 0 to 4) yield{
+    val threads = for (t <- 0 to 3) yield{
       new Thread {
         override def run() = {
-          for (i <- 0 to 8) {
+          for (i <- 0 to 5) {
             try {
               SimConfig
                 .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC)))
@@ -37,7 +37,7 @@ class SpinalSimMultiThreadingTest extends FunSuite {
                 .doSim (new SpinalSimMultiThreadingDut(i + t).setDefinitionName(s"SpinalSimMultiThreadingDut_${t}_${i}")){ dut =>
                   dut.clockDomain.forkStimulus(period = 10)
 
-                  Suspendable.repeat(times = 1000000) {
+                  for(repeat <- 0 until 100000) {
                     val a, b, c = Random.nextInt(256)
                     dut.io.a #= a
                     dut.io.b #= b

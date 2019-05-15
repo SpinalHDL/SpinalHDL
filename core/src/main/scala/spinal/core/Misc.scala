@@ -88,7 +88,7 @@ object weakCloneOf {
       case _ => cloneOf(that)
     }
 
-    ret.flatten.foreach {
+    ret.flattenForeach{
       case bv: BitVector => bv.unfixWidth()
       case _             =>
     }
@@ -117,7 +117,12 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
-    if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    val ret = if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    ret match {
+      case ret : Bundle => ret.hardtype = this
+      case _ =>
+    }
+    ret
   }
   def getBitsWidth = t.getBitsWidth
 }
@@ -230,12 +235,12 @@ object SpinalMap {
 /**
   * Sel operation
   */
-@deprecated("Use Select instead")
+@deprecated("Use Select instead", "???")
 object Sel{
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def apply[T <: Data](default: T, mappings: (Bool, T)*):T = seq(default,mappings)
 
-  @deprecated("Use Select instead")
+  @deprecated("Use Select instead", "???")
   def seq[T <: Data](default: T, mappings: Seq[(Bool, T)]): T = {
     val result = cloneOf(default)
     result := default
@@ -274,20 +279,20 @@ object Select{
 }
 
 
-@deprecated("Use cloneable instead")
+@deprecated("Use HardType instead", "???")
 object wrap{
   def apply[T <: Bundle](that : => T) : T = {
     val ret: T = that
-    ret.cloneFunc = () => that
+    ret.hardtype = HardType(that)
     ret
   }
 }
 
-
+@deprecated("Use HardType instead", "???")
 object cloneable {
   def apply[T <: Bundle](that: => T): T = {
     val ret: T = that
-    ret.cloneFunc = () => that
+    ret.hardtype = HardType(that)
     ret
   }
 }
