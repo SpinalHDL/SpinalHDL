@@ -23,8 +23,8 @@ class SpinalSimBmbToApb3BridgeTester extends FunSuite{
       BmbToApb3Bridge(
         apb3Config = Apb3Config(16, 32),
         bmbParameter = BmbToApb3Bridge.busCapabilities(addressWidth = 16, dataWidth = 32).copy(
-          sourceWidth   = 0,
-          contextWidth = 0
+          sourceWidth  = 4,
+          contextWidth = 4
         ),
         pipelineBridge = false
       )
@@ -90,7 +90,7 @@ class SpinalSimBmbToApb3BridgeTester extends FunSuite{
         }
 
         //Retain the stimulus phase until at least 30000 transaction are completed
-        val retainers = List.fill(1 << dut.bmbParameter.sourceWidth)(Phase.stimulus.retainer(300000))
+        val retainers = List.fill(1 << dut.bmbParameter.sourceWidth)(Phase.stimulus.retainer(10000))
         masterAgent.rspMonitor.addCallback{payload =>
           if(payload.last.toBoolean){
             retainers(payload.fragment.source.toInt).release()

@@ -19,8 +19,8 @@ class SpinalSimBmbOnChipRamTester extends FunSuite{
     SimConfig.compile{
       val dut = BmbOnChipRam(
         p = BmbOnChipRam.busCapabilities(size = 64 KiB, dataWidth = 32).copy(
-          sourceWidth   = 0,
-          contextWidth = 0
+          sourceWidth  = 4,
+          contextWidth = 4
         ),
         size = 64 KiB
       )

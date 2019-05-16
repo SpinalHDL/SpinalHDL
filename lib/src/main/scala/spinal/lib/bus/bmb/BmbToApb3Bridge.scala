@@ -59,8 +59,8 @@ case class BmbToApb3Bridge(apb3Config: Apb3Config,
     }
   }
 
-  bmbBuffer.rsp.source  := RegNextWhen(io.input.cmd.source,  io.input.cmd.ready)
-  bmbBuffer.rsp.context := RegNextWhen(io.input.cmd.context, io.input.cmd.ready)
+  bmbBuffer.rsp.source  := io.input.cmd.source
+  bmbBuffer.rsp.context := io.input.cmd.context
   bmbBuffer.rsp.last := True
   
   bmbBuffer.rsp.setSuccess()

@@ -56,6 +56,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
           for(beat <- 0 until beatCount) rspQueue(source).enqueue{ () =>
             val beatAddress = (startAddress & ~(bus.p.byteCount-1)) + beat*bus.p.byteCount
             assert(bus.rsp.context.toInt == context)
+            assert(bus.rsp.source.toInt == source)
             assert(bus.rsp.opcode.toInt == (if(mapped) Bmb.Rsp.Opcode.SUCCESS else Bmb.Rsp.Opcode.ERROR))
             val data = bus.rsp.data.toBigInt
             for(byteId <- 0 until bus.p.byteCount; byteAddress = beatAddress + byteId) if(byteAddress >= startAddress && byteAddress < endAddress){
@@ -99,6 +100,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
           //WRITE RSP
           rspQueue(source).enqueue { () =>
             assert(bus.rsp.context.toInt == context)
+            assert(bus.rsp.source.toInt == source)
             assert(bus.rsp.opcode.toInt == (if (mapped) Bmb.Rsp.Opcode.SUCCESS else Bmb.Rsp.Opcode.ERROR))
             regionFree(region)
           }
