@@ -8,9 +8,6 @@ import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbOnChipRam, BmbParameter}
 import spinal.lib.bus.bmb.sim.{BmbMasterAgent, BmbMemoryAgent, BmbRegionAllocator}
 import spinal.lib.bus.misc.SizeMapping
-import spinal.lib.graphic.Rgb
-
-import scala.collection.mutable
 import scala.util.Random
 
 class SpinalSimBmbOnChipRamTester extends FunSuite{
@@ -60,13 +57,15 @@ class SpinalSimBmbOnChipRamTester extends FunSuite{
 
           //Retain the flush phase until all Bmb rsp are received
           Phase.flush.retain()
-          Phase.flush(fork{
-            while(masterAgent.rspQueue.exists(_.nonEmpty)) {
+          Phase.flush{
+            fork{
+              while(masterAgent.rspQueue.exists(_.nonEmpty)) {
+                dut.clockDomain.waitSampling(1000)
+              }
               dut.clockDomain.waitSampling(1000)
+              Phase.flush.release()
             }
-            dut.clockDomain.waitSampling(1000)
-            Phase.flush.release()
-          })
+          }
 
           //Retain the stimulus phase until at least 30000 transaction are completed
           val retainers = List.fill(1 << dut.p.sourceWidth)(Phase.stimulus.retainer(30000))

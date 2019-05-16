@@ -10,10 +10,11 @@ case class BmbRegionAllocator(){
   val allocations = mutable.HashSet[SizeMapping]()
 
   def free(region : SizeMapping) = allocations.remove(region)
-  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter) : SizeMapping = {
+  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1) : SizeMapping = {
     while(true){
       var address = addressGen
-      var size = Math.min(Bmb.boundarySize - (address & (Bmb.boundarySize-1)), Random.nextInt(sizeMax) + 1)
+      val boundaryMax = Bmb.boundarySize - (address & (Bmb.boundarySize-1))
+      var size = Math.max(sizeMin,Math.min(boundaryMax, Random.nextInt(sizeMax) + 1))
       if(!p.allowUnalignedByteBurst) {
         address &= ~p.wordMask
         if(size > p.byteCount){
@@ -21,7 +22,7 @@ case class BmbRegionAllocator(){
         }
       }
       val region = SizeMapping(address, size)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && size <= boundaryMax) {
         allocations += region
         return region
       }

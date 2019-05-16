@@ -62,9 +62,9 @@ case class BmbToApb3Bridge(apb3Config: Apb3Config,
   bmbBuffer.rsp.source  := RegNextWhen(io.input.cmd.source,  io.input.cmd.ready)
   bmbBuffer.rsp.context := RegNextWhen(io.input.cmd.context, io.input.cmd.ready)
   bmbBuffer.rsp.last := True
-
+  
+  bmbBuffer.rsp.setSuccess()
   if(apb3Config.useSlaveError) {
-    bmbBuffer.rsp.setSuccess()
     when(io.output.PSLVERROR) {
       bmbBuffer.rsp.setError()
     }

@@ -87,7 +87,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
             bus.cmd.last #= beat == beatCount - 1
             var mask = 0
             for (byteId <- 0 until bus.p.byteCount; byteAddress = beatAddress + byteId) if (byteAddress >= startAddress && byteAddress < endAddress) {
-              if (Random.nextBoolean()) {
+              if (maskRandom()) {
                 mask |= 1 << byteId
                 if (mapped) onCmdWrite(byteAddress, (data >> byteId * 8).toByte)
               }
@@ -108,6 +108,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
     if(cmdQueue.nonEmpty) cmdQueue.dequeue() else null
   }
 
+  def maskRandom() = Random.nextBoolean()
   StreamDriver(bus.cmd, clockDomain){ _ =>
     val cmd = getCmd()
     if(cmd != null) cmd()
