@@ -30,11 +30,8 @@ case class BmbOnChipRam(p: BmbParameter,
   }
 
   val ram = Mem(Bits(32 bits), size / 4)
-  val rspValid = RegInit(False) clearWhen(io.bus.rsp.ready) setWhen(io.bus.cmd.fire)
-  val rspSource  = RegNextWhen(io.bus.cmd.source,  io.bus.cmd.ready)
-  val rspContext = RegNextWhen(io.bus.cmd.context, io.bus.cmd.ready)
-  io.bus.cmd.ready := io.bus.rsp.ready || !rspValid
-  io.bus.rsp.valid := rspValid
+  io.bus.cmd.ready   := !io.bus.rsp.isStall
+  io.bus.rsp.valid   := RegNextWhen(io.bus.cmd.valid,   io.bus.cmd.ready) init(False)
   io.bus.rsp.source  := RegNextWhen(io.bus.cmd.source,  io.bus.cmd.ready)
   io.bus.rsp.context := RegNextWhen(io.bus.cmd.context, io.bus.cmd.ready)
   io.bus.rsp.data := ram.readWriteSync(
