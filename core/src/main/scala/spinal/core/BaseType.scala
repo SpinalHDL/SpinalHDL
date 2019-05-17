@@ -162,6 +162,14 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     super.asInOut()
   }
 
+
+  override def copyDirectionOfImpl(that : Data): this.type = {
+    component.ioSet += this
+    super.copyDirectionOfImpl(that)
+  }
+
+
+
   override def setAsDirectionLess(): BaseType.this.type = {
     if(dir == null) return this
     component.ioSet -= this
