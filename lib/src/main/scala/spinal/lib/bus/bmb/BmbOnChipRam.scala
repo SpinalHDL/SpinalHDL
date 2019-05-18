@@ -49,3 +49,39 @@ case class BmbOnChipRam(p: BmbParameter,
     HexTools.initRam(ram, hexInit, hexOffset)
   }
 }
+
+
+
+case class BmbOnChipRamMultiPort( portsParameter: Seq[BmbParameter],
+                                  size : BigInt,
+                                  hexOffset : BigInt = null,
+                                  hexInit : String = null) extends Component {
+  val io = new Bundle {
+    val buses = Vec(portsParameter.map(p => slave(Bmb(p))))
+  }
+
+  val ram = Mem(Bits(32 bits), size / 4)
+  
+  for(bus <- io.buses) {
+    bus.cmd.ready := !bus.rsp.isStall
+    bus.rsp.valid := RegNextWhen(bus.cmd.valid, bus.cmd.ready) init (False)
+    bus.rsp.source := RegNextWhen(bus.cmd.source, bus.cmd.ready)
+    bus.rsp.context := RegNextWhen(bus.cmd.context, bus.cmd.ready)
+    bus.rsp.data := ram.readWriteSync(
+      address = (bus.cmd.address >> 2).resized,
+      data = bus.cmd.data,
+      enable = bus.cmd.fire,
+      write = bus.cmd.isWrite,
+      mask = bus.cmd.mask
+    )
+    bus.rsp.setSuccess()
+    bus.rsp.last := True
+  }
+
+  if(hexInit != null){
+    assert(hexOffset != null)
+    HexTools.initRam(ram, hexInit, hexOffset)
+  }
+}
+
+
