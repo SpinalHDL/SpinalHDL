@@ -35,7 +35,7 @@ import spinal.lib._
   * @param ahbLite3Config : Ahb bus configuration
   * @param inputsCount    : Number of inputs for the arbiter
   */
-case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int) extends Component {
+case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, roundRobinArbiter : Boolean = true) extends Component {
 
   val io = new Bundle {
     val inputs = Vec(slave(AhbLite3(ahbLite3Config)), inputsCount)
@@ -66,7 +66,10 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int) ext
     }
 
     val requests = io.inputs.map(_.HSEL).asBits
-    maskProposal := OHMasking.roundRobin(requests, maskLocked(maskLocked.high - 1 downto 0) ## maskLocked.msb)
+    if(roundRobinArbiter)
+      maskProposal := OHMasking.roundRobin(requests, maskLocked(maskLocked.high - 1 downto 0) ## maskLocked.msb)
+    else
+      maskProposal := OHMasking.first(requests)
 
     val requestIndex     = OHToUInt(maskRouted)
     io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduce(_ | _)

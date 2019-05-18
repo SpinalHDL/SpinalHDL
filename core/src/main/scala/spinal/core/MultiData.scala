@@ -81,6 +81,13 @@ abstract class MultiData extends Data {
     this
   }
 
+  override def copyDirectionOfImpl(that : Data): this.type = {
+    super.copyDirectionOfImpl(that)
+    (elements, that.asInstanceOf[MultiData].elements).zipped.foreach{case (t, s) => t._2.copyDirectionOfImpl(s._2)}
+    this
+  }
+
+
   override def setAsDirectionLess: this.type = {
     super.setAsDirectionLess()
     elements.foreach(_._2.setAsDirectionLess());
