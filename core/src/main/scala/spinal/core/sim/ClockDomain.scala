@@ -115,3 +115,7 @@ object SimTimeout {
     simFailure(s"Timeout trigger after $duration units of time")
   }
 }
+
+object SimStatics{
+  val onSamplings = new Object
+}

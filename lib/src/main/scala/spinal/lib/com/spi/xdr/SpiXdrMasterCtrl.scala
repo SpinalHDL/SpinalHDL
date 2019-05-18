@@ -224,23 +224,23 @@ object SpiXdrMasterCtrl {
           bus.createAndDriveFlow(Cmd(p),address = baseAddress + 0).toStream
           val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
           cmd << stream
-          bus.read(fifoAvailability, address = baseAddress + 4, 16)
+          bus.read(fifoAvailability, address = baseAddress + 4, 0)
         }
 
         //RSP
         val rspLogic = new Area {
           val feedRsp = True
           val (stream, fifoOccupancy) = rsp.takeWhen(feedRsp).queueWithOccupancy(rspFifoDepth)
-          bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0)
-          bus.read(fifoOccupancy, address = baseAddress + 0, 16)
+          bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
+          bus.read(fifoOccupancy, address = baseAddress + 4, 16)
         }
 
-        //Status
+        //Interrupts
         val interruptCtrl = new Area {
-          val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 4, 0) init(False)
-          val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 4, 1) init(False)
-          val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 4, 8)
-          val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 4, 9)
+          val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 12, 0) init(False)
+          val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 12, 1) init(False)
+          val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 12, 8)
+          val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 12, 9)
           val interrupt = rspInt || cmdInt
         }
 

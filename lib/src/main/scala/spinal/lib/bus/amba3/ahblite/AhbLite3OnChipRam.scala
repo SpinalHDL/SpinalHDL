@@ -77,3 +77,60 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config, byteCount: BigInt) 
     data    = io.ahb.HWDATA
   )
 }
+
+
+case class AhbLite3OnChipRamMultiPort(portCount : Int, AhbLite3Config: AhbLite3Config, byteCount: BigInt) extends Component {
+
+  val io = new Bundle {
+    val ahbs = Vec(slave(AhbLite3(AhbLite3Config)), portCount)
+  }
+
+  val wordCount = byteCount / AhbLite3Config.bytePerWord
+  val ram       = Mem(AhbLite3Config.dataType, wordCount.toInt)
+  val wordRange = log2Up(wordCount) + log2Up(AhbLite3Config.bytePerWord) - 1 downto log2Up(AhbLite3Config.bytePerWord)
+
+
+  for(ahb <- io.ahbs) {
+    // Address/control phase to write data phase
+    val pending = Reg(new Bundle {
+      val valid = Bool
+      val write = Bool
+      val readInvalid = Bool
+      val address = ram.addressType()
+      val mask = Bits(AhbLite3Config.bytePerWord bits)
+    })
+
+    val addressPhaseCanRead = ahb.HREADY && !(pending.valid && (pending.write || pending.readInvalid))
+    val ramAddress = Mux(addressPhaseCanRead, ahb.HADDR(wordRange), pending.address)
+
+    pending.valid init (False)
+
+    when(ahb.HREADY) {
+      pending.valid := ahb.HSEL && ahb.HTRANS(1) && ahb.HWRITE
+      pending.write := ahb.HWRITE
+      pending.readInvalid := !addressPhaseCanRead
+      pending.address := ahb.HADDR(wordRange)
+      pending.mask := ahb.writeMask
+    }
+
+    ahb.setOKEY
+
+    // Avoid write to read hazards
+    ahb.HREADYOUT := !(ahb.HSEL && ahb.HTRANS(1) && !ahb.HWRITE && pending.valid && pending.write && ahb.HADDR(wordRange) === pending.address) && !(pending.valid && pending.readInvalid)
+    ahb.HRDATA := ram.readSync(
+      address = ramAddress
+//      enable = (ahb.HSEL && ahb.HTRANS(1) && !ahb.HWRITE && ahb.HREADY) || (pending.valid && pending.readInvalid)
+    )
+
+    ram.write(
+      enable = pending.valid,
+      address = ramAddress,
+      mask = pending.mask,
+      data = ahb.HWDATA
+    )
+
+    when(pending.valid && pending.readInvalid){
+      pending.readInvalid := False
+    }
+  }
+}

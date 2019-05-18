@@ -502,7 +502,8 @@ trait BusSlaveFactory extends Area{
   def readStreamNonBlocking[T <: Data](that             : Stream[T],
                                        address          : BigInt,
                                        validBitOffset   : Int,
-                                       payloadBitOffset : Int): Unit = {
+                                       payloadBitOffset : Int,
+                                       validInverted    : Boolean = false): Unit = {
 
     assert(widthOf(that) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
     assert(payloadBitOffset + widthOf(that) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter is bigger than the data bus width" )
@@ -512,7 +513,7 @@ trait BusSlaveFactory extends Area{
     onRead(address){
       that.ready := True
     }
-    read(that.valid,   address, validBitOffset)
+    read(that.valid ^ Bool(validInverted),   address, validBitOffset)
     read(that.payload, address, payloadBitOffset)
   }
 

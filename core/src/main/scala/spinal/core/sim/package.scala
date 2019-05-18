@@ -225,6 +225,21 @@ package object sim {
         bt #= BigInt(width, Random)
       }
     }
+
+    def randomizedBigInt() = {
+      val width = bt.getWidth
+      BigInt(width, Random)
+    }
+    def randomizedLong() = {
+      val width = bt.getWidth
+      assert(width < 64)
+      Random.nextLong() & ((1l << width) - 1)
+    }
+    def randomizedInt() = {
+      val width = bt.getWidth
+      assert(width < 32)
+      Random.nextInt() & ((1 << width) - 1)
+    }
   }
 
   /**
@@ -239,6 +254,21 @@ package object sim {
       }else {
         bt #= BigInt(width, Random)
       }
+    }
+
+    def randomizedBigInt() = {
+      val width = bt.getWidth
+      BigInt(width, Random)
+    }
+    def randomizedLong() = {
+      val width = bt.getWidth
+      assert(width < 64)
+      Random.nextLong() & ((1l << width) - 1)
+    }
+    def randomizedInt() = {
+      val width = bt.getWidth
+      assert(width < 32)
+      Random.nextInt() & ((1 << width) - 1)
     }
   }
 
@@ -540,21 +570,27 @@ package object sim {
       }
     }
 
-    def onSamplings(body: => Unit): Unit ={
-      val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
-      val manager = SimManagerContext.current.manager
-      val signal  = getSignal(manager, cd.clock)
-      var last    = manager.getInt(signal)
-
-      forkSensitive {
-        val current = manager.getInt(signal)
-        if(last != edgeValue && current == edgeValue && isSamplingEnable)
-          body
-        last = current
+    def onSamplings(body: => Unit): Unit = {
+      val key = (SimStatics.onSamplings, cd)
+      val context = SimManagerContext.current
+      if(!context.contains(key)) {
+        val edgeValue = if (cd.config.clockEdge == spinal.core.RISING) 1 else 0
+        val manager = context.manager
+        val signal = getSignal(manager, cd.clock)
+        var last = manager.getInt(signal)
+        val listeners = ArrayBuffer[() => Unit]()
+        context.set(key, listeners)
+        forkSensitive {
+          val current = manager.getInt(signal)
+          if (last != edgeValue && current == edgeValue && isSamplingEnable)
+            listeners.foreach(_())
+          last = current
+        }
       }
+      context.get[ArrayBuffer[() => Unit]](key) += (() => body)
     }
 
-    def onNextSampling(body: => Unit): Unit ={
+    def onNextSampling(body: => Unit): Unit = {
       val edgeValue = if(cd.config.clockEdge == spinal.core.RISING) 1 else 0
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)

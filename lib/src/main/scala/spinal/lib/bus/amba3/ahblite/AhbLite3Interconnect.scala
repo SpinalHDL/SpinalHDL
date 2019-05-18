@@ -75,8 +75,11 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping, index: Int){
   *          }}}
   */
 case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
-
-  val slavesConfigs = mutable.HashMap[AhbLite3, AhbLite3CrossbarSlaveConfig]()
+  var roundRobinArbiter = true
+  def noRoundRobinArbiter(): Unit ={
+    roundRobinArbiter = false
+  }
+  val slavesConfigs = mutable.LinkedHashMap[AhbLite3, AhbLite3CrossbarSlaveConfig]()
 
   private def getNextSlaveIndex = if(slavesConfigs.isEmpty) 0 else (slavesConfigs.values.map(_.index).max + 1)
 
@@ -129,7 +132,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
   /** Build the crossbar */
   def build() = new Area {
 
-    val masterToDecodedSlave = mutable.HashMap[AhbLite3, Map[AhbLite3, AhbLite3]]()
+    val masterToDecodedSlave = mutable.LinkedHashMap[AhbLite3, Map[AhbLite3, AhbLite3]]()
 
     /**
       * Create a decoder for each master
@@ -161,7 +164,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
       */
     val arbiters = for((slave, config) <- slavesConfigs) yield new Area {
 
-        val arbiter = AhbLite3Arbiter(ahbLite3Config = ahbLite3Config, inputsCount = config.masters.length)
+        val arbiter = AhbLite3Arbiter(ahbLite3Config = ahbLite3Config, inputsCount = config.masters.length, roundRobinArbiter)
 
         for((input, master) <- (arbiter.io.inputs, config.masters).zipped){
           input <> masterToDecodedSlave(master.master)(slave)

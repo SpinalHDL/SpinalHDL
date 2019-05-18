@@ -349,6 +349,8 @@ class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def isFirst: Bool = pimped.valid && first
   def isTail : Bool = pimped.valid && tail
   def isLast: Bool = pimped.valid && pimped.last
+  def lastFire : Bool = pimped.fire && pimped.last
+  def firstFire : Bool = pimped.fire && pimped.first
 }
 
 
