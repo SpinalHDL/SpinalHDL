@@ -29,7 +29,7 @@ case class BmbOnChipRam(p: BmbParameter,
     val bus = slave(Bmb(p))
   }
 
-  val ram = Mem(Bits(32 bits), size / 4)
+  val ram = Mem(Bits(p.dataWidth bits), size / p.byteCount)
   io.bus.cmd.ready   := !io.bus.rsp.isStall
   io.bus.rsp.valid   := RegNextWhen(io.bus.cmd.valid,   io.bus.cmd.ready) init(False)
   io.bus.rsp.source  := RegNextWhen(io.bus.cmd.source,  io.bus.cmd.ready)
@@ -52,6 +52,21 @@ case class BmbOnChipRam(p: BmbParameter,
 
 
 
+object BmbOnChipRamMultiPort{
+  def busCapabilities(size : BigInt, dataWidth : Int) = BmbParameter(
+    addressWidth  = log2Up(size),
+    dataWidth     = dataWidth,
+    lengthWidth   = log2Up(dataWidth/8),
+    sourceWidth   = Int.MaxValue,
+    contextWidth  = Int.MaxValue,
+    canRead       = true,
+    canWrite      = true,
+    allowUnalignedWordBurst = false,
+    allowUnalignedByteBurst = false,
+    maximumPendingTransactionPerId = Int.MaxValue
+  )
+}
+
 case class BmbOnChipRamMultiPort( portsParameter: Seq[BmbParameter],
                                   size : BigInt,
                                   hexOffset : BigInt = null,
@@ -60,7 +75,7 @@ case class BmbOnChipRamMultiPort( portsParameter: Seq[BmbParameter],
     val buses = Vec(portsParameter.map(p => slave(Bmb(p))))
   }
 
-  val ram = Mem(Bits(32 bits), size / 4)
+  val ram = Mem(Bits(portsParameter.head.dataWidth bits), size / portsParameter.head.byteCount)
   
   for(bus <- io.buses) {
     bus.cmd.ready := !bus.rsp.isStall
