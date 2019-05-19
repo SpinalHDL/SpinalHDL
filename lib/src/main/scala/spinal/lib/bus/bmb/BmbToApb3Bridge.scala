@@ -16,8 +16,7 @@ object BmbToApb3Bridge{
     contextWidth  = Int.MaxValue,
     canRead       = true,
     canWrite      = true,
-    allowUnalignedWordBurst = false,
-    allowUnalignedByteBurst = false,
+    alignment     = BmbParameter.BurstAlignement.LENGTH,
     maximumPendingTransactionPerId = Int.MaxValue
   )
 }

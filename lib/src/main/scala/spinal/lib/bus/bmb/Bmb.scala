@@ -55,10 +55,18 @@ case class BmbSlaveParameter(maximumPendingTransactionPerId : Int)
 
 object BmbParameter{
   object BurstAlignement {
-    trait Kind
-    object BYTE extends Kind
-    object WORD extends Kind
-    object BURST extends Kind
+    trait Kind{
+      def allowByte : Boolean = false
+      def allowWord : Boolean = false
+    }
+    object BYTE extends Kind{
+      override def allowByte = true
+      override def allowWord = true
+    }
+    object WORD extends Kind{
+      override def allowWord = true
+    }
+    object LENGTH extends Kind
   }
 }
 
@@ -69,18 +77,16 @@ case class BmbParameter(addressWidth : Int,
                         contextWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
-                        allowUnalignedWordBurst : Boolean  = true,
-                        allowUnalignedByteBurst : Boolean  = false,
+                        alignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
-  assert(!(allowUnalignedByteBurst && !allowUnalignedWordBurst))
   def byteCount = dataWidth/8
   def wordMask = byteCount-1
   def wordRange = wordRangeLength -1 downto 0
   def maskWidth = byteCount
   def allowBurst = lengthWidth > wordRangeLength
-  def beatCounterWidth = lengthWidth - wordRangeLength + (if(allowUnalignedByteBurst) 1 else 0)
+  def beatCounterWidth = lengthWidth - wordRangeLength + (if(alignment.allowByte) 1 else 0)
   def wordRangeLength = log2Up(byteCount)
 }
 
@@ -113,7 +119,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
   }
 
   def transferBeatCountMinusOne : UInt = {
-    if(!p.allowUnalignedByteBurst){
+    if(!p.alignment.allowByte){
       length(length.high downto log2Up(p.byteCount))
     } else {
       ((U"0" @@ length) + address(p.wordRange))(length.high + 1 downto log2Up(p.byteCount))

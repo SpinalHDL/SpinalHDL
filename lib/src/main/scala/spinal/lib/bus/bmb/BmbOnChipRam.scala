@@ -15,8 +15,7 @@ object BmbOnChipRam{
     contextWidth  = Int.MaxValue,
     canRead       = true,
     canWrite      = true,
-    allowUnalignedWordBurst = false,
-    allowUnalignedByteBurst = false,
+    alignment     = BmbParameter.BurstAlignement.LENGTH,
     maximumPendingTransactionPerId = Int.MaxValue
   )
 }
@@ -61,8 +60,7 @@ object BmbOnChipRamMultiPort{
     contextWidth  = Int.MaxValue,
     canRead       = true,
     canWrite      = true,
-    allowUnalignedWordBurst = false,
-    allowUnalignedByteBurst = false,
+    alignment     = BmbParameter.BurstAlignement.LENGTH,
     maximumPendingTransactionPerId = Int.MaxValue
   )
 }

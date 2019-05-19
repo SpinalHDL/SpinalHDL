@@ -59,7 +59,7 @@ case class BmbDecoder(p : BmbParameter,
       io.input.rsp.context := rspNoHit.context
 
       //Manage io.input.rsp.last generation for multiple generation cases to save area
-      if(!p.allowUnalignedByteBurst && (1 << p.lengthWidth) <= p.byteCount){
+      if(!p.alignment.allowByte && (1 << p.lengthWidth) <= p.byteCount){
         io.input.rsp.last := True
       } else {
         io.input.rsp.last := False
