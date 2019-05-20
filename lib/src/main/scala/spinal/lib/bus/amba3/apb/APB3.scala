@@ -66,7 +66,7 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
   def << (sink: Apb3): Unit = sink >> this
 
   def >> (sink: Apb3): Unit = {
-    assert(this.config.addressWidth >= sink.config.addressWidth, "APB3 mismatch width address")
+//    assert(this.config.addressWidth >= sink.config.addressWidth, "APB3 mismatch width address")
     assert(this.config.selWidth == sink.config.selWidth, "APB3 mismatch sel width")
 
     sink.PADDR   := this.PADDR.resized
