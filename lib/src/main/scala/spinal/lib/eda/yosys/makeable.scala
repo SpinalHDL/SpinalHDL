@@ -144,11 +144,9 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  val basePath = Paths.get("testmakerel/").normalize
-  def relativize(s:Path) = {
-    println(s + " -> " + basePath.relativize(s))
-    basePath.relativize(s).normalize()
-  }
+  val basePath = Paths.get(".")
+  def relativize(s: Path) = basePath.relativize(s).normalize()
+
   /** Change the output folder of all the target/output
     *
     * @param path the path where redirect all the outputs
@@ -172,7 +170,6 @@ trait Makeable {
   /** Create a string with all the prerequisite by their extention */
   // def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(relativize(_)).mkString(" ")
   def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).mkString(" ")
-
 
   /** Create a string with all generated target file */
   def getTargetString: String = getTarget.mkString(" ")
@@ -361,7 +358,7 @@ trait PassFail extends Makeable {
     */
   def pass(name: Path): PassFail
 
-  def getPass: Option[Path] = if(passFile.nonEmpty) Some(relativize(passFile.get)) else None
+  def getPass: Option[Path] = if (passFile.nonEmpty) Some(relativize(passFile.get)) else None
 
   /** @inheritdoc */
   override def outputFolder(path: Path): PassFail = {
@@ -386,7 +383,7 @@ trait MakeableLog extends Makeable {
     */
   def log(name: Path): MakeableLog
 
-  def getLog: Option[Path] = if(logFile.nonEmpty) Some(relativize(logFile.get)) else None
+  def getLog: Option[Path] = if (logFile.nonEmpty) Some(relativize(logFile.get)) else None
 
   /** @inheritdoc */
   override def outputFolder(path: Path): MakeableLog = {
