@@ -134,7 +134,7 @@ object Makeable {
 
     /** @inheritdoc */
     override def runComand = {
-      val out = new PrintWriter("Makefile")
+      val out = new PrintWriter("testmakerel/Makefile")
       out.println(makefile)
       out.close()
       "make"
@@ -144,7 +144,7 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  val basePath = Paths.get(".").toAbsolutePath().normalize
+  val basePath = Paths.get("testmakerel/").normalize
   def relativize(s:Path) = {
     println(s + " -> " + basePath.relativize(s))
     basePath.relativize(s).normalize()
@@ -170,7 +170,9 @@ trait Makeable {
   def addPrerequisite(pre: Makeable*) = prerequisite ++= pre
 
   /** Create a string with all the prerequisite by their extention */
-  def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(relativize(_)).mkString(" ")
+  // def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(relativize(_)).mkString(" ")
+  def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).mkString(" ")
+
 
   /** Create a string with all generated target file */
   def getTargetString: String = getTarget.mkString(" ")
@@ -372,7 +374,7 @@ trait PassFail extends Makeable {
 
   /** @inheritdoc */
   override def getCommandString: String =
-    super.getCommandString + (if (passFile.nonEmpty) " && date > " + passFile.get else "")
+    super.getCommandString + (if (passFile.nonEmpty) " && date > " + relativize(passFile.get) else "")
 }
 
 trait MakeableLog extends Makeable {
@@ -394,7 +396,7 @@ trait MakeableLog extends Makeable {
 
   /** @inheritdoc */
   override def getCommandString: String =
-    super.getCommandString + (if (logFile.nonEmpty) " &> " + logFile.get else "")
+    super.getCommandString + (if (logFile.nonEmpty) " &> " + relativize(logFile.get) else "")
 }
 
 object InputFile {

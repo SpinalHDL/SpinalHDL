@@ -269,7 +269,16 @@ case class Yosys( passFile: Option[Path] = None,
   /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): Yosys = this.copy(passFile=Some(file))
 
-  override def toString(): String = commands.mkString("yosys -p'", "; ", "'")
+  //override def toString(): String = commands.mkString("yosys -p'", "; ", "'")
+  override def toString(): String = {
+    val ret = scala.collection.mutable.ListBuffer[String]()
+    commands foreach {
+    case i: Input => ret += Input(relativize(i.file),i.frontend, i.opt :_*).toString
+    case i: Output => ret += Output(relativize(i.file),i.backend, i.opt :_*).toString
+    case a => ret += a.toString
+    }
+    ret.mkString("yosys -p'", "; ", "'")
+  }
 
   //needed for Makable
   /** @inheritdoc */
