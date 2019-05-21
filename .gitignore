@@ -14,6 +14,12 @@ src_managed/
 project/boot/
 project/plugins/project/
 
+#VScode sepcific
+.bloop
+.metals
+.vscode
+.scalafmt.conf
+
 # Scala-IDE specific
 .scala_dependencies
 .worksheet
