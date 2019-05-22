@@ -4,7 +4,10 @@ import spinal.core._
 import spinal.lib._
 
 object BmbUnburstify{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(lengthWidth = log2Up(inputParameter.byteCount), contextWidth = inputParameter.contextWidth + 2)
+  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(
+    lengthWidth = log2Up(inputParameter.byteCount),
+    contextWidth = inputParameter.contextWidth + 2
+  )
 }
 
 //TODO check inputParameter requirements

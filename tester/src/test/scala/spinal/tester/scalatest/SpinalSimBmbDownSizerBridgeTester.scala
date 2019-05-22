@@ -61,7 +61,7 @@ class SpinalSimBmbDownSizerBridgeTester extends FunSuite{
       )
       BmbDownSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbDownSizerBridge.outputParameterFrom(16, inputParameter)
+        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter, 16)
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(
@@ -87,7 +87,7 @@ class SpinalSimBmbDownSizerBridgeTester extends FunSuite{
       )
       BmbDownSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbDownSizerBridge.outputParameterFrom(32, inputParameter)
+        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter, 32)
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(

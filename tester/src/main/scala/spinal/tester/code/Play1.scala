@@ -946,29 +946,25 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  case class SubTop() extends Component{
-    val subClk, subReset = in Bool()
-    ClockDomain(subClk, subReset) {
-      val ctrl = Apb3Gpio(32, false)
-      slave(Apb3(Apb3Gpio.getApb3Config())) <> ctrl.io.apb
-      master(TriStateArray(32)) <> ctrl.io.gpio
-    }
-  }
   case class TopLevel() extends Component {
-    val subAClk, subBClk, subAReset, subBReset = in Bool()
+    val a = in Bool()
+    val x = out Bool()
 
+    val tmp = Bool()
 
-    val subA = SubTop()
-    val subB = SubTop()
-
-    subA.subClk := subAClk
-    subB.subClk := subBClk
-    subA.subReset := subAReset
-    subB.subReset := subBReset
+    x := False
+    tmp := False
+    when(a | tmp){
+      x := True
+    }
+    when(a){
+      x := True
+      tmp := True
+    }
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVerilog(TopLevel())
+    SpinalConfig(mergeAsyncProcess = true).generateVerilog(TopLevel())
   }
 }
 

@@ -6,7 +6,8 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
 
 object BmbDownSizerBridge{
-  def outputParameterFrom(outputDataWidth : Int, inputParameter : BmbParameter): BmbParameter = {
+  def outputParameterFrom( inputParameter : BmbParameter,
+                           outputDataWidth : Int): BmbParameter = {
     val ratio = inputParameter.dataWidth/outputDataWidth
     inputParameter.copy(
       dataWidth = outputDataWidth,
