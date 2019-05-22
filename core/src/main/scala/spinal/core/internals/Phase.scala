@@ -1026,8 +1026,12 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
           }
 
-          if(e.inferredWidth < -1){
+          if(e.inferredWidth < 0){
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+          }
+
+          if (e.inferredWidth > 4095) {
+            errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
           }
         }
 
@@ -1037,6 +1041,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
           case e: WidthProvider =>
             if (e.getWidth < 0) {
               errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+            }
+            if (e.getWidth > 4095) {
+              errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
             }
           case _ =>
         }
