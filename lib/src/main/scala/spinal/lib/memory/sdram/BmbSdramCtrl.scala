@@ -35,7 +35,7 @@ case class BmbSdramCtrl( bmbParameter : BmbParameter,
     val context = Bits(bmbParameter.contextWidth bits)
   }
 
-  val ctrl = SdramCtrl(layout,timing,CAS,Context())
+  val ctrl = SdramCtrl(layout,timing,CAS,Context(), produceRspOnWrite = true)
 
   // CMD
   ctrl.io.bus.cmd.arbitrationFrom(io.bmb.cmd)

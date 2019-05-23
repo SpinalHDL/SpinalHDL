@@ -341,7 +341,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
 
     val remoteCke = Bool
     val readHistory = History(
-      that       = cmd.valid && (if(produceRspOnWrite) True else (cmd.task === READ)),
+      that       = cmd.valid && (cmd.task === READ || (if(produceRspOnWrite) cmd.task === WRITE else False)),
       range      = 0 to CAS + 2,
       when       = remoteCke,
       init       = False

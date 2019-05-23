@@ -14,6 +14,7 @@ case class SdramLayout( bankWidth : Int,
   def chipAddressWidth = Math.max(columnWidth,rowWidth)
   def bankCount = 1 << bankWidth
   def capacity = BigInt(1) << byteAddressWidth
+  def columnSize = 1 << columnWidth
 }
 
 case class SdramTimings(
