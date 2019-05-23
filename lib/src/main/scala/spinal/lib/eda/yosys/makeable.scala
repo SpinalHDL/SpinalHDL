@@ -134,7 +134,7 @@ object Makeable {
 
     /** @inheritdoc */
     override def runComand = {
-      val out = new PrintWriter("testmakerel/Makefile")
+      val out = new PrintWriter("Makefile")
       out.println(makefile)
       out.close()
       "make"
@@ -144,8 +144,8 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  val basePath = Paths.get(".")
-  def relativize(s: Path) = basePath.relativize(s).normalize()
+  val basePath = Paths.get(".").normalize()
+  def getRelativePath(s: Path) = basePath.relativize(s).normalize()
 
   /** Change the output folder of all the target/output
     *
@@ -168,7 +168,7 @@ trait Makeable {
   def addPrerequisite(pre: Makeable*) = prerequisite ++= pre
 
   /** Create a string with all the prerequisite by their extention */
-  // def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(relativize(_)).mkString(" ")
+  // def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(getRelativePath(_)).mkString(" ")
   def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).mkString(" ")
 
   /** Create a string with all generated target file */
@@ -193,7 +193,7 @@ trait Makeable {
     assert(!ret.isEmpty, s"""Prerequisite with extension "${str}" not found in ${this
       .getClass
       .getSimpleName}:${pre.mkString("[", ",", "]")}""")
-    relativize(ret.get)
+    getRelativePath(ret.get)
   }
 
   /** Get the prerequiste by his extension
@@ -212,7 +212,7 @@ trait Makeable {
     val ret = pre.find(_.endsWith(str))
     assert(!ret.isEmpty, s"""Prerequisite with name "${str}" not found in ${this.getClass.getSimpleName}:${pre
       .mkString("[", ",", "]")}""")
-    relativize(ret.get)
+    getRelativePath(ret.get)
   }
 
   /** Get the target by his extension
@@ -230,7 +230,7 @@ trait Makeable {
     assert(!ret.isEmpty, s"""Target with extension "${str}" not found in ${this
       .getClass
       .getSimpleName}:${target.mkString("[", ",", "]")}""")
-    relativize(ret.get)
+    getRelativePath(ret.get)
   }
 
   /** Get the target by his extension
@@ -247,7 +247,7 @@ trait Makeable {
     val ret = target.find(_.endsWith(str))
     assert(!ret.isEmpty, s"""Target with name "${str}" not found in ${this.getClass.getSimpleName}:${target
       .mkString("[", ",", "]")}""")
-    relativize(ret.get)
+    getRelativePath(ret.get)
   }
 
   /** Get all targets by their extension
@@ -262,7 +262,7 @@ trait Makeable {
     */
   def getAllTargetsFromExtension(str: String*): Seq[Path] = {
     val ret = target.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
-    ret.map(relativize(_))
+    ret.map(getRelativePath(_))
   }
 
   /** Get all prerequisites by their extension
@@ -278,7 +278,7 @@ trait Makeable {
   def getAllPrerequisiteFromExtension(str: String*): Seq[Path] = {
     val pre = prerequisite.flatMap(_.target)
     val ret = pre.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
-    ret.map(relativize(_))
+    ret.map(getRelativePath(_))
   }
 
   /** Add this to the dependency of the given comand
@@ -318,7 +318,7 @@ trait Makeable {
     preJob.mkString("", "\n\n", "")
   }
 
-  def getTarget: Seq[Path] = target.map(relativize(_))
+  def getTarget: Seq[Path] = target.map(getRelativePath(_))
 }
 
 trait MakableFile extends Makeable {
@@ -358,7 +358,7 @@ trait PassFail extends Makeable {
     */
   def pass(name: Path): PassFail
 
-  def getPass: Option[Path] = if (passFile.nonEmpty) Some(relativize(passFile.get)) else None
+  def getPass: Option[Path] = if (passFile.nonEmpty) Some(getRelativePath(passFile.get)) else None
 
   /** @inheritdoc */
   override def outputFolder(path: Path): PassFail = {
@@ -371,7 +371,7 @@ trait PassFail extends Makeable {
 
   /** @inheritdoc */
   override def getCommandString: String =
-    super.getCommandString + (if (passFile.nonEmpty) " && date > " + relativize(passFile.get) else "")
+    super.getCommandString + (if (passFile.nonEmpty) " && date > " + getRelativePath(passFile.get) else "")
 }
 
 trait MakeableLog extends Makeable {
@@ -383,7 +383,7 @@ trait MakeableLog extends Makeable {
     */
   def log(name: Path): MakeableLog
 
-  def getLog: Option[Path] = if (logFile.nonEmpty) Some(relativize(logFile.get)) else None
+  def getLog: Option[Path] = if (logFile.nonEmpty) Some(getRelativePath(logFile.get)) else None
 
   /** @inheritdoc */
   override def outputFolder(path: Path): MakeableLog = {
@@ -393,7 +393,7 @@ trait MakeableLog extends Makeable {
 
   /** @inheritdoc */
   override def getCommandString: String =
-    super.getCommandString + (if (logFile.nonEmpty) " &> " + relativize(logFile.get) else "")
+    super.getCommandString + (if (logFile.nonEmpty) " &> " + getRelativePath(logFile.get) else "")
 }
 
 object InputFile {
