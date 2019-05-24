@@ -32,7 +32,7 @@ case class SdramModel(io : SdramInterface,
   }
 
   class Bank{
-    val data = new Array[Byte](layout.capacity.toInt)
+    val data = new Array[Byte](layout.capacity.toInt/layout.bankCount)
 
     var opened = false
     var openedRow = 0
@@ -60,7 +60,7 @@ case class SdramModel(io : SdramInterface,
       if(!opened)
         println("SDRAM : write in closed bank")
       val addr = byteId + (column + openedRow * layout.columnSize) * layout.bytePerWord
-      //printf("SDRAM : Read A=%08x D=%02x\n",addr,data[addr]);
+//      printf("SDRAM : Read A=%08x D=%02x\n",addr,data(addr));
       return data(addr);
     }
   }
@@ -86,7 +86,7 @@ case class SdramModel(io : SdramInterface,
             banks(ba).precharge()
           }
         case 3 =>  //Bank activate
-          banks(ba).activate(addr & 0x7FF);
+          banks(ba).activate(addr);
         case 4 =>  //Write
           if((addr & 0x400) != 0)
             println("SDRAM : Write autoprecharge not supported")
@@ -125,7 +125,7 @@ case class SdramModel(io : SdramInterface,
     if(CAS >= 2 && CAS <=3){
       var readData = 0l
       for(byteId <- 0 until layout.bankCount){
-        readData |= (readShifter(byteId + (CAS-1)*layout.bytePerWord) & 0xFF) << byteId*8;
+        readData |= (readShifter(byteId + (CAS-1)*layout.bytePerWord) & 0xFF).toLong << byteId*8;
       }
       io.DQ.read #= readData
       for(latency <-  CAS-1 downto 1){  //missing CKE
