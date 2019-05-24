@@ -34,7 +34,7 @@ case class BmbOnChipRam(p: BmbParameter,
   io.bus.rsp.source  := RegNextWhen(io.bus.cmd.source,  io.bus.cmd.ready)
   io.bus.rsp.context := RegNextWhen(io.bus.cmd.context, io.bus.cmd.ready)
   io.bus.rsp.data := ram.readWriteSync(
-    address = (io.bus.cmd.address >> 2).resized,
+    address = (io.bus.cmd.address >> p.wordRangeLength).resized,
     data  = io.bus.cmd.data,
     enable  = io.bus.cmd.fire,
     write  = io.bus.cmd.isWrite,
@@ -76,7 +76,7 @@ case class BmbOnChipRamMultiPort( portsParameter: Seq[BmbParameter],
   val ram = Mem(Bits(portsParameter.head.dataWidth bits), size / portsParameter.head.byteCount)
   
   for(bus <- io.buses) {
-    val address = (bus.cmd.address >> 2).resize(log2Up(ram.wordCount))
+    val address = (bus.cmd.address >> bus.p.wordRangeLength).resize(log2Up(ram.wordCount))
     val addressOld = RegNextWhen(address, bus.cmd.fire)
     when(bus.cmd.isStall){
       address := addressOld
