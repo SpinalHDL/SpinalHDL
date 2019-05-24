@@ -129,6 +129,8 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
     val sdram = master(SdramInterface(l))
   }
 
+  assert(l.columnWidth < 11)
+
   val clkFrequancy = ClockDomain.current.frequency.getValue
   def timeToCycles(time : TimeNumber): BigInt = (clkFrequancy * time).setScale(0, RoundingMode.UP).toBigInt()
 
