@@ -63,7 +63,7 @@ case class BmbInterconnectGenerator() extends Generator{
           inputParameter = busPtr.p,
           outputParameter = BmbDownSizerBridge.outputParameterFrom(
             inputParameter = busPtr.p,
-            outputDataWidth = requirements.get.dataWidth
+            outputDataWidth = requirements.dataWidth
           )
         ).setCompositeName(bus, "downSizer")
         c.io.input << busPtr
@@ -125,7 +125,7 @@ case class BmbInterconnectGenerator() extends Generator{
 
         requireUnburstify = capabilities.lengthWidth < requirements.lengthWidth
         if(requireUnburstify){  //TODO manage allowXXXburst flags
-          assert(capabilities.lengthWidth == log2Up(capabilities.get.byteCount) && !capabilities.alignment.allowByte)
+          assert(capabilities.lengthWidth == log2Up(capabilities.byteCount) && !capabilities.alignment.allowByte)
           requirements.load(BmbUnburstify.outputParameter(
             inputParameter = requirements
           ))

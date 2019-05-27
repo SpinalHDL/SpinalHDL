@@ -223,8 +223,8 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         }
         for((bus, model) <- dut.generator.interconnect.slaves){
           memory.addPort(
-            bus = bus.get,
-            busAddress = model.mapping.get.lowerBound.toLong,
+            bus = bus,
+            busAddress = model.mapping.lowerBound.toLong,
             clockDomain = dut.clockDomain,
             withDriver = true
           )
@@ -232,7 +232,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
 
         val regions = BmbRegionAllocator()
         for((bus, model) <- dut.generator.interconnect.masters){
-          val agent = new BmbMasterAgent(bus.get, dut.clockDomain){
+          val agent = new BmbMasterAgent(bus, dut.clockDomain){
             override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
               val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
               if(ref != data){
@@ -247,15 +247,15 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
               allowedWrites(addressLong) = data
             }
 
-            override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.get.p)
+            override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.p)
             override def regionFree(region: SizeMapping): Unit = regions.free(region)
             override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = {
               dut.generator.interconnect.slaves.values.exists{model =>
                 val opcodeOk = opcode match {
-                  case Bmb.Cmd.Opcode.WRITE => model.requirements.get.canWrite
-                  case Bmb.Cmd.Opcode.READ => model.requirements.get.canRead
+                  case Bmb.Cmd.Opcode.WRITE => model.requirements.canWrite
+                  case Bmb.Cmd.Opcode.READ => model.requirements.canRead
                 }
-                val addressOk = model.mapping.get.lowerBound <= region.end && model.mapping.get.asInstanceOf[SizeMapping].end >= region.base
+                val addressOk = model.mapping.lowerBound <= region.end && model.mapping.get.asInstanceOf[SizeMapping].end >= region.base
 
                 addressOk && opcodeOk
               }
@@ -273,10 +273,10 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
           })
 
           //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-          val retainers = List.fill(1 << bus.get.p.sourceWidth)(Phase.stimulus.retainer(300)) //TODO
+          val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer(300)) //TODO
           agent.rspMonitor.addCallback{_ =>
-            if(bus.get.rsp.last.toBoolean){
-              retainers(bus.get.rsp.source.toInt).release()
+            if(bus.rsp.last.toBoolean){
+              retainers(bus.rsp.source.toInt).release()
             }
           }
         }

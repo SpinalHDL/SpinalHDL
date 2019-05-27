@@ -265,7 +265,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   }
 
 
-  def toComponent(): GeneratorComponent[this.type] =new GeneratorComponent(this)
+  def toComponent(): GeneratorComponent[this.type] = new GeneratorComponent(this)
 }
 
 
