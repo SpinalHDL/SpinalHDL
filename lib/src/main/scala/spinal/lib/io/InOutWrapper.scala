@@ -21,7 +21,7 @@ object InOutWrapper {
     c.rework {
       for ((dataParent, count) <- dataParents) {
         dataParent match {
-          case bundle: TriState[_]  if bundle.isMasterInterface => {
+          case bundle: TriState[_]  if bundle.writeEnable.isOutput  => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
             bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)
@@ -53,7 +53,7 @@ object InOutWrapper {
 //              }
 //            }
           }
-          case bundle: TriStateArray if bundle.isMasterInterface => {
+          case bundle: TriStateArray if bundle.writeEnable.isOutput => {
             val newIo = inout(Analog(bundle.write)).setWeakName(bundle.getName())
             bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             bundle.read.assignFrom(newIo)

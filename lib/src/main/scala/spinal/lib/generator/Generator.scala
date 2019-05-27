@@ -42,10 +42,11 @@ object Handle{
     h
   }
   def apply[T]() = new Handle[T]
-  implicit def keyImplicit[T](key : Handle[T])(implicit c : Composable) : T = key.get
-  implicit def keyImplicit[T](key : Seq[Handle[T]])(implicit c : Composable) : Seq[T] = key.map(_.get)
+  implicit def keyImplicit[T](key : Handle[T]): T = key.get
+  implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
+  implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 }
 
 trait HandleCoreSubscriber[T]{
@@ -162,7 +163,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
 
   Generator.stack.push(this)
   var elaborated = false
-  @dontName implicit var c : Composable = null
+  @dontName implicit var c : GeneratorCompiler = null
 //  @dontName implicit val p : Plugin = this
   @dontName val dependencies = ArrayBuffer[Dependable]()
   @dontName val tasks = ArrayBuffer[Task[_]]()
@@ -262,11 +263,13 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
       Generator.stack.pop()
     }
   }
+
+
+  def toComponent(): GeneratorComponent[this.type] =new GeneratorComponent(this)
 }
-//object Composable{
-//  def stack = GlobalData.get.userDatabase.getOrElseUpdate(Composable, new Stack[Composable]).asInstanceOf[Stack[Composable]]
-//}
-class Composable {
+
+
+class GeneratorCompiler {
 //  Composable.stack.push(this)
   val rootGenerators = ArrayBuffer[Generator]()
   val database = mutable.LinkedHashMap[Any, Any]()
@@ -320,10 +323,12 @@ class Composable {
   }
 }
 
-
+object GeneratorComponent{
+  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.generator
+}
 
 class GeneratorComponent[T <: Generator](val generator : T) extends Component{
-  val c = new Composable()
+  val c = new GeneratorCompiler()
   c.rootGenerators += generator
   c.build()
   generator.setName("")
