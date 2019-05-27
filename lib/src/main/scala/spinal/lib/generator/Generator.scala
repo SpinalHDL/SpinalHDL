@@ -13,19 +13,41 @@ object Unset extends  Unset{
 }
 
 object Dependable{
-  def apply(d : Dependable*)(body : => Unit) = {
+  def apply[T](d : Dependable*)(body : => T) = {
+    val h = Handle[T]
     Generator.stack.head.add {
       val p = new Generator()
       p.dependencies ++= d
-      p.add task (body)
+      p.add task {h.load(body)}
       p
     }
+    h
   }
 }
 
 
 trait Dependable{
   def isDone : Boolean
+
+  def produce[T](body : => T) : Handle[T] = Dependable(this)(body)
+  def produce[T](h : Handle[T])(body : => T)  : Handle[T] = Dependable(h, this)(body)
+  def produceIo[T <: Data](body : => T) : Handle[T] = {
+    val h = Handle[T]
+    Generator.stack.head.add {
+      val p = new Generator()
+      p.dependencies += this
+      p.add task {h.load{
+        val subIo = body
+        val topIo = cloneOf(subIo).setPartialName(h, "", true)
+        topIo.copyDirectionOf(subIo)
+        topIo <> subIo
+        topIo
+      }
+      1}
+      p
+    }
+    h
+  }
 }
 
 case class Lock() extends Dependable{
@@ -169,35 +191,17 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   @dontName val tasks = ArrayBuffer[Task[_]]()
   @dontName val generators = ArrayBuffer[Generator]()
 
-  @dontName val products = ArrayBuffer[Handle[_]]()
+  @dontName val products = ArrayBuffer[Handle[_]]() //TODO move it into dependable ?
   val generateItListeners = ArrayBuffer[() => Unit]()
 
+  def newDependency[T] = {
+    val handle = Handle[T]
+    dependencies += handle
+    handle
+  }
   def product[T] : Handle[T] = {
     val handle = Handle[T]()
     products += handle
-    handle
-  }
-  def produce[T](src : => T, handle : Handle[T]) : Unit = produce(handle)(src)
-  def produce[T](handle : Handle[T])(src : => T) : Unit = {
-    generateItListeners += {() => handle.load(src)}
-    products += handle
-
-  }
-  def productOf[T](src : => T) : Handle[T] = {
-    val handle = Handle[T]()
-    produce(src, handle)
-    handle
-  }
-
-  def ioProductOf[T <: Data](src : => T) : Handle[T] = {
-    val handle = Handle[T]()
-    produce(handle){
-      val subIo = src
-      val topIo = cloneOf(subIo).setPartialName(handle, "", true)
-      topIo.copyDirectionOf(subIo)
-      topIo <> subIo
-      topIo
-    }
     handle
   }
 
