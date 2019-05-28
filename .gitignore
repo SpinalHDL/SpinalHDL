@@ -23,6 +23,8 @@ project/plugins/project/
 .classpath
 .project
 .settings
+.bloop
+.metals
 
 .idea
 out
