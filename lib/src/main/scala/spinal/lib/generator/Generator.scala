@@ -194,7 +194,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   @dontName val products = ArrayBuffer[Handle[_]]() //TODO move it into dependable ?
   val generateItListeners = ArrayBuffer[() => Unit]()
 
-  def newDependency[T] = {
+  def createDependency[T] = {
     val handle = Handle[T]
     dependencies += handle
     handle
