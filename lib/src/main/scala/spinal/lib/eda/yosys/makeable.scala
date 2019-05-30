@@ -2,14 +2,17 @@ package spinal.lib.eda.yosys
 
 import java.io._
 import java.io.PrintWriter
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Path, Paths, Files}
+import scala.io.Source
 import scala.sys.process._
 import scala.collection._
 import spinal.core._
 
 import org.apache.commons.io.FilenameUtils
+import collection.JavaConverters._
 
-object string2path {
+
+package object string2path {
   implicit def string2Path(str: String): Path = Paths.get(str)
 }
 
@@ -101,7 +104,6 @@ object Makeable {
       val logs             = nodes.collect { case o: MakeableLog => o.getLog }.flatten.distinct
       var rm               = (logs ++ files ++ pass).mkString(s"rm -rf ", " ", "")
       val rmdir            = folders.mkString("rmdir ", " ", "")
-      println(folders)
       s".PHONY:${target}\n${target}:\n\t" + rm + " && " + rmdir
     }
 
@@ -132,11 +134,33 @@ object Makeable {
       */
     def makefile: String = List(mkdir, all(), bundleTest(), clean(), makejobs).mkString("\n\n")
 
+    def writeMakefile(path: Path = Paths.get("Makefile")): Unit = {
+      val file = Source.fromFile(path.toFile)
+      def doMakefile(path: Path) = {
+        val mkfile = new PrintWriter(path.toFile)
+        mkfile.write(makefile)
+        mkfile.close()
+      }
+      if(Files.exists(path)){
+        val fileContents = file.getLines.mkString("\n")
+        val oldHash = scala.util.hashing.MurmurHash3.stringHash(fileContents)
+        val newHash = scala.util.hashing.MurmurHash3.stringHash(makefile)
+        if(oldHash == newHash){
+          SpinalInfo(s"""Makefile in path "${path.toString}" not changed, skipping write""")
+          file.close()
+        } else {
+          SpinalInfo(s"""Makefile in path "${path.toString}" changed, writing a new one""")
+          doMakefile(path)
+        }
+      } else {
+        SpinalInfo(s"""Makefile not present, creating a new one in "${path.toString}"""")
+        doMakefile(path)
+      }
+    }
+
     /** @inheritdoc */
     override def runComand = {
-      val out = new PrintWriter("Makefile")
-      out.println(makefile)
-      out.close()
+      writeMakefile()
       "make"
     }
   }
@@ -144,9 +168,9 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  val basePath = Paths.get(".").normalize()
-  def getRelativePath(s: Path) = basePath.relativize(s).normalize()
-
+  def makefilePath = Paths.get(".").normalize()
+  def getRelativePath(s: Path) = makefilePath.relativize(s).normalize()
+  
   /** Change the output folder of all the target/output
     *
     * @param path the path where redirect all the outputs
@@ -168,7 +192,6 @@ trait Makeable {
   def addPrerequisite(pre: Makeable*) = prerequisite ++= pre
 
   /** Create a string with all the prerequisite by their extention */
-  // def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).map(getRelativePath(_)).mkString(" ")
   def getPrerequisiteString: String = getAllPrerequisiteFromExtension(needs: _*).mkString(" ")
 
   /** Create a string with all generated target file */

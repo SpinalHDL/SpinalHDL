@@ -1432,10 +1432,12 @@ object PlayMakeable extends App{
   }
   val test = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
   // val pw = new PrintWriter(new File("Makefile" ))
-  val form1 = YosysFlow.formalFlow(test).log().solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test1")).append(100)
-  val form2 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test2")).append(100).log()
-  val form3 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test3/1/2/3/")).append(100).log()
-  val form4 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test4")).append(100).log()
+  //val form1 = YosysFlow.formalFlow(test).log().solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test1")).append(100)
+  import spinal.lib.eda.yosys.string2path._
+  val form1 = YosysFlow.formalFlow(test).log().solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test1").append(100)
+  val form2 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test2").append(100).log()
+  val form3 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test3/1/2/3/").append(100).log()
+  val form4 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test4").append(100).log()
   val make = InputFile(test) |> List(form1,form2,form3,form4)
   // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
   // pw.close()

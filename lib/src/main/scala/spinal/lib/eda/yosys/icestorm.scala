@@ -80,10 +80,10 @@ case class IcePack(_asc: Option[Path] = None,
 
     if(_unpack){
       ret.append(s"""${_bin.getOrElse(Paths.get("icepack.bin"))} """)
-      ret.append(s"""${_asc}.getOrElse(Paths.get("icepack.asc")) """)
+      ret.append(s"""${_asc.getOrElse(Paths.get("icepack.asc"))} """)
     } else {
-      ret.append(s"""${_asc}getOrElse(Paths.get("icepack.asc")) """)
-      ret.append(s"""${_bin}.getOrElse(Paths.get("icepack.bin")) """)
+      ret.append(s"""${_asc.getOrElse(Paths.get("icepack.asc"))} """)
+      ret.append(s"""${_bin.getOrElse(Paths.get("icepack.bin"))} """)
     }
 
     ret.toString()
@@ -192,7 +192,7 @@ case class IceProg(_bin: Option[Path] = None,
     val old = super.outputFolder(path).asInstanceOf[this.type]
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
     old.copy(_bin=newBin)
-    }
+  }
 
   override def toString(): String = {
     val ret = new StringBuilder("iceprog ")
