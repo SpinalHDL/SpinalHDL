@@ -208,6 +208,8 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   var implicitCd : Handle[ClockDomain] = null
   if(constructionCd != null) onClockDomain(constructionCd)
 
+  var useClockDomain = true
+  def noClockDomain(): Unit = useClockDomain = false
   def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
     implicitCd = clockDomain
     dependencies += clockDomain
@@ -284,7 +286,8 @@ class GeneratorCompiler {
     val generatorsAll = mutable.LinkedHashSet[Generator]()
     def scanGenerators(generator : Generator, clockDomain : Handle[ClockDomain]): Unit ={
       if(!generatorsAll.contains(generator)){
-        if(generator.implicitCd == null && clockDomain != null) generator.onClockDomain(clockDomain)
+        if(generator.useClockDomain && generator.implicitCd == null && clockDomain != null)
+          generator.onClockDomain(clockDomain)
         generatorsAll += generator
         generator.reflectNames()
         generator.c = this
