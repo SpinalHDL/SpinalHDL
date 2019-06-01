@@ -48,3 +48,18 @@ case class SpiSlave(useSclk : Boolean = true) extends Bundle with IMasterSlave{
 }
 
 
+
+case class SpiHalfDuplexMaster( dataWidth : Int = 2,
+                                ssWidth : Int = 1,
+                                useSclk : Boolean = true) extends Bundle with IMasterSlave{
+  val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
+  val sclk = if(useSclk)Bool else null
+  val data = TriStateArray(dataWidth bits)
+
+  override def asMaster(): Unit = {
+    out(sclk)
+    if(ssWidth != 0) out(ss)
+    master(data)
+  }
+}
+

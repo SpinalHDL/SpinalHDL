@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
-import spinal.lib.com.spi.SpiKind
+import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
@@ -67,6 +67,28 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     master(sclk)
     if(ssWidth != 0) out(ss)
     data.foreach(master(_))
+  }
+
+  def toSpi(): SpiHalfDuplexMaster ={
+    val spi = SpiHalfDuplexMaster(
+      dataWidth = p.dataWidth,
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    p.ioRate match {
+      case 1 => {
+        spi.sclk := RegNext(sclk.write(0))
+        spi.ss := RegNext(ss)
+        for(i <- 0 until p.dataWidth){
+          spi.data.write(i) := RegNext(data(i).write(0))
+          spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
+          data(i).read(0) := RegNext(spi.data.read(i))
+        }
+      }
+    }
+
+    spi
   }
 }
 
