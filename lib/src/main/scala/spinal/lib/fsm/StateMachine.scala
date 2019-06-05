@@ -41,6 +41,7 @@ trait StateMachineAccessor {
   def isEntering(state: State): Bool
 
   def goto(state: State): Unit
+  def forceGoto(state: State): Unit
 
   def add(state: State): Int
   def add(stateMachine: StateMachineAccessor): Unit
@@ -106,6 +107,16 @@ class StateMachineEnum extends SpinalEnum
   */
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
+  /**
+    * Set the condition for state transitions
+    *
+    * goto() will only have an effect, if condition is True
+    */
+  def setTransitionCondition(condition : Bool) {
+    this.transitionCond = Bool
+    this.transitionCond := condition
+  }
+
   var inGeneration = false
   val alwaysTasks  = ArrayBuffer[() => Unit]()
 
@@ -122,6 +133,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   val enumDefinition = new StateMachineEnum
   var stateReg  : enumDefinition.C = null
   var stateNext : enumDefinition.C = null
+  /* Candidate for next state */
+  var stateNextCand : enumDefinition.C = null
+  /* Condition for transition */
+  var transitionCond : Bool = null
   var stateBoot : State = null
   override val wantExit  = False.allowPruning()
   var autoStart = true
@@ -145,6 +160,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     stateBoot = new StateBoot(autoStart).setName("boot")
     stateReg  = Reg(enumDefinition())
     stateNext = enumDefinition().allowOverride
+    /* Only synthesize, if conditional state machine */
+    if (transitionCond != null)
+      stateNextCand = enumDefinition().allowOverride
 
     OwnableRef.proposal(stateBoot, this)
     OwnableRef.proposal(stateReg, this)
@@ -152,6 +170,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     stateReg.setPartialName("stateReg")
     stateNext.setPartialName("stateNext")
+    if (transitionCond != null)
+      stateNextCand.setPartialName("stateNextCand")
 
     for(state <- states){
       checkState(state)
@@ -165,7 +185,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
     val stateNextOneHotMap = states.map(state => (state -> (stateNext === enumOf(state)))).toMap
 
-    stateNext := stateReg
+    stateNext := (if(transitionCond == null) stateReg else (transitionCond ? stateNextCand | stateReg))
+    if(transitionCond != null)
+      stateNextCand := stateReg
 
     switch(stateReg){
       for(state <- states){
@@ -219,6 +241,14 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   override def goto(state: State): Unit = {
     assert(inGeneration, "You can't use the 'goto' function there. Maybe you should use an always{.. goto(x) ..} block ?")
+    if (transitionCond != null)
+      stateNextCand := enumOf(state)
+    else
+      stateNext := enumOf(state)
+  }
+
+  override def forceGoto(state: State): Unit = {
+    assert(inGeneration, "You can't use the 'forceGoto' function there. Maybe you should use an always{.. forceGoto(x) ..} block ?")
     stateNext := enumOf(state)
   }
 
@@ -256,7 +286,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     if(entryState == null)
       globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
     else
-      goto(entryState)
+      forceGoto(entryState)
   }
 
   override def exitFsm(): Unit = {
