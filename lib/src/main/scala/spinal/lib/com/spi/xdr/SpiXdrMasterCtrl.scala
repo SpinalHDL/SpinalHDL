@@ -181,6 +181,7 @@ object SpiXdrMasterCtrl {
                                      ssSetupInit : Int = 0,
                                      ssHoldInit : Int = 0,
                                      ssDisableInit : Int = 0,
+                                     ssActiveHighInit : Int = 0,
                                      xipInstructionModInit: Int = 0,
                                      xipAddressModInit : Int = 0,
                                      xipDummyModInit : Int = 0,
@@ -273,6 +274,8 @@ object SpiXdrMasterCtrl {
         bus.drive(config.ss.setup,   baseAddress + 0x24)
         bus.drive(config.ss.hold,    baseAddress + 0x28)
         bus.drive(config.ss.disable, baseAddress + 0x2C)
+        bus.drive(config.ss.activeHigh, baseAddress + 0x30)
+
 
         if(xipEnableInit){
           config.kind.cpol init(cpolInit)
@@ -282,6 +285,7 @@ object SpiXdrMasterCtrl {
           config.ss.setup init(ssSetupInit)
           config.ss.hold init(ssHoldInit)
           config.ss.disable init(ssDisableInit)
+          config.ss.activeHigh init(ssActiveHighInit)
         }
 
         val xip = ifGen(mapping.xip != null) (new Area{
@@ -501,8 +505,8 @@ object SpiXdrMasterCtrl {
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
       val readFill, readDone = False
-      val ss = RegInit(B((1 << p.spi.ssWidth) - 1, p.spi.ssWidth bits))
-      io.spi.ss := ss
+      val ss = Reg(Bits(p.spi.ssWidth bits)) init(0)
+      io.spi.ss := ~(ss ^ io.config.ss.activeHigh)
 
       io.cmd.ready := False
       when(io.cmd.valid) {
@@ -523,7 +527,7 @@ object SpiXdrMasterCtrl {
         } otherwise {
           if (p.ssGen) {
             when(io.cmd.getSsEnable) {
-              ss(io.cmd.getSsId) := False
+              ss(io.cmd.getSsId) := True
               when(timer.ss.setupHit) {
                 io.cmd.ready := True
               }
@@ -534,7 +538,7 @@ object SpiXdrMasterCtrl {
                   timer.reset := True
                 }
               } otherwise {
-                ss(io.cmd.getSsId) := True
+                ss(io.cmd.getSsId) := False
                 when(timer.ss.disableHit) {
                   io.cmd.ready := True
                 }
