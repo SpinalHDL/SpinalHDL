@@ -78,6 +78,65 @@ class ComplexBundle extends Bundle {
 
 object play {
 
+
+  trait HandleCoreSubscriber[+T]{
+    def changeCore[T2 >: T](core : HandleCore[T2]) : Unit
+    def lazyDefault (): T
+    def lazyDefaultAvailable : Boolean
+  }
+
+  class HandleCore[+T]{
+    private var loaded = false
+    private var value : Any = null.asInstanceOf[T]
+
+    val subscribers = mutable.HashSet[HandleCoreSubscriber[Any]]()
+
+    def get : T = {
+      if(!loaded){
+        subscribers.count(_.lazyDefaultAvailable) match {
+          case 0 =>
+          case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
+          case _ => SpinalError("Multiple handle default values")
+        }
+      }
+      value.asInstanceOf[T]
+    }
+    def load(value : Any): T = {
+      this.value = value
+      loaded = true
+      value.asInstanceOf[T]
+    }
+
+    def merge(that : HandleCore[Any]): Unit ={
+      (this.loaded, that.loaded) match {
+        case (false, _) => this.subscribers.foreach(_.changeCore(that))
+        case (true, false) => that.subscribers.foreach(_.changeCore(this))
+        case _ => ???
+      }
+    }
+
+    def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
+  }
+
+  class Handle[T] extends HandleCoreSubscriber[T]{
+
+
+    override def changeCore[T2 >: T](core: HandleCore[T2]): Unit = ???
+
+
+    override def lazyDefault(): T = ???
+
+    override def lazyDefaultAvailable: Boolean = ???
+  }
+
+  val x = new Handle[String]
+  def miaou[T](a : Handle[T]) = {
+
+  }
+
+  miaou(new Handle[String])
+
+
   import scala.tools.nsc.interpreter.IMain
   import scala.tools.nsc.Settings
 

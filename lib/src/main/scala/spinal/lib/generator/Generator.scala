@@ -110,7 +110,7 @@ class HandleCore[T]{
   def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
 }
 
-class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber[T]{
+class Handle[T <: Any] extends Nameable with Dependable with HandleCoreSubscriber[T]{
   val generator = Generator.stack.headOption.getOrElse(null)
   var core = new HandleCore[T]
   core.subscribers += this
@@ -171,6 +171,8 @@ class Task[T](var gen :() => T) extends Dependable {
   }
 }
 
+
+
 object Generator{
   def stack = GlobalData.get.userDatabase.getOrElseUpdate(Generator, new Stack[Generator]).asInstanceOf[Stack[Generator]]
 }
@@ -178,7 +180,7 @@ object Generator{
 
 
 case class Product[T](src :() => T, handle : Handle[T])
-class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable  with Dependable with DelayedInit {
+class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable  with Dependable with DelayedInit with TagContainer {
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     Generator.stack.head.generators += this
   }
@@ -272,6 +274,23 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
 
 
   def toComponent(): GeneratorComponent[this.type] = new GeneratorComponent(this)
+
+
+  def foreachGeneratorRec(body : Generator => Unit): Unit ={
+    generators.foreach{ g =>
+      body(g)
+      g.foreachGeneratorRec(body)
+    }
+  }
+
+  def export[T](h : Handle[T]) = {
+    h.produce(this.tags += new Export(h.getName, h.get))
+    h
+  }
+  def dts[T <: Nameable](node : Handle[T], value : String) = {
+    node.produce(this.tags += new Dts(node, value))
+    node
+  }
 }
 
 
@@ -337,6 +356,7 @@ object GeneratorComponent{
 class GeneratorComponent[T <: Generator](val generator : T) extends Component{
   val c = new GeneratorCompiler()
   c.rootGenerators += generator
+  generator.setName("")
   c.build()
   generator.setName("")
   this.setDefinitionName(classNameOf(generator))

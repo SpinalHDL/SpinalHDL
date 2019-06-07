@@ -140,6 +140,10 @@ case class BmbInterconnectGenerator() extends Generator{
     var connector : (Bmb,Bmb) => Unit = defaultConnector
     @dontName val decoder, arbiter = Handle[Bmb]()
 
+    Dependable(s){
+      tags += new MemoryConnection(m, s, getSlave(s).mapping.get.lowerBound)
+    }
+
     dependencies ++= List(decoder, arbiter)
     val logic = add task new Area{
       connector(decoder, arbiter)

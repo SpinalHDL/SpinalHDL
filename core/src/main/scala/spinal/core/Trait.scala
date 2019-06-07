@@ -373,6 +373,7 @@ trait Nameable extends OwnableRef with ContextUser{
   def isNamed: Boolean = !isUnnamed
 
   def getName(): String = getName("")
+  def getPartialName() : String = name
   def getName(default: String): String = getMode match{
     case UNNAMED               => default
     case ABSOLUTE              => name
