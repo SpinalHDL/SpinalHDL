@@ -184,10 +184,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
     val stateNextOneHotMap = states.map(state => (state -> (stateNext === enumOf(state)))).toMap
-
-    stateNext := (if(transitionCond == null) stateReg else (transitionCond ? stateNextCand | stateReg))
-    if(transitionCond != null)
+    if(transitionCond == null) {
+      stateNext := stateReg
+    } else {
       stateNextCand := stateReg
+      stateNext := transitionCond ? stateNextCand | stateReg
+    }
 
     switch(stateReg){
       for(state <- states){
