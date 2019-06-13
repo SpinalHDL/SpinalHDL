@@ -192,6 +192,6 @@ class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCloc
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{
-    inputArea.target.randBoot()
+    inputArea.target
   }
 }
