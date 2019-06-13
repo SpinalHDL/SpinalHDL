@@ -41,7 +41,7 @@ object JtagState extends SpinalEnum {
 class JtagFsm(jtag: Jtag) extends Area {
   import JtagState._
   val stateNext = JtagState()
-  val state = RegNext(stateNext) randBoot()
+  val state = RegNext(stateNext)
   stateNext := state.mux(
     default    -> (jtag.tms ? RESET     | IDLE),           //RESET
     IDLE       -> (jtag.tms ? DR_SELECT | IDLE),
