@@ -9,5 +9,7 @@ public interface IVerilatorNative {
     public void getAU8(long handle, int id, byte[] value);
     public void setAU8(long handle, int id, byte[] value, int length);
     public void deleteHandle(long handle);
+    public void enableWave(long handle);
+    public void disableWave(long handle);
 }
 

@@ -1,5 +1,10 @@
 package spinal.tester.code
 
+import spinal.lib.bus.amba3.apb.Apb3
+import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
+import spinal.lib.memory.sdram.{Axi4SharedSdramCtrl, MT48LC16M16A2}
+
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -408,4 +413,231 @@ object PresentationSymbolic{
 //    if(config.useSlaveError) in(PSLVERROR)
 //  }
 
+}
+
+
+object Wosh{
+  import spinal.core._
+
+
+  {
+
+    import spinal.core._
+
+    //Component is like Module in Verilog
+    class MyToplevel extends Component{
+      //IO definition
+      val a,b    = in  UInt(8 bits)
+      val result = out UInt(8 bits)
+
+      //Behaviour
+      result := a + b
+    }
+
+    //Scala main used to ask SpinalHDL to generate the Verilog of MyToplevel
+    object Main extends App{
+      SpinalVerilog(new MyToplevel)
+    }
+  }
+
+  {
+    import spinal.core._
+
+    class MyToplevel extends Component {
+      //...
+      val counter = Reg(UInt(8 bits))
+      val full = counter === 255
+      when(!full) {
+        counter := counter + 1
+      }
+      //...
+    }
+
+
+
+  }
+
+  {
+    val cond = Bool()
+    val a, b, c = Reg(UInt(8 bits))
+    when(cond) {
+      a := a + 1
+      b := b + 1
+      c := c + 1
+    }
+  }
+
+  {
+    val cond = Bool()
+    val a, b, c = Reg(UInt(8 bits))
+    val regs = ArrayBuffer[UInt]()
+    regs += a
+    regs += b
+    regs += c
+    when(cond) {
+      for(reg <- regs) {
+        reg := reg + 1
+      }
+    }
+  }
+
+  {
+    val bus = Apb3(addressWidth = 16, dataWidth = 32)
+    val regA, regB = Reg(Bits(32 bits))
+
+    val doWrite = bus.PSEL(0) && bus.PENABLE && bus.PWRITE
+    switch(bus.PADDR){
+      is(0x00){
+        when(doWrite){ regA := bus.PWDATA }
+        bus.PRDATA := regA
+      }
+      is(0x04){
+        when(doWrite){ regB := bus.PWDATA }
+        bus.PRDATA := regB
+      }
+    }
+  }
+
+  {
+    val bus = Apb3(addressWidth = 16, dataWidth = 32)
+    val regA, regB = Reg(Bits(32 bits))
+
+    case class Mapping(address : Int, data : Bits)
+    val spec = ArrayBuffer[Mapping]()
+
+    spec += Mapping(0x00, regA)
+    spec += Mapping(0x04, regB)
+
+    val doWrite = bus.PSEL(0) && bus.PENABLE &&  bus.PWRITE
+    switch(bus.PADDR){
+      for(mapping <- spec){
+        is(mapping.address){
+          when(doWrite){ mapping.data := bus.PWDATA }
+          bus.PRDATA := mapping.data
+        }
+      }
+    }
+  }
+
+
+  {
+
+    case class Mapping(address: Int, data: Bits)
+
+    case class Apb3Mapper(bus : Apb3) {
+      val spec = ArrayBuffer[Mapping]()
+
+      def flush() {
+        val doWrite = bus.PSEL(0) && bus.PENABLE && bus.PWRITE
+        switch(bus.PADDR) {
+          for (mapping <- spec) {
+            is(mapping.address) {
+              when(doWrite) {
+                mapping.data := bus.PWDATA
+              }
+              bus.PRDATA := mapping.data
+            }
+          }
+        }
+      }
+    }
+
+    val bus = Apb3(addressWidth = 16, dataWidth = 32)
+    val regA, regB = Reg(Bits(32 bits))
+
+    val mapper = Apb3Mapper(bus)
+    mapper.spec += Mapping(0x00, regA)
+    mapper.spec += Mapping(0x04, regB)
+
+    mapper.flush()
+  }
+
+//  {
+//
+//    case class Apb3Mapper(bus: Apb3) {
+//      // ...
+//      def readWrite(address: Int, data: Bits) = spec += Mapping(address, data)
+//      // ...
+//    }
+//
+//    val bus = Apb3(addressWidth = 16, dataWidth = 32)
+//    val regA, regB = Reg(Bits(32 bits))
+//
+//    val mapper = Apb3Mapper(bus)
+//
+//    mapper.readWrite(0x00, regA)
+//    mapper.readWrite(0x04, regB)
+//
+//    mapper.flush()
+//  }
+
+//  {
+//
+//    case class Apb3Mapper(bus : Apb3) {
+//      // ...
+//      def createReadWrite(address : Int) : Bits = {
+//        val reg = Reg(Bits(32 bits))
+//        spec += Mapping(address, reg)
+//        return reg
+//      }
+//      // ...
+//    }
+//
+//    val bus = Apb3(addressWidth = 16, dataWidth = 32)
+//    val mapper = Apb3Mapper(bus)
+//
+//    val regA = mapper.createReadWrite(0x00)
+//    val regB = mapper.createReadWrite(0x04)
+//
+//    mapper.flush()
+//  }
+
+  {
+    import spinal.lib.fsm._
+
+    class Ctrl extends StateMachine{
+      val stateA = new State with EntryPoint
+      val stateB = new State
+
+      val counter = Reg(UInt(8 bits)) init (0)
+
+      stateA.whenIsActive (goto(stateB))
+
+      stateB.onEntry(counter := 0)
+      stateB.whenIsActive {
+        counter := counter + 1
+        when(counter === 4){
+          goto(stateA)
+        }
+      }
+    }
+  }
+
+//  {
+//
+//    val sdramCtrl = Axi4SharedSdramCtrl(
+//      axiDataWidth = 32,
+//      axiIdWidth   = 4,
+//      layout       = MT48LC16M16A2.layout,
+//      timing       = MT48LC16M16A2.timings,
+//      CAS          = 3
+//    )
+//
+//
+//    val axiCrossbar = Axi4CrossbarFactory()
+//
+//    axiCrossbar.addSlaves(
+//      ram.io.axi       -> (0x80000000L,   32 KiB),
+//      sdramCtrl.io.axi -> (0x40000000L,   16 MiB),
+//      apbBridge.io.axi -> (0xF0000000L,    1 MiB)
+//    )
+//
+//    axiCrossbar.addConnections(
+//      core.iBus       -> List(ram.io.axi,  sdramCtrl.io.axi),
+//      core.dBus       -> List(ram.io.axi,  sdramCtrl.io.axi, apbBridge.io.axi),
+//      vgaCtrl.io.axi  -> List(             sdramCtrl.io.axi)
+//    )
+//
+//    axiCrossbar.build()
+//  }
 }

@@ -86,10 +86,10 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
             bus.cmd.source #= source
             bus.cmd.length #= length
             bus.cmd.last #= beat == beatCount - 1
-            var mask = 0
+            var mask = 0l
             for (byteId <- 0 until bus.p.byteCount; byteAddress = beatAddress + byteId) if (byteAddress >= startAddress && byteAddress < endAddress) {
               if (maskRandom()) {
-                mask |= 1 << byteId
+                mask |= 1l << byteId
                 if (mapped) onCmdWrite(byteAddress, (data >> byteId * 8).toByte)
               }
 

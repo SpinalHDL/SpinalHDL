@@ -21,7 +21,7 @@ object UartEncoder {
         uartPin #= true
         sleep(baudPeriod)
       } else {
-        sleep(baudPeriod * 10)
+        sleep(baudPeriod * 1000)
       }
     }
   }

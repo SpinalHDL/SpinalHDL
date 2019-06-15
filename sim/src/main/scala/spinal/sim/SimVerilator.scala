@@ -62,5 +62,7 @@ class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
   override def sleep(cycles : Long) = backend.nativeInstance.sleep(handle, cycles)
   override def end() = backend.nativeInstance.deleteHandle(handle)
   override def isBufferedWrite : Boolean = false
+  override def enableWave(): Unit = backend.nativeInstance.enableWave(handle)
+  override def disableWave(): Unit =  backend.nativeInstance.disableWave(handle)
 }
 

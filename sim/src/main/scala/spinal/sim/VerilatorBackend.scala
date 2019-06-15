@@ -188,6 +188,7 @@ public:
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
+    bool waveEnabled;
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
@@ -196,6 +197,7 @@ public:
 
     Wrapper_${uniqueId}(const char * name){
       time = 0;
+      waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
       else if(signal.dataType.width <= 16) "SData"
@@ -216,7 +218,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       }
 
       #ifdef TRACE
-      tfp.dump((vluint64_t)time);
+      if(waveEnabled) tfp.dump((vluint64_t)time);
       tfp.close();
       #endif
     }
@@ -256,7 +258,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}eval_1${uniqueId}
 JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
-  handle->tfp.dump((vluint64_t)handle->time);
+  if(handle->waveEnabled) handle->tfp.dump((vluint64_t)handle->time);
   #endif
   handle->time += cycles;
 }
@@ -288,7 +290,15 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
   handle->signalAccess[id]->setAU8(env, value, length);
 }
 
+JNIEXPORT void API JNICALL ${jniPrefix}enableWave_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
+  handle->waveEnabled = true;
+}
 
+JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
+  handle->waveEnabled = false;
+}
 
 #ifdef __cplusplus
 }
@@ -381,6 +391,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public void getAU8(long handle, int id, byte[] value) { getAU8_${uniqueId}(handle, id, value);}
          |    public void setAU8(long handle, int id, byte[] value, int length) { setAU8_${uniqueId}(handle, id, value, length);}
          |    public void deleteHandle(long handle) { deleteHandle_${uniqueId}(handle);}
+         |    public void enableWave(long handle) { enableWave_${uniqueId}(handle);}
+         |    public void disableWave(long handle) { disableWave_${uniqueId}(handle);}
+         |
          |
          |    public native long newHandle_${uniqueId}(String name, int seed);
          |    public native void eval_${uniqueId}(long handle);
@@ -390,6 +403,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
          |    public native void getAU8_${uniqueId}(long handle, int id, byte[] value);
          |    public native void setAU8_${uniqueId}(long handle, int id, byte[] value, int length);
          |    public native void deleteHandle_${uniqueId}(long handle);
+         |    public native void enableWave_${uniqueId}(long handle);
+         |    public native void disableWave_${uniqueId}(long handle);
          |
          |    static{
          |      System.load("${new File(s"${workspacePath}/${workspaceName}").getAbsolutePath.replace("\\","\\\\")}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}");

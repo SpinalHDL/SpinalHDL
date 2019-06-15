@@ -62,22 +62,21 @@ class JtagFsm(jtag: Jtag) extends Area {
   )
 }
 
-
 class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess{
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
   val bypass = Reg(Bool)
-
-  jtag.tdo := bypass
-
+  val tdoUnbufferd = CombInit(bypass)
+  jtag.tdo := ClockDomain.current.withRevertedClockEdge()(RegNext(tdoUnbufferd))
+  
   switch(fsm.state) {
     is(JtagState.IR_CAPTURE) {
       instructionShift := instruction
     }
     is(JtagState.IR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
-      jtag.tdo := instructionShift.lsb
+      tdoUnbufferd := instructionShift.lsb
     }
     is(JtagState.IR_UPDATE) {
       instruction := instructionShift
@@ -92,7 +91,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess
   override def setInstruction(value: Bits): Unit = instruction := value
   override def getState: JtagState.C = fsm.state
   override def getTdi: Bool = jtag.tdi
-  override def setTdo(value: Bool): Unit = jtag.tdo := value
+  override def setTdo(value: Bool): Unit = tdoUnbufferd := value
   override def getTms: Bool = jtag.tms
 }
 

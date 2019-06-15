@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.Axi4Shared
+import spinal.lib.bus.bmb.Bmb
 
 import scala.math.BigDecimal.RoundingMode
 
@@ -119,7 +120,7 @@ case class SdramCtrlBank(c : SdramLayout) extends Bundle{
 
 
 
-case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,contextType : T) extends Component{
+case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,contextType : T, produceRspOnWrite : Boolean = false) extends Component{
   import SdramCtrlBackendTask._
   import SdramCtrlFrontendState._
 
@@ -127,6 +128,8 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
     val bus = slave(SdramCtrlBus(l,contextType))
     val sdram = master(SdramInterface(l))
   }
+
+  assert(l.columnWidth < 11)
 
   val clkFrequancy = ClockDomain.current.frequency.getValue
   def timeToCycles(time : TimeNumber): BigInt = (clkFrequancy * time).setScale(0, RoundingMode.UP).toBigInt()
@@ -340,7 +343,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
 
     val remoteCke = Bool
     val readHistory = History(
-      that       = cmd.valid && cmd.task === READ,
+      that       = cmd.valid && (cmd.task === READ || (if(produceRspOnWrite) cmd.task === WRITE else False)),
       range      = 0 to CAS + 2,
       when       = remoteCke,
       init       = False
@@ -437,7 +440,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
     backupIn.data := sdram.DQ.read
     backupIn.context := contextDelayed
 
-    io.bus.rsp << backupIn.s2mPipe(2)
+    io.bus.rsp << backupIn.queueLowLatency(size = 2, latency = 0)
 
     cmd.ready := remoteCke
   }

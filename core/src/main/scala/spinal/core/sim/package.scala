@@ -628,4 +628,8 @@ package object sim {
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
     def isSamplingDisable: Boolean       = ! isSamplingEnable
   }
+
+
+  def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
+  def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
 }
