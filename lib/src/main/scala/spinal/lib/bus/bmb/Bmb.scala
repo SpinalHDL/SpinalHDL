@@ -23,11 +23,14 @@ object WeakConnector{
 }
 
 object Bmb{
-  val boundarySize = 4096
+  val boundaryWidth = 12
+  val boundarySize = 1 << boundaryWidth
   object Cmd {
     object Opcode {
       val READ = 0
       val WRITE = 1
+
+      def isWrite(opcode : Bits) = opcode === WRITE
     }
   }
   object Rsp {
@@ -39,8 +42,8 @@ object Bmb{
 
   def incr(address : UInt, p : BmbParameter) : UInt = {
     val result = UInt(address.getWidth bits)
-    val highCat = if (address.getWidth > 12) address(address.high downto 12) else U""
-    val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12)
+    val highCat = if (address.getWidth > boundaryWidth) address(address.high downto boundaryWidth) else U""
+    val base = address(Math.min(boundaryWidth, address.getWidth) - 1 downto 0).resize(boundaryWidth)
     result := (highCat @@ ((base + p.byteCount) & ~U(p.byteCount-1, widthOf(base) bits))).resized
     result
   }
@@ -50,6 +53,23 @@ case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTra
 case class BmbMasterParameter(idMapping : Seq[BmbMasterParameterIdMapping])
 case class BmbSlaveParameter(maximumPendingTransactionPerId : Int)
 
+object BmbParameter{
+  object BurstAlignement {
+    trait Kind{
+      def allowByte : Boolean = false
+      def allowWord : Boolean = false
+    }
+    object BYTE extends Kind{
+      override def allowByte = true
+      override def allowWord = true
+    }
+    object WORD extends Kind{
+      override def allowWord = true
+    }
+    object LENGTH extends Kind
+  }
+}
+
 case class BmbParameter(addressWidth : Int,
                         dataWidth : Int,
                         lengthWidth : Int,
@@ -57,18 +77,17 @@ case class BmbParameter(addressWidth : Int,
                         contextWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
-                        allowUnalignedWordBurst : Boolean  = true,
-                        allowUnalignedByteBurst : Boolean  = false,
+                        alignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
-  assert(!(allowUnalignedByteBurst && !allowUnalignedWordBurst))
   def byteCount = dataWidth/8
   def wordMask = byteCount-1
-  def wordRange = log2Up(byteCount) -1 downto 0
+  def wordRange = wordRangeLength -1 downto 0
   def maskWidth = byteCount
-  def allowBurst = lengthWidth > log2Up(byteCount)
-  def beatCounterWidth = lengthWidth - log2Up(byteCount) + (if(allowUnalignedByteBurst) 1 else 0)
+  def allowBurst = lengthWidth > wordRangeLength
+  def beatCounterWidth = lengthWidth - wordRangeLength + (if(alignment.allowByte) 1 else 0)
+  def wordRangeLength = log2Up(byteCount)
 }
 
 
@@ -99,8 +118,8 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
   }
 
-  def transferBeatCountMinusOne(): UInt = {
-    if(!p.allowUnalignedByteBurst){
+  def transferBeatCountMinusOne : UInt = {
+    if(!p.alignment.allowByte){
       length(length.high downto log2Up(p.byteCount))
     } else {
       ((U"0" @@ length) + address(p.wordRange))(length.high + 1 downto log2Up(p.byteCount))

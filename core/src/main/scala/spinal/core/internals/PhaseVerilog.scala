@@ -45,7 +45,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
-        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
         compile(c)
       }
     }

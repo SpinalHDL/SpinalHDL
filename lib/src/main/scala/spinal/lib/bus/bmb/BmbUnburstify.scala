@@ -4,7 +4,10 @@ import spinal.core._
 import spinal.lib._
 
 object BmbUnburstify{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(lengthWidth = log2Up(inputParameter.byteCount), contextWidth = inputParameter.contextWidth + 2)
+  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(
+    lengthWidth = log2Up(inputParameter.byteCount),
+    contextWidth = inputParameter.contextWidth + 2
+  )
 }
 
 //TODO check inputParameter requirements
@@ -19,7 +22,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   }
 
   val doResult = Bool
-  val addrIncrRange = (Math.min(11, inputParameter.addressWidth - 1) downto 0)
+  val addrIncrRange = (Math.min(Bmb.boundaryWidth-1, inputParameter.addressWidth - 1) downto 0)
 
   val buffer = new Area{
     val valid       = RegInit(False)
@@ -30,6 +33,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     val beat        = Reg(UInt(inputParameter.beatCounterWidth bits))
     val last        = beat === 1
     val addressIncr = Bmb.incr(address = address, p = inputParameter)
+    val isWrite = Bmb.Cmd.Opcode.isWrite(opcode)
 
     when(io.output.cmd.fire) {
       beat := beat - 1
@@ -40,7 +44,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     }
   }
 
-  val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne()
+  val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne
   val requireBuffer = cmdTransferBeatCount =/= 0
 
   io.output.cmd.data := io.input.cmd.data
@@ -71,10 +75,10 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
 
   io.input.cmd.ready := False
   when(buffer.valid){
-    io.output.cmd.valid := !(buffer.opcode === Bmb.Cmd.Opcode.WRITE && !io.input.cmd.valid)
-    io.input.cmd.ready  :=   buffer.opcode === Bmb.Cmd.Opcode.WRITE && io.output.cmd.ready
+    io.output.cmd.valid := !(buffer.isWrite && !io.input.cmd.valid)
+    io.input.cmd.ready  :=   buffer.isWrite && io.output.cmd.ready
     io.output.cmd.context(contextLastBit) := buffer.last
-    io.output.cmd.context(contextDropBit) := buffer.opcode === Bmb.Cmd.Opcode.WRITE
+    io.output.cmd.context(contextDropBit) := buffer.isWrite
   }otherwise{
     io.input.cmd.ready  := io.output.cmd.ready
     io.output.cmd.valid := io.input.cmd.valid
@@ -83,7 +87,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     buffer.address := io.input.cmd.address
     buffer.context := io.input.cmd.context
     buffer.beat    := cmdTransferBeatCount
-    io.output.cmd.context(contextDropBit) := io.input.cmd.opcode === Bmb.Cmd.Opcode.WRITE
+    io.output.cmd.context(contextDropBit) := io.input.cmd.isWrite
     io.output.cmd.context(contextLastBit) := !requireBuffer
     buffer.valid := requireBuffer && io.output.cmd.fire
   }

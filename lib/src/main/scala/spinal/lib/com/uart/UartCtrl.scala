@@ -161,6 +161,30 @@ case class UartCtrlInitConfig(
   }
 }
 
+object UartCtrlMemoryMappedConfig{
+  def apply(baudrate: Int,
+            txFifoDepth: Int,
+            rxFifoDepth: Int) : UartCtrlMemoryMappedConfig = UartCtrlMemoryMappedConfig(
+    uartCtrlConfig = UartCtrlGenerics(
+      dataWidthMax = 8,
+      clockDividerWidth = 12,
+      preSamplingSize = 1,
+      samplingSize = 3,
+      postSamplingSize = 1
+    ),
+    initConfig = UartCtrlInitConfig(
+      baudrate = baudrate,
+      dataLength = 7, //7 => 8 bits
+      parity = UartParityType.NONE,
+      stop = UartStopType.ONE
+    ),
+    busCanWriteClockDividerConfig = false,
+    busCanWriteFrameConfig = false,
+    txFifoDepth = txFifoDepth,
+    rxFifoDepth = rxFifoDepth
+  )
+}
+
 case class UartCtrlMemoryMappedConfig(
   uartCtrlConfig : UartCtrlGenerics,
   initConfig : UartCtrlInitConfig = null,

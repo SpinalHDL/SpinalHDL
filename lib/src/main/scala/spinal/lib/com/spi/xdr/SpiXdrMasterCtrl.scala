@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
-import spinal.lib.com.spi.SpiKind
+import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
@@ -67,6 +67,28 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     master(sclk)
     if(ssWidth != 0) out(ss)
     data.foreach(master(_))
+  }
+
+  def toSpi(): SpiHalfDuplexMaster ={
+    val spi = SpiHalfDuplexMaster(
+      dataWidth = p.dataWidth,
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    p.ioRate match {
+      case 1 => {
+        spi.sclk := RegNext(sclk.write(0))
+        spi.ss := RegNext(ss)
+        for(i <- 0 until p.dataWidth){
+          spi.data.write(i) := RegNext(data(i).write(0))
+          spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
+          data(i).read(0) := RegNext(spi.data.read(i))
+        }
+      }
+    }
+
+    spi
   }
 }
 
@@ -159,6 +181,7 @@ object SpiXdrMasterCtrl {
                                      ssSetupInit : Int = 0,
                                      ssHoldInit : Int = 0,
                                      ssDisableInit : Int = 0,
+                                     ssActiveHighInit : Int = 0,
                                      xipInstructionModInit: Int = 0,
                                      xipAddressModInit : Int = 0,
                                      xipDummyModInit : Int = 0,
@@ -251,6 +274,8 @@ object SpiXdrMasterCtrl {
         bus.drive(config.ss.setup,   baseAddress + 0x24)
         bus.drive(config.ss.hold,    baseAddress + 0x28)
         bus.drive(config.ss.disable, baseAddress + 0x2C)
+        bus.drive(config.ss.activeHigh, baseAddress + 0x30)
+
 
         if(xipEnableInit){
           config.kind.cpol init(cpolInit)
@@ -260,6 +285,7 @@ object SpiXdrMasterCtrl {
           config.ss.setup init(ssSetupInit)
           config.ss.hold init(ssHoldInit)
           config.ss.disable init(ssDisableInit)
+          config.ss.activeHigh init(ssActiveHighInit)
         }
 
         val xip = ifGen(mapping.xip != null) (new Area{
@@ -479,8 +505,8 @@ object SpiXdrMasterCtrl {
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
       val readFill, readDone = False
-      val ss = RegInit(B((1 << p.spi.ssWidth) - 1, p.spi.ssWidth bits))
-      io.spi.ss := ss
+      val ss = Reg(Bits(p.spi.ssWidth bits)) init(0)
+      io.spi.ss := ~(ss ^ io.config.ss.activeHigh)
 
       io.cmd.ready := False
       when(io.cmd.valid) {
@@ -501,7 +527,7 @@ object SpiXdrMasterCtrl {
         } otherwise {
           if (p.ssGen) {
             when(io.cmd.getSsEnable) {
-              ss(io.cmd.getSsId) := False
+              ss(io.cmd.getSsId) := True
               when(timer.ss.setupHit) {
                 io.cmd.ready := True
               }
@@ -512,7 +538,7 @@ object SpiXdrMasterCtrl {
                   timer.reset := True
                 }
               } otherwise {
-                ss(io.cmd.getSsId) := True
+                ss(io.cmd.getSsId) := False
                 when(timer.ss.disableHit) {
                   io.cmd.ready := True
                 }
