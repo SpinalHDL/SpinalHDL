@@ -1,6 +1,8 @@
 package spinal.tester.code
 
 import spinal.lib.bus.amba3.apb.Apb3
+import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
+import spinal.lib.memory.sdram.{Axi4SharedSdramCtrl, MT48LC16M16A2}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -588,5 +590,54 @@ object Wosh{
 //    val regB = mapper.createReadWrite(0x04)
 //
 //    mapper.flush()
+//  }
+
+  {
+    import spinal.lib.fsm._
+
+    class Ctrl extends StateMachine{
+      val stateA = new State with EntryPoint
+      val stateB = new State
+
+      val counter = Reg(UInt(8 bits)) init (0)
+
+      stateA.whenIsActive (goto(stateB))
+
+      stateB.onEntry(counter := 0)
+      stateB.whenIsActive {
+        counter := counter + 1
+        when(counter === 4){
+          goto(stateA)
+        }
+      }
+    }
+  }
+
+//  {
+//
+//    val sdramCtrl = Axi4SharedSdramCtrl(
+//      axiDataWidth = 32,
+//      axiIdWidth   = 4,
+//      layout       = MT48LC16M16A2.layout,
+//      timing       = MT48LC16M16A2.timings,
+//      CAS          = 3
+//    )
+//
+//
+//    val axiCrossbar = Axi4CrossbarFactory()
+//
+//    axiCrossbar.addSlaves(
+//      ram.io.axi       -> (0x80000000L,   32 KiB),
+//      sdramCtrl.io.axi -> (0x40000000L,   16 MiB),
+//      apbBridge.io.axi -> (0xF0000000L,    1 MiB)
+//    )
+//
+//    axiCrossbar.addConnections(
+//      core.iBus       -> List(ram.io.axi,  sdramCtrl.io.axi),
+//      core.dBus       -> List(ram.io.axi,  sdramCtrl.io.axi, apbBridge.io.axi),
+//      vgaCtrl.io.axi  -> List(             sdramCtrl.io.axi)
+//    )
+//
+//    axiCrossbar.build()
 //  }
 }
