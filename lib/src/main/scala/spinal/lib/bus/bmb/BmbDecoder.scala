@@ -10,7 +10,7 @@ import spinal.lib._
 case class BmbDecoder(p : BmbParameter,
                       mappings : Seq[AddressMapping],
                       capabilities : Seq[BmbParameter],
-                      pendingMax : Int = 3) extends Component{
+                      pendingMax : Int = 15) extends Component{
   val io = new Bundle {
     val input = slave(Bmb(p))
     val outputs = Vec(master(Bmb(p)), mappings.size)
