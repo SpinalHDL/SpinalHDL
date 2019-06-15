@@ -2040,7 +2040,7 @@ object SpinalVhdlBoot{
 
     pc.checkGlobalData()
 
-    SpinalInfo(s"Number of registers : ${counterRegister.value}")
+//    SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
 
     report.toplevel = pc.topLevel.asInstanceOf[T]
@@ -2160,7 +2160,7 @@ object SpinalVerilogBoot{
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
 
-    SpinalInfo(s"Number of registers : ${counterRegister.value}")
+//    SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
     pc.checkGlobalData()
     report.toplevel = pc.topLevel.asInstanceOf[T]
