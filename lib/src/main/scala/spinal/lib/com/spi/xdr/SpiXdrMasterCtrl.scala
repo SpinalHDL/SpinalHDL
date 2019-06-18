@@ -79,7 +79,7 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     p.ioRate match {
       case 1 => {
         spi.sclk := RegNext(sclk.write(0))
-        spi.ss := RegNext(ss)
+        if(ssWidth != 0) spi.ss := RegNext(ss)
         for(i <- 0 until p.dataWidth){
           spi.data.write(i) := RegNext(data(i).write(0))
           spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
@@ -271,11 +271,12 @@ object SpiXdrMasterCtrl {
         bus.drive(config.kind, baseAddress + 8, bitOffset = 0)
         bus.drive(config.mod, baseAddress + 8, bitOffset = 4)
         bus.drive(config.sclkToogle, baseAddress + 0x20)
-        bus.drive(config.ss.setup,   baseAddress + 0x24)
-        bus.drive(config.ss.hold,    baseAddress + 0x28)
-        bus.drive(config.ss.disable, baseAddress + 0x2C)
-        bus.drive(config.ss.activeHigh, baseAddress + 0x30)
-
+        if(p.ssGen) {
+          bus.drive(config.ss.setup, baseAddress + 0x24)
+          bus.drive(config.ss.hold, baseAddress + 0x28)
+          bus.drive(config.ss.disable, baseAddress + 0x2C)
+          bus.drive(config.ss.activeHigh, baseAddress + 0x30)
+        }
 
         if(xipEnableInit){
           config.kind.cpol init(cpolInit)
@@ -505,8 +506,8 @@ object SpiXdrMasterCtrl {
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
       val readFill, readDone = False
-      val ss = Reg(Bits(p.spi.ssWidth bits)) init(0)
-      io.spi.ss := ~(ss ^ io.config.ss.activeHigh)
+      val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
+      p.ssGen generate (io.spi.ss := ~(ss ^ io.config.ss.activeHigh))
 
       io.cmd.ready := False
       when(io.cmd.valid) {
@@ -632,7 +633,7 @@ object SpiXdrMasterCtrl {
                 dataRead(mapping.target) := io.spi.data(mapping.pin).read(mapping.phase)
               }else{
                 assert(mapping.phase == 0)
-                dataRead(mapping.target) := dataReadBuffer(mapping.pin)
+                dataRead(mapping.target) := Cat(io.spi.data.map(_.read(0)))(mapping.pin)//dataReadBuffer(mapping.pin)
               }
             }
           }
