@@ -351,7 +351,7 @@ trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
   protected var name: String = null
-  protected var nameableRef: Nameable = null
+  @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
   private var namePriority: Byte = -1
@@ -495,21 +495,21 @@ trait Nameable extends OwnableRef with ContextUser{
       obj match {
         case component: Component =>
           if (component.parent == this.component) {
-            component.setPartialName(name, weak = true)
+            component.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(component, this)
           }
         case namable: Nameable =>
           if (!namable.isInstanceOf[ContextUser]) {
-            namable.setPartialName(name, weak = true)
+            namable.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(namable, this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
-            namable.setPartialName(name, weak = true)
+            namable.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(namable, this)
           } else {
             if(component != null) for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
-                kind.setPartialName(name, weak = true)
+                kind.setPartialName(name, DATAMODEL_WEAK)
                 OwnableRef.proposal(kind, this)
               }
             }
