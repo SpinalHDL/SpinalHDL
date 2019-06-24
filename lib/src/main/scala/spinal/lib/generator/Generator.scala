@@ -287,7 +287,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
     h.produce(this.tags += new Export(h.getName, h.get))
     h
   }
-  def dts[T <: Nameable](node : Handle[T], value : String) = {
+  def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
     node.produce(this.tags += new Dts(node, value))
     node
   }
@@ -324,7 +324,7 @@ class GeneratorCompiler {
       println(s"Step $step")
       var progressed = false
       for(generator <- generatorsAll if !generator.elaborated && generator.dependencies.forall(_.isDone)){
-        println(s"Build " + generator.getName)
+        if(generator.isNamed && generator.getName != "generator") println(s"Build " + generator.getName)
         generator.generateIt()
         progressed = true
       }

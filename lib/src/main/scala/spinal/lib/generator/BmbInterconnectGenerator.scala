@@ -27,6 +27,8 @@ case class BmbInterconnectGenerator() extends Generator{
     var connector : (Bmb,Bmb) => Unit = defaultConnector
     var priority = 0
 
+    this.setCompositeName(bus, "interconnect")
+
     dependencies += bus
     dependencies += lock
     val logic = add task new Area{
@@ -48,6 +50,8 @@ case class BmbInterconnectGenerator() extends Generator{
     val mapping = Handle[AddressMapping]
     var connector: (Bmb, Bmb) => Unit = defaultConnector
     var requireUnburstify, requireDownSizer = false
+
+    this.setCompositeName(bus, "interconnect")
 
     dependencies ++= List(bus, mapping)
     dependencies += lock
