@@ -96,7 +96,7 @@ case class BmbInterconnectGenerator() extends Generator{
         val busConnections = connections.filter(_.s == bus)
         val busMasters = busConnections.map(c => masters(c.m))
         val routerBitCount = log2Up(busConnections.size)
-        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max
+        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max //TODO handle error when no master
         val inputContextWidth = busMasters.map(_.requirements.contextWidth).max
         val inputLengthWidth = busMasters.map(_.requirements.lengthWidth).max
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
