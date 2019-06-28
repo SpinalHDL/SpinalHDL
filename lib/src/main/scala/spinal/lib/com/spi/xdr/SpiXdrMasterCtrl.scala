@@ -3,6 +3,8 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.lattice.ice40
+import spinal.lib.blackbox.lattice.ice40.SB_IO
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
@@ -89,6 +91,53 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
       }
     }
 
+    spi
+  }
+
+  case class SpiIce40(p : SpiXdrParameter) extends Bundle {
+    val sclk = Analog(Bool)
+    val ss = Vec.fill(p.ssWidth)(Analog(Bool))
+    val data = Vec.fill(p.dataWidth)(Analog(Bool))
+  }
+
+  def toSpiIce40() = {
+    val spi = SpiIce40(p)
+    p.ioRate match {
+      case 2 => {
+        for(i <- 0 until p.ssWidth){
+          val pin = ice40.SB_IO.ddrRegistredOutput()
+          pin.PACKAGE_PIN <> spi.ss(i)
+          pin.CLOCK_ENABLE := True
+
+          pin.OUTPUT_CLK := ClockDomain.current.readClockWire
+          pin.D_OUT_0 <> ss(i)
+          pin.D_OUT_1 <> RegNext(ss(i))
+        }
+
+        val sclkIo = ice40.SB_IO.ddrRegistredOutput()
+        sclkIo.PACKAGE_PIN <> spi.sclk
+        sclkIo.CLOCK_ENABLE := True
+
+        sclkIo.OUTPUT_CLK := ClockDomain.current.readClockWire
+        sclkIo.D_OUT_0 <> sclk.write(0)
+        sclkIo.D_OUT_1 <> RegNext(sclk.write(1))
+
+        val datas = for ((data, pin) <- (data, spi.data).zipped) yield new Area {
+          val dataIo = ice40.SB_IO.ddrRegistredInout()
+          dataIo.PACKAGE_PIN := pin
+          dataIo.CLOCK_ENABLE := True
+
+          dataIo.OUTPUT_CLK := ClockDomain.current.readClockWire
+          dataIo.OUTPUT_ENABLE <> data.writeEnable
+          dataIo.D_OUT_0 <> data.write(0)
+          dataIo.D_OUT_1 <> RegNext(data.write(1))
+
+          dataIo.INPUT_CLK := ClockDomain.current.readClockWire
+          data.read(0) := dataIo.D_IN_0
+          data.read(1) := RegNext(dataIo.D_IN_1)
+        }
+      }
+    }
     spi
   }
 }
@@ -387,13 +436,16 @@ object SpiXdrMasterCtrl {
 
 
         val xipToCtrlCmd = cloneOf(cmd)
+        val xipToCtrlMod = p.ModType().assignDontCare()
         xipToCtrlCmd.valid := False
         xipToCtrlCmd.payload.assignDontCare()
 
         val xipToCtrlCmdBuffer = xipToCtrlCmd.haltWhen(cmdHalt).stage
+        val xipToCtrlModBuffer = RegNextWhen(xipToCtrlMod, xipToCtrlCmdBuffer.ready)
         when(xipToCtrlCmdBuffer.valid){
           cmd.valid := True
           cmd.payload := xipToCtrlCmdBuffer.payload
+          config.mod := xipToCtrlModBuffer
         }
         xipToCtrlCmdBuffer.ready := cmd.ready
 
@@ -420,7 +472,7 @@ object SpiXdrMasterCtrl {
           xipToCtrlCmd.write := True
           xipToCtrlCmd.read := False
           xipToCtrlCmd.data := instructionData
-          config.mod := instructionMod
+          xipToCtrlMod := instructionMod
           when(xipToCtrlCmd.ready) {
             goto(ADDRESS)
           }
@@ -435,7 +487,7 @@ object SpiXdrMasterCtrl {
           xipToCtrlCmd.write := True
           xipToCtrlCmd.read := False
           xipToCtrlCmd.data := xipBus.cmd.address.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
-          config.mod := addressMod
+          xipToCtrlMod := addressMod
           when(xipToCtrlCmd.ready) {
             counter := counter + 1
             when(counter === 2) {
@@ -453,7 +505,7 @@ object SpiXdrMasterCtrl {
           xipToCtrlCmd.write := True
           xipToCtrlCmd.read := False
           xipToCtrlCmd.data := dummyData
-          config.mod := dummyMod
+          xipToCtrlMod := dummyMod
           when(xipToCtrlCmd.ready) {
             counter := counter + 1
             when(counter === dummyCount) {
@@ -464,7 +516,7 @@ object SpiXdrMasterCtrl {
 
         PAYLOAD.onEntry(counter := 0)
         PAYLOAD.whenIsActive {
-          config.mod := payloadMod
+          xipToCtrlMod := payloadMod
           xipToCtrlCmd.kind := False
           xipToCtrlCmd.write := False
           xipToCtrlCmd.read := True
@@ -480,6 +532,7 @@ object SpiXdrMasterCtrl {
         val lastFired = Reg(Bool) setWhen(xipBus.rsp.lastFire)
         STOP.onEntry(lastFired := False)
         STOP.whenIsActive{
+          xipToCtrlMod := payloadMod
           xipToCtrlCmd.kind := True
           xipToCtrlCmd.data := 0
           when(lastFired){
