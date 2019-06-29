@@ -19,6 +19,7 @@ object Dependable{
       val p = new Generator()
       p.dependencies ++= d
       p.add task {h.load(body)}
+      p.products += h
       p
     }
     h
@@ -27,12 +28,14 @@ object Dependable{
 
 
 trait Dependable{
-  def isDone : Boolean
+  @dontName val products = ArrayBuffer[Handle[_]]()
 
+  def isDone : Boolean
   def produce[T](body : => T) : Handle[T] = Dependable(this)(body)
   def produce[T](h : Handle[T])(body : => T)  : Handle[T] = Dependable(h, this)(body)
   def produceIo[T <: Data](body : => T) : Handle[T] = {
     val h = Handle[T]
+    products += h
     Generator.stack.head.add {
       val p = new Generator()
       p.dependencies += this
@@ -157,6 +160,8 @@ class Task[T](var gen :() => T) extends Dependable {
   var isDone = false
   var enabled = true
 
+  def get = value
+
   def build() : Unit = {
     if(enabled) value = gen()
     isDone = true
@@ -193,7 +198,6 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   @dontName val tasks = ArrayBuffer[Task[_]]()
   @dontName val generators = ArrayBuffer[Generator]()
 
-  @dontName val products = ArrayBuffer[Handle[_]]() //TODO move it into dependable ?
   val generateItListeners = ArrayBuffer[() => Unit]()
 
   def createDependency[T] = {
