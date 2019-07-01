@@ -151,30 +151,6 @@ class Handle[T <: Any] extends Nameable with Dependable with HandleCoreSubscribe
 //  }
 //}
 
-object Task{
-  implicit def generatorToValue[T](generator : Task[T]) : T = generator.value
-}
-
-class Task[T](var gen :() => T) extends Dependable {
-  var value : T = null.asInstanceOf[T]
-  var isDone = false
-  var enabled = true
-
-  def get = value
-
-  def build() : Unit = {
-    if(enabled) value = gen()
-    isDone = true
-  }
-
-  def disable(): Unit ={
-    enabled = false
-  }
-
-  def patchWith(patch : => T): Unit ={
-    gen = () => patch
-  }
-}
 
 
 
@@ -185,6 +161,7 @@ object Generator{
 
 
 case class Product[T](src :() => T, handle : Handle[T])
+
 class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable  with Dependable with DelayedInit with TagContainer {
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     Generator.stack.head.generators += this
@@ -198,7 +175,10 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   @dontName val tasks = ArrayBuffer[Task[_]]()
   @dontName val generators = ArrayBuffer[Generator]()
 
-  val generateItListeners = ArrayBuffer[() => Unit]()
+  case class Task[T](gen : () => T, handle : Handle[T]){
+    def build() = handle.load(gen())
+  }
+
 
   def createDependency[T] = {
     val handle = Handle[T]
@@ -236,10 +216,10 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   //User API
 //  implicit def lambdaToGenerator[T](lambda : => T) = new Task(() => lambda)
   def add = new {
-    def task[T](gen : => T) : Task[T] = {
-      val task = new Task(() => gen)
-      tasks += task
-      task
+    def task[T](gen : => T) : Handle[T] = {
+      val handle = Handle[T]
+      tasks += new Task(() => gen, handle)
+      handle
     }
   }
   def add[T <: Generator](generator : => T) : T = {
@@ -253,14 +233,13 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
     apply {
       for (task <- tasks) {
         task.build()
-        task.value match {
+        task.handle.get match {
           case n: Nameable => {
             n.setCompositeName(this, true)
           }
           case _ =>
         }
       }
-      for(listener <- generateItListeners) listener()
     }
     if(implicitCd != null) implicitCd.pop()
     elaborated = true
