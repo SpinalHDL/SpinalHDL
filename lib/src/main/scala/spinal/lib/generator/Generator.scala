@@ -218,6 +218,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   def add = new {
     def task[T](gen : => T) : Handle[T] = {
       val handle = Handle[T]
+      products += handle
       tasks += new Task(() => gen, handle)
       handle
     }
