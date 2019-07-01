@@ -478,7 +478,9 @@ object SpiXdrMasterCtrl {
           }
         }
 
-        xipBus.cmd.ready := False
+        val xipBusCmdReadyReg = RegNext(False) init(False) //Cut xip bus cmd ready path
+        xipBus.cmd.ready := xipBusCmdReadyReg
+
         val counter = Reg(UInt(Math.max(4, mapping.xip.lengthWidth) bits)) init(0)
         ADDRESS.onEntry(counter := 0)
         ADDRESS.whenIsActive{
@@ -491,7 +493,7 @@ object SpiXdrMasterCtrl {
           when(xipToCtrlCmd.ready) {
             counter := counter + 1
             when(counter === 2) {
-              xipBus.cmd.ready := True
+              xipBusCmdReadyReg := True
               goto(DUMMY)
             }
           }
