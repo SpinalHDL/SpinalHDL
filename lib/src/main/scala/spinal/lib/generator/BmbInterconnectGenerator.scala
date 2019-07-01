@@ -145,7 +145,11 @@ case class BmbInterconnectGenerator() extends Generator{
     @dontName val decoder, arbiter = Handle[Bmb]()
 
     Dependable(s){
-      tags += new MemoryConnection(m, s, getSlave(s).mapping.get.lowerBound)
+      val address = getSlave(s).mapping.get match {
+        case `DefaultMapping` => BigInt(0)
+        case m => m.lowerBound
+      }
+      tags += new MemoryConnection(m, s, address)
     }
 
     dependencies ++= List(decoder, arbiter)
