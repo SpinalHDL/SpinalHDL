@@ -276,7 +276,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
       val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1 + 1),true)
 
       val banks = (0 until l.bankCount).map(i =>  new Area{
-        val precharge = timeCounter(t.tRC,true)
+        val precharge = timeCounter(Math.max(t.tRC.toDouble, t.cWR / clkFrequancy.toDouble + t.tWR.toDouble) sec,true)
         val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC)).max(t.cMRD),true)
       })
     }
