@@ -67,6 +67,7 @@ object Handle{
     h
   }
   def apply[T]() = new Handle[T]
+  implicit def handleToHandle[T, T2 <: T](h : Handle[T2]) : Handle[T] = h.asInstanceOf[ Handle[T]]
   implicit def keyImplicit[T](key : Handle[T]): T = key.get
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
@@ -74,19 +75,19 @@ object Handle{
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 }
 
-trait HandleCoreSubscriber[T]{
-  def changeCore(core : HandleCore[T]) : Unit
-  def lazyDefault (): T
+trait HandleCoreSubscriber{
+  def changeCore(core : HandleCore) : Unit
+  def lazyDefault (): Any
   def lazyDefaultAvailable : Boolean
 }
 
-class HandleCore[T]{
+class HandleCore{
   private var loaded = false
-  private var value = null.asInstanceOf[T]
+  private var value : Any = null
 
-  val subscribers = mutable.HashSet[HandleCoreSubscriber[T]]()
+  val subscribers = mutable.HashSet[HandleCoreSubscriber]()
 
-  def get : T = {
+  def get : Any = {
     if(!loaded){
       subscribers.count(_.lazyDefaultAvailable) match {
         case 0 =>
@@ -96,13 +97,13 @@ class HandleCore[T]{
     }
     value
   }
-  def load(value : T): T = {
+  def load(value : Any): Any = {
     this.value = value
     loaded = true
     value
   }
 
-  def merge(that : HandleCore[T]): Unit ={
+  def merge(that : HandleCore): Unit ={
     (this.loaded, that.loaded) match {
       case (false, _) => this.subscribers.foreach(_.changeCore(that))
       case (true, false) => that.subscribers.foreach(_.changeCore(this))
@@ -113,43 +114,34 @@ class HandleCore[T]{
   def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
 }
 
-class Handle[T <: Any] extends Nameable with Dependable with HandleCoreSubscriber[T]{
+class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
   val generator = Generator.stack.headOption.getOrElse(null)
-  var core = new HandleCore[T]
+  var core = new HandleCore
   core.subscribers += this
 
-  override def changeCore(core: HandleCore[T]): Unit = {
+  override def changeCore(core: HandleCore): Unit = {
     this.core = core
     core.subscribers += this
   }
 
-  def merge(that : Handle[T]): Unit = this.core.merge(that.core)
+  def merge[T2 <: T](that : Handle[T2]): Unit = this.core.merge(that.core)
 
-  def apply : T = get
-  def get: T = core.get
-  def load(value : T): T = core.load(value)
+  def apply : T = get.asInstanceOf[T]
+  def get: T = core.get.asInstanceOf[T]
+  def load[T2 <: T](value : T2): T2 = core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
+//  def load[T2 <: T](value : Handle[T2]): T2 = core.load(if(value == null) null else value.get.asInstanceOf[Any]).asInstanceOf[T2]
   def loadAny(value : Any): Unit = core.load(value.asInstanceOf[T])
 
   def isLoaded = core.isLoaded
 
   override def isDone: Boolean = isLoaded
 
-  var lazyDefaultGen : () => T = null
-  override def lazyDefault() : T = lazyDefaultGen()
+  var lazyDefaultGen : () => Any = null
+  override def lazyDefault() : T = lazyDefaultGen().asInstanceOf[T]
   override def lazyDefaultAvailable: Boolean = lazyDefaultGen != null
 
   override def toString: String = (if(generator != null) generator.toString + "/" else "") + super.toString
 }
-
-//object HandleInit{
-//  def apply[T](init : => T)  = new HandleInit[T](init)
-//}
-//
-//class HandleInit[T](initValue : => T) extends Handle[T]{
-//  override def init : Unit = {
-//    load(initValue)
-//  }
-//}
 
 
 

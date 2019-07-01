@@ -95,8 +95,9 @@ case class BmbInterconnectGenerator() extends Generator{
       add task {
         val busConnections = connections.filter(_.s == bus)
         val busMasters = busConnections.map(c => masters(c.m))
+        assert(busMasters.nonEmpty, s"$bus has not master")
         val routerBitCount = log2Up(busConnections.size)
-        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max //TODO handle error when no master
+        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max 
         val inputContextWidth = busMasters.map(_.requirements.contextWidth).max
         val inputLengthWidth = busMasters.map(_.requirements.lengthWidth).max
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -115,7 +116,7 @@ case class BmbInterconnectGenerator() extends Generator{
           alignment = inputAlignement
         ))
 
-        requirements.load(arbiterRequirements)
+        requirements.load(arbiterRequirements.get)
 
         //require down
         requireDownSizer = requirements.dataWidth > capabilities.dataWidth
