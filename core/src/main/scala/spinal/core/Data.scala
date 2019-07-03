@@ -300,6 +300,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isOutput: Boolean = dir == out
   def isInput:  Boolean = dir == in
   def isInOut:  Boolean = dir == inout
+  def getDirection = dir
 
   def isOutputOrInOut: Boolean = dir == out || dir == inout
   def isInputOrInOut:  Boolean = dir ==  in || dir == inout
