@@ -73,6 +73,10 @@ object Handle{
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
+
+  implicit def miaouImplicitHandle[T](value : Handle[T]) = new {
+    def yolo[T2](body : (T) => T2) = value.produce(body(value))
+  }
 }
 
 trait HandleCoreSubscriber{
@@ -154,7 +158,7 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
-class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable  with Dependable with DelayedInit with TagContainer {
+class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable with Dependable with DelayedInit with TagContainer with OverridedEqualsHashCode{
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     Generator.stack.head.generators += this
   }
@@ -311,11 +315,11 @@ class GeneratorCompiler {
         val producatable = unelaborateds.flatMap(_.products).map(_.core).toSet
         SpinalError(
           s"Composable hang, remaings generators are :\n" +
-          s"${unelaborateds.map(p => s"- ${p} depend on ${p.dependencies.filter(d => !d.isDone).mkString(", ")}\n").reduce(_ + _)}" +
+          s"${unelaborateds.map(p => s"- ${p} depend on ${p.dependencies.filter(d => !d.isDone).mkString(", ")}\n").mkString}" +
           s"\nDependable not completed :\n" +
-          s"${missingDepedancies.map(d => "- " + d + "\n").reduce(_ + _)}" +
+          s"${missingDepedancies.map(d => "- " + d + "\n").mkString}" +
           s"\nHandles without potential sources :\n" +
-          s"${missingHandle.filter(e => !producatable.contains(e.core)).map(d => "- " + d + "\n").reduce(_ + _)}"
+          s"${missingHandle.filter(e => !producatable.contains(e.core)).map(d => "- " + d + "\n").mkString}"
         )
       }
       step += 1
