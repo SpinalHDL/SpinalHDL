@@ -85,3 +85,18 @@ case class SB_IO(pinType : String) extends BlackBox{
   val D_IN_1 = out Bool()
   setDefinitionName("SB_IO")
 }
+
+case class SB_SPRAM256KA() extends BlackBox{
+  val DATAIN = in Bits(16 bits)
+  val ADDRESS = in UInt(14 bits)
+  val MASKWREN = in Bits(4 bits)
+  val WREN = in Bool()
+  val CHIPSELECT = in Bool()
+  val CLOCK = in Bool()
+  val DATAOUT = out Bits(16 bits)
+  val STANDBY = in Bool()
+  val SLEEP = in Bool()
+  val POWEROFF = in Bool()
+  mapCurrentClockDomain(CLOCK)
+}
+
