@@ -321,13 +321,17 @@ case class Core(cp : CoreParameter) extends Component{
     }
 
     val timingIssue = False
+    val rspBufferNotEmpty = False
+    val backendIssue = False
     timingIssue.setWhen(timing.RFC.busy)
     switch(input.kind) {
       is(FrontendCmdOutputKind.READ) {
         timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.WTR.busy)
+        backendIssue setWhen(rspBufferNotEmpty)
       }
       is(FrontendCmdOutputKind.WRITE) {
         timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.RTP)
+        backendIssue setWhen(rspBufferNotEmpty)
       }
       is(FrontendCmdOutputKind.ACTIVE) {
         timingIssue.setWhen(timing.RP)
@@ -364,7 +368,7 @@ case class Core(cp : CoreParameter) extends Component{
       }
     }
 
-    val output = input.haltWhen(timingIssue)
+    val output = input.haltWhen(timingIssue || backendIssue)
   }
 
 
@@ -406,6 +410,7 @@ case class Core(cp : CoreParameter) extends Component{
       val histories = History(input, 0 to cp.writeLatencies.max)
       histories.tail.foreach(_.valid init(False))
 
+      if(ml.withDqs) ???
       switch(io.config.writeLatency) {
         for (i <- 0 until cp.writeLatencies.size) {
           is(i){
@@ -421,6 +426,10 @@ case class Core(cp : CoreParameter) extends Component{
       }
     }
 
+    case class PipelineRsp() extends Bundle{
+      val data = Bits(pl.beatWidth bits)
+      val context = Bits(cp.contextWidth bits)
+    }
     val rspPipeline = new Area{
       case class Cmd() extends Bundle{
         val write = Bool
@@ -454,13 +463,19 @@ case class Core(cp : CoreParameter) extends Component{
       }
 
 
-      val output = Flow(Rsp())
+      val output = Flow(PipelineRsp())
       output.valid := buffer.valid
       output.context := buffer.context
       for((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped){
         outputData := phase.DQw
       }
     }
+
+    val rspBuffer = StreamFifoLowLatency(PipelineRsp(), 1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 1)
+    rspBuffer.io.push << rspPipeline.output.toStream
+    scheduler.rspBufferNotEmpty setWhen(!rspBuffer.empty.pull())
+    rspBuffer.io.pop.stage()
+
 
     writePipeline.input.valid := input.valid && input.kind === FrontendCmdOutputKind.WRITE
     writePipeline.input.data := input.data
