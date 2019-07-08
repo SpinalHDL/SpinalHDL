@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram
+package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
 import spinal.lib._
@@ -23,7 +23,7 @@ case class SdramTimings(
   tREF  : TimeNumber,     // Refresh Cycle Time (that cover all row)
   tRC   : TimeNumber,     // Command Period (ACT to ACT)   Per bank
   tRFC  : TimeNumber,     // Command Period (REF to REF)   Per bank
-  tRAS  : TimeNumber,     // Command Period (ACT to PRE)                Per bank
+  tRAS  : TimeNumber,     // Command Period (ACT to PRE)   Per bank
   tRP   : TimeNumber,     // Command Period (PRE to ACT)
   tRCD  : TimeNumber,     // Active Command To Read / Write Command Delay Time
   cMRD  : Int,            // Mode Register Program Time

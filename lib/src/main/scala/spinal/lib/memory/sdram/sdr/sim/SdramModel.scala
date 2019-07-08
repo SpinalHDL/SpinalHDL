@@ -1,10 +1,11 @@
-package spinal.lib.memory.sdram.sim
+package spinal.lib.memory.sdram.sdr.sim
 
 import java.nio.file.{Files, Paths}
 
 import spinal.core.sim._
 import spinal.core._
-import spinal.lib.memory.sdram.{SdramInterface, SdramLayout}
+import spinal.lib.memory.sdram.sdr.SdramInterface
+import spinal.lib.memory.sdram.sdr.{SdramInterface, SdramLayout}
 
 
 case class SdramModel(io : SdramInterface,

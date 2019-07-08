@@ -1,4 +1,4 @@
-package spinal.lib.memory.sdram
+package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
 import spinal.lib._

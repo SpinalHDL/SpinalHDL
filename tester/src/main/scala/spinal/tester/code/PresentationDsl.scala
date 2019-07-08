@@ -2,7 +2,7 @@ package spinal.tester.code
 
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.amba4.axi.Axi4CrossbarFactory
-import spinal.lib.memory.sdram.{Axi4SharedSdramCtrl, MT48LC16M16A2}
+import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

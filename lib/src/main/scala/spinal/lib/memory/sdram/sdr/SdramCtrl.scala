@@ -1,9 +1,8 @@
-package spinal.lib.memory.sdram
+package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.Axi4Shared
-import spinal.lib.bus.bmb.Bmb
 
 import scala.math.BigDecimal.RoundingMode
 
