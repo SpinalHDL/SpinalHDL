@@ -14,6 +14,7 @@ case class Backend(cp : CoreParameter) extends Component{
     val phy = master(SdramXdrPhyCtrl(pl))
     val output = master(Flow(Fragment(FrontendCmdOutput(cp))))
     val full = out Bool()
+    val init = slave(InitBus(cp))
   }
 
 
@@ -169,5 +170,15 @@ case class Backend(cp : CoreParameter) extends Component{
         }
       }
     }
+  }
+
+  when(io.init.cmd.valid){
+    io.phy.ADDR := io.init.cmd.ADDR
+    io.phy.BA := io.init.cmd.BA
+    command.CASn := io.init.cmd.CASn
+    command.CKE := io.init.cmd.CKE
+    command.CSn := io.init.cmd.CSn
+    command.RASn := io.init.cmd.RASn
+    command.WEn := io.init.cmd.WEn
   }
 }

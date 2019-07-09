@@ -197,3 +197,23 @@ case class FrontendCmdOutput(cp : CoreParameter) extends Bundle {
   val data = Bits(cp.pl.beatWidth bits)
   val mask = Bits(cp.pl.beatWidth/8 bits)
 }
+
+
+
+case class InitCmd(cp : CoreParameter) extends Bundle{
+  val ADDR  = Bits(cp.pl.ml.chipAddressWidth bits)
+  val BA    = Bits(cp.pl.ml.bankWidth bits)
+  val CASn  = Bool
+  val CKE   = Bool
+  val CSn   = Bool
+  val RASn  = Bool
+  val WEn   = Bool
+}
+
+case class InitBus(cp : CoreParameter) extends Bundle with IMasterSlave{
+  val cmd = Flow(InitCmd(cp))
+
+  override def asMaster(): Unit = {
+    master(cmd)
+  }
+}

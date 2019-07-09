@@ -6,7 +6,7 @@ import spinal.lib._
 case class Refresher(cp : CoreParameter) {
   val io = new Bundle {
     val config = in(CoreConfig(cp))
-    val cmd = master(Event)
+    val refresh = master(Event)
   }
 
   val value = Reg(UInt(cp.timingWidth bits)) init(0)
@@ -16,6 +16,6 @@ case class Refresher(cp : CoreParameter) {
     value := io.config.REF
   }
 
-  val pending = RegInit(False) clearWhen(io.cmd.ready) setWhen(hit)
-  io.cmd.valid := pending
+  val pending = RegInit(False) clearWhen(io.refresh.ready) setWhen(hit)
+  io.refresh.valid := pending
 }

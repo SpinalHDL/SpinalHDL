@@ -10,7 +10,6 @@ case class TimingEnforcer(cp : CoreParameter) extends Component{
 
   val io = new Bundle {
     val config = in(CoreConfig(cp))
-    val backendFull = in Bool()
     val input = slave(Stream(Fragment(FrontendCmdOutput(cp))))
     val output = master(Flow(Fragment(FrontendCmdOutput(cp))))
   }
@@ -50,16 +49,13 @@ case class TimingEnforcer(cp : CoreParameter) extends Component{
   }
 
   val timingIssue = False
-  val backendIssue = False
   timingIssue.setWhen(timing.RFC.busy)
   switch(io.input.kind) {
     is(FrontendCmdOutputKind.READ) {
       timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.WTR.busy)
-      backendIssue setWhen(io.backendFull)
     }
     is(FrontendCmdOutputKind.WRITE) {
       timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.RTP)
-      backendIssue setWhen(io.backendFull)
     }
     is(FrontendCmdOutputKind.ACTIVE) {
       timingIssue.setWhen(timing.RP)
@@ -96,5 +92,5 @@ case class TimingEnforcer(cp : CoreParameter) extends Component{
     }
   }
 
-  io.output << io.input.haltWhen(timingIssue || backendIssue).toFlow
+  io.output << io.input.haltWhen(timingIssue).toFlow
 }
