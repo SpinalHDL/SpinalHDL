@@ -33,7 +33,7 @@ case class TimingEnforcer(cp : CoreParameter) extends Component{
     val WTR = Timing(trigger.WTR, io.config.WTR)
     val CCD = Timing(trigger.CCD, io.config.CCD)
     val RFC = Timing(trigger.RFC, io.config.RFC)
-    val banks = for (bankId <- 0 until ml.bankWidth) yield new Area {
+    val banks = for (bankId <- 0 until ml.bankCount) yield new Area {
       val hit = io.input.address.bank === bankId
       val WR = Timing(hit && trigger.WR, io.config.WR)
       val RAS = Timing(hit && trigger.RAS, io.config.RAS)

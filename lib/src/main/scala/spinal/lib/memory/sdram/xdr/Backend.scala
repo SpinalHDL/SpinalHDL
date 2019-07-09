@@ -12,7 +12,7 @@ case class Backend(cp : CoreParameter) extends Component{
     val config = in(CoreConfig(cp))
     val input = slave(Flow(Fragment(FrontendCmdOutput(cp))))
     val phy = master(SdramXdrPhyCtrl(pl))
-    val output = master(Flow(Fragment(FrontendCmdOutput(cp))))
+    val outputs = Vec(master(Stream(Fragment(CoreRsp(cp)))), cp.portCount)
     val full = out Bool()
     val init = slave(InitBus(cp))
   }
@@ -26,6 +26,8 @@ case class Backend(cp : CoreParameter) extends Component{
     val CKE  = True
   }
 
+  io.phy.ADDR.assignDontCare()
+  io.phy.BA.assignDontCare()
   io.phy.DQe := False
   for((phase, id) <- io.phy.phases.zipWithIndex){
     when(io.config.commandPhase =/= id) {
@@ -42,12 +44,13 @@ case class Backend(cp : CoreParameter) extends Component{
       phase.CKE := command.CKE
     }
     phase.DQw.assignDontCare()
+    phase.DM.assignDontCare()
   }
 
   val writePipeline = new Area{
     case class Cmd() extends Bundle {
-      val data = Bits()
-      val mask = Bits()
+      val data = Bits(pl.beatWidth bits)
+      val mask = Bits(pl.beatWidth/8 bits)
     }
     val input = Flow(Cmd())
     val histories = History(input, 0 to cp.writeLatencies.max)
@@ -69,29 +72,29 @@ case class Backend(cp : CoreParameter) extends Component{
     }
   }
 
+  case class PipelineCmd() extends Bundle{
+    val write = Bool
+    val context = Bits(cp.contextWidth bits)
+    val source = UInt(log2Up(cp.portCount) bits)
+  }
   case class PipelineRsp() extends Bundle{
     val data = Bits(pl.beatWidth bits)
+    val source = UInt(log2Up(cp.portCount) bits)
     val context = Bits(cp.contextWidth bits)
   }
+
   val rspPipeline = new Area{
-    case class Cmd() extends Bundle{
-      val write = Bool
-      val context = Bits(cp.contextWidth bits)
-    }
-    case class Rsp() extends Bundle{
-      val data = Bits(pl.beatWidth bits)
-      val context = Bits(cp.contextWidth bits)
-    }
-    val input = Flow(Cmd())
+    val input = Flow(PipelineCmd())
 
     val histories = History(input, 0 to cp.readLatencies.max + pl.outputLatency + pl.inputLatency - 1)
     histories.tail.foreach(_.valid init(False))
 
-    val buffer = Reg(Flow(Cmd()))
+    val buffer = Reg(Flow(PipelineCmd()))
     val bufferCounter = Reg(UInt(log2Up(pl.beatCount) bits)) init(0)
-    bufferCounter := bufferCounter + U(buffer.valid)
+    val bufferLast = bufferCounter === pl.beatCount || buffer.write
+    bufferCounter := bufferCounter + U(buffer.valid).resized
     buffer.valid init(False)
-    buffer.valid clearWhen(bufferCounter === pl.beatCount)
+    buffer.valid clearWhen(bufferLast)
 
     switch(io.config.readLatency) {
       for (i <- 0 until cp.readLatencies.size) {
@@ -106,23 +109,38 @@ case class Backend(cp : CoreParameter) extends Component{
     }
 
 
-    val output = Flow(PipelineRsp())
+    val output = Flow(Fragment(PipelineRsp()))
     output.valid := buffer.valid
     output.context := buffer.context
+    output.source := buffer.source
+    output.last := bufferLast
     for((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped){
       outputData := phase.DQw
     }
   }
 
-  val rspBuffer = StreamFifoLowLatency(PipelineRsp(), 1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 1)
+  val rspBuffer = StreamFifoLowLatency(Fragment(PipelineRsp()), 1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 1)
   rspBuffer.io.push << rspPipeline.output.toStream
   io.full := !rspBuffer.empty.pull()
-  rspBuffer.io.pop.stage()
+  val rspPop = rspBuffer.io.pop.stage()
+  for((output, outputId) <- io.outputs.zipWithIndex){
+    val hit = rspPop.source === outputId
+    output.valid := rspPop.valid && hit
+    output.last := rspPop.last
+    output.data := rspPop.data
+    output.context := rspPop.context
+  }
+  rspPop.ready := io.outputs(rspPop.source).ready
 
 
   writePipeline.input.valid := io.input.valid && io.input.kind === FrontendCmdOutputKind.WRITE
   writePipeline.input.data := io.input.data
   writePipeline.input.mask := io.input.mask
+
+  rspPipeline.input.valid := False
+  rspPipeline.input.context := io.input.context
+  rspPipeline.input.source := io.input.source
+  rspPipeline.input.write := io.input.kind === FrontendCmdOutputKind.WRITE
 
   when(io.input.valid) {
     when(io.input.first) {
@@ -158,6 +176,7 @@ case class Backend(cp : CoreParameter) extends Component{
           command.RASn := True
           command.CASn := False
           command.WEn := False
+          rspPipeline.input.valid := True
         }
         is(FrontendCmdOutputKind.READ) {
           io.phy.ADDR := io.input.address.column.asBits.resized
@@ -167,6 +186,7 @@ case class Backend(cp : CoreParameter) extends Component{
           command.RASn := True
           command.CASn := False
           command.WEn := True
+          rspPipeline.input.valid := True
         }
       }
     }

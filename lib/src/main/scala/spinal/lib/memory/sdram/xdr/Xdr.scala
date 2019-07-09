@@ -7,10 +7,10 @@ import spinal.lib.io.TriState
 case class MemoryLayout(bankWidth : Int,
                         columnWidth : Int,
                         rowWidth : Int,
-                        wordWidth : Int,
                         dataWidth : Int,
                         withDqs : Boolean,
                         burstLength : Int){
+  def wordWidth = dataWidth*burstLength
   def bytePerDq = dataWidth/8
   def bytePerWord = wordWidth/8
   def wordAddressWidth = bankWidth + columnWidth + rowWidth
@@ -121,14 +121,22 @@ case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   }
 }
 
+object SdrInferedPhy{
+  def memoryLayoutToPhyLayout(ml : MemoryLayout) = PhyLayout(
+    phaseCount = 1,
+    outputLatency = 1,
+    inputLatency = 1,
+    ml = ml
+  )
+}
 
-case class SdrInferedPhy(pl : PhyLayout) extends Component{
-  require(pl.phaseCount == 1)
-  require(!pl.ml.withDqs)
+case class SdrInferedPhy(ml : MemoryLayout) extends Component{
+  require(!ml.withDqs)
+  val pl = SdrInferedPhy.memoryLayoutToPhyLayout(ml)
 
   val io = new Bundle {
     val ctrl = slave(SdramXdrPhyCtrl(pl))
-    val memory = master(Sdr(pl.ml))
+    val memory = master(Sdr(ml))
   }
 
   io.memory.ADDR  := RegNext(io.ctrl.ADDR)
@@ -159,6 +167,7 @@ case class CoreCmd(cp : CoreParameter) extends Bundle{
   val write = Bool()
   val address = UInt(cp.pl.ml.byteAddressWidth bits)
   val data = Bits(cp.pl.beatWidth bits)
+  val mask = Bits(cp.pl.beatWidth/8 bits)
   val context = Bits(cp.contextWidth bits)
 }
 case class CoreRsp(cp : CoreParameter) extends Bundle{
@@ -196,6 +205,8 @@ case class FrontendCmdOutput(cp : CoreParameter) extends Bundle {
   val address = SdramAddress(cp.pl.ml)
   val data = Bits(cp.pl.beatWidth bits)
   val mask = Bits(cp.pl.beatWidth/8 bits)
+  val source = UInt(log2Up(cp.portCount) bits)
+  val context = Bits(cp.contextWidth bits)
 }
 
 
@@ -217,3 +228,4 @@ case class InitBus(cp : CoreParameter) extends Bundle with IMasterSlave{
     master(cmd)
   }
 }
+

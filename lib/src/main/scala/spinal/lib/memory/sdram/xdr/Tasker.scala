@@ -14,23 +14,28 @@ case class Tasker(cp: CoreParameter) extends Component{
     val output = master(Stream(Fragment(FrontendCmdOutput(cp))))
   }
 
-  val banks = for(bankId <- 0 until ml.bankWidth) yield Reg(new Bundle {
+  val banks = for(bankId <- 0 until ml.bankCount) yield Reg(new Bundle {
     val active = Bool()
     val row = UInt(ml.rowWidth bits)
   })
   val banksActive = banks.map(_.active).orR
 
-  val gates = for (port <- io.inputs) yield new Area {
-    val s0 = new Area{
+  val gates = for ((port, inputId) <- io.inputs.zipWithIndex) yield new Area {
+//    val s0 = new Area{
+//      val address = port.address.as(SdramAddress(ml))
+//      val bank = banks.read(address.bank)
+//      val needActive = !bank.active
+//      val needPrecharge = bank.active && bank.row =/= address.row
+//    }
+    val s1 = new Area{
+//      val input = port.stage()
+//      val inputActive = RegNextWhen(s0.needActive, input.ready)
+//      val inputPrecharge = RegNextWhen(s0.needPrecharge, input.ready)
+      def input = port
       val address = port.address.as(SdramAddress(ml))
       val bank = banks.read(address.bank)
-      val needActive = !bank.active
-      val needPrecharge = bank.active && bank.row =/= address.row
-    }
-    val s1 = new Area{
-      val input = port.stage()
-      val inputActive = RegNextWhen(s0.needActive, input.ready)
-      val inputPrecharge = RegNextWhen(s0.needPrecharge, input.ready)
+      val inputActive = !bank.active
+      val inputPrecharge = bank.active && bank.row =/= address.row
 
       val doActive = input.valid && inputActive
       val doPrecharge = input.valid && inputPrecharge
@@ -40,29 +45,15 @@ case class Tasker(cp: CoreParameter) extends Component{
 
       val cmdOutputPayload = Fragment(FrontendCmdOutput(cp))
       cmdOutputPayload.last := port.last
+      cmdOutputPayload.fragment.source := inputId
       cmdOutputPayload.fragment.address := address
       cmdOutputPayload.fragment.data := port.data
+      cmdOutputPayload.fragment.mask := port.mask
+      cmdOutputPayload.fragment.context := port.context
       cmdOutputPayload.fragment.all := False
       cmdOutputPayload.fragment.kind := (port.write ? FrontendCmdOutputKind.WRITE | FrontendCmdOutputKind.READ)
       when(doActive){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.ACTIVE }
       when(doPrecharge){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.PRECHARGE }
-    }
-
-    val address = port.address.as(SdramAddress(ml))
-    val bank = banks.read(address.bank)
-    val cmdOutputPayload = Fragment(FrontendCmdOutput(cp))
-    cmdOutputPayload.last := port.last
-    cmdOutputPayload.fragment.address := address
-    cmdOutputPayload.fragment.data := port.data
-    //      cmdOutputPayload.active = !bank.active
-    //      cmdOutputPayload.precharge = bank.active && bank.row =/= address.row
-    //      cmdOutputPayload.refresh = False
-    cmdOutputPayload.fragment.all := False
-    cmdOutputPayload.fragment.kind := (port.write ? FrontendCmdOutputKind.WRITE | FrontendCmdOutputKind.READ)
-    when(!bank.active){
-      cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.ACTIVE
-    } elsewhen(bank.row =/= address.row){
-      cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.PRECHARGE
     }
   }
 
