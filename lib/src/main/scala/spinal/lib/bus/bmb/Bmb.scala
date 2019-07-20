@@ -88,6 +88,7 @@ case class BmbParameter(addressWidth : Int,
   def allowBurst = lengthWidth > wordRangeLength
   def beatCounterWidth = lengthWidth - wordRangeLength + (if(alignment.allowByte) 1 else 0)
   def wordRangeLength = log2Up(byteCount)
+  def transferBeatCount = (1 << lengthWidth) / byteCount + (if(alignment.allowByte) 1 else 0)
 }
 
 

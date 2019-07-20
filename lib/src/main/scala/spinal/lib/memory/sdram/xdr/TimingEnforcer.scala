@@ -29,6 +29,7 @@ case class TimingEnforcer(cp : CoreParameter) extends Component{
   }
 
   //Banks timing counters
+  //TODO tRRD ?
   val timing = new Area {
     val WTR = Timing(trigger.WTR, io.config.WTR)
     val CCD = Timing(trigger.CCD, io.config.CCD)

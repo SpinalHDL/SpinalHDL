@@ -84,6 +84,12 @@ case class Tasker(cp: CoreParameter) extends Component{
     val masked = maskedPrecharge | maskedActive | maskedWrite | maskedRead | maskedNotLast
     val doRefresh = io.refresh.valid && !pendingNotLast
 
+    when(io.output.fire && masked.orR){
+      arbiterState := masked
+    }
+
+    writeFirst setWhen(!pendingRead) clearWhen(!pendingWrite)
+
     io.output.valid :=  doRefresh || pendingPrecharge || pendingActive || (!io.backendFull && (pendingWrite || pendingRead))
     io.output.payload := MuxOH(masked, gates.map(_.s1.cmdOutputPayload))
     for((gate, sel) <- (gates, masked.asBools).zipped){

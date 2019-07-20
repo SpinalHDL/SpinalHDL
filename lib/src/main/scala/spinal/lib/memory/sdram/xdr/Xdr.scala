@@ -2,6 +2,7 @@ package spinal.lib.memory.sdram.xdr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.io.TriState
 
 case class MemoryLayout(bankWidth : Int,
@@ -47,7 +48,8 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //tFAW //Four ACTIVATE windows
 //RTP READ to PRE
 
-
+//TODO tFAW
+//TODO ctrl lock
 
 case class Ddr3(l : MemoryLayout) extends Bundle with IMasterSlave{
   val ADDR  = Bits(l.chipAddressWidth bits)
@@ -229,3 +231,176 @@ case class InitBus(cp : CoreParameter) extends Bundle with IMasterSlave{
   }
 }
 
+
+
+
+//Extend access to have them behing a length of 2^alignmentWidth
+case class BmbAligner(ip : BmbParameter, op : BmbParameter, alignmentWidth : Int) extends Component{
+  val io = new Bundle{
+    val input = Bmb(ip)
+    val output = Bmb(op)
+  }
+
+  val beatCount = (1 << alignmentWidth) / ip.byteCount
+  val transferCount = op.transferBeatCount
+
+  case class Context() extends Bundle{
+    val input = Bits(ip.contextWidth bits)
+    val write = Bool()
+    val paddings = UInt(log2Up(beatCount) bits)
+    val transfers = UInt(log2Up(transferCount) bits)
+  }
+
+  val cmdLogic = new Area {
+    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
+    beatCounter := beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)
+
+    val context = Context()
+    context.input := io.input.cmd.context
+    context.paddings := io.input.cmd.address(alignmentWidth-1 downto log2Up(beatCount))
+    context.transfers := io.input.cmd.transferBeatCountMinusOne
+    context.write := io.input.cmd.isWrite
+
+    val padding = False
+    when(beatCounter === beatCount-1) {
+      io.input.cmd.ready := io.output.cmd.ready
+      io.output.cmd.last := io.input.cmd.last
+    } otherwise {
+      padding := io.input.cmd.isWrite && (io.input.cmd.last || io.input.cmd.first && beatCounter < context.paddings)
+      io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isRead || !io.input.cmd.last)
+      io.output.cmd.last := io.input.cmd.isRead
+    }
+
+    io.output.cmd.valid := io.input.cmd.valid
+    io.output.cmd.address := io.input.cmd.address(ip.addressWidth-1 downto alignmentWidth) << alignmentWidth
+    io.output.cmd.context := B(context)
+    io.output.cmd.source := io.input.cmd.source
+    io.output.cmd.opcode := io.input.cmd.opcode
+    io.output.cmd.length := io.input.cmd.length + U((1 << alignmentWidth)-1, op.lengthWidth bits)
+    io.output.cmd.length(alignmentWidth-1 downto 0) := 0
+    io.output.cmd.data := io.input.cmd.data
+    io.output.cmd.mask := (!padding ? io.input.cmd.mask | 0)
+    io.input.cmd.ready := io.output.cmd.ready
+  }
+
+  val rspLogic = new Area{
+    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
+    when(io.output.rsp.fire){
+      beatCounter := beatCounter + 1
+    }
+
+    val transferCounter = Reg(UInt(log2Up(transferCount) bits)) init(0)
+    when(io.input.rsp.fire){
+      beatCounter := beatCounter + 1
+      when(io.input.rsp.last){
+        beatCounter := 0
+      }
+    }
+
+    val context = io.output.rsp.context.as(Context())
+    val drop = !context.write && (io.input.rsp.first && beatCounter(context.paddings.range) < context.paddings || transferCounter > context.transfers)
+
+    io.input.rsp.arbitrationFrom(io.output.rsp.throwWhen(drop))
+    io.input.rsp.last := context.write || transferCounter === context.transfers
+    io.input.rsp.source := io.output.rsp.source
+    io.input.rsp.opcode := io.output.rsp.opcode
+    io.input.rsp.data := io.output.rsp.data
+    io.input.rsp.context := io.output.rsp.context.resized
+  }
+}
+
+//Subdivide a burst into smaller fixed length bursts
+//Require the input to be fixedLength aligned
+//Warning, Can fire output cmd before input cmd on reads
+case class BmbLengthFixer(ip : BmbParameter, op : BmbParameter, fixedWidth : Int) extends Component{
+  val io = new Bundle{
+    val input = Bmb(ip)
+    val output = Bmb(op)
+  }
+
+  val beatCount = (1 << fixedWidth) / ip.byteCount
+  val splitCount = op.transferBeatCount / (1 << fixedWidth)
+
+  case class Context() extends Bundle{
+    val input = Bits(ip.contextWidth bits)
+    val last = Bool()
+  }
+
+  val cmdLogic = new Area {
+    val fixedAddress = io.input.cmd.address(ip.addressWidth - 1 downto ip.lengthWidth)
+    val baseAddress = io.input.cmd.address(ip.lengthWidth - 1 downto op.lengthWidth)
+    val beatAddress = io.input.cmd.address(op.lengthWidth - 1 downto log2Up(op.byteCount))
+
+    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
+    val splitCounter = Reg(UInt(log2Up(splitCount) bits)) init (0)
+
+    val context = Context()
+    context.input := io.input.cmd.context
+    context.last := io.input.cmd.last
+
+    io.output.cmd.arbitrationFrom(io.input.cmd)
+    io.output.cmd.last := io.input.cmd.last || beatCounter === beatCount-1
+    io.output.cmd.address := (fixedAddress @@ (baseAddress + splitCounter)) << op.lengthWidth
+    io.output.cmd.context := B(context)
+    io.output.cmd.source := io.input.cmd.source
+    io.output.cmd.opcode := io.input.cmd.opcode
+    io.output.cmd.length := (1 << fixedWidth) - 1
+    io.output.cmd.data := io.input.cmd.data
+    io.output.cmd.mask := io.input.cmd.mask
+
+    when(io.input.cmd.fire){
+      beatCounter := beatCounter + 1
+      when(io.output.cmd.last){
+        splitCounter := splitCounter + 1
+      }
+      when(io.input.cmd.last){
+        splitCounter := 0
+      }
+    }
+  }
+
+  val rspLogic = new Area{
+    val context = io.output.rsp.context.as(Context())
+    io.input.rsp.arbitrationFrom(io.output.rsp)
+    io.input.rsp.last := io.output.rsp.last && context.last
+    io.input.rsp.source := io.output.rsp.source
+    io.input.rsp.opcode := io.output.rsp.opcode
+    io.input.rsp.data := io.output.rsp.data
+    io.input.rsp.context := io.output.rsp.context.resized
+  }
+}
+
+case class BmbToCorePort(ip : BmbParameter, op : CoreParameter) extends Component{
+  val io = new Bundle{
+    val input = Bmb(ip)
+    val output = CorePort(op)
+  }
+
+  case class Context() extends Bundle{
+    val input = Bits(ip.contextWidth bits)
+    val source = UInt(ip.sourceWidth bits)
+  }
+
+  val cmdContext = Context()
+  cmdContext.input := io.input.cmd.context
+  cmdContext.source := io.input.cmd.source
+
+
+  io.input.cmd.arbitrationFrom(io.output.cmd)
+  io.output.cmd.write := io.input.cmd.isWrite
+  io.output.cmd.address := io.input.cmd.address
+  io.output.cmd.data := io.input.cmd.data
+  io.output.cmd.mask := io.input.cmd.mask
+  io.output.cmd.context := B(cmdContext)
+
+
+  val rspContext = Context()
+  rspContext.input := io.input.cmd.context
+  rspContext.source := io.input.cmd.source
+
+  io.input.rsp.arbitrationFrom(io.output.rsp)
+  io.input.rsp.setSuccess()
+  io.input.rsp.data := io.output.rsp.data
+  io.input.rsp.context := rspContext.input
+  io.input.rsp.source := rspContext.source
+}
