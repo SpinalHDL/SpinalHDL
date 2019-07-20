@@ -41,7 +41,7 @@ case class Tasker(cp: CoreParameter) extends Component{
       val doPrecharge = input.valid && inputPrecharge
       val doWrite = input.valid && input.write && !doActive && !doPrecharge
       val doRead = input.valid && !input.write && !doActive && !doPrecharge
-      val doNotLast = input.valid && !input.last
+      val doLock = !input.first
 
       val cmdOutputPayload = Fragment(FrontendCmdOutput(cp))
       cmdOutputPayload.last := port.last
@@ -66,23 +66,23 @@ case class Tasker(cp: CoreParameter) extends Component{
     val ohActive = OhArbiter(gates.map(_.s1.doActive))
     val ohWrite = OhArbiter(gates.map(_.s1.doWrite))
     val ohRead = OhArbiter(gates.map(_.s1.doRead))
-    val ohNotLast = OhArbiter(gates.map(_.s1.doNotLast))
+    val ohLock = B(gates.map(_.s1.doLock))
 
     val pendingPrecharge = gates.map(_.s1.doPrecharge).orR
     val pendingActive = gates.map(_.s1.doActive).orR
     val pendingWrite = gates.map(_.s1.doWrite).orR
     val pendingRead = gates.map(_.s1.doRead).orR
-    val pendingNotLast = gates.map(_.s1.doNotLast).orR
+    val pendingLock = gates.map(_.s1.doLock).orR
 
     def maskClear = B(0, cp.portCount bits)
-    val maskedPrecharge = (!pendingNotLast && !pendingRead && !pendingWrite && !pendingActive) ? ohPrecharge | maskClear
-    val maskedActive = (!pendingNotLast && !pendingRead && !pendingWrite)  ? ohActive | maskClear
-    val maskedWrite = (!pendingNotLast && !(!writeFirst && pendingRead)) ? ohWrite | maskClear
-    val maskedRead = (!pendingNotLast && !(writeFirst && pendingWrite))? ohRead | maskClear
-    val maskedNotLast = ohNotLast
+    val maskedPrecharge = (!pendingLock && !pendingRead && !pendingWrite && !pendingActive) ? ohPrecharge | maskClear
+    val maskedActive = (!pendingLock && !pendingRead && !pendingWrite)  ? ohActive | maskClear
+    val maskedWrite = (!pendingLock && !(!writeFirst && pendingRead)) ? ohWrite | maskClear
+    val maskedRead = (!pendingLock && !(writeFirst && pendingWrite))? ohRead | maskClear
+    val maskedLock = ohLock
 
-    val masked = maskedPrecharge | maskedActive | maskedWrite | maskedRead | maskedNotLast
-    val doRefresh = io.refresh.valid && !pendingNotLast
+    val masked = maskedPrecharge | maskedActive | maskedWrite | maskedRead | maskedLock
+    val doRefresh = io.refresh.valid && !pendingLock
 
     when(io.output.fire && masked.orR){
       arbiterState := masked
