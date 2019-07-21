@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.io.TriState
 
 case class MemoryLayout(bankWidth : Int,
@@ -123,6 +124,17 @@ case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   }
 }
 
+abstract class Phy[T <: Data with IMasterSlave](val pl : PhyLayout) extends Component{
+  def MemoryBus() : T
+  def driveFrom(mapper : BusSlaveFactory) : Unit
+
+  val io = new Bundle {
+    val ctrl = slave(SdramXdrPhyCtrl(pl))
+    val memory = master(MemoryBus())
+  }
+}
+
+
 object SdrInferedPhy{
   def memoryLayoutToPhyLayout(ml : MemoryLayout) = PhyLayout(
     phaseCount = 1,
@@ -132,14 +144,11 @@ object SdrInferedPhy{
   )
 }
 
-case class SdrInferedPhy(ml : MemoryLayout) extends Component{
+case class SdrInferedPhy(ml : MemoryLayout) extends Phy[Sdr](SdrInferedPhy.memoryLayoutToPhyLayout(ml)){
   require(!ml.withDqs)
-  val pl = SdrInferedPhy.memoryLayoutToPhyLayout(ml)
 
-  val io = new Bundle {
-    val ctrl = slave(SdramXdrPhyCtrl(pl))
-    val memory = master(Sdr(ml))
-  }
+  override def MemoryBus(): Sdr = Sdr(ml)
+  override def driveFrom(mapper: BusSlaveFactory): Unit = {}
 
   io.memory.ADDR  := RegNext(io.ctrl.ADDR)
   io.memory.BA    := RegNext(io.ctrl.BA  )
@@ -155,9 +164,11 @@ case class SdrInferedPhy(ml : MemoryLayout) extends Component{
   io.ctrl.phases(0).DQr     := RegNext(io.memory.DQ.read )
 }
 
-case class CorePort(cp : CoreParameter) extends Bundle with IMasterSlave{
-  val cmd = Stream(Fragment(CoreCmd(cp)))
-  val rsp = Stream(Fragment(CoreRsp(cp)))
+case class CorePortParameter( contextWidth : Int)
+
+case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
+  val cmd = Stream(Fragment(CoreCmd(cpp, cpa)))
+  val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
 
   override def asMaster(): Unit = {
     master(cmd)
@@ -165,16 +176,17 @@ case class CorePort(cp : CoreParameter) extends Bundle with IMasterSlave{
   }
 }
 
-case class CoreCmd(cp : CoreParameter) extends Bundle{
+case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+  import cpa._
   val write = Bool()
-  val address = UInt(cp.pl.ml.byteAddressWidth bits)
-  val data = Bits(cp.pl.beatWidth bits)
-  val mask = Bits(cp.pl.beatWidth/8 bits)
-  val context = Bits(cp.contextWidth bits)
+  val address = UInt(ml.byteAddressWidth bits)
+  val data = Bits(pl.beatWidth bits)
+  val mask = Bits(pl.beatWidth/8 bits)
+  val context = Bits(cpp.contextWidth bits)
 }
-case class CoreRsp(cp : CoreParameter) extends Bundle{
-  val data = Bits(cp.pl.beatWidth bits)
-  val context = Bits(cp.contextWidth bits)
+case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+  val data = Bits(cpa.pl.beatWidth bits)
+  val context = Bits(cpp.contextWidth bits)
 }
 
 case class SdramAddress(ml : MemoryLayout) extends Bundle {
@@ -183,39 +195,56 @@ case class SdramAddress(ml : MemoryLayout) extends Bundle {
   val row    = UInt(ml.rowWidth bits)
 }
 
-case class CoreConfig(cp : CoreParameter) extends Bundle {
-  val commandPhase = UInt(log2Up(cp.pl.phaseCount) bits)
+case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
+  import cpa._
+
+  val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
   val RFC, RAS, RP, WR, RCD, WTR, CCD, RTP = UInt(cp.timingWidth bits)
   val REF = UInt(cp.refWidth bits)
+
+  def driveFrom(mapper : BusSlaveFactory) = new Area {
+    mapper.drive(commandPhase, 0x00, 0)
+    mapper.drive(writeLatency, 0x00, 16)
+    mapper.drive(readLatency,  0x00, 24)
+    mapper.drive(REF, 0x10,  0)
+    mapper.drive(RFC, 0x20,  8)
+    mapper.drive(RAS, 0x20, 16)
+    mapper.drive(RP , 0x20, 24)
+    mapper.drive(WR , 0x20,  0)
+    mapper.drive(RCD, 0x24,  8)
+    mapper.drive(WTR, 0x24, 16)
+    mapper.drive(CCD, 0x24, 24)
+    mapper.drive(RTP, 0x28,  0)
+  }
 }
 
-case class CoreParameter(pl : PhyLayout,
-                         portCount : Int,
-                         contextWidth : Int,
-                         timingWidth : Int,
+case class CoreParameter(timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
                          readLatencies : List[Int])
+
 object FrontendCmdOutputKind extends SpinalEnum{
   val READ, WRITE, ACTIVE, PRECHARGE, REFRESH = newElement()
 }
-case class FrontendCmdOutput(cp : CoreParameter) extends Bundle {
+case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
+  import cpa._
+
   val kind = FrontendCmdOutputKind()
   val all = Bool()
-  val address = SdramAddress(cp.pl.ml)
-  val data = Bits(cp.pl.beatWidth bits)
-  val mask = Bits(cp.pl.beatWidth/8 bits)
-  val source = UInt(log2Up(cp.portCount) bits)
-  val context = Bits(cp.contextWidth bits)
+  val address = SdramAddress(pl.ml)
+  val data = Bits(pl.beatWidth bits)
+  val mask = Bits(pl.beatWidth/8 bits)
+  val source = UInt(log2Up(cpp.size) bits)
+  val context = Bits(backendContextWidth bits)
 }
 
 
 
-case class InitCmd(cp : CoreParameter) extends Bundle{
-  val ADDR  = Bits(cp.pl.ml.chipAddressWidth bits)
-  val BA    = Bits(cp.pl.ml.bankWidth bits)
+case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
+  val ADDR  = Bits(cpa.ml.chipAddressWidth bits)
+  val BA    = Bits(cpa.ml.bankWidth bits)
   val CASn  = Bool
   val CKE   = Bool
   val CSn   = Bool
@@ -223,8 +252,23 @@ case class InitCmd(cp : CoreParameter) extends Bundle{
   val WEn   = Bool
 }
 
-case class InitBus(cp : CoreParameter) extends Bundle with IMasterSlave{
-  val cmd = Flow(InitCmd(cp))
+case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
+  val cmd = Flow(InitCmd(cpa))
+
+  def driveFrom(mapper : BusSlaveFactory): Unit ={
+    val valid = RegNext(mapper.isWriting(0x00))
+    cmd.valid := valid
+    mapper.drive(
+      address = 0x04,
+      0 -> cmd.CKE,
+      1 -> cmd.CSn,
+      2 -> cmd.RASn,
+      3 -> cmd.CASn,
+      4 -> cmd.WEn
+    )
+    mapper.drive(cmd.ADDR, 0x08)
+    mapper.drive(cmd.BA, 0x0C)
+  }
 
   override def asMaster(): Unit = {
     master(cmd)
@@ -233,147 +277,10 @@ case class InitBus(cp : CoreParameter) extends Bundle with IMasterSlave{
 
 
 
-
-//Extend access to have them behing a length of 2^alignmentWidth
-case class BmbAligner(ip : BmbParameter, op : BmbParameter, alignmentWidth : Int) extends Component{
+case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   val io = new Bundle{
-    val input = Bmb(ip)
-    val output = Bmb(op)
-  }
-
-  val beatCount = (1 << alignmentWidth) / ip.byteCount
-  val transferCount = op.transferBeatCount
-
-  case class Context() extends Bundle{
-    val input = Bits(ip.contextWidth bits)
-    val write = Bool()
-    val paddings = UInt(log2Up(beatCount) bits)
-    val transfers = UInt(log2Up(transferCount) bits)
-  }
-
-  val cmdLogic = new Area {
-    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
-    beatCounter := beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)
-
-    val context = Context()
-    context.input := io.input.cmd.context
-    context.paddings := io.input.cmd.address(alignmentWidth-1 downto log2Up(beatCount))
-    context.transfers := io.input.cmd.transferBeatCountMinusOne
-    context.write := io.input.cmd.isWrite
-
-    val padding = False
-    when(beatCounter === beatCount-1) {
-      io.input.cmd.ready := io.output.cmd.ready
-      io.output.cmd.last := io.input.cmd.last
-    } otherwise {
-      padding := io.input.cmd.isWrite && (io.input.cmd.last || io.input.cmd.first && beatCounter < context.paddings)
-      io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isRead || !io.input.cmd.last)
-      io.output.cmd.last := io.input.cmd.isRead
-    }
-
-    io.output.cmd.valid := io.input.cmd.valid
-    io.output.cmd.address := io.input.cmd.address(ip.addressWidth-1 downto alignmentWidth) << alignmentWidth
-    io.output.cmd.context := B(context)
-    io.output.cmd.source := io.input.cmd.source
-    io.output.cmd.opcode := io.input.cmd.opcode
-    io.output.cmd.length := io.input.cmd.length + U((1 << alignmentWidth)-1, op.lengthWidth bits)
-    io.output.cmd.length(alignmentWidth-1 downto 0) := 0
-    io.output.cmd.data := io.input.cmd.data
-    io.output.cmd.mask := (!padding ? io.input.cmd.mask | 0)
-    io.input.cmd.ready := io.output.cmd.ready
-  }
-
-  val rspLogic = new Area{
-    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
-    when(io.output.rsp.fire){
-      beatCounter := beatCounter + 1
-    }
-
-    val transferCounter = Reg(UInt(log2Up(transferCount) bits)) init(0)
-    when(io.input.rsp.fire){
-      beatCounter := beatCounter + 1
-      when(io.input.rsp.last){
-        beatCounter := 0
-      }
-    }
-
-    val context = io.output.rsp.context.as(Context())
-    val drop = !context.write && (io.input.rsp.first && beatCounter(context.paddings.range) < context.paddings || transferCounter > context.transfers)
-
-    io.input.rsp.arbitrationFrom(io.output.rsp.throwWhen(drop))
-    io.input.rsp.last := context.write || transferCounter === context.transfers
-    io.input.rsp.source := io.output.rsp.source
-    io.input.rsp.opcode := io.output.rsp.opcode
-    io.input.rsp.data := io.output.rsp.data
-    io.input.rsp.context := io.output.rsp.context.resized
-  }
-}
-
-//Subdivide a burst into smaller fixed length bursts
-//Require the input to be fixedLength aligned
-//Warning, Can fire output cmd before input cmd on reads
-case class BmbLengthFixer(ip : BmbParameter, op : BmbParameter, fixedWidth : Int) extends Component{
-  val io = new Bundle{
-    val input = Bmb(ip)
-    val output = Bmb(op)
-  }
-
-  val beatCount = (1 << fixedWidth) / ip.byteCount
-  val splitCount = op.transferBeatCount / (1 << fixedWidth)
-
-  case class Context() extends Bundle{
-    val input = Bits(ip.contextWidth bits)
-    val last = Bool()
-  }
-
-  val cmdLogic = new Area {
-    val fixedAddress = io.input.cmd.address(ip.addressWidth - 1 downto ip.lengthWidth)
-    val baseAddress = io.input.cmd.address(ip.lengthWidth - 1 downto op.lengthWidth)
-    val beatAddress = io.input.cmd.address(op.lengthWidth - 1 downto log2Up(op.byteCount))
-
-    val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
-    val splitCounter = Reg(UInt(log2Up(splitCount) bits)) init (0)
-
-    val context = Context()
-    context.input := io.input.cmd.context
-    context.last := io.input.cmd.last
-
-    io.output.cmd.arbitrationFrom(io.input.cmd)
-    io.output.cmd.last := io.input.cmd.last || beatCounter === beatCount-1
-    io.output.cmd.address := (fixedAddress @@ (baseAddress + splitCounter)) << op.lengthWidth
-    io.output.cmd.context := B(context)
-    io.output.cmd.source := io.input.cmd.source
-    io.output.cmd.opcode := io.input.cmd.opcode
-    io.output.cmd.length := (1 << fixedWidth) - 1
-    io.output.cmd.data := io.input.cmd.data
-    io.output.cmd.mask := io.input.cmd.mask
-
-    when(io.input.cmd.fire){
-      beatCounter := beatCounter + 1
-      when(io.output.cmd.last){
-        splitCounter := splitCounter + 1
-      }
-      when(io.input.cmd.last){
-        splitCounter := 0
-      }
-    }
-  }
-
-  val rspLogic = new Area{
-    val context = io.output.rsp.context.as(Context())
-    io.input.rsp.arbitrationFrom(io.output.rsp)
-    io.input.rsp.last := io.output.rsp.last && context.last
-    io.input.rsp.source := io.output.rsp.source
-    io.input.rsp.opcode := io.output.rsp.opcode
-    io.input.rsp.data := io.output.rsp.data
-    io.input.rsp.context := io.output.rsp.context.resized
-  }
-}
-
-case class BmbToCorePort(ip : BmbParameter, op : CoreParameter) extends Component{
-  val io = new Bundle{
-    val input = Bmb(ip)
-    val output = CorePort(op)
+    val input = slave(Bmb(ip))
+    val output = master(CorePort(cpp, cpa))
   }
 
   case class Context() extends Bundle{
@@ -386,7 +293,8 @@ case class BmbToCorePort(ip : BmbParameter, op : CoreParameter) extends Componen
   cmdContext.source := io.input.cmd.source
 
 
-  io.input.cmd.arbitrationFrom(io.output.cmd)
+  io.output.cmd.arbitrationFrom(io.input.cmd)
+  io.output.cmd.last := io.input.cmd.last
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
   io.output.cmd.data := io.input.cmd.data
@@ -400,6 +308,7 @@ case class BmbToCorePort(ip : BmbParameter, op : CoreParameter) extends Componen
 
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
+  io.input.rsp.last := io.output.rsp.last
   io.input.rsp.data := io.output.rsp.data
   io.input.rsp.context := rspContext.input
   io.input.rsp.source := rspContext.source

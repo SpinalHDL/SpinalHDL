@@ -3,18 +3,17 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class Backend(cp : CoreParameter) extends Component{
-  def pl = cp.pl
-  def ml = pl.ml
+case class Backend(cpa : CoreParameterAggregate) extends Component{
+  import cpa._
 
 
   val io = new Bundle {
-    val config = in(CoreConfig(cp))
-    val input = slave(Flow(Fragment(FrontendCmdOutput(cp))))
+    val config = in(CoreConfig(cpa))
+    val input = slave(Flow(Fragment(CoreTask(cpa))))
     val phy = master(SdramXdrPhyCtrl(pl))
-    val outputs = Vec(master(Stream(Fragment(CoreRsp(cp)))), cp.portCount)
+    val outputs = Vec(cpa.cpp.map(cpp => master(Stream(Fragment(CoreRsp(cpp, cpa))))))
     val full = out Bool()
-    val init = slave(InitBus(cp))
+    val init = slave(SoftBus(cpa))
   }
 
 
@@ -74,13 +73,13 @@ case class Backend(cp : CoreParameter) extends Component{
 
   case class PipelineCmd() extends Bundle{
     val write = Bool
-    val context = Bits(cp.contextWidth bits)
-    val source = UInt(log2Up(cp.portCount) bits)
+    val context = Bits(backendContextWidth bits)
+    val source = UInt(log2Up(portCount) bits)
   }
   case class PipelineRsp() extends Bundle{
     val data = Bits(pl.beatWidth bits)
-    val source = UInt(log2Up(cp.portCount) bits)
-    val context = Bits(cp.contextWidth bits)
+    val source = UInt(log2Up(portCount) bits)
+    val context = Bits(backendContextWidth bits)
   }
 
   val rspPipeline = new Area{

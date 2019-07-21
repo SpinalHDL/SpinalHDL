@@ -3,15 +3,14 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class Tasker(cp: CoreParameter) extends Component{
-  def pl = cp.pl
-  def ml = pl.ml
+case class Tasker(cpa : CoreParameterAggregate) extends Component{
+  import cpa._
 
   val io = new Bundle {
     val backendFull = in Bool()
     val refresh = slave(Event)
-    val inputs = Vec(slave(Stream(Fragment(CoreCmd(cp)))), cp.portCount)
-    val output = master(Stream(Fragment(FrontendCmdOutput(cp))))
+    val inputs = Vec(cpp.map(cpp => slave(Stream(Fragment(CoreCmd(cpp, cpa))))))
+    val output = master(Stream(Fragment(CoreTask(cpa))))
   }
 
   val banks = for(bankId <- 0 until ml.bankCount) yield Reg(new Bundle {
@@ -43,7 +42,7 @@ case class Tasker(cp: CoreParameter) extends Component{
       val doRead = input.valid && !input.write && !doActive && !doPrecharge
       val doLock = !input.first
 
-      val cmdOutputPayload = Fragment(FrontendCmdOutput(cp))
+      val cmdOutputPayload = Fragment(CoreTask(cpa))
       cmdOutputPayload.last := port.last
       cmdOutputPayload.fragment.source := inputId
       cmdOutputPayload.fragment.address := address
@@ -58,7 +57,7 @@ case class Tasker(cp: CoreParameter) extends Component{
   }
 
   val arbiter = new Area{
-    val arbiterState = RegInit(B(1, cp.portCount bits))
+    val arbiterState = RegInit(B(1, cpp.size bits))
     val writeFirst = RegInit(False)
     def OhArbiter(that : Seq[Bool]) = OHMasking.roundRobin(that.asBits, arbiterState)
 
@@ -74,7 +73,7 @@ case class Tasker(cp: CoreParameter) extends Component{
     val pendingRead = gates.map(_.s1.doRead).orR
     val pendingLock = gates.map(_.s1.doLock).orR
 
-    def maskClear = B(0, cp.portCount bits)
+    def maskClear = B(0, cpp.size bits)
     val maskedPrecharge = (!pendingLock && !pendingRead && !pendingWrite && !pendingActive) ? ohPrecharge | maskClear
     val maskedActive = (!pendingLock && !pendingRead && !pendingWrite)  ? ohActive | maskClear
     val maskedWrite = (!pendingLock && !(!writeFirst && pendingRead)) ? ohWrite | maskClear

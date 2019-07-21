@@ -3,15 +3,13 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class TimingEnforcer(cp : CoreParameter) extends Component{
-  def pl = cp.pl
-  def ml = pl.ml
-
+case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
+  import cpa._
 
   val io = new Bundle {
-    val config = in(CoreConfig(cp))
-    val input = slave(Stream(Fragment(FrontendCmdOutput(cp))))
-    val output = master(Flow(Fragment(FrontendCmdOutput(cp))))
+    val config = in(CoreConfig(cpa))
+    val input = slave(Stream(Fragment(CoreTask(cpa))))
+    val output = master(Flow(Fragment(CoreTask(cpa))))
   }
 
 

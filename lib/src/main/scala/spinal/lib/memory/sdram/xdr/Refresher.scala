@@ -3,9 +3,11 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class Refresher(cp : CoreParameter) extends Component{
+case class Refresher(cpa : CoreParameterAggregate) extends Component{
+  import cpa._
+
   val io = new Bundle {
-    val config = in(CoreConfig(cp))
+    val config = in(CoreConfig(cpa))
     val refresh = master(Event)
   }
 
