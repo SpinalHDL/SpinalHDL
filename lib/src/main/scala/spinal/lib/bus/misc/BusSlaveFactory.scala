@@ -64,6 +64,9 @@ trait BusSlaveFactory extends Area{
   /** Set the endianness during write/read multiword */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
+  def withOffset(offset : Int) = new BusSlaveFactoryAddressWrapper(this, offset)
+
+
   /**
     * Return true if the configuration if set to little-endian
     */
@@ -408,6 +411,11 @@ trait BusSlaveFactory extends Area{
     write(reg, address, bitOffset, documentation)
     that := reg
     reg
+  }
+
+  def drive[T <: Data](address    : BigInt,
+                       bitMapping : (Int, Data)*): Unit = {
+    bitMapping.foreach{ case (bitId, that) => drive(that, address, bitId) }
   }
 
   /**
