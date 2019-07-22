@@ -110,7 +110,7 @@ object BmbLengthFixer{
   def outputParameter(ip : BmbParameter, fixedWidth : Int) = ip.copy(
     lengthWidth = fixedWidth,
     alignmentMin = fixedWidth,
-    contextWidth = ip.contextWidth + 1
+    contextWidth = ip.contextWidth + 2
   )
 }
 
@@ -126,16 +126,17 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
   }
 
   val beatCount = (1 << fixedWidth) / ip.byteCount
-  val splitCount = op.transferBeatCount / (1 << fixedWidth)
+  val splitCount = ip.transferBeatCount / beatCount
 
   case class Context() extends Bundle{
     val input = Bits(ip.contextWidth bits)
     val last = Bool()
+    val write = Bool()
   }
 
   val cmdLogic = new Area {
-    val fixedAddress = io.input.cmd.address(ip.addressWidth - 1 downto ip.lengthWidth)
-    val baseAddress = io.input.cmd.address(ip.lengthWidth - 1 downto op.lengthWidth)
+    val fixedAddress = io.input.cmd.address(ip.addressWidth - 1 downto Bmb.boundaryWidth)
+    val baseAddress = io.input.cmd.address(Bmb.boundaryWidth - 1 downto op.lengthWidth)
     val beatAddress = io.input.cmd.address(op.lengthWidth - 1 downto log2Up(op.byteCount))
 
     val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
@@ -143,9 +144,10 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
 
     val context = Context()
     context.input := io.input.cmd.context
-    context.last := io.input.cmd.last
+    context.last := splitCounter === (io.input.cmd.length >> fixedWidth)
+    context.write := io.input.cmd.isWrite
 
-    io.output.cmd.arbitrationFrom(io.input.cmd)
+    io.output.cmd.valid := io.input.cmd.valid
     io.output.cmd.last := io.input.cmd.last || beatCounter === beatCount-1
     io.output.cmd.address := (fixedAddress @@ (baseAddress + splitCounter)) << op.lengthWidth
     io.output.cmd.context := B(context)
@@ -154,21 +156,22 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     io.output.cmd.length := (1 << fixedWidth) - 1
     io.output.cmd.data := io.input.cmd.data
     io.output.cmd.mask := io.input.cmd.mask
+    io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
 
-    when(io.input.cmd.fire){
-      beatCounter := beatCounter + U(1).resized
+    when(io.output.cmd.fire){
+      beatCounter := beatCounter + U(io.input.cmd.isWrite).resized
       when(io.output.cmd.last){
         splitCounter := splitCounter + U(1).resized
       }
-      when(io.input.cmd.last){
-        splitCounter := 0
-      }
+    }
+    when(io.input.cmd.fire && io.input.cmd.last){
+      splitCounter := 0
     }
   }
 
   val rspLogic = new Area{
     val context = io.output.rsp.context.as(Context())
-    io.input.rsp.arbitrationFrom(io.output.rsp)
+    io.input.rsp.arbitrationFrom(io.output.rsp.takeWhen(!context.write || context.last && io.output.rsp.last))
     io.input.rsp.last := io.output.rsp.last && context.last
     io.input.rsp.source := io.output.rsp.source
     io.input.rsp.opcode := io.output.rsp.opcode
