@@ -665,7 +665,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value)
+        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -673,7 +673,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value)
+      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
     }
   }
   when(pushing =/= popping) {
