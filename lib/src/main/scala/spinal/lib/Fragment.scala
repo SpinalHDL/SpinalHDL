@@ -344,7 +344,7 @@ class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bit
 
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
+  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True).setCompositeName(pimped, "first", true))
   def tail: Bool = !first
   def isFirst: Bool = pimped.valid && first
   def isTail : Bool = pimped.valid && tail
