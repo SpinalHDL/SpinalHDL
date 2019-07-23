@@ -104,6 +104,8 @@ object ClockDomain {
   }
 
 
+  def defaultConfig = GlobalData.get.commonClockConfig
+
   /**
     * To use when you want to define a new ClockDomain that thank signals outside the toplevel.
     * (it create input clock, reset, clockenable in the toplevel)

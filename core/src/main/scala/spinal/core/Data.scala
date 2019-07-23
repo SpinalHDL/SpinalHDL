@@ -57,6 +57,10 @@ trait DataPrimitives[T <: Data]{
     ret
   }
 
+  def copyDirectionOf(that : T): Unit ={
+    _data.copyDirectionOfImpl(that)
+  }
+
   /** Auto connection between two data */
   def <>(that: T): Unit = _data autoConnect that
 
@@ -253,6 +257,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
     }else {
       dir = inout
+    }
+    this
+  }
+
+  def copyDirectionOfImpl(that : Data): this.type ={
+    if(this.component != Component.current) {
+      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
+    }else {
+      dir = that.dir
     }
     this
   }

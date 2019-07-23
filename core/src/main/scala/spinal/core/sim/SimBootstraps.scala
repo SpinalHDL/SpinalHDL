@@ -160,7 +160,8 @@ class SwapTagPhase(oldOne: SpinalTag, newOne: SpinalTag) extends PhaseNetlist {
 /**
   * Run simulation
   */
-class SimCompiled[T <: Component](backend: VerilatorBackend, dut: T){
+class SimCompiled[T <: Component](backend: VerilatorBackend,val report: SpinalReport[T]){
+  def dut = report.toplevel
 
   val testNameMap = mutable.HashMap[String, Int]()
 
@@ -399,7 +400,7 @@ case class SpinalSimConfig(
     val backend = SpinalVerilatorBackend(vConfig)
     val deltaTime = (System.nanoTime() - startAt)*1e-6
     println(f"[Progress] Verilator compilation done in $deltaTime%1.3f ms")
-    new SimCompiled(backend, report.toplevel)
+    new SimCompiled(backend, report)
   }
 }
 

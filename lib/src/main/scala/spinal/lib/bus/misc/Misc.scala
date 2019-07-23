@@ -83,7 +83,7 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   val end = base + size - 1
 
   override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
-    (address & S(-size, address.getWidth bits).asUInt) === (base)
+    (address & ~U(size-1, address.getWidth bits)) === (base)
   else
     address >= base && address < base + size
 

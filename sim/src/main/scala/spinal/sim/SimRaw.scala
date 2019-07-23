@@ -9,6 +9,8 @@ abstract class SimRaw(){
   def getBigInt(signal : Signal) : BigInt
   def setBigInt(signal : Signal, value : BigInt)
   def sleep(cycles : Long)
+  def enableWave()
+  def disableWave()
   def eval()
   def end()
   def isBufferedWrite : Boolean

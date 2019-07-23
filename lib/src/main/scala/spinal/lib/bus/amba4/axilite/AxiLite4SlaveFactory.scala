@@ -53,14 +53,14 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
     switch(readDataStage.addr) {
       for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
         is(address.asInstanceOf[SingleMapping].address) {
-          doMappedReadElements(jobs,writeJoinEvent.valid, readOccur, readRsp.data)
+          doMappedReadElements(jobs,readDataStage.valid, readOccur, readRsp.data)
         }
       }
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
       when(address.hit(readDataStage.addr)){
-        doMappedReadElements(jobs,writeJoinEvent.valid, readOccur, readRsp.data)
+        doMappedReadElements(jobs,readDataStage.valid, readOccur, readRsp.data)
       }
     }
   }

@@ -46,7 +46,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
 
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
-        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
         compile(c)
       }
     }

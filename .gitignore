@@ -23,6 +23,8 @@ project/plugins/project/
 .classpath
 .project
 .settings
+.bloop
+.metals
 
 .idea
 out
@@ -44,6 +46,9 @@ log.txt
 *.out
 *.o
 *.bin
+*.so
+*.vpi
+*.vpl
 
 /tester/**/*.gtkw
 *.do
