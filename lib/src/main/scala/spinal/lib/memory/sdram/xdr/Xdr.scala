@@ -5,13 +5,18 @@ import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.io.TriState
+import spinal.lib.memory.sdram.sdr.{SdramInterface, SdramLayout}
 
-case class MemoryLayout(bankWidth : Int,
-                        columnWidth : Int,
-                        rowWidth : Int,
-                        dataWidth : Int,
+case class PhyParameter(sdram : SdramLayout,
+                        phaseCount : Int,
+                        outputLatency : Int,
+                        inputLatency : Int,
                         withDqs : Boolean,
+                        withFaw : Boolean,
                         burstLength : Int){
+  import sdram._
+  def beatWidth = phaseCount * dataWidth
+  def beatCount = burstLength / phaseCount
   def wordWidth = dataWidth*burstLength
   def bytePerDq = dataWidth/8
   def bytePerWord = wordWidth/8
@@ -21,15 +26,6 @@ case class MemoryLayout(bankWidth : Int,
   def bankCount = 1 << bankWidth
   def capacity = BigInt(1) << byteAddressWidth
   def columnSize = 1 << columnWidth
-}
-
-
-case class PhyLayout(phaseCount : Int,
-                     outputLatency : Int,
-                     inputLatency : Int,
-                     ml : MemoryLayout){
-  def beatWidth = phaseCount * ml.dataWidth
-  def beatCount = ml.burstLength / phaseCount
 }
 case class Timing()
 case class Timings(      bootRefreshCount : Int, // Number of refresh command done in the boot sequence
@@ -49,56 +45,59 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //tFAW //Four ACTIVATE windows
 //RTP READ to PRE
 
+//RFC, RAS, RP, WR, RCD, WTR, CCD, RTP
+
+
 //TODO tFAW
 //TODO ctrl lock
 
-case class Ddr3(l : MemoryLayout) extends Bundle with IMasterSlave{
-  val ADDR  = Bits(l.chipAddressWidth bits)
-  val BA    = Bits(l.bankWidth bits)
-  val DQ    = TriState(Bits(l.dataWidth bits))
-  val DQS   = TriState(Bits(l.bytePerDq bits))
-  val DM    = Bits(l.bytePerDq bits)
-  val CASn  = Bool
-  val CKE   = Bool
-  val CSn   = Bool
-  val RASn  = Bool
-  val WEn   = Bool
-  val ODT   = Bool
-  val RESETn   = Bool
+//case class Ddr3(l : MemoryLayout) extends Bundle with IMasterSlave{
+//  val ADDR  = Bits(l.chipAddressWidth bits)
+//  val BA    = Bits(l.bankWidth bits)
+//  val DQ    = TriState(Bits(l.dataWidth bits))
+//  val DQS   = TriState(Bits(l.bytePerDq bits))
+//  val DM    = Bits(l.bytePerDq bits)
+//  val CASn  = Bool
+//  val CKE   = Bool
+//  val CSn   = Bool
+//  val RASn  = Bool
+//  val WEn   = Bool
+//  val ODT   = Bool
+//  val RESETn   = Bool
+//
+//  override def asMaster(): Unit = {
+//    out(ADDR,BA,CASn,CKE,CSn,DM,RASn,WEn,ODT,RESETn)
+//    master(DQ)
+//  }
+//}
+//
 
-  override def asMaster(): Unit = {
-    out(ADDR,BA,CASn,CKE,CSn,DM,RASn,WEn,ODT,RESETn)
-    master(DQ)
-  }
-}
+//case class Sdr(sl : Sdraplayout) extends Bundle with IMasterSlave{
+//  val ADDR  = Bits(pl.chipAddressWidth bits)
+//  val BA    = Bits(pl.bankWidth bits)
+//  val DQ    = TriState(Bits(pl.dataWidth bits))
+//  val DQM   = Bits(pl.bytePerWord bits)
+//  val CASn  = Bool
+//  val CKE   = Bool
+//  val CSn   = Bool
+//  val RASn  = Bool
+//  val WEn   = Bool
+//
+//  override def asMaster(): Unit = {
+//    out(ADDR,BA,CASn,CKE,CSn,DQM,RASn,WEn)
+//    master(DQ)
+//  }
+//}
 
-
-case class Sdr(ml : MemoryLayout) extends Bundle with IMasterSlave{
-  val ADDR  = Bits(ml.chipAddressWidth bits)
-  val BA    = Bits(ml.bankWidth bits)
-  val DQ    = TriState(Bits(ml.dataWidth bits))
-  val DQM   = Bits(ml.bytePerWord bits)
-  val CASn  = Bool
-  val CKE   = Bool
-  val CSn   = Bool
-  val RASn  = Bool
-  val WEn   = Bool
-
-  override def asMaster(): Unit = {
-    out(ADDR,BA,CASn,CKE,CSn,DQM,RASn,WEn)
-    master(DQ)
-  }
-}
-
-case class SdramXdrPhyCtrlPhase(pl : PhyLayout) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSlave{
   val CASn  = Bool()
   val CKE   = Bool()
   val CSn   = Bool()
   val RASn  = Bool()
   val WEn   = Bool()
 
-  val DM    = Bits(pl.ml.bytePerDq bits)
-  val DQw, DQr = Bits(pl.ml.dataWidth bits)
+  val DM    = Bits(pl.bytePerDq bits)
+  val DQw, DQr = Bits(pl.sdram.dataWidth bits)
 
   override def asMaster(): Unit = {
     out(CASn,CKE,CSn,DM,RASn,WEn)
@@ -107,12 +106,12 @@ case class SdramXdrPhyCtrlPhase(pl : PhyLayout) extends Bundle with IMasterSlave
   }
 }
 
-case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrl(pl : PhyParameter) extends Bundle with IMasterSlave{
   val phases = Vec(SdramXdrPhyCtrlPhase(pl), pl.phaseCount)
-  val ADDR  = Bits(pl.ml.chipAddressWidth bits)
-  val BA    = Bits(pl.ml.bankWidth bits)
+  val ADDR  = Bits(pl.chipAddressWidth bits)
+  val BA    = Bits(pl.sdram.bankWidth bits)
   val DQe = Bool()
-  val DQS = pl.ml.withDqs generate new Bundle {
+  val DQS = pl.withDqs generate new Bundle {
     val preamble = Bool()
     val active = Bool()
     val postamble = Bool()
@@ -120,11 +119,11 @@ case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   override def asMaster(): Unit = {
     phases.foreach(master(_))
     out(ADDR,BA,DQe)
-    if(pl.ml.withDqs) out(DQS)
+    if(pl.withDqs) out(DQS)
   }
 }
 
-abstract class Phy[T <: Data with IMasterSlave](val pl : PhyLayout) extends Component{
+abstract class Phy[T <: Data with IMasterSlave](val pl : PhyParameter) extends Component{
   def MemoryBus() : T
   def driveFrom(mapper : BusSlaveFactory) : Unit
 
@@ -136,18 +135,19 @@ abstract class Phy[T <: Data with IMasterSlave](val pl : PhyLayout) extends Comp
 
 
 object SdrInferedPhy{
-  def memoryLayoutToPhyLayout(ml : MemoryLayout) = PhyLayout(
+  def memoryLayoutToPhyLayout(sl : SdramLayout) = PhyParameter(
+    sdram = sl,
     phaseCount = 1,
     outputLatency = 1,
     inputLatency = 1,
-    ml = ml
+    withDqs = false,
+    withFaw = false,
+    burstLength = 1
   )
 }
 
-case class SdrInferedPhy(ml : MemoryLayout) extends Phy[Sdr](SdrInferedPhy.memoryLayoutToPhyLayout(ml)){
-  require(!ml.withDqs)
-
-  override def MemoryBus(): Sdr = Sdr(ml)
+case class SdrInferedPhy(sl : SdramLayout) extends Phy[SdramInterface](SdrInferedPhy.memoryLayoutToPhyLayout(sl)){
+  override def MemoryBus(): SdramInterface = SdramInterface(sl)
   override def driveFrom(mapper: BusSlaveFactory): Unit = {}
 
   io.memory.ADDR  := RegNext(io.ctrl.ADDR)
@@ -179,7 +179,7 @@ case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
 case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
   val write = Bool()
-  val address = UInt(ml.byteAddressWidth bits)
+  val address = UInt(pl.byteAddressWidth bits)
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
   val context = Bits(cpp.contextWidth bits)
@@ -189,10 +189,10 @@ case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val context = Bits(cpp.contextWidth bits)
 }
 
-case class SdramAddress(ml : MemoryLayout) extends Bundle {
-  val column = UInt(ml.columnWidth bits)
-  val bank   = UInt(ml.bankWidth bits)
-  val row    = UInt(ml.rowWidth bits)
+case class SdramAddress(l : SdramLayout) extends Bundle {
+  val column = UInt(l.columnWidth bits)
+  val bank   = UInt(l.bankWidth bits)
+  val row    = UInt(l.rowWidth bits)
 }
 
 case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
@@ -201,7 +201,8 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
-  val RFC, RAS, RP, WR, RCD, WTR, CCD, RTP = UInt(cp.timingWidth bits)
+  val RFC, RAS, RP, WR, RCD, WTR, CCD, RTP, RRD = UInt(cp.timingWidth bits)
+  val FAW = pl.withFaw generate UInt(cp.timingWidth bits)
   val REF = UInt(cp.refWidth bits)
 
   def driveFrom(mapper : BusSlaveFactory) = new Area {
@@ -217,6 +218,8 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
     mapper.drive(WTR, 0x24, 16)
     mapper.drive(CCD, 0x24, 24)
     mapper.drive(RTP, 0x28,  0)
+    mapper.drive(RRD, 0x28,  8)
+    if(pl.withFaw) mapper.drive(FAW, 0x2C,  0)
   }
 }
 
@@ -233,7 +236,7 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 
   val kind = FrontendCmdOutputKind()
   val all = Bool()
-  val address = SdramAddress(pl.ml)
+  val address = SdramAddress(pl.sdram)
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
   val source = UInt(log2Up(cpp.size) bits)
@@ -243,8 +246,8 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 
 
 case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
-  val ADDR  = Bits(cpa.ml.chipAddressWidth bits)
-  val BA    = Bits(cpa.ml.bankWidth bits)
+  val ADDR  = Bits(cpa.pl.chipAddressWidth bits)
+  val BA    = Bits(cpa.pl.sdram.bankWidth bits)
   val CASn  = Bool
   val CKE   = Bool
   val CSn   = Bool

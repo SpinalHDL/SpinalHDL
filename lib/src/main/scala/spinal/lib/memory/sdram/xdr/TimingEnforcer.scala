@@ -23,23 +23,32 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
 
   //Request to load timings counters
   val trigger = new Area{
-    val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP = False
+    val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP,RRD = False
+    val FAW = pl.withFaw generate False
   }
 
   //Banks timing counters
-  //TODO tRRD ?
   val timing = new Area {
-    val WTR = Timing(trigger.WTR, io.config.WTR)
-    val CCD = Timing(trigger.CCD, io.config.CCD)
-    val RFC = Timing(trigger.RFC, io.config.RFC)
-    val banks = for (bankId <- 0 until ml.bankCount) yield new Area {
+    val FAW = pl.withFaw generate new Area{
+      val ptr = RegInit(U"00")
+      val slots = (0 to 3).map(i => Timing(ptr === i && trigger.FAW, io.config.FAW))
+      val busy = slots.map(_.busy).read(ptr)
+      ptr := ptr + U(trigger.FAW)
+    }
+
+    val banks = for (bankId <- 0 until pl.bankCount) yield new Area {
       val hit = io.input.address.bank === bankId
-      val WR = Timing(hit && trigger.WR, io.config.WR)
+      val WR  = Timing(hit && trigger.WR, io.config.WR)
       val RAS = Timing(hit && trigger.RAS, io.config.RAS)
-      val RP = Timing(hit && trigger.RP, io.config.RP)
+      val RP  = Timing(hit && trigger.RP, io.config.RP)
       val RCD = Timing(hit && trigger.RCD, io.config.RCD)
       val RTP = Timing(hit && trigger.RTP, io.config.RTP)
     }
+
+    val WTR = Timing(trigger.WTR, io.config.WTR)
+    val CCD = Timing(trigger.CCD, io.config.CCD)
+    val RFC = Timing(trigger.RFC, io.config.RFC)
+    val RRD = Timing(trigger.RRD, io.config.RRD)
     val WR = banks.map(_.WR.busy).read(io.input.address.bank)
     val RAS = banks.map(_.RAS.busy).read(io.input.address.bank)
     val RP = banks.map(_.RP.busy).read(io.input.address.bank)
@@ -57,7 +66,8 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
       timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.RTP)
     }
     is(FrontendCmdOutputKind.ACTIVE) {
-      timingIssue.setWhen(timing.RP)
+      timingIssue.setWhen(timing.RP || timing.RRD.busy)
+      if(pl.withFaw) timingIssue.setWhen(timing.FAW.busy)
     }
     is(FrontendCmdOutputKind.PRECHARGE) {
       timingIssue.setWhen(timing.WR || timing.RAS)
@@ -81,6 +91,8 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
       is(FrontendCmdOutputKind.ACTIVE) {
         trigger.RAS := True
         trigger.RCD := True
+        trigger.RRD := True
+        if(pl.withFaw) trigger.FAW := True
       }
       is(FrontendCmdOutputKind.PRECHARGE) {
         trigger.RP := True

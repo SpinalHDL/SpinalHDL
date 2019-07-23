@@ -3,15 +3,14 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : Seq[CorePortParameter]){
-  def ml = pl.ml
+case class CoreParameterAggregate(cp : CoreParameter, pl : PhyParameter, cpp : Seq[CorePortParameter]){
   def backendContextWidth = cpp.map(_.contextWidth).max
   def portCount = cpp.size
 }
 
 case class Core(cpa : CoreParameterAggregate) extends Component {
   import cpa._
-  
+
   val io = new Bundle {
     val config = in(CoreConfig(cpa))
     val soft = slave(SoftBus(cpa))
@@ -39,22 +38,3 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
   (backend.io.outputs, io.ports).zipped.foreach(_ <> _.rsp)
 }
 
-object CoreMain extends App{
-  val ml = MemoryLayout(bankWidth = 2,
-                        columnWidth = 10,
-                        rowWidth = 13,
-                        dataWidth = 16,
-                        withDqs = false,
-                        burstLength = 1)
-  val pl = SdrInferedPhy.memoryLayoutToPhyLayout(ml)
-//  val cp = CoreParameter(
-//    pl = pl,
-//    portCount = 3,
-//    contextWidth = 6,
-//    timingWidth = 4,
-//    refWidth = 16,
-//    writeLatencies = List(0),
-//    readLatencies = List(2)
-//  )
-//  SpinalVerilog(Core(cp))
-}

@@ -55,7 +55,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     val histories = History(input, 0 to cp.writeLatencies.max)
     histories.tail.foreach(_.valid init(False))
 
-    if(ml.withDqs) ???
+    if(pl.withDqs) ???
     switch(io.config.writeLatency) {
       for (i <- 0 until cp.writeLatencies.size) {
         is(i){

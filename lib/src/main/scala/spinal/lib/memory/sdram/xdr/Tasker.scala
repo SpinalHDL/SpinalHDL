@@ -13,9 +13,9 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val output = master(Stream(Fragment(CoreTask(cpa))))
   }
 
-  val banks = for(bankId <- 0 until ml.bankCount) yield Reg(new Bundle {
+  val banks = for(bankId <- 0 until pl.bankCount) yield Reg(new Bundle {
     val active = Bool()
-    val row = UInt(ml.rowWidth bits)
+    val row = UInt(pl.sdram.rowWidth bits)
   })
   val banksActive = banks.map(_.active).orR
 
@@ -31,7 +31,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 //      val inputActive = RegNextWhen(s0.needActive, input.ready)
 //      val inputPrecharge = RegNextWhen(s0.needPrecharge, input.ready)
       def input = port
-      val address = port.address.as(SdramAddress(ml))
+      val address = port.address.as(SdramAddress(pl.sdram))
       val bank = banks.read(address.bank)
       val inputActive = !bank.active
       val inputPrecharge = bank.active && bank.row =/= address.row

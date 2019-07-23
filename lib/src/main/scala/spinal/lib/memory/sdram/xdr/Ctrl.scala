@@ -6,6 +6,7 @@ import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.memory.sdram.sdr.{MT48LC16M16A2, SdramLayout}
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
 import spinal.lib.sim.Phase
 
@@ -47,13 +48,11 @@ class Ctrl[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T
 
 
 object CtrlMain extends App{
-  val ml = MemoryLayout(
+  val sl = SdramLayout(
     bankWidth = 2,
     columnWidth = 10,
     rowWidth = 13,
-    dataWidth = 16,
-    withDqs = false,
-    burstLength = 1
+    dataWidth = 16
   )
   val cp = CtrlParameter(
     core = CoreParameter(
@@ -65,7 +64,7 @@ object CtrlMain extends App{
     ports = Seq(
       BmbPortParameter(
         bmb = BmbParameter(
-          addressWidth = ml.byteAddressWidth,
+          addressWidth = sl.byteAddressWidth,
           dataWidth = 16,
           lengthWidth = 4,
           sourceWidth = 3,
@@ -76,20 +75,13 @@ object CtrlMain extends App{
       )
     )
   )
-  SpinalVerilog(new Ctrl(cp, SdrInferedPhy(ml)))
+  SpinalVerilog(new Ctrl(cp, SdrInferedPhy(sl)))
 }
 
 
 object CtrlSdrTester extends App{
   import spinal.core.sim._
-  val ml = MemoryLayout(
-    bankWidth = 2,
-    columnWidth = 10,
-    rowWidth = 13,
-    dataWidth = 16,
-    withDqs = false,
-    burstLength = 1
-  )
+  val sl = MT48LC16M16A2.layout
   val cp = CtrlParameter(
     core = CoreParameter(
       timingWidth = 4,
@@ -100,7 +92,7 @@ object CtrlSdrTester extends App{
     ports = Seq(
       BmbPortParameter(
         bmb = BmbParameter(
-          addressWidth = ml.byteAddressWidth,
+          addressWidth = sl.byteAddressWidth,
           dataWidth = 16,
           lengthWidth = 4,
           sourceWidth = 3,
@@ -112,7 +104,7 @@ object CtrlSdrTester extends App{
     )
   )
 
-  SimConfig.withWave.compile(new Ctrl(cp, SdrInferedPhy(ml))).doSimUntilVoid("test", 42) { dut =>
+  SimConfig.withWave.compile(new Ctrl(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
     new BmbMemoryMultiPortTester(
       ports = dut.io.bmb.map(port =>
         BmbMemoryMultiPort(
@@ -123,7 +115,7 @@ object CtrlSdrTester extends App{
     )
 
     Phase.setup {
-//      SdramModel(dut.io.memory, dut.clockDomain)
+      SdramModel(dut.io.memory, sl, dut.clockDomain)
     }
 
     Phase.setup {

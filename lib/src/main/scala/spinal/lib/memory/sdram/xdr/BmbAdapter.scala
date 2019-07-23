@@ -5,8 +5,8 @@ import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAligner, BmbLengthFixer}
 
 object BmbAdapter{
-  def corePortParameter(pp : BmbPortParameter, pl : PhyLayout) = CorePortParameter(
-    contextWidth = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.ml.wordWidth/8)), log2Up(pl.ml.wordWidth/8)).contextWidth + pp.bmb.sourceWidth
+  def corePortParameter(pp : BmbPortParameter, pl : PhyParameter) = CorePortParameter(
+    contextWidth = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.wordWidth/8)), log2Up(pl.wordWidth/8)).contextWidth + pp.bmb.sourceWidth
   )
 }
 
@@ -19,14 +19,14 @@ case class BmbAdapter(pp : BmbPortParameter,
     val output = master(CorePort(BmbAdapter.corePortParameter(pp, cpa.pl), cpa))
   }
 
-  val aligner = BmbAligner(pp.bmb, log2Up(pl.ml.wordWidth/8))
+  val aligner = BmbAligner(pp.bmb, log2Up(pl.wordWidth/8))
   aligner.io.input << io.input
 
   val cmdBuffer = new StreamFifoLowLatency(aligner.io.output.cmd.payload, pp.cmdBufferSize, 0)
   val cmdHalt = if(pl.beatCount == 1) False else aligner.io.output.cmd.isWrite && cmdBuffer.io.occupancy < cpa.pl.beatCount
   cmdBuffer.io.push << aligner.io.output.cmd.haltWhen(cmdHalt)
 
-  val lengthFixer = BmbLengthFixer(cmdBuffer.io.pop.p, log2Up(pl.ml.wordWidth/8))
+  val lengthFixer = BmbLengthFixer(cmdBuffer.io.pop.p, log2Up(pl.wordWidth/8))
   lengthFixer.io.input.cmd << cmdBuffer.io.pop
   lengthFixer.io.input.rsp >> aligner.io.output.rsp
 
