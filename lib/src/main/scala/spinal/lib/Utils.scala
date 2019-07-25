@@ -751,7 +751,7 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
-    read(index) := data
+    apply(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
 
