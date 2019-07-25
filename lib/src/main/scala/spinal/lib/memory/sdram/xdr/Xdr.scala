@@ -223,7 +223,8 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   }
 }
 
-case class CoreParameter(timingWidth : Int,
+case class CoreParameter(portTocken : Int,
+                         timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
                          readLatencies : List[Int])

@@ -7,53 +7,91 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   import cpa._
 
   val io = new Bundle {
+    val config = in(CoreConfig(cpa))
     val backendFull = in Bool()
     val refresh = slave(Event)
     val inputs = Vec(cpp.map(cpp => slave(Stream(Fragment(CoreCmd(cpp, cpa))))))
-    val output = master(Stream(Fragment(CoreTask(cpa))))
+    val output = master(Flow(Fragment(CoreTask(cpa))))
   }
 
-  val banks = for(bankId <- 0 until pl.bankCount) yield Reg(new Bundle {
-    val active = Bool()
-    val row = UInt(pl.sdram.rowWidth bits)
-  })
+  //Request to load timings counters
+  val trigger = new Area{
+    val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP,RRD = False
+    val FAW = pl.withFaw generate False
+  }
+
+  val banks = for(bankId <- 0 until pl.bankCount) yield new Area {
+    val active = RegInit(False)
+    val row = Reg(UInt(pl.sdram.rowWidth bits))
+
+    val hit = io.output.address.bank === bankId
+    val WR  = Timing(hit && trigger.WR, io.config.WR)
+    val RAS = Timing(hit && trigger.RAS, io.config.RAS)
+    val RP  = Timing(hit && trigger.RP, io.config.RP)
+    val RCD = Timing(hit && trigger.RCD, io.config.RCD)
+    val RTP = Timing(hit && trigger.RTP, io.config.RTP)
+    val allowPrecharge = !WR.busy && !RAS.busy
+  }
   val banksActive = banks.map(_.active).orR
 
+  def Timing(loadValid : Bool, loadValue : UInt) = new Area{
+    val value = Reg(UInt(cp.timingWidth bits)) init(0)
+    val busy = value =/= 0
+    value := value - busy.asUInt
+    when(loadValid) { value := loadValue }
+  }
+
+
+
+
+
+
+  val CCD = Timing(trigger.CCD, io.config.CCD)
+  val RFC = Timing(trigger.RFC, io.config.RFC)
+  val RRD = Timing(trigger.RRD, io.config.RRD)
+  val WTR = Timing(trigger.WTR, io.config.WTR)
+  val FAW = pl.withFaw generate new Area{
+    val ptr = RegInit(U"00")
+    val slots = (0 to 3).map(i => Timing(ptr === i && trigger.FAW, io.config.FAW))
+    val busy = slots.map(_.busy).read(ptr)
+    ptr := ptr + U(trigger.FAW)
+  }
+
+
   val gates = for ((port, inputId) <- io.inputs.zipWithIndex) yield new Area {
-//    val s0 = new Area{
-//      val address = port.address.as(SdramAddress(ml))
-//      val bank = banks.read(address.bank)
-//      val needActive = !bank.active
-//      val needPrecharge = bank.active && bank.row =/= address.row
-//    }
-    val s1 = new Area{
-//      val input = port.stage()
-//      val inputActive = RegNextWhen(s0.needActive, input.ready)
-//      val inputPrecharge = RegNextWhen(s0.needPrecharge, input.ready)
-      def input = port
-      val address = port.address.as(SdramAddress(pl.sdram))
-      val bank = banks.read(address.bank)
-      val inputActive = !bank.active
-      val inputPrecharge = bank.active && bank.row =/= address.row
+    def input = port
+    val address = port.address.as(SdramAddress(pl.sdram))
+    val bankActive = banks.map(_.active).read(address.bank)
+    val bankRow = banks.map(_.row).read(address.bank)
+    val inputActive = !bankActive
+    val inputPrecharge = bankActive && bankRow =/= address.row
+    val inputWrite =  input.write && !inputActive && !inputPrecharge
+    val inputRead  = !input.write && !inputActive && !inputPrecharge
+    val inibated = False
 
-      val doActive = input.valid && inputActive
-      val doPrecharge = input.valid && inputPrecharge
-      val doWrite = input.valid && input.write && !doActive && !doPrecharge
-      val doRead = input.valid && !input.write && !doActive && !doPrecharge
-      val doLock = !input.first
+    val RP  = banks.map(_.RP .busy).read(address.bank)
+    val RCD = banks.map(_.RCD.busy).read(address.bank)
+    val RTP = banks.map(_.RTP.busy).read(address.bank)
+    val allowPrecharge = banks.map(_.allowPrecharge).read(address.bank)
 
-      val cmdOutputPayload = Fragment(CoreTask(cpa))
-      cmdOutputPayload.last := port.last
-      cmdOutputPayload.fragment.source := inputId
-      cmdOutputPayload.fragment.address := address
-      cmdOutputPayload.fragment.data := port.data
-      cmdOutputPayload.fragment.mask := port.mask
-      cmdOutputPayload.fragment.context := port.context
-      cmdOutputPayload.fragment.all := False
-      cmdOutputPayload.fragment.kind := (port.write ? FrontendCmdOutputKind.WRITE | FrontendCmdOutputKind.READ)
-      when(doActive){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.ACTIVE }
-      when(doPrecharge){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.PRECHARGE }
-    }
+    val doActive = inputActive && !RFC.busy && RP && !RRD.busy
+    val doPrecharge = inputPrecharge && allowPrecharge
+    val doWrite = inputWrite && !RCD && !CCD.busy && !RTP
+    val doRead = inputRead && !RCD && !CCD.busy && !WTR.busy
+
+    val doSomething = doActive || doPrecharge || doWrite || doRead
+
+    val cmdOutputPayload = Fragment(CoreTask(cpa))
+    cmdOutputPayload.last := port.last || inputActive || inputPrecharge
+    cmdOutputPayload.fragment.source := inputId
+    cmdOutputPayload.fragment.address := address
+    cmdOutputPayload.fragment.data := port.data
+    cmdOutputPayload.fragment.mask := port.mask
+    cmdOutputPayload.fragment.context := port.context
+    cmdOutputPayload.fragment.all := False
+    cmdOutputPayload.fragment.kind := (port.write ? FrontendCmdOutputKind.WRITE | FrontendCmdOutputKind.READ)
+    when(inputActive){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.ACTIVE }
+    when(inputPrecharge){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.PRECHARGE }
   }
 
   val arbiter = new Area{
@@ -61,65 +99,93 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val writeFirst = RegInit(False)
     def OhArbiter(that : Seq[Bool]) = OHMasking.roundRobin(that.asBits, arbiterState)
 
-    val ohPrecharge = OhArbiter(gates.map(_.s1.doPrecharge))
-    val ohActive = OhArbiter(gates.map(_.s1.doActive))
-    val ohWrite = OhArbiter(gates.map(_.s1.doWrite))
-    val ohRead = OhArbiter(gates.map(_.s1.doRead))
-    val ohLock = B(gates.map(_.s1.doLock))
-
-    val pendingPrecharge = gates.map(_.s1.doPrecharge).orR
-    val pendingActive = gates.map(_.s1.doActive).orR
-    val pendingWrite = gates.map(_.s1.doWrite).orR
-    val pendingRead = gates.map(_.s1.doRead).orR
-    val pendingLock = gates.map(_.s1.doLock).orR
-
-    def maskClear = B(0, cpp.size bits)
-    val maskedPrecharge = (!pendingLock && !pendingRead && !pendingWrite && !pendingActive) ? ohPrecharge | maskClear
-    val maskedActive = (!pendingLock && !pendingRead && !pendingWrite)  ? ohActive | maskClear
-    val maskedWrite = (!pendingLock && !(!writeFirst && pendingRead)) ? ohWrite | maskClear
-    val maskedRead = (!pendingLock && !(writeFirst && pendingWrite))? ohRead | maskClear
-    val maskedLock = ohLock
-
-    val masked = maskedPrecharge | maskedActive | maskedWrite | maskedRead | maskedLock
-    val doRefresh = io.refresh.valid && !pendingLock
-
-    when(io.output.fire && masked.orR){
-      arbiterState := masked
+    val masked = OhArbiter(gates.map(_.doSomething))
+    for((gate, gateId) <- gates.zipWithIndex){
+      val idxs = (gateId + 1 until gates.size) ++ (0 until gateId)
+      var watches = List[Bool]()
+      for(otherId <- idxs; other = gates(otherId)){
+        watches = arbiterState(otherId) :: watches
+        val bankMatch = other.address.bank === gate.address.bank
+        when(other.input.valid && watches.orR) {
+          when((gate.inputActive || gate.inputPrecharge) && bankMatch) {
+            gate.inibated := False
+          }
+          when(gate.inputWrite && other.inputRead || gate.inputRead && other.inputWrite){
+            gate.inibated := False
+          }
+        }
+      }
     }
 
-    writeFirst setWhen(!pendingRead) clearWhen(!pendingWrite)
+    val askRefresh = io.refresh.valid && io.output.first
+    val tocken = Reg(UInt(log2Up(cp.portTocken) bits)) init(0)
+    when(io.output.fire && io.output.last && (io.output.kind === FrontendCmdOutputKind.WRITE || io.output.kind === FrontendCmdOutputKind.READ)){
+      tocken := tocken + 1
+      when(tocken === cp.portTocken-1){
+        arbiterState := arbiterState.rotateRight(1)
+        if(!isPow2(cp.portTocken)) tocken := 0
+      }
+    }
 
-    io.output.valid :=  doRefresh || pendingPrecharge || pendingActive || (!io.backendFull && (pendingWrite || pendingRead))
-    io.output.payload := MuxOH(masked, gates.map(_.s1.cmdOutputPayload))
+
+    io.output.valid :=  masked.orR && !askRefresh
+    io.output.payload := MuxOH(masked, gates.map(_.cmdOutputPayload))
     for((gate, sel) <- (gates, masked.asBools).zipped){
-      gate.s1.input.ready := io.output.ready && sel && !io.backendFull
+      gate.input.ready := !askRefresh && sel && !io.backendFull
     }
 
     io.refresh.ready := False
-    when(doRefresh){
-      gates.foreach(_.s1.input.ready := False)
+    when(askRefresh){
+      gates.foreach(_.input.ready := False)
       when(banksActive){
         io.output.kind := FrontendCmdOutputKind.PRECHARGE
         io.output.all := True
+        io.output.last := True
+        when(banks.map(_.allowPrecharge).orR){
+          io.output.valid := True
+        }
       } otherwise {
         io.output.kind := FrontendCmdOutputKind.REFRESH
-        io.refresh.ready := io.output.ready
+        io.output.last := True
+        when(banks.map(_.RP.busy).orR){
+          io.output.valid := True
+          io.refresh.ready := True
+        }
       }
     }
   }
 
-  val outputBank = Vec(banks)(io.output.address.bank)
+
   when(io.output.fire){
-    outputBank.row := io.output.address.row
+    banks.map(_.row).write(io.output.address.bank, io.output.address.row)
     switch(io.output.kind) {
+      is(FrontendCmdOutputKind.READ) {
+        trigger.CCD := True
+        trigger.RTP := True
+      }
+      is(FrontendCmdOutputKind.WRITE) {
+        when(io.output.first) {
+          trigger.CCD := True
+          trigger.WTR := True
+          trigger.WR := True
+        }
+      }
       is(FrontendCmdOutputKind.ACTIVE) {
-        outputBank.active := True
+        banks.map(_.active).write(io.output.address.bank, True)
+        trigger.RAS := True
+        trigger.RCD := True
+        trigger.RRD := True
+        if(pl.withFaw) trigger.FAW := True
       }
       is(FrontendCmdOutputKind.PRECHARGE) {
-        outputBank.active := False
+        trigger.RP := True
+        banks.map(_.active).write(io.output.address.bank, False)
         when(io.output.all){
           banks.foreach(_.active := False)
         }
+      }
+      is(FrontendCmdOutputKind.REFRESH) {
+        trigger.RFC := True
       }
     }
   }

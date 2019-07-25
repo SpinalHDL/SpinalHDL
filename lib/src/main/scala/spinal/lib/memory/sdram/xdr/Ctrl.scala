@@ -56,6 +56,7 @@ object CtrlMain extends App{
   )
   val cp = CtrlParameter(
     core = CoreParameter(
+      portTocken = 4,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),
@@ -84,6 +85,7 @@ object CtrlSdrTester extends App{
   val sl = MT48LC16M16A2.layout
   val cp = CtrlParameter(
     core = CoreParameter(
+      portTocken = 4,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),

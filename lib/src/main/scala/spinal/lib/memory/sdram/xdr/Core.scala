@@ -22,16 +22,17 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
   refresher.io.config <> io.config
 
   val tasker = Tasker(cpa)
+  tasker.io.config <> io.config
   tasker.io.inputs <> Vec(io.ports.map(_.cmd))
   tasker.io.refresh <> refresher.io.refresh
 
-  val timingEnforcer = TimingEnforcer(cpa)
-  timingEnforcer.io.config <> io.config
-  timingEnforcer.io.input << tasker.io.output.stage()
+//  val timingEnforcer = TimingEnforcer(cpa)
+//  timingEnforcer.io.config <> io.config
+//  timingEnforcer.io.input << tasker.io.output.stage()
 
   val backend = Backend(cpa)
   backend.io.config <> io.config
-  backend.io.input << timingEnforcer.io.output.stage()
+  backend.io.input << tasker.io.output.stage()
   backend.io.phy <> io.phy
   backend.io.full <> tasker.io.backendFull
   backend.io.init <> io.soft
