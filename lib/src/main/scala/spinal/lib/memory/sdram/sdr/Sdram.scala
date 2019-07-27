@@ -15,6 +15,7 @@ case class SdramLayout( bankWidth : Int,
   def bankCount = 1 << bankWidth
   def capacity = BigInt(1) << byteAddressWidth
   def columnSize = 1 << columnWidth
+  def rowSize = 1 << rowWidth
 }
 
 case class SdramTimings(

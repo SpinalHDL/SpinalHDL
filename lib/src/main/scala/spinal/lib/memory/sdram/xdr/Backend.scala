@@ -13,7 +13,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     val phy = master(SdramXdrPhyCtrl(pl))
     val outputs = Vec(cpa.cpp.map(cpp => master(Stream(Fragment(CoreRsp(cpp, cpa))))))
     val full = out Bool()
-    val init = slave(SoftBus(cpa))
+    val soft = slave(SoftBus(cpa))
   }
 
 
@@ -85,12 +85,12 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
   val rspPipeline = new Area{
     val input = Flow(PipelineCmd())
 
-    val histories = History(input, 0 to cp.readLatencies.max + pl.outputLatency + pl.inputLatency - 1)
+    val histories = History(input, 0 to cp.readLatencies.max + pl.outputLatency + pl.inputLatency-1)
     histories.tail.foreach(_.valid init(False))
 
     val buffer = Reg(Flow(PipelineCmd()))
     val bufferCounter = Reg(UInt(log2Up(pl.beatCount) bits)) init(0)
-    val bufferLast = bufferCounter === pl.beatCount || buffer.write
+    val bufferLast = bufferCounter === pl.beatCount-1 || buffer.write
     bufferCounter := bufferCounter + U(buffer.valid).resized
     buffer.valid init(False)
     buffer.valid clearWhen(bufferLast)
@@ -98,7 +98,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     switch(io.config.readLatency) {
       for (i <- 0 until cp.readLatencies.size) {
         is(i){
-          val history = histories(cp.readLatencies(i))
+          val history = histories(cp.readLatencies(i) + pl.outputLatency + pl.inputLatency-1)
           when(history.valid){
             buffer.valid := True
             buffer.payload := history.payload
@@ -114,7 +114,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     output.source := buffer.source
     output.last := bufferLast
     for((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped){
-      outputData := phase.DQw
+      outputData := phase.DQr
     }
   }
 
@@ -191,13 +191,13 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
-  when(io.init.cmd.valid){
-    io.phy.ADDR := io.init.cmd.ADDR
-    io.phy.BA := io.init.cmd.BA
-    command.CASn := io.init.cmd.CASn
-    command.CKE := io.init.cmd.CKE
-    command.CSn := io.init.cmd.CSn
-    command.RASn := io.init.cmd.RASn
-    command.WEn := io.init.cmd.WEn
+  when(io.soft.cmd.valid){
+    io.phy.ADDR := io.soft.cmd.ADDR
+    io.phy.BA := io.soft.cmd.BA
+    command.CASn := io.soft.cmd.CASn
+    command.CKE := io.soft.cmd.CKE
+    command.CSn := io.soft.cmd.CSn
+    command.RASn := io.soft.cmd.RASn
+    command.WEn := io.soft.cmd.WEn
   }
 }

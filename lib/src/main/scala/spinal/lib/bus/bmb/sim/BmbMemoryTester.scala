@@ -65,7 +65,7 @@ case class BmbMemoryMultiPort(bmb : Bmb,
                               cd : ClockDomain)
 
 class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
-
+  def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
   val memory = new BmbMemoryAgent(BigInt(1) << ports.head.bmb.p.addressWidth)
   Phase.boot()
   Phase.setup {
@@ -73,6 +73,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
     val regions = BmbRegionAllocator()
 
     ports.map(_.cd).distinct.foreach(_.forkStimulus(10))
+    //ports.map(_.cd).distinct.foreach(cd => cd.forkStimulus(if(cd.frequency != null) HertzNumber(1e9) / cd.frequency.getValue))
 
     for(port <- ports) {
       import port._
@@ -93,7 +94,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
 
         override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
 
-        override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.addressWidth), sizeMax, busP)
+        override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(addressGen(bmb), sizeMax, busP)
 
         override def regionFree(region: SizeMapping): Unit = regions.free(region)
 

@@ -35,7 +35,7 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
   backend.io.input << tasker.io.output.stage()
   backend.io.phy <> io.phy
   backend.io.full <> tasker.io.backendFull
-  backend.io.init <> io.soft
+  backend.io.soft <> io.soft
   (backend.io.outputs, io.ports).zipped.foreach(_ <> _.rsp)
 }
 

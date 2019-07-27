@@ -46,7 +46,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
 
-  val CCD = Timing(trigger.CCD, io.config.CCD)
+  val CCD = Timing(trigger.CCD, pl.CCD-1)
   val RFC = Timing(trigger.RFC, io.config.RFC)
   val RRD = Timing(trigger.RRD, io.config.RRD)
   val WTR = Timing(trigger.WTR, io.config.WTR)
@@ -74,12 +74,12 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val RTP = banks.map(_.RTP.busy).read(address.bank)
     val allowPrecharge = banks.map(_.allowPrecharge).read(address.bank)
 
-    val doActive = inputActive && !RFC.busy && RP && !RRD.busy
+    val doActive = inputActive && !RFC.busy && !RP && !RRD.busy
     val doPrecharge = inputPrecharge && allowPrecharge
     val doWrite = inputWrite && !RCD && !CCD.busy && !RTP
     val doRead = inputRead && !RCD && !CCD.busy && !WTR.busy
 
-    val doSomething = doActive || doPrecharge || doWrite || doRead
+    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead)
 
     val cmdOutputPayload = Fragment(CoreTask(cpa))
     cmdOutputPayload.last := port.last || inputActive || inputPrecharge
@@ -96,7 +96,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
   val arbiter = new Area{
     val arbiterState = RegInit(B(1, cpp.size bits))
-    val writeFirst = RegInit(False)
     def OhArbiter(that : Seq[Bool]) = OHMasking.roundRobin(that.asBits, arbiterState)
 
     val masked = OhArbiter(gates.map(_.doSomething))
@@ -117,9 +116,16 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       }
     }
 
-    val askRefresh = io.refresh.valid && io.output.first
+    val locks = gates.map(!_.input.first)
+    when(locks.orR){
+      masked := B(locks)
+    }
+
+
+
+    val askRefresh = io.refresh.valid && !locks.orR
     val tocken = Reg(UInt(log2Up(cp.portTocken) bits)) init(0)
-    when(io.output.fire && io.output.last && (io.output.kind === FrontendCmdOutputKind.WRITE || io.output.kind === FrontendCmdOutputKind.READ)){
+    when(masked === arbiterState && !askRefresh && !io.backendFull && (io.output.kind === FrontendCmdOutputKind.WRITE || io.output.kind === FrontendCmdOutputKind.READ)){
       tocken := tocken + 1
       when(tocken === cp.portTocken-1){
         arbiterState := arbiterState.rotateRight(1)
@@ -128,10 +134,10 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
 
 
-    io.output.valid :=  masked.orR && !askRefresh
+    io.output.valid :=  masked.orR && !askRefresh && !io.backendFull
     io.output.payload := MuxOH(masked, gates.map(_.cmdOutputPayload))
     for((gate, sel) <- (gates, masked.asBools).zipped){
-      gate.input.ready := !askRefresh && sel && !io.backendFull
+      gate.input.ready := sel && !askRefresh && !io.backendFull && !gate.inputPrecharge && !gate.inputActive
     }
 
     io.refresh.ready := False
@@ -147,14 +153,13 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       } otherwise {
         io.output.kind := FrontendCmdOutputKind.REFRESH
         io.output.last := True
-        when(banks.map(_.RP.busy).orR){
+        when(!banks.map(_.RP.busy).orR){
           io.output.valid := True
           io.refresh.ready := True
         }
       }
     }
   }
-
 
   when(io.output.fire){
     banks.map(_.row).write(io.output.address.bank, io.output.address.row)

@@ -13,7 +13,8 @@ case class PhyParameter(sdram : SdramLayout,
                         inputLatency : Int,
                         withDqs : Boolean,
                         withFaw : Boolean,
-                        burstLength : Int){
+                        burstLength : Int,
+                        CCD : Int){
   import sdram._
   def beatWidth = phaseCount * dataWidth
   def beatCount = burstLength / phaseCount
@@ -142,7 +143,8 @@ object SdrInferedPhy{
     inputLatency = 1,
     withDqs = false,
     withFaw = false,
-    burstLength = 1
+    burstLength = 1,
+    CCD = 1
   )
 }
 
@@ -160,7 +162,7 @@ case class SdrInferedPhy(sl : SdramLayout) extends Phy[SdramInterface](SdrInfere
   io.memory.WEn   := RegNext(io.ctrl.phases(0).WEn )
 
   io.memory.DQ.writeEnable  := RegNext(io.ctrl.DQe)
-  io.memory.DQ.write        := RegNext(io.ctrl.phases(0).DQw )
+  io.memory.DQ.write        := RegNext(io.ctrl.phases(0).DQw)
   io.ctrl.phases(0).DQr     := RegNext(io.memory.DQ.read )
 }
 
@@ -190,10 +192,47 @@ case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
 }
 
 case class SdramAddress(l : SdramLayout) extends Bundle {
+  val byte   = UInt(log2Up(l.bytePerWord) bits)
   val column = UInt(l.columnWidth bits)
   val bank   = UInt(l.bankWidth bits)
   val row    = UInt(l.rowWidth bits)
 }
+                          //max(Time, cycle)
+case class SdramTiming(RFC : (TimeNumber, Int), // Command Period (REF to ACT)
+                       RAS : (TimeNumber, Int), // Command Period (ACT to PRE)   Per bank
+                       RP  : (TimeNumber, Int), // Command Period (PRE to ACT)
+                       WR  : (TimeNumber, Int), // WRITE recovery time
+                       RCD : (TimeNumber, Int), // Active Command To Read / Write Command Delay Time
+                       WTR : (TimeNumber, Int), // WRITE to READ
+                       RTP : (TimeNumber, Int), // READ to PRE
+                       RRD : (TimeNumber, Int), // ACT to ACT cross bank
+                       REF : (TimeNumber, Int)) // Refresh Cycle Time (that cover all row)
+
+object SoftConfig{
+  def apply(timing : SdramTiming, frequancy : HertzNumber, cpa : CoreParameterAggregate): SoftConfig = {
+    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, spec._2)-1)
+    SoftConfig(
+      RFC = timing.RFC,
+      RAS = timing.RAS,
+      RP  = timing.RP ,
+      WR  = timing.WR ,
+      RCD = timing.RCD,
+      WTR = timing.WTR,
+      RTP = timing.RTP,
+      RRD = timing.RRD,
+      REF = timing.REF / cpa.pl.sdram.rowSize
+    )
+  }
+}
+case class SoftConfig(RFC: Int,
+                      RAS: Int,
+                      RP: Int,
+                      WR: Int,
+                      RCD: Int,
+                      WTR: Int,
+                      RTP: Int,
+                      RRD: Int,
+                      REF : Int)
 
 case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
@@ -201,24 +240,29 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
-  val RFC, RAS, RP, WR, RCD, WTR, CCD, RTP, RRD = UInt(cp.timingWidth bits)
+  val RFC, RAS, RP, WR, RCD, WTR, RTP, RRD = UInt(cp.timingWidth bits)
   val FAW = pl.withFaw generate UInt(cp.timingWidth bits)
   val REF = UInt(cp.refWidth bits)
+  val autoRefresh = Bool()
 
   def driveFrom(mapper : BusSlaveFactory) = new Area {
     mapper.drive(commandPhase, 0x00, 0)
     mapper.drive(writeLatency, 0x00, 16)
     mapper.drive(readLatency,  0x00, 24)
+    mapper.drive(autoRefresh,  0x04,  0) init(False)
+
     mapper.drive(REF, 0x10,  0)
+
+    mapper.drive(WR , 0x20,  0)
     mapper.drive(RFC, 0x20,  8)
     mapper.drive(RAS, 0x20, 16)
     mapper.drive(RP , 0x20, 24)
-    mapper.drive(WR , 0x20,  0)
+
+    mapper.drive(RRD, 0x28,  0)
     mapper.drive(RCD, 0x24,  8)
     mapper.drive(WTR, 0x24, 16)
-    mapper.drive(CCD, 0x24, 24)
-    mapper.drive(RTP, 0x28,  0)
-    mapper.drive(RRD, 0x28,  8)
+    mapper.drive(RTP, 0x24, 24)
+
     if(pl.withFaw) mapper.drive(FAW, 0x2C,  0)
   }
 }
@@ -306,9 +350,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.context := B(cmdContext)
 
 
-  val rspContext = Context()
-  rspContext.input := io.input.cmd.context
-  rspContext.source := io.input.cmd.source
+  val rspContext =io.output.rsp.context.as(Context())
 
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
