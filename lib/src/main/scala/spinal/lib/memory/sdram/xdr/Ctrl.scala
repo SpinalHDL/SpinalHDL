@@ -97,7 +97,7 @@ object CtrlSdrTester extends App{
   val sl = MT48LC16M16A2.layout
   val cp = CtrlParameter(
     core = CoreParameter(
-      portTocken = 4,
+      portTocken = 256,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),
@@ -108,12 +108,36 @@ object CtrlSdrTester extends App{
         bmb = BmbParameter(
           addressWidth = sl.byteAddressWidth,
           dataWidth = 16,
-          lengthWidth = 4,
+          lengthWidth = 3,
           sourceWidth = 3,
           contextWidth = 8
         ),
         cmdBufferSize = 4,
         rspBufferSize = 4
+      ),
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = sl.byteAddressWidth,
+          dataWidth = 16,
+          lengthWidth = 4,
+          sourceWidth = 5,
+          contextWidth = 12
+        ),
+        cmdBufferSize = 2,
+        rspBufferSize = 5
+      ),
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = sl.byteAddressWidth,
+          dataWidth = 16,
+          lengthWidth = 5,
+          sourceWidth = 6,
+          contextWidth = 16
+        ),
+        cmdBufferSize = 8,
+        rspBufferSize = 2
       )
     )
   )
@@ -128,6 +152,8 @@ object CtrlSdrTester extends App{
       )
     ){
       override def addressGen(bmb: Bmb): Int = Random.nextInt(1 << (2 + sl.bankWidth + sl.columnWidth + log2Up(sl.bytePerWord)))
+
+      override def transactionCountTarget: Int = 100
     }
 
     Phase.setup {
@@ -172,6 +198,9 @@ object CtrlSdrTester extends App{
       apb.write(0x04, 1)
 
       dut.clockDomain.waitSampling(10000)
+    }
+    Phase.flush{
+      println(simTime())
     }
   }
 }

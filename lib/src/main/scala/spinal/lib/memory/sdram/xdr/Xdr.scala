@@ -185,6 +185,7 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
   val context = Bits(cpp.contextWidth bits)
+//  val burstLast = Bool()
 }
 case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   val data = Bits(cpa.pl.beatWidth bits)

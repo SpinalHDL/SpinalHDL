@@ -127,7 +127,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     output.valid := rspPop.valid && hit
     output.last := rspPop.last
     output.data := rspPop.data
-    output.context := rspPop.context
+    output.context := rspPop.context.resized
   }
   rspPop.ready := io.outputs(rspPop.source).ready
 

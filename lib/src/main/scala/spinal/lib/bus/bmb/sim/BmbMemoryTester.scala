@@ -66,6 +66,8 @@ case class BmbMemoryMultiPort(bmb : Bmb,
 
 class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
   def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
+  def transactionCountTarget = 30000
+
   val memory = new BmbMemoryAgent(BigInt(1) << ports.head.bmb.p.addressWidth)
   Phase.boot()
   Phase.setup {
@@ -114,7 +116,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
       }
 
       //Retain the stimulus phase until at least 30000 transaction are completed
-      val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(30000))
+      val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(transactionCountTarget))
       masterAgent.rspMonitor.addCallback { payload =>
         if (payload.last.toBoolean) {
           retainers(payload.fragment.source.toInt).release()

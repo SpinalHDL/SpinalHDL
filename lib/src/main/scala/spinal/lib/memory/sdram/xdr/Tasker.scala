@@ -87,7 +87,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     cmdOutputPayload.fragment.address := address
     cmdOutputPayload.fragment.data := port.data
     cmdOutputPayload.fragment.mask := port.mask
-    cmdOutputPayload.fragment.context := port.context
+    cmdOutputPayload.fragment.context := port.context.resized
     cmdOutputPayload.fragment.all := False
     cmdOutputPayload.fragment.kind := (port.write ? FrontendCmdOutputKind.WRITE | FrontendCmdOutputKind.READ)
     when(inputActive){ cmdOutputPayload.fragment.kind := FrontendCmdOutputKind.ACTIVE }
@@ -107,10 +107,10 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
         val bankMatch = other.address.bank === gate.address.bank
         when(other.input.valid && watches.orR) {
           when((gate.inputActive || gate.inputPrecharge) && bankMatch) {
-            gate.inibated := False
+            gate.inibated := True
           }
           when(gate.inputWrite && other.inputRead || gate.inputRead && other.inputWrite){
-            gate.inibated := False
+            gate.inibated := True
           }
         }
       }
