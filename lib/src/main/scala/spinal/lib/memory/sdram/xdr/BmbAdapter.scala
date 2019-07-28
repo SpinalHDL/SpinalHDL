@@ -31,6 +31,7 @@ case class BmbAdapter(pp : BmbPortParameter,
   lengthFixer.io.input.rsp >> aligner.io.output.rsp
 
   val converter = BmbToCorePort(lengthFixer.io.output.p, io.output.cpp, cpa)
+  converter.io.inputBurstLast := lengthFixer.io.outputBurstLast
   converter.io.input.cmd << lengthFixer.io.output.cmd
   converter.io.input.rsp >> lengthFixer.io.output.rsp
 

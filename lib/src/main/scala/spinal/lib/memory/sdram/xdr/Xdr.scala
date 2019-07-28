@@ -185,7 +185,7 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
   val context = Bits(cpp.contextWidth bits)
-//  val burstLast = Bool()
+  val burstLast = Bool()
 }
 case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   val data = Bits(cpa.pl.beatWidth bits)
@@ -259,7 +259,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
     mapper.drive(RAS, 0x20, 16)
     mapper.drive(RP , 0x20, 24)
 
-    mapper.drive(RRD, 0x28,  0)
+    mapper.drive(RRD, 0x24,  0)
     mapper.drive(RCD, 0x24,  8)
     mapper.drive(WTR, 0x24, 16)
     mapper.drive(RTP, 0x24, 24)
@@ -268,7 +268,9 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   }
 }
 
-case class CoreParameter(portTocken : Int,
+case class CoreParameter(portTockenMin : Int,
+                         portTockenMax : Int,
+                         rspFifoSize : Int,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
@@ -329,6 +331,7 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
 case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
+    val inputBurstLast = in Bool()
     val output = master(CorePort(cpp, cpa))
   }
 
@@ -349,6 +352,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.data := io.input.cmd.data
   io.output.cmd.mask := io.input.cmd.mask
   io.output.cmd.context := B(cmdContext)
+  io.output.cmd.burstLast := io.inputBurstLast
 
 
   val rspContext =io.output.rsp.context.as(Context())

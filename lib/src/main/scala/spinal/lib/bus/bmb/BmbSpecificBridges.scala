@@ -123,6 +123,7 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val output = master(Bmb(op))
+    val outputBurstLast = out Bool()
   }
 
   val beatCount = (1 << fixedWidth) / ip.byteCount
@@ -156,6 +157,7 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     io.output.cmd.length := (1 << fixedWidth) - 1
     io.output.cmd.data := io.input.cmd.data
     io.output.cmd.mask := io.input.cmd.mask
+    io.outputBurstLast := context.last
     io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
 
     when(io.output.cmd.fire){

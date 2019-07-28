@@ -43,9 +43,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
 
-
-
-
   val CCD = Timing(trigger.CCD, pl.CCD-1)
   val RFC = Timing(trigger.RFC, io.config.RFC)
   val RRD = Timing(trigger.RRD, io.config.RRD)
@@ -99,6 +96,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     def OhArbiter(that : Seq[Bool]) = OHMasking.roundRobin(that.asBits, arbiterState)
 
     val masked = OhArbiter(gates.map(_.doSomething))
+    val maskedInibate = False
+
     for((gate, gateId) <- gates.zipWithIndex){
       val idxs = (gateId + 1 until gates.size) ++ (0 until gateId)
       var watches = List[Bool]()
@@ -124,25 +123,27 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
     val askRefresh = io.refresh.valid && !locks.orR
-    val tocken = Reg(UInt(log2Up(cp.portTocken) bits)) init(0)
-    when(masked === arbiterState && !askRefresh && !io.backendFull && (io.output.kind === FrontendCmdOutputKind.WRITE || io.output.kind === FrontendCmdOutputKind.READ)){
+    maskedInibate setWhen(askRefresh || io.backendFull)
+
+    val tockenIncrement = !maskedInibate && (masked & arbiterState & gates.map(g => !g.inputPrecharge && !g.inputActive && g.input.last).asBits).orR
+    val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
+    when(tockenIncrement){
       tocken := tocken + 1
-      when(tocken === cp.portTocken-1){
-        arbiterState := arbiterState.rotateRight(1)
-        if(!isPow2(cp.portTocken)) tocken := 0
-      }
     }
 
+    when(!(gates.map(_.input.valid).asBits & arbiterState).orR || tockenIncrement && ((gates.map(_.input.burstLast).asBits & arbiterState).orR && tocken >= cp.portTockenMin || tocken === cp.portTockenMax-1)){
+      arbiterState := arbiterState.rotateLeft(1)
+      tocken := 0
+    }
 
-    io.output.valid :=  masked.orR && !askRefresh && !io.backendFull
+    io.output.valid :=  masked.orR && !maskedInibate
     io.output.payload := MuxOH(masked, gates.map(_.cmdOutputPayload))
     for((gate, sel) <- (gates, masked.asBools).zipped){
-      gate.input.ready := sel && !askRefresh && !io.backendFull && !gate.inputPrecharge && !gate.inputActive
+      gate.input.ready := sel && !maskedInibate && !gate.inputPrecharge && !gate.inputActive
     }
 
     io.refresh.ready := False
     when(askRefresh){
-      gates.foreach(_.input.ready := False)
       when(banksActive){
         io.output.kind := FrontendCmdOutputKind.PRECHARGE
         io.output.all := True

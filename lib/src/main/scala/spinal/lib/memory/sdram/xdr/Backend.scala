@@ -118,9 +118,10 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
-  val rspBuffer = StreamFifoLowLatency(Fragment(PipelineRsp()), 1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 1)
+  val rspBufferMinSize = 1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 1 + 1
+  val rspBuffer = StreamFifoLowLatency(Fragment(PipelineRsp()), 1 << log2Up(rspBufferMinSize + cp.rspFifoSize))
   rspBuffer.io.push << rspPipeline.output.toStream
-  io.full := !rspBuffer.empty.pull()
+  io.full := RegNext(rspBuffer.io.occupancy >= rspBuffer.depth - rspBufferMinSize)
   val rspPop = rspBuffer.io.pop.stage()
   for((output, outputId) <- io.outputs.zipWithIndex){
     val hit = rspPop.source === outputId

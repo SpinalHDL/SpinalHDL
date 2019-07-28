@@ -58,7 +58,9 @@ object CtrlMain extends App{
   )
   val cp = CtrlParameter(
     core = CoreParameter(
-      portTocken = 4,
+      portTockenMin = 4,
+      portTockenMax = 8,
+      rspFifoSize = 4,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),
@@ -97,7 +99,9 @@ object CtrlSdrTester extends App{
   val sl = MT48LC16M16A2.layout
   val cp = CtrlParameter(
     core = CoreParameter(
-      portTocken = 256,
+      portTockenMin = 4,
+      portTockenMax = 8,
+      rspFifoSize = 4,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),
@@ -142,7 +146,7 @@ object CtrlSdrTester extends App{
     )
   )
 
-  SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new Ctrl(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
+  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new Ctrl(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
     val tester = new BmbMemoryMultiPortTester(
       ports = dut.io.bmb.map(port =>
         BmbMemoryMultiPort(
