@@ -61,10 +61,10 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
         is(i){
           when(histories(cp.writeLatencies(i)).valid){
             io.phy.DQe := True
-            for((phase, dq, dm) <- (io.phy.phases, histories(i).data.subdivideIn(pl.phaseCount slices), histories(i).mask.subdivideIn(pl.phaseCount slices)).zipped){
-              phase.DQw := dq
-              phase.DM := ~dm
-            }
+          }
+          for((phase, dq, dm) <- (io.phy.phases, histories(i).data.subdivideIn(pl.phaseCount slices), histories(i).mask.subdivideIn(pl.phaseCount slices)).zipped){
+            phase.DQw := dq
+            phase.DM := ~dm
           }
         }
       }
@@ -135,7 +135,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
 
   writePipeline.input.valid := io.input.valid && io.input.kind === FrontendCmdOutputKind.WRITE
   writePipeline.input.data := io.input.data
-  writePipeline.input.mask := io.input.mask
+  writePipeline.input.mask := 0
 
   rspPipeline.input.valid := False
   rspPipeline.input.context := io.input.context
@@ -172,6 +172,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
           io.phy.ADDR := io.input.address.column.asBits.resized
           io.phy.ADDR(10) := False
           io.phy.BA := io.input.address.bank.asBits
+          writePipeline.input.mask := io.input.mask
           command.CSn := False
           command.RASn := True
           command.CASn := False
@@ -182,6 +183,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
           io.phy.ADDR := io.input.address.column.asBits.resized
           io.phy.ADDR(10) := False
           io.phy.BA := io.input.address.bank.asBits
+          writePipeline.input.mask.setAll()
           command.CSn := False
           command.RASn := True
           command.CASn := False

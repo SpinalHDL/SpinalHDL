@@ -26,6 +26,7 @@ object AlteraStdTargets {
             toplevelPath = rtl.getRtlPath(),
             family = getFamilyName(),
             device = "5CSEMA5F31C6"
+//            device = "5CEFA7F31C6"
           )
         }
       }

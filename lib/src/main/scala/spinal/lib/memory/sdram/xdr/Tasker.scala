@@ -16,7 +16,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
   //Request to load timings counters
   val trigger = new Area{
-    val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP,RRD = False
+    val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP,RRD,RTW = False
     val FAW = pl.withFaw generate False
   }
 
@@ -30,7 +30,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val RP  = Timing(hit && trigger.RP, io.config.RP)
     val RCD = Timing(hit && trigger.RCD, io.config.RCD)
     val RTP = Timing(hit && trigger.RTP, io.config.RTP)
-    val allowPrecharge = !WR.busy && !RAS.busy
+    val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
   }
   val banksActive = banks.map(_.active).orR
 
@@ -47,6 +47,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   val RFC = Timing(trigger.RFC, io.config.RFC)
   val RRD = Timing(trigger.RRD, io.config.RRD)
   val WTR = Timing(trigger.WTR, io.config.WTR)
+  val RTW = Timing(trigger.RTW, io.config.RTW)
   val FAW = pl.withFaw generate new Area{
     val ptr = RegInit(U"00")
     val slots = (0 to 3).map(i => Timing(ptr === i && trigger.FAW, io.config.FAW))
@@ -68,12 +69,11 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
     val RP  = banks.map(_.RP .busy).read(address.bank)
     val RCD = banks.map(_.RCD.busy).read(address.bank)
-    val RTP = banks.map(_.RTP.busy).read(address.bank)
     val allowPrecharge = banks.map(_.allowPrecharge).read(address.bank)
 
     val doActive = inputActive && !RFC.busy && !RP && !RRD.busy
     val doPrecharge = inputPrecharge && allowPrecharge
-    val doWrite = inputWrite && !RCD && !CCD.busy && !RTP
+    val doWrite = inputWrite && !RCD && !CCD.busy && !RTW.busy
     val doRead = inputRead && !RCD && !CCD.busy && !WTR.busy
 
     val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead)
@@ -168,6 +168,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       is(FrontendCmdOutputKind.READ) {
         trigger.CCD := True
         trigger.RTP := True
+        trigger.RTW := True
       }
       is(FrontendCmdOutputKind.WRITE) {
         when(io.output.first) {

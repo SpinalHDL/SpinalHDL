@@ -241,7 +241,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
-  val RFC, RAS, RP, WR, RCD, WTR, RTP, RRD = UInt(cp.timingWidth bits)
+  val RFC, RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(cp.timingWidth bits)
   val FAW = pl.withFaw generate UInt(cp.timingWidth bits)
   val REF = UInt(cp.refWidth bits)
   val autoRefresh = Bool()
@@ -254,15 +254,19 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 
     mapper.drive(REF, 0x10,  0)
 
-    mapper.drive(WR , 0x20,  0)
-    mapper.drive(RFC, 0x20,  8)
-    mapper.drive(RAS, 0x20, 16)
-    mapper.drive(RP , 0x20, 24)
+    mapper.drive(RAS, 0x20,  0)
+    mapper.drive(RP , 0x20,  8)
+    mapper.drive(RFC, 0x20, 16)
+    mapper.drive(RRD, 0x20, 24)
 
-    mapper.drive(RRD, 0x24,  0)
-    mapper.drive(RCD, 0x24,  8)
-    mapper.drive(WTR, 0x24, 16)
-    mapper.drive(RTP, 0x24, 24)
+    mapper.drive(RCD, 0x24,  0)
+
+    mapper.drive(RTW, 0x28,  0)
+    mapper.drive(RTP, 0x28,  8)
+    mapper.drive(WTR, 0x28, 16)
+    mapper.drive(WR , 0x28, 24)
+
+
 
     if(pl.withFaw) mapper.drive(FAW, 0x2C,  0)
   }

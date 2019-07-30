@@ -169,11 +169,16 @@ object CtrlSdrTester extends App{
 
     Phase.setup {
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
+      apb.verbose = true
+
+      val CAS = 2
 
       val soft = SoftConfig(timing, dut.clockDomain.frequency.getValue, dut.cpa)
       apb.write(0x10, soft.REF)
-      apb.write(0x20, (soft.RP << 24) | (soft.RAS << 16) | (soft.RFC << 8) | (soft.WR << 0))
-      apb.write(0x24, (soft.RTP << 24) | (soft.WTR << 16) | (soft.RCD << 8) | (soft.RRD << 0))
+
+      apb.write(0x20, (soft.RRD << 24) | (soft.RFC << 16) | (soft.RP << 8)  | (soft.RAS << 0))
+      apb.write(0x24,                                                         (soft.RCD << 0))
+      apb.write(0x28, (soft.WR << 24)  | (soft.WTR << 16) | (soft.RTP << 8) | (CAS+2 << 0))
 
       sleep(100000)
       val CKE = 1 << 0
@@ -194,8 +199,8 @@ object CtrlSdrTester extends App{
         dut.clockDomain.waitSampling(10)
       }
 
-      val CAS = 2
-      command(PRE, 0, 0)
+
+      command(PRE, 0, 0x400)
       command(REF, 0, 0)
       command(REF, 0, 0)
       command(MOD, 0, 0x000 | (CAS << 4))
@@ -208,3 +213,22 @@ object CtrlSdrTester extends App{
     }
   }
 }
+
+
+case class mt48lc16m16a2_model() extends BlackBox{
+  setDefinitionName("mt48lc16m16a2")
+  val Addr = in Bits(13 bits)
+  val Ba = in Bits(2 bits)
+  val Clk = in Bool()
+  val Cke = in Bool()
+  val Cs_n = in Bool()
+  val Ras_n = in Bool()
+  val Cas_n = in Bool()
+  val We_n = in Bool()
+  val Dqm = in Bits(2 bits)
+  val Dq = inout(Analog(Bits(16 bits)))
+}
+
+
+
+
