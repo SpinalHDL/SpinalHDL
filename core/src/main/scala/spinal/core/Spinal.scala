@@ -279,6 +279,11 @@ class SpinalReport[T <: Component]() {
     if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
 
   }
+
+  def getRtlString(): String = {
+    assert(generatedSourcesPaths.size == 1)
+    scala.io.Source.fromFile(generatedSourcesPaths.head).mkString
+  }
 }
 
 
