@@ -81,4 +81,10 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
       this.PSLVERROR := (if (sink.PSLVERROR != null) sink.PSLVERROR else False)
     }
   }
+  
+  def crossClockDomainToggle(inClk: ClockDomain, outClk: ClockDomain): Apb3 = {
+    val cc = new Apb3CCToggle(this.config, inClk, outClk)
+    cc.io.input <> this
+    return cc.io.output
+  }
 }
