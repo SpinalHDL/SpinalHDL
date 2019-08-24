@@ -222,6 +222,23 @@ object ClockDomain {
 
 
 
+case class ClockSyncTag(a : Bool, b : Bool) extends SpinalTag{
+  override def canSymplifyHost: Boolean = false
+}
+case class ClockDrivedTag(driver : Bool) extends SpinalTag{
+  override def canSymplifyHost: Boolean = false
+}
+case class ClockDriverTag(drived : Bool) extends SpinalTag{
+  override def canSymplifyHost: Boolean = false
+}
+
+object Clock{
+  def syncDrive(source : Bool, sink : Bool): Unit ={
+    source.addTag(ClockDriverTag(sink))
+    sink.addTag(ClockDrivedTag(source))
+  }
+}
+
 /**
   * clock and reset signals can be combined to create a clock domain.
   * Clock domains could be applied to some area of the design and then all synchronous elements instantiated into this
@@ -281,22 +298,11 @@ case class ClockDomain(clock       : Bool,
   def readSoftResetWire   = if (null == softReset) Bool(config.softResetActiveLevel == LOW)      else Data.doPull(softReset, Component.current, useCache = true, propagateName = true)
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, useCache = true, propagateName = true)
 
-  val synchronizedWith = ArrayBuffer[ClockDomain]()
-
-  def isSynchronousWith(that: ClockDomain): Boolean = {
-    if (this == that) return true
-    if (this.clock == that.clock) return true
-    if (synchronizedWith.contains(that)) return true
-    return false
-  }
-
   def setSynchronousWith(that: ClockDomain) : Unit = {
-    this.synchronizedWith += that
-    that.synchronizedWith += this
+    val tag = new ClockSyncTag(this.clock, that.clock)
+    this.clock.addTag(tag)
+    that.clock.addTag(tag)
   }
-
-  @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
-  def isSyncronousWith(that: ClockDomain): Boolean = isSynchronousWith(that)
 
   @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
   def setSyncronousWith(that: ClockDomain) = setSynchronousWith(that)
@@ -307,6 +313,8 @@ case class ClockDomain(clock       : Bool,
     pop()
     ret
   }
+
+  def on [T](block : => T) : T = apply(block)
 
   /** Slow down the current clock to factor time */
   def newClockDomainSlowedBy(factor: BigInt): ClockDomain = factor match {
