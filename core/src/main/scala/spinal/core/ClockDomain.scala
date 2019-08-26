@@ -298,14 +298,15 @@ case class ClockDomain(clock       : Bool,
   def readSoftResetWire   = if (null == softReset) Bool(config.softResetActiveLevel == LOW)      else Data.doPull(softReset, Component.current, useCache = true, propagateName = true)
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, useCache = true, propagateName = true)
 
-  def setSynchronousWith(that: ClockDomain) : Unit = {
+
+  def setSyncWith(that: ClockDomain) : Unit = {
     val tag = new ClockSyncTag(this.clock, that.clock)
     this.clock.addTag(tag)
     that.clock.addTag(tag)
   }
-
+  def setSynchronousWith(that: ClockDomain) : Unit = setSyncWith(that)
   @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
-  def setSyncronousWith(that: ClockDomain) = setSynchronousWith(that)
+  def setSyncronousWith(that: ClockDomain) = setSyncWith(that)
 
   def apply[T](block: => T): T = {
     push()

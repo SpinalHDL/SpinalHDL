@@ -127,11 +127,11 @@ class SyncronousCheckerTesterC(v : Int) extends Component{
   val cd2 = ClockDomain(clk2Buf, reset)
   v match{
     case 0 =>
-    case 1 => cd1.setSynchronousWith(cd2)
-    case 2 => cd2.setSynchronousWith(cd1)
-    case 3 => ClockDomain(clk1).setSynchronousWith(cd2)
-    case 4 => ClockDomain(clk2).setSynchronousWith(cd1)
-    case 5 => ClockDomain(clk1).setSynchronousWith(ClockDomain(clk2))
+    case 1 => cd1.setSyncWith(cd2)
+    case 2 => cd2.setSyncWith(cd1)
+    case 3 => ClockDomain(clk1).setSyncWith(cd2)
+    case 4 => ClockDomain(clk2).setSyncWith(cd1)
+    case 5 => ClockDomain(clk1).setSyncWith(ClockDomain(clk2))
   }
 
   val logic1 = cd1 on new Area{
@@ -159,7 +159,7 @@ class SyncronousCheckerTesterD(v : Int) extends Component{
 
   v match {
     case 0 =>
-    case 1 => cd1.setSynchronousWith(cd2)
+    case 1 => cd1.setSyncWith(cd2)
     case 2 => Clock.syncDrive(source = clk1, sink = clk2)
   }
 
