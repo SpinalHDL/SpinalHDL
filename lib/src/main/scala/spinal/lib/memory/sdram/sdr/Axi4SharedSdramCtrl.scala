@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.sdr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.memory.sdram.SdramLayout
 
 /**
  * Created by PIC32F_USER on 28/08/2016.
@@ -24,7 +25,7 @@ object Axi4SharedSdramCtrl{
   }
 }
 
-case class Axi4SharedSdramCtrl(axiDataWidth : Int,axiIdWidth : Int,layout : SdramLayout,timing : SdramTimings,CAS : Int) extends Component{
+case class Axi4SharedSdramCtrl(axiDataWidth : Int, axiIdWidth : Int, layout : SdramLayout, timing : SdramTimings, CAS : Int) extends Component{
   val dataWidthFactor = axiDataWidth/layout.dataWidth
   require(dataWidthFactor != 0)
   require(isPow2(dataWidthFactor))

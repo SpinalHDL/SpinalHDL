@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.sdr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb._
+import spinal.lib.memory.sdram.SdramLayout
 
 object BmbSdramCtrl{
   def bmbCapabilities(layout : SdramLayout) = BmbParameter(
@@ -19,10 +20,10 @@ object BmbSdramCtrl{
 }
 
 
-case class BmbSdramCtrl( bmbParameter : BmbParameter,
-                         layout : SdramLayout,
-                         timing : SdramTimings,
-                         CAS : Int) extends Component{
+case class BmbSdramCtrl(bmbParameter : BmbParameter,
+                        layout : SdramLayout,
+                        timing : SdramTimings,
+                        CAS : Int) extends Component{
 
   val io = new Bundle{
     val bmb   = slave(Bmb(bmbParameter))

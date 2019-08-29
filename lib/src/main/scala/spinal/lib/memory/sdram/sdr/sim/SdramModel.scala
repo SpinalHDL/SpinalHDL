@@ -4,8 +4,8 @@ import java.nio.file.{Files, Paths}
 
 import spinal.core.sim._
 import spinal.core._
+import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
-import spinal.lib.memory.sdram.sdr.{SdramInterface, SdramLayout}
 
 
 case class SdramModel(io : SdramInterface,

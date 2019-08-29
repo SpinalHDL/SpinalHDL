@@ -24,12 +24,12 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
   //Request to load timings counters
   val trigger = new Area{
     val WR,RAS,RP,RCD,WTR,CCD,RFC,RTP,RRD = False
-    val FAW = pl.withFaw generate False
+    val FAW = generation.FAW generate False
   }
 
   //Banks timing counters
   val timing = new Area {
-    val FAW = pl.withFaw generate new Area{
+    val FAW = generation.FAW generate new Area{
       val ptr = RegInit(U"00")
       val slots = (0 to 3).map(i => Timing(ptr === i && trigger.FAW, io.config.FAW))
       val busy = slots.map(_.busy).read(ptr)
@@ -67,7 +67,7 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
     }
     is(FrontendCmdOutputKind.ACTIVE) {
       timingIssue.setWhen(timing.RP || timing.RRD.busy)
-      if(pl.withFaw) timingIssue.setWhen(timing.FAW.busy)
+      if(generation.FAW) timingIssue.setWhen(timing.FAW.busy)
     }
     is(FrontendCmdOutputKind.PRECHARGE) {
       timingIssue.setWhen(timing.WR || timing.RAS)
@@ -92,7 +92,7 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
         trigger.RAS := True
         trigger.RCD := True
         trigger.RRD := True
-        if(pl.withFaw) trigger.FAW := True
+        if(generation.FAW) trigger.FAW := True
       }
       is(FrontendCmdOutputKind.PRECHARGE) {
         trigger.RP := True

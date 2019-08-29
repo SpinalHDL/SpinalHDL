@@ -3,6 +3,7 @@ package spinal.lib.memory.sdram.sdr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.Axi4Shared
+import spinal.lib.memory.sdram.SdramLayout
 
 import scala.math.BigDecimal.RoundingMode
 
@@ -119,7 +120,7 @@ case class SdramCtrlBank(c : SdramLayout) extends Bundle{
 
 
 
-case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,contextType : T, produceRspOnWrite : Boolean = false) extends Component{
+case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, contextType : T, produceRspOnWrite : Boolean = false) extends Component{
   import SdramCtrlBackendTask._
   import SdramCtrlFrontendState._
 

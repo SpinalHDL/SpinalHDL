@@ -3,20 +3,7 @@ package spinal.lib.memory.sdram.sdr
 import spinal.core._
 import spinal.lib._
 import spinal.lib.io.TriState
-
-case class SdramLayout( bankWidth : Int,
-                        columnWidth : Int,
-                        rowWidth : Int,
-                        dataWidth : Int){
-  def bytePerWord = dataWidth/8
-  def wordAddressWidth = bankWidth + columnWidth + rowWidth
-  def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerWord)
-  def chipAddressWidth = Math.max(columnWidth,rowWidth)
-  def bankCount = 1 << bankWidth
-  def capacity = BigInt(1) << byteAddressWidth
-  def columnSize = 1 << columnWidth
-  def rowSize = 1 << rowWidth
-}
+import spinal.lib.memory.sdram._
 
 case class SdramTimings(
   bootRefreshCount : Int, // Number of refresh command done in the boot sequence

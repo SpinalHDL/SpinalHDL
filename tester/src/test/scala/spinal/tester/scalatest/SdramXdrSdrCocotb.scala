@@ -3,10 +3,11 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib.bus.bmb._
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
-import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, Ctrl, CtrlParameter, SdrInferedPhy, mt48lc16m16a2_model}
+import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, Ctrl, CtrlParameter, mt48lc16m16a2_model}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.eda.bench.Rtl
+import spinal.lib.memory.sdram.xdr.phy.SdrInferedPhy
 
 case class SdramSdrTesterCocotbTop() extends Component{
   val sl = MT48LC16M16A2.layout

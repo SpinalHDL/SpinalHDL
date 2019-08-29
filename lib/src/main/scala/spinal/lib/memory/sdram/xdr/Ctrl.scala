@@ -6,8 +6,10 @@ import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.memory.sdram.sdr.{MT48LC16M16A2, SdramLayout}
+import spinal.lib.memory.sdram.{SdramGeneration, SdramLayout}
+import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
+import spinal.lib.memory.sdram.xdr.phy.SdrInferedPhy
 import spinal.lib.sim.Phase
 
 import scala.util.Random
@@ -51,6 +53,7 @@ class Ctrl[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T
 
 object CtrlMain extends App{
   val sl = SdramLayout(
+    generation = SdramGeneration.SDR,
     bankWidth = 2,
     columnWidth = 10,
     rowWidth = 13,
@@ -187,9 +190,9 @@ object CtrlSdrTester extends App{
       val CASn = 1 << 3
       val WEn = 1 << 4
 
-      val PRE = CASn
-      val REF = WEn
-      val MOD = 0
+      val PRE = CKE | CASn
+      val REF = CKE | WEn
+      val MOD = CKE
 
       def command(cmd : Int,  bank : Int, address : Int): Unit ={
         apb.write(0x10C, bank)
@@ -228,6 +231,29 @@ case class mt48lc16m16a2_model() extends BlackBox{
   val Dqm = in Bits(2 bits)
   val Dq = inout(Analog(Bits(16 bits)))
 }
+
+
+
+case class mt41k128m16jt_model() extends BlackBox{
+  setDefinitionName("ddr3")
+  val rst_n = in Bool()
+  val ck = in Bool()
+  val ck_n = in Bool()
+  val cke = in Bool()
+  val cs_n = in Bool()
+  val ras_n = in Bool()
+  val cas_n = in Bool()
+  val we_n = in Bool()
+  val odt = in Bool()
+  val ba = in Bits(3 bits)
+  val addr = in Bits(14 bits)
+  val dq = inout(Analog(Bits(16 bits)))
+  val dqs = inout(Analog(Bits(2 bits)))
+  val dqs_n = inout(Analog(Bits(2 bits)))
+  val dm_tdqs = inout(Analog(Bits(2 bits)))
+  val tdqs_n = out(Bits(2 bits))
+}
+
 
 
 

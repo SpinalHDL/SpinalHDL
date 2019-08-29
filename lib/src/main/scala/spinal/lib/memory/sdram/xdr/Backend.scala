@@ -29,21 +29,45 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
   io.phy.BA.assignDontCare()
   io.phy.DQe := False
   for((phase, id) <- io.phy.phases.zipWithIndex){
-    when(io.config.commandPhase =/= id) {
-      phase.CSn := False
-      phase.RASn := True
-      phase.CASn := True
-      phase.WEn := True
-      phase.CKE := True
-    } otherwise {
+    if(generation.RESETn) phase.RESETn := io.soft.RESETn
+
+    phase.CSn := False
+    phase.RASn := True
+    phase.CASn := True
+    phase.WEn := True
+    phase.CKE := io.soft.CKE
+
+    when(io.config.commandPhase === id) {
       phase.CSn := command.CSn
       phase.RASn := command.RASn
       phase.CASn := command.CASn
       phase.WEn := command.WEn
-      phase.CKE := command.CKE
     }
+
     phase.DQw.assignDontCare()
     phase.DM.assignDontCare()
+  }
+
+  val odt = new Area{
+    val start = False
+    val counter = Reg(UInt(cpa.cp.timingWidth bits)) init(0)
+    when(counter =/= 0){
+      counter := counter - 1
+    }
+    when(start){
+      counter := io.config.ODT
+    }
+
+    val end = counter === 1
+    for((phase, id) <- io.phy.phases.zipWithIndex){
+      phase.ODT := False
+      when(start && id >= io.config.commandPhase) {
+        phase.ODT := True
+      }
+      when(end && io.config.ODTend(id)){
+        phase.ODT := True
+      }
+    }
   }
 
   val writePipeline = new Area{
@@ -55,7 +79,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     val histories = History(input, 0 to cp.writeLatencies.max)
     histories.tail.foreach(_.valid init(False))
 
-    if(pl.withDqs) ???
+//    if(pl.withDqs) ???
     switch(io.config.writeLatency) {
       for (i <- 0 until cp.writeLatencies.size) {
         is(i){
@@ -63,8 +87,8 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
             io.phy.DQe := True
           }
           for((phase, dq, dm) <- (io.phy.phases, histories(i).data.subdivideIn(pl.phaseCount slices), histories(i).mask.subdivideIn(pl.phaseCount slices)).zipped){
-            phase.DQw := dq
-            phase.DM := ~dm
+            phase.DQw := Vec(dq.subdivideIn(pl.dataRatio slices))
+            phase.DM := Vec((~dm).subdivideIn(pl.dataRatio slices))
           }
         }
       }
@@ -114,7 +138,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     output.source := buffer.source
     output.last := bufferLast
     for((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped){
-      outputData := phase.DQr
+      outputData := B(phase.DQr)
     }
   }
 
@@ -141,6 +165,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
   rspPipeline.input.context := io.input.context
   rspPipeline.input.source := io.input.source
   rspPipeline.input.write := io.input.kind === FrontendCmdOutputKind.WRITE
+
 
   when(io.input.valid) {
     when(io.input.first) {
@@ -178,6 +203,7 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
           command.CASn := False
           command.WEn := False
           rspPipeline.input.valid := True
+          odt.start := True
         }
         is(FrontendCmdOutputKind.READ) {
           io.phy.ADDR := io.input.address.column.asBits.resized
@@ -198,7 +224,6 @@ case class Backend(cpa : CoreParameterAggregate) extends Component{
     io.phy.ADDR := io.soft.cmd.ADDR
     io.phy.BA := io.soft.cmd.BA
     command.CASn := io.soft.cmd.CASn
-    command.CKE := io.soft.cmd.CKE
     command.CSn := io.soft.cmd.CSn
     command.RASn := io.soft.cmd.RASn
     command.WEn := io.soft.cmd.WEn

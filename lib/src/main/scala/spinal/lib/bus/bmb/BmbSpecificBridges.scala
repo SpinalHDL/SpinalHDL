@@ -38,6 +38,7 @@ case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component
   if(bypass){
     io.output << io.input
     io.output.cmd.address(alignmentWidth-1 downto 0) := 0
+    io.output.cmd.length.allowOverride
     io.output.cmd.length(alignmentWidth-1 downto 0) := (1 << alignmentWidth)-1
   }
 

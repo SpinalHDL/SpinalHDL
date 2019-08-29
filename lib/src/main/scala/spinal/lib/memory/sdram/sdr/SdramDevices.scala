@@ -1,10 +1,12 @@
 package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
-
+import spinal.lib.memory.sdram.SdramGeneration._
+import spinal.lib.memory.sdram.SdramLayout
 
 object IS42x320D {
   def layout = SdramLayout(
+    generation = SDR,
     bankWidth   = 2,
     columnWidth = 10,
     rowWidth    = 13,
@@ -29,6 +31,7 @@ object IS42x320D {
 
 object MT48LC16M16A2 {
   def layout = SdramLayout(
+    generation = SDR,
     bankWidth = 2,
     columnWidth = 9,
     rowWidth = 13,
@@ -53,6 +56,7 @@ object MT48LC16M16A2 {
 
 object W9825G6JH6 {
   def layout = SdramLayout(
+    generation = SDR,
     bankWidth = 2,
     columnWidth = 9,
     rowWidth = 13,
@@ -74,3 +78,14 @@ object W9825G6JH6 {
   )
 }
 
+
+
+object MT41K128M16JT{
+  def layout = SdramLayout(
+    generation = DDR3,
+    bankWidth = 3,
+    columnWidth = 10,
+    rowWidth = 14,
+    dataWidth = 16
+  )
+}

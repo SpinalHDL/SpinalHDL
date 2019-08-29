@@ -6,6 +6,7 @@ import spinal.lib._
 case class CoreParameterAggregate(cp : CoreParameter, pl : PhyParameter, cpp : Seq[CorePortParameter]){
   def backendContextWidth = cpp.map(_.contextWidth).max
   def portCount = cpp.size
+  def generation = pl.sdram.generation
 }
 
 case class Core(cpa : CoreParameterAggregate) extends Component {
