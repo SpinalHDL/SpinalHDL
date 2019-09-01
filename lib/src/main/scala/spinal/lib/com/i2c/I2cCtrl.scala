@@ -145,6 +145,7 @@ object I2cCtrl {
    * - clockGenBusyEnable -> RW[16]
    * - filterEnable -> RW[17]
    *
+   * - clockGenBusyFlag -> RW[20]
    * - filterFlag -> RW[21]
    *
    * interrupt clears -> 0x24
@@ -160,9 +161,9 @@ object I2cCtrl {
    *
    * masterStatus -> 0x40
    * - isBusy -> R[0]
-   * - start -> W[4]
-   * - stop -> W[5]
-   * - drop -> W[6]
+   * - start -> RW[4]
+   * - stop -> RW[5]
+   * - drop -> RW[6]
    *
    * tLow -> W 0x50
    * tHigh -> W 0x54
@@ -303,11 +304,11 @@ object I2cCtrl {
     /**
       * Master logic
       */
-    val masterLogic = if(genMaster) new Area {
+    val masterLogic = genMaster generate new Area {
 
-      val start = busCtrlWithOffset.createReadAndWrite(Bool, 0x40, 4) init(False)
-      val stop  = busCtrlWithOffset.createReadAndWrite(Bool, 0x40, 5) init(False)
-      val drop  = busCtrlWithOffset.createReadAndWrite(Bool, 0x40, 6) init(False)
+      val start = busCtrlWithOffset.createReadAndSetOnSet(Bool, 0x40, 4) init(False)
+      val stop  = busCtrlWithOffset.createReadAndSetOnSet(Bool, 0x40, 5) init(False)
+      val drop  = busCtrlWithOffset.createReadAndSetOnSet(Bool, 0x40, 6) init(False)
 
 
       val timer = new Area {
@@ -330,20 +331,22 @@ object I2cCtrl {
 
         always{
           when(drop) {
+            start := False
+            stop  := False
+            drop  := False
             goto(TBUF)
           }
         }
 
         val IDLE: State = new State with EntryPoint {
-          onEntry {
-            start := False
-            stop  := False
-            drop  := False
-          }
           whenIsActive {
-            when(start && !internals.inFrame) {
-              txData.valid := False
-              goto(START1)
+            when(!internals.inFrame){
+              when(internals.inFrame.fall(False)){
+                goto(TBUF)
+              } elsewhen(start){
+                txData.valid := False
+                goto(START1)
+              }
             }
           }
         }
@@ -362,7 +365,7 @@ object I2cCtrl {
 
         val START2: State = new State {
           onEntry {
-            timer.value := timer.tBuf
+            timer.value := io.config.tsuData.resized
           }
           whenIsActive {
             i2cBuffer.sda.write := False
@@ -458,11 +461,11 @@ object I2cCtrl {
           }
         }
 
-        val isBusy = !this.isActive(IDLE)
+        val isBusy = !this.isActive(IDLE) && !this.isActive(TBUF)
 
         busCtrlWithOffset.read(isBusy, 0x40, 0)
       }
-    } else null
+    }
 
 
     val dataCounter = RegInit(U"000")
@@ -603,10 +606,12 @@ object I2cCtrl {
       val filterGen = genAddressFilter generate i2CSlaveEvent(17, 21, addressFilter.hits.orR.rise())
 
 
-      val clockGen = if(genMaster) new Area{
+      val clockGen = genMaster generate new Area{
         val busyEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 16) init(False)
         interrupt setWhen((busyEnable && masterLogic.fsm.isBusy))
-      } else null
+      }
+
+//      val clockGen = genMaster generate i2CSlaveEvent(16, 20, masterLogic.fsm.isBusy.rise())
     }
 
 
