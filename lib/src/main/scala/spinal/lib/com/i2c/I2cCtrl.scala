@@ -338,15 +338,14 @@ object I2cCtrl {
           }
         }
 
+        val inFrameLate = Reg(Bool) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
         val IDLE: State = new State with EntryPoint {
           whenIsActive {
-            when(!internals.inFrame){
-              when(internals.inFrame.fall(False)){
-                goto(TBUF)
-              } elsewhen(start){
-                txData.valid := False
-                goto(START1)
-              }
+            when(internals.inFrame.fall(False)){
+              goto(TBUF)
+            } elsewhen(start && !inFrameLate){
+              txData.valid := False
+              goto(START1)
             }
           }
         }
@@ -515,13 +514,8 @@ object I2cCtrl {
         frameReset := True
       }
       is(I2cSlaveCmdMode.DROP){
-        rxData.listen := False
-        rxAck.listen  := False
         frameReset    := True
       }
-//      is(I2cSlaveCmdMode.DRIVE){
-//
-//      }
       is(I2cSlaveCmdMode.READ){
         when(!inAckState) {
           rxData.value(7 - dataCounter) := bus.cmd.data
@@ -590,28 +584,22 @@ object I2cCtrl {
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid)   ||
                       (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid)
 
-      def i2CSlaveEvent(enableBitId: Int, flagBitId: Int, cond : Bool) = new Area {
-        val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId) init(False)
-        val flag   = busCtrlWithOffset.read(RegInit(False) setWhen(cond) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
+      def i2CSlaveEvent(bitId: Int, cond : Bool) = new Area {
+        val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = bitId) init(False)
+        val flag   = busCtrlWithOffset.read(RegInit(False) setWhen(cond) clearWhen(!enable),  address = 0x24, bitOffset = bitId)
 
-        busCtrlWithOffset.clearOnSet(flag, 0x24, flagBitId)
+        busCtrlWithOffset.clearOnSet(flag, 0x24, bitId)
         interrupt.setWhen(flag)
       }
 
-      val start   = i2CSlaveEvent(4,  8, bus.cmd.kind === I2cSlaveCmdMode.START)
-      val restart = i2CSlaveEvent(5,  9, bus.cmd.kind === I2cSlaveCmdMode.RESTART)
-      val end     = i2CSlaveEvent(6, 10, bus.cmd.kind === I2cSlaveCmdMode.STOP)
-      val drop    = i2CSlaveEvent(7, 11, bus.cmd.kind === I2cSlaveCmdMode.DROP)
+      val start   = i2CSlaveEvent(4, bus.cmd.kind === I2cSlaveCmdMode.START)
+      val restart = i2CSlaveEvent(5, bus.cmd.kind === I2cSlaveCmdMode.RESTART)
+      val end     = i2CSlaveEvent(6, bus.cmd.kind === I2cSlaveCmdMode.STOP)
+      val drop    = i2CSlaveEvent(7, bus.cmd.kind === I2cSlaveCmdMode.DROP)
 
-      val filterGen = genAddressFilter generate i2CSlaveEvent(17, 21, addressFilter.hits.orR.rise())
+      val filterGen = genAddressFilter generate i2CSlaveEvent(17, addressFilter.hits.orR.rise())
 
-
-      val clockGen = genMaster generate new Area{
-        val busyEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = 16) init(False)
-        interrupt setWhen((busyEnable && masterLogic.fsm.isBusy))
-      }
-
-//      val clockGen = genMaster generate i2CSlaveEvent(16, 20, masterLogic.fsm.isBusy.rise())
+      val clockGen = genMaster generate i2CSlaveEvent(16, masterLogic.fsm.isBusy.rise())
     }
 
 
