@@ -80,12 +80,83 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def >=(right: SInt): Bool = right <= this
   override def >>(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(that))
   override def <<(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
+  override def +! (right: SInt): SInt = this.expand + right
+  override def -! (right: SInt): SInt = this.expand - right
 
   /* Implement BitwiseOp operators */
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~ : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+
+  /* Implement fixPoint operators */
+  def sign: Bool = this.msb
+  /**
+    * SInt symmetric
+    * @example{{{ val symmetrySInt = mySInt.symmetry }}}
+    * @return return a SInt which minValue equal -maxValue
+    */
+  def symmetry: SInt = {
+    val ret = cloneOf(this)
+    ret := Mux(this === minValue, S(-maxValue), this)
+    ret
+  }
+
+  /**Saturation highest m bits*/
+  override def sat(m: Int): SInt = {
+    require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
+    val ret = SInt(getWidth-m bit)
+    when(this.sign){//negative process
+      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
+        ret := ret.minValue
+      }.otherwise{
+        ret := this(getWidth-m-1 downto 0)
+      }
+    }.otherwise{//positive process
+      when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
+        ret := ret.maxValue
+      }.otherwise {
+        ret := this(getWidth-m- 1 downto 0)
+      }
+    }
+    ret
+  }
+
+  def satWithSym(m: Int): SInt = sat(m).symmetry
+  override def floor(n: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(n))
+
+  /** SInt Round lowest m bits
+    * The algorithm represented by python code :
+    * def sround(x) = math.ceil(x-0.5) if x<0 else math.floor(x+0.5)
+    * */
+  override def round(n: Int): SInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    val ret = SInt(getWidth-n+1 bits)
+    when(sign){
+      ret := this(getWidth-1 downto n) +! this(n-1 downto 0).asBits.orR.asSInt
+    }.otherwise{
+      ret := this(getWidth-2 downto 0).asUInt.round(n).toSInt //expand 1 bit
+    }
+    ret
+  }
+  def roundNoExpand(n: Int): SInt = round(n).sat(1)
+  /** SInt Special Round lowest m bits
+    * The algorithm represented by python code :
+    * def sround(x) = math.floor(x+0.5)"
+    * special Round compare to Round save 1 mux and 1 reduce-OR only difference on -0.5 process
+    * sround(-1.5) = -1; sround(1.5) = 2; sround(-1.50001) = -2
+    *  round(-1.5) = -2;  round(1.5) = 2;  round(-1.50001) = -2
+    * sround is better for timing almost no loss of precision
+    * */
+  def sround(n: Int): SInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    val ret = SInt(getWidth-n+1 bits)
+    ret :=  this(getWidth-1 downto n) +! this(getWidth-n-1).asSInt
+    ret
+  }
+  def sroundNoExpand(n: Int): SInt = sround(n).sat(1)
+  def trim(m: Int): SInt = this(getWidth-m-1 downto 0)
+  def expand: SInt = (this.sign ## this.asBits).asSInt
 
   /**
     * Negative number
@@ -138,6 +209,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
   /** Return the absolute value of the SInt when enable is True */
   def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
+  /** symmetric abs
+    * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
+    * @return a UInt assign with the absolute value save 1 bit
+    */
+  def absWithSym: UInt = this.symmetry.abs.resize(getWidth-1)
 
   /**
     * Assign a range value to a SInt

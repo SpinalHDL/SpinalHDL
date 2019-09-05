@@ -82,12 +82,44 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def >=(right: UInt): Bool = right <= this
   override def >>(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(that))
   override def <<(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
+  override def +! (right: UInt): UInt = this.expand + right
+  override def -! (right: UInt): UInt = this.expand - right
 
   /* Implement BitwiseOp operators */
   override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
   override def &(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.And)
   override def ^(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Xor)
   override def unary_~ : UInt      = wrapUnaryOperator(new Operator.UInt.Not)
+
+  /* Implement fixPoint operators */
+  /**Saturation highest m bits*/
+  override def sat(m: Int): UInt = {
+    require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
+    val ret = UInt(getWidth-m bit)
+    when(this(getWidth-1 downto getWidth-m).asBits.orR){
+      ret.setAll()
+    }.otherwise{
+      ret := this(getWidth-m-1 downto 0)
+    }
+    ret
+  }
+
+  override def floor(n: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(n))
+  /**
+    * UInt round
+    * @example{{{ val result = round(n}}}
+    * @return a Bits of width : w(this)-n+1 (expand 1bit)
+    */
+  override def round(n: Int): UInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    val ret = UInt(getWidth-n+1 bits)
+    ret := this(getWidth-1 downto n) +! this(n-1).asUInt
+    ret
+  }
+
+  /**roundNoExpand return w(this)-n bits Width UInt with safe saturation*/
+  def roundNoExpand(n: Int): UInt = round(n).sat(1)
+  def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
   /**
     * Logical shift Right (output width = input width)
@@ -152,6 +184,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @return a SInt data
     */
   def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
+  /*UInt toSInt add 1 bit 0 at hsb for sign bit*/
+  def toSInt: SInt = expand.asSInt
+  def expand: UInt = (False ## this.asBits).asUInt
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
 

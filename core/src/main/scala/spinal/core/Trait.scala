@@ -759,8 +759,12 @@ trait Num[T <: Data] {
 
   /** Addition */
   def + (right: T): T
+  /** Safe Addition with 1 bit expand */
+  def +! (right: T): T
   /** Substraction */
   def - (right: T): T
+  /** Safe Substraction with 1 bit expand*/
+  def -! (right: T): T
   /** Multiplication */
   def * (right: T): T
   /** Division */
@@ -786,6 +790,16 @@ trait Num[T <: Data] {
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   /** Return the maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
+
+  /** Saturation highest n bits */
+  def sat(n: Int): T
+  def sat(width: BitCount): T = sat(width.value)
+  /** floor lowerest n bits */
+  def floor(n: Int): T
+  def floor(width: BitCount): T = floor(width.value)
+  /** round lowerest n bit */
+  def round(n: Int): T
+  def round(width: BitCount): T = round(width.value)
 }
 
 
