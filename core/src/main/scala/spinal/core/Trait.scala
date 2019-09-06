@@ -760,11 +760,15 @@ trait Num[T <: Data] {
   /** Addition */
   def + (right: T): T
   /** Safe Addition with 1 bit expand */
-  def +! (right: T): T
+  def +^(right: T): T
+  /** Safe Addition with saturation */
+  def +| (right: T): T
   /** Substraction */
   def - (right: T): T
   /** Safe Substraction with 1 bit expand*/
-  def -! (right: T): T
+  def -^ (right: T): T
+  /** Safe Substraction with saturation*/
+  def -| (right: T): T
   /** Multiplication */
   def * (right: T): T
   /** Division */

@@ -80,8 +80,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def >=(right: SInt): Bool = right <= this
   override def >>(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(that))
   override def <<(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
-  override def +! (right: SInt): SInt = this.expand + right
-  override def -! (right: SInt): SInt = this.expand - right
+  override def +^(right: SInt): SInt = this.expand + right.expand
+  override def -^(right: SInt): SInt = this.expand - right.expand
+  override def +|(right: SInt): SInt = (this +^ right).sat(1)
+  override def -|(right: SInt): SInt = (this -^ right).sat(1)
 
   /* Implement BitwiseOp operators */
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
@@ -123,7 +125,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   def satWithSym(m: Int): SInt = sat(m).symmetry
-  override def floor(n: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(n))
+  override def floor(n: Int): SInt = this >> n
 
   /** SInt Round lowest m bits
     * The algorithm represented by python code :
@@ -133,7 +135,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
     val ret = SInt(getWidth-n+1 bits)
     when(sign){
-      ret := this(getWidth-1 downto n) +! this(n-1 downto 0).asBits.orR.asSInt
+      ret := this(getWidth-1 downto n) +^ this(n-1 downto 0).asBits.orR.asSInt
     }.otherwise{
       ret := this(getWidth-2 downto 0).asUInt.round(n).toSInt //expand 1 bit
     }
@@ -151,7 +153,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def sround(n: Int): SInt = {
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
     val ret = SInt(getWidth-n+1 bits)
-    ret :=  this(getWidth-1 downto n) +! this(getWidth-n-1).asSInt
+    ret :=  this(getWidth-1 downto n) +^ this(getWidth-n-1).asSInt
     ret
   }
   def sroundNoExpand(n: Int): SInt = sround(n).sat(1)

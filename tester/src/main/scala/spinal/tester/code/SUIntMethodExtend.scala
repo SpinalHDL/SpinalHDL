@@ -4,8 +4,10 @@ import spinal.core._
 
 class UIntExtend extends Component{
   val a,b            = in UInt(16 bits)
-  val addExpand      = a +! b
-  val subExpand      = a -! a
+  val addExpand      = a +^ b
+  val subExpand      = a -^ a
+  val addSated       = a +| b
+  val subSated       = a -| a
   val sat4           = a.sat(4)
   val round2         = a.round(2)
   val roundnoExpand2 = a.roundNoExpand(2)
@@ -18,8 +20,10 @@ class UIntExtend extends Component{
 
 class SIntExtend extends Component{
   val a,b = in SInt(8 bits)
-  val addExpand         = a +! b
-  val subExpand         = a +! b
+  val addExpand         = a +^ b
+  val subExpand         = a -^ b
+  val addsated          = a +| b
+  val subsated          = a -| b
   val sat4              = a.sat(4)
   val symsat4           = a.satWithSym(4)
   val round5            = a.round(5)

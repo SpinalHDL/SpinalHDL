@@ -82,8 +82,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def >=(right: UInt): Bool = right <= this
   override def >>(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(that))
   override def <<(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
-  override def +! (right: UInt): UInt = this.expand + right
-  override def -! (right: UInt): UInt = this.expand - right
+  override def +^(right: UInt): UInt = this.expand + right
+  override def -^(right: UInt): UInt = this.expand - right
+  override def +|(right: UInt): UInt = (this +^ right).sat(1)
+  override def -|(right: UInt): UInt = (this -^ right).sat(1)
 
   /* Implement BitwiseOp operators */
   override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
@@ -104,7 +106,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     ret
   }
 
-  override def floor(n: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(n))
+  override def floor(n: Int): UInt = this >> n
   /**
     * UInt round
     * @example{{{ val result = round(n}}}
@@ -113,7 +115,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def round(n: Int): UInt = {
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
     val ret = UInt(getWidth-n+1 bits)
-    ret := this(getWidth-1 downto n) +! this(n-1).asUInt
+    ret := this(getWidth-1 downto n) +^ this(n-1).asUInt
     ret
   }
 
@@ -185,7 +187,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     */
   def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
   /*UInt toSInt add 1 bit 0 at hsb for sign bit*/
-  def toSInt: SInt = expand.asSInt
+  def toSInt: SInt = this.expand.asSInt
   def expand: UInt = (False ## this.asBits).asUInt
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
