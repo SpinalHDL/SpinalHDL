@@ -133,15 +133,22 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * */
   override def round(n: Int): SInt = {
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
-    val ret = SInt(getWidth-n+1 bits)
-    when(sign){
-      ret := this(getWidth-1 downto n) +^ this(n-1 downto 0).asBits.orR.asSInt
-    }.otherwise{
-      ret := this(getWidth-2 downto 0).asUInt.round(n).toSInt //expand 1 bit
+    n match {
+      case 0 => this
+      case x if x >0 => {
+        val ret = SInt(getWidth-n+1 bits)
+        when(sign){
+          val negtive0p5: SInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asSInt
+          ret := (this +^ negtive0p5).negtiveCeil(n) // (x - 0.5).ceil
+        }.otherwise{
+          ret := this(getWidth-2 downto 0).asUInt.round(n).toSInt //expand 1 bit
+        }
+        ret
+      }
+      case _ => this << -n
     }
-    ret
   }
-  def roundNoExpand(n: Int): SInt = round(n).sat(1)
+
   /** SInt Special Round lowest m bits
     * The algorithm represented by python code :
     * def sround(x) = math.floor(x+0.5)"
@@ -152,11 +159,59 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * */
   def sround(n: Int): SInt = {
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
-    val ret = SInt(getWidth-n+1 bits)
-    ret :=  this(getWidth-1 downto n) +^ this(getWidth-n-1).asSInt
+    n match {
+      case 0 => this
+      case x if x > 0 => {
+        val ret = SInt(getWidth-n+1 bits)
+        val postive0p5: SInt = (Bits(getWidth-n bits).clearAll ## Bits(1 bits).setAll).asSInt //0.5
+        ret :=  (this(getWidth-1 downto n-1) +^ postive0p5).floor(1) //(x + 0.5).floor
+        ret
+      }
+      case _ => this << -n
+    }
+  }
+
+  /* private
+   * negtiveCeil is safe without expand
+   * SInt(w bits).negtiveCeil(n)
+   * return new SInt of width (w - n)
+   * */
+  private def negtiveCeil(n: Int): SInt ={
+    val ret = SInt(getWidth-n bits)
+    when(this(n-1 downto 0).orR){
+      ret := this(getWidth - 1 downto n) + 1
+    }.otherwise{
+      ret := this(getWidth - 1 downto n)
+    }
     ret
   }
-  def sroundNoExpand(n: Int): SInt = sround(n).sat(1)
+
+  /**
+    * SInt ceil
+    * @example{{{ val mySInt = SInt(w bits).ceil }}}
+    * @param  n : ceil lowerest n bit
+    * @return a new SInt of width (w - n + 1)
+    */
+  def ceil(n: Int): SInt = {
+    require(getWidth > n, s"ceil bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0 => this
+      case x if x > 0 => {
+        val ret = SInt(getWidth-n+1 bits)
+        when(sign){
+          ret := this.negtiveCeil(n).expand
+        }.otherwise{
+          ret := this(getWidth-2 downto 0).asUInt.ceil(n).toSInt
+        }
+        ret
+      }
+      case _ => this << -n
+    }
+  }
+
+  def roundNoExpand(n: Int): SInt = if(n>0) round(n).sat(1) else round(n)
+  def sroundNoExpand(n: Int): SInt = if(n>0) sround(n).sat(1) else sround(n)
+  def ceilNoExpand(n: Int): SInt = if(n>0) ceil(n).sat(1) else ceil(n)
   def trim(m: Int): SInt = this(getWidth-m-1 downto 0)
   def expand: SInt = (this.sign ## this.asBits).asSInt
 

@@ -97,13 +97,19 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**Saturation highest m bits*/
   override def sat(m: Int): UInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
-    val ret = UInt(getWidth-m bit)
-    when(this(getWidth-1 downto getWidth-m).asBits.orR){
-      ret.setAll()
-    }.otherwise{
-      ret := this(getWidth-m-1 downto 0)
+    m match {
+      case 0 => this
+      case x if x > 0  => {
+        val ret = UInt(getWidth-m bit)
+        when(this(getWidth-1 downto getWidth-m).asBits.orR){
+          ret.setAll()
+        }.otherwise{
+          ret := this(getWidth-m-1 downto 0)
+        }
+        ret
+      }
+      case _ => (B(0, m bits) ## this).asUInt
     }
-    ret
   }
 
   override def floor(n: Int): UInt = this >> n
@@ -114,13 +120,38 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     */
   override def round(n: Int): UInt = {
     require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
-    val ret = UInt(getWidth-n+1 bits)
-    ret := this(getWidth-1 downto n) +^ this(n-1).asUInt
-    ret
+    n match {
+      case 0 => this
+      case x if x > 0 => {
+        val ret = UInt(getWidth-n+1 bits)
+        val postive0p5: UInt = (Bits(getWidth-n+1 bits).clearAll ## Bits(1 bits).setAll).asUInt //0.5
+        ret := (this(getWidth-1 downto n-1) +^ postive0p5).floor(1) //(x + 0.5).floor
+        ret
+      }
+      case _ => this << -n
+    }
+  }
+
+  override def ceil(n: Int): UInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0 => this
+      case x if x > 0 => {
+        val ret = UInt(getWidth-n+1 bits)
+        when(this(n-1 downto 0).asBits.orR){
+          ret := this(getWidth-1 downto n) +^ 1
+        }.otherwise {
+          ret := this (getWidth-1 downto n).resized
+        }
+        ret
+      }
+      case _ => this << -n
+    }
   }
 
   /**roundNoExpand return w(this)-n bits Width UInt with safe saturation*/
-  def roundNoExpand(n: Int): UInt = round(n).sat(1)
+  def roundNoExpand(n: Int): UInt =  if(n>0) round(n).sat(1) else round(n)
+  def ceilNoExpand(n: Int): UInt = if(n>0) ceil(n).sat(1) else ceil(n)
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
   /**

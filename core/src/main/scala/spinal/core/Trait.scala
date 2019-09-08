@@ -804,6 +804,9 @@ trait Num[T <: Data] {
   /** round lowerest n bit */
   def round(n: Int): T
   def round(width: BitCount): T = round(width.value)
+  /** ceil lowerest n bit */
+  def ceil(n: Int): T
+  def ceil(width: BitCount): T = ceil(width.value)
 }
 
 
