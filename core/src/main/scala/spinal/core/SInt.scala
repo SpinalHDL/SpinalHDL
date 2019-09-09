@@ -224,8 +224,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   /**fixpoint Api*/
   //TODO: add default fix mode in spinal global config
-  def fixTo(section: Range.Inclusive,sym: Boolean = false): SInt = {
-    val ret = this.fixWithRound(section)
+  def fixTo(section: Range.Inclusive, roundType: RoundType =  RoundHalfUp, sym: Boolean = false): SInt = {
+    val ret = roundType match {
+      case RoundUpp            => this.fixWithCeil(section)
+      case RoundDown           => this.fixWithFloor(section)
+      case RoundHalfUp         => this.fixWithRound(section)
+      case RoundHalfUpSpecial  => this.fixWithSRound(section)
+      case _                   => this.fixWithRound(section)
+    }
     if(sym) ret.symmetry else ret
   }
 
@@ -266,6 +272,18 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     }
   }
 
+  def fixWithCeil(section: Range.Inclusive): SInt = {
+    val _w  = this.getWidth
+    val _wl = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0, _,    `_w`) => this
+      case (x, `_wl`, _  ) => if(x >0) this.ceil(x).sat(1)
+                              else     this.ceil(x)
+      case (0, y,     _  ) => this.sat(this.getWidth -1 - y)
+      case (x, y,     _  ) => if(x >0) this.ceil(x).sat(this.getWidth - 1 - y + 1)
+                              else     this.ceil(x).sat(this.getWidth - 1 - y)
+    }
+  }
   /**
     * Negative number
     * @example{{{ val result = -mySInt }}}

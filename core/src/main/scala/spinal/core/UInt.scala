@@ -156,8 +156,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**fixpoint Api*/
   //TODO: add default fix mode in spinal global config
-  def fixTo(section: Range.Inclusive): UInt = {
-    this.fixWithRound(section)
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundHalfUp): UInt = {
+    roundType match{
+      case RoundUpp      => this.fixWithCeil(section)
+      case RoundDown     => this.fixWithFloor(section)
+      case RoundHalfUp | RoundHalfUpSpecial   => this.fixWithRound(section)
+      case _             => this.fixWithRound(section)
+    }
   }
 //  private val _w: Int = this.getWidth
 //  private val _wl: Int = _w - 1
@@ -184,6 +189,20 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
       case (x,  y,    _  ) => if(x >0) this.round(x).sat(this.getWidth - 1 - y + 1)
                               else     this.round(x).sat(this.getWidth - 1 - y)
+    }
+  }
+
+  def fixWithCeil(section: Range.Inclusive): UInt = {
+    require(math.abs(section.step) == 1, "section step must 1/-1 !")
+    val _w: Int = this.getWidth
+    val _wl: Int = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0,  _,   `_w`) => this
+      case (x, `_wl`, _  ) => if(x >0) this.ceil(x).sat(1)
+                              else     this.ceil(x)
+      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _  ) => if(x >0) this.ceil(x).sat(this.getWidth - 1 - y + 1)
+                              else     this.ceil(x).sat(this.getWidth - 1 - y)
     }
   }
   /**
