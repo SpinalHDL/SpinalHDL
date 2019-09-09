@@ -2,21 +2,27 @@ package spinal.tester.code
 
 import spinal.core._
 
-class UIntExtend extends Component{
-  val a,b            = in UInt(16 bits)
+class UIntExtend extends Component {
+  val a, b = in UInt (16 bits)
+  val c = UInt()
+  c:= a * b
+  val csat = c.sat(3)
   val addExpand      = a +^ b
   val subExpand      = a -^ a
   val addSated       = a +| b
   val subSated       = a -| a
   val sat4           = a.sat(4)
   val sat0           = out UInt()
+  val sat18          = a.sat(-2)
   sat0 := a.sat(0)
   val round2         = a.round(2)
   val round0         = out(UInt())
+  val round20        = a.ceil(-4)
   round0 := a.round(0)
   val roundnoExpand2 = a.roundNoExpand(2)
   val ceil2          = a.ceil(2)
   val ceil0          = out UInt()
+  val ceil19         = a.ceil(-3)
   ceil0 := a.ceil(0)
   val ceil2noExpand2 = a.ceilNoExpand(2)
   val floor4         = a.floor(4)
@@ -24,6 +30,9 @@ class UIntExtend extends Component{
   val assint         = a.asSInt
   val tosint         = a.toSInt
   val expands        = a.expand
+  val fixto10_2      = a.fixWithFloor(10 downto 2)
+  val fixto10_2r     = a.fixWithRound(10 downto 2)
+  val fixto10_2def   = a.fixTo(10 downto 2)
 }
 
 class SIntExtend extends Component{
@@ -33,6 +42,7 @@ class SIntExtend extends Component{
   val addsated          = a +| b
   val subsated          = a -| b
   val sat4              = a.sat(4)
+  val sat10             = a.sat(-2)
   val sat0              = out SInt()
   sat0 := a.sat(0)
   val symsat4           = a.satWithSym(4)
@@ -54,6 +64,13 @@ class SIntExtend extends Component{
   val abs               = a.abs
   val symabs            = a.absWithSym
   val sym               = a.symmetry
+  val fixto7_0          = a.fixWithRound(7 downto 0)
+  val fixto7_2          = a.fixWithRound(7 downto 2)
+  val fixto5_0          = a.fixWithRound(5 downto 0)
+  val fixto5_2          = a.fixWithRound(5 downto 2)
+  val fixto5_2f         = a.fixWithFloor(5 downto 2)
+  val fixto5_2sr        = a.fixWithSRound(5 downto 2)
+  val fixto5_2def       = a.fixTo(5 downto 2)
 }
 
 object getRtlCode {

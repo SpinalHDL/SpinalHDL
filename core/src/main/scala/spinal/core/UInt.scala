@@ -108,7 +108,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
         }
         ret
       }
-      case _ => (B(0, m bits) ## this).asUInt
+      case _ => (B(0, -m bits) ## this).asUInt
     }
   }
 
@@ -154,6 +154,38 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   def ceilNoExpand(n: Int): UInt = if(n>0) ceil(n).sat(1) else ceil(n)
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
+  /**fixpoint Api*/
+  //TODO: add default fix mode in spinal global config
+  def fixTo(section: Range.Inclusive): UInt = {
+    this.fixWithRound(section)
+  }
+//  private val _w: Int = this.getWidth
+//  private val _wl: Int = _w - 1
+  def fixWithFloor(section: Range.Inclusive): UInt = {
+    require(math.abs(section.step) == 1, "section step must 1/-1 !")
+    val _w: Int = this.getWidth
+    val _wl: Int = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0,  _,   `_w`) => this
+      case (x, `_wl`, _  ) => this.floor(x)
+      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _  ) => this.floor(x).sat(this.getWidth -1 - y)
+    }
+  }
+
+  def fixWithRound(section: Range.Inclusive): UInt = {
+    require(math.abs(section.step) == 1, "section step must 1/-1 !")
+    val _w: Int = this.getWidth
+    val _wl: Int = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0,  _,   `_w`) => this
+      case (x, `_wl`, _  ) => if(x >0) this.round(x).sat(1)
+                              else this.round(x)
+      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _  ) => if(x >0) this.round(x).sat(this.getWidth - 1 - y + 1)
+                              else     this.round(x).sat(this.getWidth - 1 - y)
+    }
+  }
   /**
     * Logical shift Right (output width = input width)
     * @example{{{ val result = myUInt >> myUIntShift }}}

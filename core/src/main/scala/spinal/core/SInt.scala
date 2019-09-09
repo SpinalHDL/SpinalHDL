@@ -107,21 +107,28 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /**Saturation highest m bits*/
   override def sat(m: Int): SInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
-    val ret = SInt(getWidth-m bit)
-    when(this.sign){//negative process
-      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
-        ret := ret.minValue
-      }.otherwise{
-        ret := this(getWidth-m-1 downto 0)
+    m match {
+      case 0 => this
+      case x if x > 0 => {
+        val ret = SInt(getWidth-m bit)
+        when(this.sign){//negative process
+          when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
+            ret := ret.minValue
+          }.otherwise{
+            ret := this(getWidth-m-1 downto 0)
+          }
+        }.otherwise{//positive process
+          when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
+            ret := ret.maxValue
+          }.otherwise {
+            ret := this(getWidth-m- 1 downto 0)
+          }
+        }
+        ret
       }
-    }.otherwise{//positive process
-      when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
-        ret := ret.maxValue
-      }.otherwise {
-        ret := this(getWidth-m- 1 downto 0)
-      }
+      case _ => (Bits(-m bits).setAll() ## this).asSInt //sign bit expand
     }
-    ret
+
   }
 
   def satWithSym(m: Int): SInt = sat(m).symmetry
@@ -214,6 +221,50 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def ceilNoExpand(n: Int): SInt = if(n>0) ceil(n).sat(1) else ceil(n)
   def trim(m: Int): SInt = this(getWidth-m-1 downto 0)
   def expand: SInt = (this.sign ## this.asBits).asSInt
+
+  /**fixpoint Api*/
+  //TODO: add default fix mode in spinal global config
+  def fixTo(section: Range.Inclusive,sym: Boolean = false): SInt = {
+    val ret = this.fixWithRound(section)
+    if(sym) ret.symmetry else ret
+  }
+
+  def fixWithFloor(section: Range.Inclusive): SInt = {
+    val _w  = this.getWidth
+    val _wl = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0,  _,   `_w`) => this
+      case (x, `_wl`, _  ) => this.floor(x)
+      case (0,  y,    _  ) => this.sat(this.getWidth - 1 - y)
+      case (x,  y,    _  ) => this.floor(x).sat(this.getWidth -1 - y)
+    }
+  }
+
+  def fixWithRound(section: Range.Inclusive): SInt = {
+    val _w  = this.getWidth
+    val _wl = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0, _,    `_w`) => this
+      case (x, `_wl`, _  ) => if(x >0) this.round(x).sat(1)
+                              else     this.round(x)
+      case (0, y,     _  ) => this.sat(this.getWidth - 1 - y)
+      case (x, y,     _  ) => if(x >0) this.round(x).sat(this.getWidth -1 - y + 1)
+                              else     this.round(x).sat(this.getWidth -1 - y)
+    }
+  }
+
+  def fixWithSRound(section: Range.Inclusive): SInt = {
+    val _w  = this.getWidth
+    val _wl = _w - 1
+    (section.min, section.max, section.size) match {
+      case (0, _,    `_w`) => this
+      case (x, `_wl`, _  ) => if(x >0) this.sround(x).sat(1)
+                              else     this.sround(x)
+      case (0, y,     _  ) => this.sat(this.getWidth -1 - y)
+      case (x, y,     _  ) => if(x >0) this.sround(x).sat(this.getWidth - 1 - y + 1)
+                              else     this.sround(x).sat(this.getWidth - 1 - y)
+    }
+  }
 
   /**
     * Negative number
