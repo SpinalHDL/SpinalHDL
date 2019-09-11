@@ -96,9 +96,12 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
 /**
   * IntToFixData
   * @example{{{ val x = toFixData(0xFFAE,SQ(8,4))}}}
-  * @return {{{FixData: -5.125, Quantized by QFormat: Q(8,4,signed) }}}
-  * $:val x0 = toFixData(322111,SQ(8,4))
-  * $:FixData:
+  * @return {{{FixData: -5.125, QFormat: Q(8,4,signed) }}}
+  * toFixData(322111, SQ(8,4)) => FixData: -8.0,   QFormat: Q(8,4,signed)
+  * toFixData(322111, UQ(8,4)) => FixData: 7.9375, QFormat: Q(8,4,unsigned)
+  * toFixData(-322111,SQ(8,4)) => FixData: -8.0,   QFormat: Q(8,4,signed)
+  * toFixData(-322111,UQ(8,4)) => FixData: 0,      QFormat: Q(8,4,unsigned)
+  * toFixData(-0x0f,  SQ(8,4)) => FixData: -0.9375,QFormat: Q(8,4,signed)
   */
 object toFixData{
   def apply(value: Int, q: QFormat): FixData = {
