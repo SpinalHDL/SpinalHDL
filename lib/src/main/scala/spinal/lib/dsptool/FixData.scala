@@ -2,11 +2,11 @@ package spinal.lib.dsptool
 
 /**
   * Fixnum
-  * @example{{{ val x = FixData(-3.785333,SQ(8,4)}}}
+  * @example{{{ val x = FixData(-3.785333,SQ(8,4))}}}
   * @return {{{FixData: -3.8125, Quantized by QFormat: Q(8,4,signed) }}}
-  *        x.hex =>
-  *        x.oct =>
-  *        x.bin =>
+  *        x.bin => 11000011
+  *        x.oct =>      103
+  *        x.hex =>       c3
   */
 case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToInf)
                   (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
@@ -20,7 +20,7 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
 
   private def scalaValue = value / q.resolution
 
-  def signed: Boolean = q.signed
+  def isSigned: Boolean = q.signed
   def isNegtive: Boolean = value < 0
   def sign: Int = if(isNegtive) -1 else 1
 
