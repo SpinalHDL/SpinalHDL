@@ -82,8 +82,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def >=(right: UInt): Bool = right <= this
   override def >>(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(that))
   override def <<(that: Int): UInt   = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
-  override def +^(right: UInt): UInt = this.expand + right
-  override def -^(right: UInt): UInt = this.expand - right
+  override def +^(right: UInt): UInt = this.expand + right.expand
+  override def -^(right: UInt): UInt = this.expand - right.expand
   override def +|(right: UInt): UInt = (this +^ right).sat(1)
   override def -|(right: UInt): UInt = (this -^ right).sat(1)
 
@@ -98,18 +98,19 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def sat(m: Int): UInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
     m match {
-      case 0 => this
-      case x if x > 0  => {
-        val ret = UInt(getWidth-m bit)
-        when(this(getWidth-1 downto getWidth-m).asBits.orR){
-          ret.setAll()
-        }.otherwise{
-          ret := this(getWidth-m-1 downto 0)
-        }
-        ret
-      }
-      case _ => (B(0, -m bits) ## this).asUInt
+      case 0           => this
+      case x if x > 0  => this._sat(m)
+      case _           => (Bits(-m bits).clearAll ## this).asUInt
     }
+  }
+  private def _sat(m: Int): UInt = {
+    val ret = UInt(getWidth-m bit)
+    when(this(getWidth-1 downto getWidth-m).asBits.orR){
+      ret.setAll()
+    }.otherwise{
+      ret := this(getWidth-m-1 downto 0)
+    }
+    ret
   }
   /**highest m bits Discard */
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
@@ -135,7 +136,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * return if(align) w(this)-n bits else w(this)-n+1 bits
     * */
   override def ceil(n: Int, align: Boolean = true): UInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"ceil bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => if(align) _ceil(n).sat(1) else _ceil(n)
@@ -158,12 +159,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def roundToZero(n: Int): UInt = roundDown(n)
   override def roundToInf(n: Int, align: Boolean = true): UInt  = roundUp(n, align)
   /**
-    * UInt roundup
-    * round(n)
+    * UInt roundUp
+    * floor(x + 0.5)
     * return if(align) w(this)-n bits else w(this)-n+1 bits
     */
   override def roundUp(n: Int, align: Boolean = true): UInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundUp bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => if(align) _roundUp(n).sat(1) else _roundUp(n)
@@ -173,7 +174,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**return w(this)-n + 1 bit*/
   private def _roundUp(n: Int): UInt = {
     val ret = UInt(getWidth-n+1 bits)
-    val positive0p5: UInt = (Bits(getWidth-n+1 bits).clearAll ## Bits(1 bits).setAll).asUInt //0.5
+    val positive0p5: UInt = (Bits(getWidth-n bits).clearAll ## True).asUInt //0.5
     ret := (this(getWidth-1 downto n-1) +^ positive0p5).floor(1) //(x + 0.5).floor
     ret
   }
@@ -183,7 +184,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * return w(this)-n bits
     * */
   override def roundDown(n: Int): UInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundDown bit width $n must be less than data bit width $getWidth")
     n match {
       case 0 => this
       case x if x > 0 => _roundDown(n)
@@ -192,7 +193,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
   /**return w(this)-n bit*/
   private def _roundDown(n: Int): UInt = {
-    require( n > 0, s"Round bit width $n must be less than data bit width $getWidth")
+    require( n > 0, s"RoundDown bit width $n must be less than data bit width $getWidth")
     val ret = UInt(getWidth-n bits)
     val negative0p5: UInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asUInt
     val sub0p5 = this(getWidth-1 downto 0) + negative0p5 //ceil(x - 0.5)

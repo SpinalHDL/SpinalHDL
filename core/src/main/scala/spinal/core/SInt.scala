@@ -108,27 +108,27 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def sat(m: Int): SInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
     m match {
-      case 0 => this
-      case x if x > 0 => {
-        val ret = SInt(getWidth-m bit)
-        when(this.sign){//negative process
-          when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
-            ret := ret.minValue
-          }.otherwise{
-            ret := this(getWidth-m-1 downto 0)
-          }
-        }.otherwise{//positive process
-          when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
-            ret := ret.maxValue
-          }.otherwise {
-            ret := this(getWidth-m- 1 downto 0)
-          }
-        }
-        ret
-      }
-      case _ => (Bits(-m bits).setAll() ## this).asSInt //sign bit expand
+      case 0          => this
+      case x if x > 0 => this._sat(m)
+      case _          => (Bits(-m bits).setAll ## this).asSInt //sign bit expand
     }
-
+  }
+  private def _sat(m: Int): SInt ={
+    val ret = SInt(getWidth-m bit)
+    when(this.sign){//negative process
+      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
+        ret := ret.minValue
+      }.otherwise{
+        ret := this(getWidth-m-1 downto 0)
+      }
+    }.otherwise{//positive process
+      when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
+        ret := ret.maxValue
+      }.otherwise {
+        ret := this(getWidth-m- 1 downto 0)
+      }
+    }
+    ret
   }
 
   def satWithSym(m: Int): SInt = sat(m).symmetry
@@ -140,6 +140,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   /**return w(this)-n bits*/
   override def floor(n: Int): SInt = {
+    require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => this._floor(n)
@@ -193,7 +194,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * sign * floor(abs(x))
     * */
   override def floorToZero(n: Int): SInt = {
-    require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"floorToZero bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => _floorToZero(n)
@@ -215,7 +216,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * sign * ceil(abs(x))
     * */
   override def ceilToInf(n: Int, align: Boolean = true): SInt = {
-    require(getWidth > n, s"ceil bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"ceilToInf bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => if(align) _ceilToInf(n).sat(1) else _ceilToInf(n)
@@ -237,7 +238,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * floor(x + 0.5)
     * */
   override def roundUp(n: Int, align: Boolean = true): SInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundUp bit width $n must be less than data bit width $getWidth")
     n match {
       case 0         => this
       case x if x >0 => if(align) _roundUp(n).sat(1) else _roundUp(n)
@@ -247,8 +248,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /**return w(this)-n bits*/
   private def _roundUp(n: Int): SInt = {
     val ret = SInt(getWidth-n+1 bits)
-    val positive0p5: SInt = (Bits(getWidth-n bits).clearAll ## True ## Bits(n-1 bits).clearAll()).asSInt
-    ret := (this(getWidth-1 downto 0) +^ positive0p5)._floor(n)
+    val positive0p5: SInt = (Bits(getWidth-n bits).clearAll ## True).asSInt
+    ret := (this(getWidth-1 downto n-1) +^ positive0p5)._floor(1) //(x + 0.5).floor
     ret
   }
 
@@ -257,7 +258,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * ceil(x - 0.5)
     * */
   override def roundDown(n: Int): SInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundDown bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => _roundDown(n)
@@ -281,7 +282,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * sign * ceil(abs(x) - 0.5)
     * */
   override def roundToZero(n: Int): SInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundToZero bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => _roundToZero(n)
@@ -307,7 +308,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     * sign * floor(abs(x) + 0.5)
     * */
   override def roundToInf(n: Int, align: Boolean = true): SInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    require(getWidth > n, s"RoundToInf bit width $n must be less than data bit width $getWidth")
     n match {
       case 0          => this
       case x if x > 0 => if(align) _roundToInf(n).sat(1) else _roundToInf(n)
