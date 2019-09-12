@@ -128,6 +128,8 @@ case class SdramXdrPhyCtrl(pl : PhyParameter) extends Bundle with IMasterSlave{
   }
 }
 
+
+
 abstract class Phy[T <: Data with IMasterSlave](val pl : PhyParameter) extends Component{
   def MemoryBus() : T
   def driveFrom(mapper : BusSlaveFactory) : Unit

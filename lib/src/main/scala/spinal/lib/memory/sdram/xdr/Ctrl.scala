@@ -23,6 +23,20 @@ case class CtrlParameter( core : CoreParameter,
                           ports : Seq[BmbPortParameter])
 
 
+object Ctrl{
+  def bmbCapabilities(layout : SdramLayout) = BmbParameter(
+    addressWidth  = layout.byteAddressWidth,
+    dataWidth     = layout.dataWidth,
+    lengthWidth   = Int.MaxValue,
+    sourceWidth   = Int.MaxValue,
+    contextWidth  = Int.MaxValue,
+    canRead       = true,
+    canWrite      = true,
+    alignment = BmbParameter.BurstAlignement.LENGTH,
+    maximumPendingTransactionPerId = Int.MaxValue
+  )
+}
+
 class Ctrl[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T]) extends Component{
   val io = new Bundle {
     val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
