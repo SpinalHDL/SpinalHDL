@@ -6,7 +6,10 @@ import spinal.lib.bus.bmb.{Bmb, BmbAligner, BmbLengthFixer}
 
 object BmbAdapter{
   def corePortParameter(pp : BmbPortParameter, pl : PhyParameter) = CorePortParameter(
-    contextWidth = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.wordWidth/8)), log2Up(pl.wordWidth/8)).contextWidth + pp.bmb.sourceWidth
+    contextWidth = {
+      val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.wordWidth/8)), log2Up(pl.wordWidth/8))
+      converterBmb.contextWidth + converterBmb.sourceWidth
+    }
   )
 }
 
