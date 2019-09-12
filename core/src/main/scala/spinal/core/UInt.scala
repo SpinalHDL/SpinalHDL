@@ -94,7 +94,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def unary_~ : UInt      = wrapUnaryOperator(new Operator.UInt.Not)
 
   /* Implement fixPoint operators */
-  /**Saturation highest m bits*/
+  /**highest m bits Saturation */
   override def sat(m: Int): UInt = {
     require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
     m match {
@@ -111,100 +111,116 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case _ => (B(0, -m bits) ## this).asUInt
     }
   }
-
-  override def floor(n: Int): UInt = this >> n
-  /**
-    * UInt round
-    * @example{{{ val result = round(n}}}
-    * @return a Bits of width : w(this)-n+1 (expand 1bit)
-    */
-  override def round(n: Int): UInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
-    n match {
-      case 0 => this
-      case x if x > 0 => {
-        val ret = UInt(getWidth-n+1 bits)
-        val postive0p5: UInt = (Bits(getWidth-n+1 bits).clearAll ## Bits(1 bits).setAll).asUInt //0.5
-        ret := (this(getWidth-1 downto n-1) +^ postive0p5).floor(1) //(x + 0.5).floor
-        ret
-      }
-      case _ => this << -n
-    }
-  }
-
-  override def ceil(n: Int): UInt = {
-    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
-    n match {
-      case 0 => this
-      case x if x > 0 => {
-        val ret = UInt(getWidth-n+1 bits)
-        when(this(n-1 downto 0).asBits.orR){
-          ret := this(getWidth-1 downto n) +^ 1
-        }.otherwise {
-          ret := this (getWidth-1 downto n).resized
-        }
-        ret
-      }
-      case _ => this << -n
-    }
-  }
-
-  /**roundNoExpand return w(this)-n bits Width UInt with safe saturation*/
-  def roundNoExpand(n: Int): UInt =  if(n>0) round(n).sat(1) else round(n)
-  def ceilNoExpand(n: Int): UInt = if(n>0) ceil(n).sat(1) else ceil(n)
+  /**highest m bits Discard */
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
-  /**fixpoint Api*/
-  //TODO: add default fix mode in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundHalfUp): UInt = {
-    roundType match{
-      case RoundUpp      => this.fixWithCeil(section)
-      case RoundDown     => this.fixWithFloor(section)
-      case RoundHalfUp | RoundHalfUpSpecial   => this.fixWithRound(section)
-      case _             => this.fixWithRound(section)
+  /**Round Api*/
+
+  /** UInt ceil
+    * floor(x)
+    * return w(this)-n bits
+    * */
+  override def floor(n: Int): UInt = {
+    require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this
+      case x if x > 0 => this._floor(n)
+      case _          => this << -n
     }
   }
-//  private val _w: Int = this.getWidth
-//  private val _wl: Int = _w - 1
-  def fixWithFloor(section: Range.Inclusive): UInt = {
-    require(math.abs(section.step) == 1, "section step must 1/-1 !")
+  private def _floor(n: Int): UInt = this >> n
+
+  /** UInt ceil
+    * ceil(x)
+    * return if(align) w(this)-n bits else w(this)-n+1 bits
+    * */
+  override def ceil(n: Int, align: Boolean = true): UInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this
+      case x if x > 0 => if(align) _ceil(n).sat(1) else _ceil(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n + 1 bit*/
+  private[core] def _ceil(n: Int): UInt = {
+    val ret = UInt(getWidth-n+1 bits)
+    when(this(n-1 downto 0).asBits.orR){
+      ret := this(getWidth-1 downto n) +^ 1
+    }.otherwise {
+      ret := this (getWidth-1 downto n).resized
+    }
+    ret
+  }
+
+  override def floorToZero(n: Int): UInt = floor(n)
+  override def ceilToInf(n: Int, align: Boolean = true): UInt   = ceil(n, align)
+  override def roundToZero(n: Int): UInt = roundDown(n)
+  override def roundToInf(n: Int, align: Boolean = true): UInt  = roundUp(n, align)
+  /**
+    * UInt roundup
+    * round(n)
+    * return if(align) w(this)-n bits else w(this)-n+1 bits
+    */
+  override def roundUp(n: Int, align: Boolean = true): UInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this
+      case x if x > 0 => if(align) _roundUp(n).sat(1) else _roundUp(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n + 1 bit*/
+  private def _roundUp(n: Int): UInt = {
+    val ret = UInt(getWidth-n+1 bits)
+    val positive0p5: UInt = (Bits(getWidth-n+1 bits).clearAll ## Bits(1 bits).setAll).asUInt //0.5
+    ret := (this(getWidth-1 downto n-1) +^ positive0p5).floor(1) //(x + 0.5).floor
+    ret
+  }
+
+  /** UInt roundDown
+    * ceil(x - 0.5)
+    * return w(this)-n bits
+    * */
+  override def roundDown(n: Int): UInt = {
+    require(getWidth > n, s"Round bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0 => this
+      case x if x > 0 => _roundDown(n)
+      case _ => this << -n
+    }
+  }
+  /**return w(this)-n bit*/
+  private def _roundDown(n: Int): UInt = {
+    require( n > 0, s"Round bit width $n must be less than data bit width $getWidth")
+    val ret = UInt(getWidth-n bits)
+    val negative0p5: UInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asUInt
+    val sub0p5 = this(getWidth-1 downto 0) + negative0p5 //ceil(x - 0.5)
+    when(this(n-1 downto 0).asBits.orR){
+      ret := sub0p5(getWidth-1 downto n) + 1 //safe without carry
+    }.otherwise {
+      ret := sub0p5(getWidth-1 downto n)
+    }
+    ret
+  }
+
+  //SpinalHDL chose roundToInf as default round
+  override def round(n: Int, align: Boolean = true): UInt = roundToInf(n, align)
+
+  /**Factory fixTo Function*/
+  //TODO: add default fixConfig in spinal global config
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundToInf): UInt = {
     val _w: Int = this.getWidth
     val _wl: Int = _w - 1
     (section.min, section.max, section.size) match {
       case (0,  _,   `_w`) => this
-      case (x, `_wl`, _  ) => this.floor(x)
+      case (x, `_wl`, _  ) => _roundEntry(x, roundType, true)
       case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => this.floor(x).sat(this.getWidth -1 - y)
+      case (x,  y,    _  ) => _roundEntry(x, roundType, false).sat(this.getWidth -1 - y)
     }
   }
 
-  def fixWithRound(section: Range.Inclusive): UInt = {
-    require(math.abs(section.step) == 1, "section step must 1/-1 !")
-    val _w: Int = this.getWidth
-    val _wl: Int = _w - 1
-    (section.min, section.max, section.size) match {
-      case (0,  _,   `_w`) => this
-      case (x, `_wl`, _  ) => if(x >0) this.round(x).sat(1)
-                              else this.round(x)
-      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => if(x >0) this.round(x).sat(this.getWidth - 1 - y + 1)
-                              else     this.round(x).sat(this.getWidth - 1 - y)
-    }
-  }
 
-  def fixWithCeil(section: Range.Inclusive): UInt = {
-    require(math.abs(section.step) == 1, "section step must 1/-1 !")
-    val _w: Int = this.getWidth
-    val _wl: Int = _w - 1
-    (section.min, section.max, section.size) match {
-      case (0,  _,   `_w`) => this
-      case (x, `_wl`, _  ) => if(x >0) this.ceil(x).sat(1)
-                              else     this.ceil(x)
-      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => if(x >0) this.ceil(x).sat(this.getWidth - 1 - y + 1)
-                              else     this.ceil(x).sat(this.getWidth - 1 - y)
-    }
-  }
   /**
     * Logical shift Right (output width = input width)
     * @example{{{ val result = myUInt >> myUIntShift }}}

@@ -795,20 +795,46 @@ trait Num[T <: Data] {
   /** Return the maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 
-  /** Saturation highest n bits */
-  def sat(n: Int): T
+  /** highest m bits Saturation Operation*/
+  def sat(m: Int): T
+  def trim(m: Int): T
   def sat(width: BitCount): T = sat(width.value)
-  /** floor lowerest n bits */
+  def trim(width: BitCount): T = trim(width.value)
+  /**lowest n bits Round Operation */
   def floor(n: Int): T
-  def floor(width: BitCount): T = floor(width.value)
-  /** round lowerest n bit */
-  def round(n: Int): T
-  def round(width: BitCount): T = round(width.value)
-  /** ceil lowerest n bit */
-  def ceil(n: Int): T
-  def ceil(width: BitCount): T = ceil(width.value)
-}
+  def ceil(n: Int, align: Boolean): T
+  def floorToZero(n: Int): T
+  def ceilToInf(n: Int, align: Boolean): T
+  def roundUp(n: Int, align: Boolean): T
+  def roundDown(n: Int): T
+  def roundToZero(n: Int): T
+  def roundToInf(n: Int, align: Boolean): T
+  def round(n: Int, align: Boolean): T
+  /**lowest n bits Round Operation by BitCount */
+  def ceil(width: BitCount, align: Boolean): T         = ceil(width.value, align)
+  def floor(width: BitCount): T                        = floor(width.value)
+  def floorToZero(width: BitCount): T                  = floorToZero(width.value)
+  def ceilToInf(width: BitCount, align: Boolean): T    = ceilToInf(width.value, align)
+  def roundUp(width: BitCount, align: Boolean): T      = roundUp(width.value, align)
+  def roundDown(width: BitCount): T                    = roundDown(width.value)
+  def roundToZero(width: BitCount): T                  = roundToZero(width.value)
+  def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
+  def round(width: BitCount, align: Boolean): T        = round(width.value, align)
 
+  protected def _roundEntry(n: Int, roundType: RoundType, align: Boolean): T ={
+    roundType match{
+      case Ceil          => this.ceil(n, align)
+      case Floor         => this.floor(n)
+      case FloorToZero   => this.floorToZero(n)
+      case CeilToInf     => this.ceilToInf(n, align)
+      case RoundUpp      => this.roundUp(n, align)
+      case RoundDown     => this.roundDown(n)
+      case RoundToZero   => this.roundToZero(n)
+      case RoundToInf    => this.roundToInf(n, align)
+      case _             => this.round(n, align)
+    }
+  }
+}
 
 /**
   * Bitwise Operation

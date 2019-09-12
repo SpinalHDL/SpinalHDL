@@ -19,19 +19,19 @@ class UIntExtend extends Component {
   val round0         = out(UInt())
   val round20        = a.ceil(-4)
   round0 := a.round(0)
-  val roundnoExpand2 = a.roundNoExpand(2)
+  val roundcarry     = a.round(2, false)
   val ceil2          = a.ceil(2)
   val ceil0          = out UInt()
   val ceil19         = a.ceil(-3)
   ceil0 := a.ceil(0)
-  val ceil2noExpand2 = a.ceilNoExpand(2)
+  val ceil2carry     = a.ceil(2,false)
   val floor4         = a.floor(4)
   val trim4          = a.trim(4)
   val assint         = a.asSInt
   val tosint         = a.toSInt
   val expands        = a.expand
-  val fixto10_2      = a.fixWithFloor(10 downto 2)
-  val fixto10_2r     = a.fixWithRound(10 downto 2)
+  val fixto10_2      = a.fixTo(10 downto 2, RoundToInf)
+  val fixto10_2r     = a.fixTo(10 downto 2, RoundToInf)
   val fixto10_2def   = a.fixTo(10 downto 2)
 }
 
@@ -47,14 +47,12 @@ class SIntExtend extends Component{
   sat0 := a.sat(0)
   val symsat4           = a.satWithSym(4)
   val round5            = a.round(5)
-  val roundnoExpand5    = a.roundNoExpand(5)
+  val roundcarrary      = a.round(5,false)
   val round0            = out(SInt())
   val round10           = a.round(-2)
   round0 := a.round(0)
-  val sround2           = a.sround(4)
-  val sroundnoExpand2   = a.sroundNoExpand(2)
   val ceil2             = a.ceil(2)
-  val ceil2noExpand2    = a.ceilNoExpand(2)
+  val ceil2carry        = a.ceil(2,false)
   val ceil0             = out SInt()
   ceil0 := a.ceil(0)
   val ceil10            = a.ceil(-2)
@@ -64,12 +62,12 @@ class SIntExtend extends Component{
   val abs               = a.abs
   val symabs            = a.absWithSym
   val sym               = a.symmetry
-  val fixto7_0          = a.fixWithRound(7 downto 0)
-  val fixto7_2          = a.fixWithRound(7 downto 2)
-  val fixto5_0          = a.fixWithRound(5 downto 0)
-  val fixto5_2          = a.fixWithRound(5 downto 2)
-  val fixto5_2f         = a.fixWithFloor(5 downto 2)
-  val fixto5_2sr        = a.fixWithSRound(5 downto 2)
+  val fixto7_0          = a.fixTo(7 downto 0, RoundToInf)
+  val fixto7_2          = a.fixTo(7 downto 2, RoundToInf)
+  val fixto5_0          = a.fixTo(5 downto 0, RoundToInf)
+  val fixto5_2          = a.fixTo(5 downto 2, RoundToInf)
+  val fixto5_2f         = a.fixTo(5 downto 2, Floor)
+  val fixto5_2sr        = a.fixTo(5 downto 2,RoundUpp)
   val fixto5_2def       = a.fixTo(5 downto 2)
 }
 
