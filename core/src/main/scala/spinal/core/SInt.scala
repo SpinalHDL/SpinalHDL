@@ -344,7 +344,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
       case (0,  _,   `_w`) => this
       case (x, `_wl`, _  ) => _roundEntry(x, roundType, true)
       case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => _roundEntry(x, roundType, false).sat(this.getWidth -1 - y)
+      case (x,  y,    _  ) => _roundEntry(x, roundType, false).sat(this.getWidth -1 - y + 1)
     }
     if(sym) ret.symmetry else ret
   }
