@@ -1,7 +1,10 @@
 package spinal.lib.dsptool
 
+import spinal.core._
+
 /**
   * Fixnum
+  *
   * @example{{{ val x = FixData(-3.785333,SQ(8,4))}}}
   * @return {{{FixData: -3.8125, Quantized by QFormat: Q(8,4,signed) }}}
   *        x.bin => 11000011
@@ -34,7 +37,7 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
           case Floor         => floor
           case FloorToZero   => floorToZero
           case CeilToInf     => ceilToInf
-          case RoundUp       => roundUp
+          case RoundUpp      => roundUp
           case RoundDown     => roundDown
           case RoundToZero   => roundToZero
           case RoundToInf    => roundToInf
@@ -44,6 +47,7 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
         if(qtag.symmetric) this.symmetry
         this
       }
+      case _ => SpinalError("Illegal FixSwitch!");null
     }
   }
 
@@ -75,6 +79,7 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
   override def toString  = button match {
     case FixSwitchOn.fixButton  => getClass().getName().split('.').last +  s" : ${this.value}, Quantized by" +  s"\n${this.q}"
     case FixSwitchOff.fixButton => getClass().getName().split('.').last +  s" : ${this.value}, FixSwitchOff"
+    case _                      => SpinalError("Illegal FixSwitch!");null
   }
 
   def *(right: FixData): FixData ={

@@ -1,17 +1,5 @@
 package spinal.lib.dsptool
 
-trait  RoundType ;
-object Ceil             extends RoundType ;// RoundUp
-object Floor            extends RoundType ;// RoundDown
-object FloorToZero      extends RoundType ;// RoundToZero
-object CeilToInf        extends RoundType ;// RoundToInf
-object RoundUp          extends RoundType ;// RoundHalfUp
-object RoundDown        extends RoundType ;// RoundHalfDown
-object RoundToZero      extends RoundType ;// RoundHalfToZero
-object RoundToInf       extends RoundType ;// RoundHalfToInf
-object RoundToEven      extends RoundType ;// RoundHalfToEven
-object RoundToOdd       extends RoundType ;// RoundHalfToOdd
-
 /**
   * Fixnum
   * @example{{{ import FixSwitchOff._
