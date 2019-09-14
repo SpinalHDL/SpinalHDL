@@ -106,3 +106,93 @@ case class IOBUFDS() extends BlackBox{
   val I, T = in Bool()
   val O, IO, IOB = out Bool()
 }
+
+
+
+
+case class ISERDESE2(DATA_RATE : String = "DDR",
+                     DATA_WIDTH : Int = 4,
+                     INTERFACE_TYPE : String = "MEMORY",
+                     IOBDELAY : String = "NONE"
+                    ) extends BlackBox {
+
+
+  addGeneric("DATA_RATE", DATA_RATE  )
+  addGeneric("DATA_WIDTH", DATA_WIDTH  )
+  addGeneric("INTERFACE_TYPE", INTERFACE_TYPE  )
+  addGeneric("IOBDELAY", IOBDELAY  )
+
+
+  val BITSLIP = in Bool()
+  val CE1 = in Bool()
+  val CE2 = in Bool()
+  val CLK = in Bool()
+  val CLKB = in Bool()
+  val CLKDIV = in Bool()
+  val CLKDIVP = in Bool()
+  val D = in Bool()
+  val DDLY = in Bool()
+  val DYNCLKDIVSEL = in Bool()
+  val DYNCLKSEL = in Bool()
+  val OCLK = in Bool()
+  val OCLKB = in Bool()
+  val OFB = in Bool()
+  val RST = in Bool()
+  val SHIFTIN1 = in Bool()
+  val SHIFTIN2 = in Bool()
+
+  val O = out Bool()
+  val Q1 = out Bool()
+  val Q2 = out Bool()
+  val Q3 = out Bool()
+  val Q4 = out Bool()
+  val Q5 = out Bool()
+  val Q6 = out Bool()
+  val Q7 = out Bool()
+  val Q8 = out Bool()
+  val SHIFTOUT1 = out Bool()
+  val SHIFTOUT2 = out Bool()
+
+
+  def Q(i : Int) = i match {
+    case 0 => Q1
+    case 1 => Q2
+    case 2 => Q3
+    case 3 => Q4
+    case 4 => Q5
+    case 5 => Q6
+    case 6 => Q7
+    case 7 => Q8
+  }
+}
+
+
+
+case class IDELAYE2(HIGH_PERFORMANCE_MODE : Boolean = false,
+                    IDELAY_TYPE : String = "FIXED",
+                    IDELAY_VALUE : Int = 0,
+                    PIPE_SEL : Boolean = false,
+                    REFCLK_FREQUENCY : Double = 200.0,
+                    SIGNAL_PATTERN : String = "DATA"
+                   ) extends BlackBox{
+  addGeneric("HIGH_PERFORMANCE_MODE", if(HIGH_PERFORMANCE_MODE) "TRUE" else "FALSE")
+  addGeneric("IDELAY_TYPE", IDELAY_TYPE)
+  addGeneric("IDELAY_VALUE", IDELAY_VALUE)
+  addGeneric("PIPE_SEL", if(PIPE_SEL) "TRUE" else "FALSE")
+  addGeneric("REFCLK_FREQUENCY", REFCLK_FREQUENCY)
+  addGeneric("SIGNAL_PATTERN", SIGNAL_PATTERN)
+
+  val CNTVALUEOUT = out Bits(5 bits)
+  val DATAOUT = out Bool()
+
+  val C = in Bool()
+  val CE = in Bool()
+  val CINVCTRL = in Bool()
+  val CNTVALUEIN = in Bits(5 bits)
+  val DATAIN = in Bool()
+  val IDATAIN = in Bool()
+  val INC = in Bool()
+  val LD = in Bool()
+  val LDPIPEEN = in Bool()
+  val REGRST = in Bool()
+}

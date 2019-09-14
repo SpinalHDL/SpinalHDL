@@ -43,6 +43,7 @@ trait Dependable{
         val subIo = body
         val topIo = cloneOf(subIo).setPartialName(h, "", true)
         topIo.copyDirectionOf(subIo)
+        for((s,t) <- (subIo.flatten, topIo.flatten).zipped if s.isAnalog) t.setAsAnalog()
         topIo <> subIo
         topIo
       }
