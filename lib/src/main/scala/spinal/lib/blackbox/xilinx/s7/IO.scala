@@ -104,7 +104,15 @@ case class OBUFDS() extends BlackBox{
 
 case class IOBUFDS() extends BlackBox{
   val I, T = in Bool()
-  val O, IO, IOB = out Bool()
+  val O = out Bool()
+  val IO, IOB = inout(Analog(Bool))
+}
+
+
+case class IOBUF() extends BlackBox{
+  val I, T = in Bool()
+  val O = out Bool()
+  val IO = inout(Analog(Bool))
 }
 
 
@@ -195,4 +203,11 @@ case class IDELAYE2(HIGH_PERFORMANCE_MODE : Boolean = false,
   val LD = in Bool()
   val LDPIPEEN = in Bool()
   val REGRST = in Bool()
+}
+
+
+case class IDELAYCTRL() extends BlackBox {
+  val REFCLK = in Bool()
+  val RST = in Bool()
+  val RDY = out Bool()
 }
