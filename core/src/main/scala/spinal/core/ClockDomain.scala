@@ -290,9 +290,10 @@ case class ClockDomain(clock       : Bool,
     return false
   }
 
-  def setSynchronousWith(that: ClockDomain) : Unit = {
+  def setSynchronousWith(that: ClockDomain) : this.type = {
     this.synchronizedWith += that
     that.synchronizedWith += this
+    this
   }
 
   @deprecated("misspelled method will be removed", "SpinalHDL 1.2.3")
