@@ -86,6 +86,8 @@ abstract class BlackBox extends Component{
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
 
+  def addGenerics(l : (String, Any)*) = l.foreach(e => addGeneric(e._1, e._2))
+
   val listRTLPath = new LinkedHashSet[String]()
 
   /** Add the path of the rtl file */
