@@ -2,7 +2,7 @@ package spinal.tester.code
 
 import spinal.core._
 
-class UIntExtend extends Component {
+class UIntFixTry extends Component {
   val a, b = in UInt (16 bits)
   val c = UInt()
   c:= a * b
@@ -35,7 +35,7 @@ class UIntExtend extends Component {
   val fixto10_2def   = a.fixTo(10 downto 2)
 }
 
-class SIntExtend extends Component{
+class SIntFixTry extends Component{
   val a,b = in SInt(8 bits)
   val addExpand         = a +^ b
   val subExpand         = a -^ b
@@ -71,11 +71,11 @@ class SIntExtend extends Component{
   val fixto5_2def       = a.fixTo(5 downto 2)
 }
 
-object getRtlCode {
+object genRtlCode {
   def main(args: Array[String]) {
-    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntExtend)
-    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntExtend)
-    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntExtend)
-    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntExtend)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry)
+    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntFixTry)
+    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntFixTry)
   }
 }

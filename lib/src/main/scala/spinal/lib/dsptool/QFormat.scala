@@ -1,6 +1,6 @@
 package spinal.lib.dsptool
 
-case class QFormat(width: Int, fraction: Int, signed: Boolean, symmetric: Boolean = false ) {
+case class QFormat(width: Int, fraction: Int, signed: Boolean) {
   val noneFraction: Int = width - fraction
   val amp: Int = if(signed) (noneFraction - 1) else noneFraction
   val capcity: Double = if(signed) scala.math.pow(2, width) else scala.math.pow(2, width-1)
@@ -25,7 +25,7 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean, symmetric: Boolea
   def -(right: QFormat): QFormat = this.+(- right)
 
   def unary_- : QFormat = {
-    if(signed) this else new QFormat(this.width+1, this.fraction, true)
+    if(signed) this else QFormat(this.width+1, this.fraction, true)
   }
   override def toString : String = {
     s"""${getClass().getName.split('.').last} : Q($width,$fraction,${if(signed) "signed" else "unsigned"})
@@ -37,10 +37,8 @@ minValue  : $minValue"""
 
 object UQ {
   def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,false)
-  def apply(width: Int, fraction: Int, symmetric: Boolean): QFormat = new QFormat(width, fraction,false, symmetric)
 }
 
 object SQ {
   def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,true)
-  def apply(width: Int, fraction: Int, symmetric: Boolean): QFormat = new QFormat(width, fraction,true, symmetric)
 }

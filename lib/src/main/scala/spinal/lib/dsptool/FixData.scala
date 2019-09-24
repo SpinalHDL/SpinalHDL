@@ -11,7 +11,10 @@ import spinal.core._
   *        x.oct =>      103
   *        x.hex =>       c3
   */
-case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToInf)
+case class FixData(data: Double,
+                   initq: QFormat,
+                   roundType: RoundType = RoundToInf,
+                   symmetric: Boolean = false )
                   (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
 
   private var q: QFormat = initq
@@ -44,7 +47,7 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
           case _ => roundToInf
         }
         v = this.saturated(rounded * q.resolution)
-        if(qtag.symmetric) this.symmetry
+        if(symmetric) this.doSymmetry()
         this
       }
       case _ => SpinalError("Illegal FixSwitch!");null
@@ -67,7 +70,9 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
     case _ => x
     }
 
-  private def symmetry = if(this.value == q.minValue) - q.maxValue else this.value
+  private def doSymmetry(){
+    v = if(this.value == q.minValue) - q.maxValue else this.value
+  }
 
   def asLong: Long = this.value / q.resolution toLong
   def asLongPostive: Long = if(isNegtive) q.capcity.toLong + this.asLong else this.asLong
@@ -83,18 +88,18 @@ case class FixData(data: Double, initq: QFormat, roundType: RoundType = RoundToI
   }
 
   def *(right: FixData): FixData ={
-    FixData(this.value * right.value, this.q * right.q, roundType)(button)
+    this.copy(data = this.value * right.value, initq = this.q * right.q)
   }
 
   def +(right: FixData): FixData ={
-    FixData(this.value + right.value, this.q + right.q, roundType)(button)
+    this.copy(data = this.value + right.value, initq = this.q + right.q)
   }
 
   def -(right: FixData): FixData ={
-    FixData(this.value - right.value, this.q - right.q, roundType)(button)
+    this.copy(data = this.value - right.value, initq = this.q - right.q)
   }
 
-  def unary_- : FixData = FixData(-this.value, -this.q, roundType)(button)
+  def unary_- : FixData = this.copy(data = -this.value, initq = -this.q)
 
 }
 
