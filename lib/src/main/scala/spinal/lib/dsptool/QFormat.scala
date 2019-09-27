@@ -27,6 +27,19 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
   def unary_- : QFormat = {
     if(signed) this else QFormat(this.width+1, this.fraction, true)
   }
+
+  def >>(n: Int): QFormat = {
+    val newFrac  = this.fraction + n
+    val newWidth = if(this.amp > n) this.width else (this.width + n - this.amp )
+    this.copy(newWidth, newFrac)
+  }
+
+  def <<(n: Int): QFormat = {
+    val newFrac  = if(this.fraction>n) (this.fraction - n) else 0
+    val newWidth = if(this.fraction>n) this.width else (this.width + n - this.fraction)
+    this.copy(newWidth, newFrac)
+  }
+
   override def toString : String = {
     s"""${getClass().getName.split('.').last} : Q($width,$fraction,${if(signed) "signed" else "unsigned"})
 resolution: $resolution

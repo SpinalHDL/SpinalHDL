@@ -19,7 +19,7 @@ case class FixData(data: Double,
 
   private var q: QFormat = initq
   private var v: Double = data
-  fixTo(initq)
+  fixTo(initq, this.roundType, this.symmetric)
 
   def value: Double = v
   def Q: QFormat    = q
@@ -30,12 +30,12 @@ case class FixData(data: Double,
   def isNegtive: Boolean = value < 0
   def sign: Int = if(isNegtive) -1 else 1
 
-  def fixTo(qtag: QFormat) : FixData ={
+  def fixTo(qtag: QFormat, round: RoundType = this.roundType, sym: Boolean = this.symmetric) : FixData ={
     button match {
       case FixSwitchOff.fixButton => this
       case FixSwitchOn.fixButton  => {
         q = qtag
-        val rounded = this.roundType match {
+        val rounded = round match {
           case Ceil          => ceil
           case Floor         => floor
           case FloorToZero   => floorToZero
@@ -47,7 +47,7 @@ case class FixData(data: Double,
           case _ => roundToInf
         }
         v = this.saturated(rounded * q.resolution)
-        if(symmetric) this.doSymmetry()
+        if(sym) this.doSymmetry()
         this
       }
       case _ => SpinalError("Illegal FixSwitch!");null
@@ -101,6 +101,12 @@ case class FixData(data: Double,
 
   def unary_- : FixData = this.copy(data = -this.value, initq = -this.q)
 
+  def >>(n: Int): FixData ={
+    this.copy(data = this.value / scala.math.pow(2,n), initq = this.q >> n)
+  }
+  def <<(n: Int): FixData ={
+    this.copy(data = this.value * scala.math.pow(2,n), initq = this.q << n)
+  }
 }
 
 /**
