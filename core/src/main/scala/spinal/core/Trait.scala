@@ -647,6 +647,10 @@ trait SpinalTagReady {
     else
       _spinalTags
   }
+  def foreachTag(body : SpinalTag => Unit) : Unit = {
+    if(_spinalTags == null) return
+    _spinalTags.foreach(body)
+  }
 
   def findTag(cond: (SpinalTag) => Boolean): Option[SpinalTag] = {
     if(_spinalTags == null) return None
