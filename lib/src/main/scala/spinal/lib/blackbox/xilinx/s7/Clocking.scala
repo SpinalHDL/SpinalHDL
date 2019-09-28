@@ -3,7 +3,7 @@ package spinal.lib.blackbox.xilinx.s7
 import spinal.core._
 
 object BUFG{
-  def apply(that : Bool) : Bool = {
+  def on(that : Bool) : Bool = {
     val bufg = BUFG()
     bufg.setCompositeName(that, "BUFG")
     bufg.I := that

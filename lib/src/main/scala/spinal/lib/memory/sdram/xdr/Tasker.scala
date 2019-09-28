@@ -35,8 +35,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   }
   val banksActive = banks.map(_.active).orR
 
-  def Timing(loadValid : Bool, loadValue : UInt) = new Area{
-    val value = Reg(UInt(cp.timingWidth bits)) init(0)
+  def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
+    val value = Reg(UInt(timingWidth bits)) init(0)
     val busy = value =/= 0
     value := value - busy.asUInt
     when(loadValid) { value := loadValue }
@@ -44,8 +44,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
 
-  val CCD = Timing(trigger.CCD, pl.CCD-1)
-  val RFC = Timing(trigger.RFC, io.config.RFC)
+  val CCD = Timing(trigger.CCD, pl.sdram.generation.CCD/pl.dataRatio-1)
+  val RFC = Timing(trigger.RFC, io.config.RFC, cp.timingWidth+3)
   val RRD = Timing(trigger.RRD, io.config.RRD)
   val WTR = Timing(trigger.WTR, io.config.WTR)
   val RTW = Timing(trigger.RTW, io.config.RTW)
@@ -116,14 +116,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       }
     }
 
-    val locks = gates.map(!_.input.first)
-    when(locks.orR){
-      masked := B(locks)
-    }
 
-
-
-    val askRefresh = io.refresh.valid && !locks.orR
+    val askRefresh = io.refresh.valid && io.output.first
     maskedInibate setWhen(askRefresh || io.backendFull)
 
     val tockenIncrement = !maskedInibate && (masked & arbiterState & gates.map(g => !g.inputPrecharge && !g.inputActive && g.input.last).asBits).orR
@@ -167,13 +161,15 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     banksRow.write(io.output.address.bank, io.output.address.row)
     switch(io.output.kind) {
       is(FrontendCmdOutputKind.READ) {
-        trigger.CCD := True
-        trigger.RTP := True
-        trigger.RTW := True
+        when(io.output.last) {
+//          trigger.CCD := True
+          trigger.RTP := True
+          trigger.RTW := True
+        }
       }
       is(FrontendCmdOutputKind.WRITE) {
-        when(io.output.first) {
-          trigger.CCD := True
+        when(io.output.last) {
+//          trigger.CCD := True
           trigger.WTR := True
           trigger.WR := True
         }

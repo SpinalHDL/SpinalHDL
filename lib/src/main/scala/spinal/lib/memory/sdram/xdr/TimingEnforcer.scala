@@ -46,7 +46,7 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
     }
 
     val WTR = Timing(trigger.WTR, io.config.WTR)
-    val CCD = Timing(trigger.CCD, pl.CCD-1)
+    val CCD = Timing(trigger.CCD, pl.sdram.generation.CCD/pl.dataRatio-1)
     val RFC = Timing(trigger.RFC, io.config.RFC)
     val RRD = Timing(trigger.RRD, io.config.RRD)
     val WR = banks.map(_.WR.busy).read(io.input.address.bank)
