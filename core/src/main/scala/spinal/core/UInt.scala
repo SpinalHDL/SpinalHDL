@@ -197,7 +197,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     val ret = UInt(getWidth-n bits)
     val negative0p5: UInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asUInt
     val sub0p5 = this(getWidth-1 downto 0) + negative0p5 //ceil(x - 0.5)
-    when(this(n-1 downto 0).asBits.orR){
+    when(sub0p5(n-1 downto 0).asBits.orR){
       ret := sub0p5(getWidth-1 downto n) + 1 //safe without carry
     }.otherwise {
       ret := sub0p5(getWidth-1 downto n)
@@ -217,7 +217,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case (0,  _,   `_w`) => this
       case (x, `_wl`, _  ) => _roundEntry(x, roundType, true)
       case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => _roundEntry(x, roundType, false).sat(this.getWidth -1 - y + 1)
+      case (x,  y,    _  ) => _roundEntry(x, roundType, false).sat(this.getWidth -1 - y)
     }
   }
 
