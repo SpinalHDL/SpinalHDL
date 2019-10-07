@@ -1,9 +1,9 @@
 package spinal.lib.dsptool
 
 case class QFormat(width: Int, fraction: Int, signed: Boolean) {
-  val noneFraction: Int = width - fraction
-  val amp: Int = if(signed) (noneFraction - 1) else noneFraction
-  val capcity: Double = if(signed) scala.math.pow(2, width) else scala.math.pow(2, width-1)
+  val nonFraction: Int = width - fraction
+  val amplify: Int = if(signed) (nonFraction - 1) else nonFraction
+  val capcity: Double = scala.math.pow(2, width)
   val halfCapcity: Double = capcity/2
   val resolution: Double  = 1/scala.math.pow(2, fraction)
   val minValue: Double = if(signed) - halfCapcity*resolution else 0
@@ -18,7 +18,7 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
 
   def +(right: QFormat): QFormat = {
     val fraction = scala.math.max(this.fraction, right.fraction)
-    val noneFraction = scala.math.max(this.noneFraction, right.noneFraction)
+    val noneFraction = scala.math.max(this.nonFraction, right.nonFraction)
     QFormat(noneFraction + fraction, fraction, this.signed | right.signed)
   }
 
@@ -30,7 +30,7 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
 
   def >>(n: Int): QFormat = {
     val newFrac  = this.fraction + n
-    val newWidth = if(this.amp > n) this.width else (this.width + n - this.amp )
+    val newWidth = if(this.amplify > n) this.width else (this.width + n - this.amplify )
     this.copy(newWidth, newFrac)
   }
 

@@ -806,8 +806,8 @@ trait Num[T <: Data] {
   def floorToZero(n: Int): T
   def ceilToInf(n: Int, align: Boolean): T
   def roundUp(n: Int, align: Boolean): T
-  def roundDown(n: Int): T
-  def roundToZero(n: Int): T
+  def roundDown(n: Int, align: Boolean): T
+  def roundToZero(n: Int, align: Boolean): T
   def roundToInf(n: Int, align: Boolean): T
   def round(n: Int, align: Boolean): T
   /**lowest n bits Round Operation by BitCount */
@@ -816,24 +816,10 @@ trait Num[T <: Data] {
   def floorToZero(width: BitCount): T                  = floorToZero(width.value)
   def ceilToInf(width: BitCount, align: Boolean): T    = ceilToInf(width.value, align)
   def roundUp(width: BitCount, align: Boolean): T      = roundUp(width.value, align)
-  def roundDown(width: BitCount): T                    = roundDown(width.value)
-  def roundToZero(width: BitCount): T                  = roundToZero(width.value)
+  def roundDown(width: BitCount, align: Boolean): T    = roundDown(width.value, align)
+  def roundToZero(width: BitCount, align: Boolean): T  = roundToZero(width.value, align)
   def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
   def round(width: BitCount, align: Boolean): T        = round(width.value, align)
-
-  protected def _roundEntry(n: Int, roundType: RoundType, align: Boolean): T ={
-    roundType match{
-      case Ceil          => this.ceil(n, align)
-      case Floor         => this.floor(n)
-      case FloorToZero   => this.floorToZero(n)
-      case CeilToInf     => this.ceilToInf(n, align)
-      case RoundUpp      => this.roundUp(n, align)
-      case RoundDown     => this.roundDown(n)
-      case RoundToZero   => this.roundToZero(n)
-      case RoundToInf    => this.roundToInf(n, align)
-      case _             => this.round(n, align)
-    }
-  }
 }
 
 /**

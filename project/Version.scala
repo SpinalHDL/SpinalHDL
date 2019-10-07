@@ -2,7 +2,7 @@ object SpinalVersion {
   val compiler = "2.11.12"
   val compilerIsRC = false
 
-  val isSnapshot = false
+  val isSnapshot = true
   private def snapshot = if (isSnapshot) "-SNAPSHOT" else ""
   private val major = "1.3.7"
   val all         = s"$major$snapshot"

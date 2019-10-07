@@ -71,11 +71,25 @@ class SIntFixTry extends Component{
   val fixto5_2def       = a.fixTo(5 downto 2)
 }
 
+class UIntFixTry2 extends Component {
+  val a = in UInt (16 bits)
+  val b = out(a.fixTo(13 downto 4,Ceil))
+//  val b = out(a.fixTo(8 downto 1,Floor))
+//  val c0 = a.floor(1)
+//  val c1 = out(c0.sat(7))
+}
+class SIntFixTry2 extends Component {
+  val a = in SInt (16 bits)
+  val b = out(a.fixTo(8 downto 1, Floor))
+}
+
 object genRtlCode {
   def main(args: Array[String]) {
-    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry)
-    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry)
-    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntFixTry)
-    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntFixTry)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry2)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry2)
+    //    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry)
+//    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry)
+//    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntFixTry)
+//    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntFixTry)
   }
 }
