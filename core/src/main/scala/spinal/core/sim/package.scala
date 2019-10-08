@@ -138,32 +138,24 @@ package object sim {
     }
   }
 
-  def forkSensitive(trigger : => Any)(block : => Unit): Unit = {
-    trigger match {
-      case bt: BaseType => {
-        var valueLast = bt.toBigInt
-        forkSensitive {
-          val valueNew = bt.toBigInt
-          if (valueNew != valueLast) block
-          valueLast = valueNew
-        }
+  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+    def value(data: Data) = data.flatten.map(_.toBigInt)
+    def currentTriggerValue = triggers.flatMap(value)
+
+    forkSensitive(currentTriggerValue)(block)
+  }
+
+  def forkSensitive(trigger: => Any)(block: => Unit): Unit = {
+    var lastValue = trigger
+
+    forkSensitive {
+      val newValue = trigger
+
+      if (newValue != lastValue) {
+        block
       }
-      case data: Data => {
-        var valueLast = data.flatten.map(_.toBigInt)
-        forkSensitive {
-          val valueNew = data.flatten.map(_.toBigInt)
-          if (valueNew != valueLast) block
-          valueLast = valueNew
-        }
-      }
-      case _ => {
-        var valueLast = trigger
-        forkSensitive {
-          val valueNew = trigger
-          if (valueNew != valueLast) block
-          valueLast = valueNew
-        }
-      }
+
+      lastValue = newValue
     }
   }
 
