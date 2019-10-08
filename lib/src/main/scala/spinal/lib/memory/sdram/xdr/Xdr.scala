@@ -14,11 +14,10 @@ case class PhyParameter(sdram : SdramLayout,
                         dataRatio : Int,
                         outputLatency : Int,
                         inputLatency : Int,
-                        burstLength : Int,
-                        CCD : Int){
+                        burstLength : Int){
   import sdram._
   def beatWidth = phaseCount * dataRatio * dataWidth
-  def beatCount = burstLength / phaseCount
+  def beatCount = burstLength / phaseCount / dataRatio
   def wordWidth = dataWidth*burstLength
   def bytePerDq = dataWidth/8
   def bytePerWord = wordWidth/8
@@ -251,18 +250,20 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
-  val RFC, RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(cp.timingWidth bits)
+  val RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(cp.timingWidth bits)
+  val RFC = UInt(cp.timingWidth+3 bits)
   val ODT = generation.ODT generate UInt(cp.timingWidth bits)
   val ODTend = generation.ODT generate Bits(pl.phaseCount bits)
   val FAW = generation.FAW generate UInt(cp.timingWidth bits)
   val REF = UInt(cp.refWidth bits)
-  val autoRefresh = Bool()
+  val autoRefresh, noActive = Bool()
 
   def driveFrom(mapper : BusSlaveFactory) = new Area {
-    mapper.drive(commandPhase, 0x00, 0)
+    mapper.drive(commandPhase, 0x00,  0)
     mapper.drive(writeLatency, 0x00, 16)
     mapper.drive(readLatency,  0x00, 24)
     mapper.drive(autoRefresh,  0x04,  0) init(False)
+    mapper.drive(noActive,     0x04,  1) init(False)
 
     mapper.drive(REF, 0x10,  0)
 
@@ -316,7 +317,6 @@ case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
   val ADDR  = Bits(cpa.pl.chipAddressWidth bits)
   val BA    = Bits(cpa.pl.sdram.bankWidth bits)
   val CASn  = Bool
-  val CKE   = Bool
   val CSn   = Bool
   val RASn  = Bool
   val WEn   = Bool
@@ -332,7 +332,6 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
     cmd.valid := valid
     mapper.drive(
       address = 0x04,
-      0 -> cmd.CKE,
       1 -> cmd.CSn,
       2 -> cmd.RASn,
       3 -> cmd.CASn,
@@ -341,8 +340,8 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
     mapper.drive(cmd.ADDR, 0x08)
     mapper.drive(cmd.BA, 0x0C)
 
-    mapper.drive(RESETn, 0x10, 0)
-    mapper.drive(CKE, 0x10, 1)
+    mapper.drive(RESETn, 0x10, 0) init(False)
+    mapper.drive(CKE, 0x10, 1) init(False)
   }
 
   override def asMaster(): Unit = {
@@ -380,6 +379,16 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
+  val readFix = Reg(UInt(log2Up(cpa.pl.beatCount)  bits)) init(0)
+  when(io.output.cmd.valid && !io.output.cmd.write){
+    when(io.output.cmd.ready){
+      readFix := readFix + 1
+      when(readFix =/= readFix.maxValue){
+        io.input.cmd.ready := False
+        io.output.cmd.last := False
+      }
+    }
+  }
 
   val rspContext =io.output.rsp.context.as(Context())
 

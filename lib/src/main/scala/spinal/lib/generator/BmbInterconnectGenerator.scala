@@ -49,7 +49,7 @@ case class BmbInterconnectGenerator() extends Generator{
     var arbiterRequirements = Handle[BmbParameter]
     val mapping = Handle[AddressMapping]
     var connector: (Bmb, Bmb) => Unit = defaultConnector
-    var requireUnburstify, requireDownSizer = false
+    var requireUnburstify, requireDownSizer, requireUpSizer = false
 
     this.setCompositeName(bus, "interconnect")
 
@@ -74,6 +74,20 @@ case class BmbInterconnectGenerator() extends Generator{
         busPtr = c.io.output
         c
       }
+      
+      val upSizer = if(requireUpSizer){
+        val c = BmbUpSizerBridge(
+          inputParameter = busPtr.p,
+          outputParameter = BmbUpSizerBridge.outputParameterFrom(
+            inputParameter = busPtr.p,
+            outputDataWidth = requirements.dataWidth
+          )
+        ).setCompositeName(bus, "upSizer")
+        c.io.input << busPtr
+        busPtr = c.io.output
+        c
+      }
+      
       val burstSpliter = if(requireUnburstify){
         val c = BmbUnburstify(busPtr.p).setCompositeName(bus, "burstUnburstifier")
         c.io.input << busPtr
@@ -120,13 +134,19 @@ case class BmbInterconnectGenerator() extends Generator{
 
         //require down
         requireDownSizer = requirements.dataWidth > capabilities.dataWidth
+        requireUpSizer = requirements.dataWidth < capabilities.dataWidth
         if(requireDownSizer){
           requirements.load(BmbDownSizerBridge.outputParameterFrom(
             inputParameter   = requirements,
             outputDataWidth  = capabilities.dataWidth
           ))
         }
-
+        if(requireUpSizer){
+          requirements.load(BmbUpSizerBridge.outputParameterFrom(
+            inputParameter   = requirements,
+            outputDataWidth  = capabilities.dataWidth
+          ))
+        }
 
         requireUnburstify = capabilities.lengthWidth < requirements.lengthWidth
         if(requireUnburstify){  //TODO manage allowXXXburst flags

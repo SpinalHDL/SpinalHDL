@@ -180,8 +180,8 @@ class ComponentEmitterVhdl(
     //Wrap inout
     analogs.foreach(io => {
       io.foreachStatements{
-        case AssignmentStatement(_, source: BaseType) =>
-          referencesOverrides(source) = emitExpression(io)
+        case AssignmentStatement(target, source: BaseType) =>
+          referencesOverrides(source) = emitAssignedExpression(target)
         case _ =>
       }
     })

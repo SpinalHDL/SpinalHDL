@@ -14,8 +14,7 @@ object SdrInferedPhy{
     dataRatio = 1,
     outputLatency = 1,
     inputLatency = 1,
-    burstLength = 1,
-    CCD = 1
+    burstLength = 1
   )
 }
 

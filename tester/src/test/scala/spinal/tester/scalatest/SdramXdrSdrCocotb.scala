@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib.bus.bmb._
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
-import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, Ctrl, CtrlParameter, mt48lc16m16a2_model}
+import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlWithPhy, CtrlParameter, mt48lc16m16a2_model}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.eda.bench.Rtl
@@ -67,7 +67,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
 
   val dq = Analog(Bits(16 bits))
 
-  val ctrl = new Ctrl(cp, SdrInferedPhy(sl))
+  val ctrl = new CtrlWithPhy(cp, SdrInferedPhy(sl))
   io.ports <> ctrl.io.bmb
   io.apb <> ctrl.io.apb
   when(ctrl.io.memory.DQ.writeEnable) {
@@ -172,7 +172,7 @@ object SdramSdrSyntBench extends App{
     override def getName(): String = "Port4"
     override def getRtlPath(): String = "Port4.v"
     SpinalVerilog({
-      val c = new Ctrl(cp, SdrInferedPhy(sl)).setDefinitionName(getRtlPath().split("\\.").head)
+      val c = new CtrlWithPhy(cp, SdrInferedPhy(sl)).setDefinitionName(getRtlPath().split("\\.").head)
       c
     })
   }

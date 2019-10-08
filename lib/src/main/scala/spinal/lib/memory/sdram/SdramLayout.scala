@@ -6,20 +6,29 @@ import spinal.core._
 class SdramGeneration( val RESETn : Boolean,
                        val ODT : Boolean,
                        val DQS : Boolean,
-                       val FAW : Boolean)
+                       val FAW : Boolean,
+                       val CCD : Int,
+                       val burstLength : Int,
+                       val dataRate : Int)
 
 object SdramGeneration{
   val SDR = new SdramGeneration(
     RESETn = false,
     ODT = false,
     DQS = false,
-    FAW = false
+    FAW = false,
+    CCD = 1,
+    burstLength = 1,
+    dataRate = 1
   )
   val DDR3 = new SdramGeneration(
     RESETn = true,
     ODT = true,
     DQS = true,
-    FAW = true
+    FAW = true,
+    CCD = 4,
+    burstLength = 8,
+    dataRate = 2
   )
 }
 

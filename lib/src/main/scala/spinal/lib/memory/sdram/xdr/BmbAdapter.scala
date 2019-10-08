@@ -27,10 +27,10 @@ case class BmbAdapter(pp : BmbPortParameter,
 
   val cmdBuffer = new StreamFifoLowLatency(aligner.io.output.cmd.payload, pp.cmdBufferSize, 1)
   val cmdHalt = if(pl.beatCount == 1) False else aligner.io.output.cmd.isWrite && cmdBuffer.io.occupancy < cpa.pl.beatCount
-  cmdBuffer.io.push << aligner.io.output.cmd.haltWhen(cmdHalt)
+  cmdBuffer.io.push << aligner.io.output.cmd
 
   val lengthFixer = BmbLengthFixer(cmdBuffer.io.pop.p, log2Up(pl.wordWidth/8))
-  lengthFixer.io.input.cmd << cmdBuffer.io.pop
+  lengthFixer.io.input.cmd << cmdBuffer.io.pop.haltWhen(cmdHalt)
   lengthFixer.io.input.rsp >> aligner.io.output.rsp
 
   val converter = BmbToCorePort(lengthFixer.io.output.p, io.output.cpp, cpa)

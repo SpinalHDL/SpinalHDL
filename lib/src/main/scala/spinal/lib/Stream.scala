@@ -227,8 +227,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
 
-    val rValid = RegInit(False)
-    val rData = Reg(payloadType)
+    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
+    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
     if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready

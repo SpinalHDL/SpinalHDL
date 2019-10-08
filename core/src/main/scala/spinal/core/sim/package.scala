@@ -138,6 +138,35 @@ package object sim {
     }
   }
 
+  def forkSensitive(trigger : => Any)(block : => Unit): Unit = {
+    trigger match {
+      case bt: BaseType => {
+        var valueLast = bt.toBigInt
+        forkSensitive {
+          val valueNew = bt.toBigInt
+          if (valueNew != valueLast) block
+          valueLast = valueNew
+        }
+      }
+      case data: Data => {
+        var valueLast = data.flatten.map(_.toBigInt)
+        forkSensitive {
+          val valueNew = data.flatten.map(_.toBigInt)
+          if (valueNew != valueLast) block
+          valueLast = valueNew
+        }
+      }
+      case _ => {
+        var valueLast = trigger
+        forkSensitive {
+          val valueNew = trigger
+          if (valueNew != valueLast) block
+          valueLast = valueNew
+        }
+      }
+    }
+  }
+
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
   }

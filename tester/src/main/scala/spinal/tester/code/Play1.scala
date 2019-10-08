@@ -49,16 +49,26 @@ class Stage0 extends Bundle with BundleA with BundleB with BundleC
 
 class Stage1 extends Bundle with BundleA with BundleB with BundleD
 
-class Play1 extends Component {
-  val io = new Bundle {
-    val output = out(Reg(Bool))
-  }
-  io.output := !io.output
-}
+
 
 object Play1 {
+  case class Sub() extends Component {
+    val io = inout(Analog(Bool))
+
+    io := True
+  }
+
+  case class TopLevel() extends Component {
+    val io = inout(Analog(Bits(2 bits)))
+
+    val s0, s1 = Sub()
+
+    io(0) := s0.io
+    io(1) := s1.io
+  }
+
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new Play1)
+    SpinalVhdl(new TopLevel)
   }
 }
 

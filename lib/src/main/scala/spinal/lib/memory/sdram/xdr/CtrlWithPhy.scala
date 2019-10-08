@@ -23,10 +23,10 @@ case class CtrlParameter( core : CoreParameter,
                           ports : Seq[BmbPortParameter])
 
 
-object Ctrl{
-  def bmbCapabilities(layout : SdramLayout) = BmbParameter(
-    addressWidth  = layout.byteAddressWidth,
-    dataWidth     = layout.dataWidth,
+object CtrlWithPhy{
+  def bmbCapabilities(pp : PhyParameter) = BmbParameter(
+    addressWidth  = pp.byteAddressWidth,
+    dataWidth     = pp.sdram.dataWidth * pp.phaseCount * pp.dataRatio,
     lengthWidth   = Int.MaxValue,
     sourceWidth   = Int.MaxValue,
     contextWidth  = Int.MaxValue,
@@ -37,7 +37,7 @@ object Ctrl{
   )
 }
 
-class Ctrl[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T]) extends Component{
+class CtrlWithPhy[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T]) extends Component{
   val io = new Bundle {
     val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
     val apb = slave(Apb3(12, 32))
@@ -61,6 +61,30 @@ class Ctrl[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T
   core.io.config.driveFrom(mapper.withOffset(0x000))
   core.io.soft.driveFrom(mapper.withOffset(0x100))
   phy.driveFrom(mapper.withOffset(0x400))
+}
+
+
+
+class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyParameter) extends Component{
+  val io = new Bundle {
+    val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
+    val apb = slave(Apb3(12, 32))
+    val phy = master(SdramXdrPhyCtrl(pl))
+  }
+
+  val cpa = CoreParameterAggregate(p.core, pl, p.ports.map(port => BmbAdapter.corePortParameter(port, pl)))
+
+  val bmbAdapter = for(port <- p.ports) yield BmbAdapter(port, cpa)
+  (bmbAdapter, io.bmb).zipped.foreach(_.io.input <> _)
+
+  val core = Core(cpa)
+  core.io.ports <> Vec(bmbAdapter.map(_.io.output))
+
+  io.phy <> core.io.phy
+
+  val mapper = Apb3SlaveFactory(io.apb)
+  core.io.config.driveFrom(mapper.withOffset(0x000))
+  core.io.soft.driveFrom(mapper.withOffset(0x100))
 }
 
 
@@ -97,7 +121,7 @@ object CtrlMain extends App{
       )
     )
   )
-  SpinalVerilog(new Ctrl(cp, SdrInferedPhy(sl)))
+  SpinalVerilog(new CtrlWithPhy(cp, SdrInferedPhy(sl)))
 }
 
 object CtrlSdrTester extends App{
@@ -163,7 +187,7 @@ object CtrlSdrTester extends App{
     )
   )
 
-  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new Ctrl(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
+  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new CtrlWithPhy(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
     val tester = new BmbMemoryMultiPortTester(
       ports = dut.io.bmb.map(port =>
         BmbMemoryMultiPort(
