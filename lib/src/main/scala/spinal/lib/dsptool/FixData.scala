@@ -11,72 +11,75 @@ import spinal.core._
   *        x.oct =>      103
   *        x.hex =>       c3
   */
-case class FixData(data: Double,
-                   initq: QFormat,
+case class FixData(raw: Double,
+                   q: QFormat,
                    roundType: RoundType = RoundType.RoundToInf,
                    symmetric: Boolean = false )
                   (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
 
-  private var q: QFormat = initq
-  private var v: Double = data
-  fixTo(initq, this.roundType, this.symmetric)
 
-  def value: Double = v
-  def Q: QFormat    = q
+  private val zoomRaw: Double = raw / q.resolution
 
-  private def scalaValue = value / q.resolution
+  val value: Double = this.fixProcess()
 
-  def isSigned: Boolean = q.signed
-  def isNegtive: Boolean = value < 0
-  def sign: Int = if(isNegtive) -1 else 1
+  def fixTo(newQ: QFormat, round: RoundType, sym: Boolean): FixData = this.copy(this.value, newQ, round, sym)
+  def fixTo(newQ: QFormat, round: RoundType): FixData = this.copy(this.value, newQ)
+  def fixTo(newQ: QFormat): FixData = this.copy(this.value)
 
-  def fixTo(qtag: QFormat, round: RoundType = this.roundType, sym: Boolean = this.symmetric) : FixData ={
+  def fixProcess(): Double ={
     button match {
-      case FixSwitchOff.fixButton => this
+      case FixSwitchOff.fixButton => raw
       case FixSwitchOn.fixButton  => {
-        q = qtag
-        val rounded = round match {
-          case RoundType.Ceil          => ceil
-          case RoundType.Floor         => floor
-          case RoundType.FloorToZero   => floorToZero
-          case RoundType.CeilToInf     => ceilToInf
-          case RoundType.RoundUp       => roundUp
-          case RoundType.RoundDown     => roundDown
-          case RoundType.RoundToZero   => roundToZero
-          case RoundType.RoundToInf    => roundToInf
+        val rounded = this.roundType match {
+          case RoundType.Ceil          => this.ceil
+          case RoundType.Floor         => this.floor
+          case RoundType.FloorToZero   => this.floorToZero
+          case RoundType.CeilToInf     => this.ceilToInf
+          case RoundType.RoundUp       => this.roundUp
+          case RoundType.RoundDown     => this.roundDown
+          case RoundType.RoundToZero   => this.roundToZero
+          case RoundType.RoundToInf    => this.roundToInf
           case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
           case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
         }
-        v = this.saturated(rounded * q.resolution)
-        if(sym) this.doSymmetry()
-        this
+        val sated = this.saturated(rounded * this.q.resolution)
+        if(this.symmetric) this.symmetry(sated) else sated
       }
-      case _ => SpinalError("Illegal FixSwitch!");null
+      case _ => SpinalError("Illegal FixSwitch!")
     }
   }
 
-  private def abs   = scala.math.abs(this.scalaValue)
-  private def ceil  = scala.math.ceil(this.scalaValue)
-  private def floor = scala.math.floor(this.scalaValue)
-  private def floorToZero = this.sign * scala.math.floor(this.abs)
-  private def ceilToInf   = this.sign * scala.math.ceil(this.abs)
-  private def roundUp     = scala.math.floor(this.scalaValue + 0.5)
-  private def roundDown   = scala.math.ceil(this.scalaValue - 0.5)
-  private def roundToZero = this.sign * scala.math.ceil(this.abs - 0.5)
-  private def roundToInf  = this.sign * scala.math.floor(this.abs + 0.5)
+  def isSigned: Boolean   = q.signed
+  def isNegative: Boolean = value < 0
 
-  private def saturated(x: Double) = x match {
+  private val rawIsNegative: Boolean = raw < 0
+  private val rawSign: Int           = if(rawIsNegative) -1 else 1
+
+  private def abs: Double         = scala.math.abs(this.zoomRaw)
+  private def ceil: Double        = scala.math.ceil(this.zoomRaw)
+  private def floor: Double       = scala.math.floor(this.zoomRaw)
+  private def floorToZero: Double = this.rawSign * scala.math.floor(this.abs)
+  private def ceilToInf: Double   = this.rawSign * scala.math.ceil(this.abs)
+  private def roundUp: Double     = scala.math.floor(this.zoomRaw + 0.5)
+  private def roundDown: Double   = scala.math.ceil(this.zoomRaw - 0.5)
+  private def roundToZero: Double = this.rawSign * scala.math.ceil(this.abs - 0.5)
+  private def roundToInf: Double  = this.rawSign * scala.math.floor(this.abs + 0.5)
+
+  private def saturated(x: Double): Double = x match {
     case d if d > q.maxValue => q.maxValue
     case d if d < q.minValue => q.minValue
     case _ => x
     }
 
-  private def doSymmetry(){
-    v = if(this.value == q.minValue) - q.maxValue else this.value
+  private def symmetry(v: Double): Double = {
+    if(v == q.minValue) -q.maxValue else v
   }
 
-  def asLong: Long = this.value / q.resolution toLong
-  def asLongPostive: Long = if(isNegtive) q.capcity.toLong + this.asLong else this.asLong
+  def asInt: Int          = this.value / q.resolution toInt
+  def asIntPostive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
+
+  def asLong: Long        = this.value / q.resolution toLong
+  def asLongPostive: Long = if(rawIsNegative) q.capcity.toLong + this.asLong else this.asLong
 
   def hex: String = s"%${q.alignHex}s".format(this.asLongPostive.toHexString).replace(' ','0')
   def bin: String = s"%${q.width}s".format(this.asLongPostive.toBinaryString).replace(' ','0')
@@ -89,24 +92,25 @@ case class FixData(data: Double,
   }
 
   def *(right: FixData): FixData ={
-    this.copy(data = this.value * right.value, initq = this.q * right.q)
+    this.copy(raw = this.value * right.value, q = this.q * right.q)
   }
 
   def +(right: FixData): FixData ={
-    this.copy(data = this.value + right.value, initq = this.q + right.q)
+    this.copy(raw = this.value + right.value, q = this.q + right.q)
   }
 
   def -(right: FixData): FixData ={
-    this.copy(data = this.value - right.value, initq = this.q - right.q)
+    this.copy(raw = this.value - right.value, q = this.q - right.q)
   }
 
-  def unary_- : FixData = this.copy(data = -this.value, initq = -this.q)
+  def unary_- : FixData = this.copy(raw = -this.value, q = -this.q)
 
   def >>(n: Int): FixData ={
-    this.copy(data = this.value / scala.math.pow(2,n), initq = this.q >> n)
+    this.copy(raw = this.value / scala.math.pow(2,n), q = this.q >> n)
   }
+
   def <<(n: Int): FixData ={
-    this.copy(data = this.value * scala.math.pow(2,n), initq = this.q << n)
+    this.copy(raw = this.value * scala.math.pow(2,n), q = this.q << n)
   }
 }
 

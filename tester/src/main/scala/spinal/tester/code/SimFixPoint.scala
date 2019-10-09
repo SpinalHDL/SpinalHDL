@@ -49,7 +49,7 @@ object fixTests {
           val rand = new scala.util.Random(seed = 0)
           for(i <- 0 to 2000){
             val source = FixData(rand.nextGaussian*scala.math.pow(2,15),UQ(16,0))
-            val ret = if(source.isNegtive) -source else source
+            val ret = if(source.isNegative) -source else source
             dut.din #=  ret.asLong
             sleep(1)
             assert(dut.d7_0.toLong  == (ret>>0).fixTo(QFormat(8, 0,signed),roundType).asLong)

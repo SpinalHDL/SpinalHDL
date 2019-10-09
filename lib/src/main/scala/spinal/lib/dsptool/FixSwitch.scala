@@ -7,7 +7,7 @@ package spinal.lib.dsptool
   *             :FixData:-3.785333 FixSwitchOff
   *            }}}
   */
-sealed class FixSwitch(val pref: String);
+sealed class FixSwitch(val pref: String)
 
 object FixSwitchOff{
   implicit val fixButton = new FixSwitch("off")
