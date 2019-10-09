@@ -30,8 +30,8 @@ class UIntFixTry extends Component {
   val assint         = a.asSInt
   val tosint         = a.toSInt
   val expands        = a.expand
-  val fixto10_2      = a.fixTo(10 downto 2, RoundToInf)
-  val fixto10_2r     = a.fixTo(10 downto 2, RoundToInf)
+  val fixto10_2      = a.fixTo(10 downto 2, RoundType.RoundToInf)
+  val fixto10_2r     = a.fixTo(10 downto 2, RoundType.RoundToInf)
   val fixto10_2def   = a.fixTo(10 downto 2)
 }
 
@@ -62,34 +62,62 @@ class SIntFixTry extends Component{
   val abs               = a.abs
   val symabs            = a.absWithSym
   val sym               = a.symmetry
-  val fixto7_0          = a.fixTo(7 downto 0, RoundToInf)
-  val fixto7_2          = a.fixTo(7 downto 2, RoundToInf)
-  val fixto5_0          = a.fixTo(5 downto 0, RoundToInf)
-  val fixto5_2          = a.fixTo(5 downto 2, RoundToInf)
-  val fixto5_2f         = a.fixTo(5 downto 2, Floor)
-  val fixto5_2sr        = a.fixTo(5 downto 2,RoundUpp)
+  val fixto7_0          = a.fixTo(7 downto 0, RoundType.RoundToInf)
+  val fixto7_2          = a.fixTo(7 downto 2, RoundType.RoundToInf)
+  val fixto5_0          = a.fixTo(5 downto 0, RoundType.RoundToInf)
+  val fixto5_2          = a.fixTo(5 downto 2, RoundType.RoundToInf)
+  val fixto5_2f         = a.fixTo(5 downto 2, RoundType.Floor)
+  val fixto5_2sr        = a.fixTo(5 downto 2,RoundType.RoundUp)
   val fixto5_2def       = a.fixTo(5 downto 2)
 }
 
 class UIntFixTry2 extends Component {
   val a = in UInt (16 bits)
-  val b = out(a.fixTo(13 downto 4,Ceil))
-//  val b = out(a.fixTo(8 downto 1,Floor))
-//  val c0 = a.floor(1)
-//  val c1 = out(c0.sat(7))
+  val b = out(a.fixTo(13 downto 4,RoundType.Ceil))
+  val c = out(a.fixTo(8 downto 1,RoundType.Floor))
+  val c0 = a.floor(1)
+  val c1 = out(c0.sat(7))
 }
+
 class SIntFixTry2 extends Component {
   val a = in SInt (16 bits)
-  val b = out(a.fixTo(8 downto 1, Floor))
+  val b = out(a.fixTo(15 downto 0, RoundType.Floor))
+  val c = out(a.sat(0))
+  val d = out(a.symmetry)
+}
+
+class UIntFixRegression(roundType: RoundType) extends Component {
+  val a = in UInt (16 bits)
+  val b0 = out(a.fixTo(15 downto 0, roundType))
+  val b1 = out(a.fixTo(18 downto 3, roundType))
+  val b2 = out(a.fixTo(10 downto 1, roundType))
+  val b3 = out(a.fixTo(3  downto 0, roundType))
+  val b4 = out(a.fixTo(15 downto 3, roundType))
+}
+
+class SIntFixRegression(roundType: RoundType) extends Component {
+  val a = in SInt (16 bits)
+  val b0 = out(a.fixTo(15 downto 0, roundType))
+  val b1 = out(a.fixTo(18 downto 3, roundType))
+  val b2 = out(a.fixTo(10 downto 1, roundType))
+  val b3 = out(a.fixTo(3  downto 0, roundType))
+  val b4 = out(a.fixTo(15 downto 3, roundType))
 }
 
 object genRtlCode {
   def main(args: Array[String]) {
     SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry2)
     SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry2)
-    //    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry)
-//    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry)
-//    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntFixTry)
-//    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntFixTry)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixTry)
+    SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixTry)
+    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new UIntFixTry)
+    SpinalConfig(mode = VHDL,    targetDirectory="tmp/").generate(new SIntFixTry)
+    import spinal.core.RoundType._
+    val roundList = List(Ceil,Floor,FloorToZero,CeilToInf,RoundUp,RoundDown,RoundToZero,RoundToInf)
+    for(roundType <- roundList){
+      SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new UIntFixRegression(roundType))
+      SpinalConfig(mode = Verilog, targetDirectory="tmp/").generate(new SIntFixRegression(roundType))
+      println(s"gen: ${roundType}")
+    }
   }
 }

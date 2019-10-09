@@ -13,7 +13,7 @@ import spinal.core._
   */
 case class FixData(data: Double,
                    initq: QFormat,
-                   roundType: RoundType = RoundToInf,
+                   roundType: RoundType = RoundType.RoundToInf,
                    symmetric: Boolean = false )
                   (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
 
@@ -36,15 +36,17 @@ case class FixData(data: Double,
       case FixSwitchOn.fixButton  => {
         q = qtag
         val rounded = round match {
-          case Ceil          => ceil
-          case Floor         => floor
-          case FloorToZero   => floorToZero
-          case CeilToInf     => ceilToInf
-          case RoundUpp      => roundUp
-          case RoundDown     => roundDown
-          case RoundToZero   => roundToZero
-          case RoundToInf    => roundToInf
-          case _ => roundToInf
+          case RoundType.Ceil          => ceil
+          case RoundType.Floor         => floor
+          case RoundType.FloorToZero   => floorToZero
+          case RoundType.CeilToInf     => ceilToInf
+          case RoundType.RoundUp       => roundUp
+          case RoundType.RoundDown     => roundDown
+          case RoundType.RoundToZero   => roundToZero
+          case RoundType.RoundToInf    => roundToInf
+          case RoundType.RoundToEven   => SpinalError("RoundToEven have not yet supported")
+          case RoundType.RoundToOdd    => SpinalError("RoundToOdd have not yet supported")
+          case _                       => SpinalError("Illegal RoundType!")
         }
         v = this.saturated(rounded * q.resolution)
         if(sym) this.doSymmetry()

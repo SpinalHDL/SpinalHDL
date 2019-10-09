@@ -3,6 +3,7 @@ package spinal.tester.code
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib.dsptool._
+import spinal.core.RoundType._
 
 class SIntRoundTest(roundType: RoundType, sym: Boolean) extends Component{
   val din = in SInt(16 bits)
@@ -33,8 +34,7 @@ object fixTests {
         resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(200 MHz),
       targetDirectory="rtl/")
-    val roundList = List(RoundUpp,RoundDown,RoundToZero,RoundToInf,
-      Floor,Ceil,CeilToInf,FloorToZero)
+    val roundList = List(Ceil,Floor,FloorToZero,CeilToInf,RoundUp,RoundDown,RoundToZero,RoundToInf)
     //UInt-test
     for(roundType <- roundList){
       val signed = false
@@ -49,10 +49,7 @@ object fixTests {
           val rand = new scala.util.Random(seed = 0)
           for(i <- 0 to 2000){
             val source = FixData(rand.nextGaussian*scala.math.pow(2,15),UQ(16,0))
-            val ret = (signed,source.isNegtive) match{
-              case (false,true) => -source
-              case _ => source
-            }
+            val ret = if(source.isNegtive) -source else source
             dut.din #=  ret.asLong
             sleep(1)
             assert(dut.d7_0.toLong  == (ret>>0).fixTo(QFormat(8, 0,signed),roundType).asLong)
@@ -78,10 +75,11 @@ object fixTests {
           val rand = new scala.util.Random(seed = 0)
           for(i <- 0 to 2000){
             val source = FixData(rand.nextGaussian*scala.math.pow(2,15),SQ(16,0))
-            val ret = (signed,source.isNegtive) match{
-              case (false,true) => -source
-              case _ => source
-            }
+            val ret = source
+//            val ret = (signed,source.isNegtive) match{
+//              case (false,true) => -source
+//              case _ => source
+//            }
             dut.din #=  ret.asLong
             sleep(1)
             assert(dut.d7_0.toLong  == (ret>>0).fixTo(QFormat(8, 0,signed),roundType).asLong)

@@ -24,16 +24,18 @@ import scala.collection.mutable.ArrayBuffer
 import spinal.core._
 
 trait  RoundType ;
-object Ceil           extends RoundType ;// Wikipedia name: RoundUp
-object Floor          extends RoundType ;// Wikipedia name: RoundDown
-object FloorToZero    extends RoundType ;// Wikipedia name: RoundToZero
-object CeilToInf      extends RoundType ;// Wikipedia name: RoundToInf
-object RoundUpp       extends RoundType ;// Wikipedia name: RoundHalfUp    ; RoundUp->RoundUpp Temporary distinguish with roundUp
-object RoundDown      extends RoundType ;// Wikipedia name: RoundHalfDown
-object RoundToZero    extends RoundType ;// Wikipedia name: RoundHalfToZero
-object RoundToInf     extends RoundType ;// Wikipedia name: RoundHalfToInf
-object RoundToEven    extends RoundType ;// Wikipedia name: RoundHalfToEven
-object RoundToOdd     extends RoundType ;// Wikipedia name: RoundHalfToOdd
+object RoundType{
+  object Ceil           extends RoundType ;// Wikipedia name: RoundUp
+  object Floor          extends RoundType ;// Wikipedia name: RoundDown
+  object FloorToZero    extends RoundType ;// Wikipedia name: RoundToZero
+  object CeilToInf      extends RoundType ;// Wikipedia name: RoundToInf
+  object RoundUp        extends RoundType ;// Wikipedia name: RoundHalfUp
+  object RoundDown      extends RoundType ;// Wikipedia name: RoundHalfDown
+  object RoundToZero    extends RoundType ;// Wikipedia name: RoundHalfToZero
+  object RoundToInf     extends RoundType ;// Wikipedia name: RoundHalfToInf
+  object RoundToEven    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not yet supported
+  object RoundToOdd     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not yet supported
+}
 
 trait SFixFactory extends TypeFactory{
   def SFix(peak: ExpNumber, width: BitCount): SFix = postTypeFactory(new SFix(peak.value, width.value))

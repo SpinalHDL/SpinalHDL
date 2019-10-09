@@ -337,21 +337,23 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): SInt = {
     roundType match{
-      case Ceil          => this.ceil(roundN, false).sat(satN + 1)
-      case Floor         => this.floor(roundN).sat(satN)
-      case FloorToZero   => this.floorToZero(roundN).sat(satN)
-      case CeilToInf     => this.ceilToInf(roundN, false).sat(satN + 1)
-      case RoundUpp      => this.roundUp(roundN, false).sat(satN + 1)
-      case RoundDown     => this.roundDown(roundN, false).sat(satN + 1)
-      case RoundToZero   => this.roundToZero(roundN, false).sat(satN + 1)
-      case RoundToInf    => this.roundToInf(roundN, false).sat(satN + 1)
-      case _             => this.round(roundN, false).sat(satN + 1)
+      case RoundType.Ceil          => this.ceil(roundN, false).sat(satN + 1)
+      case RoundType.Floor         => this.floor(roundN).sat(satN)
+      case RoundType.FloorToZero   => this.floorToZero(roundN).sat(satN)
+      case RoundType.CeilToInf     => this.ceilToInf(roundN, false).sat(satN + 1)
+      case RoundType.RoundUp       => this.roundUp(roundN, false).sat(satN + 1)
+      case RoundType.RoundDown     => this.roundDown(roundN, false).sat(satN + 1)
+      case RoundType.RoundToZero   => this.roundToZero(roundN, false).sat(satN + 1)
+      case RoundType.RoundToInf    => this.roundToInf(roundN, false).sat(satN + 1)
+      case RoundType.RoundToEven   => SpinalError("RoundToEven have not yet supported")
+      case RoundType.RoundToOdd    => SpinalError("RoundToOdd have not yet supported")
+      case _                       => SpinalError("Illegal RoundType!")
     }
   }
 
   /**Factory fixTo Function*/
   //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType =  RoundToInf, sym: Boolean = false): SInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.RoundToInf, sym: Boolean = false): SInt = {
     val _w: Int = this.getWidth
     val _wl: Int = _w - 1
     val ret = (section.min, section.max, section.size) match {
