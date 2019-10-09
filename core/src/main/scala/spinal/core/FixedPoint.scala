@@ -23,7 +23,7 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 import spinal.core._
 
-trait  RoundType ;
+sealed trait RoundType ;
 object RoundType{
   object Ceil           extends RoundType ;// Wikipedia name: RoundUp
   object Floor          extends RoundType ;// Wikipedia name: RoundDown

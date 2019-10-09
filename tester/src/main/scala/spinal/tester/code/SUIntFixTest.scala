@@ -67,7 +67,7 @@ class SIntFixTry extends Component{
   val fixto5_0          = a.fixTo(5 downto 0, RoundType.RoundToInf)
   val fixto5_2          = a.fixTo(5 downto 2, RoundType.RoundToInf)
   val fixto5_2f         = a.fixTo(5 downto 2, RoundType.Floor)
-  val fixto5_2sr        = a.fixTo(5 downto 2,RoundType.RoundUp)
+  val fixto5_2sr        = a.fixTo(5 downto 2, RoundType.RoundUp)
   val fixto5_2def       = a.fixTo(5 downto 2)
 }
 

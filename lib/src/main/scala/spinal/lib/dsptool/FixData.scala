@@ -44,9 +44,8 @@ case class FixData(data: Double,
           case RoundType.RoundDown     => roundDown
           case RoundType.RoundToZero   => roundToZero
           case RoundType.RoundToInf    => roundToInf
-          case RoundType.RoundToEven   => SpinalError("RoundToEven have not yet supported")
-          case RoundType.RoundToOdd    => SpinalError("RoundToOdd have not yet supported")
-          case _                       => SpinalError("Illegal RoundType!")
+          case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
+          case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
         }
         v = this.saturated(rounded * q.resolution)
         if(sym) this.doSymmetry()

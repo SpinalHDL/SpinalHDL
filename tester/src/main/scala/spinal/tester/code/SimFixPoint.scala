@@ -76,10 +76,6 @@ object fixTests {
           for(i <- 0 to 2000){
             val source = FixData(rand.nextGaussian*scala.math.pow(2,15),SQ(16,0))
             val ret = source
-//            val ret = (signed,source.isNegtive) match{
-//              case (false,true) => -source
-//              case _ => source
-//            }
             dut.din #=  ret.asLong
             sleep(1)
             assert(dut.d7_0.toLong  == (ret>>0).fixTo(QFormat(8, 0,signed),roundType).asLong)

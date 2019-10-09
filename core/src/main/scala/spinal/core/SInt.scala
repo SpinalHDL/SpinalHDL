@@ -345,9 +345,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
       case RoundType.RoundDown     => this.roundDown(roundN, false).sat(satN + 1)
       case RoundType.RoundToZero   => this.roundToZero(roundN, false).sat(satN + 1)
       case RoundType.RoundToInf    => this.roundToInf(roundN, false).sat(satN + 1)
-      case RoundType.RoundToEven   => SpinalError("RoundToEven have not yet supported")
-      case RoundType.RoundToOdd    => SpinalError("RoundToOdd have not yet supported")
-      case _                       => SpinalError("Illegal RoundType!")
+      case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
+      case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
     }
   }
 
