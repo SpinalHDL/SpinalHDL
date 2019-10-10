@@ -13,7 +13,7 @@ import spinal.core._
   */
 case class FixData(raw: Double,
                    q: QFormat,
-                   roundType: RoundType = RoundType.RoundToInf,
+                   roundType: RoundType = RoundType.ROUNDTOINF,
                    symmetric: Boolean = false )
                   (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
 
@@ -31,16 +31,16 @@ case class FixData(raw: Double,
       case FixSwitchOff.fixButton => raw
       case FixSwitchOn.fixButton  => {
         val rounded = this.roundType match {
-          case RoundType.Ceil          => this.ceil
-          case RoundType.Floor         => this.floor
-          case RoundType.FloorToZero   => this.floorToZero
-          case RoundType.CeilToInf     => this.ceilToInf
-          case RoundType.RoundUp       => this.roundUp
-          case RoundType.RoundDown     => this.roundDown
-          case RoundType.RoundToZero   => this.roundToZero
-          case RoundType.RoundToInf    => this.roundToInf
-          case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
-          case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
+          case RoundType.CEIL          => this.ceil
+          case RoundType.FLOOR         => this.floor
+          case RoundType.FLOORTOZERO   => this.floorToZero
+          case RoundType.CEILTOINF     => this.ceilToInf
+          case RoundType.ROUNDUP       => this.roundUp
+          case RoundType.ROUNDDOWN     => this.roundDown
+          case RoundType.ROUNDTOZERO   => this.roundToZero
+          case RoundType.ROUNDTOINF    => this.roundToInf
+          case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
+          case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
         }
         val sated = this.saturated(rounded * this.q.resolution)
         if(this.symmetric) this.symmetry(sated) else sated

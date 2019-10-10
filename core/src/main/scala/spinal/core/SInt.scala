@@ -186,7 +186,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /**return w(this)-n+1 bits*/
   private def _positiveCeil(n: Int): SInt ={
     val ret = SInt(getWidth-n+1 bits)
-    ret := this(getWidth-2 downto 0).asUInt._ceil(n).toSInt
+    ret := this(getWidth-2 downto 0).asUInt._ceil(n).intoSInt
     ret
   }
 
@@ -337,22 +337,22 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): SInt = {
     roundType match{
-      case RoundType.Ceil          => this.ceil(roundN, false).sat(satN + 1)
-      case RoundType.Floor         => this.floor(roundN).sat(satN)
-      case RoundType.FloorToZero   => this.floorToZero(roundN).sat(satN)
-      case RoundType.CeilToInf     => this.ceilToInf(roundN, false).sat(satN + 1)
-      case RoundType.RoundUp       => this.roundUp(roundN, false).sat(satN + 1)
-      case RoundType.RoundDown     => this.roundDown(roundN, false).sat(satN + 1)
-      case RoundType.RoundToZero   => this.roundToZero(roundN, false).sat(satN + 1)
-      case RoundType.RoundToInf    => this.roundToInf(roundN, false).sat(satN + 1)
-      case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
-      case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
+      case RoundType.CEIL          => this.ceil(roundN, false).sat(satN + 1)
+      case RoundType.FLOOR         => this.floor(roundN).sat(satN)
+      case RoundType.FLOORTOZERO   => this.floorToZero(roundN).sat(satN)
+      case RoundType.CEILTOINF     => this.ceilToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDUP       => this.roundUp(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDDOWN     => this.roundDown(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOZERO   => this.roundToZero(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
+      case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
     }
   }
 
   /**Factory fixTo Function*/
   //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.RoundToInf, sym: Boolean = false): SInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF, sym: Boolean = false): SInt = {
     val _w: Int = this.getWidth
     val _wl: Int = _w - 1
     val ret = (section.min, section.max, section.size) match {

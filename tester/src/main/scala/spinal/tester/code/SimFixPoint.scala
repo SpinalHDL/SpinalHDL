@@ -34,7 +34,7 @@ object fixTests {
         resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(200 MHz),
       targetDirectory="rtl/")
-    val roundList = List(Ceil,Floor,FloorToZero,CeilToInf,RoundUp,RoundDown,RoundToZero,RoundToInf)
+    val roundList = List(CEIL,FLOOR,FLOORTOZERO,CEILTOINF,ROUNDUP,ROUNDDOWN,ROUNDTOZERO,ROUNDTOINF)
     //UInt-test
     for(roundType <- roundList){
       val signed = false

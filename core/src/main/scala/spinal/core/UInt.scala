@@ -215,22 +215,22 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): UInt ={
     roundType match{
-      case RoundType.Ceil          => this.ceil(roundN, false).sat(satN + 1)
-      case RoundType.Floor         => this.floor(roundN).sat(satN)
-      case RoundType.FloorToZero   => this.floorToZero(roundN).sat(satN)
-      case RoundType.CeilToInf     => this.ceilToInf(roundN, false).sat(satN + 1)
-      case RoundType.RoundUp       => this.roundUp(roundN, false).sat(satN + 1)
-      case RoundType.RoundDown     => this.roundDown(roundN,false).sat(satN + 1)
-      case RoundType.RoundToZero   => this.roundToZero(roundN, false).sat(satN + 1)
-      case RoundType.RoundToInf    => this.roundToInf(roundN, false).sat(satN + 1)
-      case RoundType.RoundToEven   => SpinalError("RoundToEven has not been implemented yet")
-      case RoundType.RoundToOdd    => SpinalError("RoundToOdd has not been implemented yet")
+      case RoundType.CEIL          => this.ceil(roundN, false).sat(satN + 1)
+      case RoundType.FLOOR         => this.floor(roundN).sat(satN)
+      case RoundType.FLOORTOZERO   => this.floorToZero(roundN).sat(satN)
+      case RoundType.CEILTOINF     => this.ceilToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDUP       => this.roundUp(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDDOWN     => this.roundDown(roundN,false).sat(satN + 1)
+      case RoundType.ROUNDTOZERO   => this.roundToZero(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
+      case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
     }
   }
 
   /**Factory fixTo Function*/
   //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.RoundToInf): UInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF): UInt = {
     val _w: Int = this.getWidth
     val _wl: Int = _w - 1
     (section.min, section.max, section.size) match {
@@ -306,7 +306,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     */
   def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
   /*UInt toSInt add 1 bit 0 at hsb for sign bit*/
-  def toSInt: SInt = this.expand.asSInt
+  def intoSInt: SInt = this.expand.asSInt
   def expand: UInt = (False ## this.asBits).asUInt
 
   override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
