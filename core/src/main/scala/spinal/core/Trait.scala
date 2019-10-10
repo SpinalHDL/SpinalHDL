@@ -763,8 +763,16 @@ trait Num[T <: Data] {
 
   /** Addition */
   def + (right: T): T
+  /** Safe Addition with 1 bit expand */
+  def +^(right: T): T
+  /** Safe Addition with saturation */
+  def +| (right: T): T
   /** Substraction */
   def - (right: T): T
+  /** Safe Substraction with 1 bit expand*/
+  def -^ (right: T): T
+  /** Safe Substraction with saturation*/
+  def -| (right: T): T
   /** Multiplication */
   def * (right: T): T
   /** Division */
@@ -790,8 +798,33 @@ trait Num[T <: Data] {
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   /** Return the maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
-}
 
+  /** highest m bits Saturation Operation*/
+  def sat(m: Int): T
+  def trim(m: Int): T
+  def sat(width: BitCount): T = sat(width.value)
+  def trim(width: BitCount): T = trim(width.value)
+  /**lowest n bits Round Operation */
+  def floor(n: Int): T
+  def ceil(n: Int, align: Boolean): T
+  def floorToZero(n: Int): T
+  def ceilToInf(n: Int, align: Boolean): T
+  def roundUp(n: Int, align: Boolean): T
+  def roundDown(n: Int, align: Boolean): T
+  def roundToZero(n: Int, align: Boolean): T
+  def roundToInf(n: Int, align: Boolean): T
+  def round(n: Int, align: Boolean): T
+  /**lowest n bits Round Operation by BitCount */
+  def ceil(width: BitCount, align: Boolean): T         = ceil(width.value, align)
+  def floor(width: BitCount): T                        = floor(width.value)
+  def floorToZero(width: BitCount): T                  = floorToZero(width.value)
+  def ceilToInf(width: BitCount, align: Boolean): T    = ceilToInf(width.value, align)
+  def roundUp(width: BitCount, align: Boolean): T      = roundUp(width.value, align)
+  def roundDown(width: BitCount, align: Boolean): T    = roundDown(width.value, align)
+  def roundToZero(width: BitCount, align: Boolean): T  = roundToZero(width.value, align)
+  def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
+  def round(width: BitCount, align: Boolean): T        = round(width.value, align)
+}
 
 /**
   * Bitwise Operation

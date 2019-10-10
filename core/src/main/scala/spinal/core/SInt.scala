@@ -80,12 +80,290 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def >=(right: SInt): Bool = right <= this
   override def >>(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(that))
   override def <<(that: Int): SInt   = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
+  override def +^(right: SInt): SInt = this.expand + right.expand
+  override def -^(right: SInt): SInt = this.expand - right.expand
+  override def +|(right: SInt): SInt = (this +^ right).sat(1)
+  override def -|(right: SInt): SInt = (this -^ right).sat(1)
 
   /* Implement BitwiseOp operators */
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~ : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+
+  /* Implement fixPoint operators */
+  def sign: Bool = this.msb
+  /**
+    * SInt symmetric
+    * @example{{{ val symmetrySInt = mySInt.symmetry }}}
+    * @return return a SInt which minValue equal -maxValue
+    */
+  def symmetry: SInt = {
+    val ret = cloneOf(this)
+    ret := Mux(this === minValue, S(-maxValue), this)
+    ret
+  }
+
+  /**Saturation highest m bits*/
+  override def sat(m: Int): SInt = {
+    require(getWidth > m, s"Saturation bit width $m must be less than data bit width $getWidth")
+    m match {
+      case 0          => this << 0
+      case x if x > 0 => this._sat(m)
+      case _          => (Vec(this.sign,-m).asBits ## this).asSInt //sign bit expand
+    }
+  }
+
+  private def _sat(m: Int): SInt ={
+    val ret = SInt(getWidth-m bit)
+    when(this.sign){//negative process
+      when(!this(getWidth-1 downto getWidth-m-1).asBits.andR){
+        ret := ret.minValue
+      }.otherwise{
+        ret := this(getWidth-m-1 downto 0)
+      }
+    }.otherwise{//positive process
+      when(this(getWidth-2 downto getWidth-m-1).asBits.orR){
+        ret := ret.maxValue
+      }.otherwise {
+        ret := this(getWidth-m- 1 downto 0)
+      }
+    }
+    ret
+  }
+
+  def satWithSym(m: Int): SInt = sat(m).symmetry
+
+  /**highest m bits Discard */
+  override def trim(m: Int): SInt = this(getWidth-m-1 downto 0)
+
+  /**Round Api*/
+
+  /**return w(this)-n bits*/
+  override def floor(n: Int): SInt = {
+    require(getWidth > n, s"floor bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => this._floor(n)
+      case _          => this << -n
+    }
+  }
+  private def _floor(n: Int): SInt = this >> n
+
+  /**
+    * SInt ceil
+    * @example{{{ val mySInt = SInt(w bits).ceil }}}
+    * @param  n : ceil lowerest n bit
+    * @return a new SInt of width (w - n + 1)
+    */
+  override def ceil(n: Int, align: Boolean = true): SInt = {
+    require(getWidth > n, s"ceil bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _ceil(n).sat(1) else _ceil(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n+1 bits*/
+  private def _ceil(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    when(sign){
+      ret := this._negativeCeil(n).expand
+    }.otherwise{
+      ret := this._positiveCeil(n)
+    }
+    ret
+  }
+  /**return w(this)-n   bits*/
+  private def _negativeCeil(n: Int): SInt ={
+    val ret = SInt(getWidth-n bits)
+    when(this(n-1 downto 0).orR){
+      ret := this(getWidth - 1 downto n) + 1
+    }.otherwise{
+      ret := this(getWidth - 1 downto n)
+    }
+    ret
+  }
+  /**return w(this)-n+1 bits*/
+  private def _positiveCeil(n: Int): SInt ={
+    val ret = SInt(getWidth-n+1 bits)
+    ret := this(getWidth-2 downto 0).asUInt._ceil(n).intoSInt
+    ret
+  }
+
+  /** SInt roundUp lowest m bits, friendly for hardware timing and area
+    * sign * floor(abs(x))
+    * */
+  override def floorToZero(n: Int): SInt = {
+    require(getWidth > n, s"floorToZero bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => _floorToZero(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n bits*/
+  private def _floorToZero(n: Int): SInt = {
+    val ret = SInt(getWidth-n bits)
+    when(sign){
+      ret := this._negativeCeil(n)
+    }.otherwise{
+      ret := this._floor(n)
+    }
+    ret
+  }
+
+  /** SInt roundUp lowest m bits, friendly for hardware timing and area
+    * sign * ceil(abs(x))
+    * */
+  override def ceilToInf(n: Int, align: Boolean = true): SInt = {
+    require(getWidth > n, s"ceilToInf bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _ceilToInf(n).sat(1) else _ceilToInf(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n+1 bits*/
+  private def _ceilToInf(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    when(sign){
+      ret := this._floor(n).expand
+    }.otherwise{
+      ret := this._positiveCeil(n)
+    }
+    ret
+  }
+
+  /** SInt roundUp lowest m bits, friendly for hardware timing and area
+    * floor(x + 0.5)
+    * */
+  override def roundUp(n: Int, align: Boolean = true): SInt = {
+    require(getWidth > n, s"RoundUp bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0         => this << 0
+      case x if x >0 => if(align) _roundUp(n).sat(1) else _roundUp(n)
+      case _         => this << -n
+    }
+  }
+  /**return w(this)-n bits*/
+  private def _roundUp(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    val positive0p5: SInt = (Bits(getWidth-n bits).clearAll ## True).asSInt
+    ret := (this(getWidth-1 downto n-1) +^ positive0p5)._floor(1) //(x + 0.5).floor
+    ret
+  }
+
+  /** SInt roundDown lowest m bits, complex for hardware , not recommended
+    * The algorithm represented by python code :
+    * ceil(x - 0.5)
+    * */
+  override def roundDown(n: Int, align: Boolean): SInt = {
+    require(getWidth > n, s"RoundDown bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundDown(n).sat(1) else _roundDown(n)
+      case _          => this << -n
+    }
+  }
+  private def _roundDown(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    val negative0p5: SInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asSInt
+    val sub0p5: SInt = this(getWidth-1 downto 0) +^ negative0p5 //need carry
+    when(sub0p5.sign){
+      ret := sub0p5._negativeCeil(n)
+    }.otherwise{
+      ret := sub0p5(getWidth-1 downto 0)._positiveCeil(n)
+    }
+    ret
+  }
+
+  /** SInt roundToZero
+    * The algorithm represented by python code :
+    * sign * ceil(abs(x) - 0.5)
+    * */
+  override def roundToZero(n: Int, align: Boolean): SInt = {
+    require(getWidth > n, s"RoundToZero bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToZero(n).sat(1) else _roundToZero(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n bits*/
+  private def _roundToZero(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    val positive0p5: SInt = (Bits(getWidth-n bits).clearAll ## True ## Bits(n-1 bits).clearAll()).asSInt
+    val negative0p5: SInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asSInt
+    val sub0p5ForPos: SInt = this(getWidth-1 downto 0) +^ negative0p5
+    val add0p5ForNeg: SInt = this(getWidth-1 downto 0) +  positive0p5  //no carry needed
+    when(sub0p5ForPos.sign){
+      ret := add0p5ForNeg._floor(n).expand
+    }.otherwise{
+      ret := sub0p5ForPos(getWidth-1 downto 0)._positiveCeil(n)
+    }
+    ret
+  }
+
+  /** SInt roundToInf
+    * sign * floor(abs(x) + 0.5)
+    * */
+  override def roundToInf(n: Int, align: Boolean = true): SInt = {
+    require(getWidth > n, s"RoundToInf bit width $n must be less than data bit width $getWidth")
+    n match {
+      case 0          => this << 0
+      case x if x > 0 => if(align) _roundToInf(n).sat(1) else _roundToInf(n)
+      case _          => this << -n
+    }
+  }
+  /**return w(this)-n+1 bits*/
+  private def _roundToInf(n: Int): SInt = {
+    val ret = SInt(getWidth-n+1 bits)
+    val positive0p5: SInt = (Bits(getWidth-n bits).clearAll ## True ## Bits(n-1 bits).clearAll()).asSInt
+    val negative0p5: SInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asSInt
+    val sub0p5ForNeg: SInt = this(getWidth-1 downto 0) +^ negative0p5  //need carry
+    val add0p5ForPos: SInt = this(getWidth-1 downto 0) +^ positive0p5  //need carry
+    when(sub0p5ForNeg.sign){
+      ret := sub0p5ForNeg._negativeCeil(n)
+    }.otherwise{
+      ret := add0p5ForPos._floor(n)
+    }
+    ret
+  }
+
+  //SpinalHDL chose roundToInf as default round
+  override def round(n: Int, align: Boolean = true): SInt = roundToInf(n, align)
+
+  def expand: SInt = (this.sign ## this.asBits).asSInt
+
+  protected def _fixEntry(roundN: Int, roundType: RoundType, satN: Int): SInt = {
+    roundType match{
+      case RoundType.CEIL          => this.ceil(roundN, false).sat(satN + 1)
+      case RoundType.FLOOR         => this.floor(roundN).sat(satN)
+      case RoundType.FLOORTOZERO   => this.floorToZero(roundN).sat(satN)
+      case RoundType.CEILTOINF     => this.ceilToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDUP       => this.roundUp(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDDOWN     => this.roundDown(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOZERO   => this.roundToZero(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOINF    => this.roundToInf(roundN, false).sat(satN + 1)
+      case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
+      case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
+    }
+  }
+
+  /**Factory fixTo Function*/
+  //TODO: add default fixConfig in spinal global config
+  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF, sym: Boolean = false): SInt = {
+    val w: Int = this.getWidth
+    val wl: Int = w - 1
+    val ret = (section.min, section.max, section.size) match {
+      case (0,  _,   `w`) => this << 0
+      case (x, `wl`,  _ ) => _fixEntry(x, roundType, satN = 0)
+      case (0,  y,    _ ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _ ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
+    }
+    if(sym) ret.symmetry else ret
+  }
 
   /**
     * Negative number
@@ -138,6 +416,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
   /** Return the absolute value of the SInt when enable is True */
   def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
+  /** symmetric abs
+    * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
+    * @return a UInt assign with the absolute value save 1 bit
+    */
+  def absWithSym: UInt = this.symmetry.abs.resize(getWidth-1)
 
   /**
     * Assign a range value to a SInt
