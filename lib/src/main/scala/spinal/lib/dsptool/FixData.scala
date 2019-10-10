@@ -23,8 +23,8 @@ case class FixData(raw: Double,
   val value: Double = this.fixProcess()
 
   def fixTo(newQ: QFormat, round: RoundType, sym: Boolean): FixData = this.copy(this.value, newQ, round, sym)
-  def fixTo(newQ: QFormat, round: RoundType): FixData = this.copy(this.value, newQ)
-  def fixTo(newQ: QFormat): FixData = this.copy(this.value)
+  def fixTo(newQ: QFormat, round: RoundType): FixData = this.copy(this.value, newQ, round)
+  def fixTo(newQ: QFormat): FixData = this.copy(this.value, newQ)
 
   def fixProcess(): Double ={
     button match {
@@ -52,8 +52,8 @@ case class FixData(raw: Double,
   def isSigned: Boolean   = q.signed
   def isNegative: Boolean = value < 0
 
-  private val rawIsNegative: Boolean = raw < 0
-  private val rawSign: Int           = if(rawIsNegative) -1 else 1
+  private def rawIsNegative: Boolean = raw < 0
+  private def rawSign: Int           = if(rawIsNegative) -1 else 1
 
   private def abs: Double         = scala.math.abs(this.zoomRaw)
   private def ceil: Double        = scala.math.ceil(this.zoomRaw)
@@ -146,3 +146,18 @@ object toFixData{
   }
 }
 
+object fixDataTest {
+  def main(args: Array[String]): Unit = {
+    import spinal.core.RoundType._
+    val roundList = List(CEIL,FLOOR,FLOORTOZERO,CEILTOINF,ROUNDUP,ROUNDDOWN,ROUNDTOZERO,ROUNDTOINF)
+    for(rd <- roundList){
+      val a = FixData(26297.0,UQ(16,0))
+      println(a.value)
+      println(rd)
+      val a0 = a>>3
+      val b = a0.fixTo(UQ(18,0),rd)
+      println(b.value)
+      print(b.asLong)
+    }
+  }
+}

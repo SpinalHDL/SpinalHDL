@@ -200,13 +200,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }.otherwise {
       ret := this(getWidth-1 downto n).expand
     }
-//    val negative0p5: UInt = (Bits(getWidth-n+1 bits).setAll ## Bits(n-1 bits).clearAll).asUInt
-//    val sub0p5 = this(getWidth-1 downto 0) + negative0p5 //ceil(x - 0.5)
-//    when(sub0p5(n-1 downto 0).asBits.orR){
-//      ret := sub0p5(getWidth-1 downto n) +^ 1
-//    }.otherwise {
-//      ret := sub0p5(getWidth-1 downto n).expand
-//    }
     ret
   }
 
@@ -231,13 +224,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**Factory fixTo Function*/
   //TODO: add default fixConfig in spinal global config
   def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF): UInt = {
-    val _w: Int = this.getWidth
-    val _wl: Int = _w - 1
+    val w: Int = this.getWidth
+    val wl: Int = w - 1
     (section.min, section.max, section.size) match {
-      case (0,  _,   `_w`) => this << 0
-      case (x, `_wl`, _  ) => _fixEntry(x, roundType, satN = 0)
-      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
+      case (0,  _,   `w`) => this << 0
+      case (x, `wl`,  _ ) => _fixEntry(x, roundType, satN = 0)
+      case (0,  y,    _ ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _ ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
     }
   }
 

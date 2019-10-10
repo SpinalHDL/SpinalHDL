@@ -93,6 +93,8 @@ class UIntFixRegression(roundType: RoundType) extends Component {
   val b2 = out(a.fixTo(10 downto 1, roundType))
   val b3 = out(a.fixTo(3  downto 0, roundType))
   val b4 = out(a.fixTo(15 downto 3, roundType))
+  val b5 = out(a.fixTo(23 downto 5, roundType))
+  val b6 = out(a.fixTo(0  downto 0, roundType))
 }
 
 class SIntFixRegression(roundType: RoundType) extends Component {
@@ -102,6 +104,8 @@ class SIntFixRegression(roundType: RoundType) extends Component {
   val b2 = out(a.fixTo(10 downto 1, roundType))
   val b3 = out(a.fixTo(3  downto 0, roundType))
   val b4 = out(a.fixTo(15 downto 3, roundType))
+  val b5 = out(a.fixTo(23 downto 5, roundType))
+  val b6 = out(a.fixTo(1  downto 0, roundType))
 }
 
 object genRtlCode {

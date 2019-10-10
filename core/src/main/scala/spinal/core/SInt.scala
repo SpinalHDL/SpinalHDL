@@ -110,9 +110,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     m match {
       case 0          => this << 0
       case x if x > 0 => this._sat(m)
-      case _          => (Bits(-m bits).setAll ## this).asSInt //sign bit expand
+      case _          => (Vec(this.sign,-m).asBits ## this).asSInt //sign bit expand
     }
   }
+
   private def _sat(m: Int): SInt ={
     val ret = SInt(getWidth-m bit)
     when(this.sign){//negative process
@@ -353,13 +354,13 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /**Factory fixTo Function*/
   //TODO: add default fixConfig in spinal global config
   def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF, sym: Boolean = false): SInt = {
-    val _w: Int = this.getWidth
-    val _wl: Int = _w - 1
+    val w: Int = this.getWidth
+    val wl: Int = w - 1
     val ret = (section.min, section.max, section.size) match {
-      case (0,  _,   `_w`) => this << 0
-      case (x, `_wl`, _  ) => _fixEntry(x, roundType, satN = 0)
-      case (0,  y,    _  ) => this.sat(this.getWidth -1 - y)
-      case (x,  y,    _  ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
+      case (0,  _,   `w`) => this << 0
+      case (x, `wl`,  _ ) => _fixEntry(x, roundType, satN = 0)
+      case (0,  y,    _ ) => this.sat(this.getWidth -1 - y)
+      case (x,  y,    _ ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
     }
     if(sym) ret.symmetry else ret
   }
