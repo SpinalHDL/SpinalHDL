@@ -152,6 +152,7 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
 
 
 object Generator{
+  def current = stack.head
   def stack = GlobalData.get.userDatabase.getOrElseUpdate(Generator, new Stack[Generator]).asInstanceOf[Stack[Generator]]
 }
 
@@ -159,8 +160,10 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
-class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends Nameable with Dependable with DelayedInit with TagContainer with OverridedEqualsHashCode{
+class Generator() extends Nameable with Dependable with DelayedInit with TagContainer with OverridedEqualsHashCode{
+  @dontName var parent : Generator = null
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
+    parent = Generator.stack.head
     Generator.stack.head.generators += this
   }
 
@@ -188,13 +191,12 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
     handle
   }
 
-  var implicitCd : Handle[ClockDomain] = null
-  if(constructionCd != null) onClockDomain(constructionCd)
+  var generatorClockDomainSet = false
+  var generatorClockDomain = Handle[ClockDomain]
 
-  var useClockDomain = true
-  def noClockDomain(): Unit = useClockDomain = false
   def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
-    implicitCd = clockDomain
+    generatorClockDomainSet = true
+    this.generatorClockDomain.merge(clockDomain)
     dependencies += clockDomain
     this
   }
@@ -226,7 +228,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
   }
 
   def generateIt(): Unit ={
-    if(implicitCd != null) implicitCd.push()
+    if(generatorClockDomain.get != null) generatorClockDomain.push()
 
     apply {
       for (task <- tasks) {
@@ -239,7 +241,7 @@ class Generator(@dontName constructionCd : Handle[ClockDomain] = null) extends N
         }
       }
     }
-    if(implicitCd != null) implicitCd.pop()
+    if(generatorClockDomain.get != null) generatorClockDomain.pop()
     elaborated = true
   }
 
@@ -284,20 +286,20 @@ class GeneratorCompiler {
     implicit val c = this
     println(s"Build start")
     val generatorsAll = mutable.LinkedHashSet[Generator]()
-    def scanGenerators(generator : Generator, clockDomain : Handle[ClockDomain]): Unit ={
+    def scanGenerators(generator : Generator): Unit ={
       if(!generatorsAll.contains(generator)){
-        if(generator.useClockDomain && generator.implicitCd == null && clockDomain != null)
-          generator.onClockDomain(clockDomain)
+        if(generator.generatorClockDomainSet == false && generator.parent != null && generator.parent.generatorClockDomainSet == true)
+          generator.onClockDomain(generator.parent.generatorClockDomain)
         generatorsAll += generator
         generator.reflectNames()
         generator.c = this
         val splitName = classNameOf(generator).splitAt(1)
         if(generator.isUnnamed) generator.setWeakName(splitName._1.toLowerCase + splitName._2)
       }
-      for(child <- generator.generators) scanGenerators(child, generator.implicitCd)
+      for(child <- generator.generators) scanGenerators(child)
     }
 
-    def scanRoot() = for(generator <- rootGenerators) scanGenerators(generator, null)
+    def scanRoot() = for(generator <- rootGenerators) scanGenerators(generator)
     scanRoot()
 
     var step = 0
