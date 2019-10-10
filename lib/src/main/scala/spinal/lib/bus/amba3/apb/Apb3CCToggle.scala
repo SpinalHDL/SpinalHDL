@@ -127,3 +127,75 @@ class Apb3CCToggle(busConfig: Apb3Config, inClk: ClockDomain, outClk: ClockDomai
   }
 
 }
+
+
+
+
+case class Apb3CC(config : Apb3Config,
+                  inputClock : ClockDomain,
+                  outputClock : ClockDomain) extends Component{
+  assert(config.selWidth == 1)
+  val io = new Bundle {
+    val input = slave(Apb3(config))
+    val output = master(Apb3(config))
+  }
+
+  case class Cmd() extends Bundle{
+    val PADDR      = UInt(config.addressWidth bits)
+    val PWRITE     = Bool
+    val PWDATA     = Bits(config.dataWidth bits)
+  }
+  case class Rsp() extends Bundle{
+    val PRDATA     = Bits(config.dataWidth bits)
+    val PSLVERROR  = if(config.useSlaveError) Bool else null
+  }
+
+  val inputLogic = new ClockingArea(inputClock){
+    val inputCmd = Stream(Cmd())
+    val inputRsp = Flow(Rsp())
+    val state = RegInit(False) setWhen(inputCmd.fire) clearWhen(inputRsp.valid)
+    inputCmd.valid := io.input.PSEL.lsb && io.input.PENABLE && !state
+    inputCmd.PADDR := io.input.PADDR
+    inputCmd.PWRITE := io.input.PWRITE
+    inputCmd.PWDATA := io.input.PWDATA
+
+    io.input.PREADY := inputRsp.valid
+    io.input.PRDATA := inputRsp.PRDATA
+    if(config.useSlaveError) io.input.PSLVERROR := inputRsp.PSLVERROR
+  }
+
+  val outputLogic = new ClockingArea(outputClock){
+    val outputCmd = StreamCCByToggle(inputLogic.inputCmd, inputClock, outputClock)
+    val state = RegInit(False)
+
+    io.output.PENABLE := False
+    io.output.PSEL := 0
+    io.output.PADDR := outputCmd.PADDR
+    io.output.PWDATA := outputCmd.PWDATA
+    io.output.PWRITE := outputCmd.PWRITE
+    outputCmd.ready := False
+
+    when(outputCmd.valid) {
+      io.output.PSEL := 1
+      when(!state) {
+        io.output.PENABLE := False
+        state := True
+      } otherwise {
+        io.output.PENABLE := True
+        when(io.output.PREADY){
+          outputCmd.ready := True
+          state := False
+        }
+      }
+    }
+
+
+    val outputRsp = Flow(Rsp())
+    outputRsp.valid := outputCmd.fire
+    outputRsp.PRDATA := io.output.PRDATA
+    if(config.useSlaveError) outputRsp.PSLVERROR := io.output.PSLVERROR
+
+    inputLogic.inputRsp := FlowCCByToggle(outputRsp, outputClock, inputClock)
+  }
+}
+
