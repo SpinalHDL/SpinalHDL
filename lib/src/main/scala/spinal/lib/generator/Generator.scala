@@ -95,7 +95,7 @@ class HandleCore{
   def get : Any = {
     if(!loaded){
       subscribers.count(_.lazyDefaultAvailable) match {
-        case 0 =>
+        case 0 => SpinalError("Can't get that Handle")
         case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
         case _ => SpinalError("Multiple handle default values")
       }
@@ -109,7 +109,7 @@ class HandleCore{
   }
 
   def merge(that : HandleCore): Unit ={
-    (this.loaded, that.loaded) match {
+    (this.isLoaded, that.isLoaded) match {
       case (false, _) => this.subscribers.foreach(_.changeCore(that))
       case (true, false) => that.subscribers.foreach(_.changeCore(this))
       case _ => ???
@@ -134,7 +134,6 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
   def apply : T = get.asInstanceOf[T]
   def get: T = core.get.asInstanceOf[T]
   def load[T2 <: T](value : T2): T2 = core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
-//  def load[T2 <: T](value : Handle[T2]): T2 = core.load(if(value == null) null else value.get.asInstanceOf[Any]).asInstanceOf[T2]
   def loadAny(value : Any): Unit = core.load(value.asInstanceOf[T])
 
   def isLoaded = core.isLoaded
@@ -194,6 +193,10 @@ class Generator() extends Nameable with Dependable with DelayedInit with TagCont
   var generatorClockDomainSet = false
   var generatorClockDomain = Handle[ClockDomain]
 
+  def noClockDomain(): Unit ={
+    generatorClockDomainSet = true
+    generatorClockDomain.load(null)
+  }
   def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
     generatorClockDomainSet = true
     this.generatorClockDomain.merge(clockDomain)
