@@ -30,6 +30,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
           sourceWidth = 3,
           contextWidth = 8
         ),
+        clockDomain = ClockDomain.current,
         cmdBufferSize = 4,
         rspBufferSize = 4
       ),
@@ -42,6 +43,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
           sourceWidth = 5,
           contextWidth = 12
         ),
+        clockDomain = ClockDomain.current,
         cmdBufferSize = 2,
         rspBufferSize = 5
       ),
@@ -54,6 +56,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
           sourceWidth = 6,
           contextWidth = 16
         ),
+        clockDomain = ClockDomain.current,
         cmdBufferSize = 8,
         rspBufferSize = 2
       )
@@ -104,92 +107,96 @@ case class SdramSdrTesterCocotbTop() extends Component{
 import spinal.core._
 import spinal.lib.eda.bench._
 
-object SdramSdrSyntBench extends App{
-  val sl = MT48LC16M16A2.layout.copy(bankWidth = 3)
-  val cp = CtrlParameter(
-    core = CoreParameter(
-      portTockenMin = 4,
-      portTockenMax = 8,
-      rspFifoSize = 4,
-      timingWidth = 4,
-      refWidth = 16,
-      writeLatencies = List(0),
-      readLatencies = List(2)
-    ),
-    ports = Seq(
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 3,
-          sourceWidth = 0,
-          contextWidth = 0
-        ),
-        cmdBufferSize = 4,
-        rspBufferSize = 4
-      ),
-
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 4,
-          sourceWidth = 0,
-          contextWidth = 0
-        ),
-        cmdBufferSize = 2,
-        rspBufferSize = 5
-      )/*,
-
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 5,
-          sourceWidth = 0,
-          contextWidth = 0
-        ),
-        cmdBufferSize = 8,
-        rspBufferSize = 2
-      )*//*,
-
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 5,
-          sourceWidth = 0,
-          contextWidth = 0
-        ),
-        cmdBufferSize = 8,
-        rspBufferSize = 2
-      )*/
-    )
-  )
-
-
-  val ports4 = new Rtl {
-    override def getName(): String = "Port4"
-    override def getRtlPath(): String = "Port4.v"
-    SpinalVerilog({
-      val c = new CtrlWithPhy(cp, SdrInferedPhy(sl)).setDefinitionName(getRtlPath().split("\\.").head)
-      c
-    })
-  }
-
-
-  val rtls = List(ports4)
-
-  val targets = XilinxStdTargets(
-    vivadoArtix7Path = "/media/miaou/HD/linux/Xilinx/Vivado/2018.3/bin"
-  ) ++ AlteraStdTargets(
-    quartusCycloneIVPath = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin",
-    quartusCycloneVPath  = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin"
-  )
-
-  Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
-
-
-
-
-}
+//object SdramSdrSyntBench extends App{
+//  val sl = MT48LC16M16A2.layout.copy(bankWidth = 3)
+//  val cp = CtrlParameter(
+//    core = CoreParameter(
+//      portTockenMin = 4,
+//      portTockenMax = 8,
+//      rspFifoSize = 4,
+//      timingWidth = 4,
+//      refWidth = 16,
+//      writeLatencies = List(0),
+//      readLatencies = List(2)
+//    ),
+//    ports = Seq(
+//      BmbPortParameter(
+//        bmb = BmbParameter(
+//          addressWidth = sl.byteAddressWidth,
+//          dataWidth = 16,
+//          lengthWidth = 3,
+//          sourceWidth = 0,
+//          contextWidth = 0
+//        ),
+//        clockDomain = ClockDomain.current,
+//        cmdBufferSize = 4,
+//        rspBufferSize = 4
+//      ),
+//
+//      BmbPortParameter(
+//        bmb = BmbParameter(
+//          addressWidth = sl.byteAddressWidth,
+//          dataWidth = 16,
+//          lengthWidth = 4,
+//          sourceWidth = 0,
+//          contextWidth = 0
+//        ),
+//        clockDomain = ClockDomain.current,
+//        cmdBufferSize = 2,
+//        rspBufferSize = 5
+//      )/*,
+//
+//      BmbPortParameter(
+//        bmb = BmbParameter(
+//          addressWidth = sl.byteAddressWidth,
+//          dataWidth = 16,
+//          lengthWidth = 5,
+//          sourceWidth = 0,
+//          contextWidth = 0
+//        ),
+//        clockDomain = ClockDomain.current,
+//        cmdBufferSize = 8,
+//        rspBufferSize = 2
+//      )*//*,
+//
+//      BmbPortParameter(
+//        bmb = BmbParameter(
+//          addressWidth = sl.byteAddressWidth,
+//          dataWidth = 16,
+//          lengthWidth = 5,
+//          sourceWidth = 0,
+//          contextWidth = 0
+//        ),
+//        clockDomain = ClockDomain.current,
+//        cmdBufferSize = 8,
+//        rspBufferSize = 2
+//      )*/
+//    )
+//  )
+//
+//
+//  val ports4 = new Rtl {
+//    override def getName(): String = "Port4"
+//    override def getRtlPath(): String = "Port4.v"
+//    SpinalVerilog({
+//      val c = new CtrlWithPhy(cp, SdrInferedPhy(sl)).setDefinitionName(getRtlPath().split("\\.").head)
+//      c
+//    })
+//  }
+//
+//
+//  val rtls = List(ports4)
+//
+//  val targets = XilinxStdTargets(
+//    vivadoArtix7Path = "/media/miaou/HD/linux/Xilinx/Vivado/2018.3/bin"
+//  ) ++ AlteraStdTargets(
+//    quartusCycloneIVPath = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin",
+//    quartusCycloneVPath  = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin"
+//  )
+//
+//  Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
+//
+//
+//
+//
+//}

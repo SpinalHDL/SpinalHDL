@@ -16,6 +16,7 @@ import scala.util.Random
 
 
 case class BmbPortParameter(bmb : BmbParameter,
+                            clockDomain : ClockDomain,
                             cmdBufferSize : Int,
                             rspBufferSize : Int)
 
@@ -79,6 +80,7 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyParameter) extends Component
 
   val core = Core(cpa)
   core.io.ports <> Vec(bmbAdapter.map(_.io.output))
+  bmbAdapter.foreach(_.io.refresh := core.io.refresh)
 
   io.phy <> core.io.phy
 
@@ -89,43 +91,44 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyParameter) extends Component
 
 
 
-object CtrlMain extends App{
-  val sl = SdramLayout(
-    generation = SdramGeneration.SDR,
-    bankWidth = 2,
-    columnWidth = 10,
-    rowWidth = 13,
-    dataWidth = 16
-  )
-  val cp = CtrlParameter(
-    core = CoreParameter(
-      portTockenMin = 4,
-      portTockenMax = 8,
-      rspFifoSize = 4,
-      timingWidth = 4,
-      refWidth = 16,
-      writeLatencies = List(0),
-      readLatencies = List(2)
-    ),
-    ports = Seq(
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 4,
-          sourceWidth = 3,
-          contextWidth = 8
-        ),
-        cmdBufferSize = 4,
-        rspBufferSize = 4
-      )
-    )
-  )
-  SpinalVerilog(new CtrlWithPhy(cp, SdrInferedPhy(sl)))
-}
+//object CtrlMain extends App{
+//  val sl = SdramLayout(
+//    generation = SdramGeneration.SDR,
+//    bankWidth = 2,
+//    columnWidth = 10,
+//    rowWidth = 13,
+//    dataWidth = 16
+//  )
+//  val cp = CtrlParameter(
+//    core = CoreParameter(
+//      portTockenMin = 4,
+//      portTockenMax = 8,
+//      rspFifoSize = 4,
+//      timingWidth = 4,
+//      refWidth = 16,
+//      writeLatencies = List(0),
+//      readLatencies = List(2)
+//    ),
+//    ports = Seq(
+//      BmbPortParameter(
+//        bmb = BmbParameter(
+//          addressWidth = sl.byteAddressWidth,
+//          dataWidth = 16,
+//          lengthWidth = 4,
+//          sourceWidth = 3,
+//          contextWidth = 8
+//        ),
+//        cmdBufferSize = 4,
+//        rspBufferSize = 4
+//      )
+//    )
+//  )
+//  SpinalVerilog(new CtrlWithPhy(cp, SdrInferedPhy(sl)))
+//}
 
 object CtrlSdrTester extends App{
   import spinal.core.sim._
+
   val timing = SdramTiming(
     RFC = ( 66 ns, 0),
     RAS = ( 37 ns, 0),
@@ -138,56 +141,62 @@ object CtrlSdrTester extends App{
     REF = ( 64 ms, 0)
   )
   val sl = MT48LC16M16A2.layout
-  val cp = CtrlParameter(
-    core = CoreParameter(
-      portTockenMin = 4,
-      portTockenMax = 8,
-      rspFifoSize = 4,
-      timingWidth = 4,
-      refWidth = 16,
-      writeLatencies = List(0),
-      readLatencies = List(2)
-    ),
-    ports = Seq(
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 3,
-          sourceWidth = 3,
-          contextWidth = 8
-        ),
-        cmdBufferSize = 4,
-        rspBufferSize = 4
-      ),
+  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile({
 
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 4,
-          sourceWidth = 5,
-          contextWidth = 12
-        ),
-        cmdBufferSize = 2,
-        rspBufferSize = 5
+    val cp = CtrlParameter(
+      core = CoreParameter(
+        portTockenMin = 4,
+        portTockenMax = 8,
+        rspFifoSize = 4,
+        timingWidth = 4,
+        refWidth = 16,
+        writeLatencies = List(0),
+        readLatencies = List(2)
       ),
-
-      BmbPortParameter(
-        bmb = BmbParameter(
-          addressWidth = sl.byteAddressWidth,
-          dataWidth = 16,
-          lengthWidth = 5,
-          sourceWidth = 6,
-          contextWidth = 16
+      ports = Seq(
+        BmbPortParameter(
+          bmb = BmbParameter(
+            addressWidth = sl.byteAddressWidth,
+            dataWidth = 16,
+            lengthWidth = 3,
+            sourceWidth = 3,
+            contextWidth = 8
+          ),
+          clockDomain = ClockDomain.current,
+          cmdBufferSize = 4,
+          rspBufferSize = 4
         ),
-        cmdBufferSize = 8,
-        rspBufferSize = 2
+
+        BmbPortParameter(
+          bmb = BmbParameter(
+            addressWidth = sl.byteAddressWidth,
+            dataWidth = 16,
+            lengthWidth = 4,
+            sourceWidth = 5,
+            contextWidth = 12
+          ),
+          clockDomain = ClockDomain.current,
+          cmdBufferSize = 2,
+          rspBufferSize = 5
+        ),
+
+        BmbPortParameter(
+          bmb = BmbParameter(
+            addressWidth = sl.byteAddressWidth,
+            dataWidth = 16,
+            lengthWidth = 5,
+            sourceWidth = 6,
+            contextWidth = 16
+          ),
+          clockDomain = ClockDomain.current,
+          cmdBufferSize = 8,
+          rspBufferSize = 2
+        )
       )
     )
-  )
-
-  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile(new CtrlWithPhy(cp, SdrInferedPhy(sl))).doSimUntilVoid("test", 42) { dut =>
+    val c = new CtrlWithPhy(cp, SdrInferedPhy(sl))
+    c
+  }).doSimUntilVoid("test", 42) { dut =>
     val tester = new BmbMemoryMultiPortTester(
       ports = dut.io.bmb.map(port =>
         BmbMemoryMultiPort(

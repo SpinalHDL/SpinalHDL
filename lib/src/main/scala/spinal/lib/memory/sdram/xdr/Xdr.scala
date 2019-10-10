@@ -302,8 +302,9 @@ object FrontendCmdOutputKind extends SpinalEnum{
 case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
-  val kind = FrontendCmdOutputKind()
-  val all = Bool()
+//  val kind = FrontendCmdOutputKind()
+  val read, write, active, precharge = Bool() //OH encoded
+  val last = Bool()
   val address = SdramAddress(pl.sdram)
   val data = Bits(pl.beatWidth bits)
   val mask = Bits(pl.beatWidth/8 bits)
@@ -311,6 +312,26 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
   val context = Bits(backendContextWidth bits)
 }
 
+case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave {
+  val ports = Vec(CoreTask(cpa), cpa.portCount)
+  val prechargeAll, refresh = Bool() //OH encoded
+
+  def stage(): CoreTasks ={
+    val ret = RegNext(this).setCompositeName(this, "stage", true)
+
+    for(port <- ret.ports) {
+      port.read init(False)
+      port.write init(False)
+      port.precharge init(False)
+      port.active init(False)
+    }
+    ret.prechargeAll init(False)
+    ret.refresh init(False)
+
+    ret
+  }
+  override def asMaster(): Unit = out(this)
+}
 
 
 case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
@@ -390,7 +411,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     }
   }
 
-  val rspContext =io.output.rsp.context.as(Context())
+  val rspContext = io.output.rsp.context.as(Context())
 
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()

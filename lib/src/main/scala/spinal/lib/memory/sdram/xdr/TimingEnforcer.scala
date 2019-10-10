@@ -58,50 +58,51 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
 
   val timingIssue = False
   timingIssue.setWhen(timing.RFC.busy)
-  switch(io.input.kind) {
-    is(FrontendCmdOutputKind.READ) {
-      timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.WTR.busy)
-    }
-    is(FrontendCmdOutputKind.WRITE) {
-      timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.RTP)
-    }
-    is(FrontendCmdOutputKind.ACTIVE) {
-      timingIssue.setWhen(timing.RP || timing.RRD.busy)
-      if(generation.FAW) timingIssue.setWhen(timing.FAW.busy)
-    }
-    is(FrontendCmdOutputKind.PRECHARGE) {
-      timingIssue.setWhen(timing.WR || timing.RAS)
-    }
-    is(FrontendCmdOutputKind.REFRESH) {
-      timingIssue.setWhen(timing.RP)
-    }
-  }
+  ??? //TODO
+//  switch(io.input.kind) {
+//    is(FrontendCmdOutputKind.READ) {
+//      timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.WTR.busy)
+//    }
+//    is(FrontendCmdOutputKind.WRITE) {
+//      timingIssue.setWhen(timing.RCD || timing.CCD.busy || timing.RTP)
+//    }
+//    is(FrontendCmdOutputKind.ACTIVE) {
+//      timingIssue.setWhen(timing.RP || timing.RRD.busy)
+//      if(generation.FAW) timingIssue.setWhen(timing.FAW.busy)
+//    }
+//    is(FrontendCmdOutputKind.PRECHARGE) {
+//      timingIssue.setWhen(timing.WR || timing.RAS)
+//    }
+//    is(FrontendCmdOutputKind.REFRESH) {
+//      timingIssue.setWhen(timing.RP)
+//    }
+//  }
 
-  when(io.input.fire){
-    switch(io.input.kind) {
-      is(FrontendCmdOutputKind.READ) {
-        trigger.CCD := True
-        trigger.RTP := True
-      }
-      is(FrontendCmdOutputKind.WRITE) {
-        trigger.CCD := True
-        trigger.WTR := True
-        trigger.WR := True
-      }
-      is(FrontendCmdOutputKind.ACTIVE) {
-        trigger.RAS := True
-        trigger.RCD := True
-        trigger.RRD := True
-        if(generation.FAW) trigger.FAW := True
-      }
-      is(FrontendCmdOutputKind.PRECHARGE) {
-        trigger.RP := True
-      }
-      is(FrontendCmdOutputKind.REFRESH) {
-        trigger.RFC := True
-      }
-    }
-  }
+//  when(io.input.fire){
+//    switch(io.input.kind) {
+//      is(FrontendCmdOutputKind.READ) {
+//        trigger.CCD := True
+//        trigger.RTP := True
+//      }
+//      is(FrontendCmdOutputKind.WRITE) {
+//        trigger.CCD := True
+//        trigger.WTR := True
+//        trigger.WR := True
+//      }
+//      is(FrontendCmdOutputKind.ACTIVE) {
+//        trigger.RAS := True
+//        trigger.RCD := True
+//        trigger.RRD := True
+//        if(generation.FAW) trigger.FAW := True
+//      }
+//      is(FrontendCmdOutputKind.PRECHARGE) {
+//        trigger.RP := True
+//      }
+//      is(FrontendCmdOutputKind.REFRESH) {
+//        trigger.RFC := True
+//      }
+//    }
+//  }
 
   io.output << io.input.haltWhen(timingIssue).toFlow
 }

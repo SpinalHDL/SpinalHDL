@@ -17,26 +17,23 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
     val soft = slave(SoftBus(cpa))
     val ports = Vec(cpp.map(cpp => slave(CorePort(cpp, cpa))))
     val phy = master(SdramXdrPhyCtrl(pl))
+    val refresh = out Bool()
   }
 
   val refresher = Refresher(cpa)
   refresher.io.config <> io.config
+  io.refresh := refresher.io.refresh.valid
 
   val tasker = Tasker(cpa)
   tasker.io.config <> io.config
   tasker.io.inputs <> Vec(io.ports.map(_.cmd))
   tasker.io.refresh <> refresher.io.refresh
 
-//  val timingEnforcer = TimingEnforcer(cpa)
-//  timingEnforcer.io.config <> io.config
-//  timingEnforcer.io.input << tasker.io.output.stage()
-
   val backend = Backend(cpa)
   backend.io.config <> io.config
-  backend.io.input << tasker.io.output.stage()
+  backend.io.input := tasker.io.output.stage()
   backend.io.phy <> io.phy
-  backend.io.full <> tasker.io.backendFull
   backend.io.soft <> io.soft
-  (backend.io.outputs, io.ports).zipped.foreach(_ <> _.rsp)
+  (backend.io.outputs, io.ports).zipped.foreach(_.toStream <> _.rsp)
 }
 

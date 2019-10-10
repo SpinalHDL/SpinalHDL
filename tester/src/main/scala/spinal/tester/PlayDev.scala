@@ -1427,33 +1427,51 @@ object PlayOneHotSynthesisBench extends App{
 
 object PlayDevSpinalSim extends App{
   import spinal.core.sim._
-  SimConfig.allOptimisation.compile(new Component {
-    val io = new Bundle {
-      val a, b, c = in UInt (8 bits)
-      val result = out UInt (8 bits)
-    }
-
-    io.result := RegNext(io.a + io.b - io.c) init (0)
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
   }).doSim { dut =>
     dut.clockDomain.forkStimulus(period = 10)
-    dut.clockDomain.forkSimSpeedPrinter(0.2)
+    dut.input #= 0
 
-    var model = -1
-    var times = 0
-    var a,b,c = 0;
     dut.clockDomain.onSamplings{
-      assert(dut.io.result.toInt == model || model == -1)
-      model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
-      dut.io.a #= a
-      dut.io.b #= b
-      dut.io.c #= c
-      a = (a + 1) & 0xFF
-      b = (b + 2) & 0xFF
-      c = (c + 3) & 0xFF
-      times += 1
+      dut.input #= (dut.output.toInt + 1) & 0xFF
     }
 
-    sleep(1000000000)
+    dut.clockDomain.waitSampling(40)
+  }
+}
 
+object PlayDevSpinalSim2 extends App{
+  import spinal.core.sim._
+
+  def forkSensitiveTrigger(trigger : BaseType)(block : => Unit): Unit = {
+    var valueLast = trigger.toBigInt
+    forkSensitive{
+      val valueNew = trigger.toBigInt
+      if(valueNew != valueLast) { block }
+      valueLast = valueNew
+    }
+  }
+
+  SimConfig.withWave.compile(new Component {
+    val a = in UInt(8 bits)
+    val b = out UInt(8 bits)
+    val c = in UInt(8 bits)
+    val d = out UInt(8 bits)
+    b := RegNext(a) init(0)
+    d := c
+  }).doSim { dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+
+    forkSensitive(dut.b.toInt){
+      dut.c #= dut.b.toInt
+    }
+    forkSensitive(dut.d){
+      dut.a #= (dut.d.toInt + 2) & 0xFF
+    }
+
+    dut.clockDomain.waitSampling(40)
   }
 }

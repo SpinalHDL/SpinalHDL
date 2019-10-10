@@ -25,7 +25,7 @@ object BmbAligner{
   }
 }
 
-//Extend access to have them behing a length of 2^alignmentWidth
+//Extend access to have them aligned on a length of 2^alignmentWidth
 case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component{
   val op = BmbAligner.outputParameter(ip, alignmentWidth)
 

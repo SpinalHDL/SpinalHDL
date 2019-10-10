@@ -13,7 +13,7 @@ object XilinxS7Phy{
     sdram = sl,
     phaseCount = clkRatio,
     dataRatio = 2,
-    outputLatency = 3,
+    outputLatency = 2,
     inputLatency = 2,
     burstLength = 8
   )
@@ -36,10 +36,17 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
   )
   val clk270 = clk90.withRevertedClockEdge().copy(reset = clk270Rst)
 
+  val clk90Rst = ResetCtrl.asyncAssertSyncDeassert(
+    input = ClockDomain.current.isResetActive,
+    clockDomain = clk90,
+    inputPolarity  = HIGH,
+    outputPolarity = HIGH
+  )
+  
   clk270.setSynchronousWith(ClockDomain.current)
 
   val idelayctrl = IDELAYCTRL()
-  idelayctrl.REFCLK := serdesClk0.readClockWire
+  idelayctrl.REFCLK := serdesClk90.readClockWire  //TODO serdesClk90
   idelayctrl.RST := ClockDomain.isResetActive
 
   def valueToOutput(name : String, phase : Bool): Bool = seqToOutput(name, Seq.fill(4*2)(phase))._1
@@ -69,7 +76,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
       case true =>
         serdes.CLK := serdesClk90.readClockWire
         serdes.CLKDIV := clk90.readClockWire
-        serdes.RST := clk270.isResetActive
+        serdes.RST := clk90Rst
     }
 
 
@@ -114,6 +121,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
   val dqReg = io.ctrl.phases.map(p => RegNext(p.DQw))
   val dmReg = io.ctrl.phases.map(p => RegNext(p.DM))
 
+
   val dqs = for(i <- 0 until (sl.dataWidth+7)/8) yield new Area{
     val (serQ, serT) = seqToOutput("CK", Seq.fill(phaseCount)(Seq(True, False)).flatten, dqstReg, phase90 = true)
 
@@ -150,6 +158,9 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
   val dm = for(i <- 0 until (sl.dataWidth+7)/8) yield new Area{
     io.memory.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
   }
+
+
+  val bitslip = in UInt(log2Up(phaseCount*pl.dataRatio) bits)
   val dq = for(i <- 0 until sl.dataWidth) yield new Area{
     val buf = IOBUF()
     io.memory.DQ(i) := buf.IO
@@ -196,21 +207,26 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     des.CE2 := True
     des.CLK := dqs(i/8).idelay.DATAOUT
     des.CLKB := !dqs(i/8).idelay.DATAOUT
-    des.CLKDIV := ClockDomain.current.readClockWire
+    des.CLKDIV := clk90.readClockWire
     des.CLKDIVP := False
     des.D := False
     des.DDLY := idelay.DATAOUT
     des.DYNCLKDIVSEL := False
     des.DYNCLKSEL := False
-    des.OCLK := serdesClk0.readClockWire
-    des.OCLKB := !serdesClk0.readClockWire
+    des.OCLK := serdesClk90.readClockWire
+    des.OCLKB := !serdesClk90.readClockWire
     des.OFB := False
-    des.RST := ClockDomain.current.isResetActive
+    des.RST := clk90Rst
     des.SHIFTIN1 := False
     des.SHIFTIN2 := False
 
+    val DQrNew = B((0 until phaseCount*2).map(i => des.Q(phaseCount*2-1-i))) //.asBits.rotateLeft(bitslip.resize(widthOf(bitslip)-1))
+    val DQrLast = clk90(RegNext(DQrNew))
+    val DQr = (DQrNew ## DQrLast) >> bitslip
 
-    Vec(io.ctrl.phases.flatMap(_.DQr.map(_(i)))).assignFromBits((0 until phaseCount*2).map(i=>des.Q(phaseCount*2-1-i)).asBits())
+    for(phase <- 0 until phaseCount; ratio <- 0 until pl.dataRatio){
+      io.ctrl.phases(phase).DQr(ratio)(i) := DQr(phase*pl.dataRatio + ratio)
+    }
   }
 
 
@@ -218,6 +234,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     mapper.drive(idelayValueIn, 0x00)
     mapper.drive(Vec(dqs.map(_.idelayLoad)), 0x10)
     mapper.driveMultiWord(Vec(dq.map(_.idelayLoad)), 0x20)
+    mapper.drive(bitslip, 0x40)
   }
 }
 
