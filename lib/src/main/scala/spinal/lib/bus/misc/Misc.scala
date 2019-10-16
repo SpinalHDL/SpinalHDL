@@ -102,4 +102,5 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
+  def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
 }
