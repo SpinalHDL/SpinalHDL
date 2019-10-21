@@ -281,4 +281,28 @@ class SpinalSimMiscTester extends FunSuite {
       }
     }
   }
+
+  test("NonBB"){
+    SimConfig.compile(new Component{
+      val bb = new BlackBox{
+        clearBlackBox()
+        val a,b = in UInt(8 bits)
+        val result = out UInt(8 bits)
+        result := a ^ b
+      }
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+
+      bb.a <> a
+      bb.b <> b
+      bb.result <> result
+    }).doSim{ dut =>
+      for(i <- 0 to 10) {
+        dut.a.randomize()
+        dut.b.randomize()
+        sleep(1)
+        assert(dut.result.toInt == (dut.a.toInt ^ dut.b.toInt))
+      }
+    }
+  }
 }
