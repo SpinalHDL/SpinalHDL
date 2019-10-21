@@ -169,7 +169,7 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def walkComponentsExceptBlackbox(func: Component => Unit): Unit ={
-    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox]) func(c))
+    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox] || !c.asInstanceOf[BlackBox].isBlackBox) func(c))
   }
 
   def walkBaseNodes(func: BaseNode => Unit): Unit ={
@@ -903,7 +903,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
         c.definitionName = "unamed"
       }
       c match {
-        case bb: BlackBox => {
+        case bb: BlackBox if bb.isBlackBox => {
           val generic = bb.getGeneric
           if(generic != null) {
             Misc.reflect(generic, (name, obj) => {
@@ -1572,7 +1572,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
     topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
-      case c: BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
+      case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
@@ -1967,7 +1967,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
     }
 
     walkComponents{
-      case bb: BlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
+      case bb: BlackBox if bb.isBlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
       case _            =>
     }
 
@@ -2016,7 +2016,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
     for (c <- sortedComponents) {
-      if (c.isInstanceOf[BlackBox])
+      if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
