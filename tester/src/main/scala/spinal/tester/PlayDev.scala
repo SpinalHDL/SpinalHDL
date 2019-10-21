@@ -13,7 +13,6 @@ import spinal.lib.eda.bench._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
-import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
