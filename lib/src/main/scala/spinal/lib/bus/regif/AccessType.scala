@@ -1,6 +1,5 @@
 package spinal.lib.bus.regif 
 
-
 sealed trait AccessType
 
 object AccessType {
