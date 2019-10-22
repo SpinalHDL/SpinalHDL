@@ -14,13 +14,13 @@ object Section{
   implicit def tans(x: Range) = Section(x)
 }
 
-case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
+
+case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
+  val fields = ListBuffer[Field]()
   private var fieldPtr: Int = 0
   private var Rerror: Boolean = false
 
   def readErrorTag = Rerror
-
-  val fields = ListBuffer[Field]()
 
   val hitRead  = busif.readAddress === U(addr)
   val hitWrite = busif.writeAddress === U(addr)
@@ -45,7 +45,7 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldoffset(offset: Int, bc: BitCount, acc: AccessType, resetValue:Bits = B(0), doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def fieldoffset(offset: Int, bc: BitCount, acc: AccessType, resetValue: Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val sectionNext: Section = offset+bc.value-1 downto offset
     val sectionExists: Section = fieldPtr downto 0
     val ret = offset match {
@@ -61,7 +61,7 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  def field(bc: BitCount, acc: AccessType, resetValue:Bits = B(0), doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def field(bc: BitCount, acc: AccessType, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
@@ -99,8 +99,8 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
 
   private def RO(bc: BitCount): Bits = Bits(bc)
 
-  private def W1(bc: BitCount, section: Range, resetValue: Bits ): Bits ={
-    val ret = Reg(Bits(bc)) init resetValue
+  private def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={
+    val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
     when(hitDoWrite && hardRestFirstFlag){
       ret := busif.writeData(section)
@@ -109,32 +109,32 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def W(bc: BitCount, section: Range, resetValue: Bits ): Bits ={
-    val ret = Reg(Bits(bc)) init resetValue
+  private def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
     }
     ret
   }
 
-  private def RC(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def RC(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
       ret.clearAll()
     }
     ret
   }
 
-  private def RS(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def RS(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.setAll()
     }
     ret
   }
 
-  private def WRC(bc: BitCount, section: Range, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
     }.elsewhen(hitDoRead){
@@ -143,8 +143,8 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def WRS(bc: BitCount, section: Range, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
     }.elsewhen(hitDoRead){
@@ -153,24 +153,24 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def WC(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WC(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
     }
     ret
   }
 
-  private def WS(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WS(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
     }
     ret
   }
 
-  private def WSRC(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WSRC(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.setAll()
     }.elsewhen(hitDoRead){
@@ -179,8 +179,8 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def WCRS(bc: BitCount, resetValue: Bits): Bits = {
-    val ret = Reg(Bits(bc)) init resetValue
+  private def WCRS(bc: BitCount, resetValue: Long): Bits = {
+    val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
     }.elsewhen(hitDoRead){
@@ -189,8 +189,8 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def WB(section: Range, resetValue: Bits, accType: AccessType): Bits = {
-    val ret = Reg(Bits(section.size bits)) init resetValue
+  private def WB(section: Range, resetValue: Long, accType: AccessType): Bits = {
+    val ret = Reg(Bits(section.size bits)) init B(resetValue)
     when(hitDoWrite){
       for(x <- section) {
         val idx = x - section.min
@@ -208,8 +208,8 @@ case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
     ret
   }
 
-  private def WBR(section: Range, resetValue: Bits, accType: AccessType): Bits ={
-    val ret = Reg(Bits(section.size bits)) init resetValue
+  private def WBR(section: Range, resetValue: Long, accType: AccessType): Bits ={
+    val ret = Reg(Bits(section.size bits)) init B(resetValue)
     for(x <- section) {
       val idx = x - section.min
       accType match {

@@ -1,8 +1,9 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.IMasterSlave
 import spinal.lib.bus.amba3.apb._
+import RegIfDocument._
+
 
 import scala.collection.mutable.ListBuffer
 
@@ -31,22 +32,24 @@ trait BusIf extends BusIfAdapter {
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: Int = 0
 
-  def newReg(doc: String) = {
-    val res = creatReg(regPtr, doc)
+  def newReg(doc: String)(implicit symbol: SymbolName) = {
+    val res = creatReg(symbol.name, regPtr, doc)
     regPtr += wordAddressInc
     res
   }
 
-  def creatReg(addr: Long, doc: String) = {
-    val ret = new RegInst(addr, doc, this)
+  def creatReg(name: String, addr: Long, doc: String) = {
+    val ret = new RegInst(name, addr, doc, this)
     RegInsts += ret
     ret
   }
 
   def docGenerator(docType: DocType = DocType.HTML) = {
-  }
-
-  def htmldoc()={
+    RegInsts.foreach(_.checkLast)
+    val body = RegInsts.map(_.trs).foldLeft("")(_+_)
+    val html = DocTemplate.getHTML("MyRegBank", body)
+    import java.io.PrintWriter
+    new PrintWriter("tmp/regif.html"){write(html);close}
   }
 
   def readGenerator = {
@@ -67,21 +70,28 @@ trait BusIf extends BusIfAdapter {
   }
 }
 
-case class Apb3BusInterface(bus: Apb3, selId: Int, dontCareReadData : Boolean = false) extends BusIf{
-
-  bus.PREADY := True
+case class Apb3BusInterface(bus: Apb3, selId: Int, readSync: Boolean = true) extends BusIf{
 
   val readError = Bool().setAsReg()
   val readData  = Bits(bus.config.dataWidth bits).setAsReg()
-  val writeData = bus.PWDATA
 
-  if(dontCareReadData) bus.PRDATA.assignDontCare() else bus.PRDATA := readData
+  if(readSync) {
+    readError.setAsReg()
+    readData.setAsReg()
+  } else {
+    readError := False
+    readData  := 0
+  }
+
+  bus.PREADY := True
+  bus.PRDATA := readData
   if(bus.config.useSlaveError) bus.PSLVERROR := readError
 
-  val askWrite = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
-  val askRead  = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
-  val doWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
-  val doRead   = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
+  val askWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
+  val askRead   = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
+  val doWrite   = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
+  val doRead    = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
+  val writeData = bus.PWDATA
 
   override def readAddress()  = bus.PADDR
   override def writeAddress() = bus.PADDR
