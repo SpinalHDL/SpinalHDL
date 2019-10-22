@@ -14,9 +14,11 @@ object Section{
   implicit def tans(x: Range) = Section(x)
 }
 
-class RegInst(addr: Long, doc: String, busif: BusSlaveAdapter){
+case class RegInst(addr: Long, doc: String, busif: BusIfAdapter){
   private var fieldPtr: Int = 0
   private var Rerror: Boolean = false
+
+  def readErrorTag = Rerror
 
   val fields = ListBuffer[Field]()
 
@@ -25,15 +27,22 @@ class RegInst(addr: Long, doc: String, busif: BusSlaveAdapter){
   val hitDoRead  = hitRead && busif.doRead
   val hitDoWrite = hitWrite && busif.doWrite
 
-  def bmiRead(): Unit ={
-    fields.map(println)
-    if(fields.nonEmpty){
-      when(hitDoRead) {
-//        busif.readData := fields.map(_.hardbit).foldLeft(Bits(0 bit))((x,y) => x ## y) //TODO
-        busif.readData := 0
-        busif.readError := Bool(Rerror)
-      }
+  def readBits: Bits = {
+    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
+  }
+
+  def checkLast={
+    val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
+    spareNumbers match {
+      case x if x > 0 => field(x bits, AccessType.NA)(SymbolName("reserved"))
+      case x if x < 0 => SpinalError(s"Range ${Section(fields.last.section)} exceed Bus width ${busif.busDataWidth}")
+      case _ =>
     }
+  }
+
+  def allIsNA: Boolean = {
+    checkLast
+    fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
   def fieldoffset(offset: Int, bc: BitCount, acc: AccessType, resetValue:Bits = B(0), doc: String = "")(implicit symbol: SymbolName): Bits = {

@@ -8,10 +8,10 @@ import AccessType._
 class MyRegBank extends Component {
   val apb = slave(Apb3(Apb3Config(16,32)))
 
-  val busif = Apb3BusInterface(apb,0)
+  val busSlave = Apb3BusInterface(apb,0)
 
-  val M_TURBO_EARLY_QUIT    = busif.newReg(doc = "Turbo Hardware-mode register1")
-  val M_TURBO_THETA         = busif.newReg(doc = "Turbo Hardware-mode register2")
+  val M_TURBO_EARLY_QUIT    = busSlave.newReg(doc = "Turbo Hardware-mode register1")
+  val M_TURBO_THETA         = busSlave.newReg(doc = "Turbo Hardware-mode register2")
 
   val early_quit  = M_TURBO_EARLY_QUIT.field(1 bit, RW, B(0), doc = "CRC validate early quit enable").asOutput()
   M_TURBO_EARLY_QUIT.field(3 bits, NA)
@@ -23,8 +23,8 @@ class MyRegBank extends Component {
   M_TURBO_THETA.field(5 bits, NA)
   val bib_order = M_TURBO_THETA.field(4 bit, RW, B(5,4 bits), doc = "bib in Byte, defalut. \n 0:[76543210] \n 1:[01234567]").asOutput()
   val readBase = M_TURBO_THETA.fieldoffset(16, 10 bit, RW, B(0), doc = "bib in Byte, defalut. \n 0:[76543210] \n 1:[01234567]").asOutput()
-  M_TURBO_EARLY_QUIT.bmiRead()
-  M_TURBO_THETA.bmiRead()
+
+  busSlave.readGenerator
 }
 
 object getFIRVerilog {

@@ -8,4 +8,6 @@ case class Field(name: String,
                  accType: AccessType,
                  resetValue: Bits,
                  readError: Boolean,
-                 doc: String)
+                 doc: String){
+  def tailBitPos = section.max
+}

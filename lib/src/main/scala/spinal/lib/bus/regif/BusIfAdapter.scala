@@ -6,7 +6,7 @@ import spinal.lib.bus.amba3.apb._
 
 import scala.collection.mutable.ListBuffer
 
-trait BusSlaveAdapter {
+trait BusIfAdapter {
   val askWrite: Bool
   val askRead: Bool
   val doWrite: Bool
@@ -26,7 +26,7 @@ trait BusSlaveAdapter {
   def wordAddressInc: Int = busDataWidth / 8
 }
 
-trait BusIf extends BusSlaveAdapter {
+trait BusIf extends BusIfAdapter {
   type B <: this.type
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: Int = 0
@@ -41,6 +41,29 @@ trait BusIf extends BusSlaveAdapter {
     val ret = new RegInst(addr, doc, this)
     RegInsts += ret
     ret
+  }
+
+  def docGenerator(docType: DocType = DocType.HTML) = {
+  }
+
+  def htmldoc()={
+  }
+
+  def readGenerator = {
+    switch (readAddress()(7 downto 0)) {
+      when(doRead){
+        RegInsts.foreach{(reg: RegInst) =>
+          is(reg.addr){
+            if(reg.allIsNA){
+              readData := 0
+            } else {
+              readData := reg.readBits
+            }
+            readError := Bool(reg.readErrorTag)
+          }
+        }
+      }
+    }
   }
 }
 
