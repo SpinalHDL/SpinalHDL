@@ -478,7 +478,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   override def addAttribute(attribute: Attribute): MemReadAsync.this.type = addTag(attribute)
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    address = func(address).asInstanceOf[Expression with WidthProvider]
+    address = stabilized(func, address).asInstanceOf[Expression with WidthProvider]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -544,8 +544,8 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   override def getTypeObject = TypeBits
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    address = func(address).asInstanceOf[Expression with WidthProvider]
-    readEnable = func(readEnable)
+    address = stabilized(func, address).asInstanceOf[Expression with WidthProvider]
+    readEnable = stabilized(func, readEnable)
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -628,8 +628,8 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
   override def getWidth = width
 
   override def remapExpressions(func: Expression => Expression): Unit = {
-    address = func(address).asInstanceOf[Expression with WidthProvider]
-    data    = func(data).asInstanceOf[Expression with WidthProvider]
+    address = stabilized(func, address).asInstanceOf[Expression with WidthProvider]
+    data    = stabilized(func, data).asInstanceOf[Expression with WidthProvider]
 
     if(mask != null) mask = func(mask).asInstanceOf[Expression with WidthProvider]
 
@@ -720,11 +720,11 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   override def getWidth = width
 
   override def remapExpressions(func: Expression => Expression): Unit = {
-    address = func(address).asInstanceOf[Expression with WidthProvider]
-    data = func(data).asInstanceOf[Expression with WidthProvider]
-    if(mask != null) mask = func(mask).asInstanceOf[Expression with WidthProvider]
-    writeEnable = func(writeEnable)
-    chipSelect = func(chipSelect)
+    address = stabilized(func, address).asInstanceOf[Expression with WidthProvider]
+    data = stabilized(func, data).asInstanceOf[Expression with WidthProvider]
+    if(mask != null) mask = stabilized(func, mask).asInstanceOf[Expression with WidthProvider]
+    writeEnable = stabilized(func, writeEnable)
+    chipSelect = stabilized(func, chipSelect)
   }
 
   override def foreachExpression(func: Expression => Unit): Unit = {
