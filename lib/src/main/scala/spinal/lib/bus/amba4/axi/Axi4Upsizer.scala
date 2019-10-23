@@ -145,3 +145,27 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
     io.output.readRsp.ready := busy && io.input.readRsp.ready && (io.input.readRsp.last || byteCounterNext(widthOf(byteCounter)))
   }
 }
+
+
+
+case class Axi4Upsizer(inputConfig : Axi4Config, outputConfig : Axi4Config, readPendingQueueSize : Int) extends Component{
+  val io = new Bundle {
+    val input = slave(Axi4(inputConfig))
+    val output = master(Axi4(outputConfig))
+  }
+
+  val readOnly = Axi4ReadOnlyUpsizer(inputConfig, outputConfig, readPendingQueueSize)
+  val writeOnly = Axi4WriteOnlyUpsizer(inputConfig, outputConfig)
+
+  readOnly.io.input.ar <> io.input.ar
+  readOnly.io.input.r <> io.input.r
+  writeOnly.io.input.aw <> io.input.aw
+  writeOnly.io.input.w <> io.input.w
+  writeOnly.io.input.b <> io.input.b
+
+  readOnly.io.output.ar <> io.output.ar
+  readOnly.io.output.r <> io.output.r
+  writeOnly.io.output.aw <> io.output.aw
+  writeOnly.io.output.w <> io.output.w
+  writeOnly.io.output.b <> io.output.b
+}
