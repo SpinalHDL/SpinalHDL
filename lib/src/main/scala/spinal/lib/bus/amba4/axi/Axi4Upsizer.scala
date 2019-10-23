@@ -3,6 +3,8 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
+
+//Curently only INCR burst compatible
 case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Config) extends Component {
   val io = new Bundle {
     val input = slave(Axi4WriteOnly(inputConfig))
@@ -59,8 +61,8 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
     }
 
     when(cmdLogic.dataFork.fire){
-      byteCounter := io.input.writeCmd.addr.resized
-      size := io.input.writeCmd.size
+      byteCounter := cmdLogic.dataFork.addr.resized
+      size := cmdLogic.dataFork.size
       alwaysFire := !cmdLogic.dataFork.isINCR()
       incrementByteCounter := !cmdLogic.dataFork.isFIXED
       busy := True
@@ -71,5 +73,75 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
 
   val rspLogic = new Area {
     io.input.writeRsp << io.output.writeRsp
+  }
+}
+
+//Currently only INCR compatible
+case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Config, pendingQueueSize : Int) extends Component {
+  val io = new Bundle {
+    val input = slave(Axi4ReadOnly(inputConfig))
+    val output = master(Axi4ReadOnly(outputConfig))
+  }
+
+  val sizeMax = log2Up(outputConfig.bytePerWord)
+  val ratio = outputConfig.dataWidth / inputConfig.dataWidth
+
+  case class RspContext() extends Bundle{
+    val startAt, endAt = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
+    val size = UInt(3 bits)
+    val id = UInt(inputConfig.idWidth bits)
+  }
+
+  val cmdLogic = new Area{
+    val (outputFork, dataFork) = StreamFork2(io.input.readCmd)
+    io.output.readCmd << outputFork
+    val byteCount = (io.input.readCmd.len << io.input.readCmd.size).resize(12 bits)
+    val incrLen = ((U"0" @@ byteCount) + io.input.readCmd.addr(outputConfig.symbolRange))(byteCount.high + 1 downto log2Up(outputConfig.bytePerWord))
+
+    io.output.readCmd.size.removeAssignments() := sizeMax
+    io.output.readCmd.len.removeAssignments() := incrLen.resized
+    io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
+  }
+
+  val dataLogic = new Area{
+    val cmdPush = Stream(RspContext())
+    cmdPush.arbitrationFrom(cmdLogic.dataFork)
+    cmdPush.startAt := cmdLogic.dataFork.addr.resized
+    cmdPush.endAt := (cmdLogic.dataFork.addr + (cmdLogic.dataFork.len << cmdLogic.dataFork.size)).resized
+    cmdPush.size := cmdLogic.dataFork.size
+    cmdPush.id := cmdLogic.dataFork.id
+
+    val cmdPop = cmdPush.queue(pendingQueueSize)
+
+    val size = Reg(UInt(3 bits))
+    val busy = RegInit(False)
+    val id = Reg(UInt(inputConfig.idWidth bits))
+    val byteCounter = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
+    val byteCounterLast = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
+    val byteCounterNext = (U"0" @@ byteCounter) + (U"1" << size).resized
+
+
+    when(cmdPop.fire){
+      byteCounter := cmdPop.startAt
+      byteCounterLast := cmdPop.endAt
+      size := cmdPop.size
+      id := cmdPop.id
+      busy := True
+    }
+
+    cmdPop.ready := !busy
+
+
+    when(io.input.readRsp.fire){
+      byteCounter := byteCounterNext.resized
+      busy clearWhen(io.input.readRsp.last)
+    }
+
+    io.input.readRsp.valid := io.output.readRsp.valid && busy
+    io.input.readRsp.last := io.output.readRsp.last && byteCounter === byteCounterLast
+    io.input.readRsp.resp := io.output.readRsp.resp
+    io.input.readRsp.data := io.output.readRsp.data.subdivideIn(ratio.slices).read(byteCounter >> log2Up(inputConfig.bytePerWord))
+    io.input.readRsp.id := id
+    io.output.readRsp.ready := busy && io.input.readRsp.ready && (io.input.readRsp.last || byteCounterNext(widthOf(byteCounter)))
   }
 }
