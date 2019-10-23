@@ -3,7 +3,7 @@ package spinal.lib.bus.amba4.axi.sim
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4WriteOnly}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4ReadOnly, Axi4WriteOnly}
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.{SimData, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
@@ -111,6 +111,88 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
   }
 }
 
+abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain){
+  val arQueue = mutable.Queue[() => Unit]()
+  val rQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+  var allowGen = true
+  var rspCounter = 0
+
+  def genAddress() : BigInt
+  def mappingAllocate(mapping : SizeMapping) : Boolean
+  def mappingFree(mapping : SizeMapping) : Unit
+  def bursts = List(0,1,2)
+
+
+  def pending = rQueue.exists(_.nonEmpty)
+  StreamReadyRandomizer(bus.r, clockDomain)
+
+  def genCmd() : Unit = {
+    if(!allowGen) return
+    val region = bus.ar.region.randomizedInt()
+    val burst = bursts(Random.nextInt(bursts.size))
+    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
+    val lenBeat = len + 1
+    val size = Random.nextInt(log2Up(bus.config.bytePerWord) + 1)
+    val sizeByte = 1 << size
+    val id = bus.ar.id.randomizedInt()
+    var mapping : SizeMapping = null
+    var address, startAddress, endAddress  : BigInt = null
+    val byteCount = sizeByte*lenBeat
+    do{
+      address = genAddress()
+      burst match {
+        case 0 =>
+          startAddress = address
+          endAddress   = startAddress + sizeByte
+        case 1 =>
+          startAddress = address
+          endAddress = startAddress + byteCount
+        case 2 =>
+          address = address & ~BigInt(sizeByte-1)
+          startAddress = address & ~(byteCount-1)
+          endAddress = startAddress + byteCount
+      }
+      mapping = SizeMapping(startAddress, endAddress - startAddress)
+    } while(!mappingAllocate(mapping));
+
+    val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
+
+    arQueue.enqueue { () =>
+      bus.ar.addr #= address
+      if (bus.config.useId) bus.ar.id #= id
+      if (bus.config.useRegion) bus.ar.region #= region
+      if (bus.config.useLen) bus.ar.len #= len
+      if (bus.config.useSize) bus.ar.size #= size
+      if (bus.config.useBurst) bus.ar.burst #= burst
+      if (bus.config.useLock) bus.ar.lock.randomize()
+      if (bus.config.useCache) bus.ar.cache.randomize()
+      if (bus.config.useQos) bus.ar.qos.randomize()
+      if (bus.config.arUserWidth >= 0) bus.ar.user.randomize()
+      if (bus.config.useProt) bus.ar.prot.randomize()
+    }
+
+    //READ RSP
+    for(beat <- 0 to len) rQueue(id).enqueue { () =>
+      assert(bus.r.resp.toInt == 0)
+      assert(bus.r.last.toBoolean == (beat == len))
+      if(bus.r.last.toBoolean) {
+        mappingFree(mapping)
+        rspCounter+=1
+      }
+    }
+  }
+
+  def maskRandom() = Random.nextBoolean()
+  StreamDriver(bus.ar, clockDomain){ _ =>
+    if(arQueue.isEmpty) genCmd()
+    if(arQueue.nonEmpty) { arQueue.dequeue().apply(); true } else false
+  }
+
+  val rspMonitor = StreamMonitor(bus.r, clockDomain){_ =>
+    rQueue(bus.r.id.toInt).dequeue()()
+  }
+}
+
 class Axi4WriteOnlySlaveAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain) {
   val awQueue = mutable.Queue[Int]()
   var wCount = 0
@@ -151,6 +233,37 @@ class Axi4WriteOnlySlaveAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain) {
 
   StreamReadyRandomizer(bus.aw, clockDomain)
   StreamReadyRandomizer(bus.w, clockDomain)
+}
+
+
+class Axi4ReadOnlySlaveAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain) {
+  val rQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+
+  val arMonitor = StreamMonitor(bus.ar, clockDomain){ar =>
+    val id = ar.id.toInt
+    val len = ar.len.toInt
+    for(beat <- 0 to len) {
+      rQueue(id) += { () =>
+        bus.r.id #= id
+        bus.r.resp #= 0
+        bus.r.last #= (beat == len)
+        bus.r.data.randomize()
+      }
+    }
+  }
+
+
+  StreamDriver(bus.r, clockDomain){ _ =>
+    val queues = rQueue.filter(_.nonEmpty)
+    if(queues.nonEmpty) {
+      queues(Random.nextInt(queues.size)).dequeue().apply()
+      true
+    }else{
+      false
+    }
+  }
+
+  StreamReadyRandomizer(bus.ar, clockDomain)
 }
 
 abstract class Axi4WriteOnlyMonitor(bus : Axi4WriteOnly, clockDomain: ClockDomain){
@@ -204,3 +317,49 @@ abstract class Axi4WriteOnlyMonitor(bus : Axi4WriteOnly, clockDomain: ClockDomai
     update()
   }
 }
+
+
+
+
+abstract class Axi4ReadOnlyMonitor(bus : Axi4ReadOnly, clockDomain: ClockDomain){
+  def onReadByte(address : BigInt, data : Byte, id : Int) : Unit
+  def onLast(id : Int) : Unit
+
+  val rQueue = mutable.Queue[() => Unit]()
+
+  val arMonitor = StreamMonitor(bus.ar, clockDomain){_ =>
+    val size = bus.ar.size.toInt
+    val len = bus.ar.len.toInt
+    val id = bus.ar.id.toInt
+    val burst = bus.ar.burst.toInt
+    val addr = bus.ar.addr.toBigInt
+    val bytePerBeat = (1 << size)
+    val bytes = (len + 1) * bytePerBeat
+    for(beat <- 0 to len) {
+      val beatAddress = burst match {
+        case 0 => addr
+        case 1 => (addr + bytePerBeat*beat) & ~BigInt(bus.config.bytePerWord-1)
+        case 2 => {
+          val base = addr & ~BigInt(bytes-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(bus.config.bytePerWord-1)
+        }
+      }
+      rQueue += { () =>
+        assert(bus.r.last.toBoolean == (beat == len))
+        assert(bus.r.resp.toInt == 0)
+        val data = bus.r.data.toBigInt
+        for(i <- 0 until bus.config.bytePerWord){
+          onReadByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
+        }
+        if(bus.r.last.toBoolean) onLast(id)
+      }
+    }
+  }
+
+  val rMonitor = StreamMonitor(bus.r, clockDomain){r =>
+    rQueue.dequeue().apply()
+  }
+}
+
+
+
