@@ -3,12 +3,13 @@ package spinal.lib.bus.regif
 object RegIfDocument{
   implicit class FieldsDocument(fd: Field){
     def tds: String = {
+      val reserved = if (fd.accType == AccessType.NA) "reserved" else ""
       s"""
-         |            <td>${Section(fd.section)}</td>
-         |            <td>${fd.name}</td>
-         |            <td align="center">${fd.accType}</td>
-         |            <td align="center">0x${fd.resetValue.toHexString}</td>
-         |            <td>${fd.doc}</td>
+         |            <td class="${reserved}" >${Section(fd.section)}</td>
+         |            <td class="${reserved}" >${fd.name}</td>
+         |            <td class="${reserved}" align="center">${fd.accType}</td>
+         |            <td class="${reserved}" align="center">0x${fd.resetValue.toHexString}</td>
+         |            <td class="${reserved} fixWidth2" >${fd.doc}</td>
          |""".stripMargin
     }
 
@@ -28,7 +29,7 @@ object RegIfDocument{
          |          <tr class="reg" align="left">
          |            <td align="center" rowspan="${fieldsNumbers}">0x${reginst.addr.toHexString}</td>
          |            <td align="center" rowspan="${fieldsNumbers}">${reginst.name}</td>
-         |            <td align="center" rowspan="${fieldsNumbers}">${reginst.doc} </td>
+         |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${reginst.doc} </td>
          |            <td align="center" rowspan="${fieldsNumbers}">${reginst.busif.busDataWidth}</td>
          |${reginst.fields.last.tds}
          |          </tr>

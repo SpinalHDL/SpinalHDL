@@ -18,17 +18,10 @@ object DocTemplate {
         |      .theme-default th{
         |          background: #bbb;
         |      }
-        |      .theme-default td.fixwidth{
-        |          min-width:50px;
-        |          max-width:300px;
-        |      }
-        |      .theme-default td.fixwidth2{
-        |          min-width:50px;
-        |          max-width:400px;
-        |      }
         |      .theme-default tbody td.reserved{
-        |          color: #aaa;
+        |          color: #bbb;
         |          font-weight:200;
+        |          background : #eee;
         |          /* text-decoration:line-through; */
         |          text-decoration-color:#888;
         |      }
@@ -71,7 +64,7 @@ object DocTemplate {
         |      }
         |      .theme-spring tbody td.reserved{
         |          color: #aaa;
-        |          /* background : #eee; */
+        |          background : #fffff0;
         |          /* font-style:italic; */
         |          font-weight:200;
         |          font-size:1.0em;
@@ -82,6 +75,20 @@ object DocTemplate {
         |""".stripMargin
   }
 
+  val commonCSS =
+    """
+      |      td{
+      |          white-space:pre-line; word-wrap: break-word; word-break: break-all;
+      |      }
+      |      td.fixWidth{
+      |          min-width:50px;
+      |          max-width:300px;
+      |      }
+      |      td.fixWidth2{
+      |          min-width:50px;
+      |          max-width:400px;
+      |      }
+      |""".stripMargin
   val tableHead =
     """
       |      <thead>
@@ -110,6 +117,7 @@ object DocTemplate {
        |      div{
        |          text-align: center;
        |      }
+       |${commonCSS}
        |${cssThemes.Default}
        |${cssThemes.Spring}
        |    </style>

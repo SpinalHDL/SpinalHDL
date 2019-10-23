@@ -92,7 +92,8 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
       case AccessType.NA    => NA(bc)                                     // -W: reserved, R: reserved
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
-    fields   += Field(symbol.name, ret, section, acc, resetValue, Rerror, newdoc)
+    val nameRemoveNA = if(acc == AccessType.NA) "--" else symbol.name
+    fields   += Field(nameRemoveNA, ret, section, acc, resetValue, Rerror, newdoc)
     fieldPtr += bc.value
     ret
   }
