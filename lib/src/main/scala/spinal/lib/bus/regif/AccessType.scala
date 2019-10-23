@@ -29,5 +29,7 @@ object AccessType {
   case object W1    extends AccessType  //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: no effect
   case object WO1   extends AccessType  //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: error
   case object NA    extends AccessType  // -W: reserved, R: reserved
+  case object W1P   extends AccessType  // -W: 1/0 pulse/no effect on matching bit, R: no effect
+  case object W0P   extends AccessType  // -W: 0/1 pulse/no effect on matching bit, R: no effect
 }
 

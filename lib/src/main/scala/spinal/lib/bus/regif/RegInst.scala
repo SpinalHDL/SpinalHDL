@@ -6,7 +6,13 @@ import spinal.lib.IMasterSlave
 import scala.collection.mutable.ListBuffer
 
 class Section(val max: Int, val min: Int){
-  override def toString(): String = s"[${this.max}:${this.min}]"
+  override def toString(): String = {
+    if(this.max == this.min) {
+      s"[${this.min}]"
+    } else {
+      s"[${this.max}:${this.min}]"
+    }
+  }
 }
 
 object Section{
@@ -16,11 +22,12 @@ object Section{
 
 
 case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
-  val fields = ListBuffer[Field]()
+  private val fields = ListBuffer[Field]()
   private var fieldPtr: Int = 0
   private var Rerror: Boolean = false
 
   def readErrorTag = Rerror
+  def getFields = fields
 
   val hitRead  = busif.readAddress === U(addr)
   val hitWrite = busif.writeAddress === U(addr)
@@ -90,6 +97,8 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
       case AccessType.W1    =>                W1(bc, section, resetValue) //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: no effect
       case AccessType.WO1   => Rerror = true; W1(bc, section, resetValue) //- W: first one after ~HARD~ reset is as-is, other W have no effects, R: error
       case AccessType.NA    => NA(bc)                                     // -W: reserved, R: reserved
+      case AccessType.W1P   => WBP(section, resetValue, AccessType.W1P )  //- W: 1/0 pulse/no effect on matching bit, R: no effect
+      case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
     val nameRemoveNA = if(acc == AccessType.NA) "--" else symbol.name
@@ -231,6 +240,25 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
             .elsewhen(hitDoRead)                 {ret(idx).set()}
         }
         case _ =>
+      }
+    }
+    ret
+  }
+
+  private def WBP(section: Range, resetValue: Long, accType: AccessType): Bits ={
+    val resetValues = B(resetValue)
+    val ret = Reg(Bits(section.size bits)) init resetValues
+    for(x <- section) {
+      val idx = x - section.min
+      accType match {
+        case AccessType.W1P => {
+          when(hitDoWrite &&  busif.writeData(x)){ret(idx) := ~ret(idx)}
+            .otherwise{ret(idx) := False}
+        }
+        case AccessType.W0P => {
+          when(hitDoWrite && ~busif.writeData(x)){ret(idx) := ~ret(idx)}
+            .otherwise{ret(idx) := resetValues(idx)}
+        }
       }
     }
     ret

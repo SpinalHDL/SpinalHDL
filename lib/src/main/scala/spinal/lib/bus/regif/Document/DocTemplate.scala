@@ -77,6 +77,10 @@ object DocTemplate {
 
   val commonCSS =
     """
+      |      p.regif-title{
+      |          font-weight:800;
+      |          font-size:1.2em;
+      |      }
       |      td{
       |          white-space:pre-line; word-wrap: break-word; word-break: break-all;
       |      }
@@ -88,20 +92,30 @@ object DocTemplate {
       |          min-width:50px;
       |          max-width:400px;
       |      }
+      |      footer div p.info{
+      |          font-weight:300;
+      |          font-size:0.7em;
+      |      }
+      |      a {
+      |        color:black;text-decoration:none;
+      |      }
+      |      a:hover {
+      |          color:#09f;
+      |      }
       |""".stripMargin
   val tableHead =
     """
       |      <thead>
       |        <tr align="center" >
-      |          <th>addressOffset</th>
+      |          <th>AddressOffset</th>
       |          <th>RegName</th>
-      |          <th>Register Description</th>
-      |          <th>width</th>
-      |          <th>section</th>
+      |          <th>Description</th>
+      |          <th>Width</th>
+      |          <th>Section</th>
       |          <th>FieldName</th>
       |          <th>R/W</th>
       |          <th>Reset value</th>
-      |          <th>Field-description</th>
+      |          <th>Field-Description</th>
       |        </tr>
       |      <thead>
       |""".stripMargin
@@ -123,14 +137,21 @@ object DocTemplate {
        |    </style>
        |  </head>
        |  <body>
+       |  <header align="center">
+       |  <p class="regif-title"> ${moduleName} Interface Document </p>
+       |  </header>
+       |  <div class="table">
        |  <table  align="center" class="theme-default">
-       |    <caption>${moduleName} Interface Document </caption>
        |      <br/>
        |${tableHead}
        |      <tbody>
        |${tbody}
        |      </tbody>
        |  </table>
+       |  </div>
+       |  <footer align="center">
+       |  <div> <p class="info">Powered By <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  </footer>
        |  </body>
        |</html>
        |""".stripMargin

@@ -24,20 +24,20 @@ object RegIfDocument{
 
   implicit class RegInstDocument(reginst : RegInst){
     def tr0: String = {
-      val fieldsNumbers = reginst.fields.size
+      val fieldsNumbers = reginst.getFields.size
       s"""
          |          <tr class="reg" align="left">
          |            <td align="center" rowspan="${fieldsNumbers}">0x${reginst.addr.toHexString}</td>
          |            <td align="center" rowspan="${fieldsNumbers}">${reginst.name}</td>
          |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${reginst.doc} </td>
          |            <td align="center" rowspan="${fieldsNumbers}">${reginst.busif.busDataWidth}</td>
-         |${reginst.fields.last.tds}
+         |${reginst.getFields.last.tds}
          |          </tr>
          |""".stripMargin
     }
 
     def trs: String = {
-      tr0 + reginst.fields.reverse.tail.map(_.tr).foldLeft("")(_+_)
+      tr0 + reginst.getFields.reverse.tail.map(_.tr).foldLeft("")(_+_)
     }
   }
 }

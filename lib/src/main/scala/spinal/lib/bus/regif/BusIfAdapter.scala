@@ -7,7 +7,7 @@ import RegIfDocument._
 
 import scala.collection.mutable.ListBuffer
 
-trait BusIfAdapter {
+trait BusIfAdapter extends Area{
   val askWrite: Bool
   val askRead: Bool
   val doWrite: Bool
@@ -32,6 +32,11 @@ trait BusIf extends BusIfAdapter {
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: Int = 0
 
+  component.addPrePopTask(() => {
+    readGenerator()
+    docGenerator()
+  })
+
   def newReg(doc: String)(implicit symbol: SymbolName) = {
     val res = creatReg(symbol.name, regPtr, doc)
     regPtr += wordAddressInc
@@ -47,22 +52,23 @@ trait BusIf extends BusIfAdapter {
   def docGenerator(docType: DocType = DocType.HTML) = {
     RegInsts.foreach(_.checkLast)
     val body = RegInsts.map(_.trs).foldLeft("")(_+_)
-    val html = DocTemplate.getHTML("MyRegBank", body)
+    val html = DocTemplate.getHTML("TurboRegBank", body)
     import java.io.PrintWriter
     new PrintWriter("tmp/regif.html"){write(html);close}
   }
 
-  def readGenerator = {
+  def readGenerator() = {
     switch (readAddress()(7 downto 0)) {
       when(doRead){
         RegInsts.foreach{(reg: RegInst) =>
           is(reg.addr){
             if(reg.allIsNA){
-              readData := 0
+              readData  := 0
+              readError := True
             } else {
-              readData := reg.readBits
+              readData  := reg.readBits
+              readError := Bool(reg.readErrorTag)
             }
-            readError := Bool(reg.readErrorTag)
           }
         }
       }
