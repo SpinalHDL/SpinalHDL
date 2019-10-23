@@ -49,13 +49,13 @@ case class Floating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
+      while ((shiftedMantissa.toBigInt & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
-      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.mantissa := B(shiftedMantissa.toBigInt).resized
       this.exponent := (getExponentBias + firstBitIndex)
       this.sign := Bool(that < 0)
     }
@@ -333,13 +333,13 @@ case class RecFloating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
+      while ((shiftedMantissa.toBigInt & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
-      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.mantissa := B(shiftedMantissa.toBigInt).resized
       this.exponent := (getExponentBias + getExponentZero + firstBitIndex)
       this.sign := Bool(that < 0)
     }
