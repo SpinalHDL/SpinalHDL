@@ -22,6 +22,7 @@ object Section{
 
 
 case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
+
   private val fields = ListBuffer[Field]()
   private var fieldPtr: Int = 0
   private var Rerror: Boolean = false
@@ -52,19 +53,19 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldoffset(offset: Int, bc: BitCount, acc: AccessType, resetValue: Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
-    val sectionNext: Section = offset+bc.value-1 downto offset
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+    val sectionNext: Section = pos+bc.value-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
-    val ret = offset match {
+    val ret = pos match {
       case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
       case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
       case x if (x == fieldPtr) => field(bc, acc, resetValue, doc)
       case _ => {
-        field(offset - fieldPtr bits, AccessType.NA)(SymbolName("reserved"))
+        field(pos - fieldPtr bits, AccessType.NA)(SymbolName("reserved"))
         field(bc, acc, resetValue, doc)
       }
     }
-    fieldPtr = offset
+    fieldPtr = pos + bc.value
     ret
   }
 

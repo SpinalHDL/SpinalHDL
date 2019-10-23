@@ -52,6 +52,28 @@ class RegIfExample extends Component {
   val fillRow   =  M_TURBO_3G_INTER_FILL.field(2 bits, RW, doc="interlave fill Row number, 0~2 avaliable\n n+1 row").asOutput()
 }
 
+class RegIfExample2 extends Component {
+  val io = new Bundle {
+    val apb = slave(Apb3(Apb3Config(16, 32)))
+  }
+  val busSlave = Apb3BusInterface(io.apb, 0)
+  val M_REG0  = busSlave.newReg(doc="REG0")
+  val M_REG1  = busSlave.newReg(doc="REG1")
+  val M_REG2  = busSlave.newReg(doc="REG2")
+
+  val M_REG10 = busSlave.newRegAt(address=10*4, doc="REG10")
+  val M_REGn  = busSlave.newReg(doc="REGn")
+
+  val fd0 = M_REG0.field(2 bits, RW, doc= "fields 0")
+  M_REG0.reserved(5 bits)
+  val fd1 = M_REG0.field(3 bits, RW, doc= "fields 0")
+  val fd2 = M_REG0.field(3 bits, RW, doc= "fields 0")
+  //auto reserved 2 bits
+  val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
+//  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
+  //auto reserved 12 bits
+}
+
 object getRegIfExample {
   def main(args: Array[String]) {
     SpinalConfig(mode = Verilog,
