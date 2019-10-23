@@ -6,8 +6,8 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
   scalaVersion := SpinalVersion.compiler,
-  scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
-  javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
+  scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   baseDirectory in test := file("/out/"),
   fork := true,
 
@@ -16,7 +16,7 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.12" % "1.0.6",
+  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.13" % "1.2.0",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt clean reload publishSigned
@@ -90,7 +90,7 @@ lazy val core = (project in file("core"))
     defaultSettings,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.0",
+    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
     sourceGenerators in Compile += Def.task {
@@ -125,7 +125,7 @@ lazy val debugger = (project in file("debugger"))
     version := SpinalVersion.debugger,
     resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
     libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
+//    libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
     publishArtifact := false,
     publishLocal := {}
   )
@@ -149,7 +149,7 @@ lazy val tester = (project in file("tester"))
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),
 
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1",
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8",
     publishArtifact := false,
     publishLocal := {}
   )
