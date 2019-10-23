@@ -49,16 +49,26 @@ class Stage0 extends Bundle with BundleA with BundleB with BundleC
 
 class Stage1 extends Bundle with BundleA with BundleB with BundleD
 
-class Play1 extends Component {
-  val io = new Bundle {
-    val output = out(Reg(Bool))
-  }
-  io.output := !io.output
-}
+
 
 object Play1 {
+  case class Sub() extends Component {
+    val io = inout(Analog(Bool))
+
+    io := True
+  }
+
+  case class TopLevel() extends Component {
+    val io = inout(Analog(Bits(2 bits)))
+
+    val s0, s1 = Sub()
+
+    io(0) := s0.io
+    io(1) := s1.io
+  }
+
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new Play1)
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -73,88 +83,184 @@ class ComplexBundle extends Bundle {
 }
 
 
+object PlayGenerator extends App{
+  import spinal.lib.generator._
+  SpinalVerilog(
+    new GeneratorComponent( new Generator{
+      class  Nameable
+      class A extends Nameable
+      class B extends A
+      class C extends Nameable
+      val a = new Handle[A]
+      val b = new Handle[B]
+
+//      a.load(b)
+//      b.load(a)
+//      a.load(c)
+//      a.load(b)
+      def miaou[T2 <: A](y : T2) : Unit = {
+        a.load(y)
+      }
+      miaou(new B)
+    })
+  )
+
+}
+
 
 
 
 object play {
 
 
-  trait HandleCoreSubscriber[+T]{
-    def changeCore[T2 >: T](core : HandleCore[T2]) : Unit
-    def lazyDefault (): T
-    def lazyDefaultAvailable : Boolean
-  }
+//  trait HandleCoreSubscriber[+T]{
+//    def changeCore[T2 >: T](core : HandleCore[T2]) : Unit
+//    def lazyDefault (): T
+//    def lazyDefaultAvailable : Boolean
+//  }
+//
+//  class HandleCore[+T]{
+//    private var loaded = false
+//    private var value : Any = null.asInstanceOf[T]
+//
+//    val subscribers = mutable.HashSet[HandleCoreSubscriber[Any]]()
+//
+//    def get : T = {
+//      if(!loaded){
+//        subscribers.count(_.lazyDefaultAvailable) match {
+//          case 0 =>
+//          case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
+//          case _ => SpinalError("Multiple handle default values")
+//        }
+//      }
+//      value.asInstanceOf[T]
+//    }
+//    def load(value : Any): T = {
+//      this.value = value
+//      loaded = true
+//      value.asInstanceOf[T]
+//    }
+//
+//    def merge(that : HandleCore[Any]): Unit ={
+//      (this.loaded, that.loaded) match {
+//        case (false, _) => this.subscribers.foreach(_.changeCore(that))
+//        case (true, false) => that.subscribers.foreach(_.changeCore(this))
+//        case _ => ???
+//      }
+//    }
+//
+//    def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
+//  }
 
-  class HandleCore[+T]{
-    private var loaded = false
-    private var value : Any = null.asInstanceOf[T]
+//  class Handle[+T] extends HandleCoreSubscriber[T]{
+//
+//
+//    override def changeCore[T2 >: T](core: HandleCore[T2]): Unit = ???
+//
+//
+//    override def lazyDefault(): T = ???
+//
+//    override def lazyDefaultAvailable: Boolean = ???
+//  }
 
-    val subscribers = mutable.HashSet[HandleCoreSubscriber[Any]]()
 
-    def get : T = {
-      if(!loaded){
-        subscribers.count(_.lazyDefaultAvailable) match {
-          case 0 =>
-          case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
-          case _ => SpinalError("Multiple handle default values")
-        }
-      }
-      value.asInstanceOf[T]
+//  class Handle[-T] {
+////    var value : T = null.asInstanceOf[T]
+//
+//    def load[T2 <: T](x : Handle[T2]) : T2 = {
+//      null.asInstanceOf[T2]
+//    }
+//
+//
+//    def load2(x : T) : Unit = {
+//    }
+//
+////    def get: T = ???
+//
+//  }
+//
+////  val x = new Handle[String]
+////  def miaou[T2 <: A](a : Handle[T2]) = {
+////
+////  }
+////
+////  miaou(new Handle[String])
+//
+//
+//
+//  class A
+//  class B extends A
+//  val a = new Handle[A]
+//  val b = new Handle[B]
+////  miaou[A](b)
+//  a.load(b)
+//  a.load(a)
+////  a.load(c)
+
+
+
+//
+//  class Handle[T] {
+//    //    var value : T = null.asInstanceOf[T]
+//
+//    def load[T2 <: T](x : Handle[T2]) : T2 = {
+//      null.asInstanceOf[T2]
+//    }
+//
+//
+//    def load2(x : T) : Unit = {
+//    }
+//
+//    //    def get: T = ???
+//
+//  }
+
+
+
+  class Handle[T] {
+    //    var value : T = null.asInstanceOf[T]
+
+
+
+    def load[T2 <: T](x : Handle[T2]) : T2 = {
+      null.asInstanceOf[T2]
     }
-    def load(value : Any): T = {
-      this.value = value
-      loaded = true
-      value.asInstanceOf[T]
+
+
+    def load2(x : T) : Unit = {
     }
 
-    def merge(that : HandleCore[Any]): Unit ={
-      (this.loaded, that.loaded) match {
-        case (false, _) => this.subscribers.foreach(_.changeCore(that))
-        case (true, false) => that.subscribers.foreach(_.changeCore(this))
-        case _ => ???
-      }
-    }
-
-    def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
-  }
-
-  class Handle[T] extends HandleCoreSubscriber[T]{
-
-
-    override def changeCore[T2 >: T](core: HandleCore[T2]): Unit = ???
-
-
-    override def lazyDefault(): T = ???
-
-    override def lazyDefaultAvailable: Boolean = ???
-  }
-
-  val x = new Handle[String]
-  def miaou[T](a : Handle[T]) = {
+    //    def get: T = ???
 
   }
 
-  miaou(new Handle[String])
+
+  //  val x = new Handle[String]
+
+  //
+  //  miaou(new Handle[String])
 
 
-  import scala.tools.nsc.interpreter.IMain
-  import scala.tools.nsc.Settings
-
-  private def genClass[T](): T = {
-    val settings = new Settings()
-    settings.embeddedDefaults(this.getClass.getClassLoader())
-    val interpreter = new IMain(settings)
-
-    interpreter.compileString("class A{" +
-      "val a = 2" +
-      "}")
-    val clazz = interpreter.classLoader.loadClass("A")
-    clazz.newInstance().asInstanceOf[T]
-  }
 
   def main(args: Array[String]) {
-    val a = genClass()
-    print(a)
+    class A  extends Nameable
+    class B extends A
+    def miaou[T2 <: A](a : Handle[T2]) = {
+
+    }
+    val a = new Handle[A]
+    val b = new Handle[B]
+      miaou(b)
+    a.load(b)
+    a.load(a)
+    //  a.load(c)
+
+    implicit def trtr[T, T2 <: T](h : Handle[T2]) : Handle[T] = h.asInstanceOf[ Handle[T]]
+
+    def miaou2() : Handle[A] = a
+    def miaou3() : Handle[A] = b
+  miaou3
+
   }
 }
 
@@ -1005,25 +1111,16 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  case class TopLevel() extends Component {
-    val a = in Bool()
-    val x = out Bool()
+  class TopLevel extends Component{
+    val a  = Reg(Bits(2 bits)) init 0
 
-    val tmp = Bool()
-
-    x := False
-    tmp := False
-    when(a | tmp){
-      x := True
-    }
-    when(a){
-      x := True
-      tmp := True
-    }
+    val o2 = a ## Bits(0 bit)                //pass
+    val o3 = Bits(0 bit) ## a                //pass
+    val o5 = Bits(0 bit) ## a ## Bits(0 bit) //cause exception
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(mergeAsyncProcess = true).generateVerilog(TopLevel())
+    SpinalConfig().generateVerilog(new TopLevel())
   }
 }
 

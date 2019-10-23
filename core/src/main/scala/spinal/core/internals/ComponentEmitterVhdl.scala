@@ -56,7 +56,7 @@ class ComponentEmitterVhdl(
     val libs = mutable.HashSet[String]()
 
     for(child <- c.children)child match {
-      case bb : BlackBox => libs ++= bb.librariesUsages
+      case bb : BlackBox if bb.isBlackBox => libs ++= bb.librariesUsages
       case _ =>
     }
     for(lib <- libs){
@@ -180,8 +180,8 @@ class ComponentEmitterVhdl(
     //Wrap inout
     analogs.foreach(io => {
       io.foreachStatements{
-        case AssignmentStatement(_, source: BaseType) =>
-          referencesOverrides(source) = emitExpression(io)
+        case AssignmentStatement(target, source: BaseType) =>
+          referencesOverrides(source) = emitAssignedExpression(target)
         case _ =>
       }
     })
@@ -230,7 +230,7 @@ class ComponentEmitterVhdl(
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
     for (children <- component.children) {
-      val isBB = children.isInstanceOf[BlackBox]
+      val isBB             = children.isInstanceOf[BlackBox] && children.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
@@ -269,7 +269,7 @@ class ComponentEmitterVhdl(
         }
       }
 
-      if (children.isInstanceOf[BlackBox]) {
+      if (isBB) {
         val bb = children.asInstanceOf[BlackBox]
         val genericFlat = bb.genericElements
 
@@ -1013,7 +1013,7 @@ class ComponentEmitterVhdl(
     val emited = mutable.Set[String]()
 
     for (c <- component.children) c match {
-      case blackBox: BlackBox =>
+      case blackBox: BlackBox if blackBox.isBlackBox =>
         if (!emited.contains(blackBox.definitionName)) {
           emited += blackBox.definitionName
           emitBlackBoxComponent(blackBox)

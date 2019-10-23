@@ -14,7 +14,7 @@ class CarryAdder(size : Int) extends Component{
     val a = io.a(i)
     val b = io.a(i)
     io.result(i) := a ^ b ^ c
-    c = (a & b) | (a & c) | (b & c);
+    c \= (a & b) | (a & c) | (b & c);
   }
 }
 

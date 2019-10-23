@@ -46,10 +46,11 @@ object HexTools{
   }
 
   def initRam[T <: Data](ram : Mem[T], onChipRamHexFile : String, hexOffset : BigInt): Unit ={
+    val wordSize = ram.wordType.getBitsWidth/8
     val initContent = Array.fill[BigInt](ram.wordCount)(0)
     HexTools.readHexFile(onChipRamHexFile, 0,(address,data) => {
       val addressWithoutOffset = (address - hexOffset).toInt
-      initContent(addressWithoutOffset >> 2) |= BigInt(data) << ((addressWithoutOffset & 3)*8)
+      initContent(addressWithoutOffset/wordSize) |= BigInt(data) << ((addressWithoutOffset % wordSize)*8)
     })
     ram.initBigInt(initContent)
   }

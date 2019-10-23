@@ -16,8 +16,8 @@ case class BmbDecoder(p : BmbParameter,
     val outputs = Vec(master(Bmb(p)), mappings.size)
   }
   val hasDefault = mappings.contains(DefaultMapping)
-  val logic = if(hasDefault && mappings.size == 1 && p.canWrite == capabilities.head.canWrite && p.canRead == capabilities.head.canRead){
-    io.outputs(0) <> io.input
+  val logic = if(hasDefault && mappings.size == 1 && !(p.canWrite && !capabilities.head.canWrite) && !(p.canRead && !capabilities.head.canRead)){
+    io.outputs(0) << io.input
   } else new Area {
     val hits = Vec(Bool, mappings.size)
     for (portId <- 0 until mappings.length) yield {

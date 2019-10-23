@@ -16,7 +16,8 @@ import spinal.lib.bus.misc.SizeMapping
 class BmbBridgeTester(master : Bmb,
                       masterCd : ClockDomain,
                       slave : Bmb,
-                      slaveCd : ClockDomain) {
+                      slaveCd : ClockDomain,
+                      alignmentMinWidth : Int = 0) {
   Phase.boot()
   Phase.setup {
     masterCd.forkStimulus(10)
@@ -42,7 +43,7 @@ class BmbBridgeTester(master : Bmb,
       withDriver = true
     )
 
-    val regions = BmbRegionAllocator()
+    val regions = BmbRegionAllocator(alignmentMinWidth = alignmentMinWidth)
     val agent = new BmbMasterAgent(master, masterCd) {
       override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
         val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))

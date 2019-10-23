@@ -158,8 +158,8 @@ class ComponentEmitterVerilog(
     //Wrap inout
     analogs.foreach(io => {
       io.foreachStatements{
-        case AssignmentStatement(_, source: BaseType) =>
-          referencesOverrides(source) = emitExpression(io)
+        case AssignmentStatement(target, source: BaseType) =>
+          referencesOverrides(source) = emitAssignedExpression(target)
         case _ =>
       }
     })
@@ -211,13 +211,13 @@ class ComponentEmitterVerilog(
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
 
     for (child <- component.children) {
-      val isBB             = child.isInstanceOf[BlackBox]
+      val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
       logics ++= s"  $definitionString "
 
-      if (child.isInstanceOf[BlackBox]) {
+      if (isBB) {
         val bb = child.asInstanceOf[BlackBox]
         val genericFlat = bb.genericElements
 

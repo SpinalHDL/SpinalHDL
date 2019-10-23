@@ -219,7 +219,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
-/** Connect this to a valid/payload register stage and return its output stream
+  def combStage() : Stream[T] = {
+    val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
+    ret << this
+    ret
+  }
+
+
+  /** Connect this to a valid/payload register stage and return its output stream
   */
   def stage() : Stream[T] = this.m2sPipe()
 
@@ -227,8 +234,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
 
-    val rValid = RegInit(False)
-    val rData = Reg(payloadType)
+    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
+    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
     if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
@@ -640,13 +647,15 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency : Int = 0) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0) extends Component {
   require(depth >= 1)
-  val io = new Bundle {
+  val io = new Bundle with StreamFifoInterface[T] {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
     val flush = in Bool() default (False)
     val occupancy = out UInt (log2Up(depth + 1) bit)
+    override def pushOccupancy: UInt = occupancy
+    override def popOccupancy: UInt = occupancy
   }
   val ram = Mem(dataType, depth)
   val pushPtr = Counter(depth)
@@ -665,7 +674,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value)
+        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -673,7 +682,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value)
+      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
     }
   }
   when(pushing =/= popping) {
@@ -709,11 +718,19 @@ object StreamFifoCC{
   def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
+
+trait StreamFifoInterface[T <: Data]{
+  def push          : Stream[T]
+  def pop           : Stream[T]
+  def pushOccupancy : UInt
+  def popOccupancy  : UInt
+}
+
 class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
-  val io = new Bundle {
+  val io = new Bundle with StreamFifoInterface[T]{
     val push          = slave  Stream(dataType)
     val pop           = master Stream(dataType)
     val pushOccupancy = out UInt(log2Up(depth + 1) bits)

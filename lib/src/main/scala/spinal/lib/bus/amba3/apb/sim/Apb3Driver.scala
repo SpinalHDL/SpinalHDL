@@ -8,8 +8,11 @@ case class Apb3Driver(apb : Apb3, clockDomain : ClockDomain) {
   apb.PSEL #= 0
   apb.PENABLE #= false
 
+  var verbose = false
+
 
   def write(address : BigInt, data : BigInt) : Unit = {
+    if(verbose) println(s"APB[0x${address.toString(16)}] = 0x${data.toString(16)}")
     apb.PSEL #= 1
     apb.PENABLE #= false
     apb.PWRITE #= true

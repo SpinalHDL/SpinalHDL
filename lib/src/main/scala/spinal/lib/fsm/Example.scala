@@ -26,7 +26,7 @@
 package spinal.lib.fsm
 
 import spinal.core._
-
+import spinal.lib.com.uart._
 
 object StateMachineStyle1 {
 
@@ -443,8 +443,126 @@ object StateMachineTry3Example {
   }
 }
 
+object StateMachineCondTransExample {
+  class TopLevel extends Component {
+    val counter = out(Reg(UInt(8 bits)) init (0))
+    val cond = in Bool
+    val fsm = new StateMachine {
+      setTransitionCondition(cond)
+      val stateA, stateB, stateC = new State
+      setEntry(stateA)
+      stateA.whenIsActive {
+        goto(stateB)
+      }
+      stateB.whenIsActive {
+        forceGoto(stateC)
+      }
+      stateC.onEntry(counter := 0)
+      stateC.whenIsActive {
+        when(counter === 3) {
+          goto(stateA)
+        }.otherwise {
+          counter := counter + 1
+        }
+      }
+    }
+  }
 
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+    SimConfig.compile{
+      val dut = new TopLevel
+      dut.fsm.stateReg.simPublic()
+      dut.fsm.stateNext.simPublic()
+      dut.fsm.stateNextCand.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
 
+      dut.cond #= false
+      for(i <- 0 until 20){
+        dut.clockDomain.waitSampling()
+        dut.cond #= !dut.cond.toBoolean
+        println(f"State: ${dut.fsm.stateReg.toEnum} StateNext: ${dut.fsm.stateNext.toEnum} Cand: ${dut.fsm.stateNextCand.toEnum} Cond: ${dut.cond.toBoolean}")
+      }
+    }
+  }
+}
+
+object StateMachineCondLargeExample {
+  class LargeExample extends Component {
+    val io = new Bundle {
+      val clk = in Bool
+      val txd = out Bool
+    }
+
+    val clkDomain = ClockDomain(
+      clock = io.clk,
+      frequency = FixedFrequency(100 MHz),
+      config = ClockDomainConfig(resetKind = BOOT)
+    )
+
+    val logic = new ClockingArea(clkDomain) {
+      val uart = new UartCtrl()
+      uart.io.config.setClockDivider(115200 Hz)
+      uart.io.config.frame.dataLength := 7
+      uart.io.config.frame.stop := UartStopType.ONE
+      uart.io.config.frame.parity := UartParityType.NONE
+      uart.io.uart.rxd := True
+      uart.io.uart.txd <> io.txd
+
+      val fsm = new StateMachine {
+        setTransitionCondition(uart.io.write.ready)
+        uart.io.write.payload := ' '
+        uart.io.write.valid := True
+
+        val stateNL = new State with EntryPoint
+        val stateH1 = new State
+        val stateE1 = new State
+        val stateL1 = new State
+        val stateL2 = new State
+        val stateO = new State
+        val stateS = new State
+        val stateT1 = new State
+        val stateA1 = new State
+        val stateT2 = new State
+        val stateE2 = new State
+        val stateM = new State
+        val stateA2 = new State
+        val stateC = new State
+        val stateH2 = new State
+        val stateI = new State
+        val stateN = new State
+        val stateE3 = new State
+
+        @dontName val textStates = Array(stateNL, stateH1, stateE1, stateL1, stateL2, stateO, stateS,
+                                         stateT1, stateA1, stateT2, stateE2, stateM, stateA2, stateC,
+                                         stateH2, stateI, stateN, stateE3)
+        val text = "\nHelloStatemachine"
+        for ((s, t) <- states.zip(text)) {
+          s.whenIsActive {
+            uart.io.write.payload := t
+          }
+        }
+        for ((s1, s2) <- states.zip(states.slice(1, states.length-1) ++ states.slice(0, 1))) {
+          s1.whenIsActive {
+            if(transitionCond == null) {
+              when(uart.io.write.ready) {
+                goto(s2)
+              }
+            } else {
+              goto(s2)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]) : Unit = {
+    SpinalVerilog(new LargeExample()).printPruned().printUnused()
+  }
+}
 
 object StateMachineSimExample {
   class TopLevel extends Component {

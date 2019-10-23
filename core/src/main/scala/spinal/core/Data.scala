@@ -25,6 +25,7 @@ import spinal.core.internals._
 
 object DataAssign
 object InitAssign
+class VarAssignementTag(var from : ArrayBuffer[Data]) extends SpinalTag
 
 trait DataPrimitives[T <: Data]{
 
@@ -54,6 +55,24 @@ trait DataPrimitives[T <: Data]{
 
     ret.allowOverride
     ret := that
+
+    (this, ret) match {
+      case (from: Data with Nameable, to: Data with Nameable) => {
+        val t = from.getTag(classOf[VarAssignementTag]) match {
+          case Some(t) => t
+          case None => new VarAssignementTag(ArrayBuffer[Data]())
+        }
+        for((s,i) <- t.from.zipWithIndex){
+          s.setCompositeName(to,i.toString)
+        }
+
+        t.from += ret
+        from.removeTag(t)
+        ret.addTag(t)
+      }
+      case _ =>
+    }
+
     ret
   }
 
@@ -300,6 +319,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isOutput: Boolean = dir == out
   def isInput:  Boolean = dir == in
   def isInOut:  Boolean = dir == inout
+  def getDirection = dir
 
   def isOutputOrInOut: Boolean = dir == out || dir == inout
   def isInputOrInOut:  Boolean = dir ==  in || dir == inout

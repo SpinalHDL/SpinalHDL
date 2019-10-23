@@ -333,12 +333,12 @@ abstract class AssignmentStatement extends LeafStatement with StatementDoubleLin
       case ref: BaseType           =>
       case a: AssignmentExpression => a.remapDrivingExpressions(func)
     }
-    source = func(source)
+    source = stabilized(func, source)
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    target = func(target)
-    source = func(source)
+    target = stabilized(func, target)
+    source = stabilized(func, source)
   }
 
   override def toString: String = s"$target := $source"
@@ -394,7 +394,7 @@ class WhenStatement(var cond: Expression) extends TreeStatement{
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    cond = func(cond)
+    cond = stabilized(func, cond)
   }
 }
 
@@ -410,14 +410,14 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    value = func(value)
+    value = stabilized(func, value)
     remapElementsExpressions(func)
   }
 
   def remapElementsExpressions(func: (Expression) => Expression): Unit = {
     elements.foreach(x => {
       for(i <- x.keys.indices){
-        x.keys(i) = func(x.keys(i))
+        x.keys(i) = stabilized(func, x.keys(i))
       }
     })
   }
@@ -587,7 +587,7 @@ case class AssertStatement(var cond: Expression, message: Seq[Any], severity: As
     }
   }
 
-  override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
+  override def remapExpressions(func: (Expression) => Expression): Unit = cond = stabilized(func, cond)
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
