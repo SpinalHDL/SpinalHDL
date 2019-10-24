@@ -1111,25 +1111,16 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  case class TopLevel() extends Component {
-    val a = in Bool()
-    val x = out Bool()
+  class TopLevel extends Component{
+    val a  = Reg(Bits(2 bits)) init 0
 
-    val tmp = Bool()
-
-    x := False
-    tmp := False
-    when(a | tmp){
-      x := True
-    }
-    when(a){
-      x := True
-      tmp := True
-    }
+    val o2 = a ## Bits(0 bit)                //pass
+    val o3 = Bits(0 bit) ## a                //pass
+    val o5 = Bits(0 bit) ## a ## Bits(0 bit) //cause exception
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(mergeAsyncProcess = true).generateVerilog(TopLevel())
+    SpinalConfig().generateVerilog(new TopLevel())
   }
 }
 

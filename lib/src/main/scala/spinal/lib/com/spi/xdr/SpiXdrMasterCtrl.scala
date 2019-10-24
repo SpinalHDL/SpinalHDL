@@ -224,6 +224,7 @@ object SpiXdrMasterCtrl {
   case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
+                                     pipelined : Boolean = false,
                                      cpolInit : Boolean = false,
                                      cphaInit : Boolean = false,
                                      modInit : Int = 0,
@@ -327,7 +328,11 @@ object SpiXdrMasterCtrl {
 
       bus.createAndDriveFlow(Cmd(p),address = baseAddress + 0).toStream
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
-      cmd << stream
+      if(pipelined) {
+        cmd << stream.stage()
+      } else {
+        cmd << stream
+      }
       bus.read(fifoAvailability, address = baseAddress + 4, 0)
     }
 

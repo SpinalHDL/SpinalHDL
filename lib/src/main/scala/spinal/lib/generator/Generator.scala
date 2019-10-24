@@ -291,8 +291,13 @@ class GeneratorCompiler {
     val generatorsAll = mutable.LinkedHashSet[Generator]()
     def scanGenerators(generator : Generator): Unit ={
       if(!generatorsAll.contains(generator)){
-        if(generator.generatorClockDomainSet == false && generator.parent != null && generator.parent.generatorClockDomainSet == true)
-          generator.onClockDomain(generator.parent.generatorClockDomain)
+        if(generator.generatorClockDomainSet == false) {
+          if(generator.parent != null){
+            if( generator.parent.generatorClockDomainSet == true) generator.onClockDomain(generator.parent.generatorClockDomain)
+          } else {
+            generator.onClockDomain(ClockDomain.current)
+          }
+        }
         generatorsAll += generator
         generator.reflectNames()
         generator.c = this
