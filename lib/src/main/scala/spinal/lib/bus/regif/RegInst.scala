@@ -21,7 +21,7 @@ object Section{
 }
 
 
-case class RegInst(name: String, addr: Long, doc: String, busif: BusIfAdapter) {
+case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
 
   private val fields = ListBuffer[Field]()
   private var fieldPtr: Int = 0
