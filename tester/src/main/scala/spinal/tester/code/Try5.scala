@@ -50,26 +50,26 @@ object Try5 {
       val bundleIn = core.in (new BundleA)
 
 
-      val clkA = core.in Bool
-      val resetA = core.in Bool
-      val clkEnA = core.in Bool
+      val clkA = core.in.Bool
+      val resetA = core.in.Bool
+      val clkEnA = core.in.Bool
 
-      val clkB = core.in Bool
-      val resetB = core.in Bool
+      val clkB = core.in.Bool
+      val resetB = core.in.Bool
 
 
-      val in0 = core.in Bool
-      val in1 = core.in Bool
-      val in2 = core.in Bool
-      val outA = core.out Bool
-      val outB = core.out Bool
-      val outC = core.out Bool
-      val outX = core.out Bool
+      val in0 = core.in.Bool
+      val in1 = core.in.Bool
+      val in2 = core.in.Bool
+      val outA = core.out.Bool
+      val outB = core.out.Bool
+      val outC = core.out.Bool
+      val outX = core.out.Bool
 
       val wrAddr = core.in UInt(4 bit)
-      val wrData = core.in Bool
+      val wrData = core.in.Bool
       val rdAddr = core.in UInt(4 bit)
-      val rdData = core.out Bool
+      val rdData = core.out.Bool
     }
     val clockA = ClockDomain(io.clkA, io.resetA, clockEnable = io.clkEnA)
     val clockB = core.ClockDomain(io.clkB, io.resetB)

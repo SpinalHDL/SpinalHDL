@@ -294,7 +294,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val io = new Bundle {
     val configs = in(new LogicAnalyserConfig(p))
 
-    val trigger = in Bool
+    val trigger = in.Bool
     val probe = in cloneOf (probeType)
 
     val log = master Stream Fragment(probe)

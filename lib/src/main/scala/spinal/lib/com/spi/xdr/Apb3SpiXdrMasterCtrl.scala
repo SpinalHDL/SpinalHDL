@@ -45,7 +45,7 @@ case class Apb3SpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters) ex
     val apb = slave(Apb3(Apb3SpiXdrMasterCtrl.getApb3Config))
     val xip = ifGen(p.xip != null) (slave(SpiXdrMasterCtrl.XipBus(p.xip)))
     val spi = master(SpiXdrMaster(p.ctrl.spi))
-    val interrupt = out Bool()
+    val interrupt = out.Bool()
   }
 
   val ctrl = SpiXdrMasterCtrl(p.ctrl)

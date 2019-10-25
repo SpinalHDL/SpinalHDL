@@ -144,7 +144,7 @@ object Debug {
       val fir = out SInt (16 bit)
 
       val boolToUnsigned = out UInt()
-      val tt = out Bool
+      val tt = out.Bool
     }
     //    println(io.elements.mkString("\n"))
     SFix(4 exp, 8 bit).maxValue
@@ -153,8 +153,8 @@ object Debug {
     SFix(4 exp, 8 bit)
     SFix(4 exp, 8 exp)
 
-    val newInput = in Bool
-    val newOutput = out Bool
+    val newInput = in.Bool
+    val newOutput = out.Bool
 
     newOutput := !newInput
 

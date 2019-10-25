@@ -25,7 +25,7 @@ case class alt_outbuf_tri(val generic : alt_outbuf_triGeneric = alt_outbuf_triGe
   val io = new Bundle{
     val i    = in  Bool
     val oe   = in  Bool
-    val o    = out Bool
+    val o    = out.Bool
   }.setName("")
 
   def i    : Bool = io.i

@@ -24,8 +24,8 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
   val kind = in(SpiKind())
   val rx = master Flow(Bits(dataWidth bits))
   val tx = slave Stream(Bits(dataWidth bits))
-  val txError = out Bool
-  val ssFilted = out Bool
+  val txError = out.Bool
+  val ssFilted = out.Bool
   val spi = master(SpiSlave())
 
 

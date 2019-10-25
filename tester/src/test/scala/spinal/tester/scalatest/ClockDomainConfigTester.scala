@@ -7,8 +7,8 @@ import language.postfixOps
 
 object ClockDomainConfigTester {
   class ClockDomainConfigTester() extends Component {
-    val clk,syncReset,asyncReset,softReset,enable    = in Bool
-    val clkn,syncResetn,asyncResetn,softResetn,enablen = in Bool
+    val clk,syncReset,asyncReset,softReset,enable    = in.Bool
+    val clkn,syncResetn,asyncResetn,softResetn,enablen = in.Bool
 
     class TestArea(cd : ClockDomain,withInit : Boolean = true) extends ClockingArea(cd){
       val regWithoutReset = out(Reg(UInt(8 bits)) randBoot())

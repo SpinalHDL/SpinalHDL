@@ -32,21 +32,21 @@ case class SB_PLL40_PAD_CONFIG( var DIVR : Bits,
 }
 
 case class SB_PLL40_PAD(p : SB_PLL40_PAD_CONFIG) extends BlackBox{
-  val PACKAGEPIN = in Bool()
-  val PLLOUTCORE = out Bool()
-  val PLLOUTGLOBAL = out Bool()
-  val RESETB = in Bool()
-  val BYPASS = in Bool()
+  val PACKAGEPIN = in.Bool()
+  val PLLOUTCORE = out.Bool()
+  val PLLOUTGLOBAL = out.Bool()
+  val RESETB = in.Bool()
+  val BYPASS = in.Bool()
 
   p.applyTo(this)
 }
 
 case class SB_PLL40_CORE(p : SB_PLL40_PAD_CONFIG) extends BlackBox{
-  val REFERENCECLK = in Bool()
-  val PLLOUTCORE = out Bool()
-  val PLLOUTGLOBAL = out Bool()
-  val RESETB = in Bool()
-  val BYPASS = in Bool()
+  val REFERENCECLK = in.Bool()
+  val PLLOUTCORE = out.Bool()
+  val PLLOUTGLOBAL = out.Bool()
+  val RESETB = in.Bool()
+  val BYPASS = in.Bool()
 
   p.applyTo(this)
 }

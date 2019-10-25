@@ -330,7 +330,7 @@ object PlayBetterError {
 
 
   class TopLevel extends Component{
-    val cond = in Bool
+    val cond = in.Bool
     val a,b = in UInt(4 bits)
     val c = in UInt(5 bits)
     val d = in UInt(6 bits)
@@ -624,9 +624,9 @@ object Play6 {
 
   class Comp extends Component {
     val io = new Bundle() {
-      val cond = in Bool
+      val cond = in.Bool
       val input = in UInt (4 bit)
-      val output = out Bool
+      val output = out.Bool
     }
 
     var carry = Bool(false)
@@ -668,7 +668,7 @@ object Play7 {
 
 
   class GrayCounter(n: Int) extends Component {
-    val enable = in Bool
+    val enable = in.Bool
     val gray = out UInt (n bit)
 
     gray := grayCounter(n, enable)
@@ -911,8 +911,8 @@ object PlaySymplify {
 //
 //    val io = new Bundle{
 //
-//      val init     = in Bool
-//      val update   = in Bool
+//      val init     = in.Bool
+//      val update   = in.Bool
 //      val round    = in UInt(log2Up(AESCoreSpec.nbrRound(keyWidth)) bits)
 //
 //      val key      = in Bits(keyWidth)
@@ -1006,8 +1006,8 @@ object PlaySymplify {
 
 object PlayBug {
   case class TopLevel() extends Component {
-    val a = in Bool()
-    val x = out Bool()
+    val a = in.Bool()
+    val x = out.Bool()
 
     val tmp = Bool()
 
@@ -1329,7 +1329,7 @@ object PlayEnum {
     //      tmp := MyEnum.s7
     //    }
     //    output := tmp
-    val cond = in Bool()
+    val cond = in.Bool()
     val input = in(MyEnum)
 
 
@@ -1360,7 +1360,7 @@ object PlayMul {
     //out(RegNext(RegNext(RegNext(in(UInt(32 bit)))*RegNext(in(UInt(32 bit))))))
 
 
-    val aSigned,bSigned = in Bool
+    val aSigned,bSigned = in.Bool
     val a,b = in Bits(32 bit)
     val outLow = out Bits(32 bit)
     val outHigh = out Bits(32 bit)
@@ -1502,8 +1502,8 @@ object PlayDivide {
 
     val a = in SInt(32 bit)
     out(Mux(a.msb,~a,a) + (False ## a.msb).asSInt)
-//    val start = in Bool
-//    val signed = in Bool
+//    val start = in.Bool
+//    val signed = in.Bool
 //    val numerator,denominator = in Bits (32 bit)
 //    val quotient,remainder = out Bits(32 bit)
 //
@@ -1652,7 +1652,7 @@ object PlayStream {
 object PlayBlink {
   class TopLevel extends Component {
     val io = new Bundle{
-      val led = out Bool()
+      val led = out.Bool()
     }
     val counter = Reg(UInt(24 bit)) init(0)
     counter := counter + 1
@@ -1858,7 +1858,7 @@ object PerfPlay {
   class TopLevel extends Component {
     val inputs = in Vec(UInt(32 bit), 5000)
     val outputs = out Vec(UInt(32 bit), 5000)
-    val cond = in Bool()
+    val cond = in.Bool()
     for ((output, input) <- (outputs, inputs).zipped) {
       output := input
       when(cond) {
@@ -2285,7 +2285,7 @@ object PlayLiteral {
 //    val out5 = out (U(1 -> False,default -> True))
 
 
-//    val cond = in Bool
+//    val cond = in.Bool
 //    val out8bit = out UInt(8 bit)
 //    out8bit := U(0)
 //    when(cond){
@@ -2330,7 +2330,7 @@ object PlayLiteral {
 object PlaySwitch2 {
 
   class TopLevel extends Component {
-    val cond = in Bool()
+    val cond = in.Bool()
     val sel = in UInt (4 bit)
     val result = out UInt (4 bit)
     val result2 = out UInt (4 bit)
@@ -2462,11 +2462,11 @@ object PlayFsm3 {
 
     import StateEnum._
 
-    val endData = in Bool()
-    val endStop = in Bool()
-    val valid = in Bool()
+    val endData = in.Bool()
+    val endStop = in.Bool()
+    val valid = in.Bool()
     val ready = out(Reg(Bool()))
-    val data = in Bool()
+    val data = in.Bool()
     val tx = out(Reg(Bool()))
 
 
@@ -2558,8 +2558,8 @@ object PlayAttributes {
     val output2 = out(True).addAttribute("Yolo")
 
     val sub = new SubComponent()
-    val subX = out Bool
-    val suby = out Bool
+    val subX = out.Bool
+    val suby = out.Bool
 
     subX := sub.output
     suby := sub.output2
@@ -2598,7 +2598,7 @@ object PlayError8{
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val toto = out Bool
+      val toto = out.Bool
     }
     val sub = new Sub
 
@@ -2672,7 +2672,7 @@ object PlayRam {
     val address = in(mem.addressType())
     val writeData = in(mem.wordType())
     val writeMask = in Bits(4 bits)
-    val enable,write = in Bool()
+    val enable,write = in.Bool()
     val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))
 
     mem.initBigInt((0 until 8).map(i => BigInt((i*0x40302010l)&0xFFFFFFFFl)))
@@ -2739,7 +2739,7 @@ object PlayFunyMux {
   class TopLevel extends Component {
 
 
-    val sel = in Bool
+    val sel = in.Bool
     val a = in UInt (2 bit)
     val b = in UInt (2 bit)
     val result = sel ? a | b

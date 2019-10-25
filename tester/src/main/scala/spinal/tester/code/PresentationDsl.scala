@@ -19,7 +19,7 @@ object IntroHdl{
       val a           = in    Bool
       val b           = in    Bool
       val c            = in    Bool
-      val result   = out Bool
+      val result   = out.Bool
     }
     val a_and_b = io.a & io.b
     val not_c = !io.c
@@ -60,14 +60,14 @@ object PresentationDSL{
 
   object AST3{
     import spinal.core._
-    val bools = List.fill(3)(in Bool)
+    val bools = List.fill(3)(in.Bool)
 
     var boolsAnd = bools.head
     for(bool <- bools.tail){
       boolsAnd = boolsAnd && bool
     }
 
-    val output = out Bool()
+    val output = out.Bool()
     output := boolsAnd
 
   }
@@ -168,7 +168,7 @@ object PresentationDSL{
       def UInt(width : BitCount) = new UInt(width.value).asInput()
     }
 
-    val a = in Bool()
+    val a = in.Bool()
     val b = in UInt(4 bits)
 
 
@@ -323,9 +323,9 @@ object PresentationSymbolic{
 //  }
   class Pwm(width : Int) extends Component{
     val io = new Bundle{
-      val enable    = in Bool
+      val enable    = in.Bool
       val dutyCycle = in UInt(width bits)
-      val pwm       = out Bool
+      val pwm       = out.Bool
     }
     // ...
   }
@@ -337,7 +337,7 @@ object PresentationSymbolic{
 //        dataWidth = 32
 //      ))
 //      val pop = master(Stream(Bits(packetWidth bits)))
-//      val pwm       = out Bool
+//      val pwm       = out.Bool
 //    }
 //    // ...
 //  }
@@ -386,7 +386,7 @@ object PresentationSymbolic{
 
   class Toplevel extends Component{
     val io = new Bundle{
-      val pin = out Bool
+      val pin = out.Bool
     }
 
     val subComponent = new SubComponent

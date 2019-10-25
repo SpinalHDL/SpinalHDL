@@ -14,7 +14,7 @@ case class SignedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
 }
 class SignedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
   val io = new Bundle{
-    val flush = in Bool
+    val flush = in.Bool
     val cmd = slave Stream(SignedDividerCmd(nWidth,dWidth))
     val rsp = master Stream(SignedDividerRsp(nWidth,dWidth))
   }
@@ -44,7 +44,7 @@ case class MixedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
 }
 class MixedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
   val io = new Bundle{
-    val flush = in Bool
+    val flush = in.Bool
     val cmd = slave Stream(MixedDividerCmd(nWidth,dWidth))
     val rsp = master Stream(MixedDividerRsp(nWidth,dWidth))
   }
@@ -80,7 +80,7 @@ case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType 
 
 class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData) extends Component{
   val io = new Bundle{
-    val flush = in Bool
+    val flush = in.Bool
     val cmd = slave Stream(UnsignedDividerCmd(nWidth,dWidth,contextType))
     val rsp = master Stream(UnsignedDividerRsp(nWidth,dWidth,contextType))
   }

@@ -25,8 +25,8 @@ object C0 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val output = out Bool
+      val a = in.Bool
+      val output = out.Bool
     }
 
     io.output := io.a
@@ -38,10 +38,10 @@ object C1 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in.Bool
+      val b = in.Bool
+      val c = in.Bool
+      val output = out.Bool
     }
 
     io.output := (io.a & io.b) | (!io.c)
@@ -53,10 +53,10 @@ object C2 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in.Bool
+      val b = in.Bool
+      val c = in.Bool
+      val output = out.Bool
     }
 
     io.output := (io.a & io.b) | (!io.c)
@@ -68,10 +68,10 @@ object C3 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in.Bool
+      val b = in.Bool
+      val c = in.Bool
+      val output = out.Bool
     }
     val a_and_b = io.a & io.b
     val not_c = !io.c
@@ -90,7 +90,7 @@ object C4 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
+      val a = in.Bool
     }
 
     val reg1 = Reg(Bool)
@@ -101,10 +101,10 @@ object C4 {
 
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val coreClk = in Bool
-      val coreReset = in Bool
-      val peripheralClk = in Bool
-      val peripheralReset = in Bool
+      val coreClk = in.Bool
+      val coreReset = in.Bool
+      val peripheralClk = in.Bool
+      val peripheralReset = in.Bool
     }
     val coreClockDomain = ClockDomain(io.coreClk, io.coreReset)
     val peripheralClockDomain = ClockDomain(io.peripheralClk, io.peripheralReset)
@@ -131,17 +131,17 @@ object C5 {
 
   class MySubComponent extends Component {
     val io = new Bundle {
-      val subIn = in Bool
-      val subOut = out Bool
+      val subIn = in.Bool
+      val subOut = out.Bool
     }
     //...
   }
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val output = out Bool
+      val a = in.Bool
+      val b = in.Bool
+      val output = out.Bool
     }
 
     val compInstance = new MySubComponent
@@ -659,7 +659,7 @@ object C15 {
 
 
 object T1 {
-  val cond                =  in Bool
+  val cond                =  in.Bool
   val mySignal            = Bool
   val myRegister          = Reg(UInt(4 bit))
   val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
@@ -794,8 +794,8 @@ object T5 {
 
 
   class SubComponent extends Component {
-    val condA, condB = in Bool
-    val result = out Bool
+    val condA, condB = in.Bool
+    val result = out.Bool
     // ...
   }
 
@@ -967,8 +967,8 @@ object t11 {
 
 object t12 {
 
-  val coreClk = in Bool
-  val coreReset = in Bool
+  val coreClk = in.Bool
+  val coreReset = in.Bool
   val coreClockDomain = ClockDomain(coreClk, coreReset)
 
   val coreClockedArea = new ClockingArea(coreClockDomain) {
@@ -1092,9 +1092,9 @@ class AND_Gate extends Component {
     * the VHDL entity of the component
     */
   val io = new Bundle {
-    val a = in Bool
-    val b = in Bool
-    val c = out Bool
+    val a = in.Bool
+    val b = in.Bool
+    val c = out.Bool
   }
 
   // Here we define some asynchronous logic
@@ -1112,8 +1112,8 @@ object AND_Gate {
 
 class CustomClockExample extends Component {
   val io = new Bundle {
-    val clk = in Bool
-    val resetn = in Bool
+    val clk = in.Bool
+    val resetn = in.Bool
     val result = out UInt (4 bits)
   }
 
@@ -1166,10 +1166,10 @@ object ExternalClockExample{
 object RgbToGray{
   class RgbToGray extends Component{
     val io = new Bundle{
-      val clear = in Bool
+      val clear = in.Bool
       val r,g,b = in UInt(8 bits)
 
-      val wr = out Bool
+      val wr = out.Bool
       val address = out UInt(16 bits)
       val data = out UInt(8 bits)
     }
@@ -1215,10 +1215,10 @@ object RgbToGray2{
 
   class RgbToGray extends Component{
     val io = new Bundle{
-      val clear = in Bool
+      val clear = in.Bool
       val r,g,b = in UInt(8 bits)
 
-      val wr      = out Bool
+      val wr      = out.Bool
       val address = out UInt(16 bits)
       val data    = out UInt(8 bits)
     }
@@ -1251,7 +1251,7 @@ object CombinatorialLogic {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond            = in Bool
+      val cond            = in.Bool
       val value           = in UInt (4 bit)
       val withoutProcess  = out UInt(4 bits)
       val withProcess     = out UInt(4 bits)
@@ -1283,7 +1283,7 @@ object CombinatorialLogic {
 object FlipFlop {
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond   = in Bool
+      val cond   = in.Bool
       val value  = in UInt (4 bit)
       val resultA = out UInt(4 bit)
       val resultB = out UInt(4 bit)
@@ -1402,7 +1402,7 @@ object SinFir2{
 
   //  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
   //    val io = new Bundle {
-  //      val square = out Bool
+  //      val square = out.Bool
   //      val sin = out SInt(resolutionWidth bit)
   //      val mixed = out SInt(resolutionWidth bit)
   //      val filtred = out SInt(resolutionWidth bit)
@@ -1432,8 +1432,8 @@ object c99{
 
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val coreClk = in Bool
-      val coreReset = in Bool
+      val coreClk = in.Bool
+      val coreReset = in.Bool
     }
     val coreClockDomain = ClockDomain(
       clock  = io.coreClk,
@@ -1606,8 +1606,8 @@ object c4828{
 
   class MyComponent extends Component {
     val io = new Bundle{
-      val a      = in Bool
-      val result = out Bool
+      val a      = in.Bool
+      val result = out.Bool
     }
     when(io.a){
       io.result := True

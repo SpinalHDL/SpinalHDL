@@ -5,9 +5,9 @@ import spinal.lib._
 
 class PDMCore(width: Int) extends Component {
   val io = new Bundle {
-    val enable = in Bool
+    val enable = in.Bool
     val density = in UInt(width+1 bits)
-    val output = out Bool
+    val output = out.Bool
   }
 
   val counter = Reg(UInt(width bits))

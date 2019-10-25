@@ -16,10 +16,10 @@ import spinal.tester.scalatest.StreamTester._
 class MultiClockTester extends Component {
   import MultiClockTester._
   val io = new Bundle {
-    val clkA = in Bool
-    val resetA = in Bool
-    val clkB = in Bool
-    val resetB = in Bool
+    val clkA = in.Bool
+    val resetA = in.Bool
+    val clkB = in.Bool
+    val resetB = in.Bool
 
     val slave0 = slave Stream(new BundleA)
     val master0 = master Stream(new BundleA)

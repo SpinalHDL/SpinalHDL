@@ -11,10 +11,10 @@ class MyDataType extends Bundle{
 
 class MultiClockTopLevel extends Component {
   val io = new Bundle {
-    val clkA = in Bool
-    val resetA = in Bool
-    val clkB = in Bool
-    val resetB = in Bool
+    val clkA = in.Bool
+    val resetA = in.Bool
+    val clkB = in.Bool
+    val resetB = in.Bool
 
     //Create stream interface (valid, ready, data)
     val slaveInteface = slave Stream(new MyDataType)

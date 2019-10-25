@@ -16,7 +16,7 @@ class CrossClockCheckerTesterA extends Component{
   val clkA = ClockDomain.external("clkA")
   val clkB = ClockDomain.external("clkB")
 
-  val reg = clkA(RegNext(in Bool))
+  val reg = clkA(RegNext(in.Bool))
 
   val bb = new BBA(clkB)
   bb.i := reg
@@ -27,7 +27,7 @@ class CrossClockCheckerTesterB extends Component{
   val clkA = ClockDomain.external("clkA")
   val clkB = ClockDomain.external("clkB")
 
-  val reg = in Bool()
+  val reg = in.Bool()
 
   val bb = new BBA(clkB)
   bb.i := reg
@@ -37,7 +37,7 @@ class CrossClockCheckerTesterC extends Component{
   val clkA = ClockDomain.external("clkA")
   val clkB = ClockDomain.external("clkB")
 
-  val reg = out Bool()
+  val reg = out.Bool()
 
   val bb = new BBB(clkB)
   bb.o <> reg

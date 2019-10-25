@@ -45,7 +45,7 @@ object PlayDebug{
 
 //  class TopLevel extends Component {
 //    val a = in Bits(32 bits)
-//    val enable = in Bool()
+//    val enable = in.Bool()
 //    val x = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,clockEnable = enable)(BufferCC(a))
 //  }
 
@@ -57,8 +57,8 @@ object PlayDebug{
 //  }
 
 //  class TopLevel extends Component {
-//    val a,b = in Bool()
-//    val result = out Bool()
+//    val a,b = in.Bool()
+//    val result = out.Bool()
 //    result := a
 //  }
 
@@ -75,8 +75,8 @@ object PlayDebug{
 //  }
 
 //  class TopLevel extends Component {
-//    val a,b = in Bool()
-//    val x = out Bool()
+//    val a,b = in.Bool()
+//    val x = out.Bool()
 //    x := ConditionalContext.isTrue
 //  }
 //
@@ -101,7 +101,7 @@ object PlayDebug{
 //  }
 
 //  class TopLevel extends Component {
-//    val a,b = in Bool()
+//    val a,b = in.Bool()
 //    val sel = in UInt(2 bits)
 //    val result = UInt(8 bits)
 ////    result := 0

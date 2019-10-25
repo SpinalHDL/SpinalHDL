@@ -24,11 +24,11 @@ object CoreUut{
         val address = UInt(p.addrWidth bit)
         val data = Bits(32 bit)
       })))
-      val iCmdDrive = in Bool
-      val iRspDrive = in Bool
-      val dCmdDrive = in Bool
-      val dRspDrive = in Bool
-      val doCacheFlush = in Bool
+      val iCmdDrive = in.Bool
+      val iRspDrive = in.Bool
+      val dCmdDrive = in.Bool
+      val dRspDrive = in.Bool
+      val doCacheFlush = in.Bool
 
       //debug purposes
       val cpuCmdLog = master Flow(CoreDataCmd())

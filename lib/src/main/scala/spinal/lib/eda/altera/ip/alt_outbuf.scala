@@ -21,7 +21,7 @@ case class alt_outbuf(val generic : alt_outbufGeneric = alt_outbufGeneric()) ext
 
   val io = new Bundle{
     val i    = in  Bool
-    val o    = out Bool
+    val o    = out.Bool
   }.setName("")
 
   def i    : Bool = io.i

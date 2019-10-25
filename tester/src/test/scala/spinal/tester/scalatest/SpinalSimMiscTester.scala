@@ -14,7 +14,7 @@ import scala.util.Random
 object SpinalSimMiscTester{
   class SpinalSimMiscTesterCounter extends Component{
     val io = new Bundle{
-      val enable = in Bool
+      val enable = in.Bool
       val value = out UInt(8 bits)
     }
 
@@ -259,9 +259,9 @@ class SpinalSimMiscTester extends FunSuite {
 
   test("testCompInWhen"){
     SimConfig.compile(new Component{
-      val src = in Bool()
-      val sel = in Bool()
-      val dst = out Bool()
+      val src = in.Bool()
+      val sel = in.Bool()
+      val dst = out.Bool()
 
       dst := False
       when(sel){

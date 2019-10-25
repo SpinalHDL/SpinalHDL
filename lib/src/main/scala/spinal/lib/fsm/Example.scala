@@ -33,7 +33,7 @@ object StateMachineStyle1 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out.Bool
     }
 
     val fsm = new StateMachine {
@@ -70,7 +70,7 @@ object StateMachineStyle2 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out.Bool
     }
 
     val fsm = new StateMachine{
@@ -110,7 +110,7 @@ object StateMachineStyle3 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out.Bool
     }
 
     val fsm = new StateMachine{

@@ -22,7 +22,7 @@ case class alt_inbuf_diff(val generic : alt_inbuf_diffGeneric = alt_inbuf_diffGe
   val io = new Bundle{
     val i    = in  Bool
     val ibar = in  Bool
-    val o    = out Bool
+    val o    = out.Bool
   }.setName("")
 
   def i    : Bool = io.i

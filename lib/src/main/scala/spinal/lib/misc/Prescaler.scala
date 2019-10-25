@@ -6,9 +6,9 @@ import spinal.lib.bus.misc.BusSlaveFactory
 
 case class Prescaler(width : Int) extends Component{
   val io = new    Bundle{
-    val clear    = in Bool
+    val clear    = in.Bool
     val limit    = in UInt(width bits)
-    val overflow = out Bool
+    val overflow = out.Bool
   }
 
   val counter = Reg(UInt(width bits))

@@ -12,9 +12,9 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   import g._
   val io = new Bundle {
     val configFrame  = in(UartCtrlFrameConfig(g))
-    val samplingTick = in Bool
+    val samplingTick = in.Bool
     val read         = master Flow (Bits(dataWidthMax bit))
-    val rxd          = in Bool
+    val rxd          = in.Bool
   }
 
   // Implement the rxd sampling with a majority vote over samplingSize bits

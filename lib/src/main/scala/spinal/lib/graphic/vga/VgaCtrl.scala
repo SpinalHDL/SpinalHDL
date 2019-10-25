@@ -57,14 +57,14 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 
 case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
-    val softReset = in Bool() default(False)
+    val softReset = in.Bool() default(False)
     val timings   = in(VgaTimings(timingsWidth))
 
-    val frameStart = out Bool
+    val frameStart = out.Bool
     val pixels     = slave Stream (Rgb(rgbConfig))
     val vga        = master(Vga(rgbConfig))
 
-    val error      = out Bool
+    val error      = out.Bool
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {

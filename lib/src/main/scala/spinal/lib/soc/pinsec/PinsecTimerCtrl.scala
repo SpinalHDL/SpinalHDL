@@ -24,7 +24,7 @@ case class PinsecTimerCtrl() extends Component {
   val io = new Bundle{
     val apb = slave(Apb3(PinsecTimerCtrl.getApb3Config()))
     val external = in(PinsecTimerCtrlExternal())
-    val interrupt = out Bool
+    val interrupt = out.Bool
   }
   val external = BufferCC(io.external)
 

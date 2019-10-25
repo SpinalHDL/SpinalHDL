@@ -23,8 +23,8 @@ case class alt_outbuf_diff(val generic : alt_outbuf_diffGeneric = alt_outbuf_dif
 
   val io = new Bundle{
     val i    = in  Bool
-    val o    = out Bool
-    val obar = out Bool
+    val o    = out.Bool
+    val obar = out.Bool
   }.setName("")
 
   def i    : Bool = io.i

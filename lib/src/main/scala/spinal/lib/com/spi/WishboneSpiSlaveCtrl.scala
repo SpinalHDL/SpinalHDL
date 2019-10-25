@@ -17,7 +17,7 @@ case class WishboneSpiSlaveCtrl(generics : SpiSlaveCtrlMemoryMappedConfig) exten
   val io = new Bundle{
     val wishbone = slave(Wishbone(WishboneSpiSlaveCtrl.getWishboneConfig))
     val spi = master(SpiSlave())
-    val interrupt = out Bool
+    val interrupt = out.Bool
   }
 
   val spiCtrl = new SpiSlaveCtrl(generics.ctrlGenerics)

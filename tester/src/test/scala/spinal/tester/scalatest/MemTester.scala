@@ -34,15 +34,15 @@ object MemTester extends App{
       val data = out(mem.readAsync(address))
     }
     val write = new Bundle {
-      val valid = in Bool()
+      val valid = in.Bool()
       val address = in UInt(4 bits)
       val data = in Bits(32 bits)
       val mask = in Bits(4 bits)
       mem.write(address,data,valid,mask)
     }
     val readWrite = new Bundle {
-      val valid = in Bool()
-      val write = in Bool()
+      val valid = in.Bool()
+      val write = in.Bool()
       val address = in UInt(4 bits)
       val writeData = in Bits(32 bits)
       val mask = in Bits(4 bits)

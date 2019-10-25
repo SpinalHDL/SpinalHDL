@@ -56,7 +56,7 @@ object PlayDevErrorReport{
 
 object PlayDevLatency{
   class TopLevel extends Component {
-    val a,b = in Bool()
+    val a,b = in.Bool()
     val tmp = Reg(Bool)
     val tmp2 = Bool
     val tmp3 = Reg(Bool)
@@ -239,8 +239,8 @@ object PlayDevCombLoop{
 object PlayDevCrossClock{
 
   class TopLevel extends Component {
-    val clockA = in Bool
-    val clockB = in Bool
+    val clockA = in.Bool
+    val clockB = in.Bool
 
     val areaA = new ClockingArea(ClockDomain(clockA)){
       val reg = Reg(Bool)
@@ -254,7 +254,7 @@ object PlayDevCrossClock{
     val areaB = new ClockingArea(ClockDomain(clockB)){
       val reg = Reg(Bool)
       reg := areaA.wire2
-      val output = out Bool()
+      val output = out.Bool()
       output := reg
     }
   }
@@ -278,7 +278,7 @@ object PlayDebugPruned{
 object PlayCondActive{
 
   class TopLevel extends Component {
-    val a,b,c = in Bool()
+    val a,b,c = in.Bool()
     var x : Bool = null
     when(a){
 
@@ -433,8 +433,8 @@ object PlayDevTriplify{
 
   class TopLevel extends Component {
     val bool = new Bundle {
-      val a, b, c = in Bool()
-      val result = out Bool()
+      val a, b, c = in.Bool()
+      val result = out.Bool()
 
       val tmp = Reg(Bool)
       when(a){
@@ -517,7 +517,7 @@ object PlayDevMiaou{
 //    a(3 downto 0) := 1
 //    a(7 downto 4) := 1
 
-//    val a, b = in Bool()
+//    val a, b = in.Bool()
 //    val result = out UInt(4 bits)
 //
 //    for(i <- 0 to 3){
@@ -657,7 +657,7 @@ object PlayDevBug3{
     addGeneric("default_value", U(default_value, io_width bits))
 
     val io = new Bundle {
-      val clk = in Bool
+      val clk = in.Bool
       val a   = in Bits(io_width bits)
       val z   = out Bits(io_width bits)
     }
@@ -752,8 +752,8 @@ object PlayDevAxi{
 object PlayDevDefault{
 
   class Sub extends Component{
-    val sa,sb = in Bool() default(False)
-    val sresult = out Bool() default(False)
+    val sa,sb = in.Bool() default(False)
+    val sresult = out.Bool() default(False)
     val stmp = Bool() default(False)
   }
   // Instance
@@ -761,8 +761,8 @@ object PlayDevDefault{
    val sub = new Sub()
 
 
-    val a,b = in Bool() default(False)
-    val result = out Bool() default(False)
+    val a,b = in.Bool() default(False)
+    val result = out.Bool() default(False)
     val tmp = Bool() default(False)
   }
 
@@ -814,8 +814,8 @@ object PlayDevBug123{
 
 
   class TopLevel extends Component {
-    val a,b,c = in Bool()
-    val x = out Bool()
+    val a,b,c = in.Bool()
+    val x = out.Bool()
     when(a){
       x := b
     } otherwise {
@@ -834,7 +834,7 @@ object PlayDevBug123{
 //      x := b
 //    }
 //    val l = in Bits(8 bits)
-    //    val a,b,c = in Bool()
+    //    val a,b,c = in.Bool()
     //    val x = out Bits(8 bits)
 //    x := l
 //    x(1 downto 0) := 0
@@ -965,8 +965,8 @@ object PlayDevTest32 extends App{
 object PlayWithIndex extends App {
   class MyTopLevel extends Component{
     val io = new Bundle{
-      val load  = in Bool
-      val din   = in Bool
+      val load  = in.Bool
+      val din   = in.Bool
       val index = in UInt(log2Up(60) bits)
       val value = out UInt(60 bits)
     }
@@ -1034,7 +1034,7 @@ object PlayDeterministicGeneration extends App {
       val io = new Bundle{
         val apb =  slave(cloneOf(ctrl.io.apb))
         val i2c = master(I2c())
-        val interrupt = out Bool
+        val interrupt = out.Bool
       }
 
       io <> ctrl.io
@@ -1078,7 +1078,7 @@ object PlayAssertFormal extends App {
 object PlayErrorImprovment extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out.Bool
     }
     val a = RegInit(False)
     io.state := a
@@ -1102,7 +1102,7 @@ object PlayInitBoot extends App {
 object PlayErrorImprovment2 extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out.Bool
     }
     val a = RegInit(False)
     io.state := a
@@ -1175,8 +1175,8 @@ object PlayNamingImprovment extends App{
 
   class Sub extends Component{
     val io = new Bundle {
-      val input = in Bool
-      val output = out Bool
+      val input = in.Bool
+      val output = out.Bool
     }
     io.output := io.input
   }
@@ -1321,8 +1321,8 @@ object SimPlayDeltaCycle2{
   import spinal.core.sim._
 
   class TopLevel extends Component {
-    val clkIn = in Bool()
-    val clkOut = out Bool()
+    val clkIn = in.Bool()
+    val clkOut = out.Bool()
     val input = in(UInt(8 bits))
     val output = out(UInt(8 bits))
     val register = ClockDomain(clock = clkIn, config = ClockDomainConfig(resetKind = BOOT)) (Reg(UInt(8 bits)) init(0))

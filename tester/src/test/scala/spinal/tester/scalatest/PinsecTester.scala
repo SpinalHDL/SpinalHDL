@@ -18,23 +18,23 @@ import spinal.lib.soc.pinsec.{PinsecConfig, PinsecTimerCtrlExternal, Pinsec}
 
 //object PinsecTester{
 //  case class SdramModel() extends BlackBox{
-//    val Dq = in Bool
-//    val Addr = in Bool
-//    val Ba = in Bool
-//    val Clk = in Bool
-//    val Cke = in Bool
-//    val Cs_n = in Bool
-//    val Ras_n = in Bool
-//    val Cas_n = in Bool
-//    val We_n = in Bool
-//    val Dqm = in Bool
+//    val Dq = in.Bool
+//    val Addr = in.Bool
+//    val Ba = in.Bool
+//    val Clk = in.Bool
+//    val Cke = in.Bool
+//    val Cs_n = in.Bool
+//    val Ras_n = in.Bool
+//    val Cas_n = in.Bool
+//    val We_n = in.Bool
+//    val Dqm = in.Bool
 //  }
 //
 //  case class PinsecTester() extends Component{
 //    val io = new Bundle{
-//      val asyncReset = in Bool
-//      val axiClk = in Bool
-//      val jtag_tck = in Bool
+//      val asyncReset = in.Bool
+//      val axiClk = in.Bool
+//      val jtag_tck = in.Bool
 //      val jtag = slave(Jtag())
 //      val gpioA = master(TriStateArray(32 bits))
 //      val gpioB = master(TriStateArray(32 bits))

@@ -7,17 +7,17 @@ import spinal.lib.experimental.math._
 class FloatingTester extends Component {
   val io = new Bundle {
     val inp = in(Floating(8, 23))
-    val outp = out Bool
-    val zero = out Bool
-    val qnan = out Bool
-    val snan = out Bool
-    val positive = out Bool
-    val infinite = out Bool
-    val recoded_sign = out Bool
+    val outp = out.Bool
+    val zero = out.Bool
+    val qnan = out.Bool
+    val snan = out.Bool
+    val positive = out.Bool
+    val infinite = out.Bool
+    val recoded_sign = out.Bool
     val recoded_exp = out Bits(9 bits)
     val recoded_mantissa = out Bits(23 bits)
 
-    val dec_sign = out Bool
+    val dec_sign = out.Bool
     val dec_exponent = out Bits(8 bits)
     val dec_mantissa = out Bits(23 bits)
 

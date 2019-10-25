@@ -35,7 +35,7 @@ class ChecksTester extends FunSuite  {
   test("BlackBoxInputUnconnected"){
     generationShouldFaild(new Component{
       class Sub extends BlackBox{
-        val input = in Bool()
+        val input = in.Bool()
       }
       val sub = new Sub
     })
@@ -90,7 +90,7 @@ class ChecksTester extends FunSuite  {
   test("checkCombinatorialLoop") {
     generationShouldFaild(new Component{
       val input = in Bits(8 bits)
-      val cond = in Bool
+      val cond = in.Bool
 
       val tempA = Bits(4 bits)
       val output = out Bits(8 bits)
@@ -110,7 +110,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoPartialAssignment") {
     generationShouldPass(new Component{
-      val cond = in Bool
+      val cond = in.Bool
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -126,7 +126,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val cond = in Bool
+      val cond = in.Bool
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -144,7 +144,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoMissingDefault") {
     generationShouldPass(new Component{
-      val cond = in Bool
+      val cond = in.Bool
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -162,7 +162,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val cond = in Bool
+      val cond = in.Bool
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -181,8 +181,8 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossing") {
     generationShouldFaild(new Component{
-      val clockA = in Bool
-      val clockB = in Bool
+      val clockA = in.Bool
+      val clockB = in.Bool
 
       val areaA = new ClockingArea(ClockDomain(clockA)){
         val reg = Reg(Bool)
@@ -192,7 +192,7 @@ class ChecksTester extends FunSuite  {
       val areaB = new ClockingArea(ClockDomain(clockB)){
         val reg = Reg(Bool)
         reg := areaA.reg
-        val output = out Bool()
+        val output = out.Bool()
         output := reg
       }
     })
@@ -200,14 +200,14 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossingCheckingCheckSourcesPaths") {
     generationShouldPass(new Component{
-      val clock = in Bool
+      val clock = in.Bool
       val clockA =  Bool
       val clockB =  Bool
 
       clockA := clock
       val sub = new Component{
-        val cIn = in Bool()
-        val cOut = out Bool()
+        val cIn = in.Bool()
+        val cOut = out.Bool()
 
         val tmp = Bool()
         tmp := cIn
@@ -224,7 +224,7 @@ class ChecksTester extends FunSuite  {
       val areaB = new ClockingArea(ClockDomain(clockB)){
         val reg = Reg(Bool)
         reg := areaA.reg
-        val output = out Bool()
+        val output = out.Bool()
         output := reg
       }
     })
@@ -232,15 +232,15 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossingCheckingCheckSourcesPathsFalure") {
     generationShouldFaild(new Component{
-      val clock1 = in Bool
-      val clock2 = in Bool
+      val clock1 = in.Bool
+      val clock2 = in.Bool
       val clockA =  Bool
       val clockB =  Bool
 
       clockA := clock1
       val sub = new Component{
-        val cIn = in Bool()
-        val cOut = out Bool()
+        val cIn = in.Bool()
+        val cOut = out.Bool()
 
         val tmp = Bool()
         tmp := cIn
@@ -257,7 +257,7 @@ class ChecksTester extends FunSuite  {
       val areaB = new ClockingArea(ClockDomain(clockB)){
         val reg = Reg(Bool)
         reg := areaA.reg
-        val output = out Bool()
+        val output = out.Bool()
         output := reg
       }
     })
@@ -265,8 +265,8 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoInputAssignement") {
     generationShouldFaild(new Component{
-      val input = in Bool()
-      val output = out Bool()
+      val input = in.Bool()
+      val output = out.Bool()
       output := input
       input := False
     })
@@ -334,32 +334,32 @@ class ChecksTester extends FunSuite  {
 
     generationShouldFaild(new Component{
       val sub = new Component{
-        val a = in Bool()
-        val result = out Bool()
+        val a = in.Bool()
+        val result = out.Bool()
         result := a
       }
 
-      val result = out Bool()
+      val result = out.Bool()
       result := sub.result
     })
 
     generationShouldFaild(new Component{
       val sub = new Component{
-        val result = out Bool()
+        val result = out.Bool()
       }
 
-      val result = out Bool()
+      val result = out.Bool()
       result := sub.result
     })
 
     generationShouldFaild(new Component{
       val sub = new Component{
-        val a = in Bool()
-        val result = out Bool()
+        val a = in.Bool()
+        val result = out.Bool()
         result := a
       }
 
-      val result = out Bool()
+      val result = out.Bool()
       result := sub.result
       when(True){
         sub.a := True
@@ -372,7 +372,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoResetFail") {
     generationShouldFaild(new Component{
-      ClockDomain(in Bool) {
+      ClockDomain(in.Bool) {
         val output = out(RegInit(False)).setName("aaa")
       }
     })

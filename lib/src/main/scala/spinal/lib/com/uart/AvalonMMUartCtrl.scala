@@ -20,7 +20,7 @@ class AvalonMMUartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
   val io = new Bundle{
     val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
     val uart = master(Uart())
-    val interrupt = out Bool
+    val interrupt = out.Bool
   }
 
   val uartCtrl = new UartCtrl(config.uartCtrlConfig)

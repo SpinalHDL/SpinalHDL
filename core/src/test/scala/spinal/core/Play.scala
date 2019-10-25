@@ -12,7 +12,7 @@
 //
 //  class TopLevel extends Component {
 ////    val a, b, c = in Bits(8 bits)
-////    val d, e, f = out Bool()
+////    val d, e, f = out.Bool()
 ////    val g, h, i, j = Bits(8 bits)
 ////    val x,y,z = out( Reg(Bits(8 bits)))
 ////
@@ -132,7 +132,7 @@
 //  class TopLevel extends Component {
 //
 //    val input = in(State(binaryOneHot))
-//    val cond = out Bool()
+//    val cond = out.Bool()
 //
 //    cond := False
 //    when(input === State.C){
@@ -183,8 +183,8 @@
 //object PlayReg{
 //
 //  class TopLevel extends Component {
-//    val a, b, c = in Bool()
-//    val d, e, f = out Bool()
+//    val a, b, c = in.Bool()
+//    val d, e, f = out.Bool()
 //    val g, h, i, j = Bool()
 //    val x,y,z = Reg(Bool())
 //
@@ -208,8 +208,8 @@
 //object PlaySimple{
 //
 //  class TopLevel extends Component {
-//    val a, b, c = in Bool()
-//    val d, e, f = out Bool()
+//    val a, b, c = in.Bool()
+//    val d, e, f = out.Bool()
 //    val g, h, i, j = Bool()
 //    val x,y,z = Reg(Bool())
 //    val sel = Bits(4 bits)
@@ -276,14 +276,14 @@
 //
 //object PlayScope{
 //  class SubSubA extends Component{
-//    val a,b = in Bool()
-//    val result = out Bool()
+//    val a,b = in.Bool()
+//    val result = out.Bool()
 //    val temp = RegNext(a || b)
 //    result := temp
 //  }
 //  class SubA extends Component{
-//    val a,b = in Bool()
-//    val result = out Bool()
+//    val a,b = in.Bool()
+//    val result = out.Bool()
 //    val subSubA = new SubSubA()
 //    subSubA.a := a
 //    subSubA.b := b
@@ -291,8 +291,8 @@
 //    result := subSubA.result
 //  }
 //  class TopLevel extends Component {
-//    val a, b, c = in Bool()
-//    val d, e, f = out Bool()
+//    val a, b, c = in.Bool()
+//    val d, e, f = out.Bool()
 //    val g, h, i, j = Bool()
 //    val x,y,z = Reg(Bool())
 //    d := e
@@ -366,15 +366,15 @@
 //
 //object PlayComponent{
 //  class SubA extends Component{
-//    val a = in Bool()
-//    val result = out Bool()
+//    val a = in.Bool()
+//    val result = out.Bool()
 //
 //    result := a
 //  }
 //
 //  class SubB extends Component{
-//    val a,b = in Bool()
-//    val result = out Bool()
+//    val a,b = in.Bool()
+//    val result = out.Bool()
 //
 //    val subBA = new SubBA
 //    subBA.a := a || a
@@ -383,7 +383,7 @@
 //    result := a || b || subBA.result
 //
 ////    val yolo = in(Reg(Bool()))
-////    val io = out Bool()
+////    val io = out.Bool()
 ////    subBA.result := a
 ////    a := b
 ////    a := result
@@ -398,15 +398,15 @@
 //      val xx = B"1100"
 //    }
 //
-//    val a,b = in Bool()
-//    val result = out Bool()
+//    val a,b = in.Bool()
+//    val result = out.Bool()
 //
 //  }
 //
 //
 //  class TopLevel extends Component {
-//    val a, b = in Bool()
-//    val result = out Bool()
+//    val a, b = in.Bool()
+//    val result = out.Bool()
 //
 //    val subA = new SubA
 //    subA.a := a

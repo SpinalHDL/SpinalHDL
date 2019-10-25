@@ -12,7 +12,7 @@ import scala.util.Random
 object SpinalSimClockDomainTest{
   class SpinalSimClockDomainTest1 extends Component {
     val io = new Bundle {
-      val mClk, mReset = in Bool()
+      val mClk, mReset = in.Bool()
       val a, b, c = in UInt (8 bits)
       val result = out UInt (8 bits)
     }
@@ -27,7 +27,7 @@ object SpinalSimClockDomainTest{
 
   class SpinalSimClockDomainTest2 extends Component {
     val io = new Bundle {
-      val mClk, mReset = in Bool()
+      val mClk, mReset = in.Bool()
       val a, b, c = in UInt (8 bits)
       val result = out UInt (8 bits)
     }
@@ -47,7 +47,7 @@ object SpinalSimClockDomainTest{
 
   class SpinalSimClockDomainTest4 extends Component {
     val io = new Bundle {
-      val enable = in Bool
+      val enable = in.Bool
       val result = out UInt (8 bits)
     }
 

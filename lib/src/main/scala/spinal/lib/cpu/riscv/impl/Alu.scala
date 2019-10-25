@@ -7,7 +7,7 @@ import spinal.lib.Reverse
 class Alu extends Component{
   val io = new Bundle{
     val func = in(ALU)
-    val doSub = in Bool
+    val doSub = in.Bool
     val src0 = in Bits(32 bit)
     val src1 = in Bits(32 bit)
     val result = out Bits(32 bit)

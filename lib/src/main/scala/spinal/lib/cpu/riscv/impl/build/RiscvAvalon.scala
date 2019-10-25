@@ -28,8 +28,8 @@ class RiscvAvalon(coreConfig : RiscvCoreConfig,iCacheConfig : InstructionCacheCo
     val i = master(AvalonMM(iConfig))
     val d = master(AvalonMM(dConfig))
     val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
-    val debugResetIn = if(debug) in Bool else null
-    val debugResetOut = if(debug) out Bool else null
+    val debugResetIn = if(debug) in.Bool else null
+    val debugResetOut = if(debug) out.Bool else null
     val debugBus = if(debug) slave(AvalonMM(DebugExtension.getAvalonMMConfig)) else null
   }
 

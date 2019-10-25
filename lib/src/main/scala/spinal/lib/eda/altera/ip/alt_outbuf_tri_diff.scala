@@ -22,8 +22,8 @@ case class alt_outbuf_tri_diff(val generic : alt_outbuf_tri_diffGeneric = alt_ou
   val io = new Bundle{
     val i    = in  Bool
     val oe   = in  Bool
-    val o    = out Bool
-    val obar = out Bool
+    val o    = out.Bool
+    val obar = out.Bool
   }.setName("")
 
   def i    : Bool = io.i

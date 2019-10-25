@@ -14,9 +14,9 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
 
   val io = new Bundle {
     val configFrame = in(UartCtrlFrameConfig(g))
-    val samplingTick = in Bool
+    val samplingTick = in.Bool
     val write = slave Stream (Bits(dataWidthMax bit))
-    val txd = out Bool
+    val txd = out.Bool
   }
 
   // Provide one clockDivider.tick each rxSamplePerBit pulse of io.samplingTick

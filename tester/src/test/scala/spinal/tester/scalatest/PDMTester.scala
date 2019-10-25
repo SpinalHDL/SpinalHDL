@@ -6,9 +6,9 @@ import spinal.lib.misc.pdm._
 
 class PDMTester extends Component {
   val io = new Bundle {
-    val enable = in Bool
+    val enable = in.Bool
     val density = in UInt(9 bits)
-    val output = out Bool
+    val output = out.Bool
   }
   val PDMC = new PDMCore(8)
   PDMC.io.enable := io.enable

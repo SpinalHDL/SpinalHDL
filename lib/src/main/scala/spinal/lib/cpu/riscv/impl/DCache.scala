@@ -137,7 +137,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   val io = new Bundle{
     val cpu = slave(DataCacheCpuBus())
     val mem = master(DataCacheMemBus())
-    val flushDone = out Bool //It pulse at the same time than the manager.request.fire
+    val flushDone = out.Bool //It pulse at the same time than the manager.request.fire
   }
   val haltCpu = False
   val lineWidth = bytePerLine*8

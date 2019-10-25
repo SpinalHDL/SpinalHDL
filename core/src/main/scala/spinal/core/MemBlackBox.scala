@@ -58,10 +58,10 @@ class Ram_1w_1ra(
   }
 
   val io = new Bundle {
-    val clk = in Bool
+    val clk = in.Bool
 
     val wr = new Bundle {
-      val en   = in Bool
+      val en   = in.Bool
       val mask = in Bits(wrMaskWidth bits)
       val addr = in UInt(wrAddressWidth bit)
       val data = in Bits(wrDataWidth bit)
@@ -116,16 +116,16 @@ class Ram_1w_1rs(
 
   val io = new Bundle {
     val wr = new Bundle {
-      val clk  = in Bool
-      val en   = in Bool
+      val clk  = in.Bool
+      val en   = in.Bool
       val mask = in Bits(wrMaskWidth bits)
       val addr = in UInt(wrAddressWidth bit)
       val data = in Bits(wrDataWidth bit)
     }
 
     val rd = new Bundle {
-      val clk  = in Bool
-      val en   = in Bool
+      val clk  = in.Bool
+      val en   = in.Bool
       val addr = in  UInt(rdAddressWidth bit)
       val data = out Bits(rdDataWidth bit)
     }
@@ -163,16 +163,16 @@ class Ram_2c_1w_1rs(
 
   val io = new Bundle {
     val wr = new Bundle {
-      val clk  = in Bool
-      val en   = in Bool
+      val clk  = in.Bool
+      val en   = in.Bool
       val mask = in Bits(maskWidth bits)
       val addr = in UInt(log2Up(wordCount) bit)
       val data = in Bits(wordWidth bit)
     }
 
     val rd = new Bundle {
-      val clk  =  in Bool
-      val en   =  in Bool
+      val clk  =  in.Bool
+      val en   =  in.Bool
       val addr =  in UInt(log2Up(wordCount) bit)
       val data = out Bits(wordWidth bit)
     }
@@ -197,17 +197,17 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePo
   }
 
   val io = new Bundle {
-    val clk = in Bool
+    val clk = in.Bool
 
     val addr = in UInt(log2Up(wordCount) bit)
 
     val wr = new Bundle {
-      val en   = in Bool
+      val en   = in.Bool
       val data = in Bits(wordWidth bit)
     }
 
     val rd = new Bundle {
-      val en   =  in Bool
+      val en   =  in.Bool
       val data = out Bits(wordWidth bit)
     }
   }
@@ -242,10 +242,10 @@ class Ram_1wrs(
   }
 
   val io = new Bundle {
-    val clk = in Bool
+    val clk = in.Bool
 
-    val en     =  in Bool
-    val wr     =  in Bool
+    val en     =  in.Bool
+    val wr     =  in.Bool
     val addr   =  in UInt(log2Up(wordCount) bit)
     val wrData =  in Bits(wordWidth bit)
     val rdData = out Bits(wordWidth bit)
@@ -300,9 +300,9 @@ class Ram_2wrs(
 
   val io = new Bundle {
     val portA = new Bundle {
-      val clk    =  in Bool
-      val en     =  in Bool
-      val wr     =  in Bool
+      val clk    =  in.Bool
+      val en     =  in.Bool
+      val wr     =  in.Bool
       val mask   =  in Bits(portA_maskWidth bits)
       val addr   =  in UInt(portA_addressWidth bit)
       val wrData =  in Bits(portA_dataWidth bit)
@@ -310,9 +310,9 @@ class Ram_2wrs(
     }
 
     val portB = new Bundle {
-      val clk    =  in Bool
-      val en     =  in Bool
-      val wr     =  in Bool
+      val clk    =  in.Bool
+      val en     =  in.Bool
+      val wr     =  in.Bool
       val mask   =  in Bits(portB_maskWidth bits)
       val addr   =  in UInt(portB_addressWidth bit)
       val wrData =  in Bits(portB_dataWidth bit)

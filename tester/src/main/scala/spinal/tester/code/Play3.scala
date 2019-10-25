@@ -158,8 +158,8 @@ object PlayDualRail{
 
 object PlayKeepAll{
   class TopLevel extends Component{
-    val a,b = in Bool
-    val result = out Bool
+    val a,b = in.Bool
+    val result = out.Bool
     val toto = U"1010"
     val yolo = toto + 2
 
@@ -271,7 +271,7 @@ object PlayOhToUInt{
 object PlayVariableError{
   class TopLevel(size : Int) extends Component{
     val io = new Bundle{
-      val cond = in Bool
+      val cond = in.Bool
       val a = in UInt(-30 bit)
       val b = in UInt(-10 bit)
       val result = out UInt(size bit)       //result = a + b
@@ -305,7 +305,7 @@ object PlayVariableError{
 
 object PlayClockAndArea{
   class TopLevel(size : Int) extends Component{
-    val clk = in Bool
+    val clk = in.Bool
     val cd = ClockDomain(clk)
     val yolo = cd.apply( new Area{
 
@@ -347,7 +347,7 @@ object PinsecMain{
 object PlayVecSplit2{
   class TopLevel extends Component{
     val vec = in Vec(Bool,16)
-    val result = out Bool()
+    val result = out.Bool()
     result := vec.slice(2,11).reduceBalancedTree(_ && _)
   }
 
@@ -372,7 +372,7 @@ object PlayFloating32{
 
   class TopLevel extends Component{
     val vec = in Vec(Bool,16)
-    val result = out Bool()
+    val result = out.Bool()
     result := vec.slice(2,11).reduceBalancedTree(_ && _)
   }
 
@@ -525,7 +525,7 @@ object PlayVecAssign{
 
 object PlayMuxBits{
   class TopLevel extends Component {
-    val sel = in Bool
+    val sel = in.Bool
     val result = out(sel ? U(2) | U(1,1 bits))
     val result2 = out SInt(4 bits)
     result2 := S(-9,4 bits)
@@ -605,14 +605,14 @@ object PlayFifoVerilog{
 
     // Define io of the VHDL entiry / Verilog module
     val io = new Bundle {
-      val clk = in Bool
+      val clk = in.Bool
       val wr = new Bundle {
-        val en   = in Bool
+        val en   = in.Bool
         val addr = in UInt (log2Up(wordCount) bit)
         val data = in Bits (wordWidth bit)
       }
       val rd = new Bundle {
-        val en   = in Bool
+        val en   = in.Bool
         val addr = in UInt (log2Up(wordCount) bit)
         val data = out Bits (wordWidth bit)
       }
@@ -645,8 +645,8 @@ object PlayhashMap{
 
 //object PlayNodeAnalyse{
 //  class TopLevel() extends Component {
-//    val a,b,c,d = in Bool
-//    val result = out Bool
+//    val a,b,c,d = in.Bool
+//    val result = out.Bool
 //
 //    var b_and_c = b && c
 //    result := a || b_and_c || d
@@ -680,7 +680,7 @@ object PlayRomRam{
     ram.write(
       address = in UInt(15 bits),
       data = in Bits(16 bits),
-      enable = in Bool
+      enable = in.Bool
     )
 
 
@@ -719,7 +719,7 @@ object PlayRomRam2{
     ram.write(
       address = in UInt(15 bits),
       data = in Bits(16 bits),
-      enable = in Bool
+      enable = in.Bool
     )
 
 
@@ -885,7 +885,7 @@ object PinsecTest34{
 object PlayMasked232{
   class TopLevel extends Component {
     val sel = in UInt(7 bits)
-    val result = out Bool
+    val result = out.Bool
 
     result := False
     switch(sel){
@@ -908,7 +908,7 @@ object PlayPatch{
     val io = new Bundle {
 
       // I/O signals for memory data port
-      val writeEnable = in Bool
+      val writeEnable = in.Bool
       val ledState = in Bits(width bits)
       val leds = out Bits(width bits)
     }
@@ -1159,7 +1159,7 @@ object PlayWithBusSlaveFacotry{
 
 object PlayMuxInfer{
   class TopLevel extends Component {
-    val sel = in Bool
+    val sel = in.Bool
     val a = in UInt (4 bits)
     val b = in UInt (8 bits)
     val result = out UInt (4 bits)
@@ -1198,7 +1198,7 @@ object PlayWithCustomEnumEncoding{
     val io = new Bundle{
       val state  = in(MyEnumStatic)
       val state1 = in(MyEnumDynamic)
-      val result = out Bool
+      val result = out.Bool
     }
 
     io.result := False
@@ -1234,9 +1234,9 @@ object PlayWithMuxListDefault{
 object PlayNetlistFileName{
   class FakeNetlist extends Component{
     val io = new Bundle{
-      val a = in Bool
-      val b = in Bool
-      val c = out Bool
+      val a = in.Bool
+      val b = in.Bool
+      val c = out.Bool
     }
     io.c := io.a & io.b
   }
@@ -1255,8 +1255,8 @@ object PlayStateMachineDelay{
   class TopLevel extends Component {
 
     val io = new Bundle {
-      val a = in Bool
-      val c = out Bool
+      val a = in.Bool
+      val c = out.Bool
     }
 
     io.c := False
@@ -1292,9 +1292,9 @@ object PlayWithBlackBoxPath{
 
   class MyBlackBox extends BlackBox{
     val io = new Bundle{
-      val clk   = in Bool
-      val rstn  = in Bool
-      val store = in Bool
+      val clk   = in.Bool
+      val rstn  = in.Bool
+      val store = in.Bool
       val din   = in Bits(32 bits)
       val dout  = out Bits(32 bits)
     }
@@ -1321,7 +1321,7 @@ object PlayWithBlackBoxPath{
 
   class EssaiBlackBox extends Component{
     val io = new Bundle{
-      val store = in Bool
+      val store = in.Bool
       val din   = in Bits(32 bits)
       val dout  = out Bits(32 bits)
       val dout2 = out UInt(32 bits)
@@ -1370,8 +1370,8 @@ object PlayWithBlackBoxStdLogic{
 
   class MyBlackBox extends BlackBox{
     val io = new Bundle{
-      val clk   = in Bool
-      val rstn  = in Bool
+      val clk   = in.Bool
+      val rstn  = in.Bool
       val bin1  = in Bits(32 bits)
       val uin2  = in UInt(32 bits)
       val sin3  = in SInt(32 bits)
@@ -1519,8 +1519,8 @@ object PlayWithAssert extends App{
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val a,b = in Bool
-      val res = out Bool
+      val a,b = in.Bool
+      val res = out.Bool
     }
 
     assert(io.a & io.b, "Fake assert ")
@@ -1543,10 +1543,10 @@ object PlayWithRandomBoot extends App {
     }
 
     val io = new Bundle{
-      val cond = in Bool
+      val cond = in.Bool
 
       val a = out Bits(32 bits)
-      val b = out Bool
+      val b = out.Bool
       val c = out(MyEnum)
     }
 
@@ -1596,7 +1596,7 @@ object PlayWithGeneric extends App{
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val en = in Bool
+      val en = in.Bool
       val ctn = out UInt(32 bits)
     }
 

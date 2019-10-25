@@ -54,7 +54,7 @@ class SpinalSimOneEntryRamTester extends FunSuite{
       val readWrite = new Area{
         val address = U""
         val writeData = in Bits(8 bits)
-        val enable, write = in Bool()
+        val enable, write = in.Bool()
         val readData = out(mem.readWriteSync(address, writeData, enable, write))
       }
       val readSyncPort = slave(mem.readSyncPort)

@@ -5,7 +5,7 @@ import spinal.lib._
 
 class SmallTest extends Component {
   val io = new Bundle {
-    val toggledOutput = out Bool
+    val toggledOutput = out.Bool
   }
   val dividedClk = CounterFreeRun(16)(3)
   val myDividedClockDomain = ClockDomain(dividedClk)

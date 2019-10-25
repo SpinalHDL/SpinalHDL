@@ -570,7 +570,7 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
-    val flush = in Bool() default(False)
+    val flush = in.Bool() default(False)
     val occupancy    = out UInt (log2Up(depth + 1) bits)
     val availability = out UInt (log2Up(depth + 1) bits)
   }
@@ -645,7 +645,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
-    val flush = in Bool() default (False)
+    val flush = in.Bool() default (False)
     val occupancy = out UInt (log2Up(depth + 1) bit)
   }
   val ram = Mem(dataType, depth)
