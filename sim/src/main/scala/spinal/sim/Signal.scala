@@ -1,5 +1,7 @@
 package spinal.sim
 
+import scala.collection._
+
 abstract class DataType(){
   def width : Int
   def longToRaw64(that : Long, signal : Signal) : Long
