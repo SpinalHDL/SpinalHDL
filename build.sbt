@@ -61,9 +61,9 @@ lazy val all = (project in file("."))
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
+    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(/*lib, */core)
   )
-  .aggregate(sim, core, lib, debugger, tester)
+  .aggregate(sim, core/*, lib, debugger, tester*/)
 
 
 import sys.process._
@@ -108,52 +108,52 @@ lazy val core = (project in file("core"))
   )
   .dependsOn(sim)
 
-lazy val lib = (project in file("lib"))
-  .settings(
-    defaultSettings,
-    name := "SpinalHDL-lib",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    version := SpinalVersion.lib
-  )
-  .dependsOn (sim, core)
-
-
-lazy val debugger = (project in file("debugger"))
-  .settings(
-    defaultSettings,
-    name := "SpinalHDL Debugger",
-    version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
-    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-//    libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-.dependsOn(sim, core, lib/*, ip*/)
-
-lazy val demo = (project in file("demo"))
-  .settings(
-    defaultSettings,
-    name := "SpinalHDL-demo",
-    version := SpinalVersion.demo,
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger)
-
-
-lazy val tester = (project in file("tester"))
-  .settings(
-    defaultSettings,
-    name := "SpinalHDL-tester",
-    version := SpinalVersion.tester,
-    baseDirectory in (Test) := file("./"),
-
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger,demo)
+//lazy val lib = (project in file("lib"))
+//  .settings(
+//    defaultSettings,
+//    name := "SpinalHDL-lib",
+//    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+//    version := SpinalVersion.lib
+//  )
+//  .dependsOn (sim, core)
+//
+//
+//lazy val debugger = (project in file("debugger"))
+//  .settings(
+//    defaultSettings,
+//    name := "SpinalHDL Debugger",
+//    version := SpinalVersion.debugger,
+//    resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
+//    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
+////    libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//.dependsOn(sim, core, lib/*, ip*/)
+//
+//lazy val demo = (project in file("demo"))
+//  .settings(
+//    defaultSettings,
+//    name := "SpinalHDL-demo",
+//    version := SpinalVersion.demo,
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//  .dependsOn(sim, core, lib, debugger)
+//
+//
+//lazy val tester = (project in file("tester"))
+//  .settings(
+//    defaultSettings,
+//    name := "SpinalHDL-tester",
+//    version := SpinalVersion.tester,
+//    baseDirectory in (Test) := file("./"),
+//
+//    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8",
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//  .dependsOn(sim, core, lib, debugger,demo)
 
 //To publish the scala doc :
 //rm -rf ghpages
