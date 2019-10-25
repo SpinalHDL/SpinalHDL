@@ -21,6 +21,7 @@
 package spinal.core
 
 
+import scala.collection._
 sealed trait AttributeKind
 object COMMENT_ATTRIBUTE extends AttributeKind
 object DEFAULT_ATTRIBUTE extends AttributeKind

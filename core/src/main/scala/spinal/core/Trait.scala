@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import scala.collection._
 import spinal.core.Nameable._
 
 import scala.collection.mutable
@@ -583,13 +584,11 @@ trait ScalaLocated extends GlobalDataUser {
 
 trait SpinalTagReady {
 
-  var _spinalTags: mutable.Set[SpinalTag] =  null
+  var _spinalTags: mutable.HashSet[SpinalTag] =  null
 
   def spinalTags: mutable.Set[SpinalTag] = {
     if(_spinalTags == null)
-      _spinalTags = new mutable.HashSet[SpinalTag]{
-        override def initialSize: Int = 4
-      }
+      _spinalTags = new mutable.HashSet[SpinalTag]()
     _spinalTags
   }
 

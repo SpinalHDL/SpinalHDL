@@ -1,5 +1,6 @@
 package spinal.core
 
+import scala.collection._
 import spinal.core.internals.Operator
 
 object Formal {

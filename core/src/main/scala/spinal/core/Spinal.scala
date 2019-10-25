@@ -21,6 +21,7 @@
 package spinal.core
 
 
+import scala.collection._
 import java.io.{File, FileWriter, BufferedWriter}
 
 import spinal.core.internals._
@@ -332,4 +333,12 @@ object SpinalVerilog {
 object SpinalSystemVerilog {
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = Spinal(config.copy(mode = SystemVerilog))(gen)
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = SystemVerilog).generate(gen)
+}
+
+
+
+object Info {
+  val version = "a"
+  val name = "b"
+  val gitHash = "c"
 }

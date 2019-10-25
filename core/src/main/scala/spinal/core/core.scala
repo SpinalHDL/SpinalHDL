@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal
 
+import scala.collection._
 import spinal.core.internals._
 
 import scala.annotation.elidable

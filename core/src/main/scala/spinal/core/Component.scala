@@ -21,6 +21,7 @@
 
 package spinal.core
 
+import scala.collection._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._

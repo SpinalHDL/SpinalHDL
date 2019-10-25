@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core.internals
 
+import scala.collection._
 import java.io.{BufferedWriter, File, FileWriter}
 
 import scala.collection.mutable.ListBuffer

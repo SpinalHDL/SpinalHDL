@@ -21,6 +21,7 @@
 package spinal.core
 
 
+import scala.collection._
 /**
   * Create a register
   */

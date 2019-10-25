@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core.internals
 
+import scala.collection._
 import java.io.File
 
 import spinal.core._

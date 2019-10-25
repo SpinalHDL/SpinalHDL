@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core.internals
 
+import scala.collection._
 import java.text.SimpleDateFormat
 import java.util.Calendar
 

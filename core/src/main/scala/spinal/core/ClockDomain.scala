@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import scala.collection._
 import spinal.core.ClockDomain.DivisionRate
 
 import scala.collection.mutable.ArrayBuffer

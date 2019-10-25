@@ -21,6 +21,7 @@
 package spinal.core
 
 
+import scala.collection._
 /**
   * Represent the number of bit of a data
   */

@@ -21,6 +21,7 @@
 package spinal.core
 
 
+import scala.collection._
 /**
   * Ram 1w 1ra
   */
