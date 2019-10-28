@@ -76,7 +76,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
-//  busif.HTML("Example")
+  busif.document("Example")
 }
 
 object getRegIfExample {
@@ -85,7 +85,7 @@ object getRegIfExample {
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
-      targetDirectory="tmp/xx2")
+      targetDirectory="tmp")
       .generate(new RegIfExample2)
   }
 }

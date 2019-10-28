@@ -34,7 +34,7 @@ trait BusIf extends BusIfBase {
 
   component.addPrePopTask(() => {
     readGenerator()
-    document()(SymbolName("TurboRegBank"))
+    document("RegIfExample")
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
@@ -56,22 +56,22 @@ trait BusIf extends BusIfBase {
     ret
   }
 
-  def document(docType: DocType = DocType.HTML)(implicit symbolName: SymbolName) = {
+  def document(docName: String, docType: DocType = DocType.HTML) = {
     docType match {
       case DocType.Json =>
       case DocType.Rst  =>
       case DocType.MarkDown =>
-      case DocType.HTML => HTML(s"${symbolName.name}")
+      case DocType.HTML => HTML(docName)
       case DocType.Docx =>
       case _ =>
     }
   }
 
-  def HTML(moduleName:String) = {
+  private def HTML(docName: String) = {
     val pc = GlobalData.get.phaseContext
-    def targetPath = s"${pc.config.targetDirectory}/${moduleName}.html"
+    def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
     val body = RegInsts.map(_.trs).foldLeft("")(_+_)
-    val html = DocTemplate.getHTML(moduleName, body)
+    val html = DocTemplate.getHTML(docName, body)
     import java.io.PrintWriter
     val fp = new PrintWriter(targetPath)
     fp.write(html)
