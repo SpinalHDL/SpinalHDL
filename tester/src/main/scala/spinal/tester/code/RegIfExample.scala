@@ -85,7 +85,7 @@ object getRegIfExample {
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
-      targetDirectory="tmp")
-      .generate(new RegIfExample2)
+      targetDirectory="tmp/")
+      .generate(new RegIfExample)
   }
 }

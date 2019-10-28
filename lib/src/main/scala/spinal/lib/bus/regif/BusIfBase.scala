@@ -32,9 +32,11 @@ trait BusIf extends BusIfBase {
   private val RegInsts = ListBuffer[RegInst]()
   private var regPtr: Int = 0
 
+  def getModuleName: String
+
   component.addPrePopTask(() => {
     readGenerator()
-    document("RegIfExample")
+    document(getModuleName)
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {

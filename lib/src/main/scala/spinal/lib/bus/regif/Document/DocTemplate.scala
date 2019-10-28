@@ -125,7 +125,7 @@ object DocTemplate {
        |<html>
        |  <head>
        |    <title>
-       |      Regif
+       |      ${moduleName}
        |    </title>
        |    <style>
        |      div{

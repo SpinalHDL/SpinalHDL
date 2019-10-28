@@ -4,7 +4,9 @@ import spinal.core._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.misc.SizeMapping
 
-case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, readSync: Boolean = true) extends BusIf{
+case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, readSync: Boolean = true)(implicit moduleName: ClassName) extends BusIf{
+
+  override def getModuleName = moduleName.name
 
   val readError = Bool()
   val readData  = Bits(bus.config.dataWidth bits)

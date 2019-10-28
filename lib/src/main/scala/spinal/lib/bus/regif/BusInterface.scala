@@ -7,8 +7,8 @@ import spinal.lib.bus.amba4.axilite.AxiLite4
 import spinal.lib.bus.misc.SizeMapping
 
 object BusInterface {
-  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int): BusIf = Apb3BusInterface(bus, sizeMap, selID)
-  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int, readSync: Boolean): BusIf = Apb3BusInterface(bus, sizeMap, selID, readSync)
+  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID)(moduleName)
+  def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int, readSync: Boolean)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID, readSync)(moduleName)
 
 //  def apply(bus: AhbLite3, sizeMap: SizeMapping): BusIf = AhbLite3BusInterface(bus, sizeMap)
 //  def apply(bus: AhbLite3, sizeMap: SizeMapping, readSync: Boolean): BusIf = AhbLite3BusInterface(bus, sizeMap, readSync)
