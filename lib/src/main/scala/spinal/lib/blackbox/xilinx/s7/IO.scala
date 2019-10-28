@@ -1,5 +1,6 @@
 package spinal.lib.blackbox.xilinx.s7
 import spinal.core._
+import spinal.lib.History
 
 case class OSERDESE2(DATA_RATE_OQ : String = "DDR",
                      DATA_RATE_TQ : String = "DDR",
@@ -113,6 +114,11 @@ case class IOBUF() extends BlackBox{
   val I, T = in Bool()
   val O = out Bool()
   val IO = inout(Analog(Bool))
+
+  when(T){
+    IO := I
+  }
+  O := IO
 }
 
 
@@ -172,6 +178,16 @@ case class ISERDESE2(DATA_RATE : String = "DDR",
     case 6 => Q7
     case 7 => Q8
   }
+
+
+
+  val rShift = ClockDomain(CLK)(History(DDLY, 1 to 4))
+  val fShift = ClockDomain(CLKB)(History(DDLY, 1 to 4))
+  val fastData = (0 to 3).flatMap(i => List(rShift(i), fShift(i)))
+  val slowData = ClockDomain(CLKDIV)(RegNext(Vec(fastData)))
+  for(i <- 0 to 7){
+    Q(i) := slowData(7-i)
+  }
 }
 
 
@@ -203,6 +219,9 @@ case class IDELAYE2(HIGH_PERFORMANCE_MODE : Boolean = false,
   val LD = in Bool()
   val LDPIPEEN = in Bool()
   val REGRST = in Bool()
+
+
+  DATAOUT := IDATAIN
 }
 
 
@@ -210,4 +229,6 @@ case class IDELAYCTRL() extends BlackBox {
   val REFCLK = in Bool()
   val RST = in Bool()
   val RDY = out Bool()
+
+  RDY := True
 }
