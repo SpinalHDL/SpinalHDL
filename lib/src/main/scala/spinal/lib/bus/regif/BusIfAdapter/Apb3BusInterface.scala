@@ -6,8 +6,8 @@ import spinal.lib.bus.misc.SizeMapping
 
 case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, readSync: Boolean = true) extends BusIf{
 
-  val readError = Bool().setAsReg()
-  val readData  = Bits(bus.config.dataWidth bits).setAsReg()
+  val readError = Bool()
+  val readData  = Bits(bus.config.dataWidth bits)
 
   if(readSync) {
     readError.setAsReg()

@@ -40,8 +40,8 @@ trait BusIf extends BusIfBase {
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc:${wordAddressInc}")
     assert(address >= regPtr, s"located Position conflict to Pre allocated Address:${regPtr}")
-    creatReg(symbol.name, regPtr, doc)
-    regPtr += wordAddressInc
+    creatReg(symbol.name, address, doc)
+    regPtr = address + wordAddressInc
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
@@ -68,16 +68,18 @@ trait BusIf extends BusIfBase {
   }
 
   def HTML(moduleName:String) = {
+    val pc = GlobalData.get.phaseContext
+    def targetPath = s"${pc.config.targetDirectory}/${moduleName}.html"
     val body = RegInsts.map(_.trs).foldLeft("")(_+_)
     val html = DocTemplate.getHTML(moduleName, body)
     import java.io.PrintWriter
-    val fp = new PrintWriter(s"tmp/${moduleName}.html")
+    val fp = new PrintWriter(targetPath)
     fp.write(html)
     fp.close
   }
 
   def readGenerator() = {
-    switch (readAddress()(7 downto 0)) {
+    switch (readAddress()) {
       when(doRead){
         RegInsts.foreach{(reg: RegInst) =>
           is(reg.addr){

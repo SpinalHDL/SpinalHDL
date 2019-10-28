@@ -57,13 +57,16 @@ class RegIfExample2 extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busSlave = Apb3BusInterface(io.apb, (0x000, 100 Byte))
-  val M_REG0  = busSlave.newReg(doc="REG0")
-  val M_REG1  = busSlave.newReg(doc="REG1")
-  val M_REG2  = busSlave.newReg(doc="REG2")
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+  val M_REG0  = busif.newReg(doc="Word 0")
+  val M_REG1  = busif.newReg(doc="Word 1")
+  val M_REG2  = busif.newReg(doc="Word 2")
 
-  val M_REG10 = busSlave.newRegAt(address=10*4, doc="REG10")
-  val M_REGn  = busSlave.newReg(doc="REGn")
+  val M_REGn  = busif.newRegAt(address= 0x40, doc="Word n")
+  val M_REGn1 = busif.newReg(doc="Word n+1")
+
+  val M_REGm  = busif.newRegAt(address= 0x100, doc="Word m")
+  val M_REGm1 = busif.newReg(doc="Word m+1")
 
   val fd0 = M_REG0.field(2 bits, RW, doc= "fields 0")
   M_REG0.reserved(5 bits)
@@ -73,6 +76,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
+//  busif.HTML("Example")
 }
 
 object getRegIfExample {
@@ -81,7 +85,7 @@ object getRegIfExample {
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
-      targetDirectory="tmp/")
-      .generate(new RegIfExample)
+      targetDirectory="tmp/xx2")
+      .generate(new RegIfExample2)
   }
 }
