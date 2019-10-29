@@ -37,7 +37,8 @@ case class BmbAdapter(pp : BmbPortParameter,
   val converter = BmbToCorePort(lengthFixer.io.output.p, io.output.cpp, cpa)
 
   //trafic
-  val notEnoughCmd = if(pl.beatCount == 1) False else cmdBuffer.pop.isWrite && cmdBuffer.popOccupancy < pl.beatCount
+  //notEnoughCmd assume that there is no tocken between cmdBuffer.pop and lengthFixer.io.output
+  val notEnoughCmd = if(pl.beatCount == 1) False else lengthFixer.io.output.cmd.isWrite && lengthFixer.io.output.cmd.first && cmdBuffer.popOccupancy < pl.beatCount
   val inFlightRsp = Reg(UInt(log2Up(1 + pl.outputLatency + cp.readLatencies.max + pl.inputLatency + 6) bits)) init(0) //TODO secure
   val cmdToRspCount = (converter.io.output.cmd.fire && converter.io.output.cmd.last) ? (converter.io.output.cmd.write ? U(1) | U(pl.beatCount))| U(0)
   inFlightRsp := inFlightRsp - U(io.output.rsp.valid) + cmdToRspCount
@@ -46,9 +47,9 @@ case class BmbAdapter(pp : BmbPortParameter,
   //CMD
   aligner.io.input.cmd << io.input.cmd
   cmdBuffer.push << aligner.io.output.cmd
-  lengthFixer.io.input.cmd << cmdBuffer.pop.haltWhen(notEnoughCmd) //Avoid
+  lengthFixer.io.input.cmd << cmdBuffer.pop
   converter.io.inputBurstLast := lengthFixer.io.outputBurstLast
-  converter.io.input.cmd << lengthFixer.io.output.cmd
+  converter.io.input.cmd << lengthFixer.io.output.cmd.haltWhen(notEnoughCmd) //Avoid
   io.output.cmd << converter.io.output.cmd.haltWhen((toManyPendingRsp && converter.io.output.cmd.first) || (io.refresh && converter.io.output.cmd.isFirst)).s2mPipe().stage()
 
   //RSP

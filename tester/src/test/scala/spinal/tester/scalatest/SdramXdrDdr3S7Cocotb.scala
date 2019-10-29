@@ -3,9 +3,9 @@
 //import spinal.core._
 //import spinal.lib.bus.bmb._
 //import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT48LC16M16A2}
-//import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlWithPhy, CtrlParameter, mt41k128m16jt_model, mt48lc16m16a2_model}
+//import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlParameter, CtrlWithPhy, CtrlWithoutPhy, mt41k128m16jt_model, mt48lc16m16a2_model}
 //import spinal.lib._
-//import spinal.lib.bus.amba3.apb.Apb3
+//import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 //import spinal.lib.eda.bench.Rtl
 //import spinal.lib.memory.sdram.xdr.phy.{SdrInferedPhy, XilinxS7Phy}
 //
@@ -33,7 +33,8 @@
 //          contextWidth = 8
 //        ),
 //        cmdBufferSize = 4,
-//        rspBufferSize = 4
+//        rspBufferSize = 4,
+//        clockDomain = ClockDomain.current
 //      )/*,
 //
 //      BmbPortParameter(
@@ -63,8 +64,10 @@
 //  )
 //
 //  val io = new Bundle {
-//    val apb = slave(Apb3(12, 32))
+//    val ctrlApb = slave(Apb3(12, 32))
+//    val phyApb = slave(Apb3(12, 32))
 //    val ports = Vec(cp.ports.map(p => slave(Bmb(p.bmb))))
+//    val clk90 = in Bool()
 //    val serdesClk0, serdesClk90 = in Bool()
 //
 //  }
@@ -72,22 +75,27 @@
 //
 ////  val dq = Analog(Bits(16 bits))
 //
-//  val ctrl = (new CtrlWithPhy(cp, XilinxS7Phy(sl, clkRatio = 2, ClockDomain(io.serdesClk0))))
-//  io.ports <> ctrl.io.bmb
-//  io.apb <> ctrl.io.apb
+//  val phy = XilinxS7Phy(sl, clkRatio = 2, ClockDomain(io.clk90), ClockDomain(io.serdesClk0), ClockDomain(io.serdesClk90))
+//  phy.driveFrom(Apb3SlaveFactory(io.phyApb))
+//
+//  val ctrl = new CtrlWithoutPhy(cp, phy.pl)
+//  ctrl.io.bmb <> io.ports
+//  ctrl.io.apb <> io.ctrlApb
+//  ctrl.io.phy <> phy.io.ctrl
+//
 //
 //  val sdram = mt41k128m16jt_model()
-//  sdram.rst_n := ctrl.io.memory.RESETn
-//  sdram.ck  := ctrl.io.memory.CK
-//  sdram.ck_n  := ctrl.io.memory.CKn
-//  sdram.cke  := ctrl.io.memory.CKE
-//  sdram.cs_n  := ctrl.io.memory.CSn
-//  sdram.ras_n  := ctrl.io.memory.RASn
-//  sdram.cas_n  := ctrl.io.memory.CASn
-//  sdram.we_n  := ctrl.io.memory.WEn
-//  sdram.odt  := ctrl.io.memory.ODT
-//  sdram.ba  := ctrl.io.memory.BA
-//  sdram.addr  := ctrl.io.memory.ADDR
+//  sdram.rst_n := phy.io.memory.RESETn
+//  sdram.ck  := phy.io.memory.CK
+//  sdram.ck_n  := phy.io.memory.CKn
+//  sdram.cke  := phy.io.memory.CKE
+//  sdram.cs_n  := phy.io.memory.CSn
+//  sdram.ras_n  := phy.io.memory.RASn
+//  sdram.cas_n  := phy.io.memory.CASn
+//  sdram.we_n  := phy.io.memory.WEn
+//  sdram.odt  := phy.io.memory.ODT
+//  sdram.ba  := phy.io.memory.BA
+//  sdram.addr  := phy.io.memory.ADDR
 //
 //  val dq = Analog(Bits(16 bits))
 //  val dqs = Analog(Bits(2 bits))
@@ -100,9 +108,9 @@
 //  dm_tdqs := sdram.dm_tdqs
 //
 //
-//  dq  := ctrl.io.memory.DQ
-//  dqs  := ctrl.io.memory.DQS
-//  dqs_n  := ctrl.io.memory.DQSn
+//  dq  := phy.io.memory.DQ
+//  dqs  := phy.io.memory.DQS
+//  dqs_n  := phy.io.memory.DQSn
 //
 ////  dq := B(0, widthOf(sdram.dq) bits)
 ////  dqs := B(0, widthOf(sdram.dqs) bits)

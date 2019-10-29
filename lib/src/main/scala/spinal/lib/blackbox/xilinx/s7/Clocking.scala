@@ -15,3 +15,19 @@ case class BUFG() extends BlackBox {
   val I = in Bool()
   val O = out Bool()
 }
+
+object BUFIO{
+  def on(that : Bool) : Bool = {
+    val bufio = BUFIO()
+    bufio.setCompositeName(that, "BUFIO")
+    bufio.I := that
+    bufio.O
+  }
+}
+
+case class BUFIO() extends BlackBox {
+  val I = in Bool()
+  val O = out Bool()
+}
+
+
