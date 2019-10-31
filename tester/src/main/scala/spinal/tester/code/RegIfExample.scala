@@ -79,13 +79,60 @@ class RegIfExample2 extends Component {
   busif.document("Example")
 }
 
+class InterruptRegIf extends Component {
+  val io = new Bundle{
+    val psc_done, pth_done, ssc_done, grp_done, scd_done, srch_finish = in Bool()
+    val interrupt   = out Bool()
+    val apb = slave(Apb3(Apb3Config(16, 32)))
+  }
+
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+
+  val M_SRCH_INT_EN   = busif.newReg(doc="srch int enable register")
+  val psc_int_en      = M_SRCH_INT_EN.field(1 bits, RW, doc="psc interrupt enable register")
+  val pth_int_en      = M_SRCH_INT_EN.field(1 bits, RW, doc="pth interrupt enable register")
+  val ssc_int_en      = M_SRCH_INT_EN.field(1 bits, RW, doc="ssc interrupt enable register")
+  val grp_int_en      = M_SRCH_INT_EN.field(1 bits, RW, doc="grp interrupt enable register")
+  val scd_int_en      = M_SRCH_INT_EN.field(1 bits, RW, doc="scd interrupt enable register")
+  val srch_finish_en  = M_SRCH_INT_EN.field(1 bits, RW, doc="srch finish interrupt enable register")
+
+  val M_SRCH_INT_MASK  = busif.newReg(doc="srch int mask register")
+  val psc_int_mask     = M_SRCH_INT_MASK.field(1 bits, RW, doc="psc interrupt mask register")
+  val pth_int_mask     = M_SRCH_INT_MASK.field(1 bits, RW, doc="pth interrupt mask register")
+  val ssc_int_mask     = M_SRCH_INT_MASK.field(1 bits, RW, doc="ssc interrupt mask register")
+  val grp_int_mask     = M_SRCH_INT_MASK.field(1 bits, RW, doc="grp interrupt mask register")
+  val scd_int_mask     = M_SRCH_INT_MASK.field(1 bits, RW, doc="scd interrupt mask register")
+  val srch_finish_mask = M_SRCH_INT_MASK.field(1 bits, RW, doc="srch finish interrupt mask register")
+
+  val M_SRCH_INT_STATUS = busif.newReg(doc="srch int status register")
+
+  val psc_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="psc interrupt status register")
+  val pth_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="pth interrupt status register")
+  val ssc_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="ssc interrupt status register")
+  val grp_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="grp interrupt status register")
+  val scd_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="scd interrupt status register")
+  val srch_finish_status = M_SRCH_INT_STATUS.field(1 bits, RC, doc="srch finish interrupt status register")
+
+  when(io.psc_done && psc_int_en.asBool){psc_int_status.asBool.set()}
+  when(io.pth_done && pth_int_en.asBool){pth_int_status.asBool.set()}
+  when(io.ssc_done && ssc_int_en.asBool){ssc_int_status.asBool.set()}
+  when(io.grp_done && grp_int_en.asBool){grp_int_status.asBool.set()}
+  when(io.scd_done && scd_int_en.asBool){scd_int_status.asBool.set()}
+  when(io.srch_finish && srch_finish_en.asBool){srch_finish_status.asBool.set()}
+
+  io.interrupt := (psc_int_status & pth_int_status & ssc_int_status &
+                   grp_int_status & scd_int_status & srch_finish_status).asBool
+}
+
 object getRegIfExample {
   def main(args: Array[String]) {
     SpinalConfig(mode = Verilog,
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
-      targetDirectory="tmp/")
-      .generate(new RegIfExample)
+    mergeAsyncProcess              = false,
+    targetDirectory="tmp/")
+//      .generate(new RegIfExample)
+      .generate(new InterruptRegIf)
   }
 }

@@ -12,8 +12,8 @@ case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, rea
   val readData  = Bits(bus.config.dataWidth bits)
 
   if(readSync) {
-    readError.setAsReg()
-    readData.setAsReg()
+    readError.setAsReg() init False
+    readData.setAsReg()  init 0
   } else {
     readError := False
     readData  := 0

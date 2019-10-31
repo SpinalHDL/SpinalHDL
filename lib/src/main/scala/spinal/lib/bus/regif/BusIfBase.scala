@@ -81,18 +81,19 @@ trait BusIf extends BusIfBase {
   }
 
   def readGenerator() = {
-    switch (readAddress()) {
-      when(doRead){
+    when(doRead){
+      switch (readAddress()) {
         RegInsts.foreach{(reg: RegInst) =>
           is(reg.addr){
-            if(reg.allIsNA){
-              readData  := 0
-              readError := True
-            } else {
+            if(!reg.allIsNA){
               readData  := reg.readBits
               readError := Bool(reg.readErrorTag)
             }
           }
+        }
+        default{
+          readData  := 0
+          readError := True
         }
       }
     }
