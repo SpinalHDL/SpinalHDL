@@ -36,14 +36,14 @@ case class Axi4WriteOnlyCC (axiConfig : Axi4Config,
 
 
 
-case class Axi4Axi4CC (axiConfig : Axi4Config,
-                       inputCd : ClockDomain,
-                       outputCd : ClockDomain,
-                       arFifoSize : Int,
-                       awFifoSize : Int,
-                       rFifoSize : Int,
-                       wFifoSize : Int,
-                       bFifoSize : Int) extends Component{
+case class Axi4CC(axiConfig : Axi4Config,
+                  inputCd : ClockDomain,
+                  outputCd : ClockDomain,
+                  arFifoSize : Int,
+                  awFifoSize : Int,
+                  rFifoSize : Int,
+                  wFifoSize : Int,
+                  bFifoSize : Int) extends Component{
   val io = new Bundle {
     val input = slave(Axi4(axiConfig))
     val output = master(Axi4(axiConfig))
