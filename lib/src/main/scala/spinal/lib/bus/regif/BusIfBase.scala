@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.bus.amba3.apb._
 import RegIfDocument._
 import spinal.lib.bus.misc.SizeMapping
+import language.experimental.macros
 
 import scala.collection.mutable.ListBuffer
 
@@ -67,6 +68,28 @@ trait BusIf extends BusIfBase {
       case DocType.Docx =>
       case _ =>
     }
+  }
+
+  def interruptFacotry(regNamePre: String, triggers: Bool*): Bool = macro Macros.interruptFactoryImpl
+
+  def FactoryInterruptWithMask(regPreName: String, triggers: Bool*): Bool = {
+    triggers.size match {
+      case 0 => SpinalError("There have no inputs Trrigger signals")
+      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
+      case _ =>
+    }
+    val ens    = newReg("Interrupt Enable Reigsiter")(SymbolName(s"${regPreName}_ENABLES"))
+    val masks  = newReg("Interrupt Mask   Reigsiter")(SymbolName(s"${regPreName}_MASK"))
+    val status = newReg("Interrupt status Reigsiter")(SymbolName(s"${regPreName}_STATUS"))
+    val intWithMask = new ListBuffer[Bool]()
+    triggers.foreach(trigger => {
+      val en   = ens.field(1 bits, AccessType.RW, doc= "int enable register")(SymbolName(s"_en"))(0)
+      val mask = masks.field(1 bits, AccessType.RW, doc= "int mask register")(SymbolName(s"_mask"))(0)
+      val stat = status.field(1 bits, AccessType.RC, doc= "int status register")(SymbolName(s"_stat"))(0)
+      when(trigger && en) {stat.set()}
+      intWithMask +=  mask && stat
+    })
+    intWithMask.foldLeft(False)(_||_)
   }
 
   private def HTML(docName: String) = {

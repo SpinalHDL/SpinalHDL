@@ -7,6 +7,8 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
 
+import scala.beans._
+
 class RegIfExample extends Component {
   val io = new Bundle{
     val apb = slave(Apb3(Apb3Config(16,32)))
@@ -113,15 +115,28 @@ class InterruptRegIf extends Component {
   val scd_int_status     = M_SRCH_INT_STATUS.field(1 bits, RC, doc="scd interrupt status register")
   val srch_finish_status = M_SRCH_INT_STATUS.field(1 bits, RC, doc="srch finish interrupt status register")
 
-  when(io.psc_done && psc_int_en.asBool){psc_int_status.asBool.set()}
-  when(io.pth_done && pth_int_en.asBool){pth_int_status.asBool.set()}
-  when(io.ssc_done && ssc_int_en.asBool){ssc_int_status.asBool.set()}
-  when(io.grp_done && grp_int_en.asBool){grp_int_status.asBool.set()}
-  when(io.scd_done && scd_int_en.asBool){scd_int_status.asBool.set()}
-  when(io.srch_finish && srch_finish_en.asBool){srch_finish_status.asBool.set()}
+  when(io.psc_done && psc_int_en.asBool){psc_int_status(0).set()}
+  when(io.pth_done && pth_int_en.asBool){pth_int_status(0).set()}
+  when(io.ssc_done && ssc_int_en.asBool){ssc_int_status(0).set()}
+  when(io.grp_done && grp_int_en.asBool){grp_int_status(0).set()}
+  when(io.scd_done && scd_int_en.asBool){scd_int_status(0).set()}
+  when(io.srch_finish && srch_finish_en.asBool){srch_finish_status(0).set()}
 
   io.interrupt := (psc_int_status & pth_int_status & ssc_int_status &
-                   grp_int_status & scd_int_status & srch_finish_status).asBool
+                   grp_int_status & scd_int_status & srch_finish_status).lsb
+}
+class InterruptRegIf3 extends Component {
+  val io = new Bundle {
+    val psc_done, pth_done, ssc_done, grp_done, scd_done, srch_finish = in Bool()
+    val interrupt = out Bool()
+    val apb = slave(Apb3(Apb3Config(16, 32)))
+  }
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+
+  val int = busif.interruptFacotry("M_INT",io.psc_done,
+    io.pth_done,io.ssc_done,io.grp_done,io.scd_done,io.srch_finish)
+
+  io.interrupt := int
 }
 
 object getRegIfExample {
@@ -130,9 +145,9 @@ object getRegIfExample {
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
-    mergeAsyncProcess              = false,
+    mergeAsyncProcess              = true,
     targetDirectory="tmp/")
 //      .generate(new RegIfExample)
-      .generate(new InterruptRegIf)
+      .generate(new InterruptRegIf3)
   }
 }
