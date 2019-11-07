@@ -18,10 +18,10 @@ object ClassName {
 }
 
 object Macros{
-  def symbolNameImpl(c: Context): c.Expr[SymbolName] = {
+  def symbolNameImpl(c: Context)= {
     import c.universe._
     val symbolName = c.internal.enclosingOwner.name.decodedName.toString.trim
-    c.Expr[SymbolName](q"""${c.prefix}($symbolName)""")
+    q"""${c.prefix}($symbolName)"""
   }
 
   def classNameImpl(c: Context): c.Expr[ClassName] = {
@@ -36,33 +36,31 @@ object Macros{
     c.Expr[ClassName](q"""${c.prefix}($className)""")
   }
 
-  def interruptFactoryImpl(c:Context)(regNamePre: c.Expr[String], triggers: c.Expr[Bool]*): c.Expr[Bool] = {
+  def interruptFactoryImpl(c:Context)(regNamePre: c.Tree, triggers: c.Tree*) = {
     import c.universe._
-    val regNamePreStr = regNamePre.tree.toString()
     val creatREG = q"""
-        val ENS    = busif.newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePreStr+"_ENABLES"))
-        val MASKS  = busif.newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePreStr+"_MASK"))
-        val STATUS = busif.newReg("Interrupt status Reigsiter")(SymbolName($regNamePreStr+"_STATUS"))
+        val ENS    = busif.newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePre+"_INT_ENABLES"))
+        val MASKS  = busif.newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePre+"_INT_MASK"))
+        val STATUS = busif.newReg("Interrupt status Reigsiter")(SymbolName($regNamePre+"_INT_STATUS"))
         """
-    val creatField = triggers.map(_.tree).collect {
+    val creatField = triggers.collect {
       case q"$name" =>
         val endName =  name.toString().split('.').last
         val tn_en   = TermName(endName + "_en")
         val tn_mask = TermName(endName + "_mask")
-        val tn_stat = TermName(endName + "_stat")
+        val tn_state = TermName(endName + "_stat")
         val tn_intWithMask = TermName(endName + "intWithMask")
         List(
-          q"""val $tn_en = ENS.field(1 bits,AccessType.RW,doc="int enavle register")(SymbolName($endName+"_en"))(0)""",
-          q"""val $tn_mask = MASKS.field(1 bits, AccessType.RW, doc= "int mask register")(SymbolName($endName+"_mask"))(0)""",
-          q"""val $tn_stat = STATUS.field(1 bits, AccessType.RC, doc= "int status register")(SymbolName($endName+"_stat"))(0)""",
-          q"""val $tn_intWithMask = $tn_mask && $tn_stat """,
-          q"""when($name && $tn_en) {$tn_stat.set()}"""
+          q"""val $tn_en = ENS.field(1 bits,AccessType.RW,doc=$endName+" int enable")(SymbolName($endName+"_en"))(0)""",
+          q"""val $tn_mask = MASKS.field(1 bits, AccessType.RW, doc=$endName+" int mask")(SymbolName($endName+"_mask"))(0)""",
+          q"""val $tn_state = STATUS.field(1 bits, AccessType.RC, doc= $endName+" int status")(SymbolName($endName+"_stat"))(0)""",
+          q"""val $tn_intWithMask = $tn_mask && $tn_state """,
+          q"""when($name && $tn_en) {$tn_state.set()}"""
         )
     }.flatten
 
-    val intMasks = triggers.map(_.tree).collect{case q"$name" => val tn = TermName(name.toString().split('.').last+"intWithMask"); q"$tn"}
+    val intMasks = triggers.collect{case q"$name" => val tn = TermName(name.toString().split('.').last+"intWithMask"); q"$tn"}
     val mergeInt = q"""val interrupt = Vec(..$intMasks).asBits.orR; interrupt"""
-    //val mergeInt = q"""val interrupt = psc_done_mask; interrupt"""
 
     c.Expr[Bool](q"""{
        ..$creatREG

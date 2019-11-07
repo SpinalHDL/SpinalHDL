@@ -139,6 +139,47 @@ class InterruptRegIf3 extends Component {
   io.interrupt := int
 }
 
+class cpInterruptExample extends Component {
+  val io = new Bundle {
+    val tx_done, rx_done, frame_end = in Bool()
+    val interrupt = out Bool()
+    val apb = slave(Apb3(Apb3Config(16, 32)))
+  }
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+
+  val M_CP_INT_EN    = busif.newReg(doc="cp int enable register")
+  val tx_int_en      = M_CP_INT_EN.field(1 bits, RW, doc="tx interrupt enable register")
+  val rx_int_en      = M_CP_INT_EN.field(1 bits, RW, doc="rx interrupt enable register")
+  val frame_int_en   = M_CP_INT_EN.field(1 bits, RW, doc="frame interrupt enable register")
+  val M_CP_INT_MASK  = busif.newReg(doc="cp int mask register")
+  val tx_int_mask      = M_CP_INT_MASK.field(1 bits, RW, doc="tx interrupt mask register")
+  val rx_int_mask      = M_CP_INT_MASK.field(1 bits, RW, doc="rx interrupt mask register")
+  val frame_int_mask   = M_CP_INT_MASK.field(1 bits, RW, doc="frame interrupt mask register")
+  val M_CP_INT_STATE   = busif.newReg(doc="cp int state register")
+  val tx_int_state      = M_CP_INT_STATE.field(1 bits, RW, doc="tx interrupt state register")
+  val rx_int_state      = M_CP_INT_STATE.field(1 bits, RW, doc="rx interrupt state register")
+  val frame_int_state   = M_CP_INT_STATE.field(1 bits, RW, doc="frame interrupt state register")
+
+  when(io.rx_done && rx_int_en(0)){tx_int_state(0).set()}
+  when(io.tx_done && tx_int_en(0)){tx_int_state(0).set()}
+  when(io.frame_end && frame_int_en(0)){tx_int_state(0).set()}
+
+  io.interrupt := (tx_int_mask(0) && tx_int_state(0)  ||
+    rx_int_mask(0) && rx_int_state(0) ||
+    frame_int_mask(0) && frame_int_state(0))
+}
+
+class cpInterruptFactoryExample extends Component {
+  val io = new Bundle {
+    val tx_done, rx_done, frame_end = in Bool()
+    val interrupt = out Bool()
+    val apb = slave(Apb3(Apb3Config(16, 32)))
+  }
+  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+
+  io.interrupt := busif.interruptFacotry("M_CP", io.tx_done,io.rx_done,io.frame_end)
+}
+
 object getRegIfExample {
   def main(args: Array[String]) {
     SpinalConfig(mode = Verilog,
@@ -148,6 +189,6 @@ object getRegIfExample {
     mergeAsyncProcess              = true,
     targetDirectory="tmp/")
 //      .generate(new RegIfExample)
-      .generate(new InterruptRegIf3)
+      .generate(new InterruptRegIf)
   }
 }
