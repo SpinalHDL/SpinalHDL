@@ -77,3 +77,24 @@ case class Axi4CC(axiConfig : Axi4Config,
 //  readOnlyCc.io.output >> io.output
 //  writeOnlyCc.io.output >> io.output
 }
+
+
+
+
+case class Axi4SharedCC(axiConfig : Axi4Config,
+                        inputCd : ClockDomain,
+                        outputCd : ClockDomain,
+                        arwFifoSize : Int,
+                        rFifoSize : Int,
+                        wFifoSize : Int,
+                        bFifoSize : Int) extends Component{
+  val io = new Bundle {
+    val input = slave(Axi4Shared(axiConfig))
+    val output = master(Axi4Shared(axiConfig))
+  }
+
+  io.output.arw << io.input.arw.queue(arwFifoSize, inputCd, outputCd)
+  io.input.r   << io.output.r.queue(rFifoSize, outputCd, inputCd)
+  io.output.w  << io.input.w.queue(wFifoSize, inputCd, outputCd)
+  io.input.b   << io.output.b.queue(bFifoSize, outputCd, inputCd)
+}
