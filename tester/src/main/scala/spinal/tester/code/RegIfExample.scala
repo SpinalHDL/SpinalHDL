@@ -7,8 +7,6 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
 
-import scala.beans._
-
 class RegIfExample extends Component {
   val io = new Bundle{
     val apb = slave(Apb3(Apb3Config(16,32)))
@@ -133,7 +131,7 @@ class InterruptRegIf3 extends Component {
   }
   val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
-  val int = busif.interruptFacotry("M_INT",io.psc_done,
+  val int = busif.interruptFactory("M_INT",io.psc_done,
     io.pth_done,io.ssc_done,io.grp_done,io.scd_done,io.srch_finish)
 
   io.interrupt := int
@@ -177,7 +175,7 @@ class cpInterruptFactoryExample extends Component {
   }
   val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
-  io.interrupt := busif.interruptFacotry("M_CP", io.tx_done,io.rx_done,io.frame_end)
+  io.interrupt := busif.interruptFactory("M_CP", io.tx_done,io.rx_done,io.frame_end)
 }
 
 object getRegIfExample {
@@ -188,7 +186,7 @@ object getRegIfExample {
         resetActiveLevel = LOW),
     mergeAsyncProcess              = true,
     targetDirectory="tmp/")
-//      .generate(new RegIfExample)
-      .generate(new InterruptRegIf)
+//      .generate(new RegIfExample).printPruned()
+      .generate(new cpInterruptFactoryExample)
   }
 }

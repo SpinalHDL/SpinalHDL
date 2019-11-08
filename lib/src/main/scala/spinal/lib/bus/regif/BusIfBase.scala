@@ -70,17 +70,17 @@ trait BusIf extends BusIfBase {
     }
   }
 
-  def interruptFacotry(regNamePre: String, triggers: Bool*): Bool = macro Macros.interruptFactoryImpl
+  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = macro Macros.interruptFactoryImpl
 
-  def FactoryInterruptWithMask(regPreName: String, triggers: Bool*): Bool = {
+  def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trrigger signals")
       case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
       case _ =>
     }
-    val ENS    = newReg("Interrupt Enable Reigsiter")(SymbolName(s"${regPreName}_ENABLES"))
-    val MASKS  = newReg("Interrupt Mask   Reigsiter")(SymbolName(s"${regPreName}_MASK"))
-    val STATUS = newReg("Interrupt status Reigsiter")(SymbolName(s"${regPreName}_STATUS"))
+    val ENS    = newReg("Interrupt Enable Reigsiter")(SymbolName(s"${regNamePre}_ENABLES"))
+    val MASKS  = newReg("Interrupt Mask   Reigsiter")(SymbolName(s"${regNamePre}_MASK"))
+    val STATUS = newReg("Interrupt status Reigsiter")(SymbolName(s"${regNamePre}_STATUS"))
     val intWithMask = new ListBuffer[Bool]()
     triggers.foreach(trigger => {
       val en   = ENS.field(1 bits, AccessType.RW, doc= "int enable register")(SymbolName(s"_en"))(0)
@@ -91,6 +91,16 @@ trait BusIf extends BusIfBase {
     })
     intWithMask.foldLeft(False)(_||_)
   }
+
+//  @AutoInterrupt
+//  def interruptFactory2(regNamePre: String, triggers: Bool*): Bool = {
+//    triggers.size match {
+//      case 0 => SpinalError("There have no inputs Trrigger signals")
+//      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
+//      case _ =>
+//    }
+//    False
+//  }
 
   private def HTML(docName: String) = {
     val pc = GlobalData.get.phaseContext
