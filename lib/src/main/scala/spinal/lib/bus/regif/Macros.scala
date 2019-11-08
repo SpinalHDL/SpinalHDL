@@ -12,8 +12,6 @@ case class ClassName(name: String)
 
 object SymbolName{
   implicit def genWhenNeed: SymbolName = macro Macros.symbolNameImpl
-//  implicit def stringToSymbolName(s: String) = new SymbolName(s)
-//  def apply()(implicit sn:SymbolName):String = sn.name
 }
 
 object ClassName {
@@ -44,24 +42,24 @@ object Macros{
     c.Expr[ClassName](q"""${c.prefix}($className)""")
   }
 
-  def interruptFactoryImpl(c:Context)(regNamePre: c.Tree, triggers: c.Tree*) = {
+  def interruptFactoryImpl(c:Context)(busif: c.Tree, regNamePre: c.Tree, triggers: c.Tree*) = {
     import c.universe._
     val creatREG = q"""
-        val ENS    = busif.newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePre+"_INT_ENABLES"))
-        val MASKS  = busif.newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePre+"_INT_MASK"))
-        val STATUS = busif.newReg("Interrupt status Reigsiter")(SymbolName($regNamePre+"_INT_STATUS"))
+        val ENS    = $busif.newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePre+"_INT_ENABLE"))
+        val MASKS  = $busif.newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePre+"_INT_MASK"))
+        val STATUS = $busif.newReg("Interrupt status Reigsiter")(SymbolName($regNamePre+"_INT_STATUS"))
         """
     val creatField = triggers.collect {
       case q"$name" =>
         val endName =  name.toString().split('.').last
         val tn_en   = TermName(endName + "_en")
         val tn_mask = TermName(endName + "_mask")
-        val tn_state = TermName(endName + "_stat")
+        val tn_state = TermName(endName + "_state")
         val tn_intWithMask = TermName(endName + "intWithMask")
         List(
           q"""val $tn_en = ENS.field(1 bits,AccessType.RW,doc=$endName+" int enable")(SymbolName($endName+"_en"))(0)""",
           q"""val $tn_mask = MASKS.field(1 bits, AccessType.RW, doc=$endName+" int mask")(SymbolName($endName+"_mask"))(0)""",
-          q"""val $tn_state = STATUS.field(1 bits, AccessType.RC, doc= $endName+" int status")(SymbolName($endName+"_stat"))(0)""",
+          q"""val $tn_state = STATUS.field(1 bits, AccessType.RC, doc= $endName+" int status")(SymbolName($endName+"_state"))(0)""",
           q"""val $tn_intWithMask = $tn_mask && $tn_state """,
           q"""when($name && $tn_en) {$tn_state.set()}"""
         )

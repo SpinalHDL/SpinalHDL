@@ -131,7 +131,7 @@ class InterruptRegIf3 extends Component {
   }
   val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
-  val int = busif.interruptFactory("M_INT",io.psc_done,
+  val int = InterruptFactory(busif,"M_INT",io.psc_done,
     io.pth_done,io.ssc_done,io.grp_done,io.scd_done,io.srch_finish)
 
   io.interrupt := int
@@ -173,9 +173,13 @@ class cpInterruptFactoryExample extends Component {
     val interrupt = out Bool()
     val apb = slave(Apb3(Apb3Config(16, 32)))
   }
-  val busif = Apb3BusInterface(io.apb, (0x000, 100 Byte))
+  val busif2 = Apb3BusInterface(io.apb, (0x000, 100 Byte))
 
-  io.interrupt := busif.interruptFactory("M_CP", io.tx_done,io.rx_done,io.frame_end)
+  val tx = io.tx_done
+  val rx = io.rx_done
+  val frame = io.frame_end
+
+  io.interrupt := InterruptFactory(busif2,"M_CP",tx,rx,frame)
 }
 
 object getRegIfExample {

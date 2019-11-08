@@ -70,8 +70,6 @@ trait BusIf extends BusIfBase {
     }
   }
 
-  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = macro Macros.interruptFactoryImpl
-
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trrigger signals")
