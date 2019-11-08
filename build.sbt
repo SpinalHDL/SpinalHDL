@@ -154,6 +154,14 @@ lazy val tester = (project in file("tester"))
   )
   .dependsOn(sim, core, lib, debugger,demo)
 
+// Assembly
+
+assemblyJarName in assembly := "spinalhdl.jar"
+
+test in assembly := {}
+
+assemblyOutputPath in assembly := file("./release/spinalhdl.jar")
+
 //To publish the scala doc :
 //rm -rf ghpages
 //sbt clean compile unidoc
