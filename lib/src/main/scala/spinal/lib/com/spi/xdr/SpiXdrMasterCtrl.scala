@@ -325,8 +325,6 @@ object SpiXdrMasterCtrl {
       bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
       bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
 
-
-      bus.createAndDriveFlow(Cmd(p),address = baseAddress + 0).toStream
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
         cmd << stream.stage()
