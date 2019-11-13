@@ -82,18 +82,19 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     }
   }
 
-//  def m2sPipe(): Apb3 ={
-//    val that = Apb3(config)
-//    that.PADDR   := RegNext(this.PADDR  )
-//    that.PSEL    := RegNext((that.PREADY && that.PENABLE) ? B(0) | this.PSEL) init(0)
-//    that.PENABLE := RegNext(this.PENABLE) clearWhen(that.PREADY && that.PENABLE) init(False)
-//    that.PWRITE  := RegNext(this.PWRITE )
-//    that.PWDATA  := RegNext(this.PWDATA )
-//    this.PRDATA  := that.PRDATA
-//    this.PREADY  := that.PREADY && that.PENABLE
-//    if(PSLVERROR != null) { this.PSLVERROR := that.PSLVERROR }
-//    that
-//  }
+  // !! no tested !!
+  def m2sPipe(): Apb3 ={
+    val that = Apb3(config)
+    that.PADDR    := RegNext(this.PADDR  )
+    that.PWRITE   := RegNext(this.PWRITE )
+    that.PWDATA   := RegNext(this.PWDATA )
+    that.PSEL     := RegNext(this.PREADY ? B(0) | this.PSEL)
+    that.PENABLE  := RegNext(this.PENABLE && !this.PREADY)
+    this.PRDATA   := that.PRDATA
+    this.PREADY   := that.PREADY && that.PENABLE
+    if(PSLVERROR != null) { this.PSLVERROR := that.PSLVERROR }
+    that
+  }
 
   def crossClockDomainToggle(inClk: ClockDomain, outClk: ClockDomain): Apb3 = {
     val cc = new Apb3CCToggle(this.config, inClk, outClk)
