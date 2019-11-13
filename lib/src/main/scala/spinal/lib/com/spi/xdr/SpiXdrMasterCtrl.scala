@@ -369,8 +369,8 @@ object SpiXdrMasterCtrl {
       config.ss.setup init(ssSetupInit)
       config.ss.hold init(ssHoldInit)
       config.ss.disable init(ssDisableInit)
-      config.ss.activeHigh init(ssActiveHighInit)
     }
+    config.ss.activeHigh init(ssActiveHighInit)
 
     val xip = ifGen(mapping.xip != null) (new Area{
       val xipBus = XipBus(mapping.xip)
