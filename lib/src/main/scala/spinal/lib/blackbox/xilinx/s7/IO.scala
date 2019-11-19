@@ -60,6 +60,25 @@ case class OSERDESE2(DATA_RATE_OQ : String = "DDR",
     case 2 => T3
     case 3 => T4
   }
+
+  val counter = ClockDomain(CLK, RST) (Reg(UInt(1 bits)) init(0))
+  counter := counter + 1
+
+  val sel = counter @@ CLK
+  val dReg = ClockDomain(CLKDIV)(RegNext(Vec(D1, D2, D3, D4)))
+  val tReg = ClockDomain(CLKDIV)(RegNext(Vec(T1, T2, T3, T4)))
+
+  val dReg2 = ClockDomain(CLK)(dReg)
+  val tReg2 = ClockDomain(CLK)(tReg)
+
+  OQ := dReg2(sel)
+  TQ := tReg2(sel)
+
+  OFB := False
+  TFB := False
+  TBYTEOUT  := False
+  SHIFTOUT1 := False
+  SHIFTOUT2 := False
 }
 
 
@@ -101,6 +120,8 @@ case class ODELAYE2(ODELAY_TYPE : String = "FIXED",
 case class OBUFDS() extends BlackBox{
   val I = in Bool()
   val O, OB = out Bool()
+  O := I
+  OB := !I
 }
 
 case class IOBUFDS() extends BlackBox{
@@ -182,7 +203,7 @@ case class ISERDESE2(DATA_RATE : String = "DDR",
 
 
   val rShift = ClockDomain(CLK)(History(DDLY, 1 to 4))
-  val fShift = ClockDomain(CLKB)(History(DDLY, 1 to 4))
+  val fShift = ClockDomain(CLK, config = ClockDomainConfig(clockEdge = FALLING))(History(DDLY, 1 to 4))
   val fastData = (0 to 3).flatMap(i => List(rShift(i), fShift(i)))
   val slowData = ClockDomain(CLKDIV)(RegNext(Vec(fastData)))
   for(i <- 0 to 7){

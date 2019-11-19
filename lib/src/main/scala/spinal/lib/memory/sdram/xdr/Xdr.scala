@@ -349,7 +349,7 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
   val RESETn = cpa.pl.sdram.generation.RESETn generate Bool()
 
   def driveFrom(mapper : BusSlaveFactory): Unit ={
-    val valid = RegNext(mapper.isWriting(0x00))
+    val valid = RegNext(mapper.isWriting(0x00)) init(False)
     cmd.valid := valid
     mapper.drive(
       address = 0x04,

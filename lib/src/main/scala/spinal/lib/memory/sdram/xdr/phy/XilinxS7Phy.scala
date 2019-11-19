@@ -43,7 +43,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     outputPolarity = HIGH
   )
 
-  clk270.setSynchronousWith(ClockDomain.current)
+//  clk270.setSynchronousWith(ClockDomain.current)
 
   val idelayctrl = IDELAYCTRL()
   idelayctrl.REFCLK := serdesClk90.readClockWire  //TODO serdesClk90

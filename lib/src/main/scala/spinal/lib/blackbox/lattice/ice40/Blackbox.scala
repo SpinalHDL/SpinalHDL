@@ -98,5 +98,14 @@ case class SB_SPRAM256KA() extends BlackBox{
   val SLEEP = in Bool()
   val POWEROFF = in Bool()
   mapCurrentClockDomain(CLOCK)
+
+//  val ram = Mem(Bits(16 bits), 16*1024)
+//  DATAOUT := ram.readWriteSync(
+//    address = ADDRESS,
+//    data = DATAIN,
+//    enable = CHIPSELECT,
+//    write = WREN,
+//    mask = MASKWREN
+//  )
 }
 
