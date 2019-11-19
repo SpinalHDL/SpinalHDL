@@ -230,7 +230,9 @@ class Ram_1wrs(
   wordWidth      : Int,
   wordCount      : Int,
   technology     : MemTechnologyKind,
-  readUnderWrite : ReadUnderWritePolicy = dontCare
+  readUnderWrite : ReadUnderWritePolicy = dontCare,
+  maskWidth      : Int,
+  maskEnable     : Boolean
 ) extends BlackBox {
 
   val generic = new Generic {
@@ -238,14 +240,16 @@ class Ram_1wrs(
     val wordWidth      = Ram_1wrs.this.wordWidth
     val readUnderWrite = Ram_1wrs.this.readUnderWrite.readUnderWriteString
     val technology     = Ram_1wrs.this.technology.technologyKind
+    val maskWidth      = Ram_1wrs.this.maskWidth
+    val maskEnable     = Ram_1wrs.this.maskEnable
   }
 
   val io = new Bundle {
     val clk = in Bool
-
     val en     =  in Bool
     val wr     =  in Bool
     val addr   =  in UInt(log2Up(wordCount) bit)
+    val mask   =  in Bits(maskWidth bits)
     val wrData =  in Bits(wordWidth bit)
     val rdData = out Bits(wordWidth bit)
   }
