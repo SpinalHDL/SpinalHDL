@@ -514,18 +514,7 @@ package object sim {
         case FALLING => risingEdge()
       }
 
-      val dummy = if(cd.config.resetKind == ASYNC){
-          val dummy = if(cd.hasResetSignal){
-            cd.resetSim #= (cd.config.resetActiveLevel match{
-              case HIGH => false
-              case LOW => true
-            })
-            sleep(0)
-            DoReset(resetSim, period*16, cd.config.resetActiveLevel)
-          }
-          sleep(period)
-          DoClock(clockSim, period)
-      } else if(cd.config.resetKind == SYNC){
+      val dummy = if(cd.config.resetKind == ASYNC || cd.config.resetKind == SYNC){
         val dummy = if(cd.hasResetSignal){
           cd.assertReset()
           val clk = clockSim
