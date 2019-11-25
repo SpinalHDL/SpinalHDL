@@ -9,7 +9,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   val io = new Bundle {
     val config = in(CoreConfig(cpa))
     val refresh = slave(Event)
-    val inputs = Vec(cpp.map(cpp => slave(Stream(Fragment(CoreCmd(cpp, cpa))))))
+    val inputs = Vec(cpp.map(cpp => slave(Stream(CoreCmd(cpp, cpa)))))
     val output = master(CoreTasks(cpa))
   }
 
@@ -18,13 +18,16 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
     val value = Reg(UInt(timingWidth bits)) init(0)
     val notZero = value =/= 0
-    val busyNext = notZero  || loadValid
+    val busyNext = CombInit(notZero)
     val busy = RegNext(busyNext)
-    value := value - notZero.asUInt
-    when(loadValid) { value := loadValue }
+    value := value - notZero.asUInt.resized
+    when(loadValid) {
+      value := loadValue
+      if(timingWidth != 0) busyNext := True
+    }
   }
 
-//  val CCD = Timing(trigger.CCD, pl.sdram.generation.CCD/pl.dataRatio-1)
+  val CCD = Timing(io.output.ports.map(p => p.read || p.write).orR, pl.sdram.generation.CCD/pl.dataRatio-1, log2Up(pl.sdram.generation.CCD/pl.dataRatio))
   val RFC = Timing(io.output.refresh, io.config.RFC, cp.timingWidth+3)
   val RRD = Timing(io.output.ports.map(p => p.active).orR, io.config.RRD)
   val WTR = Timing(io.output.ports.map(p => p.write).orR, io.config.WTR)
@@ -60,10 +63,10 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val RAS = Timing(portEvent(p => p.active), io.config.RAS)
     val RP  = Timing(portEvent(p => p.precharge), io.config.RP)
     val RCD = Timing(portEvent(p => p.active), io.config.RCD)
-    val RTP = Timing(portEvent(p => p.read && p.last), io.config.RTP)
+    val RTP = Timing(portEvent(p => p.read), io.config.RTP)
 
     val allowPrecharge = RegNext(!WR.busyNext && !RAS.busyNext && !RTP.busyNext)
-    val allowActive = RegNext(!RP.busyNext && !RRD.busyNext && !FAW.busyNext)
+    val allowActive = RegNext(!RP.busyNext && !RRD.busyNext && (if(generation.FAW) !FAW.busyNext else True))
     val allowWrite = RegNext(!RCD.busyNext && !RTW.busyNext)
     val allowRead = RegNext(!RCD.busyNext  && !WTR.busyNext)
   }
@@ -140,18 +143,15 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val inputRead  = bankActive && bankHit && !input.write
     val inibated = False
 
-    val doActive = inputActive && allowPrecharge
-    val doPrecharge = inputPrecharge && allowActive
-    val doWrite = inputWrite && allowWrite
-    val doRead = inputRead && allowRead
-    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead)
+    val doActive = inputActive && allowActive
+    val doPrecharge = inputPrecharge && allowPrecharge
+    val doWrite = inputWrite && allowWrite && !CCD.busy
+    val doRead = inputRead && allowRead && !CCD.busy
+    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
     val cmdOutputPayload = CoreTask(cpa)
-    io.output.ports(inputId).last := input.last
     io.output.ports(inputId).source := inputId
     io.output.ports(inputId).address := address
-    io.output.ports(inputId).data := input.data
-    io.output.ports(inputId).mask := input.mask
     io.output.ports(inputId).context := input.context.resized
     io.output.ports(inputId).active := inputActive
     io.output.ports(inputId).precharge := inputPrecharge
@@ -183,7 +183,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
 
-    val tockenIncrement = (masked & arbiterState & gates.map(g => g.bankActive && g.bankHit && g.input.last).asBits).orR
+    val tockenIncrement = (masked & arbiterState & gates.map(g => g.bankActive && g.bankHit).asBits).orR
     val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
     when(tockenIncrement){
       tocken := tocken + 1
@@ -204,7 +204,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       gate.input.ready := sel && gate.bankActive && gate.bankHit
     }
 
-    val askRefresh = io.refresh.valid && gates.map(_.empty).orR
+    val askRefresh = io.refresh.valid && gates.map(_.empty).andR
     io.refresh.ready := False
     io.output.prechargeAll := False
     io.output.refresh := False

@@ -18,6 +18,7 @@ import scala.util.Random
 case class BmbPortParameter(bmb : BmbParameter,
                             clockDomain : ClockDomain,
                             cmdBufferSize : Int,
+                            dataBufferSize : Int,
                             rspBufferSize : Int)
 
 case class CtrlParameter( core : CoreParameter,
@@ -52,6 +53,7 @@ class CtrlWithPhy[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : =
 
   val core = Core(cpa)
   core.io.ports <> Vec(bmbAdapter.map(_.io.output))
+  bmbAdapter.foreach(_.io.refresh := core.io.refresh)
 
   lazy val phy = phyGen
   phy.io.ctrl <> core.io.phy
@@ -87,181 +89,6 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyParameter) extends Component
   val mapper = Apb3SlaveFactory(io.apb)
   core.io.config.driveFrom(mapper.withOffset(0x000))
   core.io.soft.driveFrom(mapper.withOffset(0x100))
-}
-
-
-
-//object CtrlMain extends App{
-//  val sl = SdramLayout(
-//    generation = SdramGeneration.SDR,
-//    bankWidth = 2,
-//    columnWidth = 10,
-//    rowWidth = 13,
-//    dataWidth = 16
-//  )
-//  val cp = CtrlParameter(
-//    core = CoreParameter(
-//      portTockenMin = 4,
-//      portTockenMax = 8,
-//      rspFifoSize = 4,
-//      timingWidth = 4,
-//      refWidth = 16,
-//      writeLatencies = List(0),
-//      readLatencies = List(2)
-//    ),
-//    ports = Seq(
-//      BmbPortParameter(
-//        bmb = BmbParameter(
-//          addressWidth = sl.byteAddressWidth,
-//          dataWidth = 16,
-//          lengthWidth = 4,
-//          sourceWidth = 3,
-//          contextWidth = 8
-//        ),
-//        cmdBufferSize = 4,
-//        rspBufferSize = 4
-//      )
-//    )
-//  )
-//  SpinalVerilog(new CtrlWithPhy(cp, SdrInferedPhy(sl)))
-//}
-
-object CtrlSdrTester extends App{
-  import spinal.core.sim._
-
-  val timing = SdramTiming(
-    RFC = ( 66 ns, 0),
-    RAS = ( 37 ns, 0),
-    RP  = ( 15 ns, 0),
-    WR  = ( 14 ns, 0),
-    RCD = ( 15 ns, 0),
-    WTR = (  0 ns, 0),
-    RTP = (  0 ns, 0),
-    RRD = ( 14 ns, 0),
-    REF = ( 64 ms, 0)
-  )
-  val sl = MT48LC16M16A2.layout
-  SimConfig.withWave.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz))).compile({
-
-    val cp = CtrlParameter(
-      core = CoreParameter(
-        portTockenMin = 4,
-        portTockenMax = 8,
-        rspFifoSize = 4,
-        timingWidth = 4,
-        refWidth = 16,
-        writeLatencies = List(0),
-        readLatencies = List(2)
-      ),
-      ports = Seq(
-        BmbPortParameter(
-          bmb = BmbParameter(
-            addressWidth = sl.byteAddressWidth,
-            dataWidth = 16,
-            lengthWidth = 3,
-            sourceWidth = 3,
-            contextWidth = 8
-          ),
-          clockDomain = ClockDomain.current,
-          cmdBufferSize = 4,
-          rspBufferSize = 4
-        ),
-
-        BmbPortParameter(
-          bmb = BmbParameter(
-            addressWidth = sl.byteAddressWidth,
-            dataWidth = 16,
-            lengthWidth = 4,
-            sourceWidth = 5,
-            contextWidth = 12
-          ),
-          clockDomain = ClockDomain.current,
-          cmdBufferSize = 2,
-          rspBufferSize = 5
-        ),
-
-        BmbPortParameter(
-          bmb = BmbParameter(
-            addressWidth = sl.byteAddressWidth,
-            dataWidth = 16,
-            lengthWidth = 5,
-            sourceWidth = 6,
-            contextWidth = 16
-          ),
-          clockDomain = ClockDomain.current,
-          cmdBufferSize = 8,
-          rspBufferSize = 2
-        )
-      )
-    )
-    val c = new CtrlWithPhy(cp, SdrInferedPhy(sl))
-    c
-  }).doSimUntilVoid("test", 42) { dut =>
-    val tester = new BmbMemoryMultiPortTester(
-      ports = dut.io.bmb.map(port =>
-        BmbMemoryMultiPort(
-          bmb = port,
-          cd = dut.clockDomain
-        )
-      )
-    ){
-      override def addressGen(bmb: Bmb): Int = Random.nextInt(1 << (2 + sl.bankWidth + sl.columnWidth + log2Up(sl.bytePerWord)))
-
-      override def transactionCountTarget: Int = 100
-    }
-
-    Phase.setup {
-      val model = SdramModel(dut.io.memory, sl, dut.clockDomain)
-      for(i <- 0 until tester.memory.memorySize.toInt){
-        model.write(i, tester.memory.getByte(i))
-      }
-    }
-
-    Phase.setup {
-      val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
-      apb.verbose = true
-
-      val CAS = 2
-
-      val soft = SoftConfig(timing, dut.clockDomain.frequency.getValue, dut.cpa)
-      apb.write(0x10, soft.REF)
-
-      apb.write(0x20, (soft.RRD << 24) | (soft.RFC << 16) | (soft.RP << 8)  | (soft.RAS << 0))
-      apb.write(0x24,                                                         (soft.RCD << 0))
-      apb.write(0x28, (soft.WR << 24)  | (soft.WTR << 16) | (soft.RTP << 8) | (CAS+2 << 0))
-
-      sleep(100000)
-      val CKE = 1 << 0
-      val CSn = 1 << 1
-      val RASn = 1 << 2
-      val CASn = 1 << 3
-      val WEn = 1 << 4
-
-      val PRE = CKE | CASn
-      val REF = CKE | WEn
-      val MOD = CKE
-
-      def command(cmd : Int,  bank : Int, address : Int): Unit ={
-        apb.write(0x10C, bank)
-        apb.write(0x108, address)
-        apb.write(0x104, cmd)
-        apb.write(0x100, 0)
-        dut.clockDomain.waitSampling(10)
-      }
-
-
-      command(PRE, 0, 0x400)
-      command(REF, 0, 0)
-      command(REF, 0, 0)
-      command(MOD, 0, 0x000 | (CAS << 4))
-      apb.write(0x04, 1)
-
-      dut.clockDomain.waitSampling(10000)
-    }
-    Phase.flush{
-      println(simTime())
-    }
-  }
 }
 
 

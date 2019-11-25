@@ -91,15 +91,10 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
 
       val masterAgent = new BmbMasterAgent(bmb, cd) {
         val busP = bmb.p
-
         override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong))
-
         override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-
         override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(addressGen(bmb), sizeMax, busP)
-
         override def regionFree(region: SizeMapping): Unit = regions.free(region)
-
         override def regionIsMapped(region: SizeMapping, opcode: Int): Boolean = true
       }
 

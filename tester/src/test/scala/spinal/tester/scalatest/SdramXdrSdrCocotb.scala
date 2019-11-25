@@ -15,7 +15,6 @@ case class SdramSdrTesterCocotbTop() extends Component{
     core = CoreParameter(
       portTockenMin = 4,
       portTockenMax = 8,
-      rspFifoSize = 4,
       timingWidth = 4,
       refWidth = 16,
       writeLatencies = List(0),
@@ -32,6 +31,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
         ),
         clockDomain = ClockDomain.current,
         cmdBufferSize = 4,
+        dataBufferSize = 6,
         rspBufferSize = 4
       ),
 
@@ -45,6 +45,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
         ),
         clockDomain = ClockDomain.current,
         cmdBufferSize = 2,
+        dataBufferSize = 2,
         rspBufferSize = 5
       ),
 
@@ -58,6 +59,7 @@ case class SdramSdrTesterCocotbTop() extends Component{
         ),
         clockDomain = ClockDomain.current,
         cmdBufferSize = 8,
+        dataBufferSize = 8,
         rspBufferSize = 2
       )
     )

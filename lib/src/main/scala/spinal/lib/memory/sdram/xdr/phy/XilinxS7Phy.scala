@@ -14,7 +14,8 @@ object XilinxS7Phy{
     phaseCount = clkRatio,
     dataRatio = 2,
     outputLatency = 2,
-    inputLatency = 2,
+    readDelay = 2,
+    writeDelay = 0,
     burstLength = 8
   )
 }
@@ -108,9 +109,9 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
 
   val idelayValueIn = in Bits(5 bits)
 
-  val dqe0Reg = RegNext(io.ctrl.DQe) init(False)
-  val dqe270Reg = clk270(RegNext(io.ctrl.DQe) init(False))
-  val dqstReg = clk270(RegNext(Vec((io.ctrl.DQe ## dqe270Reg).mux(
+  val dqe0Reg = RegNext(io.ctrl.writeEnable) init(False)
+  val dqe270Reg = clk270(RegNext(io.ctrl.writeEnable) init(False))
+  val dqstReg = clk270(RegNext(Vec((io.ctrl.writeEnable ## dqe270Reg).mux(
     B"00" -> B"0000",
     B"10" -> B"0011",
     B"11" -> B"1111",
@@ -139,6 +140,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     io.memory.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
   }
 
+  io.ctrl.readValid := io.ctrl.readEnable
 
   val dq = for(i <- 0 until sl.dataWidth) yield new Area{
     val buf = IOBUF()

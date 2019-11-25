@@ -1,6 +1,7 @@
 package spinal.lib.memory.sdram.xdr.phy
 
 import spinal.core.RegNext
+import spinal.lib.Delay
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
@@ -13,7 +14,8 @@ object SdrInferedPhy{
     phaseCount = 1,
     dataRatio = 1,
     outputLatency = 1,
-    inputLatency = 1,
+    readDelay = 0,
+    writeDelay = 0,
     burstLength = 1
   )
 }
@@ -31,7 +33,9 @@ case class SdrInferedPhy(sl : SdramLayout) extends Phy[SdramInterface](SdrInfere
   io.memory.RASn  := RegNext(io.ctrl.phases(0).RASn)
   io.memory.WEn   := RegNext(io.ctrl.phases(0).WEn )
 
-  io.memory.DQ.writeEnable  := RegNext(io.ctrl.DQe)
+  io.memory.DQ.writeEnable  := RegNext(io.ctrl.writeEnable)
   io.memory.DQ.write        := RegNext(io.ctrl.phases(0).DQw(0))
-  io.ctrl.phases(0).DQr(0)     := RegNext(io.memory.DQ.read )
+  io.ctrl.phases(0).DQr(0)  := RegNext(io.memory.DQ.read )
+
+  io.ctrl.readValid := io.ctrl.readEnable
 }

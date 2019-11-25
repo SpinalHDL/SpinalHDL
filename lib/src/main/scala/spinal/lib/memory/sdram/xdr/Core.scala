@@ -32,6 +32,7 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
   val backend = Backend(cpa)
   backend.io.config <> io.config
   backend.io.input := tasker.io.output.stage()
+  backend.io.writeDatas <> Vec(io.ports.map(_.writeData))
   backend.io.phy <> io.phy
   backend.io.soft <> io.soft
   (backend.io.outputs, io.ports).zipped.foreach(_.toStream <> _.rsp)
