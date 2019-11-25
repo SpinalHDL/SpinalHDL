@@ -178,6 +178,16 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.io.pop
   }
 
+
+  def repeat(times : Int): (Stream[T], UInt) ={
+    val ret = Stream(payloadType)
+    val counter = Counter(times, ret.fire)
+    ret.valid := this.valid
+    ret.payload := this.payload
+    this.ready := ret.ready && counter.willOverflowIfInc
+    (ret, counter)
+  }
+
 /** Return True when a transaction is present on the bus but the ready is low
     */
   def isStall : Bool = valid && !ready
