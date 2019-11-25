@@ -36,7 +36,7 @@ case class TimingEnforcer(cpa : CoreParameterAggregate) extends Component{
       ptr := ptr + U(trigger.FAW)
     }
 
-    val banks = for (bankId <- 0 until pl.bankCount) yield new Area {
+    val banks = for (bankId <- 0 until pl.sdram.bankCount) yield new Area {
       val hit = io.input.address.bank === bankId
       val WR  = Timing(hit && trigger.WR, io.config.WR)
       val RAS = Timing(hit && trigger.RAS, io.config.RAS)

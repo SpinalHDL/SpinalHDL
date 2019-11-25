@@ -13,7 +13,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val output = master(CoreTasks(cpa))
   }
 
-  val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.bankCount)
+  val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
 
   def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
     val value = Reg(UInt(timingWidth bits)) init(0)
@@ -43,7 +43,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   }
 
 
-  val banks = for(bankId <- 0 until pl.bankCount) yield new Area {
+  val banks = for(bankId <- 0 until pl.sdram.bankCount) yield new Area {
     val hits = B(io.output.ports.map(_.address.bank === bankId))
     def portEvent(f : CoreTask => Bool) = (hits & B(io.output.ports.map(f))).orR
 

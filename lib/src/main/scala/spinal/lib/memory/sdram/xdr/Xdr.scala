@@ -9,26 +9,21 @@ import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
 
 
-case class PhyParameter(sdram : SdramLayout,
-                        phaseCount : Int,
-                        dataRatio : Int,
-                        outputLatency : Int,
-//                        inputLatency : Int,
-                        readDelay : Int,
-                        writeDelay : Int,
-                        burstLength : Int){
+case class PhyLayout(sdram : SdramLayout,
+                     phaseCount : Int,
+                     dataRatio : Int,
+                     outputLatency : Int,
+                     // inputLatency : Int,
+                     readDelay : Int,
+                     writeDelay : Int,
+                     burstLength : Int){
   import sdram._
   def beatWidth = phaseCount * dataRatio * dataWidth
   def beatCount = burstLength / phaseCount / dataRatio
-  def wordWidth = dataWidth*burstLength
+  def burstWidth = dataWidth*burstLength
   def bytePerDq = dataWidth/8
-  def bytePerWord = wordWidth/8
-  def wordAddressWidth = bankWidth + columnWidth + rowWidth
-  def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerDq)
-  def chipAddressWidth = Math.max(columnWidth,rowWidth)
-  def bankCount = 1 << bankWidth
-  def capacity = BigInt(1) << byteAddressWidth
-  def columnSize = 1 << columnWidth
+  def bytePerBurst = burstWidth/8
+  def bytePerBeat = beatWidth/8
 }
 case class Timing()
 case class Timings(      bootRefreshCount : Int, // Number of refresh command done in the boot sequence
@@ -92,7 +87,7 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //  }
 //}
 
-case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrlPhase(pl : PhyLayout) extends Bundle with IMasterSlave{
   val CASn  = Bool()
   val CKE   = Bool()
   val CSn   = Bool()
@@ -112,9 +107,9 @@ case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSl
   }
 }
 
-case class SdramXdrPhyCtrl(pl : PhyParameter) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   val phases = Vec(SdramXdrPhyCtrlPhase(pl), pl.phaseCount)
-  val ADDR  = Bits(pl.chipAddressWidth bits)
+  val ADDR  = Bits(pl.sdram.chipAddressWidth bits)
   val BA    = Bits(pl.sdram.bankWidth bits)
   val DQS = pl.sdram.generation.DQS generate new Bundle {
     val preamble = Bool()
@@ -135,7 +130,7 @@ case class SdramXdrPhyCtrl(pl : PhyParameter) extends Bundle with IMasterSlave{
 
 
 
-abstract class Phy[T <: Data with IMasterSlave](val pl : PhyParameter) extends Component{
+abstract class Phy[T <: Data with IMasterSlave](val pl : PhyLayout) extends Component{
   def MemoryBus() : T
   def driveFrom(mapper : BusSlaveFactory) : Unit
 
@@ -193,7 +188,7 @@ case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
 case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
   val write = Bool()
-  val address = UInt(pl.byteAddressWidth bits)
+  val address = UInt(pl.sdram.byteAddressWidth bits)
   val context = Bits(cpp.contextWidth bits)
   val burstLast = Bool()
 }
@@ -342,7 +337,7 @@ case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSl
 
 
 case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
-  val ADDR  = Bits(cpa.pl.chipAddressWidth bits)
+  val ADDR  = Bits(cpa.pl.sdram.chipAddressWidth bits)
   val BA    = Bits(cpa.pl.sdram.bankWidth bits)
   val CASn  = Bool
   val CSn   = Bool

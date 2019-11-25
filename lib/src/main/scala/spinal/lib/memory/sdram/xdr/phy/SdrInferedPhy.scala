@@ -5,11 +5,11 @@ import spinal.lib.Delay
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
-import spinal.lib.memory.sdram.xdr.{Phy, PhyParameter}
+import spinal.lib.memory.sdram.xdr.{Phy, PhyLayout}
 
 
 object SdrInferedPhy{
-  def memoryLayoutToPhyLayout(sl : SdramLayout) = PhyParameter(
+  def memoryLayoutToPhyLayout(sl : SdramLayout) = PhyLayout(
     sdram = sl,
     phaseCount = 1,
     dataRatio = 1,

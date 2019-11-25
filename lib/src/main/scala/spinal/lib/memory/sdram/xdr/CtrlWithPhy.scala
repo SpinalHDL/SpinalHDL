@@ -26,8 +26,8 @@ case class CtrlParameter( core : CoreParameter,
 
 
 object CtrlWithPhy{
-  def bmbCapabilities(pp : PhyParameter) = BmbParameter(
-    addressWidth  = pp.byteAddressWidth,
+  def bmbCapabilities(pp : PhyLayout) = BmbParameter(
+    addressWidth  = pp.sdram.byteAddressWidth,
     dataWidth     = pp.sdram.dataWidth * pp.phaseCount * pp.dataRatio,
     lengthWidth   = Int.MaxValue,
     sourceWidth   = Int.MaxValue,
@@ -68,7 +68,7 @@ class CtrlWithPhy[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : =
 
 
 
-class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyParameter) extends Component{
+class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyLayout) extends Component{
   val io = new Bundle {
     val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
     val apb = slave(Apb3(12, 32))

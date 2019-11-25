@@ -5,9 +5,9 @@ import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAligner, BmbCmd, BmbLengthFixer}
 
 object BmbAdapter{
-  def corePortParameter(pp : BmbPortParameter, pl : PhyParameter) = CorePortParameter(
+  def corePortParameter(pp : BmbPortParameter, pl : PhyLayout) = CorePortParameter(
     contextWidth = {
-      val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.wordWidth/8)), log2Up(pl.wordWidth/8))
+      val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.burstWidth/8)), log2Up(pl.burstWidth/8))
       converterBmb.contextWidth + converterBmb.sourceWidth
     }
   )
@@ -27,10 +27,10 @@ case class BmbAdapter(pp : BmbPortParameter,
 
   val asyncCc = pp.clockDomain != ClockDomain.current
   val inputLogic = new ClockingArea(pp.clockDomain) {
-    val aligner = pp.clockDomain(BmbAligner(pp.bmb, log2Up(pl.wordWidth / 8)))
+    val aligner = pp.clockDomain(BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8)))
     aligner.io.input << io.input
 
-    val lengthFixer = BmbLengthFixer(aligner.io.output.p, log2Up(pl.wordWidth / 8))
+    val lengthFixer = BmbLengthFixer(aligner.io.output.p, log2Up(pl.burstWidth / 8))
     lengthFixer.io.input << aligner.io.output
 
     val converter = BmbToCorePort(lengthFixer.io.output.p, io.output.cpp, cpa)

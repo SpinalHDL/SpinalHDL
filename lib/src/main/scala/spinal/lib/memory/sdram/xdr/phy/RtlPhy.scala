@@ -5,13 +5,13 @@ import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
-import spinal.lib.memory.sdram.xdr.{Phy, PhyParameter}
+import spinal.lib.memory.sdram.xdr.{Phy, PhyLayout}
 
-case class RtlPhyWriteCmd(pl : PhyParameter) extends Bundle {
+case class RtlPhyWriteCmd(pl : PhyLayout) extends Bundle {
   val address = UInt(pl.sdram.wordAddressWidth bits)
-  val data    = Bits(pl.wordWidth bits)
+  val data    = Bits(pl.beatWidth bits)
 }
-case class RtlPhyInterface(pl : PhyParameter) extends Bundle with IMasterSlave {
+case class RtlPhyInterface(pl : PhyLayout) extends Bundle with IMasterSlave {
   val clk = in Bool()
   val write = Flow(RtlPhyWriteCmd(pl))
 
@@ -25,12 +25,12 @@ case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.m
   override def MemoryBus(): RtlPhyInterface = RtlPhyInterface(pl)
   override def driveFrom(mapper: BusSlaveFactory): Unit = {}
 
-  val ram = Mem(Bits(pl.wordWidth bits), 1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))
+  val ram = Mem(Bits(pl.beatWidth bits), 1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))
   ClockDomain(io.memory.clk){
     ram.write(
-    address = io.memory.write.address,
-    data = io.memory.write.data,
-    enable = io.memory.write.valid
+      address = io.memory.write.address,
+      data = io.memory.write.data,
+      enable = io.memory.write.valid
     )
   }
 
@@ -93,18 +93,19 @@ case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.m
   write.ready := writeTrigger
   read.ready := readTrigger
 
+  val beatCountLog2Up = log2Up(pl.beatCount)
   ram.write(
-    address = banks.map(_.row).read(write.bank) @@ write.bank @@ write.column,
+    address = banks.map(_.row).read(write.bank) @@ write.bank @@ (write.column >> beatCountLog2Up),
     data = io.ctrl.phases.flatMap(_.DQw).asBits(),
     enable = writeTrigger,
     mask = ~io.ctrl.phases.flatMap(_.DM).asBits()
   )
 
   io.ctrl.readValid := readTrigger
-  val readed = Bits(pl.wordWidth bits).assignDontCare()
+  val readed = Bits(pl.beatWidth bits).assignDontCare()
   when(readTrigger) {
     readed := ram.readAsync(
-      address = banks.map(_.row).read(read.bank) @@ read.bank @@ read.column
+      address = banks.map(_.row).read(read.bank) @@ read.bank @@ (read.column >> beatCountLog2Up)
     )
   }
   Vec(io.ctrl.phases.flatMap(_.DQr)).assignFromBits(readed)

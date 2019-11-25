@@ -300,8 +300,8 @@ object SdramSdrRtlPhyTesterSpinalSim extends App{
     val c = new CtrlWithPhy(cp, RtlPhy(sl))
     c
   }).doSimUntilVoid("test", 42) { dut =>
-    val addressTop = (1 << (2 + sl.bankWidth + sl.columnWidth + log2Up(sl.bytePerWord))*sl.generation.burstLength)
-    val bytePerWord = dut.cpa.pl.bytePerWord
+    val addressTop = 1 << (2 + sl.bankWidth + sl.columnWidth + log2Up(sl.bytePerWord))
+    val bytePerBeat = dut.cpa.pl.bytePerBeat
     val tester = new BmbMemoryMultiPortTester(
       ports = dut.io.bmb.map(port =>
         BmbMemoryMultiPort(
@@ -315,14 +315,14 @@ object SdramSdrRtlPhyTesterSpinalSim extends App{
     }
 
     Phase.setup {
-      for(wordId <- 0 until addressTop/bytePerWord){
+      for(beatId <- 0 until addressTop/bytePerBeat){
         var data = BigInt(0)
-        for(byteId <- 0 until bytePerWord){
-          data = data | (BigInt(tester.memory.getByte(wordId*bytePerWord + byteId).toInt & 0xFF) << (byteId*8))
+        for(byteId <- 0 until bytePerBeat){
+          data = data | (BigInt(tester.memory.getByte(beatId*bytePerBeat + byteId).toInt & 0xFF) << (byteId*8))
         }
         dut.io.memory.clk #= false
         dut.io.memory.write.valid #= true
-        dut.io.memory.write.address #= wordId
+        dut.io.memory.write.address #= beatId
         dut.io.memory.write.data #= data
         sleep(0)
         dut.io.memory.clk #= true

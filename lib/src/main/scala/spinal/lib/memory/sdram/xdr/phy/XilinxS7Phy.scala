@@ -5,11 +5,11 @@ import spinal.lib._
 import spinal.lib.blackbox.xilinx.s7.{BUFG, BUFIO, IDELAYCTRL, IDELAYE2, IOBUF, IOBUFDS, ISERDESE2, OBUFDS, ODELAYE2, OSERDESE2}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
-import spinal.lib.memory.sdram.xdr.{Phy, PhyParameter, SdramXdrIo}
+import spinal.lib.memory.sdram.xdr.{Phy, PhyLayout, SdramXdrIo}
 
 
 object XilinxS7Phy{
-  def memoryLayoutToPhyLayout(sl : SdramLayout, clkRatio : Int) = PhyParameter(
+  def memoryLayoutToPhyLayout(sl : SdramLayout, clkRatio : Int) = PhyLayout(
     sdram = sl,
     phaseCount = clkRatio,
     dataRatio = 2,

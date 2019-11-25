@@ -3,7 +3,7 @@ package spinal.lib.memory.sdram.xdr
 import spinal.core._
 import spinal.lib._
 
-case class CoreParameterAggregate(cp : CoreParameter, pl : PhyParameter, cpp : Seq[CorePortParameter]){
+case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : Seq[CorePortParameter]){
   def backendContextWidth = cpp.map(_.contextWidth).max
   def portCount = cpp.size
   def generation = pl.sdram.generation
