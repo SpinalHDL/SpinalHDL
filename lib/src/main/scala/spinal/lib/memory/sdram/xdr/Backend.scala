@@ -2,6 +2,7 @@ package spinal.lib.memory.sdram.xdr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.memory.sdram.SdramGeneration
 
 case class Backend(cpa: CoreParameterAggregate) extends Component {
 
@@ -101,11 +102,12 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     io.phy.writeEnable := history.valid
     io.writeDatas.foreach(_.ready := False)
     io.writeDatas(history.sel).ready := history.valid
+    assert(io.writeDatas.map(p => !(!p.valid && p.ready)).andR, "SDRAM write data stream starved !")
 
     val payload = io.writeDatas.map(_.payload).read(history.sel)
     for ((phase, dq, dm) <- (io.phy.phases, payload.data.subdivideIn(pl.phaseCount slices), payload.mask.subdivideIn(pl.phaseCount slices)).zipped) {
-      phase.DQw := Vec(dq.subdivideIn(pl.dataRatio slices))
-      phase.DM := Vec((~dm).subdivideIn(pl.dataRatio slices))
+      phase.DQw := Vec(dq.subdivideIn(pl.dataRate slices))
+      phase.DM := Vec((~dm).subdivideIn(pl.dataRate slices))
     }
   }
 
@@ -123,7 +125,8 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val rspPipeline = new Area {
     val input = Flow(PipelineCmd())
-    val cmd = input.toStream.queue(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.burstLength-1)/pl.burstLength + 1)) //TODO
+    assert(cp.readLatencies.min + pl.readDelay >= 2)
+    val cmd = input.toStream.queue(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.transferPerBurst-1)/pl.transferPerBurst + 1)) //TODO
 
     val readHistory = History(input.valid && !input.write, 0 until cp.readLatencies.max + pl.beatCount)
     readHistory.tail.foreach(_ init (False))
@@ -211,7 +214,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     io.phy.ADDR := muxedCmd.address.column.asBits.resized
     io.phy.ADDR(10) := False
     io.phy.BA := muxedCmd.address.bank.asBits
-    io.phy.phases.foreach(_.DM.foreach(_.setAll()))
+    if(pl.sdram.generation == SdramGeneration.SDR) io.phy.phases.foreach(_.DM.foreach(_.setAll()))
     command.CSn := False
     command.CASn := False
     rspPipeline.input.valid := True

@@ -28,7 +28,7 @@ case class CtrlParameter( core : CoreParameter,
 object CtrlWithPhy{
   def bmbCapabilities(pp : PhyLayout) = BmbParameter(
     addressWidth  = pp.sdram.byteAddressWidth,
-    dataWidth     = pp.sdram.dataWidth * pp.phaseCount * pp.dataRatio,
+    dataWidth     = pp.sdram.dataWidth * pp.phaseCount * pp.dataRate,
     lengthWidth   = Int.MaxValue,
     sourceWidth   = Int.MaxValue,
     contextWidth  = Int.MaxValue,
@@ -39,33 +39,33 @@ object CtrlWithPhy{
   )
 }
 
-class CtrlWithPhy[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T]) extends Component{
-  val io = new Bundle {
-    val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
-    val apb = slave(Apb3(12, 32))
-    val memory = master(phy.MemoryBus())
-  }
-
-  val cpa = CoreParameterAggregate(p.core, phy.pl, p.ports.map(port => BmbAdapter.corePortParameter(port, phy.pl)))
-
-  val bmbAdapter = for(port <- p.ports) yield BmbAdapter(port, cpa)
-  (bmbAdapter, io.bmb).zipped.foreach(_.io.input <> _)
-
-  val core = Core(cpa)
-  core.io.ports <> Vec(bmbAdapter.map(_.io.output))
-  bmbAdapter.foreach(_.io.refresh := core.io.refresh)
-
-  lazy val phy = phyGen
-  phy.io.ctrl <> core.io.phy
-
-  io.memory <> phy.io.memory
-
-  val mapper = Apb3SlaveFactory(io.apb)
-  core.io.config.driveFrom(mapper.withOffset(0x000))
-  core.io.soft.driveFrom(mapper.withOffset(0x100))
-  phy.driveFrom(mapper.withOffset(0x400))
-}
-
+//class CtrlWithPhy[T <: Data with IMasterSlave](val p : CtrlParameter, phyGen : => Phy[T]) extends Component{
+//  val io = new Bundle {
+//    val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
+//    val apb = slave(Apb3(12, 32))
+//    val memory = master(phy.MemoryBus())
+//  }
+//
+//  val cpa = CoreParameterAggregate(p.core, phy.pl, p.ports.map(port => BmbAdapter.corePortParameter(port, phy.pl)))
+//
+//  val bmbAdapter = for(port <- p.ports) yield BmbAdapter(port, cpa)
+//  (bmbAdapter, io.bmb).zipped.foreach(_.io.input <> _)
+//
+//  val core = Core(cpa)
+//  core.io.ports <> Vec(bmbAdapter.map(_.io.output))
+//  bmbAdapter.foreach(_.io.refresh := core.io.refresh)
+//
+//  lazy val phy = phyGen
+//  phy.io.ctrl <> core.io.phy
+//
+//  io.memory <> phy.io.memory
+//
+//  val mapper = Apb3SlaveFactory(io.apb)
+//  core.io.config.driveFrom(mapper.withOffset(0x000))
+//  core.io.soft.driveFrom(mapper.withOffset(0x100))
+//  phy.driveFrom(mapper.withOffset(0x400))
+//}
+//
 
 
 class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyLayout) extends Component{

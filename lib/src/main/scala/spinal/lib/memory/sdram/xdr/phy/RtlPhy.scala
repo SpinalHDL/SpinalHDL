@@ -5,32 +5,39 @@ import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
-import spinal.lib.memory.sdram.xdr.{Phy, PhyLayout}
+import spinal.lib.memory.sdram.xdr.{PhyLayout, SdramXdrPhyCtrl}
 
 case class RtlPhyWriteCmd(pl : PhyLayout) extends Bundle {
-  val address = UInt(pl.sdram.wordAddressWidth bits)
+  val address = UInt(pl.sdram.wordAddressWidth-log2Up(pl.phaseCount*pl.dataRate) bits)
   val data    = Bits(pl.beatWidth bits)
 }
+
 case class RtlPhyInterface(pl : PhyLayout) extends Bundle with IMasterSlave {
   val clk = in Bool()
-  val write = Flow(RtlPhyWriteCmd(pl))
+  val cmd = Flow(RtlPhyWriteCmd(pl))
 
   override def asMaster(): Unit = {
     in(clk)
-    slave(write)
+    slave(cmd)
   }
 }
 
-case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.memoryLayoutToPhyLayout(sl)){
-  override def MemoryBus(): RtlPhyInterface = RtlPhyInterface(pl)
-  override def driveFrom(mapper: BusSlaveFactory): Unit = {}
 
-  val ram = Mem(Bits(pl.beatWidth bits), 1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))
-  ClockDomain(io.memory.clk){
+case class RtlPhy(pl : PhyLayout) extends Component{
+  def sl = pl.sdram
+
+  val io = new Bundle {
+    val ctrl = slave(SdramXdrPhyCtrl(pl))
+    val write = master(RtlPhyInterface(pl))
+  }
+
+  val columnPerBeatLog2Up = log2Up(pl.phaseCount*pl.dataRate)
+  val ram = Mem(Bits(pl.beatWidth bits), (1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))/(pl.phaseCount*pl.dataRate))
+  ClockDomain(io.write.clk){
     ram.write(
-      address = io.memory.write.address,
-      data = io.memory.write.data,
-      enable = io.memory.write.valid
+      address = io.write.cmd.address,
+      data = io.write.cmd.data,
+      enable = io.write.cmd.valid
     )
   }
 
@@ -40,17 +47,20 @@ case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.m
   }
 
   case class Address() extends Bundle {
+    val row = UInt(sl.rowWidth bits)
     val bank = UInt(sl.bankWidth bits)
     val column = UInt(sl.columnWidth bits)
   }
 
   val readCtrl = Flow(Address())
   readCtrl.valid := False
+  readCtrl.row := banks.map(_.row).read(U(io.ctrl.BA))
   readCtrl.bank := U(io.ctrl.BA)
   readCtrl.column := U(io.ctrl.ADDR).resized
 
   val writeCtrl = Flow(Address())
   writeCtrl.valid := False
+  writeCtrl.row := banks.map(_.row).read(U(io.ctrl.BA))
   writeCtrl.bank := U(io.ctrl.BA)
   writeCtrl.column := U(io.ctrl.ADDR).resized
 
@@ -93,9 +103,8 @@ case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.m
   write.ready := writeTrigger
   read.ready := readTrigger
 
-  val beatCountLog2Up = log2Up(pl.beatCount)
   ram.write(
-    address = banks.map(_.row).read(write.bank) @@ write.bank @@ (write.column >> beatCountLog2Up),
+    address = (write.row @@ write.bank @@ (write.column >> columnPerBeatLog2Up)) | writeCounter.resized,
     data = io.ctrl.phases.flatMap(_.DQw).asBits(),
     enable = writeTrigger,
     mask = ~io.ctrl.phases.flatMap(_.DM).asBits()
@@ -105,7 +114,7 @@ case class RtlPhy(sl : SdramLayout) extends Phy[RtlPhyInterface](SdrInferedPhy.m
   val readed = Bits(pl.beatWidth bits).assignDontCare()
   when(readTrigger) {
     readed := ram.readAsync(
-      address = banks.map(_.row).read(read.bank) @@ read.bank @@ (read.column >> beatCountLog2Up)
+      address = (read.row @@ read.bank @@ (read.column >> columnPerBeatLog2Up)) | readCounter.resized
     )
   }
   Vec(io.ctrl.phases.flatMap(_.DQr)).assignFromBits(readed)

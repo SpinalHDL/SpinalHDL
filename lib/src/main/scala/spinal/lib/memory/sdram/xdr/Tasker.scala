@@ -27,7 +27,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
-  val CCD = Timing(io.output.ports.map(p => p.read || p.write).orR, pl.sdram.generation.CCD/pl.dataRatio-1, log2Up(pl.sdram.generation.CCD/pl.dataRatio))
+  val CCD = Timing(io.output.ports.map(p => p.read || p.write).orR, pl.beatCount-1, log2Up(pl.beatCount))
   val RFC = Timing(io.output.refresh, io.config.RFC, cp.timingWidth+3)
   val RRD = Timing(io.output.ports.map(p => p.active).orR, io.config.RRD)
   val WTR = Timing(io.output.ports.map(p => p.write).orR, io.config.WTR)
@@ -65,10 +65,10 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val RCD = Timing(portEvent(p => p.active), io.config.RCD)
     val RTP = Timing(portEvent(p => p.read), io.config.RTP)
 
-    val allowPrecharge = RegNext(!WR.busyNext && !RAS.busyNext && !RTP.busyNext)
-    val allowActive = RegNext(!RP.busyNext && !RRD.busyNext && (if(generation.FAW) !FAW.busyNext else True))
-    val allowWrite = RegNext(!RCD.busyNext && !RTW.busyNext)
-    val allowRead = RegNext(!RCD.busyNext  && !WTR.busyNext)
+    val allowPrecharge = !WR.busyNext && !RAS.busyNext && !RTP.busyNext
+    val allowActive = !RP.busyNext && !RRD.busyNext && (if(generation.FAW) !FAW.busyNext else True)
+    val allowWrite = !RCD.busyNext && !RTW.busyNext && !CCD.busyNext
+    val allowRead = !RCD.busyNext  && !WTR.busyNext && !CCD.busyNext
   }
   val allowPrechargeAll = banks.map(_.allowPrecharge).orR
 //  val allowPrechargeAll = RegNext(banks.map(_.allowPrechargeNext).orR)
@@ -130,11 +130,17 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     when(io.output.ports.map(_.active).orR){
       allowActive := False
     }
-    when(io.output.ports.map(_.read).orR){
-      allowWrite := False
-    }
-    when(io.output.ports.map(_.write).orR){
+
+    if(pl.beatCount > 1) when(io.output.ports.map(p => p.read || p.write).orR){
       allowRead := False
+      allowWrite := False
+    } else {
+      when(io.output.ports.map(_.read).orR){
+        allowWrite := False
+      }
+      when(io.output.ports.map(_.write).orR){
+        allowRead := False
+      }
     }
 
     val inputActive = !bankActive
@@ -145,8 +151,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
-    val doWrite = inputWrite && allowWrite && !CCD.busy
-    val doRead = inputRead && allowRead && !CCD.busy
+    val doWrite = inputWrite && allowWrite
+    val doRead = inputRead && allowRead
     val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
     val cmdOutputPayload = CoreTask(cpa)

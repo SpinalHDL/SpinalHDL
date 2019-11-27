@@ -90,9 +90,10 @@ object StreamReadyRandomizer {
 }
 
 case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: ClockDomain, condition: () => Boolean){
+  var factor = 0.5f
   clockDomain.onSamplings{
     if (condition()) {
-      stream.ready #= Random.nextBoolean()
+      stream.ready #= Random.nextFloat() < factor
     } else {
       stream.ready #= false
     }

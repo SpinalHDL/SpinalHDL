@@ -10,17 +10,17 @@ import spinal.lib.memory.sdram.sdr.SdramInterface
 
 
 case class PhyLayout(sdram : SdramLayout,
-                     phaseCount : Int,
-                     dataRatio : Int,
-                     outputLatency : Int,
+                     phaseCount : Int, //How many DRAM clock per core clock
+                     dataRate : Int, //(SDR=1, DDR=2, QDR=4)
+                     outputLatency : Int, //Max delay for a command on the phy to arrive on the sdram
                      // inputLatency : Int,
-                     readDelay : Int,
-                     writeDelay : Int,
-                     burstLength : Int){
+                     readDelay : Int, //Max delay between readEnable and readValid
+                     writeDelay : Int, //Delay between writeEnable and data/dm
+                     transferPerBurst : Int){ //How many transfer per per burst
   import sdram._
-  def beatWidth = phaseCount * dataRatio * dataWidth
-  def beatCount = burstLength / phaseCount / dataRatio
-  def burstWidth = dataWidth*burstLength
+  def beatWidth = phaseCount * dataRate * dataWidth
+  def beatCount = transferPerBurst / phaseCount / dataRate
+  def burstWidth = dataWidth*transferPerBurst
   def bytePerDq = dataWidth/8
   def bytePerBurst = burstWidth/8
   def bytePerBeat = beatWidth/8
@@ -96,8 +96,8 @@ case class SdramXdrPhyCtrlPhase(pl : PhyLayout) extends Bundle with IMasterSlave
   val RESETn = pl.sdram.generation.RESETn generate Bool()
   val ODT = pl.sdram.generation.ODT generate Bool()
 
-  val DM       = Vec(Bits(pl.bytePerDq bits), pl.dataRatio)
-  val DQw, DQr = Vec(Bits(pl.sdram.dataWidth bits), pl.dataRatio)
+  val DM       = Vec(Bits(pl.bytePerDq bits), pl.dataRate)
+  val DQw, DQr = Vec(Bits(pl.sdram.dataWidth bits), pl.dataRate)
 
   override def asMaster(): Unit = {
     out(CASn,CKE,CSn,DM,RASn,WEn)
@@ -128,17 +128,6 @@ case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   }
 }
 
-
-
-abstract class Phy[T <: Data with IMasterSlave](val pl : PhyLayout) extends Component{
-  def MemoryBus() : T
-  def driveFrom(mapper : BusSlaveFactory) : Unit
-
-  val io = new Bundle {
-    val ctrl = slave(SdramXdrPhyCtrl(pl))
-    val memory = master(MemoryBus())
-  }
-}
 
 
 
@@ -394,7 +383,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   cmdContext.input := cmdFork.context
   cmdContext.source := cmdFork.source
 
-  io.output.cmd.arbitrationFrom(cmdFork)
+  io.output.cmd.arbitrationFrom(cmdFork.takeWhen(cmdFork.last))
   io.output.cmd.write := cmdFork.isWrite
   io.output.cmd.address := cmdFork.address
   io.output.cmd.context := B(cmdContext)

@@ -64,7 +64,7 @@ class BmbMemoryTester(bmb : Bmb,
 case class BmbMemoryMultiPort(bmb : Bmb,
                               cd : ClockDomain)
 
-class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
+class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f) {
   def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
   def transactionCountTarget = 30000
 
@@ -89,7 +89,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
       )
 
 
-      val masterAgent = new BmbMasterAgent(bmb, cd) {
+      val masterAgent = new BmbMasterAgent(bmb, cd, cmdFactor, rspFactor) {
         val busP = bmb.p
         override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong))
         override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
