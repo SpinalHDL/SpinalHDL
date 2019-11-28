@@ -47,7 +47,11 @@ object Axi4WriteOnlyArbiter{
 }
 
 //routeBufferSize Specify how many write cmd could be schedule before any write data transaction is transmitted
-case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
+case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,
+                                inputsCount : Int,
+                                routeBufferSize : Int,
+                                routeBufferLatency : Int = 0,
+                                routeBufferS2mPipe : Boolean = false) extends Component {
   assert(routeBufferSize >= 1)
   val inputConfig = Axi4ReadOnlyArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
@@ -64,7 +68,8 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,route
   io.output.writeCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
   
   // Route writeData
-  val routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queueLowLatency(routeBufferSize, latency = 0)
+  var routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queueLowLatency(routeBufferSize, latency = routeBufferLatency)
+  if(routeBufferS2mPipe) routeBuffer = routeBuffer.s2mPipe()
   val routeDataInput = io.inputs(routeBuffer.payload).writeData
   io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
   io.output.writeData.payload  := routeDataInput.payload
@@ -108,7 +113,9 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
                              readInputsCount : Int,
                              writeInputsCount : Int,
                              sharedInputsCount : Int,
-                             routeBufferSize : Int) extends Component {
+                             routeBufferSize : Int,
+                             routeBufferLatency : Int = 0,
+                             routeBufferS2mPipe : Boolean = false) extends Component {
   assert(routeBufferSize >= 1)
   val inputsCount = readInputsCount + writeInputsCount + sharedInputsCount
   val (readInputConfig,writeInputConfig,sharedInputConfig) = Axi4SharedArbiter.getInputConfig(outputConfig,readInputsCount,writeInputsCount,sharedInputsCount)
@@ -158,7 +165,8 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   // Route writeData
   val writeLogic = if (writeInputsCount + sharedInputsCount != 0) new Area {
     @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
-    val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queueLowLatency(routeBufferSize, latency = 0)
+    var routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queueLowLatency(routeBufferSize, latency = routeBufferLatency)
+    if(routeBufferS2mPipe) routeBuffer = routeBuffer.s2mPipe()
     val routeDataInput = writeDataInputs.apply(routeBuffer.payload)
     io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
     io.output.writeData.payload := routeDataInput.payload
