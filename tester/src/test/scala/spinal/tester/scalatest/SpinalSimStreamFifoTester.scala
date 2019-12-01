@@ -4,7 +4,7 @@ import org.scalatest.FunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.StreamFifo
+import spinal.lib.{StreamFifo, StreamFifoLowLatency}
 import spinal.lib.graphic.Rgb
 import spinal.lib.sim._
 import spinal.tester
@@ -188,6 +188,84 @@ class SpinalSimStreamFifoTester extends FunSuite {
       StreamMonitor(dut.io.pop, dut.clockDomain) { payload =>
         scoreboard.pushDut(payload)
       }
+
+      waitUntil(scoreboard.matches == 10000)
+    }
+  }
+
+
+  test("lowLatency_0") {
+    //Bundle used as fifo payload
+    case class Transaction() extends Bundle {
+      val flag = Bool
+      val data = Bits(8 bits)
+      val color = Rgb(5, 6, 5)
+    }
+
+    val compiled = SimConfig.allOptimisation.compile(
+      rtl = new StreamFifoLowLatency(
+        dataType = Transaction(),
+        depth = 2,
+        latency = 0
+      )
+    )
+
+    //Run the simulation
+    compiled.doSim { dut =>
+      //Inits
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
+      dut.clockDomain.forkSimSpeedPrinter()
+      dut.io.flush #= false
+
+      val scoreboard = ScoreboardInOrder[SimData]()
+
+      //Drivers
+      StreamDriver(dut.io.push, dut.clockDomain) { payload => payload.randomize(); true }
+      StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
+
+      //Monitors
+      StreamMonitor(dut.io.push, dut.clockDomain) { payload => scoreboard.pushRef(payload) }
+      StreamMonitor(dut.io.pop, dut.clockDomain) { payload => scoreboard.pushDut(payload) }
+
+      waitUntil(scoreboard.matches == 10000)
+    }
+  }
+
+
+  test("lowLatency_1") {
+    //Bundle used as fifo payload
+    case class Transaction() extends Bundle {
+      val flag = Bool
+      val data = Bits(8 bits)
+      val color = Rgb(5, 6, 5)
+    }
+
+    val compiled = SimConfig.withWave.allOptimisation.compile(
+      rtl = new StreamFifoLowLatency(
+        dataType = Transaction(),
+        depth = 4,
+        latency = 1
+      )
+    )
+
+    //Run the simulation
+    compiled.doSim { dut =>
+      //Inits
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
+      dut.clockDomain.forkSimSpeedPrinter()
+      dut.io.flush #= false
+
+      val scoreboard = ScoreboardInOrder[SimData]()
+
+      //Drivers
+      StreamDriver(dut.io.push, dut.clockDomain) { payload => payload.randomize(); true }
+      StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
+
+      //Monitors
+      StreamMonitor(dut.io.push, dut.clockDomain) { payload => scoreboard.pushRef(payload) }
+      StreamMonitor(dut.io.pop, dut.clockDomain) { payload => scoreboard.pushDut(payload) }
 
       waitUntil(scoreboard.matches == 10000)
     }
