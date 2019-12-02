@@ -64,7 +64,7 @@ class BmbMemoryTester(bmb : Bmb,
 case class BmbMemoryMultiPort(bmb : Bmb,
                               cd : ClockDomain)
 
-class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f) {
+class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f, forkClocks : Boolean = true) {
   def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
   def transactionCountTarget = 30000
 
@@ -74,7 +74,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Floa
     //Regions used to avoid having write to read hazard
     val regions = BmbRegionAllocator()
 
-    ports.map(_.cd).distinct.foreach(_.forkStimulus(10))
+    if(forkClocks) ports.map(_.cd).distinct.foreach(_.forkStimulus(10))
     //ports.map(_.cd).distinct.foreach(cd => cd.forkStimulus(if(cd.frequency != null) HertzNumber(1e9) / cd.frequency.getValue))
 
     for(port <- ports) {

@@ -20,17 +20,19 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
     val refresh = out Bool()
   }
 
+  val config = RegNext(io.config) randBoot()
+
   val refresher = Refresher(cpa)
-  refresher.io.config <> io.config
+  refresher.io.config <> config
   io.refresh := refresher.io.refresh.valid
 
   val tasker = Tasker(cpa)
-  tasker.io.config <> io.config
+  tasker.io.config <> config
   tasker.io.inputs <> Vec(io.ports.map(_.cmd))
   tasker.io.refresh <> refresher.io.refresh
 
   val backend = Backend(cpa)
-  backend.io.config <> io.config
+  backend.io.config := config
   backend.io.input := tasker.io.output.stage()
   backend.io.writeDatas <> Vec(io.ports.map(_.writeData))
   backend.io.phy <> io.phy

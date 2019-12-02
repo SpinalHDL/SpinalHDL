@@ -125,8 +125,8 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val rspPipeline = new Area {
     val input = Flow(PipelineCmd())
-    assert(cp.readLatencies.min + pl.readDelay >= 2)
-    val cmd = input.toStream.queue(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.transferPerBurst-1)/pl.transferPerBurst + 1)) //TODO
+    assert(cp.readLatencies.min + pl.readDelay >= 1)
+    val cmd = input.toStream.queueLowLatency(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.transferPerBurst-1)/pl.transferPerBurst + 1), latency = 1) //TODO
 
     val readHistory = History(input.valid && !input.write, 0 until cp.readLatencies.max + pl.beatCount)
     readHistory.tail.foreach(_ init (False))
