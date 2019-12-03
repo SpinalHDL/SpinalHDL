@@ -80,7 +80,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val allowRead = !RCD.busyNext
   }
   val allowPrechargeAll = RegNext(banks.map(_.allowPrecharge).orR)
-//  val allowPrechargeAll = RegNext(banks.map(_.allowPrechargeNext).orR)
 
 
 

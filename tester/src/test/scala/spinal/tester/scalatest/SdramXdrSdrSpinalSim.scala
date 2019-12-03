@@ -60,7 +60,8 @@ object SpinalSdrTesterHelpers{
   val MOD = 0
 
   val SDRAM_CONFIG = 0x000
-  val SDRAM_CTRL_FLAGS = 0x004
+  val SDRAM_PHASE = 0x004
+  val SDRAM_LATENCY = 0x008
 
 
   val SDRAM_AUTO_REFRESH = 1
@@ -168,21 +169,43 @@ object SpinalSdrTesterHelpers{
     )
   )
 
-  def sdrInit(dut : SdrXdrCtrlPlusRtlPhy, timing : SdramTiming, cas : Int, phyClkRatio : Int): Unit ={
+//  def sdrInit(dut : SdrXdrCtrlPlusRtlPhy, timing : SdramTiming, cas : Int, phyClkRatio : Int): Unit ={
+//    import spinal.core.sim._
+//    Phase.setup {
+//      val apb = Apb3Driver(dut.apb, dut.clockDomain)
+//      //apb.verbose = true
+//
+//      val soft = SoftConfig(timing, dut.clockDomain.frequency.getValue, dut.ctrl.cpa, phyClkRatio)
+//      apb.write(0x10, soft.REF)
+//
+//      apb.write(0x20, (soft.RRD << 24) | (soft.RFC << 16) | (soft.RP << 8)  | (soft.RAS << 0))
+//      apb.write(0x24,                                                         (soft.RCD << 0))
+//      apb.write(0x28, (soft.WTP << 24)  | (soft.WTR << 16) | (soft.RTP << 8) |    (cas+2 << 0))
+//
+//      sleep(100000)
+//
+//      def command(cmd : Int,  bank : Int, address : Int): Unit ={
+//        apb.write(0x10C, bank)
+//        apb.write(0x108, address)
+//        apb.write(0x104, cmd)
+//        apb.write(0x100, 0)
+//        dut.clockDomain.waitSampling(10)
+//      }
+//
+//      command(PRE, 0, 0x400)
+//      command(REF, 0, 0)
+//      command(REF, 0, 0)
+//      command(MOD, 0, 0x000 | (cas << 4))
+//      apb.write(0x04, 1)
+//
+//      dut.clockDomain.waitSampling(10000)
+//    }
+//  }
+
+  def ddr3Init(dut : SdrXdrCtrlPlusRtlPhy, timing : SdramTiming, rl : Int, wl : Int, bl : Int, phyClkRatio : Int, sdramPeriod : Int): Unit ={
     import spinal.core.sim._
     Phase.setup {
       val apb = Apb3Driver(dut.apb, dut.clockDomain)
-      //apb.verbose = true
-
-      val soft = SoftConfig(timing, dut.clockDomain.frequency.getValue, dut.ctrl.cpa, phyClkRatio)
-      apb.write(0x10, soft.REF)
-
-      apb.write(0x20, (soft.RRD << 24) | (soft.RFC << 16) | (soft.RP << 8)  | (soft.RAS << 0))
-      apb.write(0x24,                                                         (soft.RCD << 0))
-      apb.write(0x28, (soft.WTP << 24)  | (soft.WTR << 16) | (soft.RTP << 8) |    (cas+2 << 0))
-
-      sleep(100000)
-
       def command(cmd : Int,  bank : Int, address : Int): Unit ={
         apb.write(0x10C, bank)
         apb.write(0x108, address)
@@ -191,52 +214,47 @@ object SpinalSdrTesterHelpers{
         dut.clockDomain.waitSampling(10)
       }
 
-      command(PRE, 0, 0x400)
-      command(REF, 0, 0)
-      command(REF, 0, 0)
-      command(MOD, 0, 0x000 | (cas << 4))
-      apb.write(0x04, 1)
+      val readToDataCycle = (rl+phyClkRatio-1)/phyClkRatio;
+      val readPhase = readToDataCycle*phyClkRatio-rl;
+      val writeToDataCycle = (wl+phyClkRatio-1)/phyClkRatio;
+      val writePhase = writeToDataCycle*phyClkRatio-wl;
+      val activePhase = 0
+      val prechargePhase = 0
 
-      dut.clockDomain.waitSampling(10000)
-    }
-  }
+//      implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
+      def t2c(startPhase : Int, nextPhase : Int, duration : Int) = (startPhase + (duration + sdramPeriod - 1)/sdramPeriod - nextPhase + phyClkRatio - 1) / phyClkRatio
+      val ctrlPeriod = sdramPeriod*phyClkRatio
+      val cREF = t2c(0, 0, timing.REF)
+      val cRAS = t2c(activePhase     , prechargePhase                 , timing.RAS)
+      val cRP  = t2c(prechargePhase  , activePhase                    , timing.RP)
+      val cRFC = t2c(prechargePhase  , activePhase                    , timing.RFC)
+      val cRRD = t2c(activePhase     , activePhase                    , Math.max(timing.RRD, 4*sdramPeriod))
+      val cRCD = t2c(activePhase     , Math.min(writePhase, readPhase), timing.RCD)
+      val cRTW = t2c(readPhase       , writePhase                     , (rl+bl+2-wl)*sdramPeriod)
+      val cRTP = t2c(readPhase       , prechargePhase                 , Math.max(timing.RTP, 4*sdramPeriod))
+      val cWTR = t2c(writePhase      , readPhase                      , Math.max(timing.WTR, 4*sdramPeriod) + (wl+bl)*sdramPeriod)
+      val cWTP = t2c(writePhase      , prechargePhase                 , timing.WTP + (wl+bl)*sdramPeriod)
+      val cFAW = t2c(activePhase     , activePhase                    , timing.FAW)
 
-  def ddr3Init(dut : SdrXdrCtrlPlusRtlPhy, timing : SdramTiming, cl : Int, wr : Int, phyClkRatio : Int): Unit ={
-    import spinal.core.sim._
-    Phase.setup {
-      val apb = Apb3Driver(dut.apb, dut.clockDomain)
-      def command(cmd : Int,  bank : Int, address : Int): Unit ={
-        apb.write(0x10C, bank)
-        apb.write(0x108, address)
-        apb.write(0x104, cmd)
-        apb.write(0x100, 0)
-        dut.clockDomain.waitSampling(10)
-      }
+      apb.write( SDRAM_PHASE, (prechargePhase << 24) | (activePhase << 16) | (readPhase << 8)   | (writePhase << 0));
+      apb.write( SDRAM_LATENCY, 0)
+      apb.write( SDRAM_CONFIG, SDRAM_NO_ACTIVE);
 
-      val commandToDataCycle = (cl+phyClkRatio-1)/phyClkRatio;
-      val commandPhase = commandToDataCycle*phyClkRatio-cl;
-      val sdramConfig = commandPhase | (commandToDataCycle-1 << 16);
-
-
-      val soft = SoftConfig(timing, dut.clockDomain.frequency.getValue, dut.ctrl.cpa, phyClkRatio)
-      apb.write( SDRAM_CONFIG, sdramConfig);
-      apb.write( SDRAM_CTRL_FLAGS, SDRAM_NO_ACTIVE);
-
-      apb.write(0x10, soft.REF-1)
+      apb.write(0x10, cREF-1)
 
       def sat(v : Int) = v.max(0)
-      apb.write(0x20, (sat(soft.RRD-2) << 24) | (sat(soft.RFC-2) << 16) | (sat(soft.RP-2) << 8)   | (sat(soft.RAS-2) << 0))
-      apb.write(0x24,                                                                               (sat(soft.RCD-2) << 0))
-      apb.write(0x28, (sat(soft.WTP-2) << 24)  | (sat(soft.WTR-2) << 16) | (sat(soft.RTP-2) << 8)   | (sat(soft.RTW-2) << 0))
+      apb.write(0x20, (sat(cRRD-2) << 24) | (sat(cRFC-2) << 16) | (sat(cRP-2) << 8)   | (sat(cRAS-2) << 0))
+      apb.write(0x24,                                                                               (sat(cRCD-2) << 0))
+      apb.write(0x28, (sat(cWTP-2) << 24)  | (sat(cWTR-2) << 16) | (sat(cRTP-2) << 8)   | (sat(cRTW-2) << 0))
 
 
       def io_udelay(us : Int) = {}//sleep(us*1000000)
 
-      apb.write(SDRAM_FAW, soft.FAW-1);
+      apb.write(SDRAM_FAW, cFAW-1);
 
-      var ODTend = (1 << (commandPhase + 6)%phyClkRatio)-1
+      var ODTend = (1 << (writePhase + 6)%phyClkRatio)-1
       if(ODTend == 0) ODTend = (1 << phyClkRatio)-1
-      val ODT = (commandPhase+6+phyClkRatio-1)/phyClkRatio-1
+      val ODT = (writePhase+6+phyClkRatio-1)/phyClkRatio-1
       apb.write(SDRAM_ODT, (ODT << 0) | (ODTend << 8));
 
       apb.write(SDRAM_SOFT_CLOCKING, 0);
@@ -245,19 +263,19 @@ object SpinalSdrTesterHelpers{
       io_udelay(500);
       apb.write(SDRAM_SOFT_CLOCKING, SDRAM_RESETN | SDRAM_CKE);
 
-      val clConfig = (cl - 3) & 0xF;
-      val wlConfig = (cl - 5);
+      val wlConfig = (wl - 5);
       val wrToMr = List(1,2,3,4,-1,5,-1,6,-1,7,-1,0);
+      val rlToMr = List(2,4,6,8,10,12,14,1,3,5);
       command(SDRAM_MOD, 2, 0x200 | (wlConfig << 3));
       command(SDRAM_MOD, 3, 0);
       command(SDRAM_MOD, 1, 0x44);
-      command(SDRAM_MOD, 0, (wrToMr(wr - 5) << 9) | 0x100 | ((clConfig & 1) << 2) | ((clConfig & 0xE) << 3)); //DDL reset
+      command(SDRAM_MOD, 0, (wrToMr(wl - 5) << 9) | 0x100 | ((rlToMr(rl-5) & 1) << 2) | ((rlToMr(rl-5) & 0xE) << 3)); //DDL reset
       io_udelay(100);
       command(SDRAM_ZQCL, 0, 0x400);
       io_udelay(100);
 
 
-      apb.write(SDRAM_CTRL_FLAGS, 0);
+      apb.write(SDRAM_CONFIG, 0);
 
       dut.clockDomain.waitSampling(10000)
     }
@@ -322,21 +340,33 @@ object SdramSdrRtlPhyTesterSpinalSim extends App{
   val bl = 4
   val phyClkRatio = 2
   val sdramPeriod = 3300
+
+//  val timing = SdramTiming(
+//    REF = ( 7800000 ps, 0),
+//    RAS = (   35000 ps, 0),
+//    RP  = (   13750 ps, 0),
+//    RFC = (  160000 ps, 0),
+//    RRD = (    7500 ps, 4),
+//    RCD = (   13750 ps, 0),
+//    RTW = (          (cl+bl+2-wl)*sdramPeriod ps, 0),
+//    RTP = (  7500   ps, 4),
+//    WTR = ( (7500  + (wl+bl)*sdramPeriod) ps, wl+bl+4),
+//    WTP = ( (15000 + (wl+bl)*sdramPeriod) ps, 0),
+//    FAW = (   40000 ps, 0)
+//  )
+
   val timing = SdramTiming(
-    REF = ( 7800000 ps, 0),
-    RAS = (   35000 ps, 0),
-    RP  = (   13750 ps, 0),
-    RFC = (  160000 ps, 0),
-    RRD = (    7500 ps, 4),
-    RCD = (   13750 ps, 4),
-    RTW = (          (cl+bl+2-wl)*sdramPeriod ps, 0),
-    RTP = (  7500   ps, 4),
-    WTR = ( (7500  + (wl+bl)*sdramPeriod) ps, wl+bl+4),
-    WTP = ( (15000 + (wl+bl)*sdramPeriod) ps, 0),
-    FAW = (   40000 ps, 0)
+    REF =  7800000,
+    RAS =    35000,
+    RP  =    13750,
+    RFC =   160000,
+    RRD =     7500,
+    RCD =    13750,
+    RTP =     7500,
+    WTR =     7500,
+    WTP =    15000,
+    FAW =    40000
   )
-
-
   //  val sl = MT48LC16M16A2.layout
 //  val pl = SdrInferedPhy.phyLayout(sl)
   val sl = MT41K128M16JT.layout
@@ -365,9 +395,11 @@ object SdramSdrRtlPhyTesterSpinalSim extends App{
     SpinalSdrTesterHelpers.ddr3Init(
       dut = dut,
       timing = timing,
-      cl = cl,
-      wr = wl,
-      phyClkRatio = phyClkRatio
+      rl = cl,
+      wl = wl,
+      bl = bl,
+      phyClkRatio = phyClkRatio,
+      sdramPeriod = sdramPeriod
     )
 
     fork {

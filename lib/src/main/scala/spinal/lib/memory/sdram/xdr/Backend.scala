@@ -5,7 +5,6 @@ import spinal.lib._
 import spinal.lib.memory.sdram.SdramGeneration
 
 case class Backend(cpa: CoreParameterAggregate) extends Component {
-
   import cpa._
 
 
@@ -18,15 +17,6 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     val soft = slave(SoftBus(cpa))
   }
 
-
-  val command = new Area {
-    val CSn = False
-    val RASn = True
-    val CASn = True
-    val WEn = True
-    val CKE = True
-  }
-
   io.phy.ADDR.assignDontCare()
   io.phy.BA.assignDontCare()
   for ((phase, id) <- io.phy.phases.zipWithIndex) {
@@ -37,13 +27,6 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     phase.CASn := True
     phase.WEn := True
     phase.CKE := True
-
-    when(io.config.commandPhase === id) {
-      phase.CSn := command.CSn
-      phase.RASn := command.RASn
-      phase.CASn := command.CASn
-      phase.WEn := command.WEn
-    }
 
     phase.DQw.assignDontCare()
     phase.DM.assignDontCare()
@@ -61,7 +44,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
     for ((phase, id) <- io.phy.phases.zipWithIndex) {
       phase.ODT := False
-      phase.ODT setWhen(start && id >= io.config.commandPhase)
+      phase.ODT setWhen(start && id >= io.config.phase.write)
       phase.ODT setWhen(counter > 1)
       phase.ODT setWhen(counter === 1 && io.config.ODTend(id))
     }
@@ -178,34 +161,45 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   rspPipeline.input.source := muxedCmd.source
   rspPipeline.input.write.assignDontCare()
 
+  val phase = new {
+    def precharge = io.phy.phases(io.config.phase.precharge)
+    def active = io.phy.phases(io.config.phase.active)
+    def read = io.phy.phases(io.config.phase.read)
+    def write = io.phy.phases(io.config.phase.write)
+  }
 
   when(io.input.prechargeAll) {
     io.phy.ADDR(10) := True
-    command.CSn := False
-    command.RASn := False
-    command.WEn := False
+    phase.precharge.CSn := False
+    phase.precharge.RASn := False
+    phase.precharge.WEn := False
+  }
+  when(io.input.refresh){
+    phase.precharge.CSn := False
+    phase.precharge.RASn := False
+    phase.precharge.CASn := False
   }
   when(portEvent(p => p.precharge)) {
     io.phy.ADDR := muxedCmd.address.row.asBits.resized
     io.phy.ADDR(10) := False
     io.phy.BA := muxedCmd.address.bank.asBits
-    command.CSn := False
-    command.RASn := False
-    command.WEn := False
+    phase.precharge.CSn := False
+    phase.precharge.RASn := False
+    phase.precharge.WEn := False
   }
   when(portEvent(p => p.active)) {
     io.phy.ADDR := muxedCmd.address.row.asBits.resized
     io.phy.BA := muxedCmd.address.bank.asBits
-    command.CSn := False
-    command.RASn := io.config.noActive
+    phase.active.CSn := False
+    phase.active.RASn := io.config.noActive
   }
   when(portEvent(p => p.write)) {
     io.phy.ADDR := muxedCmd.address.column.asBits.resized
     io.phy.ADDR(10) := False
     io.phy.BA := muxedCmd.address.bank.asBits
-    command.CSn := False
-    command.CASn := False
-    command.WEn := False
+    phase.write.CSn := False
+    phase.write.CASn := False
+    phase.write.WEn := False
     rspPipeline.input.valid := True
     rspPipeline.input.write := True
     if(generation.ODT) odt.start := True
@@ -215,17 +209,17 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     io.phy.ADDR(10) := False
     io.phy.BA := muxedCmd.address.bank.asBits
     if(pl.sdram.generation == SdramGeneration.SDR) io.phy.phases.foreach(_.DM.foreach(_.setAll()))
-    command.CSn := False
-    command.CASn := False
+    phase.read.CSn := False
+    phase.read.CASn := False
     rspPipeline.input.valid := True
     rspPipeline.input.write := False
   }
   when(io.soft.cmd.valid) {
     io.phy.ADDR := io.soft.cmd.ADDR
     io.phy.BA := io.soft.cmd.BA
-    command.CASn := io.soft.cmd.CASn
-    command.CSn := io.soft.cmd.CSn
-    command.RASn := io.soft.cmd.RASn
-    command.WEn := io.soft.cmd.WEn
+    io.phy.phases(0).CASn := io.soft.cmd.CASn
+    io.phy.phases(0).CSn := io.soft.cmd.CSn
+    io.phy.phases(0).RASn := io.soft.cmd.RASn
+    io.phy.phases(0).WEn := io.soft.cmd.WEn
   }
 }

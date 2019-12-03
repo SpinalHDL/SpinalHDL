@@ -201,39 +201,38 @@ case class SdramAddress(l : SdramLayout) extends Bundle {
 
 
                           //max(Time, cycle)
-case class SdramTiming(RFC : (TimeNumber, Int), // Command Period (REF to ACT)
-                       RAS : (TimeNumber, Int), // Command Period (ACT to PRE)   Per bank
-                       RP  : (TimeNumber, Int), // Command Period (PRE to ACT)
-                       RCD : (TimeNumber, Int), // Active Command To Read / Write Command Delay Time
-                       WTR : (TimeNumber, Int), // WRITE to READ
-                       WTP  : (TimeNumber, Int), // WRITE to PRE (WRITE recovery time)
-                       RTW : (TimeNumber, Int), // READ to WRITE
-                       RTP : (TimeNumber, Int), // READ to PRE
-                       RRD : (TimeNumber, Int), // ACT to ACT cross bank
-                       REF : (TimeNumber, Int), // Refresh Cycle Time (that cover all row)
-                       FAW : (TimeNumber, Int)) // Four ACTIVATE windows
+case class SdramTiming(RFC : Int, // Command Period (REF to ACT)
+                       RAS : Int, // Command Period (ACT to PRE)   Per bank
+                       RP  : Int, // Command Period (PRE to ACT)
+                       RCD : Int, // Active Command To Read / Write Command Delay Time
+                       WTR : Int, // WRITE to READ
+                       WTP : Int, // WRITE to PRE (WRITE recovery time)
+                       RTP : Int, // READ to PRE
+                       RRD : Int, // ACT to ACT cross bank
+                       REF : Int, // Refresh Cycle Time (single row)
+                       FAW : Int) // Four ACTIVATE windows
 
-object SoftConfig{
-  def apply(timing : SdramTiming,
-            frequancy : HertzNumber,
-            cpa : CoreParameterAggregate,
-            phyClockRatio : Int): SoftConfig = {
-    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
-    SoftConfig(
-      RFC = timing.RFC,
-      RAS = timing.RAS,
-      RP  = timing.RP ,
-      WTP = timing.WTP ,
-      RCD = timing.RCD,
-      RTW = timing.RTW,
-      WTR = timing.WTR,
-      RTP = timing.RTP,
-      RRD = timing.RRD,
-      REF = timing.REF,
-      FAW = timing.FAW
-    )
-  }
-}
+//object SoftConfig{
+//  def apply(timing : SdramTiming,
+//            frequancy : HertzNumber,
+//            cpa : CoreParameterAggregate,
+//            phyClockRatio : Int): SoftConfig = {
+//    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
+//    SoftConfig(
+//      RFC = timing.RFC,
+//      RAS = timing.RAS,
+//      RP  = timing.RP ,
+//      WTP = timing.WTP ,
+//      RCD = timing.RCD,
+//      RTW = timing.RTW,
+//      WTR = timing.WTR,
+//      RTP = timing.RTP,
+//      RRD = timing.RRD,
+//      REF = timing.REF,
+//      FAW = timing.FAW
+//    )
+//  }
+//}
 case class SoftConfig(RFC: Int,
                       RAS: Int,
                       RP: Int,
@@ -249,7 +248,6 @@ case class SoftConfig(RFC: Int,
 case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
-  val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
   val RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(cp.timingWidth bits)
@@ -260,12 +258,22 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val REF = UInt(cp.refWidth bits)
   val autoRefresh, noActive = Bool()
 
+  val phase = new Bundle {
+    val active = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val precharge = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val read = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val write = UInt(log2Up(cpa.pl.phaseCount) bits)
+  }
+
   def driveFrom(mapper : BusSlaveFactory) = new Area {
-    mapper.drive(commandPhase, 0x00,  0) randBoot()
-    mapper.drive(writeLatency, 0x00, 16) randBoot()
-    mapper.drive(readLatency,  0x00, 24) randBoot()
-    mapper.drive(autoRefresh,  0x04,  0) init(False)
-    mapper.drive(noActive,     0x04,  1) init(False)
+    mapper.drive(autoRefresh,  0x00,  0) init(False)
+    mapper.drive(noActive,     0x00,  1) init(False)
+    mapper.drive(phase.write, 0x04,  0)
+    mapper.drive(phase.read, 0x04,  8)
+    mapper.drive(phase.active, 0x04,  16)
+    mapper.drive(phase.precharge, 0x04,  24)
+    mapper.drive(writeLatency, 0x08, 0) randBoot()
+    mapper.drive(readLatency,  0x08, 8) randBoot()
 
     mapper.drive(REF, 0x10,  0) randBoot()
 
