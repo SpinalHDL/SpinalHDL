@@ -491,7 +491,7 @@ trait Nameable extends OwnableRef with ContextUser{
   }
 
   def reflectNames(): Unit = {
-    Misc.reflect(this, (name, obj) => {
+    def reflectName(name: String, obj: Any): Unit = {
       obj match {
         case component: Component =>
           if (component.parent == this.component) {
@@ -514,9 +514,19 @@ trait Nameable extends OwnableRef with ContextUser{
               }
             }
           }
+        case it: Iterable[Any] =>
+          it.zipWithIndex.foreach {case (subObj, i) =>
+            reflectName(s"${name}_$i", subObj)
+
+            if (subObj.isInstanceOf[Nameable]) {
+              subObj.asInstanceOf[Nameable].reflectNames()
+            }
+          }
         case _ =>
       }
-    })
+    }
+
+    Misc.reflect(this, reflectName)
   }
 
 }
