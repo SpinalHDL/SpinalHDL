@@ -26,7 +26,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     phase.RASn := True
     phase.CASn := True
     phase.WEn := True
-    phase.CKE := True
+    phase.CKE := io.soft.CKE
 
     phase.DQw.assignDontCare()
     phase.DM.assignDontCare()
