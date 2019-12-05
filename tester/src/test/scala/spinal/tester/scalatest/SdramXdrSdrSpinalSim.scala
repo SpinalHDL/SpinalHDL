@@ -50,47 +50,46 @@ class SdrXdrCtrlPlusRtlPhy(val cp : CtrlParameter,val pl : PhyLayout) extends Sd
 }
 
 object SpinalSdrTesterHelpers{
-  val CSn = 1 << 1
-  val RASn = 1 << 2
-  val CASn = 1 << 3
-  val WEn = 1 << 4
+  def CSn = 1 << 1
+  def RASn = 1 << 2
+  def CASn = 1 << 3
+  def WEn = 1 << 4
 
-  val PRE = CASn
-  val REF = WEn
-  val MOD = 0
+  def PRE = CASn
+  def REF = WEn
+  def MOD = 0
 
-  val SDRAM_CONFIG = 0x000
-  val SDRAM_PHASE = 0x004
-  val SDRAM_LATENCY = 0x008
+  def SDRAM_CONFIG = 0x000
+  def SDRAM_PHASE = 0x004
+  def SDRAM_LATENCY = 0x008
 
+  def SDRAM_AUTO_REFRESH = 1
+  def SDRAM_NO_ACTIVE = 2
 
-  val SDRAM_AUTO_REFRESH = 1
-  val SDRAM_NO_ACTIVE = 2
+  def SDRAM_SOFT_PUSH = 0x100
+  def SDRAM_SOFT_CMD = 0x104
+  def SDRAM_SOFT_ADDR = 0x108
+  def SDRAM_SOFT_BA = 0x10C
+  def SDRAM_SOFT_CLOCKING = 0x110
 
-  val SDRAM_SOFT_PUSH = 0x100
-  val SDRAM_SOFT_CMD = 0x104
-  val SDRAM_SOFT_ADDR = 0x108
-  val SDRAM_SOFT_BA = 0x10C
-  val SDRAM_SOFT_CLOCKING = 0x110
-
-  val SDRAM_FAW = 0x030
-  val SDRAM_ODT = 0x034
-
-
-  val SDRAM_RESETN = 1
-  val SDRAM_CKE = 2
+  def SDRAM_FAW = 0x030
+  def SDRAM_ODT = 0x034
 
 
-  val SDRAM_CSN = (1 << 1)
-  val SDRAM_RASN  = (1 << 2)
-  val SDRAM_CASN  = (1 << 3)
-  val SDRAM_WEN  = (1 << 4)
+  def SDRAM_RESETN = 1
+  def SDRAM_CKE = 2
 
 
-  val SDRAM_PRE = (SDRAM_CASN)
-  val SDRAM_REF = (SDRAM_WEN)
-  val SDRAM_MOD = (0)
-  val SDRAM_ZQCL = (SDRAM_RASN | SDRAM_CASN)
+  def SDRAM_CSN = (1 << 1)
+  def SDRAM_RASN  = (1 << 2)
+  def SDRAM_CASN  = (1 << 3)
+  def SDRAM_WEN  = (1 << 4)
+
+
+  def SDRAM_PRE = (SDRAM_CASN)
+  def SDRAM_REF = (SDRAM_WEN)
+  def SDRAM_MOD = (0)
+  def SDRAM_ZQCL = (SDRAM_RASN | SDRAM_CASN)
 
 
 
@@ -223,6 +222,7 @@ object SpinalSdrTesterHelpers{
 
 //      implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
       def t2c(startPhase : Int, nextPhase : Int, duration : Int) = (startPhase + (duration + sdramPeriod - 1)/sdramPeriod - nextPhase + phyClkRatio - 1) / phyClkRatio
+      def sat(v : Int) = v.max(0)
       val ctrlPeriod = sdramPeriod*phyClkRatio
       val cREF = t2c(0, 0, timing.REF)
       val cRAS = t2c(activePhase     , prechargePhase                 , timing.RAS)
@@ -241,16 +241,14 @@ object SpinalSdrTesterHelpers{
       apb.write( SDRAM_CONFIG, SDRAM_NO_ACTIVE);
 
       apb.write(0x10, cREF-1)
-
-      def sat(v : Int) = v.max(0)
       apb.write(0x20, (sat(cRRD-2) << 24) | (sat(cRFC-2) << 16) | (sat(cRP-2) << 8)   | (sat(cRAS-2) << 0))
-      apb.write(0x24,                                                                               (sat(cRCD-2) << 0))
+      apb.write(0x24,                                                                    (sat(cRCD-2) << 0))
       apb.write(0x28, (sat(cWTP-2) << 24)  | (sat(cWTR-2) << 16) | (sat(cRTP-2) << 8)   | (sat(cRTW-2) << 0))
-
+      apb.write(SDRAM_FAW, cFAW-1);
 
       def io_udelay(us : Int) = {}//sleep(us*1000000)
 
-      apb.write(SDRAM_FAW, cFAW-1);
+
 
       var ODTend = (1 << (writePhase + 6)%phyClkRatio)-1
       if(ODTend == 0) ODTend = (1 << phyClkRatio)-1
@@ -263,10 +261,10 @@ object SpinalSdrTesterHelpers{
       io_udelay(500);
       apb.write(SDRAM_SOFT_CLOCKING, SDRAM_RESETN | SDRAM_CKE);
 
-      val wlConfig = (wl - 5);
+
       val wrToMr = List(1,2,3,4,-1,5,-1,6,-1,7,-1,0);
       val rlToMr = List(2,4,6,8,10,12,14,1,3,5);
-      command(SDRAM_MOD, 2, 0x200 | (wlConfig << 3));
+      command(SDRAM_MOD, 2, 0x200 | ((wl - 5) << 3));
       command(SDRAM_MOD, 3, 0);
       command(SDRAM_MOD, 1, 0x44);
       command(SDRAM_MOD, 0, (wrToMr(wl - 5) << 9) | 0x100 | ((rlToMr(rl-5) & 1) << 2) | ((rlToMr(rl-5) & 0xE) << 3)); //DDL reset
