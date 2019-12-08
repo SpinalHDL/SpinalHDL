@@ -65,7 +65,7 @@ case class BmbAdapter(pp : BmbPortParameter,
 
   //Do not need to check that write data are available for the given address pop, as the converter push write address on last beat
   cmdAddressBuffer.push << inputLogic.converter.io.output.cmd
-  cmdAddressBufferPop.haltWhen(toManyPendingRsp || RegNext(io.refresh)).m2sPipe() >> io.output.cmd
+  cmdAddressBufferPop.m2sPipe().haltWhen(toManyPendingRsp || RegNext(io.refresh)) >> io.output.cmd //No pipelining after the halt please
   cmdDataBuffer.push << inputLogic.converter.io.output.writeData
   cmdDataBuffer.pop >> io.output.writeData
   rspBuffer.push << io.output.rsp
