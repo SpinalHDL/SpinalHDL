@@ -109,7 +109,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   val rspPipeline = new Area {
     val input = Flow(PipelineCmd())
     assert(cp.readLatencies.min + pl.readDelay >= 1)
-    val cmd = input.toStream.queueLowLatency(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.transferPerBurst-1)/pl.transferPerBurst + 1), latency = 1) //TODO
+    val cmd = input.toStream.queueLowLatency(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.beatCount-1)/pl.beatCount + 1), latency = 1) //TODO
 
     val readHistory = History(input.valid && !input.write, 0 until cp.readLatencies.max + pl.beatCount)
     readHistory.tail.foreach(_ init (False))
@@ -175,9 +175,9 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     phase.precharge.WEn := False
   }
   when(io.input.refresh){
-    phase.precharge.CSn := False
-    phase.precharge.RASn := False
-    phase.precharge.CASn := False
+    phase.active.CSn := False
+    phase.active.RASn := False
+    phase.active.CASn := False
   }
   when(portEvent(p => p.precharge)) {
     io.phy.ADDR := muxedCmd.address.row.asBits.resized
