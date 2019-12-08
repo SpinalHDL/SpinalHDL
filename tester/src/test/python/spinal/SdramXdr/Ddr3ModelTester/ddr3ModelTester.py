@@ -105,8 +105,8 @@ def test1(dut):
 
     cocotb.fork(genClock(dut.ck, dut.ck_n, clockPeriod//phaseCount))
 
-    map(phy, "ctrl_io_phy_ADDR", lambda v : dut.addr <= v)
-    map(phy, "ctrl_io_phy_BA", lambda v : dut.ba <= v)
+    map(top, "ADDR", lambda v : dut.addr <= v)
+    map(top, "BA", lambda v : dut.ba <= v)
     map(top, "CASn", lambda v : dut.cas_n <= v)
     map(top, "CKE", lambda v : dut.cke <= v)
     map(top, "CSn", lambda v : dut.cs_n <= v)

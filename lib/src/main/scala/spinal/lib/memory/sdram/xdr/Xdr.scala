@@ -273,7 +273,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
     mapper.drive(phase.active, 0x04,  16)
     mapper.drive(phase.precharge, 0x04,  24)
     mapper.drive(writeLatency, 0x08, 0) randBoot()
-    mapper.drive(readLatency,  0x08, 8) randBoot()
+    mapper.drive(readLatency,  0x0C, 0) randBoot()
 
     mapper.drive(REF, 0x10,  0) randBoot()
 

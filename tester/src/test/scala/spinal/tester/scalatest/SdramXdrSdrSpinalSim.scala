@@ -40,6 +40,8 @@ class SdrXdrCtrlPlusRtlPhy(val cp : CtrlParameter,val pl : PhyLayout) extends Sd
   clockCounter := clockCounter + 1
 
   val sel = in UInt(log2Up(pl.phaseCount) bits)
+  val ADDR = out(CombInit(ctrl.io.phy.ADDR))
+  val BA = out(CombInit(ctrl.io.phy.BA))
   val CASn = out(ctrl.io.phy.phases.map(_.CASn).read(sel))
   val CKE = out(ctrl.io.phy.phases.map(_.CKE).read(sel))
   val CSn = out(ctrl.io.phy.phases.map(_.CSn).read(sel))
@@ -61,7 +63,8 @@ object SpinalSdrTesterHelpers{
 
   def SDRAM_CONFIG = 0x000
   def SDRAM_PHASE = 0x004
-  def SDRAM_LATENCY = 0x008
+  def SDRAM_WRITE_LATENCY = 0x008
+  def SDRAM_READ_LATENCY = 0x00C
 
   def SDRAM_AUTO_REFRESH = 1
   def SDRAM_NO_ACTIVE = 2
@@ -227,7 +230,7 @@ object SpinalSdrTesterHelpers{
       val cREF = t2c(0, 0, timing.REF)
       val cRAS = t2c(activePhase     , prechargePhase                 , timing.RAS)
       val cRP  = t2c(prechargePhase  , activePhase                    , timing.RP)
-      val cRFC = t2c(prechargePhase  , activePhase                    , timing.RFC)
+      val cRFC = t2c(activePhase     , activePhase                    , timing.RFC)
       val cRRD = t2c(activePhase     , activePhase                    , Math.max(timing.RRD, 4*sdramPeriod))
       val cRCD = t2c(activePhase     , Math.min(writePhase, readPhase), timing.RCD)
       val cRTW = t2c(readPhase       , writePhase                     , (rl+bl+2-wl)*sdramPeriod)
@@ -237,7 +240,8 @@ object SpinalSdrTesterHelpers{
       val cFAW = t2c(activePhase     , activePhase                    , timing.FAW)
 
       apb.write( SDRAM_PHASE, (prechargePhase << 24) | (activePhase << 16) | (readPhase << 8)   | (writePhase << 0));
-      apb.write( SDRAM_LATENCY, 0)
+      apb.write( SDRAM_WRITE_LATENCY, 0)
+      apb.write( SDRAM_READ_LATENCY, 0)
       apb.write( SDRAM_CONFIG, SDRAM_NO_ACTIVE);
 
       apb.write(0x10, cREF-1)
@@ -273,7 +277,7 @@ object SpinalSdrTesterHelpers{
       io_udelay(100);
 
 
-      apb.write(SDRAM_CONFIG, 0);
+      apb.write(SDRAM_CONFIG, SDRAM_AUTO_REFRESH);
 
       dut.clockDomain.waitSampling(10000)
     }
@@ -295,7 +299,7 @@ object SpinalSdrTesterHelpers{
       forkClocks = false
     ){
       override def addressGen(bmb: Bmb): Int = Random.nextInt(addressTop)
-      override def transactionCountTarget: Int = 20
+      override def transactionCountTarget: Int = 1000
     }
 
     Phase.setup {

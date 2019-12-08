@@ -1,5 +1,7 @@
 package spinal.lib.memory.sdram.xdr.phy
 
+import java.nio.file.{Files, Paths}
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
@@ -19,6 +21,26 @@ case class RtlPhyInterface(pl : PhyLayout) extends Bundle with IMasterSlave {
   override def asMaster(): Unit = {
     in(clk)
     slave(cmd)
+  }
+
+  def loadBin(offset : Long, path : String): Unit ={
+    import spinal.core.sim._
+    val bytePerBeat = pl.bytePerBeat
+    assert(offset % bytePerBeat == 0)
+    val bin = Files.readAllBytes(Paths.get(path))
+    for(beatId <- 0 until bin.size/bytePerBeat){
+      var data = BigInt(0)
+      for(byteId <- 0 until bytePerBeat){
+        data = data | (BigInt(bin(beatId*bytePerBeat + byteId).toInt & 0xFF) << (byteId*8))
+      }
+      clk #= false
+      cmd.valid #= true
+      cmd.address #= offset/bytePerBeat + beatId
+      cmd.data #= data
+      sleep(0)
+      clk #= true
+      sleep(0)
+    }
   }
 }
 

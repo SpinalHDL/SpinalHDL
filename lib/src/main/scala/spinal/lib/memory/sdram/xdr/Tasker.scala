@@ -30,8 +30,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
     val value = Reg(UInt(timingWidth bits)) randBoot()
     val notZero = value =/= loadValue
-    val busyNext = CombInit(notZero)
-    val busy = RegNext(busyNext)
+    val busy = CombInit(notZero)
+//    val busy = RegNext(busyNext)
     value := value + notZero.asUInt.resized
     when(loadValid) {
       value := 0
@@ -43,7 +43,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   val RRD = Timing(io.output.ports.map(p => p.active).orR, io.config.RRD)
   val WTR = Timing(io.output.ports.map(p => p.write).orR, io.config.WTR)
   val RTW = Timing(io.output.ports.map(p => p.read).orR, io.config.RTW)
-  val RP  = Timing(io.output.prechargeAll, io.config.RP)
+  val RP  = Timing(io.output.prechargeAll, io.config.RP + 1)
   val FAW = generation.FAW generate new Area{ //Can be optimized
     val trigger = io.output.ports.map(p => p.active).orR
     val ptr = RegInit(U"00")
@@ -74,12 +74,12 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val RCD = Timing(portEvent(p => p.active), io.config.RCD)
     val RTP = Timing(portEvent(p => p.read), io.config.RTP)
 
-    val allowPrecharge = !WR.busyNext && !RAS.busyNext && !RTP.busyNext
-    val allowActive = !RP.busyNext
-    val allowWrite = !RCD.busyNext
-    val allowRead = !RCD.busyNext
+    val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
+    val allowActive = !RP.busy
+    val allowWrite = !RCD.busy
+    val allowRead = !RCD.busy
   }
-  val allowPrechargeAll = RegNext(banks.map(_.allowPrecharge).orR)
+  val allowPrechargeAll = banks.map(_.allowPrecharge).andR
 
 
 
@@ -130,9 +130,9 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
 
     allowPrecharge := True
-    allowActive := !RRD.busyNext && (if(generation.FAW) !FAW.busyNext else True)
-    allowWrite := !RTW.busyNext && (if(CCD != null) !CCD.busyNext else True)
-    allowRead := !WTR.busyNext &&  (if(CCD != null) !CCD.busyNext else True)
+    allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
+    allowWrite := !RTW.busy && (if(CCD != null) !CCD.busy else True)
+    allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
 
     when(!input.isStall) {
       bankHit := banksRow.readAsync(portAddress.bank) === portAddress.row
@@ -238,7 +238,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
           refreshState := 1
         }
         is(1) {
-          when(allowPrechargeAll) {
+          when(RegNext(allowPrechargeAll)) {
             io.output.prechargeAll := True
             refreshState := 2
           }
