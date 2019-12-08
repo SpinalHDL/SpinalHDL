@@ -52,6 +52,13 @@ def countSignal(wave, componentName, prefix, postfix):
                     count += 1
     return count
 
+def getLastValue(wave, componentName, netName):
+    for netinfo in wave.values():
+        for net in netinfo['nets']:
+            if net["hier"] == componentName:
+                if net["name"].startswith(netName):
+                    return int(netinfo['tv'][0][1], 2)
+    raise Exception("????")
 
 @cocotb.coroutine
 def genClock(clkp, clkn, period, delay = 0):
@@ -98,10 +105,13 @@ def test1(dut):
     wave = parse_vcd("/home/miaou/pro/riscv/SaxonSoc.git/simWorkspace/SdrXdrCtrlPlusRtlPhy/test.vcd")
     phy = "TOP.SdrXdrCtrlPlusRtlPhy"
     top = "TOP"
-    phaseCount = countSignal(wave, phy, "ctrl_io_phy_phases_", "_CASn")
+
+    yield Timer(0)
+    print(dir(dut))
+    phaseCount = getLastValue(wave, top, "phaseCount")
     dataRate = 2
     phaseDelay = 0
-    clockPeriod = getClockPeriod(wave, phy, "clk")
+    clockPeriod = getClockPeriod(wave, top, "clk")
 
     cocotb.fork(genClock(dut.ck, dut.ck_n, clockPeriod//phaseCount))
 
@@ -115,7 +125,7 @@ def test1(dut):
     map(top, "RESETn", lambda v : dut.rst_n <= v)
     map(top, "ODT", lambda v : dut.odt <= v)
 
-    cocotb.fork(stimPulse(wave, phy, "ctrl_io_phy_writeEnable", lambda v : cocotb.fork(genDqs(dut.dqs, dut.dqs_n, 1+v/clockPeriod*phaseCount*dataRate//2, clockPeriod//(phaseCount*dataRate)*(phaseCount*dataRate-1), clockPeriod//phaseCount))))
+    cocotb.fork(stimPulse(wave, top, "writeEnable", lambda v : cocotb.fork(genDqs(dut.dqs, dut.dqs_n, 1+v/clockPeriod*phaseCount*dataRate//2, clockPeriod//(phaseCount*dataRate)*(phaseCount*dataRate-1), clockPeriod//phaseCount))))
 
     for fork in forks:
         yield fork

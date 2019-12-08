@@ -40,6 +40,8 @@ class SdrXdrCtrlPlusRtlPhy(val cp : CtrlParameter,val pl : PhyLayout) extends Sd
   clockCounter := clockCounter + 1
 
   val sel = in UInt(log2Up(pl.phaseCount) bits)
+  val phaseCount = out(U(pl.phaseCount))
+  val writeEnable = out(CombInit(ctrl.io.phy.writeEnable))
   val ADDR = out(CombInit(ctrl.io.phy.ADDR))
   val BA = out(CombInit(ctrl.io.phy.BA))
   val CASn = out(ctrl.io.phy.phases.map(_.CASn).read(sel))
@@ -49,6 +51,8 @@ class SdrXdrCtrlPlusRtlPhy(val cp : CtrlParameter,val pl : PhyLayout) extends Sd
   val WEn = out(ctrl.io.phy.phases.map(_.WEn).read(sel))
   val RESETn = out(ctrl.io.phy.phases.map(_.RESETn).read(sel))
   val ODT = out(ctrl.io.phy.phases.map(_.ODT).read(sel))
+
+//  val phyCtrl = out(CombInit(phy.io.ctrl))
 }
 
 object SpinalSdrTesterHelpers{
@@ -375,7 +379,7 @@ object SdramSdrRtlPhyTesterSpinalSim extends App{
   val pl = XilinxS7Phy.phyLayout(sl, phyClkRatio)
 
   val simConfig = SimConfig
-  simConfig.withWave(0)
+  simConfig.withWave(1)
   simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
   simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
   simConfig.compile({
