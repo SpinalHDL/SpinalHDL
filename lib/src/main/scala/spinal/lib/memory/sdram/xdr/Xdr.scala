@@ -16,6 +16,7 @@ case class PhyLayout(sdram : SdramLayout,
                      // inputLatency : Int,
                      readDelay : Int, //Max delay between readEnable and readValid
                      writeDelay : Int, //Delay between writeEnable and data/dm
+                     cmdToDqDelayDelta : Int, //How many cycle extra the DQ need to be on the pin compared to CAS/RAS
                      transferPerBurst : Int){ //How many transfer per per burst
   import sdram._
   def beatWidth = phaseCount * dataRate * dataWidth

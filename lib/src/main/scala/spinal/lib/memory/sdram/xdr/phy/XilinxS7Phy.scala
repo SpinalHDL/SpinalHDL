@@ -16,6 +16,7 @@ object XilinxS7Phy{
     outputLatency = 2,
     readDelay = 0,
     writeDelay = 0,
+    cmdToDqDelayDelta = 1,
     transferPerBurst = 8
   )
 }

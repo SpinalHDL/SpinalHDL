@@ -16,6 +16,7 @@ object SdrInferedPhy{
     outputLatency = 1,
     readDelay = 0,
     writeDelay = 0,
+    cmdToDqDelayDelta = 0,
     transferPerBurst = 1
   )
 }
