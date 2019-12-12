@@ -5,25 +5,36 @@ import spinal.lib._
 import spinal.lib.blackbox.xilinx.s7.{BUFG, BUFIO, IDELAYCTRL, IDELAYE2, IOBUF, IOBUFDS, ISERDESE2, OBUFDS, ODELAYE2, OSERDESE2}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
-import spinal.lib.memory.sdram.xdr.{Phy, PhyParameter, SdramXdrIo}
+import spinal.lib.memory.sdram.xdr.{PhyLayout, SdramXdrIo, SdramXdrPhyCtrl}
 
 
 object XilinxS7Phy{
-  def memoryLayoutToPhyLayout(sl : SdramLayout, clkRatio : Int) = PhyParameter(
+  def phyLayout(sl : SdramLayout, clkRatio : Int) = PhyLayout(
     sdram = sl,
     phaseCount = clkRatio,
-    dataRatio = 2,
+    dataRate = 2,
     outputLatency = 2,
-    inputLatency = 2,
-    burstLength = 8
+    readDelay = 0,
+    writeDelay = 0,
+    cmdToDqDelayDelta = 1,
+    transferPerBurst = 8
   )
 }
 
 
 
 
-case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, serdesClk0 : ClockDomain, serdesClk90 : ClockDomain) extends Phy[SdramXdrIo](XilinxS7Phy.memoryLayoutToPhyLayout(sl, clkRatio)){
-  override def MemoryBus(): SdramXdrIo = SdramXdrIo(sl)
+case class XilinxS7Phy(sl : SdramLayout,
+                       clkRatio : Int,
+                       clk90 : ClockDomain,
+                       serdesClk0 : ClockDomain,
+                       serdesClk90 : ClockDomain) extends Component{
+  val pl = XilinxS7Phy.phyLayout(sl, clkRatio)
+
+  val io = new Bundle {
+    val ctrl = slave(SdramXdrPhyCtrl(pl))
+    val sdram = master(SdramXdrIo(sl))
+  }
 
   assert(clkRatio == 2)
   val phaseCount = clkRatio
@@ -43,7 +54,7 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     outputPolarity = HIGH
   )
 
-  clk270.setSynchronousWith(ClockDomain.current)
+//  clk270.setSynchronousWith(ClockDomain.current)
 
   val idelayctrl = IDELAYCTRL()
   idelayctrl.REFCLK := serdesClk90.readClockWire  //TODO serdesClk90
@@ -90,27 +101,27 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
 
   val clkBuf = OBUFDS()
   clkBuf.I := seqToOutput("CK", Seq.fill(phaseCount)(Seq(True, False)).flatten, phase90 = true)._1
-  io.memory.CK := clkBuf.O
-  io.memory.CKn := clkBuf.OB
+  io.sdram.CK := clkBuf.O
+  io.sdram.CKn := clkBuf.OB
 
 
-  for(i <- 0 until sl.chipAddressWidth) io.memory.ADDR(i) := valueToOutput("ADDR", RegNext(io.ctrl.ADDR(i)))
-  for(i <- 0 until sl.bankWidth)        io.memory.BA(i) := valueToOutput("BA", RegNext(io.ctrl.BA(i)))
-  io.memory.CASn := sdrToOutput("CASn", io.ctrl.phases.map(p => RegNext(p.CASn)))
-  io.memory.CKE  := sdrToOutput("CKE", io.ctrl.phases.map(p => RegNext(p.CKE)))
-  io.memory.CSn  := sdrToOutput("CSn", io.ctrl.phases.map(p => RegNext(p.CSn )))
-  io.memory.RASn := sdrToOutput("RASn", io.ctrl.phases.map(p => RegNext(p.RASn)))
-  io.memory.WEn  := sdrToOutput("WEn", io.ctrl.phases.map(p => RegNext(p.WEn )))
-  io.memory.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
-  io.memory.ODT    := sdrToOutput("ODT", io.ctrl.phases.map(p => RegNext(p.ODT)))
+  for(i <- 0 until sl.chipAddressWidth) io.sdram.ADDR(i) := valueToOutput("ADDR", RegNext(io.ctrl.ADDR(i)))
+  for(i <- 0 until sl.bankWidth)        io.sdram.BA(i) := valueToOutput("BA", RegNext(io.ctrl.BA(i)))
+  io.sdram.CASn := sdrToOutput("CASn", io.ctrl.phases.map(p => RegNext(p.CASn)))
+  io.sdram.CKE  := sdrToOutput("CKE", io.ctrl.phases.map(p => RegNext(p.CKE)))
+  io.sdram.CSn  := sdrToOutput("CSn", io.ctrl.phases.map(p => RegNext(p.CSn )))
+  io.sdram.RASn := sdrToOutput("RASn", io.ctrl.phases.map(p => RegNext(p.RASn)))
+  io.sdram.WEn  := sdrToOutput("WEn", io.ctrl.phases.map(p => RegNext(p.WEn )))
+  io.sdram.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
+  io.sdram.ODT    := sdrToOutput("ODT", io.ctrl.phases.map(p => RegNext(p.ODT)))
 
 
 
   val idelayValueIn = in Bits(5 bits)
 
-  val dqe0Reg = RegNext(io.ctrl.DQe) init(False)
-  val dqe270Reg = clk270(RegNext(io.ctrl.DQe) init(False))
-  val dqstReg = clk270(RegNext(Vec((io.ctrl.DQe ## dqe270Reg).mux(
+  val dqe0Reg = RegNext(io.ctrl.writeEnable) init(False)
+  val dqe270Reg = clk270(RegNext(io.ctrl.writeEnable) init(False))
+  val dqstReg = clk270(RegNext(Vec((io.ctrl.writeEnable ## dqe270Reg).mux(
     B"00" -> B"0000",
     B"10" -> B"0011",
     B"11" -> B"1111",
@@ -129,20 +140,21 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
     buf.T := serT
     buf.I := serQ
 
-    io.memory.DQS(i) := buf.IO
-    io.memory.DQSn(i) := buf.IOB
+    io.sdram.DQS(i) := buf.IO
+    io.sdram.DQSn(i) := buf.IOB
 
     def clkin = serdesClk0.readClockWire
   }
 
   val dm = for(i <- 0 until (sl.dataWidth+7)/8) yield new Area{
-    io.memory.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
+    io.sdram.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
   }
 
+  io.ctrl.readValid := io.ctrl.readEnable
 
   val dq = for(i <- 0 until sl.dataWidth) yield new Area{
     val buf = IOBUF()
-    io.memory.DQ(i) := buf.IO
+    io.sdram.DQ(i) := buf.IO
 
     val (serQ, serT) = seqToOutput("DQ", dqReg.map(_.map(_(i))).flatten, List.fill(4)(dqe0Reg))
 
@@ -206,13 +218,13 @@ case class XilinxS7Phy(sl : SdramLayout, clkRatio : Int, clk90 : ClockDomain, se
 //    for(phase <- 0 until phaseCount; ratio <- 0 until pl.dataRatio){
 //      io.ctrl.phases(phase).DQr(ratio)(i) := DQr(phase*pl.dataRatio + ratio)
 //    }
-    for(phase <- 0 until phaseCount; ratio <- 0 until pl.dataRatio){
-      io.ctrl.phases(phase).DQr(ratio)(i) := des.Q((phaseCount*pl.dataRatio-1) - (phase*pl.dataRatio + ratio))
+    for(phase <- 0 until phaseCount; ratio <- 0 until pl.dataRate){
+      io.ctrl.phases(phase).DQr(ratio)(i) := des.Q((phaseCount*pl.dataRate-1) - (phase*pl.dataRate + ratio))
     }
   }
 
 
-  override def driveFrom(mapper: BusSlaveFactory): Unit = {
+  def driveFrom(mapper: BusSlaveFactory): Unit = {
     mapper.drive(idelayValueIn, 0x00)
 //    mapper.drive(Vec(dqs.map(_.idelayLoad)), 0x10)
     mapper.driveMultiWord(Vec(dq.map(_.idelayLoad)), 0x20)
@@ -377,19 +389,19 @@ object SerdesTest extends App{
 //
 //  val clkBuf = OBUFDS()
 //  clkBuf.I := seqToOutput("CK", Seq.fill(phaseCount)(Seq(True, False)).flatten, phase90 = true)._1
-//  io.memory.CK := clkBuf.O
-//  io.memory.CKn := clkBuf.OB
+//  io.sdram.CK := clkBuf.O
+//  io.sdram.CKn := clkBuf.OB
 //
 //
-//  for(i <- 0 until sl.chipAddressWidth) io.memory.ADDR(i) := valueToOutput("ADDR", RegNext(io.ctrl.ADDR(i)))
-//  for(i <- 0 until sl.bankWidth)        io.memory.BA(i) := valueToOutput("BA", RegNext(io.ctrl.BA(i)))
-//  io.memory.CASn := sdrToOutput("CASn", io.ctrl.phases.map(p => RegNext(p.CASn)))
-//  io.memory.CKE  := sdrToOutput("CKE", io.ctrl.phases.map(p => RegNext(p.CKE)))
-//  io.memory.CSn  := sdrToOutput("CSn", io.ctrl.phases.map(p => RegNext(p.CSn )))
-//  io.memory.RASn := sdrToOutput("RASn", io.ctrl.phases.map(p => RegNext(p.RASn)))
-//  io.memory.WEn  := sdrToOutput("WEn", io.ctrl.phases.map(p => RegNext(p.WEn )))
-//  io.memory.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
-//  io.memory.ODT    := sdrToOutput("ODT", io.ctrl.phases.map(p => RegNext(p.ODT)))
+//  for(i <- 0 until sl.chipAddressWidth) io.sdram.ADDR(i) := valueToOutput("ADDR", RegNext(io.ctrl.ADDR(i)))
+//  for(i <- 0 until sl.bankWidth)        io.sdram.BA(i) := valueToOutput("BA", RegNext(io.ctrl.BA(i)))
+//  io.sdram.CASn := sdrToOutput("CASn", io.ctrl.phases.map(p => RegNext(p.CASn)))
+//  io.sdram.CKE  := sdrToOutput("CKE", io.ctrl.phases.map(p => RegNext(p.CKE)))
+//  io.sdram.CSn  := sdrToOutput("CSn", io.ctrl.phases.map(p => RegNext(p.CSn )))
+//  io.sdram.RASn := sdrToOutput("RASn", io.ctrl.phases.map(p => RegNext(p.RASn)))
+//  io.sdram.WEn  := sdrToOutput("WEn", io.ctrl.phases.map(p => RegNext(p.WEn )))
+//  io.sdram.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
+//  io.sdram.ODT    := sdrToOutput("ODT", io.ctrl.phases.map(p => RegNext(p.ODT)))
 //
 //
 //
@@ -416,8 +428,8 @@ object SerdesTest extends App{
 //    buf.T := serT
 //    buf.I := serQ
 //
-//    io.memory.DQS(i) := buf.IO
-//    io.memory.DQSn(i) := buf.IOB
+//    io.sdram.DQS(i) := buf.IO
+//    io.sdram.DQSn(i) := buf.IOB
 //
 //    val idelay = IDELAYE2(
 //      HIGH_PERFORMANCE_MODE = true,
@@ -449,14 +461,14 @@ object SerdesTest extends App{
 //  }
 //
 //  val dm = for(i <- 0 until (sl.dataWidth+7)/8) yield new Area{
-//    io.memory.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
+//    io.sdram.DM(i) := ddrToOutput("DM", dmReg.map(_.map(_(i))))
 //  }
 //
 //
 //  val bitslip = in UInt(log2Up(phaseCount*pl.dataRatio) bits)
 //  val dq = for(i <- 0 until sl.dataWidth) yield new Area{
 //    val buf = IOBUF()
-//    io.memory.DQ(i) := buf.IO
+//    io.sdram.DQ(i) := buf.IO
 //
 //    val (serQ, serT) = seqToOutput("DQ", dqReg.map(_.map(_(i))).flatten, List.fill(4)(dqe0Reg))
 //

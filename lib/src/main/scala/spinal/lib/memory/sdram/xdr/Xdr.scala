@@ -9,24 +9,22 @@ import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
 
 
-case class PhyParameter(sdram : SdramLayout,
-                        phaseCount : Int,
-                        dataRatio : Int,
-                        outputLatency : Int,
-                        inputLatency : Int,
-                        burstLength : Int){
+case class PhyLayout(sdram : SdramLayout,
+                     phaseCount : Int, //How many DRAM clock per core clock
+                     dataRate : Int, //(SDR=1, DDR=2, QDR=4)
+                     outputLatency : Int, //Max delay for a command on the phy to arrive on the sdram
+                     // inputLatency : Int,
+                     readDelay : Int, //Max delay between readEnable and readValid
+                     writeDelay : Int, //Delay between writeEnable and data/dm
+                     cmdToDqDelayDelta : Int, //How many cycle extra the DQ need to be on the pin compared to CAS/RAS
+                     transferPerBurst : Int){ //How many transfer per per burst
   import sdram._
-  def beatWidth = phaseCount * dataRatio * dataWidth
-  def beatCount = burstLength / phaseCount / dataRatio
-  def wordWidth = dataWidth*burstLength
+  def beatWidth = phaseCount * dataRate * dataWidth
+  def beatCount = transferPerBurst / phaseCount / dataRate
+  def burstWidth = dataWidth*transferPerBurst
   def bytePerDq = dataWidth/8
-  def bytePerWord = wordWidth/8
-  def wordAddressWidth = bankWidth + columnWidth + rowWidth
-  def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerDq)
-  def chipAddressWidth = Math.max(columnWidth,rowWidth)
-  def bankCount = 1 << bankWidth
-  def capacity = BigInt(1) << byteAddressWidth
-  def columnSize = 1 << columnWidth
+  def bytePerBurst = burstWidth/8
+  def bytePerBeat = beatWidth/8
 }
 case class Timing()
 case class Timings(      bootRefreshCount : Int, // Number of refresh command done in the boot sequence
@@ -90,7 +88,7 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //  }
 //}
 
-case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrlPhase(pl : PhyLayout) extends Bundle with IMasterSlave{
   val CASn  = Bool()
   val CKE   = Bool()
   val CSn   = Bool()
@@ -99,8 +97,8 @@ case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSl
   val RESETn = pl.sdram.generation.RESETn generate Bool()
   val ODT = pl.sdram.generation.ODT generate Bool()
 
-  val DM    = Vec(Bits(pl.bytePerDq bits), pl.dataRatio)
-  val DQw, DQr = Vec(Bits(pl.sdram.dataWidth bits), pl.dataRatio)
+  val DM       = Vec(Bits(pl.bytePerDq bits), pl.dataRate)
+  val DQw, DQr = Vec(Bits(pl.sdram.dataWidth bits), pl.dataRate)
 
   override def asMaster(): Unit = {
     out(CASn,CKE,CSn,DM,RASn,WEn)
@@ -110,34 +108,27 @@ case class SdramXdrPhyCtrlPhase(pl : PhyParameter) extends Bundle with IMasterSl
   }
 }
 
-case class SdramXdrPhyCtrl(pl : PhyParameter) extends Bundle with IMasterSlave{
+case class SdramXdrPhyCtrl(pl : PhyLayout) extends Bundle with IMasterSlave{
   val phases = Vec(SdramXdrPhyCtrlPhase(pl), pl.phaseCount)
-  val ADDR  = Bits(pl.chipAddressWidth bits)
+  val ADDR  = Bits(pl.sdram.chipAddressWidth bits)
   val BA    = Bits(pl.sdram.bankWidth bits)
-  val DQe = Bool()
   val DQS = pl.sdram.generation.DQS generate new Bundle {
     val preamble = Bool()
     val active = Bool()
     val postamble = Bool()
   }
+  val writeEnable = Bool()
+  val readEnable = Bool()
+  val readValid = Bool()
   override def asMaster(): Unit = {
     phases.foreach(master(_))
-    out(ADDR,BA,DQe)
+    out(ADDR,BA)
+    out(readEnable, writeEnable)
+    in(readValid)
     if(pl.sdram.generation.DQS) out(DQS)
   }
 }
 
-
-
-abstract class Phy[T <: Data with IMasterSlave](val pl : PhyParameter) extends Component{
-  def MemoryBus() : T
-  def driveFrom(mapper : BusSlaveFactory) : Unit
-
-  val io = new Bundle {
-    val ctrl = slave(SdramXdrPhyCtrl(pl))
-    val memory = master(MemoryBus())
-  }
-}
 
 
 
@@ -173,11 +164,13 @@ case class SdramXdrIo(g : SdramLayout) extends Bundle with IMasterSlave {
 case class CorePortParameter( contextWidth : Int)
 
 case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
-  val cmd = Stream(Fragment(CoreCmd(cpp, cpa)))
+  val cmd = Stream(CoreCmd(cpp, cpa))
+  val writeData = Stream(CoreWriteData(cpp, cpa))
   val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
 
   override def asMaster(): Unit = {
     master(cmd)
+    master(writeData)
     slave(rsp)
   }
 }
@@ -185,11 +178,14 @@ case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) exten
 case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
   val write = Bool()
-  val address = UInt(pl.byteAddressWidth bits)
-  val data = Bits(pl.beatWidth bits)
-  val mask = Bits(pl.beatWidth/8 bits)
+  val address = UInt(pl.sdram.byteAddressWidth bits)
   val context = Bits(cpp.contextWidth bits)
   val burstLast = Bool()
+}
+case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
+  import cpa._
+  val data = Bits(pl.beatWidth bits)
+  val mask = Bits(pl.beatWidth/8 bits)
 }
 case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   val data = Bits(cpa.pl.beatWidth bits)
@@ -206,48 +202,53 @@ case class SdramAddress(l : SdramLayout) extends Bundle {
 
 
                           //max(Time, cycle)
-case class SdramTiming(RFC : (TimeNumber, Int), // Command Period (REF to ACT)
-                       RAS : (TimeNumber, Int), // Command Period (ACT to PRE)   Per bank
-                       RP  : (TimeNumber, Int), // Command Period (PRE to ACT)
-                       RCD : (TimeNumber, Int), // Active Command To Read / Write Command Delay Time
-                       WTR : (TimeNumber, Int), // WRITE to READ
-                       WR  : (TimeNumber, Int), // WRITE to PRE (WRITE recovery time)
-//                       RTW : (TimeNumber, Int), // READ to WRITE
-                       RTP : (TimeNumber, Int), // READ to PRE
-                       RRD : (TimeNumber, Int), // ACT to ACT cross bank
-                       REF : (TimeNumber, Int)) // Refresh Cycle Time (that cover all row)
-//                       FAW : (TimeNumber, Int)) // Four ACTIVATE windows
+case class SdramTiming(RFC : Int, // Command Period (REF to ACT)
+                       RAS : Int, // Command Period (ACT to PRE)   Per bank
+                       RP  : Int, // Command Period (PRE to ACT)
+                       RCD : Int, // Active Command To Read / Write Command Delay Time
+                       WTR : Int, // WRITE to READ
+                       WTP : Int, // WRITE to PRE (WRITE recovery time)
+                       RTP : Int, // READ to PRE
+                       RRD : Int, // ACT to ACT cross bank
+                       REF : Int, // Refresh Cycle Time (single row)
+                       FAW : Int) // Four ACTIVATE windows
 
-object SoftConfig{
-  def apply(timing : SdramTiming, frequancy : HertzNumber, cpa : CoreParameterAggregate): SoftConfig = {
-    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, spec._2)-1)
-    SoftConfig(
-      RFC = timing.RFC,
-      RAS = timing.RAS,
-      RP  = timing.RP ,
-      WR  = timing.WR ,
-      RCD = timing.RCD,
-      WTR = timing.WTR,
-      RTP = timing.RTP,
-      RRD = timing.RRD,
-      REF = timing.REF / cpa.pl.sdram.rowSize
-    )
-  }
-}
+//object SoftConfig{
+//  def apply(timing : SdramTiming,
+//            frequancy : HertzNumber,
+//            cpa : CoreParameterAggregate,
+//            phyClockRatio : Int): SoftConfig = {
+//    implicit def toCycle(spec : (TimeNumber, Int)) = Math.max(0, Math.max((spec._1 * frequancy).toDouble.ceil.toInt, (spec._2+phyClockRatio-1)/phyClockRatio))
+//    SoftConfig(
+//      RFC = timing.RFC,
+//      RAS = timing.RAS,
+//      RP  = timing.RP ,
+//      WTP = timing.WTP ,
+//      RCD = timing.RCD,
+//      RTW = timing.RTW,
+//      WTR = timing.WTR,
+//      RTP = timing.RTP,
+//      RRD = timing.RRD,
+//      REF = timing.REF,
+//      FAW = timing.FAW
+//    )
+//  }
+//}
 case class SoftConfig(RFC: Int,
                       RAS: Int,
                       RP: Int,
-                      WR: Int,
+                      WTP: Int,
                       RCD: Int,
                       WTR: Int,
+                      RTW: Int,
                       RTP: Int,
                       RRD: Int,
-                      REF : Int)
+                      REF : Int,
+                      FAW : Int)
 
 case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   import cpa._
 
-  val commandPhase = UInt(log2Up(pl.phaseCount) bits)
   val writeLatency = UInt(log2Up(cp.writeLatencies.size) bits)
   val readLatency = UInt(log2Up(cp.readLatencies.size) bits)
   val RAS, RP, WR, RCD, WTR, RTP, RRD, RTW = UInt(cp.timingWidth bits)
@@ -258,39 +259,48 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
   val REF = UInt(cp.refWidth bits)
   val autoRefresh, noActive = Bool()
 
+  val phase = new Bundle {
+    val active = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val precharge = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val read = UInt(log2Up(cpa.pl.phaseCount) bits)
+    val write = UInt(log2Up(cpa.pl.phaseCount) bits)
+  }
+
   def driveFrom(mapper : BusSlaveFactory) = new Area {
-    mapper.drive(commandPhase, 0x00,  0)
-    mapper.drive(writeLatency, 0x00, 16)
-    mapper.drive(readLatency,  0x00, 24)
-    mapper.drive(autoRefresh,  0x04,  0) init(False)
-    mapper.drive(noActive,     0x04,  1) init(False)
+    mapper.drive(autoRefresh,  0x00,  0) init(False)
+    mapper.drive(noActive,     0x00,  1) init(False)
+    mapper.drive(phase.write, 0x04,  0)
+    mapper.drive(phase.read, 0x04,  8)
+    mapper.drive(phase.active, 0x04,  16)
+    mapper.drive(phase.precharge, 0x04,  24)
+    mapper.drive(writeLatency, 0x08, 0) randBoot()
+    mapper.drive(readLatency,  0x0C, 0) randBoot()
 
-    mapper.drive(REF, 0x10,  0)
+    mapper.drive(REF, 0x10,  0) randBoot()
 
-    mapper.drive(RAS, 0x20,  0)
-    mapper.drive(RP , 0x20,  8)
-    mapper.drive(RFC, 0x20, 16)
-    mapper.drive(RRD, 0x20, 24)
+    mapper.drive(RAS, 0x20,  0) randBoot()
+    mapper.drive(RP , 0x20,  8) randBoot()
+    mapper.drive(RFC, 0x20, 16) randBoot()
+    mapper.drive(RRD, 0x20, 24) randBoot()
 
-    mapper.drive(RCD, 0x24,  0)
+    mapper.drive(RCD, 0x24,  0) randBoot()
 
-    mapper.drive(RTW, 0x28,  0)
-    mapper.drive(RTP, 0x28,  8)
-    mapper.drive(WTR, 0x28, 16)
-    mapper.drive(WR , 0x28, 24)
+    mapper.drive(RTW, 0x28,  0) randBoot()
+    mapper.drive(RTP, 0x28,  8) randBoot()
+    mapper.drive(WTR, 0x28, 16) randBoot()
+    mapper.drive(WR , 0x28, 24) randBoot()
 
 
-    if(generation.FAW) mapper.drive(FAW, 0x30,  0)
+    if(generation.FAW) mapper.drive(FAW, 0x30,  0) randBoot()
     if(generation.ODT) {
-      mapper.drive(ODT, 0x34,  0)
-      mapper.drive(ODTend, 0x34,  8)
+      mapper.drive(ODT, 0x34,  0) randBoot()
+      mapper.drive(ODTend, 0x34,  8) randBoot()
     }
   }
 }
 
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
-                         rspFifoSize : Int,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
@@ -304,10 +314,7 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 
 //  val kind = FrontendCmdOutputKind()
   val read, write, active, precharge = Bool() //OH encoded
-  val last = Bool()
   val address = SdramAddress(pl.sdram)
-  val data = Bits(pl.beatWidth bits)
-  val mask = Bits(pl.beatWidth/8 bits)
   val source = UInt(log2Up(cpp.size) bits)
   val context = Bits(backendContextWidth bits)
 }
@@ -335,7 +342,7 @@ case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSl
 
 
 case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
-  val ADDR  = Bits(cpa.pl.chipAddressWidth bits)
+  val ADDR  = Bits(cpa.pl.sdram.chipAddressWidth bits)
   val BA    = Bits(cpa.pl.sdram.bankWidth bits)
   val CASn  = Bool
   val CSn   = Bool
@@ -349,7 +356,7 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
   val RESETn = cpa.pl.sdram.generation.RESETn generate Bool()
 
   def driveFrom(mapper : BusSlaveFactory): Unit ={
-    val valid = RegNext(mapper.isWriting(0x00))
+    val valid = RegNext(mapper.isWriting(0x00)) init(False)
     cmd.valid := valid
     mapper.drive(
       address = 0x04,
@@ -361,7 +368,7 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
     mapper.drive(cmd.ADDR, 0x08)
     mapper.drive(cmd.BA, 0x0C)
 
-    mapper.drive(RESETn, 0x10, 0) init(False)
+    if(RESETn != null) mapper.drive(RESETn, 0x10, 0) init(False)
     mapper.drive(CKE, 0x10, 1) init(False)
   }
 
@@ -372,8 +379,6 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
   }
 }
 
-
-
 case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
@@ -381,38 +386,29 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     val output = master(CorePort(cpp, cpa))
   }
 
+
   case class Context() extends Bundle{
     val input = Bits(ip.contextWidth bits)
     val source = UInt(ip.sourceWidth bits)
   }
 
+  io.input.cmd.ready := io.output.cmd.ready && io.output.writeData.ready
+
   val cmdContext = Context()
   cmdContext.input := io.input.cmd.context
   cmdContext.source := io.input.cmd.source
 
-
-  io.output.cmd.arbitrationFrom(io.input.cmd)
-  io.output.cmd.last := io.input.cmd.last
+  io.output.cmd.valid := io.input.cmd.valid && io.input.cmd.last && io.input.cmd.ready
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
-  io.output.cmd.data := io.input.cmd.data
-  io.output.cmd.mask := io.input.cmd.mask
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
-  val readFix = Reg(UInt(log2Up(cpa.pl.beatCount)  bits)) init(0)
-  when(io.output.cmd.valid && !io.output.cmd.write){
-    when(io.output.cmd.ready){
-      readFix := readFix + 1
-      when(readFix =/= readFix.maxValue){
-        io.input.cmd.ready := False
-        io.output.cmd.last := False
-      }
-    }
-  }
+  io.output.writeData.valid := io.input.cmd.valid && io.input.cmd.isWrite && io.input.cmd.ready
+  io.output.writeData.data := io.input.cmd.data
+  io.output.writeData.mask := io.input.cmd.mask
 
   val rspContext = io.output.rsp.context.as(Context())
-
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
   io.input.rsp.last := io.output.rsp.last
@@ -420,3 +416,41 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.input.rsp.context := rspContext.input
   io.input.rsp.source := rspContext.source
 }
+
+//case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
+//  val io = new Bundle{
+//    val input = slave(Bmb(ip))
+//    val inputBurstLast = in Bool()
+//    val output = master(CorePort(cpp, cpa))
+//  }
+//
+//  val (cmdFork, writeFork) = StreamFork2(io.input.cmd)
+//
+//  case class Context() extends Bundle{
+//    val input = Bits(ip.contextWidth bits)
+//    val source = UInt(ip.sourceWidth bits)
+//  }
+//
+//  val cmdContext = Context()
+//  cmdContext.input := cmdFork.context
+//  cmdContext.source := cmdFork.source
+//
+//  io.output.cmd.arbitrationFrom(cmdFork.takeWhen(cmdFork.last))
+//  io.output.cmd.write := cmdFork.isWrite
+//  io.output.cmd.address := cmdFork.address
+//  io.output.cmd.context := B(cmdContext)
+//  io.output.cmd.burstLast := io.inputBurstLast
+//
+//
+//  io.output.writeData.arbitrationFrom(writeFork.takeWhen(writeFork.isWrite))
+//  io.output.writeData.data := writeFork.data
+//  io.output.writeData.mask := writeFork.mask
+//
+//  val rspContext = io.output.rsp.context.as(Context())
+//  io.input.rsp.arbitrationFrom(io.output.rsp)
+//  io.input.rsp.setSuccess()
+//  io.input.rsp.last := io.output.rsp.last
+//  io.input.rsp.data := io.output.rsp.data
+//  io.input.rsp.context := rspContext.input
+//  io.input.rsp.source := rspContext.source
+//}

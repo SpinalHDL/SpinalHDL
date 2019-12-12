@@ -229,7 +229,7 @@ class ComponentEmitterVerilog(
               case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
               case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
               case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
-              case (name: String, b: Boolean)   => logics ++= s"    .${name}($b),\n"
+              case (name: String, b: Boolean)   => logics ++= s"    .${name}(${if(b) "1'b1" else "1'b0"}),\n"
               case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }

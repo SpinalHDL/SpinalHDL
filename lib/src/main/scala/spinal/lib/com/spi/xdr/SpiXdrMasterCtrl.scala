@@ -325,8 +325,6 @@ object SpiXdrMasterCtrl {
       bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
       bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
 
-
-      bus.createAndDriveFlow(Cmd(p),address = baseAddress + 0).toStream
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
         cmd << stream.stage()
@@ -371,8 +369,9 @@ object SpiXdrMasterCtrl {
       config.ss.setup init(ssSetupInit)
       config.ss.hold init(ssHoldInit)
       config.ss.disable init(ssDisableInit)
-      config.ss.activeHigh init(ssActiveHighInit)
     }
+
+    if(p.ssGen) config.ss.activeHigh init(ssActiveHighInit)
 
     val xip = ifGen(mapping.xip != null) (new Area{
       val xipBus = XipBus(mapping.xip)

@@ -818,12 +818,24 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
+        val ram = new Ram_1wrs(
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
+          readUnderWrite = dontCare,
+          maskWidth = if (port.mask != null) port.mask.getWidth else 1,
+          maskEnable = port.mask != null
+        )
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
         ram.io.wr.assignFrom(port.writeEnable)
         ram.io.wrData.assignFrom(port.data)
+
+        if (port.mask != null)
+          ram.io.mask.assignFrom(port.mask)
+        else
+          ram.io.mask := "1"
 
         wrapConsumers(port, ram.io.rdData)
 

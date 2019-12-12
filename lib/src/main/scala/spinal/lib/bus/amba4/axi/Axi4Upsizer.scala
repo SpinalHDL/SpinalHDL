@@ -148,7 +148,9 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
 
 
 
-case class Axi4Upsizer(inputConfig : Axi4Config, outputConfig : Axi4Config, readPendingQueueSize : Int) extends Component{
+case class Axi4Upsizer(inputConfig : Axi4Config,
+                       outputConfig : Axi4Config,
+                       readPendingQueueSize : Int) extends Component{
   val io = new Bundle {
     val input = slave(Axi4(inputConfig))
     val output = master(Axi4(outputConfig))

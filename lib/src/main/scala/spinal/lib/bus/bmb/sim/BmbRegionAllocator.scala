@@ -13,7 +13,8 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
   def free(region : SizeMapping) = allocations.remove(region)
   def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1) : SizeMapping = {
     val sizeMinAligned = Math.max(sizeMin, 1 << alignmentMinWidth)
-    while(true){
+    var tryies = 0
+    while(tryies < 10){
       var address = align(addressGen)
       val boundaryMax = Bmb.boundarySize - (address & (Bmb.boundarySize-1))
       var size = Math.max(sizeMinAligned, align(Math.min(boundaryMax, Random.nextInt(sizeMax) + 1)))
@@ -28,6 +29,7 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
         allocations += region
         return region
       }
+      tryies += 1
     }
     return null
   }

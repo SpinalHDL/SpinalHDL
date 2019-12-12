@@ -102,6 +102,14 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
     this
   }
 
+  def addPipelining(axi : Axi4)(ro : (Axi4ReadOnly,Axi4ReadOnly) => Unit)(wo : (Axi4WriteOnly,Axi4WriteOnly) => Unit): this.type ={
+    val b = axi4SlaveToReadWriteOnly(axi)
+    val rAxi = b(0).asInstanceOf[Axi4ReadOnly]
+    val wAxi = b(1).asInstanceOf[Axi4WriteOnly]
+    addPipelining(rAxi)(ro)
+    addPipelining(wAxi)(wo)
+    this
+  }
 
   def build(): Unit ={
     val masterToDecodedSlave = mutable.HashMap[Axi4Bus,Map[Axi4Bus,Axi4Bus]]()
