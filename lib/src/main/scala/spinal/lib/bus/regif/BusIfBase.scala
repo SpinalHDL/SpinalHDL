@@ -70,6 +70,12 @@ trait BusIf extends BusIfBase {
     }
   }
 
+  def FIFO(doc: String)(implicit symbol: SymbolName) = {
+    val  res = creatReg(symbol.name, regPtr, doc)
+    regPtr += wordAddressInc
+    res
+  }
+
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trrigger signals")

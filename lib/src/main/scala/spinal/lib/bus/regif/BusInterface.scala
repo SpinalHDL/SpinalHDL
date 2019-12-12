@@ -10,9 +10,9 @@ object BusInterface {
   def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID)(moduleName)
   def apply(bus: Apb3, sizeMap: SizeMapping, selID: Int, readSync: Boolean)(implicit moduleName: ClassName): BusIf = Apb3BusInterface(bus, sizeMap, selID, readSync)(moduleName)
 
-//  def apply(bus: AhbLite3, sizeMap: SizeMapping): BusIf = AhbLite3BusInterface(bus, sizeMap)
-//  def apply(bus: AhbLite3, sizeMap: SizeMapping, readSync: Boolean): BusIf = AhbLite3BusInterface(bus, sizeMap, readSync)
-//
+  def apply(bus: AhbLite3, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AhbLite3BusInterface(bus, sizeMap)(moduleName)
+  def apply(bus: AhbLite3, sizeMap: SizeMapping, readSync: Boolean)(implicit moduleName: ClassName): BusIf = AhbLite3BusInterface(bus, sizeMap, readSync)(moduleName)
+
 //  def apply(bus: Axi4, sizeMap: SizeMapping): BusIf = Axi4BusInterface(bus, sizeMap)
 //  def apply(bus: Axi4, sizeMap: SizeMapping, readSync: Boolean): BusIf = Axi4BusInterface(bus, sizeMap)
 //

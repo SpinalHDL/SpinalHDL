@@ -1,7 +1,7 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.IMasterSlave
+import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer
 
@@ -21,24 +21,30 @@ object Section{
 }
 
 
-case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
-
-  private val fields = ListBuffer[Field]()
-  private var fieldPtr: Int = 0
+case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) {
   private var Rerror: Boolean = false
-
   def readErrorTag = Rerror
-  def getFields = fields
 
-  val hitRead  = busif.readAddress === U(addr)
-  val hitWrite = busif.writeAddress === U(addr)
+  def hitRange(addr: UInt): Bool = {
+    val hit = False
+    when(addr >= sizeMap.base && addr < (sizeMap.base + sizeMap.size)){
+      hit := True
+    }
+    hit
+  }
+
+  val hitRead  = hitRange(busif.readAddress)
+  val hitWrite = hitRange(busif.writeAddress)
   val hitDoRead  = hitRead && busif.doRead
   val hitDoWrite = hitWrite && busif.doWrite
 
-  def readBits: Bits = {
-    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
-  }
+}
 
+class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) {
+
+}
+
+case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif){
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
     spareNumbers match {
@@ -108,9 +114,31 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def RO(bc: BitCount): Bits = Bits(bc)
+  def reserved(bc: BitCount): Bits = {
+    field(bc, AccessType.NA)(SymbolName("reserved"))
+  }
+}
 
-  private def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={
+abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
+  protected val fields = ListBuffer[Field]()
+  protected var fieldPtr: Int = 0
+  protected var Rerror: Boolean = false
+
+  def readErrorTag = Rerror
+  def getFields = fields
+
+  val hitRead  = busif.readAddress === U(addr)
+  val hitWrite = busif.writeAddress === U(addr)
+  val hitDoRead  = hitRead && busif.doRead
+  val hitDoWrite = hitWrite && busif.doWrite
+
+  def readBits: Bits = {
+    fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
+  }
+
+  protected def RO(bc: BitCount): Bits = Bits(bc)
+
+  protected def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     val hardRestFirstFlag = Reg(Bool()) init True
     when(hitDoWrite && hardRestFirstFlag){
@@ -120,7 +148,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
+  protected def W(bc: BitCount, section: Range, resetValue: Long ): Bits ={
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
@@ -128,7 +156,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def RC(bc: BitCount, resetValue: Long): Bits = {
+  protected def RC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoRead){
       ret.clearAll()
@@ -136,7 +164,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def RS(bc: BitCount, resetValue: Long): Bits = {
+  protected def RS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.setAll()
@@ -144,7 +172,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WRC(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
@@ -154,7 +182,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
+  protected def WRS(bc: BitCount, section: Range, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret := busif.writeData(section)
@@ -164,7 +192,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WC(bc: BitCount, resetValue: Long): Bits = {
+  protected def WC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
@@ -172,7 +200,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WS(bc: BitCount, resetValue: Long): Bits = {
+  protected def WS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
@@ -180,7 +208,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WSRC(bc: BitCount, resetValue: Long): Bits = {
+  protected def WSRC(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.setAll()
@@ -190,7 +218,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WCRS(bc: BitCount, resetValue: Long): Bits = {
+  protected def WCRS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
       ret.clearAll()
@@ -200,7 +228,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WB(section: Range, resetValue: Long, accType: AccessType): Bits = {
+  protected def WB(section: Range, resetValue: Long, accType: AccessType): Bits = {
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
     when(hitDoWrite){
       for(x <- section) {
@@ -219,7 +247,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WBR(section: Range, resetValue: Long, accType: AccessType): Bits ={
+  protected def WBR(section: Range, resetValue: Long, accType: AccessType): Bits ={
     val ret = Reg(Bits(section.size bits)) init B(resetValue)
     for(x <- section) {
       val idx = x - section.min
@@ -246,7 +274,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def WBP(section: Range, resetValue: Long, accType: AccessType): Bits ={
+  protected def WBP(section: Range, resetValue: Long, accType: AccessType): Bits ={
     val resetValues = B(resetValue)
     val ret = Reg(Bits(section.size bits)) init resetValues
     for(x <- section) {
@@ -265,11 +293,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) {
     ret
   }
 
-  private def NA(bc: BitCount): Bits = {
+  protected def NA(bc: BitCount): Bits = {
     Bits(bc).clearAll()
-  }
-
-  def reserved(bc: BitCount): Bits = {
-    field(bc, AccessType.NA)(SymbolName("reserved"))
   }
 }

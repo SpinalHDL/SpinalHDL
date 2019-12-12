@@ -182,6 +182,23 @@ class cpInterruptFactoryExample extends Component {
   io.interrupt := InterruptFactory(busif2,"M_CP",tx,rx,frame)
 }
 
+class ahbregifExample extends Component {
+  import spinal.lib.bus.amba3.ahblite._
+  val io = new Bundle {
+    val tx_done, rx_done, frame_end = in Bool()
+    val interrupt = out Bool()
+    val ahb = slave(AhbLite3(AhbLite3Config(16, 32)))
+  }
+//  val busif2 = AhbLite3BusInterface(io.ahb, (0x000, 100 Byte))
+  val busif2 = BusInterface(io.ahb, (0x000, 100 Byte))
+
+  val tx = io.tx_done
+  val rx = io.rx_done
+  val frame = io.frame_end
+
+  io.interrupt := InterruptFactory(busif2,"M_CP",tx,rx,frame)
+}
+
 object getRegIfExample {
   def main(args: Array[String]) {
     SpinalConfig(mode = Verilog,
@@ -191,6 +208,6 @@ object getRegIfExample {
     mergeAsyncProcess              = true,
     targetDirectory="tmp/")
 //      .generate(new RegIfExample).printPruned()
-      .generate(new cpInterruptFactoryExample)
+      .generate(new RegIfExample)
   }
 }
