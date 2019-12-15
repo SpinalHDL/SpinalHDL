@@ -72,6 +72,33 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     data.foreach(master(_))
   }
 
+  def withoutSs(): SpiXdrMaster ={
+    val ret = SpiXdrMaster(p.copy(ssWidth = 0))
+    ret.sclk := this.sclk
+    for((s,m) <- (ret.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      m.read := s.read
+    }
+    ret
+  }
+
+  def decode(ssId : Int, activeLow : Boolean = true): SpiXdrMaster = decode(ss(ssId) ^ Bool(activeLow), Seq(ss(ssId)))
+
+  def decode(sel : Bool, ss : Seq[Bool]): SpiXdrMaster = {
+    val decoded = SpiXdrMaster(p.copy(ssWidth = ss.length))
+    decoded.sclk := this.sclk
+    decoded.ss := B(ss)
+    for((s,m) <- (decoded.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      when(sel) {
+        m.read := s.read
+      }
+    }
+    decoded
+  }
+
   def toSpi(): SpiHalfDuplexMaster ={
     val spi = SpiHalfDuplexMaster(
       dataWidth = p.dataWidth,
