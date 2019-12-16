@@ -1110,17 +1110,124 @@ object PlaySymplify {
 //  }
 //}
 
+//object PlayBug {
+//  class TopLevel extends Component{
+//    val ram = Mem(Bits(32 bits), 256)
+//    val port1 = ram.writePort
+//    val port2 = ram.writePort
+//
+//    val write1, write2 = in Bool()
+//    val addrCounter = CounterFreeRun(256)
+//
+//    port1.address := addrCounter
+//    port1.data := 0x33333333
+//    port1.valid := write1
+//
+//    port2.address := addrCounter.valueNext
+//    port2.data := 0x77777777
+//    port2.valid := write2
+//
+//    val rport = ram.readSyncPort
+//    rport.cmd.payload := port1.address
+//    rport.cmd.valid := True
+//  }
+//
+//  def main(args: Array[String]): Unit = {
+//    SpinalConfig().generateVerilog(new TopLevel())
+//    SpinalConfig().generateVhdl(new TopLevel())
+//  }
+//}
+
+//addAttribute("ramstyle", "no_rw_check")
+
 object PlayBug {
   class TopLevel extends Component{
-    val a  = Reg(Bits(2 bits)) init 0
+    val a = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
 
-    val o2 = a ## Bits(0 bit)                //pass
-    val o3 = Bits(0 bit) ## a                //pass
-    val o5 = Bits(0 bit) ## a ## Bits(0 bit) //cause exception
+      val write = slave(ram.writePort)
+      val read = slave(ram.readSyncPort)
+    }
+
+    val b = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val write = slave(ram.writePort)
+      val read_1 = slave(ram.readSyncPort)
+      val read_2 = slave(ram.readSyncPort)
+      val read_3 = slave(ram.readSyncPort)
+    }
+
+    val c = new Area {
+      val ram = Mem(Bits(8 bits), 64)
+
+      val write = slave(ram.writePort)
+      val readAddress = in UInt(6 bits)
+      val readData = out(ram.readAsync(readAddress))
+    }
+
+    val c2 = new Area {
+      val ram = Mem(Bits(8 bits), 64)
+
+      val write = slave(ram.writePort)
+      val readAddress_1 = in UInt(6 bits)
+      val readData_1 = out(ram.readAsync(readAddress_1))
+      val readAddress_2 = in UInt(6 bits)
+      val readData_2 = out(ram.readAsync(readAddress_2))
+    }
+
+    val d = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address = in UInt(10 bits)
+      val writeData = in Bits(8 bits)
+      val readData = out Bits(8 bits)
+      val enable = in Bool()
+      val write = in Bool()
+      readData := ram.readWriteSync(address, writeData, enable, write)
+    }
+
+    val e = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address_1 = in UInt(10 bits)
+      val writeData_1 = in Bits(8 bits)
+      val readData_1 = out Bits(8 bits)
+      val enable_1 = in Bool()
+      val write_1 = in Bool()
+      readData_1 := ram.readWriteSync(address_1, writeData_1, enable_1, write_1,readUnderWrite = writeFirst)
+
+      val address_2 = in UInt(10 bits)
+      val writeData_2 = in Bits(8 bits)
+      val readData_2 = out Bits(8 bits)
+      val enable_2 = in Bool()
+      val write_2 = in Bool()
+      readData_2 := ram.readWriteSync(address_2, writeData_2, enable_2, write_2)
+    }
+
+    val f = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address_1 = in UInt(10 bits)
+      val write_1 = in Bool()
+      val dataWrite_1 = in Bits(8 bits)
+      val dataRead_1 = out Bits(8 bits)
+      ram.write(address_1, dataWrite_1, write_1)
+      dataRead_1 := ram.readSync(address_1)
+
+
+      val address_2 = in UInt(10 bits)
+      val write_2 = in Bool()
+      val dataWrite_2 = in Bits(8 bits)
+      val dataRead_2 = out Bits(8 bits)
+      ram.write(address_2, dataWrite_2, write_2)
+      dataRead_2 := ram.readSync(address_2)
+    }
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig().generateVerilog(new TopLevel())
+    SpinalConfig(device = Device.ALTERA).generateVerilog(new TopLevel())
+    SpinalConfig(device = Device.ALTERA).generateVhdl(new TopLevel())
   }
 }
 

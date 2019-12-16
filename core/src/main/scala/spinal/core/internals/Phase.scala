@@ -1133,6 +1133,25 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
+  override def impl(pc: PhaseContext): Unit = {
+    if(pc.config.device.vendor == Device.ALTERA.vendor){
+      pc.walkDeclarations {
+        case mem : Mem[_] => {
+          var onlyDontCare = true
+          mem.dlcForeach(e => e match {
+            case port: MemWrite      =>
+            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+          })
+          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+        }
+        case _ =>
+      }
+    }
+  }
+}
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
@@ -2216,6 +2235,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
@@ -2336,6 +2356,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
