@@ -994,16 +994,36 @@ case class EventEmitter(on : Event){
   }
 }
 
-object StreamJoin{
+/** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs.*/
+object StreamJoin {
+  /**
+   * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
+   *  @param hardTypeT The type of the resulting stream. Its bit length must be equal to the sum of the bit length of all input streams.
+   */
+  def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
+    val combined = Stream(hardTypeT)
+    combined.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := combined.ready)
+    combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
+    combined
+  }
+  
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
-  def apply(sources : Seq[Stream[_]]) : Event = {
+  
+  /** Join streams, but ignore the payload of the input streams. */
+  def apply(sources: Seq[Stream[_]]): Event = {
     val event = Event
     val eventFire = event.fire
     event.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := eventFire)
     event
   }
-  def apply[T <: Data](sources : Seq[Stream[_]],payload : T) : Stream[T] = StreamJoin(sources).translateWith(payload)
+  
+  /**
+   * Join streams, but ignore the payload and replace it with a custom one.
+   * @param payload The payload of the resulting stream
+   */
+  def apply[T <: Data](sources: Seq[Stream[_]], payload: T): Stream[T] = StreamJoin(sources).translateWith(payload)
 }
 
 
