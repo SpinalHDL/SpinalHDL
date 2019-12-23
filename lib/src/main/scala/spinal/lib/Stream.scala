@@ -542,6 +542,23 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int) extends Compo
   }
 }
 
+/**
+ * A simpler version of StreamFork. All output streams will always fire together,
+ *  which means that the stream will halt until all output streams are ready. In contrast,
+ *  the normal StreamFork allows that output streams may be ready one at a time, at the cost
+ *  of an additional flip flop (1 bit per output).
+ */
+// TODO this can be integrated into the normal StreamFork by adding a boolean parameter. But I don't fully understand StreamFork. ~piegames
+object StreamForkSimple {
+  def apply[T <: Data](source: Stream[T], count: Int): Seq[Stream[T]] = {
+    val cloned = Range(0, count).map(i => Stream(source.payloadType)).toSeq
+    source.ready := cloned.map(_.ready).reduce(_ && _)
+    cloned.foreach(_.valid := source.valid)
+    cloned.foreach(_.payload := source.payload)
+    cloned
+  }
+}
+
 //TODOTEST
 /** 
  *  Demultiplex one stream into multiple output streams, always selecting only one at a time.
