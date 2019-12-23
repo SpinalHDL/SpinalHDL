@@ -16,7 +16,7 @@ def test1(dut):
     def map(component, net, apply, delay = 0):
         forks.append(cocotb.fork(stim(wave, component, net, apply, delay)))
 
-    wave = parse_vcd("/home/miaou/pro/riscv/SaxonSoc.git/simWorkspace/SdrXdrCtrlPlusRtlPhy/test.vcd")
+    wave = parse_vcd("../../../../../../../simWorkspace/SdrXdrCtrlPlusRtlPhy/test.vcd")
     top = "TOP"
 
     yield Timer(0)

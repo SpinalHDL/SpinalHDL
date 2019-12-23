@@ -17,7 +17,7 @@ def test1(dut):
         forks.append(cocotb.fork(stim(wave, component, net, apply, delay)))
 
 
-    wave = parse_vcd("/home/miaou/pro/riscv/SaxonSoc.git/simWorkspace/SdrXdrCtrlPlusRtlPhy/test.vcd")
+    wave = parse_vcd("../../../../../../../simWorkspace/SdrXdrCtrlPlusRtlPhy/test.vcd")
     phy = "TOP.SdrXdrCtrlPlusRtlPhy"
     top = "TOP"
 

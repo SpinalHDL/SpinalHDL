@@ -56,7 +56,7 @@ class SdrXdrCtrlPlusRtlPhy(val cp : CtrlParameter,val pl : PhyLayout) extends Sd
 //  val phyCtrl = out(CombInit(phy.io.ctrl))
 }
 
-object SpinalSdrTesterHelpers{
+object SdramXdrTesterHelpers{
   def CSn = 1 << 1
   def RASn = 1 << 2
   def CASn = 1 << 3
@@ -335,8 +335,6 @@ object SpinalSdrTesterHelpers{
         cRRD_MIN = 4
       )
 
-      val wrToMr = List(1,2,3,4,-1,5,-1,6,-1,7,-1,0);
-      val rlToMr = List(2,4,6,8,10,12,14,1,3,5);
       def io_udelay(us : Int) = {}//sleep(us*1000000)
       def command(cmd : Int,  bank : Int, address : Int): Unit ={
         apb.write(0x10C, bank)
@@ -436,7 +434,7 @@ object SpinalSdrTesterHelpers{
     simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
     simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
     simConfig.compile({
-      val cp = SpinalSdrTesterHelpers.ctrlParameter(
+      val cp = SdramXdrTesterHelpers.ctrlParameter(
         pl = pl,
         cp = CoreParameter(
           portTockenMin = 4,
@@ -475,7 +473,7 @@ object SdramXdrDdr3SpinalSim extends App{
     FAW =    40000
   )
 
-  SpinalSdrTesterHelpers.complied(
+  SdramXdrTesterHelpers.complied(
     rl = rl ,
     wl = wl ,
     bl = bl ,
@@ -484,8 +482,8 @@ object SdramXdrDdr3SpinalSim extends App{
     timing = timing
   ).doSimUntilVoid("test", 42) { dut =>
     dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
-    SpinalSdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
-    SpinalSdrTesterHelpers.ddr3Init(
+    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
+    SdramXdrTesterHelpers.ddr3Init(
       dut = dut,
       timing = timing,
       rl = rl,
@@ -520,19 +518,7 @@ object SdramXdrSdrSpinalSim extends App{
     FAW =        0
   )
 
-//  bootRefreshCount =   8,
-//  tPOW             = 100 us,
-//  tREF             =  64 ms,
-//  tRC              =  60 ns,
-//  tRFC             =  66 ns,
-//  tRAS             =  37 ns,
-//  tRP              =  15 ns,
-//  tRCD             =  15 ns,
-//  cMRD             =   2,
-//  tWR              =  7.5 ns,
-//  cWR              =  1
-
-  SpinalSdrTesterHelpers.complied(
+  SdramXdrTesterHelpers.complied(
     rl = rl ,
     wl = wl ,
     bl = bl ,
@@ -541,8 +527,8 @@ object SdramXdrSdrSpinalSim extends App{
     timing = timing
   ).doSimUntilVoid("test", 42) { dut =>
     dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
-    SpinalSdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
-    SpinalSdrTesterHelpers.sdrInit(
+    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
+    SdramXdrTesterHelpers.sdrInit(
       dut = dut,
       timing = timing,
       rl = rl,

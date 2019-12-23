@@ -27,9 +27,6 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     phase.CASn := True
     phase.WEn := True
     phase.CKE := io.soft.CKE
-
-    phase.DQw.assignDontCare()
-    phase.DM.assignDontCare()
   }
 
   val odt = generation.ODT generate new Area {
@@ -90,7 +87,11 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     val payload = io.writeDatas.map(_.payload).read(history.sel)
     for ((phase, dq, dm) <- (io.phy.phases, payload.data.subdivideIn(pl.phaseCount slices), payload.mask.subdivideIn(pl.phaseCount slices)).zipped) {
       phase.DQw := Vec(dq.subdivideIn(pl.dataRate slices))
-      phase.DM := Vec((~dm).subdivideIn(pl.dataRate slices))
+      when(history.valid) {
+        phase.DM := Vec((~dm).subdivideIn(pl.dataRate slices))
+      } otherwise {
+        phase.DM.foreach(_.clearAll())
+      }
     }
   }
 
@@ -208,7 +209,6 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     io.phy.ADDR := muxedCmd.address.column.asBits.resized
     io.phy.ADDR(10) := False
     io.phy.BA := muxedCmd.address.bank.asBits
-    if(pl.sdram.generation == SdramGeneration.SDR) io.phy.phases.foreach(_.DM.foreach(_.setAll()))
     phase.read.CSn := False
     phase.read.CASn := False
     rspPipeline.input.valid := True

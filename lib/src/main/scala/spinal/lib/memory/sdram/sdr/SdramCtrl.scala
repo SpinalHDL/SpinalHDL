@@ -362,7 +362,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
       sdram.CASn := True
       sdram.WEn  := True
       sdram.DQ.write := cmd.data
-      sdram.DQ.writeEnable := False
+      sdram.DQ.writeEnable := 0
       sdram.DQM := (sdram.DQM.range -> !readHistory(if(CAS == 3) 1 else 0))
 
       when(cmd.valid) {
@@ -404,7 +404,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
           is(WRITE) {
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.ADDR(10) := False
-            sdram.DQ.writeEnable := True
+            sdram.DQ.writeEnable.setAll()
             sdram.DQ.write := cmd.data
             sdram.DQM := ~cmd.mask
             sdram.BA := cmd.bank.asBits
