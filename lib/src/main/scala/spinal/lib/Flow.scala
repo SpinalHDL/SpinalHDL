@@ -138,7 +138,14 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 }
 
-
+/** Create a new Flow that is always valid, with a given payload */
+object ValidFlow {
+  def apply[T <: Data](payload: T): Flow[T] = {
+    val flow = Flow(payload)
+    flow.push(payload)
+    flow
+  }
+}
 
 object RegFlow{
   def apply[T <: Data](dataType : T) : Flow[T] = {
