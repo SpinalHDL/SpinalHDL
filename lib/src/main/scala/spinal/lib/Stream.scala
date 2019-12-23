@@ -2,10 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
-
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
-
 
   def apply[T <: Data](hardType: HardType[T]) = {
     val ret = new Stream(hardType)
@@ -15,6 +13,7 @@ class StreamFactory extends MSFactory {
 
   def apply[T <: Data](hardType: => T) : Stream[T] = apply(HardType(hardType))
 }
+
 object Stream extends StreamFactory
 
 class EventFactory extends MSFactory {
@@ -24,7 +23,6 @@ class EventFactory extends MSFactory {
     ret
   }
 }
-
 
 class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid   = Bool
@@ -62,7 +60,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.payload := this.payload
     ret
   }
-
 
   /** Connect that to this
   */
@@ -238,7 +235,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
-
   /** Connect this to a valid/payload register stage and return its output stream
   */
   def stage() : Stream[T] = this.m2sPipe()
@@ -385,7 +381,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
 
-
 object StreamArbiter {
   object Arbitration{
     def lowerFirst(core: StreamArbiter[_ <: Data]) = new Area {
@@ -462,7 +457,6 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosen := OHToUInt(io.chosenOH)
 }
 
-
 class StreamArbiterFactory {
   var arbitrationLogic: (StreamArbiter[_ <: Data]) => Area = StreamArbiter.Arbitration.lowerFirst
   var lockLogic: (StreamArbiter[_ <: Data]) => Area = StreamArbiter.Lock.transactionLock
@@ -504,9 +498,6 @@ class StreamArbiterFactory {
   }
 }
 
-
-
-
 object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
     val fork = new StreamFork(input.payloadType, portCount)
@@ -522,7 +513,6 @@ object StreamFork2 {
     return (fork.io.outputs(0), fork.io.outputs(1))
   }
 }
-
 
 //TODOTEST
 class StreamFork[T <: Data](dataType: HardType[T], portCount: Int) extends Component {
@@ -582,7 +572,6 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     }
   }
 }
-
 
 object StreamFifo{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifo(dataType,depth)
@@ -911,7 +900,12 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
   }
 }
 
-object StreamDispatcherSequencial{
+/**
+ * This is equivalent to a StreamDemux, but with a counter attached to the port selector.
+ */
+// TODO is there any reason to have a proper class for this if we simply could reuse StreamDemux instead? ~piegames
+// TODO If there is a StreamDispatcherSequential, there should be a StreamCombinerSequential as well (name open to suggestions) ~piegames
+object StreamDispatcherSequencial {
   def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
     val dispatcher = new StreamDispatcherSequencial(input.payloadType, outputCount)
     dispatcher.io.input << input
@@ -989,8 +983,6 @@ object StreamMux {
   }
 }
 
-
-
 case class EventEmitter(on : Event){
   val reg = RegInit(False)
   when(on.ready){
@@ -1035,11 +1027,7 @@ object StreamJoin {
   def apply[T <: Data](sources: Seq[Stream[_]], payload: T): Stream[T] = StreamJoin(sources).translateWith(payload)
 }
 
-
-
-
-
-object StreamWidthAdapter{
+object StreamWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
     val outputWidth = widthOf(output.payload)
@@ -1075,8 +1063,6 @@ object StreamWidthAdapter{
     }
   }
 
-
-
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
     StreamWidthAdapter(input,ret,endianness,padding)
@@ -1092,7 +1078,7 @@ object StreamWidthAdapter{
   }
 }
 
-object StreamFragmentWidthAdapter{
+object StreamFragmentWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
