@@ -178,8 +178,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.io.pop
   }
 
-
-  def repeat(times : Int): (Stream[T], UInt) ={
+  /**
+   * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
+   * @return A tuple with the resulting stream that duplicates the items and the counter, indicating how many
+   *				 times the current element has been repeated.
+   */
+  def repeat(times: Int): (Stream[T], UInt) = {
     val ret = Stream(payloadType)
     val counter = Counter(times, ret.fire)
     ret.valid := this.valid
@@ -188,19 +192,20 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (ret, counter)
   }
 
-/** Return True when a transaction is present on the bus but the ready is low
+/** Return True when a transaction is present on the bus but the ready signal is low
     */
   def isStall : Bool = valid && !ready
 
-  /** Return True when a transaction is appear (first cycle)
+  /** Return True when a transaction has appeared (first cycle)
     */
   def isNew : Bool = valid && !(RegNext(isStall) init(False))
 
-/** Return True when a transaction occure on the bus (Valid && ready)
+  /** Return True when a transaction occurs on the bus (valid && ready)
   */
   override def fire: Bool = valid & ready
 
   def isFree: Bool = !valid || ready
+  
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -221,8 +226,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     dataAssignment(this.payload, that.payload)
     this
   }
-
-
 
   def translateInto[T2 <: Data](into: Stream[T2])(dataAssignment: (T2, T) => Unit): Stream[T2] = {
     into.translateFrom(this)(dataAssignment)
@@ -550,8 +553,11 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int) extends Compo
 }
 
 //TODOTEST
+/** 
+ *  Demultiplex one stream into multiple output streams, always selecting only one at a time.
+ */
 object StreamDemux{
-  def apply[T <: Data](input: Stream[T],select : UInt, portCount: Int) : Vec[Stream[T]] = {
+  def apply[T <: Data](input: Stream[T], select : UInt, portCount: Int) : Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload,portCount)
     c.io.input << input
     c.io.select := select
@@ -727,7 +733,6 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 object StreamFifoCC{
   def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
-
 
 trait StreamFifoInterface[T <: Data]{
   def push          : Stream[T]
@@ -913,6 +918,7 @@ object StreamDispatcherSequencial{
     return dispatcher.io.outputs
   }
 }
+
 class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
@@ -936,6 +942,7 @@ class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Co
   }
 }
 
+/** Combine a stream and a flow to a new stream. If both input sources fire, the flow will be preferred. */
 object StreamFlowArbiter {
   def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
     val output = cloneOf(inputFlow)
@@ -960,7 +967,9 @@ class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
   io.output.payload := Mux(io.inputFlow.valid, io.inputFlow.payload, io.inputStream.payload)
 }
 
-
+/**
+ *  Multiplex multiple streams into a single one, always only processing one at a time.
+ */
 object StreamMux {
   def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
     val vec = Vec(inputs)
