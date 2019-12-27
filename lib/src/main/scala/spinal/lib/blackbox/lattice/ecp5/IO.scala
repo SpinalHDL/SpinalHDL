@@ -15,3 +15,15 @@ case class TSFF() extends BlackBox{
   val RST  = in Bool()
   val TQ =  out Bool()
 }
+
+case class IDDRX1F() extends BlackBox{
+  val SCLK, RST, D = in Bool()
+  val Q0, Q1 = out Bool()
+  mapCurrentClockDomain(SCLK, RST)
+}
+
+case class ODDRX1F() extends BlackBox{
+  val SCLK, RST, D0, D1 = in Bool()
+  val Q = out Bool()
+  mapCurrentClockDomain(SCLK, RST)
+}
