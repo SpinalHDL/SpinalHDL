@@ -1,5 +1,6 @@
-package spinal.lib.eda.yosys
+package spinal.lib.eda.symbyflow
 
+import spinal.lib.eda.common._
 import java.io.File
 import spinal.core._
 import scala.collection._

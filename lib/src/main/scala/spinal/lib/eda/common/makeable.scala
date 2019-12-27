@@ -1,4 +1,4 @@
-package spinal.lib.eda.yosys
+package spinal.lib.eda.common
 
 import java.io._
 import java.io.PrintWriter

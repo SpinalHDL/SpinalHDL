@@ -1,5 +1,6 @@
-package spinal.lib.eda.yosys
+package spinal.lib.eda.symbyflow
 
+import spinal.lib.eda.common._
 import scala.collection._
 import java.nio.file.{Path, Paths}
 
@@ -101,34 +102,6 @@ case class IcePack(_asc: Option[Path] = None,
     if(_unpack) this.bin(getPrerequisiteFromExtension("bin")).toString
     else        this.asc(getPrerequisiteFromExtension("asc")).toString
 }
-
-// Simple programming tool for FTDI-based Lattice iCE programmers.
-// Usage: iceprog [-b|-n|-c] <input file>
-//        iceprog -r|-R<bytes> <output file>
-//        iceprog -S <input file>
-//        iceprog -t
-// General options:
-//   -v                    verbose output
-// Mode of operation:
-//   [default]             write file contents to flash, then verify
-//   -r                    read first 256 kB from flash and write to file
-//   -R <size in bytes>    read the specified number of bytes from flash
-//                           (append 'k' to the argument for size in kilobytes,
-//                           or 'M' for size in megabytes)
-//   -c                    do not write flash, only verify (`check')
-//   -S                    perform SRAM programming
-//   -t                    just read the flash ID sequence
-
-// Erase mode (only meaningful in default mode):
-//   [default]             erase aligned chunks of 64kB in write mode
-//                           This means that some data after the written data (or
-//                           even before when -o is used) may be erased as well.
-//   -b                    bulk erase entire flash before writing
-//   -e <size in bytes>    erase flash as if we were writing that number of bytes
-//   -n                    do not erase flash before writing
-//   -p                    disable write protection before erasing or writing
-//                           This can be useful if flash memory appears to be
-//                           bricked and won't respond to erasing or programming.
 
 /** Compose the command line for programming/reading the FPGA (iceprog)
   * @todo implement readback

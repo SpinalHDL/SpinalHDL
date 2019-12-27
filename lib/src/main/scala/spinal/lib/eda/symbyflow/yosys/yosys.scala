@@ -1,5 +1,6 @@
-package spinal.lib.eda.yosys
+package spinal.lib.eda.symbyflow
 
+import spinal.lib.eda.common._
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.io.PrintWriter
@@ -237,12 +238,6 @@ case class Yosys( passFile: Option[Path] = None,
     this.append(yosys)
     this
   }
-
-  // def save(file: String = "yosys.sy") = {
-  //   val sy = new PrintWriter(Paths.get(workDir, file).toFile)
-  //   commands.foreach(c => sy.println(c.toString))
-  //   sy.close()
-  // }
 
     /** change the destination directory of all output file
     *
