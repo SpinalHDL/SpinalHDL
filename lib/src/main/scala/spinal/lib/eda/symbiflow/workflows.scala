@@ -1,4 +1,4 @@
-package spinal.lib.eda.symbyflow
+package spinal.lib.eda.symbiflow
 
 import spinal.lib.eda.common._
 import java.io.File

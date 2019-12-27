@@ -1400,7 +1400,7 @@ object PlayMakeable extends App{
   import spinal.core.Formal._
   import org.apache.commons.io._
   import java.io._
-  import spinal.lib.eda.symbyflow._
+  import spinal.lib.eda.symbiflow._
   // import spinal.lib.eda.yosys.string2path._
   import java.nio.file.{Path, Paths}
 
