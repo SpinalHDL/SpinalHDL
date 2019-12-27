@@ -16,7 +16,7 @@ case class IcePack(_asc: Option[Path] = None,
                    _writeCramCheckerboard: Boolean = false,
                    _writeOnlyBram: Boolean = false,
                    _writeBank: Seq[Int] = Seq.empty[Int],
-                   workDir: String = ".",
+                   makefilePath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable{
 
@@ -90,7 +90,6 @@ case class IcePack(_asc: Option[Path] = None,
   }
 
   //make stuff
-
   /** @inheritdoc */
   override def needs = List(if(_unpack) "bin" else "asc")
 
@@ -143,6 +142,7 @@ case class IceProg(_bin: Option[Path] = None,
                    passFile: Option[Path] = None,
                    logFile: Option[Path] = None,
                    phony: Option[String] = None,
+                   makefilePath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends MakeablePhony with MakeableLog with PassFail with Executable{
 
@@ -236,6 +236,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
                    _random: Boolean = false,
                    _width: Long = 0,
                    _depth: Long = 0,
+                   makefilePath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable {
 

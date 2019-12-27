@@ -11,7 +11,6 @@ import spinal.core._
 import org.apache.commons.io.FilenameUtils
 import collection.JavaConverters._
 
-
 package object string2path {
   implicit def string2Path(str: String): Path = Paths.get(str)
 }
@@ -29,9 +28,9 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).makejob }}}
       */
-    def makejobs: String = {
-      val nodes     = getNodes.distinct
-      val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty)
+    def makejobs(makefilePath: Path =Paths.get(".").normalize()): String = {
+      val nodes     = getNodes
+      val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty).distinct
       jobStrigs.mkString("\n")
     }
 
@@ -71,7 +70,9 @@ object Makeable {
       * }
       * }}}
       */
-    def bundle(target: String)(filter: PartialFunction[Makeable, Makeable]): String = {
+    def bundle(target: String)(
+        filter: PartialFunction[Makeable, Makeable]
+    ): String = {
       val nodes = getNodes.collect(filter)
       val ret   = nodes.flatMap(_.getTarget).distinct
       ret.mkString(s""".PHONY: ${target}\n${target} : """, " ", "")
@@ -84,7 +85,8 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).all() }}}
       */
-    def all(target: String = "all") = bundle(target) { case x: Makeable => x }
+    def all(target: String = "all") =
+      bundle(target) { case x: Makeable => x }
 
     /** Create a clean target
       * This target will delete all generated file and folder by the jobs
@@ -94,8 +96,8 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).clean() }}}
       */
-    def clean(target: String = "clean") = {
-      val nodes            = getNodes.distinct
+    def clean(target: String = "clean", makefilePath: Path =Paths.get(".").normalize()) = {
+      val nodes            = getNodes
       val inFile           = nodes.collect { case o: InputFile => o.getTarget }.flatten.distinct
       val files            = nodes.flatMap(_.getTarget).distinct diff inFile //al file minus the inputs
       val folderUncomplete = files.flatMap(f => Option(f.getParent))
@@ -114,7 +116,7 @@ object Makeable {
       * @example{{{ List(JOB1,JOB2,JOB3).mkdir }}}
       */
     def mkdir: String = {
-      val nodes   = getNodes.distinct
+      val nodes   = getNodes
       val files   = nodes.flatMap(_.getTarget).distinct
       val folders = files.flatMap(f => Option(f.getParent))
       var ret     = folders.mkString("$(info creating dirs...$(shell mkdir -p ", " ", " ))")
@@ -132,20 +134,28 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).makefile }}}
       */
-    def makefile: String = List(mkdir, all(), bundleTest(), clean(), makejobs).mkString("\n\n")
+    def makefile(makefilePath: Path =Paths.get(".").normalize()): String =
+      List(
+        mkdir,
+        all(),
+        bundleTest(),
+        clean(),
+        makejobs()
+      ).mkString("\n\n")
 
     def writeMakefile(path: Path = Paths.get("Makefile")): Unit = {
-      val file = Source.fromFile(path.toFile)
+      val makePath = path.getParent()
       def doMakefile(path: Path) = {
         val mkfile = new PrintWriter(path.toFile)
-        mkfile.write(makefile)
+        mkfile.write(makefile(path.getParent()))
         mkfile.close()
       }
-      if(Files.exists(path)){
+      if (Files.exists(path)) {
+        val file = Source.fromFile(path.toFile)
         val fileContents = file.getLines.mkString("\n")
-        val oldHash = scala.util.hashing.MurmurHash3.stringHash(fileContents)
-        val newHash = scala.util.hashing.MurmurHash3.stringHash(makefile)
-        if(oldHash == newHash){
+        val oldHash      = scala.util.hashing.MurmurHash3.stringHash(fileContents)
+        val newHash      = scala.util.hashing.MurmurHash3.stringHash(makefile(makePath))
+        if (oldHash == newHash) {
           SpinalInfo(s"""Makefile in path "${path.toString}" not changed, skipping write""")
           file.close()
         } else {
@@ -168,9 +178,10 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  def makefilePath = Paths.get(".").normalize()
-  def getRelativePath(s: Path) = makefilePath.relativize(s).normalize()
-  
+  val makefilePath: Path //= Paths.get(".").normalize()
+  // def getRelativePath(source: Path) = makefilePath.relativize(source).normalize()
+  def getRelativePath(source: Path) = makefilePath.normalize.relativize(source.normalize)
+
   /** Change the output folder of all the target/output
     *
     * @param path the path where redirect all the outputs
@@ -337,8 +348,7 @@ trait Makeable {
     //generate recursivelly a list of job string, filter empty string generated from Makable without dependency (e.g. input Files)
     val preJob = prerequisite.map(z => z.makefile).filter(_.nonEmpty)
     //add the job definition for this job, this is necessary for the recursion
-    preJob += makejob
-    preJob.mkString("", "\n\n", "")
+    (preJob += makejob).mkString("", "\n\n", "")
   }
 
   def getTarget: Seq[Path] = target.map(getRelativePath(_))
@@ -428,6 +438,7 @@ object InputFile {
 
 case class InputFile(
     file: Seq[Path],
+    makefilePath: Path =Paths.get(".").normalize(),
     prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]()
 ) extends MakableFile {
 
@@ -469,5 +480,40 @@ case class InputFile(
 //     val folders  = targets.map(_.getParent.normalize.toString).distinct
 //     val toDelete = (logs ++ targets ++ folders).distinct
 //     s""".PHONY: clear\nclear:\n\trm ${toDelete.mkString(" ")}"""
+//   }
+// }
+// trait CommandParameter
+
+// case class Parameter(parameter: String, flag: String="") extends CommandParameter{
+//   override def toString(): String = s"${flag} ${parameter}"
+// }
+
+// trait FileParameter extends CommandParameter{
+//   val path: Path
+//   val flag: String
+//   def getRelativePath(from: Path) =  path.relativize(from).normalize()
+//   def getFileString(from: Path =  Paths.get(".").normalize()): String = (if(flag.nonEmpty) s"${flag} " else "") + getRelativePath(from).toString
+// }
+
+// case class InputParameter(path: Path, flag: String="") extends FileParameter
+
+// case class OutputParameter(path: Path, flag: String="") extends FileParameter
+
+// class Command(command: String, commandPath: Option[Path] = None){
+//   val parameters = mutable.ListBuffer[CommandParameter]
+//   def addParameter(parameter: CommandParameter*) = parameters ++= parameter
+//   // def addCommandIf(condition: => Boolean,parameter: CommandParameter*) = if(condition) addParameter(parameter:*_)
+//   def getCommandPath(execDir: Path) = {
+//     if(commandPath.isDefined) commandPath.relativize(execDir)/command
+//     else Paths.get(command)
+//   }
+//   def getCommandString(execDir: Path) = {
+//     val paramString = parameters.map{
+//       case ipf: InputParameter => ipf.getFileString(execDir)
+//       case opf: OutputParameter => opf.getFileString(execDir)
+//       case o => o.toString
+//     }.mkString(" ")
+//     val cmdString = getCommandPath(execDir).toString
+//     cmdString + " " + paramString
 //   }
 // }

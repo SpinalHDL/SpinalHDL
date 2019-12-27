@@ -1438,10 +1438,10 @@ object PlayMakeable extends App{
   val form2 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test2").append(100).log()
   val form3 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test3/1/2/3/").append(100).log()
   val form4 = YosysFlow.formalFlow(test).solver(Solver.z3).pass().dumpVCD("test.vcd").outputFolder("test4").append(100).log()
-  val make = InputFile(test) |> List(form1,form2,form3,form4)
+  //val make = InputFile(test) |> List(form1,form2,form3,form4)
   // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
   // pw.close()
-  make.run("all")
+  List(form1,form2,form3,form4).run("all")
 
 }object PlayOneHotSynthesisBench extends App{
   class BenchFpga(width : Int) extends Rtl{

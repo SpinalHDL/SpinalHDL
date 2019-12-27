@@ -115,6 +115,7 @@ case class NextPNR_ice40(
     passFile: Option[Path] = None,
     logFile: Option[Path] = None,
     phony: Option[String] = None,
+    makefilePath: Path =Paths.get(".").normalize(),
     prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]()
 ) extends NextPNR
     with Makeable {

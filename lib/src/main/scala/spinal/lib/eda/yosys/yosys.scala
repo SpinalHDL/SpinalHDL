@@ -141,6 +141,7 @@ case class Yosys( passFile: Option[Path] = None,
                   logFile: Option[Path] = Some(Paths.get("yosys.log")),
                   phony: Option[String] = None,
                   commands: mutable.ListBuffer[YosysScript] = mutable.ListBuffer[YosysScript](),
+                  makefilePath: Path = Paths.get("."),
                   prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
     extends Makeable
     with MakeableLog with MakeablePhony with PassFail{

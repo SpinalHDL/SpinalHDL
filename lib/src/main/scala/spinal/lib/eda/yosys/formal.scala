@@ -36,6 +36,7 @@ case class FormalCommand(_smt2: Option[Path]=None,
                          passFile: Option[Path] = None,
                          logFile: Option[Path] = None,
                          phony: Option[String] = None,
+                         makefilePath: Path =Paths.get(".").normalize(),
                          prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable with MakeablePhony with MakeableLog with PassFail{
 
