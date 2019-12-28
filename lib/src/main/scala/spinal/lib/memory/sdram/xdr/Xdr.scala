@@ -199,10 +199,14 @@ case class SdramAddress(l : SdramLayout) extends Bundle {
   val row    = UInt(l.rowWidth bits)
 }
 
-
-
-                          //max(Time, cycle)
-case class SdramTiming(RFC : Int, // Command Period (REF to ACT)
+object SdramTiming{
+  val SDR = 0
+  val DDR1 = 1
+  val DDR2 = 2
+  val DDR3 = 3
+}
+case class SdramTiming(generation : Int,
+                       RFC : Int, // Command Period (REF to ACT)
                        RAS : Int, // Command Period (ACT to PRE)   Per bank
                        RP  : Int, // Command Period (PRE to ACT)
                        RCD : Int, // Active Command To Read / Write Command Delay Time
