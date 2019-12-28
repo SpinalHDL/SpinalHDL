@@ -12,7 +12,7 @@ import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
 import spinal.lib.eda.bench.Rtl
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
-import spinal.lib.memory.sdram.xdr.phy.{RtlPhy, RtlPhyInterface, SdrInferedPhy, XilinxS7Phy}
+import spinal.lib.memory.sdram.xdr.phy.{Ecp5Sdrx2Phy, RtlPhy, RtlPhyInterface, SdrInferedPhy, XilinxS7Phy}
 import spinal.lib.sim.Phase
 
 import scala.util.Random
@@ -181,7 +181,7 @@ object SdramXdrTesterHelpers{
                  timing : SdramTiming,
                  rl : Int,
                  wl : Int,
-                 bl : Int,
+                 ctrlBurstLength : Int,
                  phyClkRatio : Int,
                  sdramPeriod : Int): Unit ={
     val readToDataCycle = (rl+phyClkRatio-1)/phyClkRatio;
@@ -190,7 +190,7 @@ object SdramXdrTesterHelpers{
     val writePhase = writeToDataCycle*phyClkRatio-wl;
     val activePhase = 0
     val prechargePhase = 0
-
+    val bl = ctrlBurstLength*phyClkRatio
 
     def t2c(startPhase : Int, nextPhase : Int, duration : Int) = (startPhase + (duration + sdramPeriod - 1)/sdramPeriod - nextPhase + phyClkRatio - 1) / phyClkRatio
     def sat(v : Int) = v.max(0)
@@ -200,7 +200,7 @@ object SdramXdrTesterHelpers{
     var cWTP_ADD = 0;
     timing.generation match {
       case SdramTiming.SDR =>
-        cRTW_IDLE = 1
+        cRTW_IDLE = 1;
       case SdramTiming.DDR1 => ???
       case SdramTiming.DDR2 =>
         cRTW_IDLE = 2; // Could be 1
@@ -243,7 +243,7 @@ object SdramXdrTesterHelpers{
                timing : SdramTiming,
                rl : Int,
                wl : Int,
-               bl : Int,
+               ctrlBurstLength : Int,
                phyClkRatio : Int,
                sdramPeriod : Int): Unit ={
     import spinal.core.sim._
@@ -255,7 +255,7 @@ object SdramXdrTesterHelpers{
         timing = timing ,
         rl = rl ,
         wl = wl ,
-        bl = bl ,
+        ctrlBurstLength = ctrlBurstLength ,
         phyClkRatio = phyClkRatio ,
         sdramPeriod = sdramPeriod
       )
@@ -295,7 +295,7 @@ object SdramXdrTesterHelpers{
               timing : SdramTiming,
               rl : Int,
               wl : Int,
-              bl : Int,
+              ctrlBurstLength : Int,
               phyClkRatio : Int,
               sdramPeriod : Int): Unit ={
     import spinal.core.sim._
@@ -307,7 +307,7 @@ object SdramXdrTesterHelpers{
         timing = timing ,
         rl = rl ,
         wl = wl ,
-        bl = bl ,
+        ctrlBurstLength = ctrlBurstLength ,
         phyClkRatio = phyClkRatio ,
         sdramPeriod = sdramPeriod
       )
@@ -398,7 +398,6 @@ object SdramXdrTesterHelpers{
 
   def complied(rl : Int,
                wl : Int,
-               bl : Int,
                sdramPeriod : Int,
                pl : PhyLayout,
                timing : SdramTiming) ={
@@ -433,7 +432,6 @@ object SdramXdrDdr3SpinalSim extends App{
 
   val rl = 5
   val wl = 5
-  val bl = 4
   val sdramPeriod = 3300
   val sl = MT41K128M16JT.layout
   val pl = XilinxS7Phy.phyLayout(sl, clkRatio = 2)
@@ -454,7 +452,6 @@ object SdramXdrDdr3SpinalSim extends App{
   SdramXdrTesterHelpers.complied(
     rl = rl ,
     wl = wl ,
-    bl = bl ,
     sdramPeriod = sdramPeriod ,
     pl = pl ,
     timing = timing
@@ -466,7 +463,7 @@ object SdramXdrDdr3SpinalSim extends App{
       timing = timing,
       rl = rl,
       wl = wl,
-      bl = bl,
+      ctrlBurstLength = pl.beatCount,
       phyClkRatio = pl.phaseCount,
       sdramPeriod = sdramPeriod
     )
@@ -479,10 +476,13 @@ object SdramXdrSdrSpinalSim extends App{
 
   val rl = 2
   val wl = 0
-  val bl = 1
+//  val sdramPeriod = 6250
+//  val sl = MT48LC16M16A2.layout
+//  val pl = SdrInferedPhy.phyLayout(sl)
   val sdramPeriod = 6250
   val sl = MT48LC16M16A2.layout
-  val pl = SdrInferedPhy.phyLayout(sl)
+  val pl = Ecp5Sdrx2Phy.phyLayout(sl)
+
   val timing = SdramTiming(
     generation = SdramTiming.SDR,
     REF =  7812500,
@@ -500,7 +500,6 @@ object SdramXdrSdrSpinalSim extends App{
   SdramXdrTesterHelpers.complied(
     rl = rl ,
     wl = wl ,
-    bl = bl ,
     sdramPeriod = sdramPeriod ,
     pl = pl ,
     timing = timing
@@ -512,7 +511,7 @@ object SdramXdrSdrSpinalSim extends App{
       timing = timing,
       rl = rl,
       wl = wl,
-      bl = bl,
+      ctrlBurstLength = pl.beatCount,
       phyClkRatio = pl.phaseCount,
       sdramPeriod = sdramPeriod
     )
