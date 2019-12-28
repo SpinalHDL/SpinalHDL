@@ -48,9 +48,15 @@ case class Output(file: Path, backend: String, opt: String*)
 }
 
 object Yosys {
-  def load_SystemVerilog[T <: Component](report: SpinalReport[T]): Yosys = {
+  def loadSystemVerilog[T <: Component](report: SpinalReport[T]): Yosys = {
     val command = Yosys()
     report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog", "-sv"))
+    command + setTop(report.toplevelName)
+  }
+
+  def loadVerilog[T <: Component](report: SpinalReport[T]): Yosys = {
+    val command = Yosys()
+    report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog"))
     command + setTop(report.toplevelName)
   }
 
@@ -114,7 +120,7 @@ object Yosys {
                              multiclock: Boolean = false,
                              memoryMap: Boolean = false,
                              workDir: String = ".") = {
-    load_SystemVerilog(report) +
+    loadSystemVerilog(report) +
       model(mode, multiclock, memoryMap) +
       export_smt2(report.toplevelName + ".smt2")
   }

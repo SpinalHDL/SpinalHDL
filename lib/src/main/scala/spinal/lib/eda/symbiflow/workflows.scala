@@ -11,7 +11,7 @@ object SymbiFlow {
                                 target: String = "ice40",
                                 workDir: String = "makeWorkplace") = {
     InputFile(report) |>
-    (Yosys.load_SystemVerilog(report) + Yosys.synthesize(target)).outputFolder(Paths.get(workDir,"syntesys")) |>
+    (Yosys.loadSystemVerilog(report) + Yosys.synthesize(target)).outputFolder(Paths.get(workDir,"syntesys")) |>
     NextPNR_ice40().outputFolder(Paths.get(workDir,"pnr"))
   }
 
