@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.core.sim.SpinalSimConfig
 import spinal.lib.bus.bmb._
-import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT48LC16M16A2, SdramInterface}
+import spinal.lib.memory.sdram.sdr.{MT41K128M16JT, MT47H64M16HR, MT48LC16M16A2, SdramInterface}
 import spinal.lib.memory.sdram.xdr.{BmbPortParameter, CoreParameter, CtrlParameter, CtrlWithPhy, CtrlWithoutPhy, PhyLayout, SdramTiming, SoftConfig, mt48lc16m16a2_model}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3
@@ -262,7 +262,7 @@ object SdramXdrTesterHelpers{
 
       val wrToMr = List(1,2,3,4,-1,5,-1,6,-1,7,-1,0);
       val rlToMr = List(2,4,6,8,10,12,14,1,3,5);
-      def io_udelay(us : Int) = {}//sleep(us*1000000)
+      def io_udelay(us : Int) = {}
       def command(cmd : Int,  bank : Int, address : Int): Unit ={
         apb.write(0x10C, bank)
         apb.write(0x108, address)
@@ -284,6 +284,63 @@ object SdramXdrTesterHelpers{
       io_udelay(100);
       command(SDRAM_ZQCL, 0, 0x400);
       io_udelay(100);
+
+      apb.write(SDRAM_CONFIG, SDRAM_AUTO_REFRESH);
+
+      dut.clockDomain.waitSampling(1000)
+    }
+  }
+
+  def ddr2Init(dut : SdramXdrCtrlPlusRtlPhy,
+               timing : SdramTiming,
+               rl : Int,
+               ctrlBurstLength : Int,
+               phyClkRatio : Int,
+               sdramPeriod : Int): Unit ={
+    import spinal.core.sim._
+    Phase.setup {
+      val apb = Apb3Driver(dut.apb, dut.clockDomain)
+      def sdram_udelay(us : Int) = {}
+      def sdram_command(cmd : Int,  bank : Int, address : Int): Unit ={
+        apb.write(0x10C, bank)
+        apb.write(0x108, address)
+        apb.write(0x104, cmd)
+        apb.write(0x100, 0)
+        dut.clockDomain.waitSampling(20)
+      }
+
+      configInit(
+        apb = apb ,
+        timing = timing ,
+        rl = rl ,
+        wl = rl-1 ,
+        ctrlBurstLength = ctrlBurstLength ,
+        phyClkRatio = phyClkRatio ,
+        sdramPeriod = sdramPeriod
+      )
+
+      val al = 0
+      val bl = ctrlBurstLength*phyClkRatio;
+
+      apb.write(SDRAM_SOFT_CLOCKING, 0);
+      sdram_udelay(200);
+      apb.write(SDRAM_SOFT_CLOCKING, SDRAM_CKE);
+      sdram_udelay(10);
+
+      val emr1 = ((al & 7) << 3) | 0x44
+      val wr = (timing.WTP+sdramPeriod-1)/sdramPeriod
+      sdram_command(SDRAM_PRE, 0, 0x400); sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 2, 0);    sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 3, 0);    sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 1, emr1); sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 0, 0x100); sdram_udelay(20);
+      sdram_command(SDRAM_PRE, 0, 0x400); sdram_udelay(1);
+      sdram_command(SDRAM_REF, 0, 0x000); sdram_udelay(1);
+      sdram_command(SDRAM_REF, 0, 0x000); sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 0, (((wr - 1) & 7) << 9) | ((rl & 7) << 4) | ((bl & 15) >> 3) | 2); sdram_udelay(20);
+      sdram_command(SDRAM_MOD, 1, emr1 | 0x380); sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 1, emr1); sdram_udelay(1);
+      sdram_udelay(10);
 
       apb.write(SDRAM_CONFIG, SDRAM_AUTO_REFRESH);
 
@@ -469,6 +526,52 @@ object SdramXdrDdr3SpinalSim extends App{
     )
   }
 }
+
+
+
+
+object SdramXdrDdr2SpinalSim extends App{
+  import spinal.core.sim._
+
+  val rl = 5
+  val wl = 4
+  val sdramPeriod = 3300
+  val sl = MT47H64M16HR.layout
+  val pl = XilinxS7Phy.phyLayout(sl, clkRatio = 2)
+  val timing = SdramTiming(
+    generation = SdramTiming.DDR2,
+    REF =  7800000,
+    RAS =    40000,
+    RP  =    15000,
+    RFC =   127500,
+    RRD =    10000,
+    RCD =    15000,
+    RTP =     7500,
+    WTR =     7500,
+    WTP =    15000,
+    FAW =    45000
+  )
+
+  SdramXdrTesterHelpers.complied(
+    rl = rl ,
+    wl = wl ,
+    sdramPeriod = sdramPeriod ,
+    pl = pl ,
+    timing = timing
+  ).doSimUntilVoid("test", 42) { dut =>
+    dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
+    SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
+    SdramXdrTesterHelpers.ddr2Init(
+      dut = dut,
+      timing = timing,
+      rl = rl,
+      ctrlBurstLength = pl.beatCount,
+      phyClkRatio = pl.phaseCount,
+      sdramPeriod = sdramPeriod
+    )
+  }
+}
+
 
 
 object SdramXdrSdrSpinalSim extends App{
