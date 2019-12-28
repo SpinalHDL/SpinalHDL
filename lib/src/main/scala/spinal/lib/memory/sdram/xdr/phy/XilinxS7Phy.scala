@@ -17,7 +17,7 @@ object XilinxS7Phy{
     readDelay = 0,
     writeDelay = 0,
     cmdToDqDelayDelta = 1,
-    transferPerBurst = 8
+    transferPerBurst = Math.max(4, sl.generation.burstLength)
   )
 }
 
