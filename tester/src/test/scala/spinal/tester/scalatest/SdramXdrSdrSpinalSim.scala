@@ -319,7 +319,7 @@ object SdramXdrTesterHelpers{
         sdramPeriod = sdramPeriod
       )
 
-      val al = 0
+      val al = 0;
       val bl = ctrlBurstLength*phyClkRatio;
 
       apb.write(SDRAM_SOFT_CLOCKING, 0);
@@ -327,19 +327,19 @@ object SdramXdrTesterHelpers{
       apb.write(SDRAM_SOFT_CLOCKING, SDRAM_CKE);
       sdram_udelay(10);
 
-      val emr1 = ((al & 7) << 3) | 0x44
-      val wr = (timing.WTP+sdramPeriod-1)/sdramPeriod
-      sdram_command(SDRAM_PRE, 0, 0x400); sdram_udelay(1);
-      sdram_command(SDRAM_MOD, 2, 0);    sdram_udelay(1);
-      sdram_command(SDRAM_MOD, 3, 0);    sdram_udelay(1);
-      sdram_command(SDRAM_MOD, 1, emr1); sdram_udelay(1);
+      val emr1 = ((al & 7) << 3) | 0x44;
+      val wr = (timing.WTP+sdramPeriod-1)/sdramPeriod;
+      sdram_command(SDRAM_PRE, 0, 0x400);
+      sdram_command(SDRAM_MOD, 2, 0);
+      sdram_command(SDRAM_MOD, 3, 0);
+      sdram_command(SDRAM_MOD, 1, emr1);
       sdram_command(SDRAM_MOD, 0, 0x100); sdram_udelay(20);
-      sdram_command(SDRAM_PRE, 0, 0x400); sdram_udelay(1);
-      sdram_command(SDRAM_REF, 0, 0x000); sdram_udelay(1);
-      sdram_command(SDRAM_REF, 0, 0x000); sdram_udelay(1);
+      sdram_command(SDRAM_PRE, 0, 0x400);
+      sdram_command(SDRAM_REF, 0, 0x000);
+      sdram_command(SDRAM_REF, 0, 0x000);
       sdram_command(SDRAM_MOD, 0, (((wr - 1) & 7) << 9) | ((rl & 7) << 4) | ((bl & 15) >> 3) | 2); sdram_udelay(20);
-      sdram_command(SDRAM_MOD, 1, emr1 | 0x380); sdram_udelay(1);
-      sdram_command(SDRAM_MOD, 1, emr1); sdram_udelay(1);
+      sdram_command(SDRAM_MOD, 1, emr1 | 0x380);
+      sdram_command(SDRAM_MOD, 1, emr1);
       sdram_udelay(10);
 
       apb.write(SDRAM_CONFIG, SDRAM_AUTO_REFRESH);
