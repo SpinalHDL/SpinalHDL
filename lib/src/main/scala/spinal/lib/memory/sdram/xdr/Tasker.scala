@@ -118,6 +118,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
             bankHit := output.address.row === address.row
             allowRead := False
             allowWrite := False
+            allowPrecharge := False
           }
           when(output.read || output.write){
             allowPrecharge := False
