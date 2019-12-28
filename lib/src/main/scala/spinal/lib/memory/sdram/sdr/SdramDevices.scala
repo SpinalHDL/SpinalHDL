@@ -79,6 +79,16 @@ object W9825G6JH6 {
 }
 
 
+object MT47H64M16HR{
+  def layout = SdramLayout(
+    generation = DDR2,
+    bankWidth = 3,
+    columnWidth = 10,
+    rowWidth = 13,
+    dataWidth = 16
+  )
+}
+
 
 object MT41K128M16JT{
   def layout = SdramLayout(

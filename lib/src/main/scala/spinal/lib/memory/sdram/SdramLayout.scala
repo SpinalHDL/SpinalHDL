@@ -21,6 +21,15 @@ object SdramGeneration{
     burstLength = 1,
     dataRate = 1
   )
+  val DDR2 = new SdramGeneration(
+    RESETn = true,//should be false!
+    ODT = true,
+    DQS = true,
+    FAW = true,
+    CCD = 2,
+    burstLength = 8,
+    dataRate = 2
+  )
   val DDR3 = new SdramGeneration(
     RESETn = true,
     ODT = true,
