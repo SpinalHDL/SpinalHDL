@@ -1449,7 +1449,9 @@ object PlayMakeable extends App{
   // pw.close()
   List(form1,form2,form3,form4).run("all")
 
-}object PlayOneHotSynthesisBench extends App{
+}
+
+object PlayOneHotSynthesisBench extends App{
   class BenchFpga(width : Int) extends Rtl{
     override def getName(): String = "Bench" + width
     override def getRtlPath(): String = getName() + ".v"
