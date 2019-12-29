@@ -95,7 +95,7 @@ case class IcePack(_asc: Option[Path] = None,
   override def needs = List(if(_unpack) "bin" else "asc")
 
   /** @inheritdoc */
-  override def target = super.target ++ List(if(_unpack) _asc.get else _bin.get)
+  override def target = super.target ++ List(if(_unpack) _asc.getOrElse(Paths.get("icepack.asc")) else _bin.getOrElse(Paths.get("icepack.bin")))
 
   /** @inheritdoc */
   override def makeComand: String =
@@ -111,10 +111,9 @@ case class IceProg(_bin: Option[Path] = None,
                    _interface: String = "A",
                    _slow: Boolean = false,
                    _offset: Long = 0,
-                   _targetname: String = "program",
                    passFile: Option[Path] = None,
                    logFile: Option[Path] = None,
-                   phony: Option[String] = None,
+                   phony: Option[String] = Some("program"),
                    makefilePath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends MakeablePhony with MakeableLog with PassFail with Executable{
@@ -153,13 +152,6 @@ case class IceProg(_bin: Option[Path] = None,
   /** program the spi at 50KHz */
   def slow = this.copy(_slow = true)
 
-  /** Specify the target name
-    * default: program
-    *
-    * @param name the target name
-    */
-  def targetname(name: String) = this.copy(_targetname = name)
-
   /** @inheritdoc */
   override def outputFolder(path: Path): IceProg ={
     val old = super.outputFolder(path).asInstanceOf[this.type]
@@ -190,7 +182,6 @@ case class IceProg(_bin: Option[Path] = None,
   /** @inheritdoc */
   override def needs = List("bin")
 
-  def phonyTarget = _targetname
   override def target = super.target
 
   /** @inheritdoc */
