@@ -166,6 +166,10 @@ case class NextPNR_ice40(
   def withPCF(path: Path, allowUncostrained: Boolean = false) =
     this.copy(_pcf = Some(path), _pcf_allow_unconstrained = allowUncostrained)
 
+
+  /** Allow uncostrained signals in the pcf file */
+  def allowUncostrained = this.copy(_pcf_allow_unconstrained = true)
+
   override def toString(): String = {
     val ret = new StringBuilder(super.toString())
     ret.append(s"--pcf ${_pcf.get} ") // --pcf arg                  PCF constraints file to ingest
