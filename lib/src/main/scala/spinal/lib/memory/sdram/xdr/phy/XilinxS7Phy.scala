@@ -112,7 +112,7 @@ case class XilinxS7Phy(sl : SdramLayout,
   io.sdram.CSn  := sdrToOutput("CSn", io.ctrl.phases.map(p => RegNext(p.CSn )))
   io.sdram.RASn := sdrToOutput("RASn", io.ctrl.phases.map(p => RegNext(p.RASn)))
   io.sdram.WEn  := sdrToOutput("WEn", io.ctrl.phases.map(p => RegNext(p.WEn )))
-  io.sdram.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
+  if(sl.generation.RESETn) io.sdram.RESETn := sdrToOutput("RESETn", io.ctrl.phases.map(p => RegNext(p.RESETn)))
   io.sdram.ODT    := sdrToOutput("ODT", io.ctrl.phases.map(p => RegNext(p.ODT)))
 
 

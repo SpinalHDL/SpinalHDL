@@ -143,14 +143,14 @@ case class SdramXdrIo(g : SdramLayout) extends Bundle with IMasterSlave {
 
   val CK, CKn = out Bool()
   val ODT = out Bool()
-  val RESETn = out Bool()
+  val RESETn = g.generation.RESETn generate(out Bool())
 
   val DM   = Bits(g.bytePerWord bits)
   val DQ    = Analog(Bits(g.dataWidth bits))
   val DQS, DQSn = Analog(Bits((g.dataWidth + 7) / 8 bits))
 
   override def asMaster(): Unit = {
-    out(ADDR,BA,CASn,CKE,CSn,DM,RASn,WEn,CK,CKn,ODT,RESETn)
+    outWithNull(ADDR,BA,CASn,CKE,CSn,DM,RASn,WEn,CK,CKn,ODT,RESETn)
     inout(DQ, DQS, DQSn)
   }
 }
