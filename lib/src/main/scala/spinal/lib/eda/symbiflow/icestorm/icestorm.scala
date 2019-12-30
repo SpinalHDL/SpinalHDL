@@ -17,9 +17,13 @@ case class IcePack(_asc: Option[Path] = None,
                    _writeCramCheckerboard: Boolean = false,
                    _writeOnlyBram: Boolean = false,
                    _writeBank: Seq[Int] = Seq.empty[Int],
-                   makefilePath: Path =Paths.get(".").normalize(),
+                   _binaryPath: Path = Paths.get("icepack"),
+                   workDirPath: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable{
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   //override val logFile = "icepack.log"
 
@@ -62,10 +66,9 @@ case class IcePack(_asc: Option[Path] = None,
 
   /** @inheritdoc */
   override def outputFolder(path: Path): IcePack ={
-    val old = super.outputFolder(path).asInstanceOf[this.type]
     val newAsc  = if(_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
-    val ret = if(_unpack) old.copy(_bin=newAsc) else old.copy(_asc=newAsc)
+    val ret = if(_unpack) this.copy(_bin=newAsc, workDirPath=path) else this.copy(_asc=newAsc, workDirPath=path)
     ret
   }
 
@@ -90,6 +93,9 @@ case class IcePack(_asc: Option[Path] = None,
     ret.toString()
   }
 
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
+
   //make stuff
   /** @inheritdoc */
   override def needs = List(if(_unpack) "bin" else "asc")
@@ -111,12 +117,16 @@ case class IceProg(_bin: Option[Path] = None,
                    _interface: String = "A",
                    _slow: Boolean = false,
                    _offset: Long = 0,
+                   _binaryPath: Path = Paths.get("iceprog"),
                    passFile: Option[Path] = None,
                    logFile: Option[Path] = None,
                    phony: Option[String] = Some("program"),
-                   makefilePath: Path =Paths.get(".").normalize(),
+                   workDirPath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends MakeablePhony with MakeableLog with PassFail with Executable{
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the path of the bin file
     *
@@ -154,13 +164,12 @@ case class IceProg(_bin: Option[Path] = None,
 
   /** @inheritdoc */
   override def outputFolder(path: Path): IceProg ={
-    val old = super.outputFolder(path).asInstanceOf[this.type]
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
-    old.copy(_bin=newBin)
+    this.copy(_bin=newBin, workDirPath=path)
   }
 
   override def toString(): String = {
-    val ret = new StringBuilder("iceprog ")
+    val ret = new StringBuilder(s"${_binaryPath} ")
     ret.append(s"-d ${_device} ")
     ret.append(s"-o ${_offset} ")
     if (_slow) ret.append("-s ")
@@ -176,6 +185,9 @@ case class IceProg(_bin: Option[Path] = None,
 
   /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): IceProg = this.copy(passFile=Some(file))
+
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
 
   //makepart
 
@@ -200,9 +212,13 @@ case class IceBram(_hexFrom: Option[Path] = None,
                    _random: Boolean = false,
                    _width: Long = 0,
                    _depth: Long = 0,
-                   makefilePath: Path =Paths.get(".").normalize(),
+                   _binaryPath: Path = Paths.get("icebram"),
+                   workDirPath: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable {
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the path where the hex file use for syntesys reside
     * and specify were save the random hex file
@@ -248,11 +264,11 @@ case class IceBram(_hexFrom: Option[Path] = None,
   /** @inheritdoc */
   override def outputFolder(path: Path): IceBram ={
       val newAsc  = if(_ascOut.nonEmpty) Some(path.resolve(_ascOut.get)) else None
-      this.copy(_ascOut=newAsc)
+      this.copy(_ascOut=newAsc, workDirPath=path)
     }
 
   override def toString: String = {
-    val ret = new StringBuilder("icebram ")
+    val ret = new StringBuilder(s"${_binaryPath} ")
     if (_random) ret.append(s"-g ")
     if (_random && _seed.nonEmpty) {
       ret.append(s"-s ${_seed} ")
@@ -264,6 +280,9 @@ case class IceBram(_hexFrom: Option[Path] = None,
     }
     ret.toString
   }
+
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
 
   //make part
 

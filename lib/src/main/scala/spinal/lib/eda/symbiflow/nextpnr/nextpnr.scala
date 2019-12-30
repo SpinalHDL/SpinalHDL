@@ -30,11 +30,10 @@ trait NextPNR extends PassFail {
   val _randomize_seed: Boolean
   val _gui: Boolean
   val _no_tmdriv: Boolean
-
-  val family: String = "generic"
+  val _binaryPath: Path
 
   override def toString(): String = {
-    val ret = new StringBuilder(s"nextpnr-${family} ")
+    val ret = new StringBuilder(s"${_binaryPath } ")
     ret.append(s"--json ${_json.get} ")                                        // --json arg               JSON design file to ingest
     if (_freq.toDouble > 0) ret.append(s"--freq ${_freq.toDouble / 1000000} ") // --freq arg               set target frequency for design in MHz
     if (_pack_only) ret.append("--pack-only ")                                 // --pack-only              pack design only without placement or routing
@@ -113,14 +112,17 @@ case class NextPNR_ice40(
     _opt_timing: Boolean = false,
     _tmfuzz: Boolean = false,
     _pcf_allow_unconstrained: Boolean = false,
+    _binaryPath: Path = Paths.get(s"nextpnr-ice40"),
     passFile: Option[Path] = None,
     logFile: Option[Path] = None,
     phony: Option[String] = None,
-    makefilePath: Path =Paths.get(".").normalize(),
+    workDirPath: Path =Paths.get(".").normalize(),
     prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]()
 ) extends NextPNR
     with Makeable {
-  override val family = "ice40"
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** open next-pnr gui */
   def openGui = this.copy(_gui = true)
@@ -186,9 +188,8 @@ case class NextPNR_ice40(
 
   /** @inheritdoc */
   override def outputFolder(path: Path): NextPNR_ice40 = {
-    val old = super.outputFolder(path).asInstanceOf[this.type]
-    val newAsc  = if (_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
-    old.copy(_asc = newAsc)
+    val newAsc  = if (_asc.nonEmpty) Some(workDirPath.resolve(_asc.get)) else None
+    this.copy(_asc = newAsc, workDirPath=path)
   }
 
   /** @inheritdoc */
@@ -203,6 +204,9 @@ case class NextPNR_ice40(
 
 
   //make stuff
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
+
   /** @inheritdoc */
   override def target =
     super.target ++ List(_asc.getOrElse(Paths.get("nextpnr-ice40.asc")))

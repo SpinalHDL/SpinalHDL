@@ -147,11 +147,15 @@ object Yosys {
 case class Yosys( passFile: Option[Path] = None,
                   logFile: Option[Path] = Some(Paths.get("yosys.log")),
                   phony: Option[String] = None,
+                  _binaryPath: Path = Paths.get("yosys"),
                   commands: mutable.ListBuffer[YosysScript] = mutable.ListBuffer[YosysScript](),
-                  makefilePath: Path = Paths.get("."),
+                  workDirPath: Path = Paths.get("."),
                   prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
     extends Makeable
     with MakeableLog with MakeablePhony with PassFail{
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   // override def runComand = {
   //   assert(
@@ -271,6 +275,8 @@ case class Yosys( passFile: Option[Path] = None,
   /** @inheritdoc */
   def pass(file: Path = Paths.get("PASS")): Yosys = this.copy(passFile=Some(file))
 
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
   //override def toString(): String = commands.mkString("yosys -p'", "; ", "'")
   override def toString(): String = {
     val ret = scala.collection.mutable.ListBuffer[String]()

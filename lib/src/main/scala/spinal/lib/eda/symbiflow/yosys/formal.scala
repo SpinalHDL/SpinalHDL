@@ -34,12 +34,16 @@ case class FormalCommand(_smt2: Option[Path]=None,
                          _dumpSmtc: Option[Path] = None,
                          _append: Long = 0,
                          _opt: String = "",
+                         _binaryPath: Path = Paths.get("yosys-smtbmc"),
                          passFile: Option[Path] = None,
                          logFile: Option[Path] = None,
                          phony: Option[String] = None,
-                         makefilePath: Path =Paths.get(".").normalize(),
+                         workDirPath: Path =Paths.get(".").normalize(),
                          prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable with MakeablePhony with MakeableLog with PassFail{
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the smt2 input file
     *
@@ -112,13 +116,12 @@ case class FormalCommand(_smt2: Option[Path]=None,
 
   /** @inheritdoc */
   override def outputFolder(path: Path): FormalCommand ={
-    val old = super.outputFolder(path).asInstanceOf[this.type]
     val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
     val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
     val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
     // val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
     // val newLog = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
-    old.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
+    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC, workDirPath=path)
   }
 
 
@@ -132,7 +135,7 @@ case class FormalCommand(_smt2: Option[Path]=None,
   def pass(file: Path = Paths.get("PASS")): FormalCommand = this.copy(passFile=Some(file))
 
   override def toString(): String = {
-    val ret = new StringBuilder("yosys-smtbmc ")
+    val ret = new StringBuilder(s"${_binaryPath} ")
     ret.append(s"-s ${_solver} ")
     ret.append("--presat --unroll --noprogress ")
     ret.append(s"-t ${_skip}:${_stepSize}:${_step} ")
@@ -148,6 +151,9 @@ case class FormalCommand(_smt2: Option[Path]=None,
 
     ret.toString()
   }
+
+  /** @inheritdoc */
+  def binaryPath(path: Path) = this.copy(_binaryPath=path)
 
   //make stuff
   // override def target = super.target ++ List(_dumpVerilogTB,_dumpVCD,_dumpSmtc).flatten

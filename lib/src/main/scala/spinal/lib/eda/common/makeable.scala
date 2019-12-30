@@ -28,7 +28,7 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).makejob }}}
       */
-    def makejobs(makefilePath: Path =Paths.get(".").normalize()): String = {
+    def makejobs: String = {
       val nodes     = getNodes
       val jobStrigs = nodes.map(_.makejob).filter(_.nonEmpty).distinct
       jobStrigs.mkString("\n")
@@ -96,7 +96,7 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).clean() }}}
       */
-    def clean(target: String = "clean", makefilePath: Path =Paths.get(".").normalize()) = {
+    def clean(target: String = "clean") = {
       val nodes            = getNodes
       val inFile           = nodes.collect { case o: InputFile => o.getTarget }.flatten.distinct
       val files            = nodes.flatMap(_.getTarget).distinct diff inFile //al file minus the inputs
@@ -134,27 +134,27 @@ object Makeable {
       *
       * @example{{{ List(JOB1,JOB2,JOB3).makefile }}}
       */
-    def makefile(makefilePath: Path =Paths.get(".").normalize()): String =
+    def makefile: String =
       List(
         mkdir,
         all(),
         bundleTest(),
         clean(),
-        makejobs()
+        makejobs
       ).mkString("\n\n")
 
     def writeMakefile(path: Path = Paths.get("Makefile")): Unit = {
       val makePath = path.getParent()
       def doMakefile(path: Path) = {
         val mkfile = new PrintWriter(path.toFile)
-        mkfile.write(makefile(path.getParent()))
+        mkfile.write(makefile)
         mkfile.close()
       }
       if (Files.exists(path)) {
         val file = Source.fromFile(path.toFile)
         val fileContents = file.getLines.mkString("\n")
         val oldHash      = scala.util.hashing.MurmurHash3.stringHash(fileContents)
-        val newHash      = scala.util.hashing.MurmurHash3.stringHash(makefile(makePath))
+        val newHash      = scala.util.hashing.MurmurHash3.stringHash(makefile)
         if (oldHash == newHash) {
           SpinalInfo(s"""Makefile in path "${path.toString}" not changed, skipping write""")
           file.close()
@@ -178,9 +178,17 @@ object Makeable {
 
 trait Makeable {
   //the pasepath is arcoded to the project folder
-  val makefilePath: Path //= Paths.get(".").normalize()
-  // def getRelativePath(source: Path) = makefilePath.relativize(source).normalize()
-  def getRelativePath(source: Path) = makefilePath.normalize.relativize(source.normalize)
+  val workDirPath: Path //= Paths.get(".").normalize()
+  def workDir(path:Path): Makeable
+  val _binaryPath: Path
+  /** change tha path of the binary
+    * 
+    * @param path the path of the binary
+    * @return a copy of the class with the binary path changed
+    */
+  def binaryPath(path: Path): Makeable
+
+  def getRelativePath(source: Path) = workDirPath.normalize.resolve(source.normalize)
 
   /** Change the output folder of all the target/output
     *
@@ -227,7 +235,8 @@ trait Makeable {
     assert(!ret.isEmpty, s"""Prerequisite with extension "${str}" not found in ${this
       .getClass
       .getSimpleName}:${pre.mkString("[", ",", "]")}""")
-    getRelativePath(ret.get)
+    //getRelativePath(ret.get)
+    ret.get
   }
 
   /** Get the prerequiste by his extension
@@ -246,7 +255,8 @@ trait Makeable {
     val ret = pre.find(_.endsWith(str))
     assert(!ret.isEmpty, s"""Prerequisite with name "${str}" not found in ${this.getClass.getSimpleName}:${pre
       .mkString("[", ",", "]")}""")
-    getRelativePath(ret.get)
+    //getRelativePath(ret.get)
+    ret.get
   }
 
   /** Get the target by his extension
@@ -312,7 +322,8 @@ trait Makeable {
   def getAllPrerequisiteFromExtension(str: String*): Seq[Path] = {
     val pre = prerequisite.flatMap(_.target)
     val ret = pre.filter(x => FilenameUtils.isExtension(x.toString, str.toArray))
-    ret.map(getRelativePath(_))
+    //ret.map(getRelativePath(_))
+    ret
   }
 
   /** Add this to the dependency of the given comand
@@ -356,6 +367,9 @@ trait Makeable {
 
 trait MakableFile extends Makeable {
 
+  val _binaryPath: Path = Paths.get(".").normalize()
+  def binaryPath(path: Path) = this
+
   /** @inheritdoc */
   override def outputFolder(path: Path): this.type = this
 
@@ -374,6 +388,10 @@ trait MakeablePhony extends Makeable {
 
   /** Create the phony string */
   def getPhonyString: String = if (phony.nonEmpty) ".PHONY: " + phony.get else ""
+
+  override def getTarget: Seq[Path] = target.map( 
+      target => if(target equals Paths.get(phony.getOrElse(""))) target else getRelativePath(target)
+    )
 
   /** @inheritdoc */
   override def target = if (phony.nonEmpty) super.target :+ Paths.get(phony.get) else super.target
@@ -395,8 +413,7 @@ trait PassFail extends Makeable {
 
   /** @inheritdoc */
   override def outputFolder(path: Path): PassFail = {
-    val old = super.outputFolder(path).asInstanceOf[PassFail]
-    if (passFile.nonEmpty) pass(path.resolve(passFile.get)) else old
+    if (passFile.nonEmpty) pass(path.resolve(passFile.get)) else this
   }
 
   /** @inheritdoc */
@@ -438,9 +455,12 @@ object InputFile {
 
 case class InputFile(
     file: Seq[Path],
-    makefilePath: Path =Paths.get(".").normalize(),
+    workDirPath: Path =Paths.get(".").normalize(),
     prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]()
 ) extends MakableFile {
+
+  /** @inheritdoc */
+  def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** @inheritdoc */
   override def target = super.target ++ file.map(_.normalize)
