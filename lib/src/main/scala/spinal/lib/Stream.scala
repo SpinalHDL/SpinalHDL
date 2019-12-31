@@ -352,10 +352,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
+/** Replace this stream's payload with another one
+  */
   def translateWith[T2 <: Data](that: T2): Stream[T2] = {
     val next = new Stream(that).setCompositeName(this, "translated", true)
-    next.valid := this.valid
-    this.ready := next.ready
+    next.arbitrationFrom(this)
     next.payload := that
     next
   }
@@ -397,10 +398,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     converter.io.input << this
     return converter.io.output
   }
+  
+  /** Convert this stream to a fragmented stream by adding a last bit */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
-    ret.valid := this.valid
-    this.ready := ret.ready
+    ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
     return ret
