@@ -257,6 +257,24 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+/** Replace this stream's payload with another one
+  */
+  def translateWith[T2 <: Data](that: T2): Stream[T2] = {
+    val next = new Stream(that).setCompositeName(this, "translated", true)
+    next.arbitrationFrom(this)
+    next.payload := that
+    next
+  }
+
+/** Change the payload's content type. The new type must have the same bit length as the current one.
+  */
+  def transmuteWith[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "transmuted", true)
+    next.arbitrationFrom(this)
+    next.payload.assignFromBits(this.payload.asBits)
+    next
+  }
+
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
     ret << this
@@ -350,24 +368,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.payload := regs.payload
     this.ready := regs.ready
     ret
-  }
-
-/** Replace this stream's payload with another one
-  */
-  def translateWith[T2 <: Data](that: T2): Stream[T2] = {
-    val next = new Stream(that).setCompositeName(this, "translated", true)
-    next.arbitrationFrom(this)
-    next.payload := that
-    next
-  }
-
-/** Change the payload's content type. The new type must have the same bit length as the current one.
-  */
-  def transmuteWith[T2 <: Data](that: HardType[T2]) = {
-    val next = new Stream(that).setCompositeName(this, "transmuted", true)
-    next.arbitrationFrom(this)
-    next.payload.assignFromBits(this.payload.asBits)
-    next
   }
 
 /** Block this when cond is False. Return the resulting stream
