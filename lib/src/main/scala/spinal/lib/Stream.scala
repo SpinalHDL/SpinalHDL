@@ -361,6 +361,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+/** Change the payload's content type. The new type must have the same bit length as the current one.
+  */
+  def transmuteWith[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "transmuted", true)
+    next.arbitrationFrom(this)
+    next.payload.assignFromBits(this.payload.asBits)
+    next
+  }
+
 /** Block this when cond is False. Return the resulting stream
   */
   def continueWhen(cond: Bool): Stream[T] = {
