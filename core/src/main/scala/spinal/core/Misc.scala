@@ -188,6 +188,10 @@ object SpinalMap {
   def list[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
     val result: T = weakCloneOf(mappings.head._2)
 
+//    if(!mappings.contains(default) && addr.isInstanceOf[BitVector] && BigInt(1) << addr.getBitsWidth == mappings.size){
+//      Vec(mappings.map(_._2)).read(addr.asBits.asUInt)
+//    }
+
     switch(addr){
       for ((cond, value) <- mappings) {
         cond match {

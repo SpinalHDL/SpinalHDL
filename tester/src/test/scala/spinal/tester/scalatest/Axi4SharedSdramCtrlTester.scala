@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib._
 import spinal.lib.memory.sdram._
+import spinal.lib.memory.sdram.sdr.{Axi4SharedSdramCtrl, MT48LC16M16A2}
 
 
 class Axi4SharedSdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {

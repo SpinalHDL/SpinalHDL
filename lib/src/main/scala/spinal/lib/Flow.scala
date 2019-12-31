@@ -97,7 +97,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
   def m2sPipe : Flow[T] = m2sPipe()
   def m2sPipe(holdPayload : Boolean = false): Flow[T] = {
-    if(holdPayload) {
+    if(!holdPayload) {
       val ret = RegNext(this)
       ret.valid.init(False)
       ret

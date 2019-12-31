@@ -75,9 +75,10 @@ case class BmbParameter(addressWidth : Int,
                         lengthWidth : Int,
                         sourceWidth : Int,
                         contextWidth : Int,
+                        alignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
+                        alignmentMin : Int = 0,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
-                        alignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
@@ -88,6 +89,7 @@ case class BmbParameter(addressWidth : Int,
   def allowBurst = lengthWidth > wordRangeLength
   def beatCounterWidth = lengthWidth - wordRangeLength + (if(alignment.allowByte) 1 else 0)
   def wordRangeLength = log2Up(byteCount)
+  def transferBeatCount = (1 << lengthWidth) / byteCount + (if(alignment.allowByte) 1 else 0)
 }
 
 

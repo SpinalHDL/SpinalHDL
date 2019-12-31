@@ -173,9 +173,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     */
   def queueLowLatency(size: Int, latency : Int = 0): Stream[T] = {
     val fifo = new StreamFifoLowLatency(payloadType, size, latency)
-    fifo.setPartialName(this,"fifo")
+    fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
     fifo.io.pop
+  }
+
+
+  def repeat(times : Int): (Stream[T], UInt) ={
+    val ret = Stream(payloadType)
+    val counter = Counter(times, ret.fire)
+    ret.valid := this.valid
+    ret.payload := this.payload
+    this.ready := ret.ready && counter.willOverflowIfInc
+    (ret, counter)
   }
 
 /** Return True when a transaction is present on the bus but the ready is low
@@ -219,7 +229,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
-/** Connect this to a valid/payload register stage and return its output stream
+  def combStage() : Stream[T] = {
+    val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
+    ret << this
+    ret
+  }
+
+
+  /** Connect this to a valid/payload register stage and return its output stream
   */
   def stage() : Stream[T] = this.m2sPipe()
 
@@ -227,8 +244,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
 
-    val rValid = RegInit(False)
-    val rData = Reg(payloadType)
+    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
+    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
     if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
@@ -248,8 +265,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def s2mPipe(): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
 
-    val rValid = RegInit(False)
-    val rBits = Reg(payloadType)
+    val rValid = RegInit(False).setCompositeName(this, "s2mPipe_rValid", true)
+    val rBits = Reg(payloadType).setCompositeName(this, "s2mPipe_rData", true)
 
     ret.valid := this.valid || rValid
     this.ready := !rValid
@@ -309,7 +326,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def translateWith[T2 <: Data](that: T2): Stream[T2] = {
-    val next = new Stream(that)
+    val next = new Stream(that).setCompositeName(this, "translated", true)
     next.valid := this.valid
     this.ready := next.ready
     next.payload := that
@@ -329,7 +346,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Drop transactions of this when cond is True. Return the resulting stream
   */
   def throwWhen(cond: Bool): Stream[T] = {
-    val next = Stream(payloadType)
+    val next = Stream(payloadType).setCompositeName(this, "thrown", true)
 
     next << this
     when(cond) {
@@ -640,13 +657,15 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency : Int = 0) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0) extends Component {
   require(depth >= 1)
-  val io = new Bundle {
+  val io = new Bundle with StreamFifoInterface[T] {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
     val flush = in Bool() default (False)
     val occupancy = out UInt (log2Up(depth + 1) bit)
+    override def pushOccupancy: UInt = occupancy
+    override def popOccupancy: UInt = occupancy
   }
   val ram = Mem(dataType, depth)
   val pushPtr = Counter(depth)
@@ -665,7 +684,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value)
+        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -673,7 +692,7 @@ class StreamFifoLowLatency[T <: Data](dataType: HardType[T], depth: Int, latency
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value)
+      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
     }
   }
   when(pushing =/= popping) {
@@ -709,11 +728,77 @@ object StreamFifoCC{
   def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
+
+trait StreamFifoInterface[T <: Data]{
+  def push          : Stream[T]
+  def pop           : Stream[T]
+  def pushOccupancy : UInt
+  def popOccupancy  : UInt
+}
+
+//class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
+//
+//  assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
+//
+//  val io = new Bundle with StreamFifoInterface[T]{
+//    val push          = slave  Stream(dataType)
+//    val pop           = master Stream(dataType)
+//    val pushOccupancy = out UInt(log2Up(depth + 1) bits)
+//    val popOccupancy  = out UInt(log2Up(depth + 1) bits)
+//  }
+//
+//  val ptrWidth = log2Up(depth) + 1
+//  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
+//  def isEmpty(a: Bits, b: Bits) = a === b
+//
+//  val ram = Mem(dataType, depth)
+//
+//  val popToPushGray = Bits(ptrWidth bits)
+//  val pushToPopGray = Bits(ptrWidth bits)
+//
+//  val pushCC = new ClockingArea(pushClock) {
+//    val pushPtr     = Counter(depth << 1)
+//    val pushPtrGray = RegNext(toGray(pushPtr.valueNext)) init(0)
+//    val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits))
+//    val full        = isFull(pushPtrGray, popPtrGray)
+//
+//    io.push.ready := !full
+//
+//    when(io.push.fire) {
+//      ram(pushPtr.resized) := io.push.payload
+//      pushPtr.increment()
+//    }
+//
+//    io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
+//  }
+//
+//  val popCC = new ClockingArea(popClock) {
+//    val popPtr      = Counter(depth << 1)
+//    val popPtrGray  = RegNext(toGray(popPtr.valueNext)) init(0)
+//    val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
+//    val empty       = isEmpty(popPtrGray, pushPtrGray)
+//
+//    io.pop.valid   := !empty
+//    io.pop.payload := ram.readSync(popPtr.valueNext.resized, clockCrossing = true)
+//
+//    when(io.pop.fire) {
+//      popPtr.increment()
+//    }
+//
+//    io.popOccupancy := (fromGray(pushPtrGray) - popPtr).resized
+//  }
+//
+//  pushToPopGray := pushCC.pushPtrGray
+//  popToPushGray := popCC.popPtrGray
+//}
+
+
+
 class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
-  val io = new Bundle {
+  val io = new Bundle with StreamFifoInterface[T]{
     val push          = slave  Stream(dataType)
     val pop           = master Stream(dataType)
     val pushOccupancy = out UInt(log2Up(depth + 1) bits)
@@ -730,8 +815,9 @@ class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClo
   val pushToPopGray = Bits(ptrWidth bits)
 
   val pushCC = new ClockingArea(pushClock) {
-    val pushPtr     = Counter(depth << 1)
-    val pushPtrGray = RegNext(toGray(pushPtr.valueNext)) init(0)
+    val pushPtr     = Reg(UInt(log2Up(2*depth) bits)) init(0)
+    val pushPtrPlus = pushPtr + 1
+    val pushPtrGray = RegNextWhen(toGray(pushPtrPlus), io.push.fire) init(0)
     val popPtrGray  = BufferCC(popToPushGray, B(0, ptrWidth bits))
     val full        = isFull(pushPtrGray, popPtrGray)
 
@@ -739,23 +825,24 @@ class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClo
 
     when(io.push.fire) {
       ram(pushPtr.resized) := io.push.payload
-      pushPtr.increment()
+      pushPtr := pushPtrPlus
     }
 
     io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
   }
 
   val popCC = new ClockingArea(popClock) {
-    val popPtr      = Counter(depth << 1)
-    val popPtrGray  = RegNext(toGray(popPtr.valueNext)) init(0)
+    val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
+    val popPtrPlus  = popPtr + 1
+    val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
     val pushPtrGray = BufferCC(pushToPopGray, B(0, ptrWidth bit))
     val empty       = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid   := !empty
-    io.pop.payload := ram.readSync(popPtr.valueNext.resized, clockCrossing = true)
+    io.pop.payload := ram.readSync((io.pop.fire ? popPtrPlus | popPtr).resized, clockCrossing = true)
 
     when(io.pop.fire) {
-      popPtr.increment()
+      popPtr := popPtrPlus
     }
 
     io.popOccupancy := (fromGray(pushPtrGray) - popPtr).resized

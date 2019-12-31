@@ -4,11 +4,24 @@ import spinal.core._
 import spinal.lib.bus.misc._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.bmb.BmbParameter
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-case class PipelinedMemoryBusConfig(addressWidth : Int, dataWidth : Int)
+case class PipelinedMemoryBusConfig(addressWidth : Int, dataWidth : Int){
+  def toBmbConfig() = BmbParameter(
+    addressWidth = addressWidth,
+    dataWidth = dataWidth,
+    lengthWidth = log2Up(dataWidth/8),
+    sourceWidth = 0,
+    contextWidth = 0,
+    canRead = true,
+    canWrite = true,
+    alignment     = BmbParameter.BurstAlignement.LENGTH,
+    maximumPendingTransactionPerId = Int.MaxValue
+  )
+}
 
 case class PipelinedMemoryBusCmd(config : PipelinedMemoryBusConfig) extends Bundle{
   val write = Bool
@@ -68,6 +81,11 @@ case class PipelinedMemoryBus(config : PipelinedMemoryBusConfig) extends Bundle 
     this.rsp << ret.rsp.stage()
     ret
   }
+
+//  def toBmb() : Bmb = {
+//    val bmb = Bmb(config.toBmbConfig)
+//    bmb.cmd.
+//  }
 }
 
 

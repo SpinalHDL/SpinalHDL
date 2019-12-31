@@ -74,11 +74,11 @@ class BmbMemoryAgent(val memorySize : BigInt) {
           }
           case Bmb.Cmd.Opcode.WRITE => {
             assert(bus.p.canWrite)
-            val mask = bus.cmd.mask.toInt
+            val mask = bus.cmd.mask.toLong
             val address = bus.cmd.address.toLong + busAddress
             val data = bus.cmd.data.toBigInt
             val beatAddress = (address & ~(bus.p.byteCount - 1)) + cmdBeat * bus.p.byteCount
-            for (byteId <- 0 until bus.p.byteCount) if ((mask & (1 << byteId)) != 0) {
+            for (byteId <- 0 until bus.p.byteCount) if ((mask & (1l << byteId)) != 0) {
               setByte(beatAddress + byteId, (data >> byteId * 8).toByte)
             }
             if (last) {

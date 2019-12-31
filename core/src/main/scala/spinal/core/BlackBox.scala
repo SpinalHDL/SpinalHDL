@@ -76,6 +76,11 @@ abstract class BlackBox extends Component{
   val genericElements = ArrayBuffer[(String, Any)]()
   val librariesUsages = mutable.HashSet[String]();
 
+  private var isBb = true
+  def isBlackBox = isBb
+  def setBlackBox() = isBb = true
+  def clearBlackBox() = isBb = false
+
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))
     case s: String    => genericElements += Tuple2(name, s)
@@ -85,6 +90,8 @@ abstract class BlackBox extends Component{
     case boolean: Boolean => genericElements += Tuple2(name, boolean)
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
+
+  def addGenerics(l : (String, Any)*) = l.foreach(e => addGeneric(e._1, e._2))
 
   val listRTLPath = new LinkedHashSet[String]()
 
@@ -135,7 +142,7 @@ abstract class BlackBox extends Component{
     mapClockDomain(ClockDomain.current, clock, reset, enable)
   }
 
-  override def isInBlackBoxTree: Boolean = true
+  override def isInBlackBoxTree: Boolean = isBlackBox || parent.isInBlackBoxTree
 
   /** Set the name of the blackbox */
   def setBlackBoxName(name: String): this.type = {
