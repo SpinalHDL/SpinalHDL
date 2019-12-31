@@ -26,6 +26,7 @@ object AlteraStdTargets {
             toplevelPath = rtl.getRtlPath(),
             family = getFamilyName(),
             device = "5CSEMA5F31C6"
+//            device = "5CEFA7F31C6"
           )
         }
       }
@@ -78,7 +79,8 @@ object XilinxStdTargets {
             workspacePath=workspace,
             toplevelPath=rtl.getRtlPath(),
             family=getFamilyName(),
-            device="xc7k70t-fbg676-3"
+            device="xc7A75t-fgg484-3"
+//            device="xc7k70t-fbg676-3"
           )
         }
       }

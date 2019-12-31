@@ -8,10 +8,10 @@ import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.misc._
 import spinal.lib.bus.simple._
 import spinal.lib.io.TriState
-import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
 import spinal.lib.fsm._
+import spinal.lib.memory.sdram.sdr.W9825G6JH6
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

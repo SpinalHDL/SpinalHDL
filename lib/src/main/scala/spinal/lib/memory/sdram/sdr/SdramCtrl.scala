@@ -1,9 +1,9 @@
-package spinal.lib.memory.sdram
+package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.Axi4Shared
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.memory.sdram.SdramLayout
 
 import scala.math.BigDecimal.RoundingMode
 
@@ -120,7 +120,7 @@ case class SdramCtrlBank(c : SdramLayout) extends Bundle{
 
 
 
-case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,contextType : T, produceRspOnWrite : Boolean = false) extends Component{
+case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, contextType : T, produceRspOnWrite : Boolean = false) extends Component{
   import SdramCtrlBackendTask._
   import SdramCtrlFrontendState._
 
@@ -276,7 +276,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
       val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1 + 1),true)
 
       val banks = (0 until l.bankCount).map(i =>  new Area{
-        val precharge = timeCounter(t.tRC,true)
+        val precharge = timeCounter(Math.max(t.tRC.toDouble, t.cWR / clkFrequancy.toDouble + t.tWR.toDouble) sec,true)
         val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC)).max(t.cMRD),true)
       })
     }
@@ -362,7 +362,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
       sdram.CASn := True
       sdram.WEn  := True
       sdram.DQ.write := cmd.data
-      sdram.DQ.writeEnable := False
+      sdram.DQ.writeEnable := 0
       sdram.DQM := (sdram.DQM.range -> !readHistory(if(CAS == 3) 1 else 0))
 
       when(cmd.valid) {
@@ -404,7 +404,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
           is(WRITE) {
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.ADDR(10) := False
-            sdram.DQ.writeEnable := True
+            sdram.DQ.writeEnable.setAll()
             sdram.DQ.write := cmd.data
             sdram.DQM := ~cmd.mask
             sdram.BA := cmd.bank.asBits

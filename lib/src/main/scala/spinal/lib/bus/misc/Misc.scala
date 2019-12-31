@@ -82,10 +82,16 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   val end = base + size - 1
 
-  override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
-    (address & ~U(size-1, address.getWidth bits)) === (base)
-  else
-    address >= base && address < base + size
+  override def hit(address: UInt): Bool = {
+    if (isPow2(size) && base % size == 0){
+      (address & ~U(size - 1, address.getWidth bits)) === (base)
+    }else {
+      if(base == 0)
+        address < base + size
+      else
+        address >= base && address < base + size
+    }
+  }
 
   override def removeOffset(address: UInt): UInt = {
     if (isPow2(size) && base % size == 0)
@@ -96,4 +102,5 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
+  def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
 }

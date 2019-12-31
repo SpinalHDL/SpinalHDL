@@ -115,8 +115,12 @@ class SpinalSimSpiXdrMaster extends FunSuite {
                   }
                 }
                 for(m <- mod.writeMapping){
-                  assert(dut.io.spi.data(m.pin).writeEnable.toBoolean == write)
-                  assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beatBuffer + 1)*mod.bitrate) & 1))
+                  assert(dut.io.spi.data(m.pin).writeEnable.toBoolean == write || mod.ouputHighWhenIdle)
+                  if(!write && mod.ouputHighWhenIdle){
+                    assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == 1)
+                  } else {
+                    assert(((dut.io.spi.data(m.pin).write.toInt >> m.phase) & 1) == ((writeData >> m.source + mod.dataWidth - (beatBuffer + 1) * mod.bitrate) & 1))
+                  }
                 }
               }
             }
@@ -127,7 +131,11 @@ class SpinalSimSpiXdrMaster extends FunSuite {
           for(repeat <- 0 until Random.nextInt(4)){
             dut.clockDomain.waitSampling()
             assert(dut.io.spi.sclk.write.toInt == (if(cpol) 3 else 0))
-            dut.io.spi.data.foreach(data => assert(data.writeEnable.toBoolean == false))
+            if(!mod.ouputHighWhenIdle)
+              dut.io.spi.data.foreach(data => assert(data.writeEnable.toBoolean == false))
+            else{
+              //TODO
+            }
           }
         }
       }

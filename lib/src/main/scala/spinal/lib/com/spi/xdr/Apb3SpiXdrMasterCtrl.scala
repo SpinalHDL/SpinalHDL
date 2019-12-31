@@ -23,17 +23,17 @@ object Apb3SpiXdrMasterCtrl{
           SpiXdrMasterCtrl.Parameters(8, 12, SpiXdrParameter(4, 1, 1)).addFullDuplex(0),
           cmdFifoDepth = 32,
           rspFifoDepth = 32,
-          xip = SpiXdrMasterCtrl.XipBusParameters(addressWidth = 24, dataWidth = 32)
+          xip = SpiXdrMasterCtrl.XipBusParameters(addressWidth = 24, lengthWidth = 2)
         )
       )
-      c.rework{
-        val sclkShift = in(Bool).setName("clkEarly")
-        c.io.spi.sclk.setAsDirectionLess.unsetName().allowDirectionLessIo
-        c.io.spi.data.setAsDirectionLess.unsetName().allowDirectionLessIo
-        ClockDomain(sclkShift)(master(c.io.spi.sclk.addTag(crossClockDomain).toTriState()).setName("io_spi_sclk"))
-        for((d, idx) <- c.io.spi.data.zipWithIndex)
-          master(d.toTriState()).setName(s"io_spi_data$idx")
-      }
+//      c.rework{
+//        val sclkShift = in(Bool).setName("clkEarly")
+//        c.io.spi.sclk.setAsDirectionLess.unsetName().allowDirectionLessIo
+//        c.io.spi.data.setAsDirectionLess.unsetName().allowDirectionLessIo
+//        ClockDomain(sclkShift)(master(c.io.spi.sclk.addTag(crossClockDomain).toTriState()).setName("io_spi_sclk"))
+//        for((d, idx) <- c.io.spi.data.zipWithIndex)
+//          master(d.toTriState()).setName(s"io_spi_data$idx")
+//      }
       InOutWrapper(c)
     }
   }
@@ -49,7 +49,7 @@ case class Apb3SpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters) ex
   }
 
   val ctrl = SpiXdrMasterCtrl(p.ctrl)
-  val mapping = ctrl.io.driveFrom(Apb3SlaveFactory(io.apb, 0))(p)
+  val mapping = SpiXdrMasterCtrl.driveFrom(ctrl, Apb3SlaveFactory(io.apb, 0))(p)
   if(p.xip != null) io.xip <> mapping.xip.xipBus
   io.spi <> ctrl.io.spi
   io.interrupt <> mapping.interruptCtrl.interrupt

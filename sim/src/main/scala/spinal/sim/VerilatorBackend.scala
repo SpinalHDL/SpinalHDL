@@ -357,7 +357,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
        | --output-split 4000
-       | -Wno-WIDTH -Wno-UNOPTFLAT
+       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
        | -O3

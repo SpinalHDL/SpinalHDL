@@ -20,7 +20,7 @@ object Axi4SharedOnChipRam{
   }
 }
 
-case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int) extends Component{
+case class Axi4SharedOnChipRam(dataWidth : Int, byteCount : BigInt, idWidth : Int, arwStage : Boolean = false) extends Component{
   val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
 
   val io = new Bundle {
@@ -31,7 +31,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int)
   val ram = Mem(axiConfig.dataType,wordCount.toInt)
   val wordRange = log2Up(wordCount) + log2Up(axiConfig.bytePerWord)-1 downto log2Up(axiConfig.bytePerWord)
 
-  val arw = io.axi.arw.unburstify
+  val arw = if(arwStage) io.axi.arw.s2mPipe().unburstify.m2sPipe() else io.axi.arw.unburstify
   val stage0 = arw.haltWhen(arw.write && !io.axi.writeData.valid)
   io.axi.readRsp.data := ram.readWriteSync(
     address = stage0.addr(axiConfig.wordRange).resized,
@@ -60,6 +60,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int)
 }
 
 
+//WARNING, do not support backpresure
 case class Axi4SharedOnChipRamMultiPort(portCount : Int, dataWidth : Int,byteCount : BigInt,idWidth : Int) extends Component{
   val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
 
@@ -83,6 +84,8 @@ case class Axi4SharedOnChipRamMultiPort(portCount : Int, dataWidth : Int,byteCou
 //      mask = axi.writeData.strb
 //    )
     val addr = stage0.addr(axiConfig.wordRange)
+//    val addrLast = RegNext(addr)
+
     ram.write(
       address = addr,
       data = axi.writeData.data,

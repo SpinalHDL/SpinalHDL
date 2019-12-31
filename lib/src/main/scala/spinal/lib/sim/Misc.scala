@@ -4,13 +4,26 @@ import spinal.sim.SimManagerContext
 
 import scala.collection.mutable.ArrayBuffer
 
-class Phase(next : Phase){
+class Phase(var next : Phase){
   var isActive : Boolean = false
   var activeListeners = ArrayBuffer[() => Unit]()
   var endListeners = ArrayBuffer[() => Unit]()
+
+  def createNewNextPhase(): Phase ={
+    val p = new Phase(next)
+    next = p
+    p
+  }
+
   def activate(): Unit ={
     isActive = true
-    activeListeners.foreach(_())
+    activeListeners.foreach { body =>
+      retain()
+      fork {
+        body()
+        release()
+      }
+    }
     release()
   }
   private var retains = 1

@@ -16,8 +16,8 @@ case class BmbDecoder(p : BmbParameter,
     val outputs = Vec(master(Bmb(p)), mappings.size)
   }
   val hasDefault = mappings.contains(DefaultMapping)
-  val logic = if(hasDefault && mappings.size == 1 && p.canWrite == capabilities.head.canWrite && p.canRead == capabilities.head.canRead){
-    io.outputs(0) <> io.input
+  val logic = if(hasDefault && mappings.size == 1 && !(p.canWrite && !capabilities.head.canWrite) && !(p.canRead && !capabilities.head.canRead)){
+    io.outputs(0) << io.input
   } else new Area {
     val hits = Vec(Bool, mappings.size)
     for (portId <- 0 until mappings.length) yield {
@@ -39,7 +39,8 @@ case class BmbDecoder(p : BmbParameter,
 
     val rspPendingCounter = Reg(UInt(log2Up(pendingMax + 1) bits)) init(0)
     rspPendingCounter := rspPendingCounter + U(io.input.cmd.lastFire) - U(io.input.rsp.lastFire)
-    val rspHits = RegNextWhen(hits, io.input.cmd.fire)
+    val cmdWait = Bool()
+    val rspHits = RegNextWhen(hits, io.input.cmd.valid && !cmdWait)
     val rspPending = rspPendingCounter =/= 0
     val rspNoHitValid = if (!hasDefault) !rspHits.orR else False
     val rspNoHit = !hasDefault generate new Area{
@@ -76,7 +77,7 @@ case class BmbDecoder(p : BmbParameter,
     }
     for(output <- io.outputs) output.rsp.ready := io.input.rsp.ready
 
-    val cmdWait = (rspPending && (hits =/= rspHits || rspNoHitValid)) || rspPendingCounter === pendingMax
+    cmdWait := (rspPending && (hits =/= rspHits || rspNoHitValid)) || rspPendingCounter === pendingMax
     when(cmdWait) {
       io.input.cmd.ready := False
       io.outputs.foreach(_.cmd.valid := False)
