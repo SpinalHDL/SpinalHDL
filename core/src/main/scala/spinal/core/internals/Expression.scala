@@ -714,6 +714,7 @@ object Operator {
     class Smaller extends BinaryOperatorWidthableInputs {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt < UInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -724,6 +725,7 @@ object Operator {
     class SmallerOrEqual extends BinaryOperatorWidthableInputs {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt <= UInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -854,6 +856,7 @@ object Operator {
     class Smaller extends BinaryOperatorWidthableInputs {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt < SInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -864,6 +867,7 @@ object Operator {
     class SmallerOrEqual extends BinaryOperatorWidthableInputs {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt <= SInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)

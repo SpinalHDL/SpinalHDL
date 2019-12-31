@@ -51,6 +51,12 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
  * target device
  */
 case class Device(vendor: String = "?", family: String = "?", name: String = "?")
+object Device{
+  val ALTERA = Device(vendor = "altera")
+  val XILINX = Device(vendor = "xilinx")
+  val LATTICE = Device(vendor = "lattice")
+  val ACTEL = Device(vendor = "actel")
+}
 
 
 trait MemBlackboxingPolicy {

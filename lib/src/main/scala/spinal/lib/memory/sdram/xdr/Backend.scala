@@ -2,32 +2,23 @@ package spinal.lib.memory.sdram.xdr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.memory.sdram.SdramGeneration
 
 case class Backend(cpa: CoreParameterAggregate) extends Component {
-
   import cpa._
 
 
   val io = new Bundle {
     val config = in(CoreConfig(cpa))
     val input = slave(CoreTasks(cpa))
+    val writeDatas = Vec(cpa.cpp.map(cpp => slave(Stream(CoreWriteData(cpp, cpa)))))
     val phy = master(SdramXdrPhyCtrl(pl))
     val outputs = Vec(cpa.cpp.map(cpp => master(Flow(Fragment(CoreRsp(cpp, cpa))))))
     val soft = slave(SoftBus(cpa))
   }
 
-
-  val command = new Area {
-    val CSn = False
-    val RASn = True
-    val CASn = True
-    val WEn = True
-    val CKE = True
-  }
-
   io.phy.ADDR.assignDontCare()
   io.phy.BA.assignDontCare()
-  io.phy.DQe := False
   for ((phase, id) <- io.phy.phases.zipWithIndex) {
     if (generation.RESETn) phase.RESETn := io.soft.RESETn
 
@@ -36,19 +27,9 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     phase.CASn := True
     phase.WEn := True
     phase.CKE := io.soft.CKE
-
-    when(io.config.commandPhase === id) {
-      phase.CSn := command.CSn
-      phase.RASn := command.RASn
-      phase.CASn := command.CASn
-      phase.WEn := command.WEn
-    }
-
-    phase.DQw.assignDontCare()
-    phase.DM.assignDontCare()
   }
 
-  val odt = new Area {
+  val odt = generation.ODT generate new Area {
     val start = False
     val counter = Reg(UInt(cpa.cp.timingWidth bits)) init (0)
     when(counter =/= 0) {
@@ -60,37 +41,56 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
     for ((phase, id) <- io.phy.phases.zipWithIndex) {
       phase.ODT := False
-      phase.ODT setWhen(start && id >= io.config.commandPhase)
+      phase.ODT setWhen(start && id >= io.config.phase.write)
       phase.ODT setWhen(counter > 1)
       phase.ODT setWhen(counter === 1 && io.config.ODTend(id))
     }
   }
 
   val writePipeline = new Area {
-
     case class Cmd() extends Bundle {
-      val data = Bits(pl.beatWidth bits)
-      val mask = Bits(pl.beatWidth / 8 bits)
+      val sel = UInt(log2Up(cpp.length) bits)
     }
 
     val input = Flow(Cmd())
-    val histories = History(input, 0 to cp.writeLatencies.max)
-    histories.tail.foreach(_.valid init (False))
+    val inputRepeated = CombInit(input)
+    val writeHistory = History(inputRepeated, 0 to Math.max(1, cp.writeLatencies.max + pl.writeDelay))
+    writeHistory.tail.foreach(_.valid init (False))
 
-    //    if(pl.withDqs) ???
+    val repeat = (pl.beatCount != 1) generate new Area {
+      val counter = Reg(UInt(log2Up(pl.beatCount) bits)) init (0)
+      when(inputRepeated.valid) {
+        counter := counter + 1
+      }
+      when(counter =/= 0) {
+        inputRepeated.valid := True
+        inputRepeated.payload := writeHistory(1).payload
+      }
+    }
+
+    val history = Flow(Cmd()).allowOverride
+    history.valid := False
+    history.sel.assignDontCare()
     switch(io.config.writeLatency) {
       for (i <- 0 until cp.writeLatencies.size) {
         is(i) {
-          val latency = cp.writeLatencies(i)
-          val history = histories(latency)
-          when(history.valid) {
-            io.phy.DQe := True
-          }
-          for ((phase, dq, dm) <- (io.phy.phases, history.data.subdivideIn(pl.phaseCount slices), history.mask.subdivideIn(pl.phaseCount slices)).zipped) {
-            phase.DQw := Vec(dq.subdivideIn(pl.dataRatio slices))
-            phase.DM := Vec((~dm).subdivideIn(pl.dataRatio slices))
-          }
+          history.valid := writeHistory(cp.writeLatencies(i)).valid
+          history.sel := writeHistory(cp.writeLatencies(i) + pl.writeDelay).sel
         }
+      }
+    }
+    io.phy.writeEnable := history.valid
+    io.writeDatas.foreach(_.ready := False)
+    io.writeDatas(history.sel).ready := history.valid
+    assert(io.writeDatas.map(p => !(!p.valid && p.ready)).andR, "SDRAM write data stream starved !")
+
+    val payload = io.writeDatas.map(_.payload).read(history.sel)
+    for ((phase, dq, dm) <- (io.phy.phases, payload.data.subdivideIn(pl.phaseCount slices), payload.mask.subdivideIn(pl.phaseCount slices)).zipped) {
+      phase.DQw := Vec(dq.subdivideIn(pl.dataRate slices))
+      when(history.valid) {
+        phase.DM := Vec((~dm).subdivideIn(pl.dataRate slices))
+      } otherwise {
+        phase.DM.foreach(_.clearAll())
       }
     }
   }
@@ -108,28 +108,31 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   }
 
   val rspPipeline = new Area {
-    val input = Flow(Fragment(PipelineCmd()))
+    val input = Flow(PipelineCmd())
+    assert(cp.readLatencies.min + pl.readDelay >= 1)
+    val cmd = input.toStream.queueLowLatency(1 << log2Up((cp.readLatencies.max + pl.readDelay + pl.beatCount-1)/pl.beatCount + 1), latency = 1) //TODO
 
-    val histories = History(input, 0 to cp.readLatencies.max + pl.outputLatency + pl.inputLatency - 1)
-    histories.tail.foreach(_.valid init (False))
+    val readHistory = History(input.valid && !input.write, 0 until cp.readLatencies.max + pl.beatCount)
+    readHistory.tail.foreach(_ init (False))
 
-    val output = Flow(Fragment(PipelineRsp()))
-    output.valid := False
-    output.payload.assignDontCare()
+    io.phy.readEnable.allowOverride
+    io.phy.readEnable := False
     switch(io.config.readLatency) {
       for (i <- 0 until cp.readLatencies.size) {
         is(i) {
-          val history = histories(cp.readLatencies(i) + pl.outputLatency + pl.inputLatency - 1)
-          when(history.valid) {
-            output.valid := True
-            output.context := history.context
-            output.source := history.source
-            output.last := history.last
-          }
+          io.phy.readEnable := readHistory.drop(cp.readLatencies(i)).take(pl.beatCount).orR
         }
       }
     }
 
+    val beatCounter = Counter(pl.beatCount, io.phy.readValid)
+
+    val output = Flow(Fragment(PipelineRsp()))
+    output.valid := cmd.valid && cmd.write || io.phy.readValid
+    output.context := cmd.context
+    output.source := cmd.source
+    output.last := cmd.write || beatCounter.willOverflowIfInc
+    cmd.ready := cmd.write || beatCounter.willOverflow
 
     for ((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped) {
       outputData := B(phase.DQr)
@@ -150,83 +153,73 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   def portEvent(f: CoreTask => Bool) = io.input.ports.map(f).orR
 
-  val muxedPort = MuxOH(io.input.ports.map(p => p.read || p.write || p.precharge || p.active), io.input.ports)
+  val muxedCmd = MuxOH(io.input.ports.map(p => p.read || p.write || p.precharge || p.active), io.input.ports)
   writePipeline.input.valid := portEvent(p => p.write)
-  writePipeline.input.data := muxedPort.data
-  writePipeline.input.mask := muxedPort.mask
+  writePipeline.input.sel := OHToUInt(io.input.ports.map(p => p.write))
 
   rspPipeline.input.valid := False
-  rspPipeline.input.context := muxedPort.context
-  rspPipeline.input.source := muxedPort.source
-  rspPipeline.input.last.assignDontCare()
+  rspPipeline.input.context := muxedCmd.context
+  rspPipeline.input.source := muxedCmd.source
   rspPipeline.input.write.assignDontCare()
 
-  when(io.input.prechargeAll) {
-    command.CSn := False
-    command.RASn := False
-    command.CASn := False
+  val phase = new {
+    def precharge = io.phy.phases(io.config.phase.precharge)
+    def active = io.phy.phases(io.config.phase.active)
+    def read = io.phy.phases(io.config.phase.read)
+    def write = io.phy.phases(io.config.phase.write)
   }
+
   when(io.input.prechargeAll) {
     io.phy.ADDR(10) := True
-    command.CSn := False
-    command.RASn := False
-    command.WEn := False
+    phase.precharge.CSn := False
+    phase.precharge.RASn := False
+    phase.precharge.WEn := False
+  }
+  when(io.input.refresh){
+    phase.active.CSn := False
+    phase.active.RASn := False
+    phase.active.CASn := False
   }
   when(portEvent(p => p.precharge)) {
-    io.phy.ADDR := muxedPort.address.row.asBits.resized
+    io.phy.ADDR := muxedCmd.address.row.asBits.resized
     io.phy.ADDR(10) := False
-    io.phy.BA := muxedPort.address.bank.asBits
-    command.CSn := False
-    command.RASn := False
-    command.WEn := False
+    io.phy.BA := muxedCmd.address.bank.asBits
+    phase.precharge.CSn := False
+    phase.precharge.RASn := False
+    phase.precharge.WEn := False
   }
-
   when(portEvent(p => p.active)) {
-    io.phy.ADDR := muxedPort.address.row.asBits.resized
-    io.phy.BA := muxedPort.address.bank.asBits
-    command.CSn := False
-    command.RASn := io.config.noActive
+    io.phy.ADDR := muxedCmd.address.row.asBits.resized
+    io.phy.BA := muxedCmd.address.bank.asBits
+    phase.active.CSn := False
+    phase.active.RASn := io.config.noActive
   }
-
-  val portFirst = RegInit(True)
   when(portEvent(p => p.write)) {
-    io.phy.ADDR := muxedPort.address.column.asBits.resized
+    io.phy.ADDR := muxedCmd.address.column.asBits.resized
     io.phy.ADDR(10) := False
-    io.phy.BA := muxedPort.address.bank.asBits
-    writePipeline.input.mask := muxedPort.mask
-    when(portFirst) {
-      command.CSn := False
-      command.CASn := False
-      command.WEn := False
-      rspPipeline.input.valid := True
-      rspPipeline.input.last := True
-      rspPipeline.input.write := True
-      odt.start := True
-    }
-    portFirst := muxedPort.last
-  }
-
-  when(portEvent(p => p.read)) {
-    io.phy.ADDR := muxedPort.address.column.asBits.resized
-    io.phy.ADDR(10) := False
-    io.phy.BA := muxedPort.address.bank.asBits
-    writePipeline.input.mask.setAll()
-    when(portFirst) {
-      command.CSn := False
-      command.CASn := False
-    }
+    io.phy.BA := muxedCmd.address.bank.asBits
+    phase.write.CSn := False
+    phase.write.CASn := False
+    phase.write.WEn := False
     rspPipeline.input.valid := True
-    rspPipeline.input.last := muxedPort.last
-    rspPipeline.input.write := False
-    portFirst := muxedPort.last
+    rspPipeline.input.write := True
+    if(generation.ODT) odt.start := True
   }
-
+  when(portEvent(p => p.read)) {
+    io.phy.ADDR := muxedCmd.address.column.asBits.resized
+    io.phy.ADDR(10) := False
+    io.phy.BA := muxedCmd.address.bank.asBits
+    phase.read.CSn := False
+    phase.read.CASn := False
+    rspPipeline.input.valid := True
+    rspPipeline.input.write := False
+  }
   when(io.soft.cmd.valid) {
     io.phy.ADDR := io.soft.cmd.ADDR
     io.phy.BA := io.soft.cmd.BA
-    command.CASn := io.soft.cmd.CASn
-    command.CSn := io.soft.cmd.CSn
-    command.RASn := io.soft.cmd.RASn
-    command.WEn := io.soft.cmd.WEn
+    io.phy.phases(0).CASn := io.soft.cmd.CASn
+    io.phy.phases(0).CSn := io.soft.cmd.CSn
+    io.phy.phases(0).RASn := io.soft.cmd.RASn
+    io.phy.phases(0).WEn := io.soft.cmd.WEn
   }
 }

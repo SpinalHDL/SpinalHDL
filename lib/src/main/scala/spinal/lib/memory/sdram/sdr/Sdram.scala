@@ -2,7 +2,7 @@ package spinal.lib.memory.sdram.sdr
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.io.TriState
+import spinal.lib.io.{TriState, TriStateArray}
 import spinal.lib.memory.sdram._
 
 case class SdramTimings(
@@ -22,7 +22,7 @@ case class SdramTimings(
 case class SdramInterface(g : SdramLayout) extends Bundle with IMasterSlave{
   val ADDR  = Bits(g.chipAddressWidth bits)
   val BA    = Bits(g.bankWidth bits)
-  val DQ    = TriState(Bits(g.dataWidth bits))
+  val DQ    = TriStateArray(g.dataWidth bits)
   val DQM   = Bits(g.bytePerWord bits)
   val CASn  = Bool
   val CKE   = Bool

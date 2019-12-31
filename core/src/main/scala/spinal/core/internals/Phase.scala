@@ -818,12 +818,24 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
+        val ram = new Ram_1wrs(
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
+          readUnderWrite = dontCare,
+          maskWidth = if (port.mask != null) port.mask.getWidth else 1,
+          maskEnable = port.mask != null
+        )
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
         ram.io.wr.assignFrom(port.writeEnable)
         ram.io.wrData.assignFrom(port.data)
+
+        if (port.mask != null)
+          ram.io.mask.assignFrom(port.mask)
+        else
+          ram.io.mask := "1"
 
         wrapConsumers(port, ram.io.rdData)
 
@@ -1121,6 +1133,25 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
+  override def impl(pc: PhaseContext): Unit = {
+    if(pc.config.device.vendor == Device.ALTERA.vendor){
+      pc.walkDeclarations {
+        case mem : Mem[_] => {
+          var onlyDontCare = true
+          mem.dlcForeach(e => e match {
+            case port: MemWrite      =>
+            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+          })
+          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+        }
+        case _ =>
+      }
+    }
+  }
+}
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
@@ -2204,6 +2235,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
@@ -2324,6 +2356,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 

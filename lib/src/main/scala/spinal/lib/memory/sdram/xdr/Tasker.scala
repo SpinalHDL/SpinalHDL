@@ -9,27 +9,41 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   val io = new Bundle {
     val config = in(CoreConfig(cpa))
     val refresh = slave(Event)
-    val inputs = Vec(cpp.map(cpp => slave(Stream(Fragment(CoreCmd(cpp, cpa))))))
+    val inputs = Vec(cpp.map(cpp => slave(Stream(CoreCmd(cpp, cpa)))))
     val output = master(CoreTasks(cpa))
   }
 
-  val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.bankCount)
+  val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
+
+//  def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
+//    val value = Reg(UInt(timingWidth bits)) init(0)
+//    val notZero = value =/= 0
+//    val busyNext = CombInit(notZero)
+//    val busy = RegNext(busyNext)
+//    value := value - notZero.asUInt.resized
+//    when(loadValid) {
+//      value := loadValue
+////      if(timingWidth != 0) busyNext := True
+//    }
+//  }
 
   def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
-    val value = Reg(UInt(timingWidth bits)) init(0)
-    val notZero = value =/= 0
-    val busyNext = notZero  || loadValid
-    val busy = RegNext(busyNext)
-    value := value - notZero.asUInt
-    when(loadValid) { value := loadValue }
+    val value = Reg(UInt(timingWidth bits)) randBoot()
+    val notZero = value =/= loadValue
+    val busy = CombInit(notZero)
+//    val busy = RegNext(busyNext)
+    value := value + notZero.asUInt.resized
+    when(loadValid) {
+      value := 0
+    }
   }
 
-//  val CCD = Timing(trigger.CCD, pl.sdram.generation.CCD/pl.dataRatio-1)
+  val CCD = (pl.beatCount > 1) generate Timing(io.output.ports.map(p => p.read || p.write).orR, pl.beatCount-2, log2Up(pl.beatCount))
   val RFC = Timing(io.output.refresh, io.config.RFC, cp.timingWidth+3)
   val RRD = Timing(io.output.ports.map(p => p.active).orR, io.config.RRD)
   val WTR = Timing(io.output.ports.map(p => p.write).orR, io.config.WTR)
   val RTW = Timing(io.output.ports.map(p => p.read).orR, io.config.RTW)
-  val RP  = Timing(io.output.prechargeAll, io.config.RP)
+  val RP  = Timing(io.output.prechargeAll, io.config.RP + 1)
   val FAW = generation.FAW generate new Area{ //Can be optimized
     val trigger = io.output.ports.map(p => p.active).orR
     val ptr = RegInit(U"00")
@@ -40,7 +54,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   }
 
 
-  val banks = for(bankId <- 0 until pl.bankCount) yield new Area {
+  val banks = for(bankId <- 0 until pl.sdram.bankCount) yield new Area {
     val hits = B(io.output.ports.map(_.address.bank === bankId))
     def portEvent(f : CoreTask => Bool) = (hits & B(io.output.ports.map(f))).orR
 
@@ -54,21 +68,18 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       activeNext := True
     }
 
-
-
     val WR  = Timing(portEvent(p => p.write), io.config.WR)
     val RAS = Timing(portEvent(p => p.active), io.config.RAS)
     val RP  = Timing(portEvent(p => p.precharge), io.config.RP)
     val RCD = Timing(portEvent(p => p.active), io.config.RCD)
-    val RTP = Timing(portEvent(p => p.read && p.last), io.config.RTP)
+    val RTP = Timing(portEvent(p => p.read), io.config.RTP)
 
-    val allowPrecharge = RegNext(!WR.busyNext && !RAS.busyNext && !RTP.busyNext)
-    val allowActive = RegNext(!RP.busyNext && !RRD.busyNext && !FAW.busyNext)
-    val allowWrite = RegNext(!RCD.busyNext && !RTW.busyNext)
-    val allowRead = RegNext(!RCD.busyNext  && !WTR.busyNext)
+    val allowPrecharge = !WR.busy && !RAS.busy && !RTP.busy
+    val allowActive = !RP.busy
+    val allowWrite = !RCD.busy
+    val allowRead = !RCD.busy
   }
-  val allowPrechargeAll = banks.map(_.allowPrecharge).orR
-//  val allowPrechargeAll = RegNext(banks.map(_.allowPrechargeNext).orR)
+  val allowPrechargeAll = banks.map(_.allowPrecharge).andR
 
 
 
@@ -89,11 +100,13 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val allowWrite = Reg(Bool)
     val allowRead = Reg(Bool)
 
+
+
     def patch(address : SdramAddress): Unit ={
-      allowPrecharge := banks.map(_.allowPrecharge ).read(address.bank)
-      allowActive := banks.map(_.allowActive ).read(address.bank)
-      allowWrite := banks.map(_.allowWrite ).read(address.bank)
-      allowRead := banks.map(_.allowRead ).read(address.bank)
+      allowPrecharge clearWhen(!banks.map(_.allowPrecharge ).read(address.bank))
+      allowActive clearWhen(!banks.map(_.allowActive ).read(address.bank))
+      allowWrite clearWhen(!banks.map(_.allowWrite ).read(address.bank))
+      allowRead clearWhen(!banks.map(_.allowRead ).read(address.bank))
 
       for(output <- io.output.ports){
         when(output.address.bank === address.bank) {
@@ -105,6 +118,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
             bankHit := output.address.row === address.row
             allowRead := False
             allowWrite := False
+            allowPrecharge := False
           }
           when(output.read || output.write){
             allowPrecharge := False
@@ -116,6 +130,11 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       }
     }
 
+    allowPrecharge := True
+    allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
+    allowWrite := !RTW.busy && (if(CCD != null) !CCD.busy else True)
+    allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
+
     when(!input.isStall) {
       bankHit := banksRow.readAsync(portAddress.bank) === portAddress.row
       bankActive := banks.map(_.active ).read(portAddress.bank)
@@ -124,14 +143,22 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       patch(address)
     }
 
+
+
     when(io.output.ports.map(_.active).orR){
       allowActive := False
     }
-    when(io.output.ports.map(_.read).orR){
-      allowWrite := False
-    }
-    when(io.output.ports.map(_.write).orR){
+
+    if(CCD != null) when(io.output.ports.map(p => p.read || p.write).orR){
       allowRead := False
+      allowWrite := False
+    } else {
+      when(io.output.ports.map(_.read).orR){
+        allowWrite := False
+      }
+      when(io.output.ports.map(_.write).orR){
+        allowRead := False
+      }
     }
 
     val inputActive = !bankActive
@@ -140,18 +167,15 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val inputRead  = bankActive && bankHit && !input.write
     val inibated = False
 
-    val doActive = inputActive && allowPrecharge
-    val doPrecharge = inputPrecharge && allowActive
+    val doActive = inputActive && allowActive
+    val doPrecharge = inputPrecharge && allowPrecharge
     val doWrite = inputWrite && allowWrite
     val doRead = inputRead && allowRead
-    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead)
+    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
     val cmdOutputPayload = CoreTask(cpa)
-    io.output.ports(inputId).last := input.last
     io.output.ports(inputId).source := inputId
     io.output.ports(inputId).address := address
-    io.output.ports(inputId).data := input.data
-    io.output.ports(inputId).mask := input.mask
     io.output.ports(inputId).context := input.context.resized
     io.output.ports(inputId).active := inputActive
     io.output.ports(inputId).precharge := inputPrecharge
@@ -183,7 +207,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
 
-    val tockenIncrement = (masked & arbiterState & gates.map(g => g.bankActive && g.bankHit && g.input.last).asBits).orR
+    val tockenIncrement = (masked & arbiterState & gates.map(g => g.bankActive && g.bankHit).asBits).orR
     val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
     when(tockenIncrement){
       tocken := tocken + 1
@@ -204,26 +228,29 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       gate.input.ready := sel && gate.bankActive && gate.bankHit
     }
 
-    val askRefresh = io.refresh.valid && gates.map(_.empty).orR
+    val askRefresh = io.refresh.valid && gates.map(_.empty).andR
     io.refresh.ready := False
     io.output.prechargeAll := False
     io.output.refresh := False
     val refreshState = RegInit(U"00")
     when(askRefresh){
       switch(refreshState){
-        is(0) {
-          when(allowPrechargeAll) {
-            io.output.prechargeAll := True
-            refreshState := 1
-          }
+        is(0) { //Dummy state to ensure allowPrechargeAll propagation
+          refreshState := 1
         }
         is(1) {
-          when(!RP.busy) {
-            io.output.refresh := True
+          when(RegNext(allowPrechargeAll)) {
+            io.output.prechargeAll := True
             refreshState := 2
           }
         }
-        is(2){
+        is(2) {
+          when(!RP.busy) {
+            io.output.refresh := True
+            refreshState := 3
+          }
+        }
+        is(3){
           when(!RFC.busy){
             io.refresh.ready := True
             refreshState := 0

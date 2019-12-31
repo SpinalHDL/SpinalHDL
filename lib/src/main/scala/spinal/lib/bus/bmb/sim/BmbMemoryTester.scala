@@ -64,7 +64,7 @@ class BmbMemoryTester(bmb : Bmb,
 case class BmbMemoryMultiPort(bmb : Bmb,
                               cd : ClockDomain)
 
-class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
+class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f, forkClocks : Boolean = true) {
   def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
   def transactionCountTarget = 30000
 
@@ -74,7 +74,7 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
     //Regions used to avoid having write to read hazard
     val regions = BmbRegionAllocator()
 
-    ports.map(_.cd).distinct.foreach(_.forkStimulus(10))
+    if(forkClocks) ports.map(_.cd).distinct.foreach(_.forkStimulus(10))
     //ports.map(_.cd).distinct.foreach(cd => cd.forkStimulus(if(cd.frequency != null) HertzNumber(1e9) / cd.frequency.getValue))
 
     for(port <- ports) {
@@ -89,17 +89,12 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort]) {
       )
 
 
-      val masterAgent = new BmbMasterAgent(bmb, cd) {
+      val masterAgent = new BmbMasterAgent(bmb, cd, cmdFactor, rspFactor) {
         val busP = bmb.p
-
         override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong))
-
         override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-
         override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(addressGen(bmb), sizeMax, busP)
-
         override def regionFree(region: SizeMapping): Unit = regions.free(region)
-
         override def regionIsMapped(region: SizeMapping, opcode: Int): Boolean = true
       }
 
