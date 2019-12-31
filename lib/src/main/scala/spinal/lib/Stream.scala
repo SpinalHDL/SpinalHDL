@@ -188,6 +188,34 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.ready := ret.ready && counter.willOverflowIfInc
     (ret, counter)
   }
+  
+  /**
+   * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
+   * It introduces one cycle of latency.
+   */
+  def slowdown(factor: Int): Stream[Vec[T]] = {
+    val next = Stream(Vec(this.payload, factor))
+    val counter = Counter(factor)
+    for (i <- 0 to factor) {
+    	next.payload(i) := RegNextWhen(this.payload, counter === i)
+    }
+    when (counter.willOverflow) {
+      /* All elements are valid, so wait for ready signal to advance */
+      this.ready := next.ready
+      next.valid := True
+      when (next.fire) {
+        counter.increment()
+      }
+    } otherwise {
+      /* Take the elements and save them into a register */
+      this.ready := True
+      next.valid := False
+      when (this.valid) {
+        counter.increment()
+      }
+    }
+    next
+  }
 
 /** Return True when a transaction is present on the bus but the ready signal is low
     */
