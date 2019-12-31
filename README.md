@@ -49,8 +49,8 @@ repositories {
 }
 
 dependencies {
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.12', version: '1.3.6'
-	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.12', version: '1.3.6'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.11', version: '1.3.6'
+	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.11', version: '1.3.6'
 }
 ```
 
