@@ -238,16 +238,34 @@ class Axi4WriteOnlySlaveAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain) {
 
 class Axi4ReadOnlySlaveAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain) {
   val rQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+  def readByte(address : BigInt) : Byte = Random.nextInt().toByte
 
   val arMonitor = StreamMonitor(bus.ar, clockDomain){ar =>
-    val id = ar.id.toInt
-    val len = ar.len.toInt
+    val size = bus.ar.size.toInt
+    val len = bus.ar.len.toInt
+    val id = bus.ar.id.toInt
+    val burst = bus.ar.burst.toInt
+    val addr = bus.ar.addr.toBigInt
+    val bytePerBeat = (1 << size)
+    val bytes = (len + 1) * bytePerBeat
     for(beat <- 0 to len) {
+      val beatAddress = burst match {
+        case 0 => addr
+        case 1 => (addr + bytePerBeat*beat) & ~BigInt(bus.config.bytePerWord-1)
+        case 2 => {
+          val base = addr & ~BigInt(bytes-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(bus.config.bytePerWord-1)
+        }
+      }
       rQueue(id) += { () =>
         bus.r.id #= id
         bus.r.resp #= 0
         bus.r.last #= (beat == len)
-        bus.r.data.randomize()
+        var data = BigInt(0)
+        for(i <- 0 until bus.config.bytePerWord){
+          data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i*8
+        }
+        bus.r.data #= data
       }
     }
   }
