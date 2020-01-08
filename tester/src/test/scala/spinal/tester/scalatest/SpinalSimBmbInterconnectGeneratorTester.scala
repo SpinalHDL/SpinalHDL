@@ -36,7 +36,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
       def addSlave(address : BigInt, capabilities : BmbParameter) = wrap(new Generator{
         val requirements = Handle[BmbParameter]
         val busHandle = Handle[Bmb]
-        interconnect.addSlave(capabilities, requirements, busHandle, address)
+        interconnect.addSlaveAt(capabilities, requirements, busHandle, address)
         dependencies += requirements
         val logic = add task new Area{
           val bus = master(Bmb(requirements))

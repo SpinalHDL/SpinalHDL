@@ -73,10 +73,16 @@ object Handle{
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
+  implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
+  implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 
   implicit def miaouImplicitHandle[T](value : Handle[T]) = new {
     def yolo[T2](body : (T) => T2) = value.produce(body(value))
+  }
+
+  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) = new {
+    def loadi(that : Int) = value.load(BigInt(that))
   }
 }
 
