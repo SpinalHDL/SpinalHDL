@@ -12,7 +12,7 @@ trait Tag{
 class MemoryMaster[T <: Nameable](node : Handle[T]) extends Tag
 class MemorySlave[T <: Nameable](node : Handle[T]) extends Tag
 class SimpleBus[T <: Nameable](val node : Handle[T], val size : BigInt) extends Tag
-class MemoryConnection[T <: Nameable, T2 <: Nameable](val input : Handle[T], val output : Handle[T2], val address : BigInt) extends Tag
+class MemoryConnection[T <: Nameable, T2 <: Nameable](val input : Handle[T], val output : Handle[T2], val address :  Handle[BigInt]) extends Tag
 
 object Export{
   def unapply(x: Export): Option[(String, Any)] = Some((x.name, x.value))

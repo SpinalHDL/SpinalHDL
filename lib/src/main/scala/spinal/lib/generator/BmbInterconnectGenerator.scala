@@ -109,7 +109,7 @@ case class BmbInterconnectGenerator() extends Generator{
       add task {
         val busConnections = connections.filter(_.s == bus)
         val busMasters = busConnections.map(c => masters(c.m))
-        assert(busMasters.nonEmpty, s"$bus has not master")
+        assert(busMasters.nonEmpty, s"$bus has no master")
         val routerBitCount = log2Up(busConnections.size)
         val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max 
         val inputContextWidth = busMasters.map(_.requirements.contextWidth).max
@@ -209,14 +209,14 @@ case class BmbInterconnectGenerator() extends Generator{
     model.mapping.merge(mapping)
   }
 
-  def addSlave(capabilities : Handle[BmbParameter],
+  def addSlaveAt(capabilities : Handle[BmbParameter],
                requirements : Handle[BmbParameter],
                bus : Handle[Bmb],
-               address: BigInt) : Unit = {
+               address: Handle[BigInt]) : Unit = {
     val model = getSlave(bus)
     model.capabilities.merge(capabilities)
     model.requirements.merge(requirements)
-    Dependable(capabilities){
+    Dependable(capabilities, address){
       model.mapping.load(SizeMapping(address, BigInt(1) << capabilities.addressWidth))
     }
   }
