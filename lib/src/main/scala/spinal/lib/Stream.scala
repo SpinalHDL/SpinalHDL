@@ -990,6 +990,21 @@ class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Co
   }
 }
 
+/**
+ * This is equivalent to a StreamMux, but with a counter attached to the port selector.
+ */
+// TODOTEST
+object StreamCombinerSequential {
+  def apply[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
+    val select = Counter(inputs.length)
+    val stream = StreamMux(select, inputs)
+    when (stream.fire) {
+      select.increment()
+    }
+    stream
+  }
+}
+
 /** Combine a stream and a flow to a new stream. If both input sources fire, the flow will be preferred. */
 object StreamFlowArbiter {
   def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
