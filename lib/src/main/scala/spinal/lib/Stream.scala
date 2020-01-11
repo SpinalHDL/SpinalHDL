@@ -1072,16 +1072,24 @@ object StreamMux {
   }
 
   def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
-    val ret = cloneOf(inputs(0))
-    ret.valid := inputs(select).valid
-    ret.payload := inputs(select).payload
-
-    for ((input, index) <- inputs.zipWithIndex) {
-      input.ready := select === index && ret.ready
-    }
-
-    ret
+    val c = new StreamMux(inputs(0).payload, inputs.length)
+    c.io.inputs := inputs
+    c.io.select := select
+    c.io.output
   }
+}
+
+class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
+  val io = new Bundle {
+    val select = in UInt (log2Up(portCount) bit)
+    val inputs = Vec(slave Stream (dataType), portCount)
+    val output = master Stream (dataType)
+  }
+  for ((input, index) <- io.inputs.zipWithIndex) {
+    input.ready := io.select === index && io.output.ready
+  }
+  io.output.valid := io.inputs(io.select).valid
+  io.output.payload := io.inputs(io.select).payload
 }
 
 case class EventEmitter(on : Event){
