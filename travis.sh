@@ -161,7 +161,7 @@ beforeInstall () {
   unset VERILATOR_ROOT  # For bash
   cd verilator
   git pull        # Make sure we're up-to-date
-  git checkout verilator_4_008
+  git checkout v4.008
   autoconf        # Create ./configure script
   ./configure
   make -j$(nproc)
