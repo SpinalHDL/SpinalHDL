@@ -2,6 +2,7 @@ package spinal.lib.generator
 
 import spinal.core._
 import spinal.core.internals.classNameOf
+import spinal.idslplugin.PostInitCallback
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -165,7 +166,7 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
-class Generator() extends Nameable with Dependable with DelayedInit with TagContainer with OverridedEqualsHashCode{
+class Generator() extends Nameable with Dependable with PostInitCallback with TagContainer with OverridedEqualsHashCode{
   @dontName var parent : Generator = null
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     parent = Generator.stack.head
@@ -257,13 +258,10 @@ class Generator() extends Nameable with Dependable with DelayedInit with TagCont
   override def isDone: Boolean = elaborated
 
 
-  override def delayedInit(body: => Unit) = {
-    body
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      Generator.stack.pop()
-    }
+  override def postInitCallback(): this.type = {
+    Generator.stack.pop()
+    this
   }
-
 
   def toComponent(): GeneratorComponent[this.type] = new GeneratorComponent(this)
 

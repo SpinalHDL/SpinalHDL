@@ -11,6 +11,21 @@ import spinal.idslplugin.{PostInitCallback, ValCallback}
 //class valCallback extends StaticAnnotation
 //@valCallback @postInitCallback
 
+
+class RGB2 extends Bundle {
+  println("A")
+  def this(v : Int) {
+    this()
+    println("B")
+  }
+  new ArrayBuffer[Int]()
+  class Yolo(){
+    println(RGB2.this)
+  }
+
+  new Yolo()
+}
+
 class Bundle extends ValCallback with PostInitCallback{
   println("Bundle constructor start")
   def valCallback(ref: Any, name: String): Unit = {
@@ -25,6 +40,13 @@ class Bundle extends ValCallback with PostInitCallback{
 }
 
 class RGB extends Bundle {
+
+//  new RGB2()
+//  def this(v : Int) {
+//    this()
+////    println(v)
+//  }
+
   println("RGB constructor start")
   val r = 3
   val g = 4
@@ -43,7 +65,33 @@ object Play {
     println("DONE2a")
   }
 }
+class SubAA extends Component{
+  val a,b = in Bool()
+  val result = out Bool()
+  result := a && b
+}
 
+case class SubA[T <: Any](v : T) extends Component{
+  val a,b = in Bool()
+  val result = out Bool()
+  val subaa = new SubAA()
+  subaa.a <> a
+  subaa.b <> b
+  subaa.result <> result
+  println(v + v.toString)
+}
+
+class Toplevel extends Component{
+  val a,b = in Bool()
+  val result = out Bool()
+  val suba = new SubA("miaou")
+  suba.a <> a
+  suba.b <> b
+  suba.result <> result
+}
+object PlayComponent2 extends App{
+  SpinalVerilog(new Toplevel)
+}
 
 object PlayBits{
 
