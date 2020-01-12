@@ -3,9 +3,46 @@ package spinal.dev
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core._
-/**
- * Created by PIC32F_USER on 14/08/2017.
- */
+import spinal.idslplugin.{PostInitCallback, ValCallback}
+
+//import scala.annotation.StaticAnnotation
+//
+//class postInitCallback extends StaticAnnotation
+//class valCallback extends StaticAnnotation
+//@valCallback @postInitCallback
+
+class Bundle extends ValCallback with PostInitCallback{
+  println("Bundle constructor start")
+  def valCallback(ref: Any, name: String): Unit = {
+    println(ref.getClass + " : " + name + " = " + ref)
+  }
+  def postInitCallback(): this.type = {
+    println("miaou")
+    this
+  }
+  val miaou = "wuff"
+  println("Bundle constructor enda")
+}
+
+class RGB extends Bundle {
+  println("RGB constructor start")
+  val r = 3
+  val g = 4
+  val b = 5
+  println("hello")
+  val x, y, z = 44
+  var t = 3
+  t = 4
+  println("RGB constructor endaaaaa")
+}
+
+object Play {
+  def main(args: Array[String]): Unit = {
+    println("START")
+    new RGB()
+    println("DONE2a")
+  }
+}
 
 
 object PlayBits{
