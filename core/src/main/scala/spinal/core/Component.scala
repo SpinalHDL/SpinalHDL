@@ -24,6 +24,7 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import spinal.idslplugin.PostInitCallback
 
 
 object Component {
@@ -68,7 +69,7 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode{
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode{
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
@@ -126,19 +127,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
   }
 
-  /** Initialization class delay */
-  override def delayedInit(body: => Unit) = {
-    body // evaluate the initialization code of body
-
-    // prePopTasks are executed after the creation of the inherited component
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-
-      this.nameElements()
-
-      prePop()
-
-      Component.pop(this)
-    }
+  def postInitCallback(): this.type = {
+    this.nameElements()
+    prePop()
+    Component.pop(this)
+    this
   }
 
   /** Add a new prePopTask */
