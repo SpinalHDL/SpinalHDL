@@ -17,7 +17,6 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
   import global._
 
-  var counter = 0
 
   object ToStringMaskerTransformer extends Transformer {
 
@@ -89,34 +88,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
                 val appl = Apply(sel, Nil)
                 sel.tpe = MethodType(Nil, a.tpe)
                 appl.tpe = a.tpe
-                counter += 1
                 ret = appl
-
-//                if(sym.name.toString == "RGB2"){
-//                  Thread.sleep(1000)
-//                  println()
-//                  println()
-//                  println()
-//                  println()
-//                  println()
-//                  println()
-//                  println("HIT")
-//                  tpe.foreach(println(_))
-//                  println("=>1")
-//                  a.foreach(println(_))
-//                  println("=>2")
-//                  ret.foreach(println(_))
-//                }
-
-                //                if(!a.toString().contains("StreamArbiter")) {
-//
-//                } else {
-//                  println("*************** 1")
-//                  println(a)
-//                  println("*************** 2")
-//                  println(appl)
-//                  println("*************** 3")
-//                }
               }
             }
           }
