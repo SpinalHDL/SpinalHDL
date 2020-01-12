@@ -10,12 +10,14 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
   override val phaseName: String = "idsl-plugin"
 
-  override val runsAfter: List[String] = List("typer")
-  override val runsRightAfter: Option[String] = Some("typer")
+  override val runsAfter: List[String] = List("uncurry")
+  override val runsRightAfter: Option[String] = Some("uncurry")
 
   override protected def newTransformer(unit: global.CompilationUnit): global.Transformer = ToStringMaskerTransformer
 
   import global._
+
+  var counter = 0
 
   object ToStringMaskerTransformer extends Transformer {
 
@@ -68,23 +70,53 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
           ret
         }
+
         case a: Apply => {
           var ret: Tree = a
+
           if (a.fun.symbol.isPrimaryConstructor) {
             val sym = a.fun.symbol.enclClass
             val tpe = sym.typeOfThis
             if (symbolHasTrait(sym, "PostInitCallback")) {
-              val isSuper = a match {
+              val avoidIt = a match {
                 case Apply(Select(Super(_, _), _), _) => true
+                case Apply(Select(This(_), _), _) => true
                 case _ => false
               }
-              if (!isSuper) {
+              if (!avoidIt) {
                 val func = tpe.members.find(_.name.toString == "postInitCallback").get
                 val sel = Select(a, func.name)
                 val appl = Apply(sel, Nil)
                 sel.tpe = MethodType(Nil, a.tpe)
                 appl.tpe = a.tpe
+                counter += 1
                 ret = appl
+
+//                if(sym.name.toString == "RGB2"){
+//                  Thread.sleep(1000)
+//                  println()
+//                  println()
+//                  println()
+//                  println()
+//                  println()
+//                  println()
+//                  println("HIT")
+//                  tpe.foreach(println(_))
+//                  println("=>1")
+//                  a.foreach(println(_))
+//                  println("=>2")
+//                  ret.foreach(println(_))
+//                }
+
+                //                if(!a.toString().contains("StreamArbiter")) {
+//
+//                } else {
+//                  println("*************** 1")
+//                  println(a)
+//                  println("*************** 2")
+//                  println(appl)
+//                  println("*************** 3")
+//                }
               }
             }
           }
