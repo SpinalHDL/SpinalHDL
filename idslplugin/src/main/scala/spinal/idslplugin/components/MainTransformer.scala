@@ -73,7 +73,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
         case a: Apply => {
           var ret: Tree = a
 
-          if (a.fun.symbol.isPrimaryConstructor) {
+          if (a.fun.symbol.isConstructor) {
             val sym = a.fun.symbol.enclClass
             val tpe = sym.typeOfThis
             if (symbolHasTrait(sym, "PostInitCallback")) {
