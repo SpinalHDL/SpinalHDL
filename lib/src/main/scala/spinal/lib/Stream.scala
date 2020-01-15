@@ -982,6 +982,9 @@ object StreamDispatcherSequencial {
   }
 }
 
+/**
+ * @deprecated Do not use. Use the companion object or a normal regular StreamMux instead.
+ */
 class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
