@@ -605,8 +605,8 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
     for (i <- 0 until portCount) {
       io.outputs(i).valid := io.input.valid && linkEnable(i)
       io.outputs(i).payload := io.input.payload
-    when(io.outputs(i).fire) {
-      linkEnable(i) := False
+      when(io.outputs(i).fire) {
+        linkEnable(i) := False
       }
     }
 
@@ -973,22 +973,19 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
 }
 
 /**
- * This is equivalent to a StreamDemux, but with a counter attached to the port selector.
+ * @deprecated Do not use
  */
-// TODO is there any reason to have a proper class for this if we simply could reuse StreamDemux instead? ~piegames
-// TODO If there is a StreamDispatcherSequential, there should be a StreamCombinerSequential as well (name open to suggestions) ~piegames
+// TODOTEST
 object StreamDispatcherSequencial {
   def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
-    val dispatcher = new StreamDispatcherSequencial(input.payloadType, outputCount)
-    dispatcher.io.input << input
-    return dispatcher.io.outputs
+    StreamDispatcherSequential(input, outputCount)
   }
 }
 
 class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
-    val outputs = Vec(master Stream (gen),n)
+    val outputs = Vec(master Stream (gen), n)
   }
   val counter = Counter(n, io.input.fire)
 
@@ -1005,6 +1002,20 @@ class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Co
         io.input.ready := io.outputs(i).ready
       }
     }
+  }
+}
+
+/**
+ * This is equivalent to a StreamDemux, but with a counter attached to the port selector.
+ */
+// TODOTEST
+object StreamDispatcherSequential {
+  def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
+    val select = Counter(outputCount)
+    when (input.fire) {
+    select.increment()
+    }
+    StreamDemux(input, select, outputCount)
   }
 }
 
