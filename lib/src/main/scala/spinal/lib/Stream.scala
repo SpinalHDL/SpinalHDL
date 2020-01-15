@@ -421,12 +421,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 }
 
 object StreamArbiter {
+  /** An Arbitration will choose which input stream to take at any moment. */
   object Arbitration{
     def lowerFirst(core: StreamArbiter[_ <: Data]) = new Area {
       import core._
       maskProposal := OHMasking.first(Vec(io.inputs.map(_.valid)))
     }
 
+    /** This arbiter contains an implicit transactionLock */
     def sequentialOrder(core: StreamArbiter[_]) = new Area {
       import core._
       val counter = Counter(core.portCount, io.output.fire)
@@ -446,17 +448,29 @@ object StreamArbiter {
     }
   }
 
-  object Lock{
+  /** When a lock activates, the currently chosen input won't change until it is released. */
+  object Lock {
     def none(core: StreamArbiter[_]) = new Area {
 
     }
 
+    /**
+     * Many handshaking protocols require that once valid is set, it must stay asserted and the payload
+     *  must not changed until the transaction fires, e.g. until ready is set as well. Since some arbitrations
+     *  may change their chosen input at any moment in time (which is not wrong), this may violate such
+     *  handshake protocols. Use this lock to be compliant in those cases.
+     */
     def transactionLock(core: StreamArbiter[_]) = new Area {
       import core._
       locked setWhen(io.output.valid)
       locked.clearWhen(io.output.fire)
     }
 
+    /**
+     * This lock ensures that once a fragmented transaction is started, it will be finished without
+     * interruptions from other streams. Without this, fragments of different streams will get intermingled.
+     * This is only relevant for fragmented streams.
+     */
     def fragmentLock(core: StreamArbiter[_]) = new Area {
       val realCore = core.asInstanceOf[StreamArbiter[Fragment[_]]]
       import realCore._
@@ -466,7 +480,11 @@ object StreamArbiter {
   }
 }
 
-class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area,val lockFactory: (StreamArbiter[T]) => Area) extends Component {
+/**
+ *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
+ *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
+ */
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
