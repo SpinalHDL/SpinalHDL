@@ -538,63 +538,64 @@ class StreamArbiterFactory {
 }
 
 object StreamFork {
-  def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
-    val fork = new StreamFork(input.payloadType, portCount)
+  def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
+    val fork = new StreamFork(input.payloadType, portCount, synchronous)
     fork.io.input << input
     return fork.io.outputs
   }
 }
 
 object StreamFork2 {
-  def apply[T <: Data](input: Stream[T]): (Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 2)
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 2, synchronous)
     fork.io.input << input
     return (fork.io.outputs(0), fork.io.outputs(1))
   }
 }
 
+/**
+ * A StreamFork will clone each incoming data to all its output streams. If synchronous is true,
+ *  all output streams will always fire together, which means that the stream will halt until all 
+ *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
+ *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
+ *  all output streams have processed each item regardlessly.
+ */
 //TODOTEST
-class StreamFork[T <: Data](dataType: HardType[T], portCount: Int) extends Component {
+class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType)
-    val outputs = Vec(master Stream (dataType),portCount)
+    val outputs = Vec(master Stream (dataType), portCount)
   }
-  val linkEnable = Vec(RegInit(True),portCount)
-
-  io.input.ready := True
-  for (i <- 0 until portCount) {
-    when(!io.outputs(i).ready && linkEnable(i)) {
-      io.input.ready := False
+  if (synchronous) {
+    io.input.ready := io.outputs.map(_.ready).reduce(_ && _)
+    io.outputs.foreach(_.valid := io.input.valid && io.input.ready)
+    io.outputs.foreach(_.payload := io.input.payload)
+  } else {
+    /* Store if an output stream already has taken its value or not */
+    val linkEnable = Vec(RegInit(True),portCount)
+    
+    /* Ready is true when every output stream takes or has taken its value */
+    io.input.ready := True
+    for (i <- 0 until portCount) {
+      when(!io.outputs(i).ready && linkEnable(i)) {
+        io.input.ready := False
+      }
     }
-  }
 
-  for (i <- 0 until portCount) {
-    io.outputs(i).valid := io.input.valid && linkEnable(i)
-    io.outputs(i).payload := io.input.payload
+    /* Outputs are valid if the input is valid and they haven't taken their value yet.
+     * When an output fires, mark its value as taken. */
+    for (i <- 0 until portCount) {
+      io.outputs(i).valid := io.input.valid && linkEnable(i)
+      io.outputs(i).payload := io.input.payload
     when(io.outputs(i).fire) {
       linkEnable(i) := False
+      }
     }
-  }
 
-  when(io.input.ready) {
-    linkEnable.foreach(_ := True)
-  }
-}
-
-/**
- * A simpler version of StreamFork. All output streams will always fire together,
- *  which means that the stream will halt until all output streams are ready. In contrast,
- *  the normal StreamFork allows that output streams may be ready one at a time, at the cost
- *  of an additional flip flop (1 bit per output).
- */
-// TODO this can be integrated into the normal StreamFork by adding a boolean parameter. But I don't fully understand StreamFork. ~piegames
-object StreamForkSimple {
-  def apply[T <: Data](source: Stream[T], count: Int): Seq[Stream[T]] = {
-    val cloned = Range(0, count).map(i => Stream(source.payloadType)).toSeq
-    source.ready := cloned.map(_.ready).reduce(_ && _)
-    cloned.foreach(_.valid := source.valid)
-    cloned.foreach(_.payload := source.payload)
-    cloned
+    /* Reset the storage for each new value */
+    when(io.input.ready) {
+      linkEnable.foreach(_ := True)
+    }
   }
 }
 
@@ -913,9 +914,6 @@ object StreamCCByToggle {
     new StreamCCByToggle[T](dataType, inputClock, outputClock)
   }
 }
-
-
-
 
 class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
