@@ -534,7 +534,7 @@ trait BusSlaveFactory extends Area{
                                        address   : BigInt,
                                        bitOffset : Int = 0): Unit = {
 
-    assert(that.getWidth <= busDataWidth, "BusSlaveFactory ERROR [doBitsAccumulationAndClearOnRead] : the width of the parameter that is bigger than the data bus width")
+    assert(bitOffset + that.getWidth <= busDataWidth, "BusSlaveFactory ERROR [doBitsAccumulationAndClearOnRead] : the width of the parameter that is bigger than the data bus width")
 
     val reg = Reg(that)
     reg := reg | that
