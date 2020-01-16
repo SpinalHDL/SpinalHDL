@@ -462,7 +462,7 @@ trait BusSlaveFactory extends Area{
                            address   : BigInt,
                            bitOffset : Int = 0): Unit = {
 
-    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
 
     if (wordCount == 1){
       that.valid := False
@@ -472,7 +472,7 @@ trait BusSlaveFactory extends Area{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
-      val regValid = Reg(that.valid) init(False)
+      val regValid = RegNext(False) init(False)
       onWrite(address + ((wordCount - 1) * wordAddressInc)){ regValid := True }
       driveMultiWord(that.payload, address)
       that.valid := regValid
