@@ -489,7 +489,7 @@ trait BusSlaveFactory extends Area{
     */
   def readStreamNonBlocking[T <: Data](that: Stream[T], address: BigInt): Unit = {
 
-    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val wordCount = (1 + widthOf(that.payload) - 1 ) / busDataWidth + 1
 
     that.ready := False
     onRead(address + ((wordCount - 1) * wordAddressInc)){
