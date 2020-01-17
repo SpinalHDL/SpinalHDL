@@ -40,7 +40,20 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
     this.copy(newWidth, newFrac)
   }
 
+  def *(x: Double): QFormat = {
+    val zoom = spinal.core.log2Up(scala.math.ceil(x).toInt)
+    val newWidth = width + zoom
+    this.copy(newWidth, fraction)
+  }
+
+  /*SQ(8,7)*4 => SQ(10,7)*/
+  def *(x: Int): QFormat = this.*(x.toDouble)
+
   override def toString : String = {
+    if(signed) s"SQ($width, $fraction)" else s"UQ($width, $fraction)"
+  }
+
+  def verbose : String = {
     s"""${getClass().getName.split('.').last} : Q($width,$fraction,${if(signed) "signed" else "unsigned"})
 resolution: $resolution
 maxValue  : $maxValue
