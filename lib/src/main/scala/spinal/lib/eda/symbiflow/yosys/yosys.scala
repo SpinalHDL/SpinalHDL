@@ -12,7 +12,7 @@ import org.apache.commons.io.FilenameUtils
 
 trait YosysScript
 
-/** Class that rappresent a yosys command
+/** Class that represents a yosys command
   *
   * @param command  yosys command to execute
   * @param opt      the parameters for the yosys command
