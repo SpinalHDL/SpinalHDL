@@ -73,9 +73,9 @@ object Yosys {
     command
   }
 
-  def export_smt2(file: String = "model.smt2"): Yosys = {
+  def export(file: String): Yosys = {
     val ret = Yosys()
-    ret.addOutputFile(Paths.get(file), "smt2")
+    ret.addOutputFile(Paths.get(file), FilenameUtils.getExtension(file))
     ret
   }
 
@@ -111,18 +111,17 @@ object Yosys {
   def synthesize(target: String): Yosys = {
     val command = Yosys()
     command.addCommand("synth_" + target)
-    command.addOutputFile("syntetized.json", "json")
     command
   }
 
-  def formal[T <: Component](report: SpinalReport[T],
+  def svFormal[T <: Component](report: SpinalReport[T],
                              mode: String = Mode.bmc,
                              multiclock: Boolean = false,
                              memoryMap: Boolean = false,
                              workDir: String = ".") = {
     loadSystemVerilog(report) +
-      model(mode, multiclock, memoryMap) +
-      export_smt2(report.toplevelName + ".smt2")
+    model(mode, multiclock, memoryMap) +
+    export(report.toplevelName + ".smt2")
   }
 }
 

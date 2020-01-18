@@ -11,20 +11,25 @@ object SymbiFlow {
                                 target: String = "ice40",
                                 workDir: String = "makeWorkplace") = {
     InputFile(report) |>
-    (Yosys.loadSystemVerilog(report) + Yosys.synthesize(target)).outputFolder(Paths.get(workDir,"syntesys")) |>
+    (
+      Yosys.loadSystemVerilog(report) +
+      Yosys.synthesize(target) +
+      Yosys.export("synthesis.json")
+    ).outputFolder(Paths.get(workDir,"synthesis")) |>
     NextPNR_ice40().outputFolder(Paths.get(workDir,"pnr"))
   }
 
-  def formal[T <: Component](report: SpinalReport[T],
+  def svFormal[T <: Component](report: SpinalReport[T],
                                  mode: String = Mode.bmc,
                                  multiclock: Boolean = false,
                                  memoryMap: Boolean = false,
                                  workDir: String = "makeWorkplace") = {
     InputFile(report) |>
-    Yosys.formal(report,
-                mode,
-                multiclock,
-                memoryMap).outputFolder(Paths.get(workDir,"modelgen")) |>
+    Yosys.svFormal(
+      report,
+      mode,
+      multiclock,
+      memoryMap).outputFolder(Paths.get(workDir,"modelgen")) |>
     FormalCommand().outputFolder(Paths.get(workDir,"formal"))
   }
 }
