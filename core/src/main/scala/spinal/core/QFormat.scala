@@ -1,4 +1,14 @@
-package spinal.lib.dsptool
+package spinal.core
+
+/* Example UQ(8,8) means 8 bit width with 8 bit decimal 0 bit interge */
+object UQ {
+  def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,false)
+}
+
+/* Example SQ(8,7) means 8 bit width with 7 bit decimal, 0 bit interge, 1 sign bit*/
+object SQ {
+  def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,true)
+}
 
 case class QFormat(width: Int, fraction: Int, signed: Boolean) {
   val nonFraction: Int = width - fraction
@@ -59,12 +69,4 @@ resolution: $resolution
 maxValue  : $maxValue
 minValue  : $minValue"""
   }
-}
-
-object UQ {
-  def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,false)
-}
-
-object SQ {
-  def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,true)
 }

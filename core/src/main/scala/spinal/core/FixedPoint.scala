@@ -37,6 +37,80 @@ object RoundType{
   case object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
 }
 
+case class FixPointConfig(roundType: RoundType,
+                          symmetric: Boolean) {
+
+  def flush(): FixPointConfig = {
+    setFixRound(roundType)
+    setFixSym(symmetric)
+    SpinalInfo(s"${this} enabled!")
+    this
+  }
+}
+
+object DefaultFixPointConfig {
+  def apply() = FixPointConfig(RoundType.ROUNDTOINF, false)
+}
+
+object LowCostFixPointConfig {
+  def apply() = FixPointConfig(RoundType.ROUNDUP, true)
+}
+
+/*singleton Object*/
+private object GlobalRoundType{
+  private var roundType: RoundType = RoundType.ROUNDTOINF
+
+  def apply(): RoundType = roundType
+
+  def set(round: RoundType) = {
+    roundType = round
+    roundType
+  }
+}
+
+private object GlobalSymmetricType{
+  private var symmetric: Boolean = false
+
+  def apply(): Boolean = symmetric
+
+  def set(sym: Boolean) = {
+    symmetric = sym
+    symmetric
+  }
+}
+
+object getFixRound{
+  def apply(): RoundType = GlobalRoundType()
+}
+
+object setFixRound{
+  def apply(round: RoundType): RoundType = GlobalRoundType.set(round)
+}
+
+object getFixSym{
+  def apply(): Boolean = GlobalSymmetricType()
+}
+
+object setFixSym{
+  def apply(sym: Boolean): Boolean = GlobalSymmetricType.set(sym)
+}
+
+object ResetFixConfig{
+  def apply() = {
+    DefaultFixPointConfig().flush()
+  }
+}
+
+object ShowFixConfig{
+  def apply() = {
+    SpinalInfo(FixPointConfig(getFixRound(),getFixSym()).toString())
+  }
+}
+
+
+
+
+
 trait SFixFactory extends TypeFactory{
   def SFix(peak: ExpNumber, width: BitCount): SFix = postTypeFactory(new SFix(peak.value, width.value))
   def SFix(peak: ExpNumber, resolution: ExpNumber): SFix = postTypeFactory(new SFix(peak.value, 1 + peak.value - resolution.value))

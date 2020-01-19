@@ -13,8 +13,8 @@ import spinal.core._
   */
 case class FixData(raw: Double,
                    q: QFormat,
-                   roundType: RoundType = RoundType.ROUNDTOINF,
-                   symmetric: Boolean = false) {
+                   roundType: RoundType = getFixRound(),
+                   symmetric: Boolean = getFixSym()) {
 
 
   private val zoomRaw: Double = raw / q.resolution

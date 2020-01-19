@@ -352,8 +352,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF, sym: Boolean = false): SInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType = getFixRound(), sym: Boolean = getFixSym()): SInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     val ret = (section.min, section.max, section.size) match {

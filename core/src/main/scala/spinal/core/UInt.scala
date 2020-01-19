@@ -222,8 +222,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF): UInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType = getFixRound()): UInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     (section.min, section.max, section.size) match {
