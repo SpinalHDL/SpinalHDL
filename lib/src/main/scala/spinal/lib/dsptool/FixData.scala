@@ -14,8 +14,7 @@ import spinal.core._
 case class FixData(raw: Double,
                    q: QFormat,
                    roundType: RoundType = RoundType.ROUNDTOINF,
-                   symmetric: Boolean = false )
-                  (implicit button: FixSwitch = FixSwitchOn.fixButton ) {
+                   symmetric: Boolean = false) {
 
 
   private val zoomRaw: Double = raw / q.resolution
@@ -27,25 +26,23 @@ case class FixData(raw: Double,
   def fixTo(newQ: QFormat): FixData = this.copy(this.value, newQ)
 
   def fixProcess(): Double ={
-    button match {
-      case FixSwitchOff.fixButton => raw
-      case FixSwitchOn.fixButton  => {
-        val rounded = this.roundType match {
-          case RoundType.CEIL          => this.ceil
-          case RoundType.FLOOR         => this.floor
-          case RoundType.FLOORTOZERO   => this.floorToZero
-          case RoundType.CEILTOINF     => this.ceilToInf
-          case RoundType.ROUNDUP       => this.roundUp
-          case RoundType.ROUNDDOWN     => this.roundDown
-          case RoundType.ROUNDTOZERO   => this.roundToZero
-          case RoundType.ROUNDTOINF    => this.roundToInf
-          case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
-          case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
-        }
-        val sated = this.saturated(rounded * this.q.resolution)
-        if(this.symmetric) this.symmetry(sated) else sated
+    if(FixSwitch.state){
+      val rounded = this.roundType match {
+        case RoundType.CEIL          => this.ceil
+        case RoundType.FLOOR         => this.floor
+        case RoundType.FLOORTOZERO   => this.floorToZero
+        case RoundType.CEILTOINF     => this.ceilToInf
+        case RoundType.ROUNDUP       => this.roundUp
+        case RoundType.ROUNDDOWN     => this.roundDown
+        case RoundType.ROUNDTOZERO   => this.roundToZero
+        case RoundType.ROUNDTOINF    => this.roundToInf
+        case RoundType.ROUNDTOEVEN   => SpinalError("RoundToEven has not been implemented yet")
+        case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
       }
-      case _ => SpinalError("Illegal FixSwitch!")
+      val sated = this.saturated(rounded * this.q.resolution)
+      if(this.symmetric) this.symmetry(sated) else sated
+    } else {
+      raw
     }
   }
 
@@ -85,10 +82,12 @@ case class FixData(raw: Double,
   def bin: String = s"%${q.width}s".format(this.asLongPostive.toBinaryString).replace(' ','0')
   def oct: String = s"%${q.alignOct}s".format(this.asLongPostive.toOctalString).replace(' ','0')
 
-  override def toString  = button match {
-    case FixSwitchOn.fixButton  => getClass().getName().split('.').last +  s" : ${this.value}, Quantized by" +  s"\n${this.q}"
-    case FixSwitchOff.fixButton => getClass().getName().split('.').last +  s" : ${this.value}, FixSwitchOff"
-    case _                      => SpinalError("Illegal FixSwitch!");null
+  override def toString  = {
+    if(FixSwitch.state){
+      getClass().getName().split('.').last +  s": ${this.value}, Quantized by" +  s"\n${this.q}"
+    } else {
+      getClass().getName().split('.').last +  s": ${this.value}, FixOff"
+    }
   }
 
   def *(right: FixData): FixData ={

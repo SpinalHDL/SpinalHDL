@@ -21,21 +21,20 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-import spinal.core._
 
 sealed trait RoundType
 
 object RoundType{
-  object CEIL           extends RoundType ;// Wikipedia name: RoundUp
-  object FLOOR          extends RoundType ;// Wikipedia name: RoundDown
-  object FLOORTOZERO    extends RoundType ;// Wikipedia name: RoundToZero
-  object CEILTOINF      extends RoundType ;// Wikipedia name: RoundToInf
-  object ROUNDUP        extends RoundType ;// Wikipedia name: RoundHalfUp
-  object ROUNDDOWN      extends RoundType ;// Wikipedia name: RoundHalfDown
-  object ROUNDTOZERO    extends RoundType ;// Wikipedia name: RoundHalfToZero
-  object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
-  object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
-  object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
+  case object CEIL           extends RoundType ;// Wikipedia name: RoundUp
+  case object FLOOR          extends RoundType ;// Wikipedia name: RoundDown
+  case object FLOORTOZERO    extends RoundType ;// Wikipedia name: RoundToZero
+  case object CEILTOINF      extends RoundType ;// Wikipedia name: RoundToInf
+  case object ROUNDUP        extends RoundType ;// Wikipedia name: RoundHalfUp
+  case object ROUNDDOWN      extends RoundType ;// Wikipedia name: RoundHalfDown
+  case object ROUNDTOZERO    extends RoundType ;// Wikipedia name: RoundHalfToZero
+  case object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
+  case object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
+  case object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
 }
 
 trait SFixFactory extends TypeFactory{
