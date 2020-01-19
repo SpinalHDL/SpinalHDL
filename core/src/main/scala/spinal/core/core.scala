@@ -76,6 +76,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     def downto(start: Int): Range.Inclusive = Range.inclusive(i, start, -1)
 
+    def ~(start: Int): Range.Inclusive = this.downto(start)
+
     def bit    = new BitCount(i)
     def bits   = new BitCount(i)
     def exp    = new ExpNumber(i)

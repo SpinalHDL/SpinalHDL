@@ -49,6 +49,12 @@ trait UIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
+  override def tag(q: QFormat): UInt = {
+    require(q.signed, "assign UQ to SInt")
+    require(q.width == this.getWidth, s"${q} width dismatch!")
+    Qtag = q
+    this
+  }
 
   override def getTypeObject = TypeUInt
 
@@ -222,7 +228,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  def fixTo(section: Range.Inclusive, roundType: RoundType = getFixRound()): UInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType): UInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     (section.min, section.max, section.size) match {
@@ -233,6 +239,14 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
+  def fixTo(section: Range.Inclusive): UInt = fixTo(section, getFixRound())
+
+  def fixTo(q: QFormat, roundType: RoundType): UInt = {
+    val section = getfixSection(q)
+    fixTo(section, roundType)
+  }
+
+  def fixTo(q: QFormat): UInt = fixTo(q, getFixRound())
 
   /**
     * Logical shift Right (output width = input width)

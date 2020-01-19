@@ -45,6 +45,12 @@ trait SIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+  override def tag(q: QFormat): SInt = {
+    require(q.signed, "assign UQ to SInt")
+    require(q.width == this.getWidth, s"${q} width dismatch!")
+    Qtag = q
+    this
+  }
 
   override def getTypeObject = TypeSInt
 
@@ -352,7 +358,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  def fixTo(section: Range.Inclusive, roundType: RoundType = getFixRound(), sym: Boolean = getFixSym()): SInt = {
+  def fixTo(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     val ret = (section.min, section.max, section.size) match {
@@ -363,6 +369,17 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     }
     if(sym) ret.symmetry else ret
   }
+
+  def fixTo(section: Range.Inclusive, roundType: RoundType): SInt = fixTo(section, roundType, getFixSym())
+  def fixTo(section: Range.Inclusive): SInt = fixTo(section, getFixRound(), getFixSym())
+
+  def fixTo(q: QFormat, roundType: RoundType, sym: Boolean ): SInt = {
+    val section = getfixSection(q)
+    fixTo(section, roundType, sym)
+  }
+
+  def fixTo(q: QFormat, roundType: RoundType): SInt = fixTo(q, roundType, getFixSym())
+  def fixTo(q: QFormat): SInt = fixTo(q, getFixRound(), getFixSym())
 
   /**
     * Negative number
