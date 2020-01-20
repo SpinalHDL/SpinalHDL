@@ -50,7 +50,7 @@ trait UIntFactory{
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
-    require(q.signed, "assign UQ to SInt")
+    require(!q.signed, "assign SQ to UInt")
     require(q.width == this.getWidth, s"${q} width dismatch!")
     Qtag = q
     this
