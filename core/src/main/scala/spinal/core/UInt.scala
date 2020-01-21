@@ -228,7 +228,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  def fixTo(section: Range.Inclusive, roundType: RoundType): UInt = {
+  private def fixToWrap(section: Range.Inclusive, roundType: RoundType): UInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     (section.min, section.max, section.size) match {
@@ -236,6 +236,26 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case (x, `wl`,  _ ) => _fixEntry(x, roundType, satN = 0)
       case (0,  y,    _ ) => this.sat(this.getWidth -1 - y)
       case (x,  y,    _ ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
+    }
+  }
+
+  def fixTo(section: Range.Inclusive, roundType: RoundType): UInt = {
+
+    class fixTo(width: Int, section: Range.Inclusive,
+                roundType: RoundType) extends Component{
+      val wrapName = s"UInt${width}fixTo${section.max}_${section.min}_${roundType}"
+
+      val din = in UInt(width bits)
+      val dout = out UInt(section.size bits)
+      dout := din.fixToWrap(section, roundType)
+    }
+
+    if(GlobalData.get.config.fixToWithWrap) {
+      val dut = new fixTo(this.getWidth, section, roundType)
+      dut.din := this
+      dut.dout
+    } else {
+      fixToWrap(section, roundType)
     }
   }
 

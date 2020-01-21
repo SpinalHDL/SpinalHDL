@@ -358,7 +358,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  def fixTo(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
+  private def fixToWrap(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     val ret = (section.min, section.max, section.size) match {
@@ -368,6 +368,28 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
       case (x,  y,    _ ) => _fixEntry(x, roundType, satN = this.getWidth -1 - y)
     }
     if(sym) ret.symmetry else ret
+  }
+
+  def fixTo(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
+
+    class fixTo(width: Int, section: Range.Inclusive,
+                roundType: RoundType, sym: Boolean) extends Component{
+
+      val symTag = if(sym) "_sym" else ""
+      definitionName = s"SInt${width}fixTo${section.max}_${section.min}_${roundType}${symTag}"
+
+      val din = in SInt(width bits)
+      val dout = out SInt(section.size bits)
+      dout := din.fixToWrap(section, roundType, sym)
+    }
+
+    if(GlobalData.get.config.fixToWithWrap) {
+      val dut = new fixTo(this.getWidth, section, roundType, sym)
+      dut.din := this
+      dut.dout
+    } else {
+      fixToWrap(section, roundType, sym)
+    }
   }
 
   def fixTo(section: Range.Inclusive, roundType: RoundType): SInt = fixTo(section, roundType, getFixSym())

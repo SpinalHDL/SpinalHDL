@@ -143,7 +143,7 @@ object fixToQFormatRegression extends  App{
   for (roundType <- roundList) {
     val dinQ = UQ(16,8)
     val doutQs = List(UQ(8,8), UQ(16,8), UQ(10,4), UQ(10,0), UQ(5,2))
-//    val doutQs = List(SQ(10,4))
+//    val doutQs = List(UQ(10,4))
     for(doutQ <- doutQs){
       SimFP.Simfp
         .compile(new UIntFixTo(dinQ, doutQ, roundType))
