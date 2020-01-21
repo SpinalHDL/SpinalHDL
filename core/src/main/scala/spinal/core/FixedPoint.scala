@@ -46,6 +46,13 @@ case class FixPointConfig(roundType: RoundType,
     SpinalInfo(s"${this} enabled!")
     this
   }
+
+//  def apply[T](block: => T): T = {
+//    this.flush()
+//    val ret: T = block
+//    ret
+//  }
+
 }
 
 object DefaultFixPointConfig {
@@ -102,8 +109,8 @@ object ResetFixConfig{
 }
 
 object ShowFixConfig{
-  def apply() = {
-    SpinalInfo(FixPointConfig(getFixRound(),getFixSym()).toString())
+  def apply(pretag: String = "") = {
+    SpinalInfo(pretag + " " + FixPointConfig(getFixRound(),getFixSym()).toString())
   }
 }
 

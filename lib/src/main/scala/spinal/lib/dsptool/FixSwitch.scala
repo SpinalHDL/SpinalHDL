@@ -3,10 +3,9 @@ package spinal.lib.dsptool
 import spinal.core._
 
 /**Usage:
-  * @(example{{{
-  *             FixOff()
-  *             val a = FixData(-3.785333,SQ(8,4}
-  *             :FixData:-3.78533 FixOff}}
+  * @example {{{ FixOff()
+  *             val a = FixData(-3.785333,SQ(8,4)) }}}
+  * @return {{{ :FixData:-3.78533 FixOff }}}
   */
 
 object FixOn{

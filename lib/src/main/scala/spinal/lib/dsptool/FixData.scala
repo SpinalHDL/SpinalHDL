@@ -5,8 +5,8 @@ import spinal.core._
 /**
   * Fixnum
   *
-  * @example{{{ val x = FixData(-3.785333,SQ(8,4))}}}
-  * @return {{{FixData: -3.8125, Quantized by QFormat: Q(8,4,signed) }}}
+  * @example {{{ val x = FixData(-3.785333,SQ(8,4)) }}}
+  * @return {{{ FixData: -3.8125, Quantized by QFormat: SQ(8,4) }}}
   *        x.bin => 11000011
   *        x.oct =>      103
   *        x.hex =>       c3
