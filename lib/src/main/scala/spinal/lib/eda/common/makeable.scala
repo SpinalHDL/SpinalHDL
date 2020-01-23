@@ -99,13 +99,12 @@ object Makeable {
     def clean(target: String = "clean") = {
       val nodes            = getNodes
       val inFile           = nodes.collect { case o: InputFile => o.getTarget }.flatten.distinct
-      val files            = nodes.flatMap(_.getTarget).distinct diff inFile //al file minus the inputs
-      val folderUncomplete = files.flatMap(f => Option(f.getParent))
-      val folders          = folderUncomplete.flatMap(x => ((1 until x.getNameCount + 1).map(x.subpath(0, _)).reverse))
+      val files            = nodes.flatMap(_.getTarget).distinct diff inFile //all file minus inputs
+      val folders          = files.flatMap(f => Option(f.getParent)).distinct
       val pass             = nodes.collect { case o: PassFail => o.getPass }.flatten.distinct
       val logs             = nodes.collect { case o: MakeableLog => o.getLog }.flatten.distinct
-      var rm               = (logs ++ files ++ pass).mkString(s"rm -rf ", " ", "")
-      val rmdir            = folders.mkString("rmdir ", " ", "")
+      var rm               = (logs ++ files ++ pass).mkString(s"rm -f ", " ", "")
+      val rmdir            = folders.mkString("rmdir -p --ignore-fail-on-non-empty ", " ", "")
       s".PHONY:${target}\n${target}:\n\t" + rm + " && " + rmdir
     }
 
