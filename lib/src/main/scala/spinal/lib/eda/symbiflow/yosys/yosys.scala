@@ -48,15 +48,15 @@ case class Output(file: Path, backend: String, opt: String*)
 }
 
 object Yosys {
-  def loadSystemVerilog[T <: Component](report: SpinalReport[T]): Yosys = {
+  def loadSystemVerilog[T <: Component](report: SpinalReport[T], opt: String*): Yosys = {
     val command = Yosys()
-    report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog", "-sv"))
+    report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog", ("-sv" +: opt): _*))
     command + setTop(report.toplevelName)
   }
 
-  def loadVerilog[T <: Component](report: SpinalReport[T]): Yosys = {
+  def loadVerilog[T <: Component](report: SpinalReport[T], opt: String*): Yosys = {
     val command = Yosys()
-    report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog"))
+    report.rtlSourcesPaths.foreach(x => command.addInputFile(Paths.get(x), "verilog", opt: _*))
     command + setTop(report.toplevelName)
   }
 
@@ -66,16 +66,16 @@ object Yosys {
     command
   }
 
-  def load_verilog(): Yosys = {
+  def load_verilog(opt: String*): Yosys = {
     val command = Yosys()
     val verilogFiles = command.getAllPrerequisiteFromExtension(".*.v")
-    verilogFiles.foreach(command.addInputFile(_, "verilog"))
+    verilogFiles.foreach(command.addInputFile(_, "verilog", opt:_*))
     command
   }
 
-  def export(file: String): Yosys = {
+  def export(file: String, opt: String*): Yosys = {
     val ret = Yosys()
-    ret.addOutputFile(Paths.get(file), FilenameUtils.getExtension(file))
+    ret.addOutputFile(Paths.get(file), FilenameUtils.getExtension(file), opt:_*)
     ret
   }
 
@@ -119,7 +119,7 @@ object Yosys {
                              multiclock: Boolean = false,
                              memoryMap: Boolean = false,
                              workDir: String = ".") = {
-    loadSystemVerilog(report) +
+    loadSystemVerilog(report,"-formal") +
     model(mode, multiclock, memoryMap) +
     export(report.toplevelName + ".smt2")
   }
