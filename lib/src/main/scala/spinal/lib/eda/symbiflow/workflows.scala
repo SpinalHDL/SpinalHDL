@@ -12,9 +12,9 @@ object SymbiFlow {
                                 workDir: String = "makeWorkplace") = {
     InputFile(report) |>
     (
-      Yosys.loadSystemVerilog(report) +
-      Yosys.synthesize(target) +
-      Yosys.export("synthesis.json")
+      YosysSnippet.loadSystemVerilog(report) +
+      YosysSnippet.synthesize(target) +
+      YosysSnippet.export("synthesis.json")
     ).outputFolder(Paths.get(workDir,"synthesis")) |>
     NextPNR_ice40().outputFolder(Paths.get(workDir,"pnr"))
   }
@@ -25,7 +25,7 @@ object SymbiFlow {
                                  memoryMap: Boolean = false,
                                  workDir: String = "makeWorkplace") = {
     InputFile(report) |>
-    Yosys.svFormal(
+    YosysSnippet.svFormal(
       report,
       mode,
       multiclock,
