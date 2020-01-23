@@ -1,11 +1,6 @@
 package spinal.lib.eda.symbiflow
 
-import spinal.lib.eda.common._
-import java.io.File
 import java.nio.file.{Path, Paths}
-import java.io.PrintWriter
-import scala.sys.process._
-import scala.collection._
 import spinal.core._
 
 import org.apache.commons.io.FilenameUtils
