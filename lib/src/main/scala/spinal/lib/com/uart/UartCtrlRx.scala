@@ -21,7 +21,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   }
 
   io.error := False
-  io.rts := RegNext(io.read.ready) init(True)
+  io.rts := RegNext(!io.read.ready) init(False)
 
   // Implement the rxd sampling with a majority vote over samplingSize bits
   // Provide a new sampler.value each time sampler.tick is high

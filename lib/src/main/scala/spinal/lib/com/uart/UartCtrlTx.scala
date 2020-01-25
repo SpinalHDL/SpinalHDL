@@ -55,7 +55,7 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     io.write.ready := io.break
     switch(state) {
       is(IDLE){
-        when(io.write.valid && io.cts && clockDivider.tick){
+        when(io.write.valid && !io.cts && clockDivider.tick){
           state := START
         }
       }

@@ -76,7 +76,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   io.uart.rxd <> rx.io.rxd
 
   io.readError := rx.io.error
-  tx.io.cts := (if(g.ctsGen) BufferCC(io.uart.cts) else True)
+  tx.io.cts := (if(g.ctsGen) BufferCC(io.uart.cts) else False)
   if(g.rtsGen) io.uart.rts := rx.io.rts
   io.readBreak := rx.io.break
   tx.io.break := io.writeBreak
