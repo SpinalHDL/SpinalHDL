@@ -61,7 +61,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
 
   val break = new Area{
     val stateCount = g.rxSamplePerBit*(1+8+1+2+1)
-    val counter = Reg(UInt(log2Up(stateCount+1) bits))
+    val counter = Reg(UInt(log2Up(stateCount+1) bits)) init(0)
     val valid = counter === stateCount
     when(sampler.value){
       counter := 0

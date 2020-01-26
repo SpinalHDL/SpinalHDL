@@ -110,6 +110,8 @@ def test1(dut):
     queueTx = Queue()
     queueRx = Queue()
 
+    dut.io_uart_writeBreak <= 0
+
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
     cocotb.fork(sendRandomPackets(dut, queueTx, queueRx))
     cocotb.fork(checkTx(dut,queueTx))
