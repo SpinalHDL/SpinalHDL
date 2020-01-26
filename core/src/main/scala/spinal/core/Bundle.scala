@@ -22,6 +22,9 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import spinal.idslplugin.ValCallback
+
+import scala.collection.mutable
 
 
 /**
@@ -38,9 +41,43 @@ import spinal.core.internals._
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bundle Bundle Documentation]]
   */
-class Bundle extends MultiData with Nameable {
+
+
+
+trait ValCallbackRec extends ValCallback{
+
+  final override def valCallback(fieldRef: Any, name: String): Unit = {
+    val refs = mutable.Set[Any]()
+    valCallbackOn(fieldRef,name, refs)
+  }
+  def valCallbackOn(ref: Any, name: String, refs :  mutable.Set[Any]): Unit = {
+    if (ref != null && !refs.contains(ref)) {
+      refs += ref
+      ref match {
+        case range : Range =>
+        case vec: Vec[_]   =>
+        case seq: Seq[_]   =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case seq: Array[_] =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case _             =>
+      }
+
+      valCallbackRec(ref, name)
+    }
+  }
+
+  def valCallbackRec(ref: Any, name: String): Unit
+}
+
+class Bundle extends MultiData with Nameable with ValCallbackRec {
 
   var hardtype: HardType[_] = null
+
 
   globalData.currentComponent match {
     case null =>
@@ -51,6 +88,8 @@ class Bundle extends MultiData with Nameable {
         }
       })
   }
+
+
 
   override def clone: Bundle = {
     if (hardtype != null) {
@@ -105,27 +144,38 @@ class Bundle extends MultiData with Nameable {
     }
   }
 
-  private var elementsCache: ArrayBuffer[(String, Data)] = null
+  private var elementsCache = ArrayBuffer[(String, Data)]()
+
+  override def valCallbackRec(ref: Any, name: String): Unit = ref match {
+    case ref : Data => {
+      elementsCache += name -> ref
+      ref.parent = this
+    }
+    case ref =>
+  }
+
+
+  override def elements: ArrayBuffer[(String, Data)] = elementsCache
 
   /** Return all element of the bundle */
-  def elements: ArrayBuffer[(String, Data)] = {
-    if (elementsCache == null) {
-      elementsCache = ArrayBuffer[(String, Data)]()
-      Misc.reflect(this, (name, obj) => {
-        obj match {
-          case data: Data =>
-            if (!rejectOlder || this.isOlderThan(data)) {
-              //To avoid bundle argument
-              elementsCache += (name -> data)
-              data.parent = this
-            }
-          case _ =>
-        }
-      })
-      elementsCache = elementsCache.sortWith(_._2.instanceCounter < _._2.instanceCounter)
-    }
-    elementsCache
-  }
+//  def elements: ArrayBuffer[(String, Data)] = {
+//    if (elementsCache == null) {
+//      elementsCache = ArrayBuffer[(String, Data)]()
+//      Misc.reflect(this, (name, obj) => {
+//        obj match {
+//          case data: Data =>
+//            if (!rejectOlder || this.isOlderThan(data)) {
+//              //To avoid bundle argument
+//              elementsCache += (name -> data)
+//              data.parent = this
+//            }
+//          case _ =>
+//        }
+//      })
+//      elementsCache = elementsCache.sortWith(_._2.instanceCounter < _._2.instanceCounter)
+//    }
+//    elementsCache
+//  }
 
   private[core] def rejectOlder = true
 
