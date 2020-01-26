@@ -40,10 +40,10 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
           if (symbolHasTrait(cd.symbol, "ValCallback")) {
             val clazz = cd.impl.symbol.owner
             val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
-            def call(name: TermName): Tree = {
+            def call(name: TermName, nameStr : String): Tree = {
               val thiz = This(clazz)
               val sel = Select(thiz, func)
-              val const = Constant(name.toString)
+              val const = Constant(nameStr)
               val lit = Literal(const)
               val ident = Select(thiz, name)
               val appl = Apply(sel, List(ident, lit))
@@ -58,7 +58,9 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
             val body = ArrayBuffer[Tree]()
             cd.impl.body.foreach {
               case vd: ValDef if !vd.mods.isParamAccessor =>
-                body += vd; body += call(vd.name)
+//                val x : TermName
+//                println("** |" + vd.localName + "|"+vd.localName.toString+"|" + vd.name.getClass)
+                body += vd; body += call(vd.name, vd.getterName.toString)
               case e => body += e
             }
             val impl = treeCopy.Template(cd.impl, cd.impl.parents, cd.impl.self, body.toList)
