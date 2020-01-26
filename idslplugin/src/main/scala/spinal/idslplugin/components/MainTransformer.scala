@@ -57,7 +57,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
             val body = ArrayBuffer[Tree]()
             cd.impl.body.foreach {
-              case vd: ValDef =>
+              case vd: ValDef if !vd.mods.isParamAccessor =>
                 body += vd; body += call(vd.name)
               case e => body += e
             }
