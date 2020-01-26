@@ -18,6 +18,7 @@ case class IcePack(_asc: Option[Path] = None,
                    _writeOnlyBram: Boolean = false,
                    _writeBank: Seq[Int] = Seq.empty[Int],
                    _binaryPath: Path = Paths.get("icepack"),
+                   phony: Option[String] = None,
                    workDirPath: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable{
@@ -97,6 +98,8 @@ case class IcePack(_asc: Option[Path] = None,
   def binaryPath(path: Path) = this.copy(_binaryPath=path)
 
   //make stuff
+  def phony(name: String) = this.copy(phony=Some(name))
+
   /** @inheritdoc */
   override def needs = List(if(_unpack) "bin" else "asc")
 
@@ -123,7 +126,7 @@ case class IceProg(_bin: Option[Path] = None,
                    phony: Option[String] = Some("program"),
                    workDirPath: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends MakeablePhony with MakeableLog with PassFail with Executable{
+    extends Makeable with MakeableLog with PassFail with Executable{
 
   /** @inheritdoc */
   def workDir(path: Path) = this.copy(workDirPath = path)
@@ -213,6 +216,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
                    _width: Long = 0,
                    _depth: Long = 0,
                    _binaryPath: Path = Paths.get("icebram"),
+                   phony: Option[String] = None,
                    workDirPath: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable {
@@ -285,7 +289,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
   def binaryPath(path: Path) = this.copy(_binaryPath=path)
 
   //make part
-
+  def phony(name: String) = this.copy(phony=Some(name))
   /** @inheritdoc */
   override def needs = List("from.hex","hex")
 

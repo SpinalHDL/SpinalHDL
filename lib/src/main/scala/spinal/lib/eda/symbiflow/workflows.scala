@@ -24,12 +24,12 @@ object SymbiFlow {
                                  multiclock: Boolean = false,
                                  memoryMap: Boolean = false,
                                  workDir: String = "makeWorkplace") = {
-    InputFile(report) |>
+    InputFile(report).workDir(Paths.get(workDir)) |>
     YosysSnippet.svFormal(
       report,
       mode,
       multiclock,
-      memoryMap).outputFolder(Paths.get(workDir,"modelgen")) |>
+      memoryMap).outputFolder(Paths.get(workDir,"modelgen")).workDir(Paths.get(workDir)) |>
     FormalCommand().outputFolder(Paths.get(workDir,"formal"))
   }
 }

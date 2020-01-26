@@ -73,7 +73,7 @@ case class Yosys( passFile: Option[Path] = None,
                   workDirPath: Path = Paths.get("."),
                   prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
     extends Makeable
-    with MakeableLog with MakeablePhony with PassFail{
+    with MakeableLog with PassFail{
 
   /** @inheritdoc */
   def workDir(path: Path) = this.copy(workDirPath = path)
@@ -202,8 +202,8 @@ case class Yosys( passFile: Option[Path] = None,
   override def toString(): String = {
     val ret = scala.collection.mutable.ListBuffer[String]()
     commands foreach {
-    case i: Input => ret += Input(getRelativePath(i.file),i.frontend, i.opt :_*).toString
-    case o: Output => ret += Output(getRelativePath(o.file),o.backend, o.opt :_*).toString
+    case i: Input => ret += Input(getWorkPath(i.file),i.frontend, i.opt :_*).toString
+    case o: Output => ret += Output(getWorkPath(o.file),o.backend, o.opt :_*).toString
     case a => ret += a.toString
     }
     ret.mkString("yosys -p'", "; ", "'")

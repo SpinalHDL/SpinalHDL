@@ -1403,6 +1403,8 @@ object PlayMakeable extends App{
   import spinal.lib.eda.symbiflow._
   // import spinal.lib.eda.yosys.string2path._
   import java.nio.file.{Path, Paths}
+  import spinal.lib.eda.common._
+
 
 
   class testCounter(start: Int,end: Int) extends Component{
@@ -1437,17 +1439,17 @@ object PlayMakeable extends App{
   val form1 = SymbiFlow.svFormal(test,workDir="pesto")
     .log()
     .solver(Solver.z3)
-    .pass()
     .dumpVCD("pesto/test.vcd")
     .outputFolder("pesto/test1")
+    .phony("test5")
     .append(100)
-  val form2 = SymbiFlow.svFormal(test,workDir="pesto").solver(Solver.z3).pass().dumpVCD("pesto/test.vcd").outputFolder("pesto/test2").append(100).log()
-  val form3 = SymbiFlow.svFormal(test,workDir="pesto").solver(Solver.z3).pass().dumpVCD("pesto/test.vcd").outputFolder("pesto/test3/1/2/3/").append(100).log()
-  val form4 = SymbiFlow.svFormal(test,workDir="pesto").solver(Solver.z3).pass().dumpVCD("pesto/test.vcd").outputFolder("pesto/test4").append(100).log()
+  val form2 = SymbiFlow.svFormal(test,workDir="pesto").phony("test1").solver(Solver.z3).outputFolder("pesto/test2").phony("test").append(100).log()
+  val form3 = SymbiFlow.svFormal(test,workDir="pesto").phony("test2").solver(Solver.z3).outputFolder("pesto/test3/1/2/3/").append(100).log()
+  val form4 = SymbiFlow.svFormal(test,workDir="pesto").phony("test3").solver(Solver.z3).outputFolder("pesto/test4").append(100).log()
   //val make = InputFile(test) |> List(form1,form2,form3,form4)
   // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
   // pw.close()
-  List(form1,form2,form3,form4).run("all")
+  Makefile(form1,form2,form3,form4).workDir("test2electricbogaloo").run("all")
 
 }
 
