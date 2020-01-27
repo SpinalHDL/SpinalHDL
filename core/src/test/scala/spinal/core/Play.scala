@@ -47,45 +47,51 @@ import spinal.idslplugin.{PostInitCallback, ValCallback}
 //  new Yolo()
 //}
 //
-//class Bundle extends ValCallback with PostInitCallback{
-//  println("Bundle constructor start")
+class Bundle extends ValCallback with PostInitCallback{
+  println("Bundle constructor start")
 //  def valCallback(ref: Any, name: String): Unit = {
 //    println(ref.getClass + " : " + name + " = " + ref)
 //  }
-//  def postInitCallback(): this.type = {
-//    println("miaou")
-//    this
-//  }
-//  val miaou = "wuff"
-//  println("Bundle constructor enda")
-//}
-//
-//class RGB(val v : String) extends Bundle {
-//
-////  new RGB2()
-//  def this(v : Int) {
-//    this((v*v).toString)
-//    println(v)
-//  }
-//
-//  println("RGB constructor start")
-//  val r = 3
-//  val g = 4
-//  val b = 5
-//  println("hello")
-//  val x, y, z = 44
-//  var t = 3
-//  t = 4
-//  println("RGB constructor endaaaaa")
-//}
-//
-//object Play {
-//  def main(args: Array[String]): Unit = {
-//    println("START")
-//    new RGB(668)
-//    println("DONE2a")
-//  }
-//}
+  def postInitCallback(): this.type = {
+    println("miaou")
+    this
+  }
+
+  override def valCallback[T](ref: T, name: String): T = {
+    println(ref.getClass + " :: " + name + " = " + ref)
+    ref
+  }
+
+  val miaou = "wuff"
+  println("Bundle constructor enda")
+}
+
+class RGB(val v : String) extends Bundle {
+
+//  new RGB2()
+  def this(v : Int) {
+    this((v*v).toString)
+    println(v)
+  }
+
+  println("RGB constructor start")
+  val r = 3
+  val g = 4
+  val b = 5
+  println("hello")
+  val x, y, z = 44
+  var t = 3
+  t = 4
+  println("RGB constructor endaaaaa")
+}
+
+object Play {
+  def main(args: Array[String]): Unit = {
+    println("START")
+    new RGB(668)
+    println("DONE2a")
+  }
+}
 
 //object Play2 extends App{
 //  class Toplevel extends Component{
@@ -98,25 +104,29 @@ import spinal.idslplugin.{PostInitCallback, ValCallback}
 
 
 
-class CompilerPluginTest extends Bundle{
-  val publicElement = Bool()
-  val privateElement = Bool()
-
-//  def getPrivateElement() : Bool = {
-//    return privateElement
-//  }
+//class CompilerPluginTest extends Bundle{
+////  val x = new Area {
+////    var sample: Bool = null
+////    val s2 = new Area {
+////      sample = True
+////
+////    }
+////  }
 //
-//  def setPrivateElement(value : Bool) : Unit = {
-//    privateElement := value
+//  val publicElement = Bool()
+//  private val privateElement = valCallback2(Bool(), "asd")
+//
+//  def setPrivateElementByAnAbstractWay(trigger : UInt) : Unit = {
+//    when(trigger > 10) {
+//      privateElement := True
+//
+//    }
 //  }
+//}
 
-  def setPrivateElementByAnAbstractWay(trigger : UInt) : Unit = {
-    when(trigger > 10) {
-      privateElement := True
 
-    }
-  }
-}
+
+
 //
 //class SubAA extends Component{
 //  val a,b = in Bool()

@@ -10,5 +10,5 @@ trait PostInitCallback {
 }
 
 trait ValCallback {
-  def valCallback(ref: Any, name: String): Unit
+  def valCallback[T](ref: T, name: String): T
 }

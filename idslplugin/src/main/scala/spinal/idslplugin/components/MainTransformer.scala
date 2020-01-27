@@ -40,30 +40,23 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
           if (symbolHasTrait(cd.symbol, "ValCallback")) {
             val clazz = cd.impl.symbol.owner
             val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
-            def call(name: TermName, nameStr : String): Tree = {
-              val thiz = This(clazz)
-              val sel = Select(thiz, func)
-              val const = Constant(nameStr)
-              val lit = Literal(const)
-              val ident = Select(thiz, name)
-              val appl = Apply(sel, List(ident, lit))
-              ident.tpe = definitions.AnyTpe
-              thiz.tpe = clazz.tpe
-              sel.tpe = MethodType(List(definitions.AnyTpe.termSymbol, definitions.StringTpe.termSymbol), definitions.UnitTpe)
-              appl.tpe = definitions.UnitTpe
-              lit.setType(definitions.StringTpe)
-              appl
-            }
-
-            val body = ArrayBuffer[Tree]()
-            cd.impl.body.foreach {
+            val body = cd.impl.body.map {
               case vd: ValDef if !vd.mods.isParamAccessor =>
-//                val x : TermName
-//                println("** |" + vd.localName + "|"+vd.localName.toString+"|" + vd.name.getClass)
-                body += vd; body += call(vd.name, vd.getterName.toString)
-              case e => body += e
+                val nameStr = vd.getterName.toString
+                val const = Constant(nameStr)
+                val lit = Literal(const)
+                val thiz = This(clazz)
+                val sel = Select(thiz, func)
+                val appl = Apply(sel, List(vd.rhs, lit))
+
+                thiz.tpe = clazz.tpe
+                sel.tpe = func.tpe
+                appl.tpe = definitions.UnitTpe
+                lit.setType(definitions.StringTpe)
+                treeCopy.ValDef(vd, vd.mods, vd.name, vd.tpt, appl)
+              case e => e
             }
-            val impl = treeCopy.Template(cd.impl, cd.impl.parents, cd.impl.self, body.toList)
+            val impl = treeCopy.Template(cd.impl, cd.impl.parents, cd.impl.self, body)
             val cdNew = treeCopy.ClassDef(cd, cd.mods, cd.name, cd.tparams, impl) //)mods0, name0, tparams0, impl0
 
             ret = cdNew
@@ -71,7 +64,6 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
           ret
         }
-
         case a: Apply => {
           var ret: Tree = a
 

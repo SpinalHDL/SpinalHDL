@@ -46,10 +46,10 @@ import scala.collection.mutable
 
 trait ValCallbackRec extends ValCallback{
 
-  final override def valCallback(fieldRef: Any, name: String): Unit = {
-    val refs = mutable.Set[Any]()
-    valCallbackOn(fieldRef,name, refs)
-  }
+//  final override def valCallback(fieldRef: Any, name: String): Unit = {
+//    val refs = mutable.Set[Any]()
+//    valCallbackOn(fieldRef,name, refs)
+//  }
   def valCallbackOn(ref: Any, name: String, refs :  mutable.Set[Any]): Unit = {
     if (ref != null && !refs.contains(ref)) {
       refs += ref
@@ -72,6 +72,12 @@ trait ValCallbackRec extends ValCallback{
   }
 
   def valCallbackRec(ref: Any, name: String): Unit
+
+  override def valCallback[T](ref: T, name: String): T = {
+    val refs = mutable.Set[Any]()
+    valCallbackOn(ref, name, refs)
+    ref
+  }
 }
 
 class Bundle extends MultiData with Nameable with ValCallbackRec {
