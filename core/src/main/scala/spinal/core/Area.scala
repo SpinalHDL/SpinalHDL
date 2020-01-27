@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.Nameable.DATAMODEL_WEAK
 import spinal.core.internals.Misc
 import spinal.idslplugin.PostInitCallback
 
@@ -39,9 +40,33 @@ import spinal.idslplugin.PostInitCallback
   * }}}
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
   */
-trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated {
-
-  component.addPrePopTask(reflectNames)
+trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec {
+  override def valCallbackRec(obj: Any, name: String): Unit = {
+    obj match {
+      case component: Component =>
+        if (component.parent == this.component) {
+          component.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(component, this)
+        }
+      case namable: Nameable =>
+        if (!namable.isInstanceOf[ContextUser]) {
+          namable.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(namable, this)
+        } else if (namable.asInstanceOf[ContextUser].component == component){
+          namable.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(namable, this)
+        } else {
+          if(component != null) for (kind <- component.children) {
+            //Allow to name a component by his io reference into the parent component
+            if (kind.reflectIo == namable) {
+              kind.setPartialName(name, DATAMODEL_WEAK)
+              OwnableRef.proposal(kind, this)
+            }
+          }
+        }
+      case _ =>
+    }
+  }
 
   override def toString: String = component.getPath() + "/" + super.toString()
 }
