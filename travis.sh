@@ -176,7 +176,7 @@ beforeInstall () {
 
 compileTest () {
   travis_start "compile" "SBT" "compile"
-  sbt -J-Xss2m compile
+  sbt -J-Xss2m --supershell=false compile
   travis_finish "compile"
 
   travis_start "cocotb" "SBT" "cocotb VPI"
@@ -188,7 +188,7 @@ compileTest () {
   travis_finish "cocotb"
 
   travis_start "test" "SBT" "test"
-  sbt -J-Xss2m test
+  sbt -J-Xss2m --supershell=false test
   travis_finish "test"
 }
 
