@@ -80,13 +80,14 @@ class ChecksTester extends FunSuite  {
   }
 
   test("componentNamedByIo") {
-    val t = SpinalVhdl(new Component{
+    val t = SpinalVerilog(new Component{
       val miaou = new Component{
         val io = new Bundle {
           val x = out Bool()
         }
+        assert(io.x.getName() == "io_x")
       }.io
-    }).toplevel
+    }.setDefinitionName("TopLevel")).toplevel
 
     assert(t.miaou.component.getName() == "miaou")
     assert(t.miaou.getName() == "io")
