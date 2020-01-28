@@ -84,19 +84,6 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
 
   var hardtype: HardType[_] = null
 
-
-  globalData.currentComponent match {
-    case null =>
-    case component =>
-      component.addPrePopTask(() => {
-        elements.foreach { case (n, e) =>
-          if(OwnableRef.proposal(e, this)) e.setPartialName(n.toString, Nameable.DATAMODEL_WEAK)
-        }
-      })
-  }
-
-
-
   override def clone: Bundle = {
     if (hardtype != null) {
       val ret = hardtype().asInstanceOf[this.type]
@@ -156,32 +143,13 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     case ref : Data => {
       elementsCache += name -> ref
       ref.parent = this
+      if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
     }
     case ref =>
   }
 
 
   override def elements: ArrayBuffer[(String, Data)] = elementsCache
-
-  /** Return all element of the bundle */
-//  def elements: ArrayBuffer[(String, Data)] = {
-//    if (elementsCache == null) {
-//      elementsCache = ArrayBuffer[(String, Data)]()
-//      Misc.reflect(this, (name, obj) => {
-//        obj match {
-//          case data: Data =>
-//            if (!rejectOlder || this.isOlderThan(data)) {
-//              //To avoid bundle argument
-//              elementsCache += (name -> data)
-//              data.parent = this
-//            }
-//          case _ =>
-//        }
-//      })
-//      elementsCache = elementsCache.sortWith(_._2.instanceCounter < _._2.instanceCounter)
-//    }
-//    elementsCache
-//  }
 
   private[core] def rejectOlder = true
 
