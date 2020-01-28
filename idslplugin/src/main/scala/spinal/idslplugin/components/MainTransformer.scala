@@ -41,7 +41,8 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
             val clazz = cd.impl.symbol.owner
             val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
             val body = cd.impl.body.map {
-              case vd: ValDef if !vd.mods.isParamAccessor =>
+              case vd: ValDef if !vd.mods.isParamAccessor  && !vd.symbol.annotations.exists(_.symbol.name.toString == "DontName") =>
+                if(vd.name.toString.contains("implicitFsm")) println(s"** $vd")
                 val nameStr = vd.getterName.toString
                 val const = Constant(nameStr)
                 val lit = Literal(const)
