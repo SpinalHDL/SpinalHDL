@@ -69,7 +69,7 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode{
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
@@ -128,7 +128,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   def postInitCallback(): this.type = {
-    this.nameElements()
     prePop()
     Component.pop(this)
     this
@@ -175,49 +174,43 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
   }
 
-  /** Name all Nameable object */
-  def nameElements(): Unit = {
 
-    val io = reflectIo
-
-    if(io != null) {
-      if(io.isUnnamed || io.isPriorityApplicable(Nameable.DATAMODEL_WEAK)) {
-        io.unsetName()
-        if (ioPrefixEnable)
-          io.setName("io", Nameable.DATAMODEL_WEAK)
-        else
-          io.setName("", Nameable.DATAMODEL_WEAK)
-        OwnableRef.proposal(io,this)
+  override def valCallbackRec(ref: Any, name: String): Unit = {
+    if(name == "io"){
+      ref match {
+        case io: Nameable =>
+          if (ioPrefixEnable)
+            io.setName("io", Nameable.DATAMODEL_WEAK)
+          else
+            io.setName("", Nameable.DATAMODEL_WEAK)
+          OwnableRef.proposal(io,this)
+        case _ =>
       }
-    }
+    } else {
+      ref match {
+        case component: Component if component.parent == this =>
+          OwnableRef.proposal(ref, this)
+          component.setName(name, Nameable.DATAMODEL_WEAK)
 
-    Misc.reflect(this, (name, obj) => {
-      if(obj != io) {
-        obj match {
-          case component: Component if component.parent == this =>
-              OwnableRef.proposal(obj, this)
-              component.setName(name, Nameable.DATAMODEL_WEAK)
-
-          case nameable: Nameable =>
-            if (!nameable.isInstanceOf[ContextUser]) {
-              nameable.setName(name, Nameable.DATAMODEL_WEAK)
-              OwnableRef.proposal(obj, this)
-            } else if (nameable.asInstanceOf[ContextUser].component == this) {
-              nameable.setName(name, Nameable.DATAMODEL_WEAK)
-              OwnableRef.proposal(obj, this)
-            } else {
-              for (kind <- children) {
-                //Allow to name a component by his io reference into the parent component
-                if (kind.reflectIo == nameable) {
-                  kind.setName(name, Nameable.DATAMODEL_WEAK)
-                  OwnableRef.proposal(kind, this)
-                }
+        case nameable: Nameable =>
+          if (!nameable.isInstanceOf[ContextUser]) {
+            nameable.setName(name, Nameable.DATAMODEL_WEAK)
+            OwnableRef.proposal(ref, this)
+          } else if (nameable.asInstanceOf[ContextUser].component == this) {
+            nameable.setName(name, Nameable.DATAMODEL_WEAK)
+            OwnableRef.proposal(ref, this)
+          } else {
+            for (kind <- children) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == nameable) {
+                kind.setName(name, Nameable.DATAMODEL_WEAK)
+                OwnableRef.proposal(kind, this)
               }
             }
-          case _ =>
-        }
+          }
+        case _ =>
       }
-    })
+    }
   }
 
   /**

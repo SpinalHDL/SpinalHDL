@@ -74,9 +74,9 @@ class RGB(val v : String) extends Bundle {
     println(v)
   }
 
-  println("RGB constructor start")
+  println("RGB constructor start3     ")
   val r = 3
-  val g = 4
+  @dontName val g = 4
   val b = 5
   println("hello")
   val x, y, z = 44
