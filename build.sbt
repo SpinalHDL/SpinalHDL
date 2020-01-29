@@ -62,7 +62,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
     unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
-  .aggregate(sim, idslplugin, core, lib, debugger, tester)
+  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
 
 import sys.process._
