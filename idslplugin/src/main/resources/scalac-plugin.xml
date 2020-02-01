@@ -1,0 +1,4 @@
+<plugin>
+	<name>idsl-plugin</name>
+	<classname>spinal.idslplugin.IdslPlugin</classname>
+</plugin>
