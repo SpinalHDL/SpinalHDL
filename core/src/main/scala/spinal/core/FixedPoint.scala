@@ -40,19 +40,20 @@ object RoundType{
 case class FixPointConfig(roundType: RoundType,
                           symmetric: Boolean) {
 
-  def flush(): FixPointConfig = {
+  def flush(infos: String = s"${this} enabled!"): FixPointConfig = {
     setFixRound(roundType)
     setFixSym(symmetric)
-    SpinalInfo(s"${this} enabled!")
+    SpinalInfo(infos)
     this
   }
 
-//  def apply[T](block: => T): T = {
-//    this.flush()
-//    val ret: T = block
-//    ret
-//  }
-
+  def apply[T](block: => T): T = {
+    val outer = FixPointConfig(getFixRound(), getFixSym())
+    this.flush()
+    val ret: T = block
+    outer.flush(s"$outer recovered")
+    ret
+  }
 }
 
 object DefaultFixPointConfig {
