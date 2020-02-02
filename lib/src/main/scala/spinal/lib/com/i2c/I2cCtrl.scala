@@ -364,7 +364,7 @@ object I2cCtrl {
 
         val START2: State = new State {
           onEntry {
-            timer.value := io.config.tsuData.resized
+            timer.value := timer.tLow
           }
           whenIsActive {
             i2cBuffer.sda.write := False
