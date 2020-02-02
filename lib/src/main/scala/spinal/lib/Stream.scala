@@ -780,7 +780,7 @@ case class EventEmitter(on : Event){
   }
 }
 
-/** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs.*/
+/** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
 object StreamJoin {
   /**
    * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
@@ -809,7 +809,7 @@ object StreamJoin {
    * Join streams, but ignore the payload and replace it with a custom one.
    * @param payload The payload of the resulting stream
    */
-  def apply[T <: Data](sources: Seq[Stream[_]], payload: T): Stream[T] = StreamJoin(sources).translateWith(payload)
+  def fixedPayload[T <: Data](sources: Seq[Stream[_]], payload: T): Stream[T] = StreamJoin(sources).translateWith(payload)
 }
 
 trait StreamFifoInterface[T <: Data]{
