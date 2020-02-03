@@ -62,6 +62,7 @@ abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffini
 }
 
 class SimSuccess extends Exception
+class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
@@ -224,7 +225,9 @@ class SimManager(val raw : SimRaw) {
 
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
-          raw.eval()
+          if(raw.eval()){
+            throw new SimFailureBackend()
+          }
         }
 
         //Execute the threads commands
@@ -257,6 +260,8 @@ class SimManager(val raw : SimRaw) {
       }
     } catch {
       case e : SimSuccess =>
+      case e : SimFailureBackend =>
+        raw.sleep(1)
       case e : Throwable => {
         println(f"""[Error] Simulation failed at time=$time""")
         raw.sleep(1)
