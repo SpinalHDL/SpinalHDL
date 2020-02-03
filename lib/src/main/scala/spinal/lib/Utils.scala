@@ -346,10 +346,18 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
   willOverflow.allowPruning
 
   override def implicitValue: UInt = this.value
+
+  /**
+   * Convert this stream to a flow. It will send each value only once. It is "start inclusive, end exclusive". 
+   * This means that the current value will only be sent if the counter increments.
+   */
+  def toFlow(): Flow[UInt] = {
+    val flow = Flow(value)
+    flow.payload := value
+    flow.valid := willIncrement
+    flow
+  }
 }
-
-
-
 
 object Timeout {
   def apply(cycles: BigInt) : Timeout = new Timeout(cycles)

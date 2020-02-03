@@ -271,7 +271,7 @@ class SpinalReport[T <: Component]() {
           buffer.getLines.foreach{ line => bw.write(line + "\n") }
           buffer.close()
         }else{
-          SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
+          SpinalWarning(s"Merging blackbox sources : Path (${new File(path).getAbsolutePath}) not found ")
         }
       }
 

@@ -912,7 +912,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
         }
       }
       if (c.definitionName == "") {
-        c.definitionName = "unamed"
+        c.definitionName = "unnamed"
       }
       c match {
         case bb: BlackBox if bb.isBlackBox => {
@@ -1110,8 +1110,8 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-    //give a name to unamed encodingss
-    val unamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
+    //give a name to unnamed encodingss
+    val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
@@ -1627,7 +1627,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 }
 
 
-class PhaseRemoveIntermediateUnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
+class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -2216,7 +2216,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2227,7 +2227,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()
@@ -2337,7 +2337,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2348,7 +2348,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()

@@ -494,10 +494,18 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "ERROR"
                 case `FAILURE` => "FAILURE"
               }
-              b ++= s"${tab}if(!$cond) begin\n"
-              b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
-              if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-              b ++= s"${tab}end\n"
+              b ++= s"${tab}`ifdef FORMAL\n"
+              /* Emit actual assume/assert/cover statements */
+              b ++= s"${tab}  $keyword($cond)\n"
+              
+              b ++= s"${tab}`else\n"
+              /* Emulate them using $display */
+              b ++= s"${tab}  if(!$cond) begin\n"
+              b ++= s"""${tab}    $$display("$severity $frontString"$backString);\n"""
+              if (assertStatement.severity == `FAILURE`) b ++= tab + "    $finish;\n"
+              b ++= s"${tab}  end\n"
+              
+              b ++= s"${tab}`endif\n"
             } else {
               val severity = assertStatement.severity match {
                 case `NOTE` => "$info"
