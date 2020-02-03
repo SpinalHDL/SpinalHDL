@@ -164,8 +164,10 @@ object PlaySim{
         dut.clockDomain.waitSampling()
         Thread.sleep(50)
       }
-      println("done")
+      println("done1")
     }
+
+    println("done2")
   }
 }
 

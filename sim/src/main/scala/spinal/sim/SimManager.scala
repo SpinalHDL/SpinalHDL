@@ -226,7 +226,7 @@ class SimManager(val raw : SimRaw) {
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
           if(raw.eval()){
-            throw new SimFailureBackend()
+            throw new SimFailure("Verilog assertion failure")
           }
         }
 
@@ -260,8 +260,6 @@ class SimManager(val raw : SimRaw) {
       }
     } catch {
       case e : SimSuccess =>
-      case e : SimFailureBackend =>
-        raw.sleep(1)
       case e : Throwable => {
         println(f"""[Error] Simulation failed at time=$time""")
         raw.sleep(1)
