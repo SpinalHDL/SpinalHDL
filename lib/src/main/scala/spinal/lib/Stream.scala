@@ -656,7 +656,7 @@ object StreamMux {
 
   def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
     val c = new StreamMux(inputs(0).payload, inputs.length)
-    c.io.inputs := inputs
+    (c.io.inputs, inputs).zipped.foreach(_ << _)
     c.io.select := select
     c.io.output
   }
