@@ -305,4 +305,24 @@ class SpinalSimMiscTester extends FunSuite {
       }
     }
   }
+
+
+  test("testCatchAssert"){
+    var i = 35
+    import spinal.core.sim._
+    SimConfig.doSim(new Component{
+      val a = in UInt(8 bits)
+
+      spinal.core.assert(a =/= 42, FAILURE)
+    }){dut =>
+      dut.clockDomain.forkStimulus(10)
+      while(i < 50){
+        dut.a #= i
+        dut.clockDomain.waitSampling()
+        i += 1
+      }
+    }
+    assert(i == 43)
+  }
+
 }
