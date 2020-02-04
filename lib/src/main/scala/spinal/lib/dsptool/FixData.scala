@@ -124,7 +124,8 @@ case class FixData(raw: Double,
   * toFixData(-0x0f,  SQ(8,4)) => FixData: -0.9375,QFormat: Q(8,4,signed)
   */
 object toFixData{
-  def apply(value: Int, q: QFormat): FixData = {
+  def apply(value: Int,  q: QFormat): FixData = toFixData(value.toLong, q)
+  def apply(value: Long, q: QFormat): FixData = {
     (value, q.signed) match {
       case (x, true) if x >= 0 => {
         val signedValue = if (value >= q.halfCapcity) value%q.capcity - q.capcity else value
