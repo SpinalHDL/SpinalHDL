@@ -238,10 +238,22 @@ class ComponentEmitterVerilog(
         }
       }
 
+      //Fixing the spacing
+      var maxNameLength = 0
+      for(data <- child.getOrdredNodeIo) {
+        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
+      }
+      var maxNameLengthCon = 0
+      for(data <- child.getOrdredNodeIo) {
+        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
+        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
+      }
+
       logics ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
         val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-        logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
+        //logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
+        logics ++= s"    .%-${maxNameLength}s ( %-${maxNameLengthCon}s ),\n".format(emitReferenceNoOverrides(data), logic) 
       }
       logics.setCharAt(logics.size - 2, ' ')
 
