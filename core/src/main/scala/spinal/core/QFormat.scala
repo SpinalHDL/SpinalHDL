@@ -21,6 +21,10 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
 
   def alignHex: Int = scala.math.ceil(width/4.0).toInt
   def alignOct: Int = scala.math.ceil(width/3.0).toInt
+  /*
+  *  Float  (B=2 / p=24): Eps = 2^(-24) = 5.9604644775390625E-8
+  *  Double (B=2 / p=53): Eps = 2^(-53) = 1.1102230246251565E-16*/
+  val epsInDouble: Double = scala.math.pow(2, amplify - 53)
 
   def *(right: QFormat): QFormat = {
     QFormat(this.width + right.width, this.fraction + right.fraction, this.signed | right.signed)

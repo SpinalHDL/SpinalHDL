@@ -46,6 +46,18 @@ case class FixData(raw: Double,
     }
   }
 
+  def epsFloor(x: Double): Double = {
+    val ref = scala.math.floor(x)
+    val delta = x - ref
+    if(scala.math.abs(1 - delta) < q.epsInDouble) 1 + ref else ref
+  }
+
+  def epsCeil(x: Double): Double = {
+    val ref = scala.math.floor(x)
+    val delta = x - ref
+    if(scala.math.abs(delta) < q.epsInDouble) ref else 1 + ref
+  }
+
   def isSigned: Boolean   = q.signed
   def isNegative: Boolean = value < 0
 
@@ -53,14 +65,14 @@ case class FixData(raw: Double,
   private def rawSign: Int           = if(rawIsNegative) -1 else 1
 
   private def abs: Double         = scala.math.abs(this.zoomRaw)
-  private def ceil: Double        = scala.math.ceil(this.zoomRaw)
-  private def floor: Double       = scala.math.floor(this.zoomRaw)
-  private def floorToZero: Double = this.rawSign * scala.math.floor(this.abs)
-  private def ceilToInf: Double   = this.rawSign * scala.math.ceil(this.abs)
-  private def roundUp: Double     = scala.math.floor(this.zoomRaw + 0.5)
-  private def roundDown: Double   = scala.math.ceil(this.zoomRaw - 0.5)
-  private def roundToZero: Double = this.rawSign * scala.math.ceil(this.abs - 0.5)
-  private def roundToInf: Double  = this.rawSign * scala.math.floor(this.abs + 0.5)
+  private def ceil: Double        = epsCeil(this.zoomRaw)
+  private def floor: Double       = epsFloor(this.zoomRaw)
+  private def floorToZero: Double = this.rawSign * epsFloor(this.abs)
+  private def ceilToInf: Double   = this.rawSign * epsCeil(this.abs)
+  private def roundUp: Double     = epsFloor(this.zoomRaw + 0.5)
+  private def roundDown: Double   = epsCeil(this.zoomRaw - 0.5)
+  private def roundToZero: Double = this.rawSign * epsCeil(this.abs - 0.5)
+  private def roundToInf: Double  = this.rawSign * epsFloor(this.abs + 0.5)
 
   private def saturated(x: Double): Double = x match {
     case d if d > q.maxValue => q.maxValue
