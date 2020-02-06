@@ -69,6 +69,8 @@ abstract class ComponentEmitter {
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
   val subComponentInputToNotBufferize = mutable.HashSet[Any]()
   val openSubIo = mutable.HashSet[BaseType]()
+  
+  val subComponentOutputToNotBufferize = mutable.HashSet[Any]()
 
   def getOrDefault[X,Y](map: java.util.concurrent.ConcurrentHashMap[X,Y], key: X, default: Y) = map.get(key) match {
     case null => default
@@ -100,6 +102,7 @@ abstract class ComponentEmitter {
     else
       null
   }
+
 
   def elaborate() = {
     val asyncStatement = ArrayBuffer[LeafStatement]()
@@ -294,6 +297,7 @@ abstract class ComponentEmitter {
         }
       }
     }
+
 
     //Fill multiplexersPerSelect
     component.dslBody.walkStatements(s => {

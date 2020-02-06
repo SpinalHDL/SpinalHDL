@@ -109,6 +109,7 @@ class ComponentEmitterVhdl(
     declarations ++= s"  signal $name : ${emitDataType(io)};\n"
     referencesOverrides(io) = name
   }
+  
 
   def emitArchitecture(): Unit = {
     for(mem <- mems){

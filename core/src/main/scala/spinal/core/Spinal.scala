@@ -140,6 +140,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
+                        removeOutputAssigns            : Boolean = false,
                         private [core] var _withEnumString : Boolean = true
 ){
 
