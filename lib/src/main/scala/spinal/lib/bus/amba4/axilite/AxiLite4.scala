@@ -138,6 +138,14 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def isDECERR() : Unit = resp === DECERR
 }
 
+/** Companion object to create hard-wired AXI responses. */
+object AxiLite4B {
+  def okay(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setOKAY(); resp }
+  def exclusiveOkay(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setEXOKAY(); resp }
+  def slaveError(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setSLVERR(); resp }
+  def decodeError(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setDECERR(); resp }
+}
+
 
 /**
   * Definition of the Read data channel

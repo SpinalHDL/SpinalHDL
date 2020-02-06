@@ -58,7 +58,7 @@ class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
     }
   }
 
-  override def eval() = backend.nativeInstance.eval(handle)
+  override def eval() : Boolean = backend.nativeInstance.eval(handle)
   override def sleep(cycles : Long) = backend.nativeInstance.sleep(handle, cycles)
   override def end() = backend.nativeInstance.deleteHandle(handle)
   override def isBufferedWrite : Boolean = false

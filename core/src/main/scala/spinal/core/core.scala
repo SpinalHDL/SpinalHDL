@@ -415,8 +415,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSERT)
   def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
 
   def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
   def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)

@@ -16,7 +16,9 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     val configFrame = in(UartCtrlFrameConfig(g))
     val samplingTick = in Bool
     val write = slave Stream (Bits(dataWidthMax bit))
-    val txd = out Bool
+    val cts = in Bool()
+    val txd = out Bool()
+    val break = in Bool()
   }
 
   // Provide one clockDivider.tick each rxSamplePerBit pulse of io.samplingTick
@@ -50,10 +52,10 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
       parity := parity ^ txd
     }
 
-    io.write.ready := False
+    io.write.ready := io.break
     switch(state) {
       is(IDLE){
-        when(io.write.valid && clockDivider.tick){
+        when(io.write.valid && !io.cts && clockDivider.tick){
           state := START
         }
       }
@@ -96,5 +98,5 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     }
   }
 
-  io.txd := RegNext(stateMachine.txd) init(True)
+  io.txd := RegNext(stateMachine.txd && !io.break) init(True)
 }

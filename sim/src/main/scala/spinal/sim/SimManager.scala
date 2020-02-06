@@ -62,6 +62,7 @@ abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffini
 }
 
 class SimSuccess extends Exception
+class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
@@ -224,7 +225,9 @@ class SimManager(val raw : SimRaw) {
 
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
-          raw.eval()
+          if(raw.eval()){
+            throw new SimFailure("Verilog assertion failure")
+          }
         }
 
         //Execute the threads commands
