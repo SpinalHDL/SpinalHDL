@@ -194,12 +194,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    * It introduces one cycle of latency.
    */
   def slowdown(factor: Int): Stream[Vec[T]] = {
-    val next = Stream(Vec(this.payload, factor))
     val counter = Counter(factor)
-    for (i <- 0 to factor) {
-    	next.payload(i) := RegNextWhen(this.payload, counter === i)
-    }
-    when (counter.willOverflow) {
+    val next = Stream(Vec.tabulate(factor)(i => {
+    	RegNextWhen(this.payload, counter === i)
+    }))
+    when (counter.willOverflowIfInc) {
       /* All elements are valid, so wait for ready signal to advance */
       this.ready := next.ready
       next.valid := True
