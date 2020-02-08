@@ -1105,7 +1105,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //Feed enums with encodings
-    enums.keySet.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
+    enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
     nodes.foreach(enum => {
       enums(enum.getDefinition) += enum.getEncoding
     })
