@@ -140,9 +140,18 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
 
   def apply : T = get.asInstanceOf[T]
   def get: T = core.get.asInstanceOf[T]
-  def load[T2 <: T](value : T2): T2 = core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
-  def loadAny(value : Any): Unit = core.load(value.asInstanceOf[T])
-
+  def load[T2 <: T](value : T2): T2 = {
+    applyName(value)
+    core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
+  }
+  def loadAny(value : Any): Unit = {
+    applyName(value)
+    core.load(value.asInstanceOf[T])
+  }
+  def applyName(value : Any) = value match {
+    case value : Nameable => value.setCompositeName(this, Nameable.DATAMODEL_WEAK)
+    case _ =>
+  }
   def isLoaded = core.isLoaded
 
   override def isDone: Boolean = isLoaded
@@ -166,7 +175,7 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
-class Generator() extends Nameable with Dependable with PostInitCallback with TagContainer with OverridedEqualsHashCode{
+class Generator() extends Area with Dependable with PostInitCallback with TagContainer with OverridedEqualsHashCode{
   @dontName var parent : Generator = null
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     parent = Generator.stack.head
@@ -243,12 +252,12 @@ class Generator() extends Nameable with Dependable with PostInitCallback with Ta
     apply {
       for (task <- tasks) {
         task.build()
-        task.handle.get match {
-          case n: Nameable => {
-            n.setCompositeName(this, true)
-          }
-          case _ =>
-        }
+//        task.handle.get match {
+//          case n: Nameable => {
+//            n.setCompositeName(this, true)
+//          }
+//          case _ =>
+//        }
       }
     }
     if(generatorClockDomain.get != null) generatorClockDomain.pop()
@@ -303,7 +312,7 @@ class GeneratorCompiler {
           }
         }
         generatorsAll += generator
-        generator.reflectNames()
+//        generator.reflectNames()
         generator.c = this
         val splitName = classNameOf(generator).splitAt(1)
         if(generator.isUnnamed) generator.setWeakName(splitName._1.toLowerCase + splitName._2)
