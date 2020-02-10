@@ -113,7 +113,7 @@ abstract class BlackBox extends Component{
   /**
     * Map clock domain signals (clock, reset, enable) to a clockDomain
     */
-  def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null): Unit = {
+  def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
 
     Component.push(parent)
 
@@ -121,13 +121,13 @@ abstract class BlackBox extends Component{
 
     if (enable != null) {
       pulledDataCache += (clockDomain.clockEnable -> enable)
-      enable := clockDomain.readClockEnableWire
+      enable := (if(enableActiveLevel != clockDomain.config.clockEnableActiveLevel) !clockDomain.readClockEnableWire else clockDomain.readClockEnableWire)
     }
 
     if (reset != null) {
       if (!clockDomain.hasResetSignal) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> reset)
-      reset := clockDomain.readResetWire
+      reset := (if(resetActiveLevel != clockDomain.config.resetActiveLevel) !clockDomain.readResetWire else clockDomain.readResetWire)
     }
 
     pulledDataCache += (clockDomain.clock -> clock)
@@ -138,8 +138,8 @@ abstract class BlackBox extends Component{
 
 
   /** Map clock domains signal to the current ClockDomain */
-  def mapCurrentClockDomain(clock: Bool, reset: Bool = null, enable: Bool = null): Unit = {
-    mapClockDomain(ClockDomain.current, clock, reset, enable)
+  def mapCurrentClockDomain(clock: Bool, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
+    mapClockDomain(ClockDomain.current, clock, reset, enable, resetActiveLevel, enableActiveLevel)
   }
 
   override def isInBlackBoxTree: Boolean = isBlackBox || parent.isInBlackBoxTree
