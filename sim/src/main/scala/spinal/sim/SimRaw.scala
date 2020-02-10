@@ -11,7 +11,7 @@ abstract class SimRaw(){
   def sleep(cycles : Long)
   def enableWave()
   def disableWave()
-  def eval()
+  def eval() : Boolean
   def end()
   def isBufferedWrite : Boolean
 }

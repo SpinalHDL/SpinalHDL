@@ -24,7 +24,7 @@ jobs:
       # See 'project/Version.scala'
       scala: 2.11.12
       jdk: openjdk9
-      sbt_args: -no-colors -J-Xss2m
+      sbt_args: -Dsbt.supershell=false -no-colors -J-Xss2m
       script:
         - sbt -jvm-opts travis/jvmopts.compile compile
         - sbt -jvm-opts travis/jvmopts.test test

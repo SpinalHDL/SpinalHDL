@@ -39,7 +39,7 @@ object DebuggerOnUart {
     uartCtrl.io.config.frame.stop := UartStopType.ONE
     uartCtrl.io.uart <> io.uart
 
-    val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()
+    val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlow.toFlowFragmentBitsAndReset()
 
     val debugger = new ResetArea(uartSoftReset, false) {
       val logicAnalyser = LogicAnalyserBuilder()

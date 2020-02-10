@@ -149,6 +149,28 @@ object PlayEnum{
 }
 
 
+object PlaySim{
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+
+    SimConfig.withWave.doSim(new Component{
+      val a = in UInt(8 bits)
+
+      assert(a =/= 42, FAILURE)
+    }){dut =>
+      dut.clockDomain.forkStimulus(10)
+      for(i <- 35 until 45) {
+        dut.a #= i
+        dut.clockDomain.waitSampling()
+        Thread.sleep(50)
+      }
+      println("done1")
+    }
+
+    println("done2")
+  }
+}
+
 object PlayPoison{
   class TopLevel extends Component {
 

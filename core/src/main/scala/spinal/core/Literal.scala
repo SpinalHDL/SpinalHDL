@@ -32,6 +32,8 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
   def apply(value: Int): T = this(BigInt(value))
   def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
+  def apply(value: Long): T = this(BigInt(value))
+  def apply(value: Long, width: BitCount): T = this(BigInt(value),width)
   def apply(value: BigInt): T = getFactory(value, -1, this().setAsTypeNode())
   def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value).setAsTypeNode())
   def apply(value: String): T = bitVectorStringParser(this, value,  isSigned)

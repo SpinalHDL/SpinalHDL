@@ -238,10 +238,22 @@ class ComponentEmitterVerilog(
         }
       }
 
+      //Fixing the spacing
+      var maxNameLength = 0
+      for(data <- child.getOrdredNodeIo) {
+        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
+      }
+      var maxNameLengthCon = 0
+      for(data <- child.getOrdredNodeIo) {
+        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
+        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
+      }
+
       logics ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
         val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-        logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
+        //logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
+        logics ++= s"    .%-${maxNameLength}s ( %-${maxNameLengthCon}s ),\n".format(emitReferenceNoOverrides(data), logic) 
       }
       logics.setCharAt(logics.size - 2, ' ')
 
@@ -494,10 +506,19 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "ERROR"
                 case `FAILURE` => "FAILURE"
               }
-              b ++= s"${tab}if(!$cond) begin\n"
-              b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
-              if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-              b ++= s"${tab}end\n"
+
+              b ++= s"${tab}`ifndef SYNTHESIS\n"
+              b ++= s"${tab}  `ifdef FORMAL\n"
+              /* Emit actual assume/assert/cover statements */
+              b ++= s"${tab}    $keyword($cond)\n"
+              b ++= s"${tab}  `else\n"
+              /* Emulate them using $display */
+              b ++= s"${tab}    if(!$cond) begin\n"
+              b ++= s"""${tab}      $$display("$severity $frontString"$backString);\n"""
+              if (assertStatement.severity == `FAILURE`) b ++= tab + "      $finish;\n"
+              b ++= s"${tab}    end\n"
+              b ++= s"${tab}  `endif\n"
+              b ++= s"${tab}`endif\n"
             } else {
               val severity = assertStatement.severity match {
                 case `NOTE` => "$info"
