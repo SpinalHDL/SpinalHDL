@@ -105,6 +105,7 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
       ssWidth = p.ssWidth,
       useSclk = true
     )
+    KeepAttribute(spi) //Yosys workaround
 
     p.ioRate match {
       case 1 => {
