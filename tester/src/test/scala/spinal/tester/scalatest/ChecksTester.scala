@@ -402,6 +402,4 @@ class ChecksTester extends FunSuite  {
     }
     generationShouldFaild(new CheckOnlyIoInBundle)
   }
-
-
 }

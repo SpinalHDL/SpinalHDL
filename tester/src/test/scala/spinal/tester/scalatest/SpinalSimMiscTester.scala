@@ -330,4 +330,24 @@ class SpinalSimMiscTester extends FunSuite {
     assert(i == 43)
   }
 
+
+
+  test("intLongBigInt"){
+    SimConfig.withWave.doSim(new Component{
+      val x = out Bits(31 bits)
+      val y = out Bits(63 bits)
+      val z = out Bits(128 bits)
+      x := 0x12345678
+      y := 0x1234567812345678l
+      z := BigInt("12345678123456781234567812345678", 16)
+    }){dut =>
+//      dut.clockDomain.forkStimulus(10)
+//      sleep(10)
+      assert(dut.x.toInt == 0x12345678)
+      assert(dut.y.toLong == 0x1234567812345678l)
+      assert(dut.z.toBigInt == BigInt("12345678123456781234567812345678", 16))
+    }
+  }
+
+
 }
