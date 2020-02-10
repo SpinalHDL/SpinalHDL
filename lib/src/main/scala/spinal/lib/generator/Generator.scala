@@ -79,7 +79,7 @@ object Handle{
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 
   implicit def miaouImplicitHandle[T](value : Handle[T]) = new {
-    def yolo[T2](body : (T) => T2) = value.produce(body(value))
+    def derivate[T2](body : (T) => T2) = value.produce(body(value))
   }
 
   implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) = new {
