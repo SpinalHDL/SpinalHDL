@@ -42,16 +42,34 @@ case class QFormat(width: Int, fraction: Int, signed: Boolean) {
     if(signed) this else QFormat(this.width+1, this.fraction, true)
   }
 
-  def >>(n: Int): QFormat = {
+  /* SQ(10,5) >>> 4 = SQ(10,9)*/
+  /* SQ(11,0) >>> 10 = SQ(11,10)*/
+  def >>>(n: Int): QFormat = {
     val newFrac  = this.fraction + n
     val newWidth = if(this.amplify > n) this.width else (this.width + n - this.amplify )
     this.copy(newWidth, newFrac)
   }
 
-  def <<(n: Int): QFormat = {
+  /* SQ(10,9) <<< 4 = SQ(10,5)*/
+  /* SQ(3,2)  <<< 10 = SQ(11,0)*/
+  def <<<(n: Int): QFormat = {
     val newFrac  = if(this.fraction>n) (this.fraction - n) else 0
     val newWidth = if(this.fraction>n) this.width else (this.width + n - this.fraction)
     this.copy(newWidth, newFrac)
+  }
+
+  /* SQ(10,5) >> 4 = SQ(6,1)*/
+  /* SQ(10,5) >> 6 = SQ(4,0)*/
+  def >>(n: Int): QFormat = {
+    val newFrac  = if(this.fraction>n) (this.fraction - n) else 0
+    val newWidth = if(this.width > n) this.width - n else  0
+    this.copy(newWidth, newFrac)
+  }
+
+  /* SQ(6,1) << 4 = SQ(10,5)*/
+  /* SQ(4,0) << 6 = SQ(10,0)*/
+  def <<(n: Int): QFormat = {
+    this.copy(this.width + n, this.fraction + n)
   }
 
   def *(x: Double): QFormat = {

@@ -40,7 +40,11 @@ case class FixData(raw: Double,
         case RoundType.ROUNDTOODD    => SpinalError("RoundToOdd has not been implemented yet")
       }
       val sated = this.saturated(rounded * this.q.resolution)
-      if(this.symmetric) this.symmetry(sated) else sated
+      if(this.q.signed){
+        if(this.symmetric) this.symmetry(sated) else sated
+      } else {
+        sated
+      }
     } else {
       raw
     }
@@ -84,8 +88,8 @@ case class FixData(raw: Double,
     if(v == q.minValue) -q.maxValue else v
   }
 
-  def asInt: Int          = this.value / q.resolution toInt
-  def asIntPostive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
+//  def asInt: Int          = this.value / q.resolution toInt
+//  def asIntPostive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
 
   def asLong: Long        = this.value / q.resolution toLong
   def asLongPostive: Long = if(rawIsNegative) q.capcity.toLong + this.asLong else this.asLong
@@ -96,9 +100,9 @@ case class FixData(raw: Double,
 
   override def toString  = {
     if(FixSwitch.state){
-      getClass().getName().split('.').last +  s": ${this.value}, Quantized by" +  s"\n${this.q}"
+      s"${this.value}[$this.q]"
     } else {
-      getClass().getName().split('.').last +  s": ${this.value}, FixOff"
+      s"${this.value}[FixOff]"
     }
   }
 
@@ -141,18 +145,18 @@ object toFixData{
     (value, q.signed) match {
       case (x, true) if x >= 0 => {
         val signedValue = if (value >= q.halfCapcity) value%q.capcity - q.capcity else value
-        FixData(signedValue * q.resolution, q)
+        FixData(signedValue * q.resolution, q, symmetric = false)
       }
       case (_, true)=> {
         val signedValue =  value
-        FixData(signedValue * q.resolution, q)
+        FixData(signedValue * q.resolution, q, symmetric = false)
       }
       case (x, false) if x >= 0 => {
         val signedValue =  value
-        FixData(signedValue * q.resolution, q)
+        FixData(signedValue * q.resolution, q, symmetric = false)
       }
       case (_, false)=> {
-        FixData(0, q)
+        FixData(0, q, symmetric = false)
       }
     }
   }
