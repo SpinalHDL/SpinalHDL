@@ -140,10 +140,10 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
   */
 class SlowArea(factor: BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
   def this(frequency: HertzNumber) {
-    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
+    this((ClockDomain.current.frequency.getValue / frequency).toBigInt)
 
     val factor = ClockDomain.current.frequency.getValue / frequency
-    require(factor.toBigInt() == factor)
+    require(factor.toBigInt == factor)
   }
 }
 

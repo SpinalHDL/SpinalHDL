@@ -287,8 +287,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     var bitCount: Int = -1
 
-    if (str.contains(''')) {
-      val split = str.split(''')
+    if (str.contains('\'')) {
+      val split = str.split('\'')
       bitCount = split(0).toInt
       str = split(1)
     }
