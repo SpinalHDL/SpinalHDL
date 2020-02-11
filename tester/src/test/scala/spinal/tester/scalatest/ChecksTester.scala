@@ -79,6 +79,22 @@ class ChecksTester extends FunSuite  {
     assert(t.a.bb.ccc(3).eeee(3)(2).getName() == "a_bb_ccc_3_eeee_3_2")
   }
 
+  test("componentNamedByIo") {
+    val t = SpinalVerilog(new Component{
+      val miaou = new Component{
+        val io = new Bundle {
+          val x = out Bool()
+        }
+        assert(io.x.getName() == "io_x")
+      }.io
+    }.setDefinitionName("TopLevel")).toplevel
+
+    assert(t.miaou.component.getName() == "miaou")
+    assert(t.miaou.getName() == "io")
+  }
+
+
+
   test("checkWidthAssignment") {
     generationShouldFaild(new Component{
       val output = out Bits(8 bits)
@@ -386,6 +402,4 @@ class ChecksTester extends FunSuite  {
     }
     generationShouldFaild(new CheckOnlyIoInBundle)
   }
-
-
 }

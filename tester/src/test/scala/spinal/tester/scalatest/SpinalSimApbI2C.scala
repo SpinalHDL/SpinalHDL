@@ -308,10 +308,7 @@ class SpinalSimApbI2C extends FunSuite {
       bufferCmd += Stop_i2c()
 
       // wait until the end of the emission of the stop bit
-      var status = BigInt(1)
-      while((status & I2C_IS_BUSY) == I2C_IS_BUSY){
-        status = apb.read(reg.status_master)
-      }
+      while((apb.read(reg.status_master) & I2C_MASTER_STOP) != 0){}
     }
 
     def write(data: Int): Unit  ={
@@ -342,9 +339,12 @@ class SpinalSimApbI2C extends FunSuite {
 
 
     def  start(isRestart: Boolean = false): Unit = {
-      apb.write(reg.rx_ack, I2C_RX_LISTEN)
       apb.write(reg.status_master, I2C_MASTER_START)
 
+      // wait until it started
+      while((apb.read(reg.status_master) & I2C_MASTER_START) != 0){}
+
+      apb.write(reg.rx_ack, I2C_RX_LISTEN)
       bufferCmd += (if(isRestart) Restart_i2c() else Start_i2c())
       ()
     }

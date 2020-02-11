@@ -76,6 +76,11 @@ abstract class BlackBox extends Component{
   val genericElements = ArrayBuffer[(String, Any)]()
   val librariesUsages = mutable.HashSet[String]();
 
+  private var isBb = true
+  def isBlackBox = isBb
+  def setBlackBox() = isBb = true
+  def clearBlackBox() = isBb = false
+
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))
     case s: String    => genericElements += Tuple2(name, s)
@@ -85,6 +90,8 @@ abstract class BlackBox extends Component{
     case boolean: Boolean => genericElements += Tuple2(name, boolean)
     case t: TimeNumber    => genericElements += Tuple2(name, t)
   }
+
+  def addGenerics(l : (String, Any)*) = l.foreach(e => addGeneric(e._1, e._2))
 
   val listRTLPath = new LinkedHashSet[String]()
 
@@ -106,7 +113,7 @@ abstract class BlackBox extends Component{
   /**
     * Map clock domain signals (clock, reset, enable) to a clockDomain
     */
-  def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null): Unit = {
+  def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
 
     Component.push(parent)
 
@@ -114,13 +121,13 @@ abstract class BlackBox extends Component{
 
     if (enable != null) {
       pulledDataCache += (clockDomain.clockEnable -> enable)
-      enable := clockDomain.readClockEnableWire
+      enable := (if(enableActiveLevel != clockDomain.config.clockEnableActiveLevel) !clockDomain.readClockEnableWire else clockDomain.readClockEnableWire)
     }
 
     if (reset != null) {
       if (!clockDomain.hasResetSignal) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> reset)
-      reset := clockDomain.readResetWire
+      reset := (if(resetActiveLevel != clockDomain.config.resetActiveLevel) !clockDomain.readResetWire else clockDomain.readResetWire)
     }
 
     pulledDataCache += (clockDomain.clock -> clock)
@@ -131,11 +138,11 @@ abstract class BlackBox extends Component{
 
 
   /** Map clock domains signal to the current ClockDomain */
-  def mapCurrentClockDomain(clock: Bool, reset: Bool = null, enable: Bool = null): Unit = {
-    mapClockDomain(ClockDomain.current, clock, reset, enable)
+  def mapCurrentClockDomain(clock: Bool, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
+    mapClockDomain(ClockDomain.current, clock, reset, enable, resetActiveLevel, enableActiveLevel)
   }
 
-  override def isInBlackBoxTree: Boolean = true
+  override def isInBlackBoxTree: Boolean = isBlackBox || parent.isInBlackBoxTree
 
   /** Set the name of the blackbox */
   def setBlackBoxName(name: String): this.type = {

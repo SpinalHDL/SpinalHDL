@@ -68,7 +68,7 @@ class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends 
   io.output.PWRITE  := io.input.PWRITE
   io.output.PWDATA  := io.input.PWDATA
 
-  for((decoding,psel) <- (decodings,io.output.PSEL.asBools).zipped){
+  for((decoding,psel) <- (decodings, io.output.PSEL.asBools).zipped){
     psel := decoding.hit(io.input.PADDR) && io.input.PSEL.lsb
   }
 

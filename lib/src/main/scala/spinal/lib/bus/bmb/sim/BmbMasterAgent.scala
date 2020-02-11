@@ -11,11 +11,11 @@ import scala.util.Random
 
 
 
-abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
+abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f){
   val cmdQueue = mutable.Queue[() => Unit]()
   val rspQueue = Array.fill(1 << bus.p.sourceWidth)(mutable.Queue[() => Unit]())
 
-  StreamReadyRandomizer(bus.rsp, clockDomain)
+  StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
 
   def regionAllocate(sizeMax : Int) : SizeMapping
   def regionFree(region : SizeMapping) : Unit
@@ -29,11 +29,13 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
     //Generate a new CMD if none is pending
     if(cmdQueue.isEmpty) {
       val region = regionAllocate(1 << bus.p.lengthWidth)
+      if(region == null) return null
       val length = region.size.toInt-1
       val context = bus.cmd.context.randomizedInt
       val source = bus.cmd.source.randomizedInt
       val address = region.base
       val opcode = List(Bmb.Cmd.Opcode.READ, Bmb.Cmd.Opcode.WRITE)(Random.nextInt(2))
+//      val opcode = List(Bmb.Cmd.Opcode.READ)(Random.nextInt(1))
       val startAddress = address
       val endAddress = address + length + 1
       val beatCount = ((((endAddress + bus.p.wordMask) & ~bus.p.wordMask) - (startAddress & ~bus.p.wordMask)) / bus.p.byteCount).toInt
@@ -111,7 +113,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain){
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(bus.cmd, clockDomain){ _ =>
+  val driver = StreamDriver(bus.cmd, clockDomain){ _ =>
     val cmd = getCmd()
     if(cmd != null) cmd()
     cmd != null

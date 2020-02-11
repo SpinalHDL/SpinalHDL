@@ -161,7 +161,7 @@ beforeInstall () {
   unset VERILATOR_ROOT  # For bash
   cd verilator
   git pull        # Make sure we're up-to-date
-  git checkout verilator_4_008
+  git checkout v4.008
   autoconf        # Create ./configure script
   ./configure
   make -j$(nproc)
@@ -176,7 +176,7 @@ beforeInstall () {
 
 compileTest () {
   travis_start "compile" "SBT" "compile"
-  sbt -J-Xss2m compile
+  sbt -Dsbt.supershell=false -J-Xss2m compile
   travis_finish "compile"
 
   travis_start "cocotb" "SBT" "cocotb VPI"
@@ -188,7 +188,7 @@ compileTest () {
   travis_finish "cocotb"
 
   travis_start "test" "SBT" "test"
-  sbt -J-Xss2m test
+  sbt -Dsbt.supershell=false -J-Xss2m test
   travis_finish "test"
 }
 

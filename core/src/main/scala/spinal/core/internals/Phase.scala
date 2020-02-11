@@ -25,6 +25,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 
+import scala.collection.immutable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -168,7 +169,7 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def walkComponentsExceptBlackbox(func: Component => Unit): Unit ={
-    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox]) func(c))
+    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox] || !c.asInstanceOf[BlackBox].isBlackBox) func(c))
   }
 
   def walkBaseNodes(func: BaseNode => Unit): Unit ={
@@ -412,6 +413,144 @@ class PhaseAnalog extends PhaseNetlist{
     })
   }
 }
+
+
+
+
+
+
+//class PhaseAnalog extends PhaseNetlist{
+//
+//  override def impl(pc: PhaseContext): Unit = {
+//    import pc._
+//
+//    //Be sure that sub io assign parent component stuff
+//    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
+//      io.foreachStatements {
+//        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
+//          s.dlcRemove()
+//          x.dlcAppend(s)
+//          s.target = x
+//          s.source = io
+//        case _ =>
+//      }
+//    }))
+//
+//    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[(BaseType, Int)]]()
+//    val analogToIsland = mutable.HashMap[(BaseType, Int),mutable.LinkedHashSet[(BaseType, Int)]]()
+//
+//    def addToIsland(that: BaseType, bit : Int, island: mutable.LinkedHashSet[(BaseType, Int)]): Unit = {
+//      island += that -> bit
+//      analogToIsland(that -> bit) = island
+//    }
+//
+//    walkStatements{
+//      case bt: BaseType if bt.isAnalog =>
+//
+//        //Manage islands
+//        bt.foreachStatements {
+//          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
+//            if (s.finalTarget.component == y.component) {
+//              var width = 0
+//              val sourceOffset = 0
+//              var targetOffset = 0
+//              s.target match {
+//                case bt : BaseType => width = s.finalTarget.getBitsWidth
+//                case baf : BitAssignmentFixed => width = 1; targetOffset = baf.bitId
+//              }
+//              for(i <- 0 until width) (analogToIsland.get(bt, targetOffset+i), analogToIsland.get(y, sourceOffset+i)) match {
+//                case (None, None) =>
+//                  val island = mutable.LinkedHashSet[(BaseType, Int)]()
+//                  addToIsland(bt, targetOffset+i, island)
+//                  addToIsland(y, sourceOffset+i, island)
+//                  islands += island
+//                case (None, Some(island)) =>
+//                  addToIsland(bt, targetOffset+i, island)
+//                case (Some(island), None) =>
+//                  addToIsland(y, sourceOffset+i, island)
+//                case (Some(islandBt), Some(islandY)) =>
+//                  islandY.foreach(e => addToIsland(e._1, e._2, islandBt))
+//                  islands.remove(islandY)
+//              }
+//            }
+//          case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
+//        }
+//
+//        for(bit <- 0 until widthOf(bt)) {
+//          if (!analogToIsland.contains(bt, bit)) {
+//            val island = mutable.LinkedHashSet[(BaseType, Int)]()
+//            addToIsland(bt, bit, island)
+//            islands += island
+//          }
+//        }
+//      case _ =>
+//    }
+//    /*
+//        islands.foreach(island => {
+//          //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+//          val target = island.count(_.isInOut) match {
+//            case 0 => island.head
+//            case 1 => island.find(_.isInOut).get
+//            case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+//          }
+//
+//          //Remove target analog assignements
+//          target.foreachStatements {
+//            case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+//            case _ =>
+//          }
+//
+//          //redirect island assignements to target
+//          //drive isllands analogs from target as comb signal
+//          for(bt <- island if bt != target){
+//            val btStatements = ArrayBuffer[AssignmentStatement]()
+//            bt.foreachStatements(btStatements += _)
+//            btStatements.foreach {
+//              case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
+//                s.dlcRemove()
+//                target.dlcAppend(s)
+//                s.walkRemapExpressions(e => if (e == bt) target else e)
+//              case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == bt.component => //analog connection
+//                s.dlcRemove()
+//                target.dlcAppend(s)
+//                s.walkRemapExpressions(e => if (e == bt) target else e)
+//              case _ =>
+//            }
+//
+//            bt.removeAssignments()
+//            bt.setAsComb()
+//            bt.rootScopeStatement.push()
+//            bt := target
+//            bt.rootScopeStatement.pop()
+//          }
+//
+//          //Convert target comb assignement into AnalogDriver nods
+//          target.foreachStatements(s => {
+//            s.source match {
+//              case btSource: BaseType if btSource.isAnalog =>
+//              case btSource =>
+//                s.parentScope.push()
+//                val enable = ConditionalContext.isTrue(target.rootScopeStatement)
+//                s.parentScope.pop()
+//                s.removeStatementFromScope()
+//                target.rootScopeStatement.append(s)
+//                val driver = btSource.getTypeObject match {
+//                  case `TypeBool` => new AnalogDriverBool
+//                  case `TypeBits` => new AnalogDriverBits
+//                  case `TypeUInt` => new AnalogDriverUInt
+//                  case `TypeSInt` => new AnalogDriverSInt
+//                  case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+//                }
+//                driver.data   = s.source.asInstanceOf[driver.T]
+//                driver.enable = enable
+//                s.source      = driver
+//            }
+//          })
+//          //      }
+//        })
+//     */
+//  }
+//}
 
 
 class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
@@ -679,12 +818,24 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
+        val ram = new Ram_1wrs(
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
+          readUnderWrite = dontCare,
+          maskWidth = if (port.mask != null) port.mask.getWidth else 1,
+          maskEnable = port.mask != null
+        )
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
         ram.io.wr.assignFrom(port.writeEnable)
         ram.io.wrData.assignFrom(port.data)
+
+        if (port.mask != null)
+          ram.io.mask.assignFrom(port.mask)
+        else
+          ram.io.mask := "1"
 
         wrapConsumers(port, ram.io.rdData)
 
@@ -754,17 +905,16 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
       topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
     }
     for (c <- sortedComponents) {
-      c.nameElements()
       if(c != topLevel) {
         if (c.definitionName == null) {
           c.definitionName = privateNamespaceName + classNameOf(c)
         }
       }
       if (c.definitionName == "") {
-        c.definitionName = "unamed"
+        c.definitionName = "unnamed"
       }
       c match {
-        case bb: BlackBox => {
+        case bb: BlackBox if bb.isBlackBox => {
           val generic = bb.getGeneric
           if(generic != null) {
             Misc.reflect(generic, (name, obj) => {
@@ -954,13 +1104,13 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //Feed enums with encodings
-    enums.keySet.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
+    enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
     nodes.foreach(enum => {
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-    //give a name to unamed encodingss
-    val unamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
+    //give a name to unnamed encodingss
+    val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
@@ -982,6 +1132,25 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
+  override def impl(pc: PhaseContext): Unit = {
+    if(pc.config.device.vendor == Device.ALTERA.vendor){
+      pc.walkDeclarations {
+        case mem : Mem[_] => {
+          var onlyDontCare = true
+          mem.dlcForeach(e => e match {
+            case port: MemWrite      =>
+            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+          })
+          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+        }
+        case _ =>
+      }
+    }
+  }
+}
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
@@ -1190,6 +1359,70 @@ class PhaseCheckCrossClock() extends PhaseCheck{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
+    val solved = mutable.HashMap[Bool, immutable.Set[Bool]]()
+    def getSyncronous(that : Bool) : immutable.Set[Bool] = {
+      solved.get(that) match {
+        case Some(sync) => sync
+        case None => {
+          var sync = scala.collection.immutable.Set[Bool]()
+
+          //Collect all the directly syncronous Bool
+          sync += that
+          that.foreachTag {
+            case tag : ClockSyncTag => sync += tag.a; sync += tag.b
+            case tag : ClockDrivedTag => sync ++= getSyncronous(tag.driver)
+            case _ =>
+          }
+
+          //Lock for driver inferation
+          if (that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb) {
+            sync ++= getSyncronous(that.head.source.asInstanceOf[Bool])
+          }
+
+          //Cache result
+          solved(that) = sync
+
+          sync
+        }
+      }
+    }
+    def areSynchronousBool(a : Bool, b : Bool): Boolean = getSyncronous(a).contains(b) || getSyncronous(b).contains(a) || getSyncronous(a).intersect(getSyncronous(b)).nonEmpty
+
+    def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
+      a == b || a.clock == b.clock || areSynchronousBool(a.clock, b.clock)
+      //          if(a.isSynchronousWith(b)){
+      //            true
+      //          }else{
+      //            def getDriver(that : Bool): Bool ={
+      //              if(that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb){
+      //                getDriver(that.head.source.asInstanceOf[Bool])
+      //              }else{
+      //                that
+      //              }
+      //            }
+      //            if(getDriver(a.clock) == getDriver(b.clock)){
+      //              a.setSynchronousWith(b)
+      //              true
+      //            }else{
+      //              false
+      //            }
+      //          }
+    }
+
+    //        class SyncGroup{
+    //          val clocks = mutable.HashSet[Bool]()
+    //        }
+    //
+    //        val clockToGroup = mutable.HashMap[Bool, SyncGroup]()
+    //
+    //        def getClockGroup(clock : Bool) : SyncGroup = {
+    //          if(!clockToGroup.contains(clock)){
+    //
+    //          }
+    //          clockToGroup.contains(clock)
+    //        }
+
+
     walkStatements(s => {
       var walked = 0
 
@@ -1225,25 +1458,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
              """.stripMargin
           )
         }
-        def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
-          if(a.isSynchronousWith(b)){
-            true
-          }else{
-            def getDriver(that : Bool): Bool ={
-              if(that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb){
-                getDriver(that.head.source.asInstanceOf[Bool])
-              }else{
-                that
-              }
-            }
-            if(getDriver(a.clock) == getDriver(b.clock)){
-              a.setSynchronousWith(b)
-              true
-            }else{
-              false
-            }
-          }
-        }
+
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
           case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
@@ -1387,7 +1602,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
     topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
-      case c: BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
+      case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
@@ -1411,7 +1626,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 }
 
 
-class PhaseRemoveIntermediateUnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
+class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1782,7 +1997,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
     }
 
     walkComponents{
-      case bb: BlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
+      case bb: BlackBox if bb.isBlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
       case _            =>
     }
 
@@ -1831,7 +2046,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
     for (c <- sortedComponents) {
-      if (c.isInstanceOf[BlackBox])
+      if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
@@ -2000,7 +2215,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2011,7 +2226,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()
@@ -2019,6 +2234,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
@@ -2120,7 +2336,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2131,7 +2347,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()
@@ -2139,6 +2355,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 

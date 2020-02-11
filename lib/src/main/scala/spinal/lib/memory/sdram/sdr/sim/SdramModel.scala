@@ -1,10 +1,11 @@
-package spinal.lib.memory.sdram.sim
+package spinal.lib.memory.sdram.sdr.sim
 
 import java.nio.file.{Files, Paths}
 
 import spinal.core.sim._
 import spinal.core._
-import spinal.lib.memory.sdram.{SdramInterface, SdramLayout}
+import spinal.lib.memory.sdram.SdramLayout
+import spinal.lib.memory.sdram.sdr.SdramInterface
 
 
 case class SdramModel(io : SdramInterface,
@@ -39,7 +40,7 @@ case class SdramModel(io : SdramInterface,
 
     def activate(row : Int) : Unit = {
       if(opened)
-        println("SDRAM error open unclosed bank")
+        report("SDRAM error open unclosed bank")
       openedRow = row
       opened = true
     }
@@ -50,7 +51,7 @@ case class SdramModel(io : SdramInterface,
 
     def write(column : Int, byteId : Int, data : Byte) : Unit = {
       if(!opened)
-        println("SDRAM : write in closed bank")
+        report("SDRAM : write in closed bank")
       val addr = byteId + (column + openedRow * layout.columnSize) * layout.bytePerWord
       //printf("SDRAM : Write A=%08x D=%02x\n",addr,data);
       this.data(addr) = data
@@ -58,13 +59,13 @@ case class SdramModel(io : SdramInterface,
 
     def read(column : Int, byteId : Int) : Byte = {
       if(!opened)
-        println("SDRAM : write in closed bank")
+        report("SDRAM : read in closed bank")
       val addr = byteId + (column + openedRow * layout.columnSize) * layout.bytePerWord
 //      printf("SDRAM : Read A=%08x D=%02x\n",addr,data(addr));
       return data(addr);
     }
   }
-
+  def report(msg : String) = println(simTime() + " " + msg)
   clockDomain.onSamplings{
     if(!io.CSn.toBoolean && ckeLast){
       val code = (if(io.RASn.toBoolean) 0x4 else 0) | (if(io.CASn.toBoolean) 0x2 else 0) | (if(io.WEn.toBoolean) 0x1 else 0)
@@ -76,7 +77,7 @@ case class SdramModel(io : SdramInterface,
             CAS = ((addr) >> 4) & 0x7
             burstLength = ((addr) >> 0) & 0x7
             if((addr & 0x388) != 0)
-              println("SDRAM : ???")
+              report("SDRAM : ???")
             printf("SDRAM : MODE REGISTER DEFINITION CAS=%d burstLength=%d\n",CAS,burstLength)
           }
         case 2 =>  //Bank precharge
@@ -89,10 +90,10 @@ case class SdramModel(io : SdramInterface,
           banks(ba).activate(addr);
         case 4 =>  //Write
           if((addr & 0x400) != 0)
-            println("SDRAM : Write autoprecharge not supported")
+            report("SDRAM : Write autoprecharge not supported")
 
-          if(io.DQ.writeEnable.toBoolean == false)
-            println("SDRAM : Write Wrong DQ direction")
+          if(io.DQ.writeEnable.toLong == 0)
+            report("SDRAM : Write Wrong DQ direction")
 
           val dqWrite = io.DQ.write.toLong
           val dqm = io.DQM.toInt
@@ -103,10 +104,10 @@ case class SdramModel(io : SdramInterface,
 
         case 5 =>  //Read
           if((addr & 0x400) != 0)
-            println("SDRAM : READ autoprecharge not supported")
+            report("SDRAM : READ autoprecharge not supported")
 
-          if(io.DQ.writeEnable.toBoolean != false)
-            println("SDRAM : READ Wrong DQ direction")
+          if(io.DQ.writeEnable.toLong != 0)
+            report("SDRAM : READ Wrong DQ direction")
 
           //if(io.DQM !=  config->byteCount-1)
           //println("SDRAM : READ wrong DQM")
@@ -117,7 +118,7 @@ case class SdramModel(io : SdramInterface,
         case 1 =>  // Self refresh
         case 7 =>  // NOP
         case _ =>
-          println("SDRAM : unknown code")
+          report("SDRAM : unknown code")
       }
     }
     ckeLast = io.CKE.toBoolean;

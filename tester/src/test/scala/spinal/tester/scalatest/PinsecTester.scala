@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.com.jtag.Jtag
 import spinal.lib.com.uart.Uart
 import spinal.lib.io.TriStateArray
-import spinal.lib.memory.sdram.{IS42x320D, SdramInterface}
+import spinal.lib.memory.sdram.sdr.IS42x320D
 import spinal.lib.{master, slave}
 import spinal.lib.soc.pinsec.{PinsecConfig, PinsecTimerCtrlExternal, Pinsec}
 

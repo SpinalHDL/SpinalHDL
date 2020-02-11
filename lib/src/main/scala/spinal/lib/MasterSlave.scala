@@ -24,7 +24,7 @@ trait IMasterSlave {
 //  }
 //}
 
-trait MSFactory{
+trait MSFactory {
   def postApply(interface : IMasterSlave) : Unit = {}
 }
 
@@ -36,21 +36,21 @@ trait MS{
     for(e <- c) apply(e)
   }
 
-  object Flow extends FlowFactory{
+  object Flow extends FlowFactory {
     override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
     }
   }
 
-  object Stream extends StreamFactory{
+  object Stream extends StreamFactory {
     override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
     }
   }
 
-  object event extends EventFactory{
+  object event extends EventFactory {
     override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
@@ -64,7 +64,7 @@ trait MS{
   }
 }
 
-object master extends MS{
+object master extends MS {
   override def apply[T <: IMasterSlave](i: T) = {
     i.asMaster()
     i.isMasterInterface = true

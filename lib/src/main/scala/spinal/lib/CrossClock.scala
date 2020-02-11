@@ -6,6 +6,7 @@ import spinal.core._
 object BufferCC {
   def apply[T <: Data](input: T, init: T = null, bufferDepth: Int = 2): T = {
     val c = new BufferCC(input, init != null, bufferDepth)
+    c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
     if(init != null) c.io.initial := init
 

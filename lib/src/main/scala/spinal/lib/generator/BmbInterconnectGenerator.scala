@@ -27,6 +27,8 @@ case class BmbInterconnectGenerator() extends Generator{
     var connector : (Bmb,Bmb) => Unit = defaultConnector
     var priority = 0
 
+    this.setCompositeName(bus, "interconnect")
+
     dependencies += bus
     dependencies += lock
     val logic = add task new Area{
@@ -47,7 +49,9 @@ case class BmbInterconnectGenerator() extends Generator{
     var arbiterRequirements = Handle[BmbParameter]
     val mapping = Handle[AddressMapping]
     var connector: (Bmb, Bmb) => Unit = defaultConnector
-    var requireUnburstify, requireDownSizer = false
+    var requireUnburstify, requireDownSizer, requireUpSizer = false
+
+    this.setCompositeName(bus, "interconnect")
 
     dependencies ++= List(bus, mapping)
     dependencies += lock
@@ -70,6 +74,20 @@ case class BmbInterconnectGenerator() extends Generator{
         busPtr = c.io.output
         c
       }
+      
+      val upSizer = if(requireUpSizer){
+        val c = BmbUpSizerBridge(
+          inputParameter = busPtr.p,
+          outputParameter = BmbUpSizerBridge.outputParameterFrom(
+            inputParameter = busPtr.p,
+            outputDataWidth = requirements.dataWidth
+          )
+        ).setCompositeName(bus, "upSizer")
+        c.io.input << busPtr
+        busPtr = c.io.output
+        c
+      }
+      
       val burstSpliter = if(requireUnburstify){
         val c = BmbUnburstify(busPtr.p).setCompositeName(bus, "burstUnburstifier")
         c.io.input << busPtr
@@ -91,8 +109,9 @@ case class BmbInterconnectGenerator() extends Generator{
       add task {
         val busConnections = connections.filter(_.s == bus)
         val busMasters = busConnections.map(c => masters(c.m))
+        assert(busMasters.nonEmpty, s"$bus has no master")
         val routerBitCount = log2Up(busConnections.size)
-        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max
+        val inputSourceWidth = busMasters.map(_.requirements.sourceWidth).max 
         val inputContextWidth = busMasters.map(_.requirements.contextWidth).max
         val inputLengthWidth = busMasters.map(_.requirements.lengthWidth).max
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -111,17 +130,23 @@ case class BmbInterconnectGenerator() extends Generator{
           alignment = inputAlignement
         ))
 
-        requirements.load(arbiterRequirements)
+        requirements.load(arbiterRequirements.get)
 
         //require down
         requireDownSizer = requirements.dataWidth > capabilities.dataWidth
+        requireUpSizer = requirements.dataWidth < capabilities.dataWidth
         if(requireDownSizer){
           requirements.load(BmbDownSizerBridge.outputParameterFrom(
             inputParameter   = requirements,
             outputDataWidth  = capabilities.dataWidth
           ))
         }
-
+        if(requireUpSizer){
+          requirements.load(BmbUpSizerBridge.outputParameterFrom(
+            inputParameter   = requirements,
+            outputDataWidth  = capabilities.dataWidth
+          ))
+        }
 
         requireUnburstify = capabilities.lengthWidth < requirements.lengthWidth
         if(requireUnburstify){  //TODO manage allowXXXburst flags
@@ -141,7 +166,11 @@ case class BmbInterconnectGenerator() extends Generator{
     @dontName val decoder, arbiter = Handle[Bmb]()
 
     Dependable(s){
-      tags += new MemoryConnection(m, s, getSlave(s).mapping.get.lowerBound)
+      val address = getSlave(s).mapping.get match {
+        case `DefaultMapping` => BigInt(0)
+        case m => m.lowerBound
+      }
+      tags += new MemoryConnection(m, s, address)
     }
 
     dependencies ++= List(decoder, arbiter)
@@ -180,14 +209,14 @@ case class BmbInterconnectGenerator() extends Generator{
     model.mapping.merge(mapping)
   }
 
-  def addSlave(capabilities : Handle[BmbParameter],
+  def addSlaveAt(capabilities : Handle[BmbParameter],
                requirements : Handle[BmbParameter],
                bus : Handle[Bmb],
-               address: BigInt) : Unit = {
+               address: Handle[BigInt]) : Unit = {
     val model = getSlave(bus)
     model.capabilities.merge(capabilities)
     model.requirements.merge(requirements)
-    Dependable(capabilities){
+    Dependable(capabilities, address){
       model.mapping.load(SizeMapping(address, BigInt(1) << capabilities.addressWidth))
     }
   }
@@ -217,82 +246,3 @@ case class BmbInterconnectGenerator() extends Generator{
   }
 }
 
-
-class BmpTopLevel extends Generator{
-  val interconnect = new BmbInterconnectGenerator
-
-  def addRam(mapping: AddressMapping) = this add new Generator{
-    val capabilities = BmbParameter(
-      addressWidth  = 16,
-      dataWidth     = 32,
-      lengthWidth   = Int.MaxValue,
-      sourceWidth   = Int.MaxValue,
-      contextWidth  = Int.MaxValue,
-      canRead       = true,
-      canWrite      = true,
-      alignment     = BmbParameter.BurstAlignement.LENGTH,
-      maximumPendingTransactionPerId = Int.MaxValue
-    )
-
-    val requirements = Handle[BmbParameter]()
-    val bus = Handle[Bmb]()
-
-    interconnect.addSlave(
-      capabilities  = capabilities,
-      requirements  = requirements,
-      bus           = bus,
-      mapping       = mapping
-    )
-
-    dependencies += requirements
-    val logic = add task new Area {
-      val io = bus.load(master(Bmb(requirements)))
-
-    }
-  }
-
-  def addCpu() = this add new Generator{
-    val requirements = BmbParameter(
-      addressWidth  = 16,
-      dataWidth     = 32,
-      lengthWidth   = 3,
-      sourceWidth   = 0,
-      contextWidth  = 0,
-      canRead       = true,
-      canWrite      = true,
-      alignment     = BmbParameter.BurstAlignement.LENGTH,
-      maximumPendingTransactionPerId = Int.MaxValue
-    )
-
-    val bus = Handle[Bmb]()
-
-    interconnect.addMaster(
-      requirements  = requirements,
-      bus           = bus
-    )
-
-
-    val logic = add task new Area {
-      val io = bus.load(slave(Bmb(requirements)))
-    }
-  }
-
-
-
-  val ram0 = addRam(SizeMapping(0x00, 0x10))
-  val ram1 = addRam(SizeMapping(0x10, 0x10))
-
-  val cpu0 = addCpu()
-  val cpu1 = addCpu()
-
-  interconnect.addConnection(cpu0.bus, ram0.bus)
-  interconnect.addConnection(cpu0.bus, ram1.bus)
-  interconnect.addConnection(cpu1.bus, ram0.bus)
-  interconnect.addConnection(cpu1.bus, ram1.bus)
-}
-
-//object BmpTopLevel{
-//  def main(args: Array[String]): Unit = {
-//    SpinalRtlConfig.generateVerilog(new PluginComponent(new BmpTopLevel))
-//  }
-//}

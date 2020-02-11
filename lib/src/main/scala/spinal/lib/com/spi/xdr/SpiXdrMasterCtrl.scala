@@ -3,6 +3,9 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.lattice.ice40
+import spinal.lib.blackbox.lattice.ice40.SB_IO
+import spinal.lib.bus.bmb.{Bmb, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
@@ -69,17 +72,45 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     data.foreach(master(_))
   }
 
+  def withoutSs(): SpiXdrMaster ={
+    val ret = SpiXdrMaster(p.copy(ssWidth = 0))
+    ret.sclk := this.sclk
+    for((s,m) <- (ret.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      m.read := s.read
+    }
+    ret
+  }
+
+  def decode(ssId : Int, activeLow : Boolean = true): SpiXdrMaster = decode(ss(ssId) ^ Bool(activeLow), Seq(ss(ssId)))
+
+  def decode(sel : Bool, ss : Seq[Bool]): SpiXdrMaster = {
+    val decoded = SpiXdrMaster(p.copy(ssWidth = ss.length))
+    decoded.sclk := this.sclk
+    decoded.ss := B(ss)
+    for((s,m) <- (decoded.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      when(sel) {
+        m.read := s.read
+      }
+    }
+    decoded
+  }
+
   def toSpi(): SpiHalfDuplexMaster ={
     val spi = SpiHalfDuplexMaster(
       dataWidth = p.dataWidth,
       ssWidth = p.ssWidth,
       useSclk = true
     )
+    KeepAttribute(spi) //Yosys workaround
 
     p.ioRate match {
       case 1 => {
         spi.sclk := RegNext(sclk.write(0))
-        spi.ss := RegNext(ss)
+        if(ssWidth != 0) spi.ss := RegNext(ss)
         for(i <- 0 until p.dataWidth){
           spi.data.write(i) := RegNext(data(i).write(0))
           spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
@@ -88,6 +119,53 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
       }
     }
 
+    spi
+  }
+
+  case class SpiIce40(p : SpiXdrParameter) extends Bundle {
+    val sclk = Analog(Bool)
+    val ss = Vec.fill(p.ssWidth)(Analog(Bool))
+    val data = Vec.fill(p.dataWidth)(Analog(Bool))
+  }
+
+  def toSpiIce40() = {
+    val spi = SpiIce40(p)
+    p.ioRate match {
+      case 2 => {
+        for(i <- 0 until p.ssWidth){
+          val pin = ice40.SB_IO.ddrRegistredOutput()
+          pin.PACKAGE_PIN <> spi.ss(i)
+          pin.CLOCK_ENABLE := True
+
+          pin.OUTPUT_CLK := ClockDomain.current.readClockWire
+          pin.D_OUT_0 <> ss(i)
+          pin.D_OUT_1 <> RegNext(ss(i))
+        }
+
+        val sclkIo = ice40.SB_IO.ddrRegistredOutput()
+        sclkIo.PACKAGE_PIN <> spi.sclk
+        sclkIo.CLOCK_ENABLE := True
+
+        sclkIo.OUTPUT_CLK := ClockDomain.current.readClockWire
+        sclkIo.D_OUT_0 <> sclk.write(0)
+        sclkIo.D_OUT_1 <> RegNext(sclk.write(1))
+
+        val datas = for ((data, pin) <- (data, spi.data).zipped) yield new Area {
+          val dataIo = ice40.SB_IO.ddrRegistredInout()
+          dataIo.PACKAGE_PIN := pin
+          dataIo.CLOCK_ENABLE := True
+
+          dataIo.OUTPUT_CLK := ClockDomain.current.readClockWire
+          dataIo.OUTPUT_ENABLE <> data.writeEnable
+          dataIo.D_OUT_0 <> data.write(0)
+          dataIo.D_OUT_1 <> RegNext(data.write(1))
+
+          dataIo.INPUT_CLK := ClockDomain.current.readClockWire
+          data.read(0) := dataIo.D_IN_0
+          data.read(1) := RegNext(dataIo.D_IN_1)
+        }
+      }
+    }
     spi
   }
 }
@@ -107,7 +185,7 @@ object SpiXdrMasterCtrl {
 
   case class WriteMapping(pin : Int, phase : Int, source : Int)
   case class ReadMapping(pin : Int, phase : Int, target : Int)
-  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping]){
+  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping], ouputHighWhenIdle : Boolean){
     def bitrate = readMapping.length
   }
   case class Parameters(dataWidth : Int,
@@ -117,8 +195,8 @@ object SpiXdrMasterCtrl {
 
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1)
-    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0): this.type = {
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
+    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
         val writeMapping = for (pinId <- (0 until spiWidth);
@@ -126,7 +204,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth)) yield ReadMapping(pinId + readPinOffset, 0, pinId)
 
-        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping)
+        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
       } else {
         val pinRate = rate / (if(ddr) 1 else 2)
         val pinDuration =  spi.ioRate / pinRate
@@ -136,7 +214,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth);
                                phaseId <- (0 until pinRate)) yield ReadMapping(pinId + readPinOffset, (phaseId*pinDuration-1) & (spi.ioRate-1), (pinRate - phaseId - 1)*spiWidth + pinId)
-        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping)
+        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
       }
       this
     }
@@ -174,6 +252,7 @@ object SpiXdrMasterCtrl {
   case class MemoryMappingParameters(ctrl : Parameters,
                                      cmdFifoDepth : Int = 32,
                                      rspFifoDepth : Int = 32,
+                                     pipelined : Boolean = false,
                                      cpolInit : Boolean = false,
                                      cphaInit : Boolean = false,
                                      modInit : Int = 0,
@@ -190,14 +269,35 @@ object SpiXdrMasterCtrl {
                                      xipEnableInit : Boolean = false,
                                      xipInstructionEnableInit : Boolean = true,
                                      xipInstructionDataInit : Int = 0x0B,
-                                     xipDummyCountInit : Int = 1,
+                                     xipDummyCountInit : Int = 0,
                                      xipDummyDataInit : Int = 0xFF,
+                                     xipSsId : Int = 0,
                                      xip : XipBusParameters = null)
 
-  case class XipBusParameters(addressWidth : Int, dataWidth : Int)
+  case class XipBusParameters(addressWidth : Int,
+                              lengthWidth : Int)
+
+  def getXipBmbCapabilities() = BmbParameter(
+    addressWidth  = 24,
+    dataWidth     = 8,
+    lengthWidth   = Int.MaxValue,
+    sourceWidth   = Int.MaxValue,
+    contextWidth  = Int.MaxValue,
+    canRead       = true,
+    canWrite      = false,
+    alignment     = BmbParameter.BurstAlignement.BYTE,
+    maximumPendingTransactionPerId = Int.MaxValue
+  )
+
+  case class XipCmd(p : XipBusParameters) extends Bundle {
+    val address = UInt(p.addressWidth bits)
+    val length = UInt(p.lengthWidth bits)
+  }
+
+
   case class XipBus(p : XipBusParameters) extends Bundle with IMasterSlave{
-    val cmd = Stream(UInt(p.addressWidth bits))
-    val rsp = Flow(Bits(p.dataWidth bits))
+    val cmd = Stream(XipCmd(p))
+    val rsp = Stream(Fragment(Bits(8 bits)))
 
     override def asMaster(): Unit = {
       master(cmd)
@@ -206,15 +306,281 @@ object SpiXdrMasterCtrl {
 
     def fromPipelinedMemoryBus() = {
       val accessBus = new PipelinedMemoryBus(PipelinedMemoryBusConfig(24,32))
-      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
-      cmd.ready <> accessBus.cmd.ready
-      cmd.payload <> accessBus.cmd.address
-
-      rsp.valid <> accessBus.rsp.valid
-      rsp.payload <> accessBus.rsp.data
+      ???
+//      cmd.valid <> (accessBus.cmd.valid && !accessBus.cmd.write)
+//      cmd.ready <> accessBus.cmd.ready
+//      cmd.payload <> accessBus.cmd.address
+//
+//      rsp.valid <> accessBus.rsp.valid
+//      rsp.payload <> accessBus.rsp.data
       accessBus
     }
+
+    def fromBmb(p : BmbParameter) = {
+      val bmb = Bmb(p)
+      cmd.valid := bmb.cmd.valid
+      cmd.address := bmb.cmd.address
+      cmd.length := bmb.cmd.length
+      bmb.cmd.ready := cmd.ready
+
+      bmb.rsp.valid := rsp.valid
+      bmb.rsp.data := rsp.fragment
+      bmb.rsp.last := rsp.last
+      bmb.rsp.source  := RegNextWhen(bmb.cmd.source,  bmb.cmd.fire)
+      bmb.rsp.context := RegNextWhen(bmb.cmd.context, bmb.cmd.fire)
+      bmb.rsp.setSuccess()
+      rsp.ready := bmb.rsp.ready
+
+      bmb
+    }
   }
+
+  def driveFrom(toplevel : TopLevel, bus : BusSlaveFactory, baseAddress : Int = 0)(mapping : MemoryMappingParameters) = new Area {
+    import mapping._
+    import toplevel.io._
+    def p = toplevel.p
+    require(cmdFifoDepth >= 1)
+    require(rspFifoDepth >= 1)
+
+    require(cmdFifoDepth < 32.KiB)
+    require(rspFifoDepth < 32.KiB)
+
+    //CMD
+    val cmdLogic = new Area {
+      val streamUnbuffered = Stream(Cmd(p))
+      streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
+      bus.nonStopWrite(streamUnbuffered.data, bitOffset = 0)
+      bus.nonStopWrite(streamUnbuffered.write, bitOffset = 8)
+      bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
+      bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
+
+      val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
+      if(pipelined) {
+        cmd << stream.stage()
+      } else {
+        cmd << stream
+      }
+      bus.read(fifoAvailability, address = baseAddress + 4, 0)
+    }
+
+    //RSP
+    val rspLogic = new Area {
+      val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
+      bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
+      bus.read(fifoOccupancy, address = baseAddress + 4, 16)
+    }
+
+    //Interrupts
+    val interruptCtrl = new Area {
+      val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 12, 0) init(False)
+      val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 12, 1) init(False)
+      val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 12, 8)
+      val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 12, 9)
+      val interrupt = rspInt || cmdInt
+    }
+
+    //Configs
+    bus.drive(config.kind, baseAddress + 8, bitOffset = 0)
+    bus.drive(config.mod, baseAddress + 8, bitOffset = 4)
+    bus.drive(config.sclkToogle, baseAddress + 0x20)
+    if(p.ssGen) {
+      bus.drive(config.ss.setup, baseAddress + 0x24)
+      bus.drive(config.ss.hold, baseAddress + 0x28)
+      bus.drive(config.ss.disable, baseAddress + 0x2C)
+      bus.drive(config.ss.activeHigh, baseAddress + 0x30)
+    }
+
+    if(xipEnableInit){
+      config.kind.cpol init(cpolInit)
+      config.kind.cpha init(cphaInit)
+      config.mod init(modInit)
+      config.sclkToogle init(sclkToogleInit)
+      config.ss.setup init(ssSetupInit)
+      config.ss.hold init(ssHoldInit)
+      config.ss.disable init(ssDisableInit)
+    }
+
+    if(p.ssGen) config.ss.activeHigh init(ssActiveHighInit)
+
+    val xip = ifGen(mapping.xip != null) (new Area{
+      val xipBus = XipBus(mapping.xip)
+      val enable = Reg(Bool)
+      val instructionMod = Reg(p.ModType)
+      val instructionEnable = Reg(Bool)
+      val instructionData = Reg(Bits(8 bits))
+      val addressMod = Reg(p.ModType)
+      val dummyCount = Reg(UInt(4 bits))
+      val dummyData = Reg(Bits(8 bits))
+      val dummyMod = Reg(p.ModType)
+      val payloadMod = Reg(p.ModType)
+
+      if(xipEnableInit){
+        enable init(True)
+        instructionMod init(xipInstructionModInit)
+        addressMod init(xipAddressModInit)
+        dummyMod init(xipDummyModInit)
+        payloadMod init(xipPayloadModInit)
+        instructionEnable init(Bool(xipInstructionEnableInit))
+        instructionData init(xipInstructionDataInit)
+        dummyCount init(xipDummyCountInit)
+        dummyData init(xipDummyDataInit)
+      } else {
+        enable init(True)
+      }
+
+      bus.write(enable, baseAddress + 0x40)
+      if(xipConfigWritable) {
+        bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
+        bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
+        bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
+        bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
+
+        bus.write(instructionMod, baseAddress + 0x48, bitOffset = 0)
+        bus.write(addressMod, baseAddress + 0x48, bitOffset = 8)
+        bus.write(dummyMod, baseAddress + 0x48, bitOffset = 16)
+        bus.write(payloadMod, baseAddress + 0x48, bitOffset = 24)
+      }
+
+      val fsm = new StateMachine{
+        val IDLE, INSTRUCTION, ADDRESS, DUMMY, PAYLOAD, STOP = State()
+        setEntry(IDLE)
+
+        val cmdLength = Reg(UInt(mapping.xip.lengthWidth bits))
+
+        val rspCounter = Reg(UInt(mapping.xip.lengthWidth bits))
+        val rspCounterMatch = rspCounter === cmdLength
+        require(mapping.rspFifoDepth >= 4, "rsp fifo required for XIP operation")
+
+        xipBus.rsp.valid := False
+        xipBus.rsp.fragment := rspLogic.stream.data
+        xipBus.rsp.last := rspCounterMatch
+
+        val cmdHalt = False
+        rspLogic.stream.ready clearWhen(cmdHalt)
+
+        IDLE.whenIsInactive{
+          xipBus.rsp.valid setWhen(rspLogic.stream.valid)
+          rspLogic.stream.ready setWhen(xipBus.rsp.ready)
+          cmdHalt setWhen(xipBus.rsp.isStall)
+          when(rspLogic.stream.fire){
+            rspCounter := rspCounter + 1
+          }
+        }
+
+
+        val xipToCtrlCmd = cloneOf(cmd)
+        val xipToCtrlMod = p.ModType().assignDontCare()
+        xipToCtrlCmd.valid := False
+        xipToCtrlCmd.payload.assignDontCare()
+
+        val xipToCtrlCmdBuffer = xipToCtrlCmd.haltWhen(cmdHalt).stage
+        val xipToCtrlModBuffer = RegNextWhen(xipToCtrlMod, xipToCtrlCmdBuffer.ready)
+        when(xipToCtrlCmdBuffer.valid){
+          cmd.valid := True
+          cmd.payload := xipToCtrlCmdBuffer.payload
+          config.mod := xipToCtrlModBuffer
+        }
+        xipToCtrlCmdBuffer.ready := cmd.ready
+
+        IDLE.whenIsActive{
+          cmdLength := xipBus.cmd.length
+          rspCounter := 0
+          when(xipBus.cmd.valid){
+            xipToCtrlCmd.valid := True
+            xipToCtrlCmd.kind := True
+            xipToCtrlCmd.data := (1 << xipToCtrlCmd.data.high) | xipSsId
+            when(xipToCtrlCmd.ready) {
+              when(instructionEnable) {
+                goto(INSTRUCTION)
+              } otherwise {
+                goto(ADDRESS)
+              }
+            }
+          }
+        }
+
+        INSTRUCTION.whenIsActive{
+          xipToCtrlCmd.valid := True
+          xipToCtrlCmd.kind := False
+          xipToCtrlCmd.write := True
+          xipToCtrlCmd.read := False
+          xipToCtrlCmd.data := instructionData
+          xipToCtrlMod := instructionMod
+          when(xipToCtrlCmd.ready) {
+            goto(ADDRESS)
+          }
+        }
+
+        val xipBusCmdReadyReg = RegNext(False) init(False) //Cut xip bus cmd ready path
+        xipBus.cmd.ready := xipBusCmdReadyReg
+
+        val counter = Reg(UInt(Math.max(4, mapping.xip.lengthWidth) bits)) init(0)
+        ADDRESS.onEntry(counter := 0)
+        ADDRESS.whenIsActive{
+          xipToCtrlCmd.valid := True
+          xipToCtrlCmd.kind := False
+          xipToCtrlCmd.write := True
+          xipToCtrlCmd.read := False
+          xipToCtrlCmd.data := xipBus.cmd.address.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
+          xipToCtrlMod := addressMod
+          when(xipToCtrlCmd.ready) {
+            counter := counter + 1
+            when(counter === 2) {
+              xipBusCmdReadyReg := True
+              goto(DUMMY)
+            }
+          }
+        }
+
+
+        DUMMY.onEntry(counter := 0)
+        DUMMY.whenIsActive{
+          xipToCtrlCmd.valid := True
+          xipToCtrlCmd.kind := False
+          xipToCtrlCmd.write := True
+          xipToCtrlCmd.read := False
+          xipToCtrlCmd.data := dummyData
+          xipToCtrlMod := dummyMod
+          when(xipToCtrlCmd.ready) {
+            counter := counter + 1
+            when(counter === dummyCount) {
+              goto(PAYLOAD)
+            }
+          }
+        }
+
+        PAYLOAD.onEntry(counter := 0)
+        PAYLOAD.whenIsActive {
+          xipToCtrlMod := payloadMod
+          xipToCtrlCmd.kind := False
+          xipToCtrlCmd.write := False
+          xipToCtrlCmd.read := True
+          xipToCtrlCmd.valid := True
+          when(xipToCtrlCmd.ready) {
+            counter := counter + 1
+            when(counter === cmdLength) {
+              goto(STOP)
+            }
+          }
+        }
+
+        val lastFired = Reg(Bool) setWhen(xipBus.rsp.lastFire)
+        STOP.onEntry(lastFired := False)
+        STOP.whenIsActive{
+          xipToCtrlMod := payloadMod
+          xipToCtrlCmd.kind := True
+          xipToCtrlCmd.data := xipSsId
+          when(lastFired){
+            xipToCtrlCmd.valid := True
+            when(xipToCtrlCmd.ready) {
+              goto(IDLE)
+            }
+          }
+        }
+      }
+    })
+  }
+
 
   class TopLevel(val p: Parameters) extends Component {
     setDefinitionName("SpiXdrMasterCtrl")
@@ -224,251 +590,6 @@ object SpiXdrMasterCtrl {
       val cmd = slave(Stream(Cmd(p)))
       val rsp = master(Flow(Rsp(p)))
       val spi = master(SpiXdrMaster(p.spi))
-
-
-      def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(mapping : MemoryMappingParameters) = new Area {
-        import mapping._
-        require(cmdFifoDepth >= 1)
-        require(rspFifoDepth >= 1)
-
-        require(cmdFifoDepth < 32.KiB)
-        require(rspFifoDepth < 32.KiB)
-
-        //CMD
-        val cmdLogic = new Area {
-          val streamUnbuffered = Stream(Cmd(p))
-          streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
-          bus.nonStopWrite(streamUnbuffered.data, bitOffset = 0)
-          bus.nonStopWrite(streamUnbuffered.write, bitOffset = 8)
-          bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
-          bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
-
-
-          bus.createAndDriveFlow(Cmd(p),address = baseAddress + 0).toStream
-          val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
-          cmd << stream
-          bus.read(fifoAvailability, address = baseAddress + 4, 0)
-        }
-
-        //RSP
-        val rspLogic = new Area {
-          val feedRsp = True
-          val (stream, fifoOccupancy) = rsp.takeWhen(feedRsp).queueWithOccupancy(rspFifoDepth)
-          bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
-          bus.read(fifoOccupancy, address = baseAddress + 4, 16)
-        }
-
-        //Interrupts
-        val interruptCtrl = new Area {
-          val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 12, 0) init(False)
-          val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 12, 1) init(False)
-          val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 12, 8)
-          val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 12, 9)
-          val interrupt = rspInt || cmdInt
-        }
-
-        //Configs
-        bus.drive(config.kind, baseAddress + 8, bitOffset = 0)
-        bus.drive(config.mod, baseAddress + 8, bitOffset = 4)
-        bus.drive(config.sclkToogle, baseAddress + 0x20)
-        bus.drive(config.ss.setup,   baseAddress + 0x24)
-        bus.drive(config.ss.hold,    baseAddress + 0x28)
-        bus.drive(config.ss.disable, baseAddress + 0x2C)
-        bus.drive(config.ss.activeHigh, baseAddress + 0x30)
-
-
-        if(xipEnableInit){
-          config.kind.cpol init(cpolInit)
-          config.kind.cpha init(cphaInit)
-          config.mod init(modInit)
-          config.sclkToogle init(sclkToogleInit)
-          config.ss.setup init(ssSetupInit)
-          config.ss.hold init(ssHoldInit)
-          config.ss.disable init(ssDisableInit)
-          config.ss.activeHigh init(ssActiveHighInit)
-        }
-
-        val xip = ifGen(mapping.xip != null) (new Area{
-          val xipBus = XipBus(mapping.xip)
-          val enable = Reg(Bool)
-          val instructionMod = Reg(p.ModType)
-          val instructionEnable = Reg(Bool)
-          val instructionData = Reg(Bits(8 bits))
-          val addressMod = Reg(p.ModType)
-          val dummyCount = Reg(UInt(4 bits))
-          val dummyData = Reg(Bits(8 bits))
-          val dummyMod = Reg(p.ModType)
-          val payloadMod = Reg(p.ModType)
-
-          if(xipEnableInit){
-            enable init(True)
-            instructionMod init(xipInstructionModInit)
-            addressMod init(xipAddressModInit)
-            dummyMod init(xipDummyModInit)
-            payloadMod init(xipPayloadModInit)
-            instructionEnable init(Bool(xipInstructionEnableInit))
-            instructionData init(xipInstructionDataInit)
-            dummyCount init(xipDummyCountInit)
-            dummyData init(xipDummyDataInit)
-          } else {
-            enable init(True)
-          }
-
-          bus.write(enable, baseAddress + 0x40)
-          if(xipConfigWritable) {
-            bus.write(instructionData, baseAddress + 0x44, bitOffset = 0)
-            bus.write(instructionEnable, baseAddress + 0x44, bitOffset = 8)
-            bus.write(dummyData, baseAddress + 0x44, bitOffset = 16)
-            bus.write(dummyCount, baseAddress + 0x44, bitOffset = 24)
-
-            bus.write(instructionMod, baseAddress + 0x48, bitOffset = 0)
-            bus.write(addressMod, baseAddress + 0x48, bitOffset = 8)
-            bus.write(dummyMod, baseAddress + 0x48, bitOffset = 16)
-            bus.write(payloadMod, baseAddress + 0x48, bitOffset = 24)
-          }
-
-          val fsm = new StateMachine{
-            val doLoad, doPayload, done = False
-            val loadedValid = RegInit(False)
-            val loadedAddress = Reg(UInt(24 bits))
-            val hit = loadedValid && loadedAddress === (xipBus.cmd.payload(23 downto 2) @@ U"00")
-
-            val IDLE, INSTRUCTION, ADDRESS, DUMMY, PAYLOAD = State()
-            setEntry(IDLE)
-
-            when(enable){
-              cmd.valid := False
-              rspLogic.feedRsp := False
-            }
-
-            IDLE.whenIsActive{
-              when(doLoad){
-                cmd.valid := True
-                cmd.kind := True
-                cmd.data := 1 << cmd.data.high
-                when(cmd.ready) {
-                  loadedAddress := xipBus.cmd.payload(23 downto 2) @@ U"00"
-                  when(instructionEnable) {
-                    goto(INSTRUCTION)
-                  } otherwise {
-                    goto(ADDRESS)
-                  }
-                }
-              }
-            }
-
-            INSTRUCTION.whenIsActive{
-              cmd.valid := True
-              cmd.kind := False
-              cmd.write := True
-              cmd.read := False
-              cmd.data := instructionData
-              config.mod := instructionMod
-              when(cmd.ready) {
-                goto(ADDRESS)
-              }
-            }
-
-            val counter = Reg(UInt(4 bits)) init(0)
-            ADDRESS.onEntry(counter := 0)
-            ADDRESS.whenIsActive{
-              cmd.valid := True
-              cmd.kind := False
-              cmd.write := True
-              cmd.read := False
-              cmd.data := loadedAddress.subdivideIn(8 bits).reverse(counter(1 downto 0)).asBits
-              config.mod := addressMod
-              when(cmd.ready) {
-                counter := counter + 1
-                when(counter === 2) {
-                  goto(DUMMY)
-                }
-              }
-            }
-
-            DUMMY.onEntry(counter := 0)
-            DUMMY.whenIsActive{
-              cmd.valid := True
-              cmd.kind := False
-              cmd.write := True
-              cmd.read := False
-              cmd.data := dummyData
-              config.mod := dummyMod
-              when(cmd.ready) {
-                counter := counter + 1
-                when(counter === dummyCount) {
-                  loadedValid := True
-                  goto(PAYLOAD)
-                }
-              }
-            }
-
-            PAYLOAD.onEntry(counter := 0)
-            PAYLOAD.whenIsActive{
-              config.mod := payloadMod
-              when(doPayload) {
-                cmd.valid := True
-                cmd.kind := False
-                cmd.write := False
-                cmd.read := True
-                when(cmd.ready) {
-                  counter := counter + 1
-                  when(counter === mapping.xip.dataWidth / 8 - 1) {
-                    done := True
-                    counter := 0
-                    loadedAddress := loadedAddress + mapping.xip.dataWidth / 8
-                  }
-                }
-              }
-
-              when(doLoad){
-                cmd.valid := True
-                cmd.kind := True
-                cmd.data := 0
-                when(cmd.ready) {
-                  loadedValid := False
-                  goto(IDLE)
-                }
-              }
-            }
-
-            always{
-              when(!enable){
-                goto(IDLE)
-              }
-            }
-          }
-
-
-          xipBus.cmd.ready := False
-          when(enable){
-            when(xipBus.cmd.valid){
-              when(fsm.hit){
-                fsm.doPayload := True
-                xipBus.cmd.ready := fsm.done
-              } otherwise {
-                fsm.doLoad := True
-              }
-            }
-          }
-
-          val rspCounter = Counter(mapping.xip.dataWidth/8)
-          val rspBuffer = Reg(Bits(mapping.xip.dataWidth-8 bits))
-          when(enable && rsp.valid){
-            rspCounter.increment()
-            rspBuffer := rsp.payload ## (rspBuffer >> 8)
-          }
-
-          xipBus.rsp.valid := rspCounter.willOverflow
-          xipBus.rsp.payload := rsp.payload ## rspBuffer
-
-          when(!enable){
-            xipBus.cmd.ready := True
-            xipBus.rsp.valid := RegNext(xipBus.cmd.valid) init(False)
-          }
-
-        })
-      }
     }
 
     val timer = new Area{
@@ -487,14 +608,8 @@ object SpiXdrMasterCtrl {
       }
     }
 
-
-
     val widths = p.mods.map(m => m.bitrate).distinct.sorted
     val widthMax = widths.max
-
-
-
-
 
 
     val fsm = new Area {
@@ -505,8 +620,8 @@ object SpiXdrMasterCtrl {
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
       val readFill, readDone = False
-      val ss = Reg(Bits(p.spi.ssWidth bits)) init(0)
-      io.spi.ss := ~(ss ^ io.config.ss.activeHigh)
+      val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
+      p.ssGen generate (io.spi.ss := ~(ss ^ io.config.ss.activeHigh))
 
       io.cmd.ready := False
       when(io.cmd.valid) {
@@ -594,16 +709,24 @@ object SpiXdrMasterCtrl {
 
 
       //Set MOSI signals
-      io.spi.data.foreach(_.writeEnable := False)
+      io.spi.data.foreach(_.writeEnable.allowOverride := False)
       io.spi.data.foreach(_.write.assignDontCare())
       switch(io.config.mod){
         for(mod <- p.mods){
           is(mod.id) {
-            when(io.cmd.valid && io.cmd.write){
+            val doWrite = io.cmd.valid && io.cmd.write
+            if(mod.ouputHighWhenIdle){
               mod.writeMapping.map(_.pin).distinct.foreach(i => io.spi.data(i).writeEnable := True)
-            }
-            for (mapping <- mod.writeMapping) {
-              io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source)
+              for (mapping <- mod.writeMapping) {
+                io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source) || !doWrite
+              }
+            } else {
+              when(doWrite){
+                mod.writeMapping.map(_.pin).distinct.foreach(i => io.spi.data(i).writeEnable := True)
+              }
+              for (mapping <- mod.writeMapping) {
+                io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source)
+              }
             }
           }
         }
@@ -632,7 +755,7 @@ object SpiXdrMasterCtrl {
                 dataRead(mapping.target) := io.spi.data(mapping.pin).read(mapping.phase)
               }else{
                 assert(mapping.phase == 0)
-                dataRead(mapping.target) := dataReadBuffer(mapping.pin)
+                dataRead(mapping.target) := Cat(io.spi.data.map(_.read(0)))(mapping.pin)//dataReadBuffer(mapping.pin)
               }
             }
           }

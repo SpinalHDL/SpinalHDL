@@ -152,8 +152,8 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
 
   val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduce(_ & _)
 
-  val decodesSlaves       = decodings.map(_.hit(io.input.HADDR) && !isIdle).asBits
-  val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle
+  val decodesSlaves       = decodings.map(_.hit(io.input.HADDR) && !isIdle && io.input.HSEL).asBits
+  val decodeDefaultSlave  = decodesSlaves === 0 & !isIdle && io.input.HSEL
 
   val decodedSels  = decodeDefaultSlave ## decodesSlaves // !! reverse order compare to def outputs
   val applyedSels  = Bits(decodings.size + 1 bits)

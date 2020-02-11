@@ -233,12 +233,6 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def getName(default: String): String = {
-    if(!globalData.nodeAreNamed) {
-      if (isUnnamed) {
-        val c = getComponent()
-        if(c != null)c.nameElements()
-      }
-    }
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
         if(nameableRef.isNamed && other.component.isNamed)
@@ -351,7 +345,7 @@ trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
   protected var name: String = null
-  protected var nameableRef: Nameable = null
+  @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
   private var namePriority: Byte = -1
@@ -495,21 +489,21 @@ trait Nameable extends OwnableRef with ContextUser{
       obj match {
         case component: Component =>
           if (component.parent == this.component) {
-            component.setPartialName(name, weak = true)
+            component.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(component, this)
           }
         case namable: Nameable =>
           if (!namable.isInstanceOf[ContextUser]) {
-            namable.setPartialName(name, weak = true)
+            namable.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(namable, this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
-            namable.setPartialName(name, weak = true)
+            namable.setPartialName(name, DATAMODEL_WEAK)
             OwnableRef.proposal(namable, this)
           } else {
             if(component != null) for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
-                kind.setPartialName(name, weak = true)
+                kind.setPartialName(name, DATAMODEL_WEAK)
                 OwnableRef.proposal(kind, this)
               }
             }
@@ -647,6 +641,10 @@ trait SpinalTagReady {
     else
       _spinalTags
   }
+  def foreachTag(body : SpinalTag => Unit) : Unit = {
+    if(_spinalTags == null) return
+    _spinalTags.foreach(body)
+  }
 
   def findTag(cond: (SpinalTag) => Boolean): Option[SpinalTag] = {
     if(_spinalTags == null) return None
@@ -759,8 +757,16 @@ trait Num[T <: Data] {
 
   /** Addition */
   def + (right: T): T
+  /** Safe Addition with 1 bit expand */
+  def +^(right: T): T
+  /** Safe Addition with saturation */
+  def +| (right: T): T
   /** Substraction */
   def - (right: T): T
+  /** Safe Substraction with 1 bit expand*/
+  def -^ (right: T): T
+  /** Safe Substraction with saturation*/
+  def -| (right: T): T
   /** Multiplication */
   def * (right: T): T
   /** Division */
@@ -786,8 +792,33 @@ trait Num[T <: Data] {
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   /** Return the maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
-}
 
+  /** highest m bits Saturation Operation*/
+  def sat(m: Int): T
+  def trim(m: Int): T
+  def sat(width: BitCount): T = sat(width.value)
+  def trim(width: BitCount): T = trim(width.value)
+  /**lowest n bits Round Operation */
+  def floor(n: Int): T
+  def ceil(n: Int, align: Boolean): T
+  def floorToZero(n: Int): T
+  def ceilToInf(n: Int, align: Boolean): T
+  def roundUp(n: Int, align: Boolean): T
+  def roundDown(n: Int, align: Boolean): T
+  def roundToZero(n: Int, align: Boolean): T
+  def roundToInf(n: Int, align: Boolean): T
+  def round(n: Int, align: Boolean): T
+  /**lowest n bits Round Operation by BitCount */
+  def ceil(width: BitCount, align: Boolean): T         = ceil(width.value, align)
+  def floor(width: BitCount): T                        = floor(width.value)
+  def floorToZero(width: BitCount): T                  = floorToZero(width.value)
+  def ceilToInf(width: BitCount, align: Boolean): T    = ceilToInf(width.value, align)
+  def roundUp(width: BitCount, align: Boolean): T      = roundUp(width.value, align)
+  def roundDown(width: BitCount, align: Boolean): T    = roundDown(width.value, align)
+  def roundToZero(width: BitCount, align: Boolean): T  = roundToZero(width.value, align)
+  def roundToInf(width: BitCount, align: Boolean): T   = roundToInf(width.value, align)
+  def round(width: BitCount, align: Boolean): T        = round(width.value, align)
+}
 
 /**
   * Bitwise Operation

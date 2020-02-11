@@ -71,7 +71,7 @@ object PlicMapper{
       if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingShift))
     }
 
-    val idWidth = log2Up(gateways.map(_.id).max + 1)
+    val idWidth = log2Up((gateways.map(_.id) ++ Seq(0)).max + 1)
     val claim = Flow(UInt(idWidth bits))
     claim.valid := False
     claim.payload.assignDontCare()
