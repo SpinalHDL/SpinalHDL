@@ -17,13 +17,12 @@ import scala.util.Random
 
 //TODO handle generation when a master has no slave
 class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
-  def wrap[T](body : => T) = body
   def f() = {
     new GeneratorComponent(new Generator {
       val interconnect = BmbInterconnectGenerator()
 
 
-      def addMaster(requirements : BmbParameter) = wrap(new Generator {
+      def addMaster(requirements : BmbParameter) = new Generator {
         val busHandle = Handle[Bmb]
         interconnect.addMaster(requirements, busHandle)
 
@@ -31,9 +30,9 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
           val bus = slave(Bmb(requirements))
           busHandle.load(bus)
         }
-      })
+      }
 
-      def addSlave(address : BigInt, capabilities : BmbParameter) = wrap(new Generator{
+      def addSlave(address : BigInt, capabilities : BmbParameter) = new Generator{
         val requirements = Handle[BmbParameter]
         val busHandle = Handle[Bmb]
         interconnect.addSlaveAt(capabilities, requirements, busHandle, address)
@@ -42,7 +41,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
           val bus = master(Bmb(requirements))
           busHandle.load(bus)
         }
-      })
+      }
 
 
       val mA = addMaster(BmbParameter(
