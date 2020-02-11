@@ -21,7 +21,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection._
 
 /**
   * Base class for multi data like Vec, Bundle

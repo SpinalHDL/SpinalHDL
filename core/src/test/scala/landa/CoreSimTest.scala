@@ -10,7 +10,7 @@ import scala.util.Random
 object CoreSimTest {
   class Dut extends Component {
     val io = new Bundle {
-      val mClk, mReset = in Bool()
+      val mClk, mReset = in.Bool()
       val a, b, c = in UInt (8 bits)
       val result = out UInt (8 bits)
     }

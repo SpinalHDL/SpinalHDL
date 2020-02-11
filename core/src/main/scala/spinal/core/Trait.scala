@@ -21,7 +21,7 @@
 package spinal.core
 
 import spinal.core.Nameable._
-
+import scala.collection._
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
@@ -577,13 +577,11 @@ trait ScalaLocated extends GlobalDataUser {
 
 trait SpinalTagReady {
 
-  var _spinalTags: mutable.Set[SpinalTag] =  null
+  var _spinalTags: mutable.LinkedHashSet[SpinalTag] =  null
 
-  def spinalTags: mutable.Set[SpinalTag] = {
+  def spinalTags: mutable.LinkedHashSet[SpinalTag] = {
     if(_spinalTags == null)
-      _spinalTags = new mutable.HashSet[SpinalTag]{
-        override def initialSize: Int = 4
-      }
+      _spinalTags = new mutable.LinkedHashSet[SpinalTag]()
     _spinalTags
   }
 

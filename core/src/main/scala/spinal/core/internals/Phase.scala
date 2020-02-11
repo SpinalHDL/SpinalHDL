@@ -21,7 +21,7 @@
 package spinal.core.internals
 
 import java.io.{BufferedWriter, File, FileWriter}
-
+import scala.collection._
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 

@@ -27,6 +27,7 @@ import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist
 import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
+import scala.collection._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random

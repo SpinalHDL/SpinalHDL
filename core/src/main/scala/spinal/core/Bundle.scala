@@ -25,6 +25,7 @@ import spinal.core.internals._
 import spinal.idslplugin.ValCallback
 
 import scala.collection.mutable
+import scala.collection._
 
 
 /**
