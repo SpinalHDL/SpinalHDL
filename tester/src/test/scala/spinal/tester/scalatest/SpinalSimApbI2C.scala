@@ -245,8 +245,6 @@ class SpinalSimApbI2C extends FunSuite {
         if(index >= cmdSlave.length){
           busy = false
         }
-
-        () //
       }
     }
 
