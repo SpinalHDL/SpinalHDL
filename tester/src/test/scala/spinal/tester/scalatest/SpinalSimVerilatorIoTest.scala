@@ -192,7 +192,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
 
         import SpinalSimVerilatorIoTest._
         def newEnumTest(test : newEnumTest) = {
-          repeatSim(40){
+          for(i <- 0 until 40){
             val e = State.elements(Random.nextInt(State.elements.length))
             test.stateInput #= e
             sleep(1)
