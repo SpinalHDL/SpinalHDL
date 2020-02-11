@@ -396,13 +396,13 @@ class SpinalSimApbI2C extends FunSuite {
         */
 
       // Master configuration
-      apb.write(i2c.reg.t_buf,  ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt())
-      apb.write(i2c.reg.t_high, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt())
-      apb.write(i2c.reg.t_low,  ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt())
+      apb.write(i2c.reg.t_buf,  ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
+      apb.write(i2c.reg.t_high, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
+      apb.write(i2c.reg.t_low,  ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
 
       // I2C Configuration
-      apb.write(i2c.reg.sampling_clock, (dut.clockDomain.frequency.getValue / (10 MHz)).toBigInt())       // sampling frequency 10 MHz
-      apb.write(i2c.reg.timeout,        (dut.clockDomain.frequency.getValue * 2).toBigDecimal.toBigInt()) // Timeout after 2 secondes
+      apb.write(i2c.reg.sampling_clock, (dut.clockDomain.frequency.getValue / (10 MHz)).toBigInt)       // sampling frequency 10 MHz
+      apb.write(i2c.reg.timeout,        (dut.clockDomain.frequency.getValue * 2).toBigDecimal.toBigInt) // Timeout after 2 secondes
       apb.write(i2c.reg.tsu_data,       25)
 
 

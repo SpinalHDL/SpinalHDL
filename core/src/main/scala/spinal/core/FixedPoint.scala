@@ -246,9 +246,9 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
 
     val shift = bitCount - maxExp - 1
     val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt
     else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
     this.raw := value
   }
 
@@ -361,9 +361,9 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
     val shift = bitCount - maxExp
     val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt
     else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
     this.raw := value
   }
 
