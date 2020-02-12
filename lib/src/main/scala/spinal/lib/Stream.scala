@@ -195,9 +195,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    */
   def slowdown(factor: Int): Stream[Vec[T]] = {
     val counter = Counter(factor)
-    val next = Stream(Vec.tabulate(factor)(i => {
-    	RegNextWhen(this.payload, counter === i)
-    }))
+    val next = Stream(Vec(payloadType(), factor))
+    for (i <- 0 until factor) {
+      next.payload(i) := RegNextWhen(payload, counter === i)
+    }
     when (counter.willOverflowIfInc) {
       /* All elements are valid, so wait for ready signal to advance */
       this.ready := next.ready
