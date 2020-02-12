@@ -299,6 +299,24 @@ object PlayCondActive{
   }
 }
 
+
+object PlayReflectSignal{
+  class TopLevel extends Component {
+    val logic = new Area {
+      val a, b, c = Bool()
+    }
+    var result = Bool()
+
+    result := List("logic_a", "logic_b", "logic_c").map(name => reflectBaseType(name).asInstanceOf[Bool]).orR
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+
 object PlayDevSwitchEnum{
 
   class TopLevel extends Component {

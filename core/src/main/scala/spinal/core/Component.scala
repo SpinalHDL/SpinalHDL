@@ -300,4 +300,12 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     ClockDomain.pop(this.clockDomain)
     ret
   }
+
+  def reflectBaseType(name : String): BaseType = {
+    this.dslBody.walkStatements{
+      case bt : BaseType if bt.getName() == name => return bt
+      case _ =>
+    }
+    null
+  }
 }
