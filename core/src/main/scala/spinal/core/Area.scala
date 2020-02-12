@@ -68,7 +68,7 @@ trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated w
     }
   }
 
-  override def toString: String = component.getPath() + "/" + super.toString()
+  override def toString: String = (if(component != null)component.getPath() + "/"  else "") + super.toString()
 }
 
 
