@@ -213,7 +213,7 @@ class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineA
 
   /** Create a StateDelay with an TimeNumber */
   def this(time: TimeNumber)(implicit stateMachineAccessor: StateMachineAccessor){
-    this((time * ClockDomain.current.frequency.getValue).toBigInt())
+    this((time * ClockDomain.current.frequency.getValue).toBigInt)
   }
 
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey, new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
