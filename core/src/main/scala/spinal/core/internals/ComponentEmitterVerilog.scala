@@ -225,7 +225,7 @@ class ComponentEmitterVerilog(
           logics ++= s"#( \n"
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.head.source)}),\n"
+              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
               case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
               case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
               case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
