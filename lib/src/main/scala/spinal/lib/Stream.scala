@@ -789,7 +789,7 @@ object StreamJoin {
   def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
     val combined = Stream(hardTypeT)
     combined.valid := sources.map(_.valid).reduce(_ && _)
-    sources.foreach(_.ready := combined.ready)
+    sources.foreach(_.ready := combined.fire)
     combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
     combined
   }
