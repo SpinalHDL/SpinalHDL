@@ -62,7 +62,7 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
 
   switch(phase){
     is(IDLE){
-      io.apb.PSEL      := "0"
+      io.apb.PSEL      := B"0"
       io.apb.PENABLE   := False
       io.ahb.HREADYOUT := True
 
@@ -73,13 +73,13 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
       }
     }
     is(SETUP){
-      io.apb.PSEL      := "1"
+      io.apb.PSEL      := B"1"
       io.apb.PENABLE   := False
       io.ahb.HREADYOUT := False
       phase            := ACCESS
     }
     is(ACCESS){
-      io.apb.PSEL      := "1"
+      io.apb.PSEL      := B"1"
       io.apb.PENABLE   := True
       io.ahb.HREADYOUT := False
 
@@ -90,7 +90,7 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
     }
     default{ // ERROR
       io.apb.PENABLE   := False
-      io.apb.PSEL      := "0"
+      io.apb.PSEL      := B"0"
       io.ahb.HREADYOUT := True
       io.ahb.HRESP     := True
       phase            := IDLE
