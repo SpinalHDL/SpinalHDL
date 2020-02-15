@@ -433,6 +433,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     S.applyTuples(this, rangesValues)
   }
 
+  def :=(value : String) : Unit = this := S(value)
+
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi downto lo).assignFromBits(bits)
 

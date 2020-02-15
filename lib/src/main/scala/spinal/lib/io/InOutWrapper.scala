@@ -42,7 +42,7 @@ object InOutWrapper {
             bundle.read.assignFrom(newIo)
             for((value, id) <- bundle.write.asBits.asBools.zipWithIndex) {
               when(!value){
-                newIo.assignFromBits("0", id, 1 bits)
+                newIo.assignFromBits(B"0", id, 1 bits)
               }
             }
 //            for(bt <- bundle.write.flatten){

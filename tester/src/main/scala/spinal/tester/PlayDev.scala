@@ -29,7 +29,7 @@ object PlayDevRamZero{
 object PlayDevMem{
   class TopLevel extends Component {
     val output = out UInt(9 bits)
-    output := null
+//    output := null
     println("Miaou")
   }
 
