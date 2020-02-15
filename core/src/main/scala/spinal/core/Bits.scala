@@ -128,6 +128,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     B.applyTuples(this, rangesValues)
   }
 
+  def :=(value : String) : Unit = this := B(value)
+
   override def assignFromBits(bits: Bits): Unit = this := bits
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi downto lo).assignFromBits(bits)
 
