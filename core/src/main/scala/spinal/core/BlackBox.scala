@@ -43,7 +43,7 @@ class Generic {
 
 }
 
-
+case class GenericValue(e : Expression) extends SpinalTag
 
 /**
   * A blackbox allows the user to integrate an existing VHDL/Verilog component into the design by just specifying
@@ -82,7 +82,7 @@ abstract class BlackBox extends Component{
   def clearBlackBox() = isBb = false
 
   def addGeneric(name : String, that : Any) : Unit = that match {
-    case bt: BaseType => genericElements += Tuple2(name, bt.setName(name))
+    case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))
     case s: String    => genericElements += Tuple2(name, s)
     case i: Int       => genericElements += Tuple2(name, i)
     case i: BigInt if i <= Integer.MAX_VALUE && i >= Integer.MIN_VALUE => genericElements += Tuple2(name, i.toInt)

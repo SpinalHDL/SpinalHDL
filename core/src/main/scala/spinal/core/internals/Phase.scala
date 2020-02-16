@@ -770,7 +770,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
-            ram.io.wr.mask := "1"
+            ram.io.wr.mask := B"1"
 
           ram.io.rd.addr.assignFrom(rd.address)
           wrapConsumers(rd, ram.io.rd.data)
@@ -802,7 +802,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
-            ram.io.wr.mask := "1"
+            ram.io.wr.mask := B"1"
 
           ram.io.rd.en := wrapBool(rd.readEnable) && rd.clockDomain.isClockEnableActive
           ram.io.rd.addr.assignFrom(rd.address)
@@ -835,7 +835,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         if (port.mask != null)
           ram.io.mask.assignFrom(port.mask)
         else
-          ram.io.mask := "1"
+          ram.io.mask := B"1"
 
         wrapConsumers(port, ram.io.rdData)
 
@@ -905,7 +905,6 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
       topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
     }
     for (c <- sortedComponents) {
-      c.nameElements()
       if(c != topLevel) {
         if (c.definitionName == null) {
           c.definitionName = privateNamespaceName + classNameOf(c)

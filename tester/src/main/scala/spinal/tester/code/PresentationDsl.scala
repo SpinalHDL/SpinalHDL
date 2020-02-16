@@ -420,52 +420,52 @@ object Wosh{
   import spinal.core._
 
 
-  {
+//  {
+//
+//    import spinal.core._
+//
+//    //Component is like Module in Verilog
+//    class MyToplevel extends Component{
+//      //IO definition
+//      val a,b    = in  UInt(8 bits)
+//      val result = out UInt(8 bits)
+//
+//      //Behaviour
+//      result := a + b
+//    }
+//
+//    //Scala main used to ask SpinalHDL to generate the Verilog of MyToplevel
+////    object Main extends App{
+////      SpinalVerilog(new MyToplevel)
+////    }
+//  }
 
-    import spinal.core._
-
-    //Component is like Module in Verilog
-    class MyToplevel extends Component{
-      //IO definition
-      val a,b    = in  UInt(8 bits)
-      val result = out UInt(8 bits)
-
-      //Behaviour
-      result := a + b
-    }
-
-    //Scala main used to ask SpinalHDL to generate the Verilog of MyToplevel
-    object Main extends App{
-      SpinalVerilog(new MyToplevel)
-    }
-  }
-
-  {
-    import spinal.core._
-
-    class MyToplevel extends Component {
-      //...
-      val counter = Reg(UInt(8 bits))
-      val full = counter === 255
-      when(!full) {
-        counter := counter + 1
-      }
-      //...
-    }
-
-
-
-  }
-
-  {
-    val cond = Bool()
-    val a, b, c = Reg(UInt(8 bits))
-    when(cond) {
-      a := a + 1
-      b := b + 1
-      c := c + 1
-    }
-  }
+//  {
+//    import spinal.core._
+//
+//    class MyToplevel extends Component {
+//      //...
+//      val counter = Reg(UInt(8 bits))
+//      val full = counter === 255
+//      when(!full) {
+//        counter := counter + 1
+//      }
+//      //...
+//    }
+//
+//
+//
+//  }
+//
+//  {
+//    val cond = Bool()
+//    val a, b, c = Reg(UInt(8 bits))
+//    when(cond) {
+//      a := a + 1
+//      b := b + 1
+//      c := c + 1
+//    }
+//  }
 
   {
     val cond = Bool()
@@ -592,26 +592,26 @@ object Wosh{
 //    mapper.flush()
 //  }
 
-  {
-    import spinal.lib.fsm._
-
-    class Ctrl extends StateMachine{
-      val stateA = new State with EntryPoint
-      val stateB = new State
-
-      val counter = Reg(UInt(8 bits)) init (0)
-
-      stateA.whenIsActive (goto(stateB))
-
-      stateB.onEntry(counter := 0)
-      stateB.whenIsActive {
-        counter := counter + 1
-        when(counter === 4){
-          goto(stateA)
-        }
-      }
-    }
-  }
+//  {
+//    import spinal.lib.fsm._
+//
+//    class Ctrl extends StateMachine{
+//      val stateA = new State with EntryPoint
+//      val stateB = new State
+//
+//      val counter = Reg(UInt(8 bits)) init (0)
+//
+//      stateA.whenIsActive (goto(stateB))
+//
+//      stateB.onEntry(counter := 0)
+//      stateB.whenIsActive {
+//        counter := counter + 1
+//        when(counter === 4){
+//          goto(stateA)
+//        }
+//      }
+//    }
+//  }
 
 //  {
 //

@@ -278,7 +278,7 @@ class ComponentEmitterVhdl(
 
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.head.source), in)
+              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.getTag(classOf[GenericValue]).get.e), in)
               case (name: String, s: String)        => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case (name: String, i: Int)           => logics ++= s"      ${name} => $i,\n"
               case (name: String, d: Double)        => logics ++= s"      ${name} => $d,\n"

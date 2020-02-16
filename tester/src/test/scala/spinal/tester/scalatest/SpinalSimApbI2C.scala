@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
+import spinal.core.internals.GraphUtils
 import spinal.core.sim._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.com.i2c._
@@ -486,6 +487,5 @@ class SpinalSimApbI2C extends FunSuite {
       dut.clockDomain.waitActiveEdge(200)
     }
   }
-
 }
 

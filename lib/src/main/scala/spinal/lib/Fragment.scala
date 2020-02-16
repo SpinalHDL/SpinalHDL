@@ -131,11 +131,11 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
 
 
 class FlowBitsPimped(pimped: Flow[Bits]) {
-  def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Flow[Fragment[Bits]] = {
+  def toFlowFragmentBits(cMagic: Bits = B"x74", cLast: Bits = B"x53"): Flow[Fragment[Bits]] = {
     toFlowFragmentBitsAndReset(cMagic, cLast)._1
   }
 
-  def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]], Bool) = {
+  def toFlowFragmentBitsAndReset(cMagic: Bits = B"x74", cLast: Bits = B"x53", cResetSet: Bits = B"x54", cResetClear: Bits = B"x55"): (Flow[Fragment[Bits]], Bool) = {
     val ret = Flow Fragment (pimped.payloadType)
     val softReset = RegInit(True)
     val inMagic = RegInit(False)

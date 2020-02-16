@@ -34,7 +34,7 @@ object PllAAssertSDeassertTester{
       clockDomain = coreClockDomain
     )
 
-    val counter = out(coreClockDomain(CounterFreeRun(10).value))
+    val counter = out(coreClockDomain(CounterFreeRun(10).value)).setName("counter")
   }
 }
 
