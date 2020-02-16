@@ -20,7 +20,8 @@ object BmbEg4S20Bram32K{
 }
 
 //Provide a list of 16 on-chip-rams of size 4096=2^12 bytes = 2^15 bits each via the Eg4S20 BRAM32K.
-case class BmbEg4S20Bram32K(p: BmbParameter) extends Component{
+case class BmbEg4S20Bram32K(p: BmbParameter,
+                            hexInit : String = null) extends Component{
   val io = new Bundle{
     val bus = slave(Bmb(p))
   }
@@ -33,11 +34,13 @@ case class BmbEg4S20Bram32K(p: BmbParameter) extends Component{
 
     val mems = List.fill(2)(EG_PHY_BRAM32K())
     mems(0).dia := io.bus.cmd.data(15 downto 0)
-    mems(0).bytea := io.bus.cmd.mask(1) | io.bus.cmd.mask(0)
-    mems(0).addGeneric("INIT_FILE", "bram16x32k.bin_0_" + bankId + ".dat")
     mems(1).dia := io.bus.cmd.data(31 downto 16)
+    mems(0).bytea := io.bus.cmd.mask(1) | io.bus.cmd.mask(0)
     mems(1).bytea := io.bus.cmd.mask(3) | io.bus.cmd.mask(2)
-    mems(1).addGeneric("INIT_FILE", "bram16x32k.bin_1_" + bankId + ".dat")
+    if(hexInit != null) {
+      mems(0).addGeneric("INIT_FILE", hexInit + "_0_" + bankId + ".dat")
+      mems(1).addGeneric("INIT_FILE", hexInit + "_1_" + bankId + ".dat")
+    }
 
     for (mem <- mems) {
       mem.addGeneric("MODE", "SP16K")
