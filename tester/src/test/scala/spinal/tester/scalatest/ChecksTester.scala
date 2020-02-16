@@ -53,6 +53,22 @@ class ChecksTester extends FunSuite  {
   }
 
 
+  test("componentNamedByIo") {
+    val t = SpinalVerilog(new Component{
+      val miaou = new Component{
+        val io = new Bundle {
+          val x = out Bool()
+        }
+        assert(io.x.getName() == "io_x")
+      }.io
+    }.setDefinitionName("TopLevel")).toplevel
+
+    assert(t.miaou.component.getName() == "miaou")
+    assert(t.miaou.getName() == "io")
+  }
+
+
+
   test("checkWidthAssignment") {
     generationShouldFaild(new Component{
       val output = out Bits(8 bits)

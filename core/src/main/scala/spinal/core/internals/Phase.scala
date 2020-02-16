@@ -905,7 +905,6 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
       topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
     }
     for (c <- sortedComponents) {
-      c.nameElements()
       if(c != topLevel) {
         if (c.definitionName == null) {
           c.definitionName = privateNamespaceName + classNameOf(c)
