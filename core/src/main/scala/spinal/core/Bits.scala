@@ -158,9 +158,16 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     * @return data10bits(3 downto 0)
     */
   def take(n: Int): Bits = {
-    val hsbpos = n - 1
-    val lsbpos = 0
-    this(hsbpos downto lsbpos)
+    this(n - 1 downto 0)
+  }
+
+  /**
+    * Drop lowerst n bits
+    * @example {{{ val res = data10bits.drop(4) }}}
+    * @return data10bits(9 downto 4)
+    */
+  def drop(n: Int): Bits = {
+    this(this.high downto n)
   }
 
   /**
@@ -168,25 +175,20 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     * @example {{{ val res = data10bits.takeHigh(4) }}}
     * @return data10bits(9 downto 6)
     */
-  def takeHigh(n: Int): Bits = {
-    val width  = widthOf(this)
-    val lsbpos = width - n
-    this(this.high downto lsbpos)
-  }
+  def takeHigh(n: Int): Bits = drop(widthOf(this) - n)
+
   /**
-    * Drop lowerst n bits
-    * @example {{{ val res = data10bits.cut(3) }}}
-    * @return data10bits(9 downto 3)
+    * Drop highest n bits
+    * @example {{{ val res = data10bits.dropHigh(4) }}}
+    * @return data10bits(5 downto 0)
     */
-  def drop(n: Int): Bits = {
-    val width  = widthOf(this)
-    takeHigh(width - n)
-  }
+  def dropHigh(n: Int): Bits = take(widthOf(this) - n)
+
 
   /**
     * Split at n st bits
-    * @example {{{ val res = data10bits.takeHigh(3) }}}
-    * @return (data10bits(8 downto 3), data10bits(2 downto 0))
+    * @example {{{ val res = data10bits.splitAt(4) }}}
+    * @return (data10bits(8 downto 4), data10bits(3 downto 0))
     */
   def splitAt(n: Int): (Bits,Bits) = {
     (this(this.high downto n), this(n - 1 downto 0))
@@ -194,10 +196,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   /**
     * apart by a list of width
-    * @example {{{ val res = A.partBy(List(2, 3, 5) }}}
+    * @example {{{ val res = A.sliceBy(List(2, 3, 5)) }}}
     * @return (List(A(1 downto 0), A(2 downto 4), A(9 downto 3))
     */
-  def apartBy(ns: List[Int]): List[Bits] = {
+  def sliceBy(ns: List[Int]): List[Bits] = {
     val width  = widthOf(this)
     require(ns.sum == width, s"the sum of ${ns} =! ${this} width, cant parted")
 
