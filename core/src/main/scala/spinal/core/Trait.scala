@@ -233,12 +233,6 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def getName(default: String): String = {
-    if(!globalData.nodeAreNamed) {
-      if (isUnnamed) {
-        val c = getComponent()
-        if(c != null)c.nameElements()
-      }
-    }
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
         if(nameableRef.isNamed && other.component.isNamed)

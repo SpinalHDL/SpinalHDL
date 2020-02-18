@@ -2427,9 +2427,9 @@ object PlayMasterSlave{
   }
 
 
-  class MyBundle extends Bundle{
+  class MyBundleBroken extends Bundle{
     val publicElement = Bool
-    private val privateElement = Bool
+    val privateElement = Bool
 
     def getPrivateElement() : Bool = {
       return privateElement
