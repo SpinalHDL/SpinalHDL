@@ -22,7 +22,6 @@ package spinal.core
 
 import spinal.core.internals._
 
-
 /**
   * Bits factory used for instance by the IODirection to create a in/out Bits
   */
@@ -151,6 +150,68 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     val ret = new Bits()
     ret := this
     ret
+  }
+
+  /**
+    * Take lowerst n bits
+    * @example {{{ val res = data10bits.take(4) }}}
+    * @return data10bits(3 downto 0)
+    */
+  def take(n: Int): Bits = {
+    this(n - 1 downto 0)
+  }
+
+  /**
+    * Drop lowerst n bits
+    * @example {{{ val res = data10bits.drop(4) }}}
+    * @return data10bits(9 downto 4)
+    */
+  def drop(n: Int): Bits = {
+    this(this.high downto n)
+  }
+
+  /**
+    * Take highest n bits
+    * @example {{{ val res = data10bits.takeHigh(4) }}}
+    * @return data10bits(9 downto 6)
+    */
+  def takeHigh(n: Int): Bits = drop(widthOf(this) - n)
+
+  /**
+    * Drop highest n bits
+    * @example {{{ val res = data10bits.dropHigh(4) }}}
+    * @return data10bits(5 downto 0)
+    */
+  def dropHigh(n: Int): Bits = take(widthOf(this) - n)
+
+
+  /**
+    * Split at n st bits
+    * @example {{{ val res = data10bits.splitAt(4) }}}
+    * @return (data10bits(8 downto 4), data10bits(3 downto 0))
+    */
+  def splitAt(n: Int): (Bits,Bits) = {
+    (this(this.high downto n), this(n - 1 downto 0))
+  }
+
+  /**
+    * apart by a list of width
+    * @example {{{ val res = A.sliceBy(List(2, 3, 5)) }}}
+    * @return (List(A(1 downto 0), A(2 downto 4), A(9 downto 3))
+    */
+  def sliceBy(ns: List[Int]): List[Bits] = {
+    val width  = widthOf(this)
+    require(ns.sum == width, s"the sum of ${ns} =! ${this} width, cant parted")
+
+    import scala.collection.mutable.ListBuffer
+
+    val pool = ListBuffer.fill(ns.size + 1)(0)
+    (1 to ns.size).foreach{ i =>
+      pool(i) = pool(i - 1) + ns(i - 1)
+    }
+    pool.take(ns.size).zip(pool.tail).map{ case(pos, nxtpos) =>
+      this(nxtpos - 1 downto pos)
+    }.toList
   }
 
   /**
