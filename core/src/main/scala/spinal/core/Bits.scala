@@ -196,20 +196,24 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   /**
     * apart by a list of width
-    * @example {{{ val res = A.sliceBy(List(2, 3, 5)) }}}
+    * @example {{{
+    *         val res = A.sliceBy(2, 3, 5)
+    *         val res = A.sliceBy(List(2, 3, 5)) }}}
     * @return (List(A(1 downto 0), A(2 downto 4), A(9 downto 3))
     */
-  def sliceBy(ns: List[Int]): List[Bits] = {
+  def sliceBy(divisor: Int*): List[Bits] = sliceBy(divisor.toList)
+
+  def sliceBy(divisor: List[Int]): List[Bits] = {
     val width  = widthOf(this)
-    require(ns.sum == width, s"the sum of ${ns} =! ${this} width, cant parted")
+    require(divisor.sum == width, s"the sum of ${divisor} =! ${this} width, cant parted")
 
     import scala.collection.mutable.ListBuffer
 
-    val pool = ListBuffer.fill(ns.size + 1)(0)
-    (1 to ns.size).foreach{ i =>
-      pool(i) = pool(i - 1) + ns(i - 1)
+    val pool = ListBuffer.fill(divisor.size + 1)(0)
+    (1 to divisor.size).foreach{ i =>
+      pool(i) = pool(i - 1) + divisor(i - 1)
     }
-    pool.take(ns.size).zip(pool.tail).map{ case(pos, nxtpos) =>
+    pool.take(divisor.size).zip(pool.tail).map{ case(pos, nxtpos) =>
       this(nxtpos - 1 downto pos)
     }.toList
   }
