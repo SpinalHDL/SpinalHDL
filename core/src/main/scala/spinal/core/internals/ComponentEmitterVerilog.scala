@@ -239,24 +239,40 @@ class ComponentEmitterVerilog(
       }
 
       //Fixing the spacing
-      var maxNameLength = 0
-      for(data <- child.getOrdredNodeIo) {
-        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
+      def wireWithSection(data: BaseType): String = {
+        if(openSubIo.contains(data)) ""
+        else {
+          val wireName = emitReference(data, false)
+          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+          wireName + section
+        }
       }
-      var maxNameLengthCon = 0
-      for(data <- child.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
-      }
+
+      val maxNameLength: Int = child.getOrdredNodeIo
+        .map(data => emitReferenceNoOverrides(data).length())
+        .max
+
+      val maxNameLengthCon: Int = child.getOrdredNodeIo
+        .map(data => wireWithSection(data).length())
+        .max
+
+//      var maxNameLength = 0
+//      for(data <- child.getOrdredNodeIo) {
+//        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
+//      }
+//      var maxNameLengthCon = 0
+//      for(data <- child.getOrdredNodeIo) {
+//        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
+//        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
+//      }
 
       logics ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-        //logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
-        logics ++= s"    .%-${maxNameLength}s ( %-${maxNameLengthCon}s ),\n".format(emitReferenceNoOverrides(data), logic) 
+        val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
+        val wireAlign  = s"%-${maxNameLengthCon}s".format(wireWithSection(data))
+        val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
+        logics ++= s"    .${portAlign} ( ${wireAlign} )${comma} //${data.dirString()}\n"
       }
-      logics.setCharAt(logics.size - 2, ' ')
-
       logics ++= s"  );"
       logics ++= s"\n"
     }
