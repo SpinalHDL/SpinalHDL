@@ -2252,6 +2252,13 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
     makeIt(isSignedKind && value < 0)
   }
 
+  def hexString(bitCount: Int, aligin: Boolean = false):String = {
+    val hexCount = scala.math.ceil(bitCount/4.0).toInt
+    val alignCount = if (aligin) (hexCount * 4) else bitCount
+    val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
+    if(value == 0) "0" else s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+  }
+
 
   def minimalValueBitWidth: Int = {
     val pureWidth = value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
