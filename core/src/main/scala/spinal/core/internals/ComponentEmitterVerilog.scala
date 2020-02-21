@@ -28,7 +28,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-
 class ComponentEmitterVerilog(
   val c                              : Component,
   systemVerilog                      : Boolean,
@@ -52,39 +51,38 @@ class ComponentEmitterVerilog(
   val portMaps     = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
-
   def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
 
   def result: String = {
-    val ret = new StringBuilder()
-    var first = true
-
-    ret ++= s"module ${component.definitionName} ("
-
-    for(portMap <- portMaps){
-      if(first){
-        ret ++= s"\n    $portMap"
-        first = false
-      } else {
-        ret ++= s",\n    $portMap"
-      }
-    }
-
-    ret ++= s");\n"
-    ret ++= declarations
-    ret ++= logics
-    ret ++= s"endmodule\n"
-    ret ++= s"\n"
-    ret.toString()
+    val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
+    s"""
+      |module ${component.definitionName} (
+      |${ports}
+      |${declarations}
+      |${logics}
+      |endmodule
+      |""".stripMargin
   }
 
   def emitEntity(): Unit = {
-    component.getOrdredNodeIo.foreach(baseType =>
-      if(outputsToBufferize.contains(baseType) || baseType.isInput)
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
-      else
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
-    )
+    component.getOrdredNodeIo.foreach{baseType =>
+      val syntax     = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+      val dir        = s"${emitDirection(baseType)}"
+      val section    = s"${emitType(baseType)}"
+      val name       = s"${baseType.getName()}"
+      val comma      = if(baseType == component.getOrdredNodeIo.last) " " else ","
+      val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
+
+      if(outputsToBufferize.contains(baseType) || baseType.isInput){
+        portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
+      } else {
+        val siginit = if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)
+        val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
+        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${siginit}${EDAcomment}${comma}"
+//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
+      }
+    }
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
@@ -130,7 +128,8 @@ class ComponentEmitterVerilog(
       expressionToWrap += select._1
       for(mux <- muxes) {
         val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-        declarations ++= s"  reg ${emitType(mux)} $name;\n"
+        declarations ++= theme.maintab + expressionAlign("reg",emitType(mux), name) + ";\n"
+//        declarations ++= s"  reg ${emitType(mux)} $name;\n"
         wrappedExpressionToName(mux) = name
         //        expressionToWrap ++= mux.inputs
       }
@@ -267,12 +266,21 @@ class ComponentEmitterVerilog(
 //      }
 
       logics ++= s"${child.getName()} ( \n"
-      for (data <- child.getOrdredNodeIo) {
+
+      val instports: String = child.getOrdredNodeIo.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
         val wireAlign  = s"%-${maxNameLengthCon}s".format(wireWithSection(data))
         val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
-        logics ++= s"    .${portAlign} ( ${wireAlign} )${comma} //${data.dirString()}\n"
-      }
+        val dirtag: String = data.dir match{
+          case spinal.core.in  | spinal.core.inWithNull  => "i"
+          case spinal.core.out | spinal.core.outWithNull => "o"
+          case spinal.core.inout                         => "~"
+          case _  => SpinalError("Not founded IO type")
+        }
+        s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
+      }.mkString
+
+      logics ++= instports
       logics ++= s"  );"
       logics ++= s"\n"
     }
@@ -763,11 +771,18 @@ class ComponentEmitterVerilog(
   def emitExpressionNoWrappeForFirstOne(that: Expression): String = dispatchExpression(that)
 
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
-    s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+    val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+    val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val section = emitType(baseType)
+    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+//    s"  ${}${if(signalNeedProcess(baseType)) s"reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
-    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
+    val net = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val section = emitType(baseType)
+    s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+//    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
   def getBaseTypeSignalInitialisation(signal: BaseType): String = {
@@ -1209,7 +1224,11 @@ end
   }
 
   def emitBitVectorLiteral(e: BitVectorLiteral): String = {
-    s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+    if(e.getWidth > 4){
+      s"${e.getWidth}'h${e.hexString(e.getWidth,true)}"
+    } else {
+      s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+    }
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
