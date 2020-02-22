@@ -242,7 +242,8 @@ class ComponentEmitterVerilog(
         if(openSubIo.contains(data)) ""
         else {
           val wireName = emitReference(data, false)
-          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+          val section  = s"${emitType(data)}"
+//          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
           wireName + section
         }
       }
