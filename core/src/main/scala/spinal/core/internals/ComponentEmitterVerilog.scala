@@ -238,23 +238,18 @@ class ComponentEmitterVerilog(
       }
 
       //Fixing the spacing
-      def wireWithSection(data: BaseType): String = {
+      def netsWithSection(data: BaseType): String = {
         if(openSubIo.contains(data)) ""
         else {
           val wireName = emitReference(data, false)
-          val section  = s"${emitType(data)}"
-//          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
           wireName + section
         }
       }
 
-      val maxNameLength: Int = child.getOrdredNodeIo
-        .map(data => emitReferenceNoOverrides(data).length())
-        .max
+      val maxNameLength: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => emitReferenceNoOverrides(data).length()).max
 
-      val maxNameLengthCon: Int = child.getOrdredNodeIo
-        .map(data => wireWithSection(data).length())
-        .max
+      val maxNameLengthCon: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => netsWithSection(data).length()).max
 
 //      var maxNameLength = 0
 //      for(data <- child.getOrdredNodeIo) {
@@ -270,7 +265,7 @@ class ComponentEmitterVerilog(
 
       val instports: String = child.getOrdredNodeIo.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
-        val wireAlign  = s"%-${maxNameLengthCon}s".format(wireWithSection(data))
+        val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
         val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
         val dirtag: String = data.dir match{
           case spinal.core.in  | spinal.core.inWithNull  => "i"

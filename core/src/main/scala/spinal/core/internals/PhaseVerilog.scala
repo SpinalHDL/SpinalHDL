@@ -91,7 +91,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       componentBuilderVerilog.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      val str =  s"\n//${component.definitionName} replaced by ${oldComponent.definitionName}"
+      val str =  s"//${component.definitionName} replaced by ${oldComponent.definitionName}\n"
       component.definitionName = oldComponent.definitionName
       str
     }
