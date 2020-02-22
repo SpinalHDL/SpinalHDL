@@ -773,8 +773,10 @@ class ComponentEmitterVerilog(
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
     val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val siginit = s"${getBaseTypeSignalInitialisation(baseType)}"
+    val comment = s"${emitCommentAttributes(baseType.instanceAttributes)}"
     val section = emitType(baseType)
-    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${siginit}${comment};\n"
 //    s"  ${}${if(signalNeedProcess(baseType)) s"reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
   }
 
