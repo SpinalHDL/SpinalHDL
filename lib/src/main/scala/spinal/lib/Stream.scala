@@ -393,6 +393,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+  def clearValidWhen(cond : Bool): Stream[T] = {
+    val next = Stream(payloadType).setCompositeName(this, "clearValidWhen", true)
+    next.valid := this.valid && !cond
+    next.payload := this.payload
+    this.ready := next.ready
+    next
+  }
+
   /** Stop transactions on this when cond is True. Return the resulting stream
     */
   def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
