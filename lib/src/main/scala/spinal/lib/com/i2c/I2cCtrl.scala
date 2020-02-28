@@ -199,6 +199,7 @@ object I2cCtrl {
     i2cBuffer <> i2c
 
 
+
     val rxData = new Area {
       val event  = RegNext(False) init(False)
       val listen = RegInit(False)
@@ -336,7 +337,7 @@ object I2cCtrl {
             goto(TBUF)
           }
         }
-        
+
 
         val inFrameLate = Reg(Bool) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
         val IDLE: State = new State with EntryPoint {
@@ -345,6 +346,7 @@ object I2cCtrl {
               goto(TBUF)
             } elsewhen(start && !inFrameLate){
               txData.valid := False
+              txAck.valid := False
               goto(START1)
             }
           }
