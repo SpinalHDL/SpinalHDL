@@ -79,11 +79,25 @@ class ComponentEmitterVerilog(
   }
 
   def emitEntity(): Unit = {
+    var maxSpacing = 1
+    component.getOrdredNodeIo.foreach(baseType => if(emitType(baseType).toString.length() > maxSpacing) maxSpacing = emitType(baseType).toString.length())
+    
     component.getOrdredNodeIo.foreach(baseType =>
       if(outputsToBufferize.contains(baseType) || baseType.isInput)
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
+        portMaps += s"  %s%s %-${maxSpacing}s %s%s".format(emitSyntaxAttributes(baseType.instanceAttributes),
+                                              emitDirection(baseType),
+                                              emitType(baseType),
+                                              baseType.getName(),
+                                              emitCommentAttributes(baseType.instanceAttributes))
       else
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
+        portMaps += s"  %s%s %s%-${maxSpacing}s %s%s%s".format(emitSyntaxAttributes(baseType.instanceAttributes),
+                                                 emitDirection(baseType),
+                                                 if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else "",
+                                                 emitType(baseType),
+                                                 baseType.getName(),
+                                                 if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType),
+                                                 emitCommentAttributes(baseType.instanceAttributes))
+        
     )
   }
 
@@ -92,6 +106,7 @@ class ComponentEmitterVerilog(
     declarations ++= emitBaseTypeWrap(io, name)
     referencesOverrides(io) = name
   }
+  
 
   def emitArchitecture(): Unit = {
     for(mem <- mems){
@@ -135,12 +150,26 @@ class ComponentEmitterVerilog(
         //        expressionToWrap ++= mux.inputs
       }
     }
-
+    
+    
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
-      declarations ++= emitExpressionWrap(io, name)
+      //declarations ++= emitExpressionWrap(io, name)
       referencesOverrides(io) = name
+      
+      var addDecl = true
+      if(spinalConfig.removeOutputAssigns){
+        component.getAllIo.foreach(topio => if(topio.isOutput) {
+          if(topio.head.source == io){
+            referencesOverrides(io) = topio.head.target
+            subComponentOutputToNotBufferize += topio
+            addDecl = false
+          } 
+        })
+      }
+      if(addDecl) declarations ++= emitExpressionWrap(io, name)
     }))
+    
 
     //Wrap expression which need it
     cutLongExpressions()
@@ -176,6 +205,7 @@ class ComponentEmitterVerilog(
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
           case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
+          case AssignmentStatement(target: DeclarationStatement, _) if subComponentOutputToNotBufferize.contains(target) => //steven
           case _ => emitAsynchronous(p)
         }
       } else {
