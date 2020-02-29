@@ -136,7 +136,6 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
-                        fixPointConfig                 : FixPointConfig = DefaultFixPointConfig(),
                         fixToWithWrap                  : Boolean = true,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
@@ -298,8 +297,6 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
-
-    config.fixPointConfig.flush()
 
     if(config.memBlackBoxers.isEmpty)
       config.addStandardMemBlackboxing(blackboxOnlyIfRequested)
