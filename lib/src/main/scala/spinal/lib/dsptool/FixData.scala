@@ -92,7 +92,7 @@ case class FixData(raw: Double,
 //  def asIntPostive: Int   = if(rawIsNegative) q.capcity.toInt + this.asInt else this.asInt
 
   def asLong: Long        = this.value / q.resolution toLong
-  def asLongPostive: Long = if(rawIsNegative) q.capcity.toLong + this.asLong else this.asLong
+  def asLongPostive: Long = if(value < 0) q.capcity.toLong + this.asLong else this.asLong
 
   def hex: String = s"%${q.alignHex}s".format(this.asLongPostive.toHexString).replace(' ','0')
   def bin: String = s"%${q.width}s".format(this.asLongPostive.toBinaryString).replace(' ','0')
