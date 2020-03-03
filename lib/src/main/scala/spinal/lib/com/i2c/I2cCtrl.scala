@@ -346,7 +346,6 @@ object I2cCtrl {
               goto(TBUF)
             } elsewhen(start && !inFrameLate){
               txData.valid := False
-              txAck.valid := False
               goto(START1)
             }
           }
