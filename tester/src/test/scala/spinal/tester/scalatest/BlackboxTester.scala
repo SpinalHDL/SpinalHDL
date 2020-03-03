@@ -48,7 +48,7 @@ class BlackboxTesterCocotbBoot extends SpinalTesterCocotbBase {
 class BlackboxTesterSpinalSim extends FunSuite {
   test("test"){
     import spinal.core.sim._
-    SimConfig.addRtl("D:/pro/open/SpinalHDL/tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.v").doSim(new BlackboxTester.BlackBoxTester) {dut =>
+    SimConfig.addRtl("tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.v").doSim(new BlackboxTester.BlackBoxTester) {dut =>
       dut.clockDomain.forkStimulus(10)
       var outA_ref = 0
       var outB_ref = 0
