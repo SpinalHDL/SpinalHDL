@@ -1,6 +1,6 @@
 package spinal.sim
 
-import java.io.File
+import java.io.{File, PrintWriter}
 
 import javax.tools.JavaFileObject
 import org.apache.commons.io.FileUtils
@@ -351,7 +351,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case WaveFormat.NONE => ""
     }
 
-    val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
+    val verilatorScript = s""" set -e ;
+       | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
@@ -366,15 +367,29 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | $waveArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).map(_.replace("\\","/")).mkString(" ")}
+       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
+                                                  e.endsWith(".sv") || 
+                                                  e.endsWith(".h"))
+                                     .map(new File(_).getAbsolutePath)
+                                     .map('"' + _.replace("\\","/") + '"')
+                                     .mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
-    assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
 
+    val verilatorScriptFile = new PrintWriter(new File(workspacePath + "/verilatorScript.sh"))
+    verilatorScriptFile.write(verilatorScript)
+    verilatorScriptFile.close
+
+    val shCommand = if(isWindows) "sh.exe" else "sh"
+    assert(Process(Seq(shCommand, "verilatorScript.sh"), 
+                   new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    
     genWrapperCpp()
 
-    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    println(s"${workspacePath}/${workspaceName}")
+    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 
