@@ -394,6 +394,15 @@ class ChecksTester extends FunSuite  {
       Bits(32 bits)(4 downto 7) := 0
     })
   }
+
+  test("catchNegativeRangedAccess4") {
+    generationShouldFaild(new Component {
+      val input = in Bits(8 bits)
+      val currState = Vec(Bits(64 bits), 25)
+      currState.assignFromBits(input, 0, 8)
+    })
+  }
+
 }
 
 
