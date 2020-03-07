@@ -376,6 +376,24 @@ class ChecksTester extends FunSuite  {
     }
     generationShouldFaild(new CheckOnlyIoInBundle)
   }
+
+
+  test("catchNegativeRangedAccess1") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7)
+    })
+  }
+
+  test("catchNegativeRangedAccess2") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(-1 downto -2)
+    })
+  }
+  test("catchNegativeRangedAccess3") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7) := 0
+    })
+  }
 }
 
 
