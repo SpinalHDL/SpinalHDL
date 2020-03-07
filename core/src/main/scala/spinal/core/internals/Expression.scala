@@ -1465,8 +1465,13 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
     }
   }
 
-  def checkHiLo: Unit = if (hi - lo < -1) {
-    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+  def checkHiLo: Unit = {
+    if (lo < 0) {
+      SpinalError(s"Static bits extraction out of bound ($hi downto $lo)")
+    }
+    if (hi - lo < -1) {
+      SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+    }
   }
 
   override def getWidth: Int = hi - lo + 1
