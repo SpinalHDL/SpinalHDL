@@ -1465,8 +1465,13 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
     }
   }
 
-  def checkHiLo: Unit = if (hi - lo < -1) {
-    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+  def checkHiLo: Unit = {
+    if (lo < 0) {
+      SpinalError(s"Static bits extraction out of bound ($hi downto $lo)")
+    }
+    if (hi - lo < -1) {
+      SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+    }
   }
 
   override def getWidth: Int = hi - lo + 1
@@ -2250,6 +2255,13 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
     }
 
     makeIt(isSignedKind && value < 0)
+  }
+
+  def hexString(bitCount: Int, aligin: Boolean = false):String = {
+    val hexCount = scala.math.ceil(bitCount/4.0).toInt
+    val alignCount = if (aligin) (hexCount * 4) else bitCount
+    val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
+    if(value == 0) "0" else s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
   }
 
 

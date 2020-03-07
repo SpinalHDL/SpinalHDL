@@ -11,7 +11,6 @@ object SpinalSimPinsec {
       .doSimUntilVoid(new Pinsec(PinsecConfig.default)){dut =>
         ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkStimulus(10)
         ClockDomain(dut.io.axiClk, dut.io.asyncReset).forkSimSpeedPrinter()
-        ()
       }
   }
 }

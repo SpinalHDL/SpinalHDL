@@ -40,7 +40,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   filterIn.inc.y init (2.0 / p.screenResY)
 
   def rcFilter(in: SFix, tao: Double, enable: Bool, enableHz: Double): SFix = {
-    val shiftRight = log2Up(BigDecimal(enableHz * tao).toBigInt())
+    val shiftRight = log2Up(BigDecimal(enableHz * tao).toBigInt)
     val out = Reg(in) init (0)
     when(enable) {
       out := RegNext(((in - out) >>| shiftRight)) + out

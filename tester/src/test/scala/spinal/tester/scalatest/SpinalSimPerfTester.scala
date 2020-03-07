@@ -129,7 +129,6 @@ class SpinalSimPerfTester extends FunSuite {
           dut.io.c #= c
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
-          ()
         }
         val endAt = System.nanoTime
         System.out.println((endAt - startAt) * 1e-6 + " ms")

@@ -146,7 +146,6 @@ class SpinalSimRomTester extends FunSuite {
         dut.address.randomize()
         sleep(1)
         assert(dut.data.toBigInt == rom(dut.address.toInt))
-        ()
       }
 
     }

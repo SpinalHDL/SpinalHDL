@@ -78,7 +78,6 @@ class SpinalSimClockDomainTest extends FunSuite {
             dut.io.c #= c
             cd.waitActiveEdge(); sleep(0)
             if (cd.isResetDeasserted) assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
-            ()
           }
         }
     }
@@ -143,7 +142,6 @@ class SpinalSimClockDomainTest extends FunSuite {
           dut.clockDomain.waitActiveEdge();sleep(0)
           if(dut.io.enable.toBoolean) model = (model + 1) & 0xFF
           assert(dut.io.result.toInt == model)
-          ()
         }
       }
   }
@@ -161,7 +159,6 @@ class SpinalSimClockDomainTest extends FunSuite {
           dut.clockDomain.waitActiveEdge(waited); sleep(0)
           if(dut.io.enable.toBoolean) model = (model + waited) & 0xFF
           assert(dut.io.result.toInt == model)
-          ()
         }
       }
   }

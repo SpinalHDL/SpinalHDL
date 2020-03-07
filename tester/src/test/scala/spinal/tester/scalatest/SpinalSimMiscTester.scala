@@ -69,7 +69,6 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
-          ()
         }
       })
     }
@@ -88,7 +87,6 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
-          ()
         }
       })
     }
@@ -154,7 +152,6 @@ class SpinalSimMiscTester extends FunSuite {
           counterModel = (counterModel + 1) & 0xFF
         }
         assert(dut.io.value.toInt == counterModel)
-        ()
       }
     })
   }

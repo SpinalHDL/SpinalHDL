@@ -29,7 +29,7 @@ object PlayDevRamZero{
 object PlayDevMem{
   class TopLevel extends Component {
     val output = out UInt(9 bits)
-    output := null
+//    output := null
     println("Miaou")
   }
 
@@ -298,6 +298,24 @@ object PlayCondActive{
     SpinalVerilog(new TopLevel())
   }
 }
+
+
+object PlayReflectSignal{
+  class TopLevel extends Component {
+    val logic = new Area {
+      val a, b, c = Bool()
+    }
+    var result = Bool()
+
+    result := List("logic_a", "logic_b", "logic_c").map(name => reflectBaseType(name).asInstanceOf[Bool]).orR
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}
+
 
 object PlayDevSwitchEnum{
 

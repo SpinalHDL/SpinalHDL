@@ -38,15 +38,15 @@ case class InstructionCacheConfig( cacheSize : Int,
 }
 
 
-case class InstructionCacheCpuCmd(implicit p : InstructionCacheConfig) extends Bundle{
+case class InstructionCacheCpuCmd()(implicit p : InstructionCacheConfig) extends Bundle{
   val address = UInt(p.addressWidth bit)
 }
-case class InstructionCacheCpuRsp(implicit p : InstructionCacheConfig) extends Bundle{
+case class InstructionCacheCpuRsp()(implicit p : InstructionCacheConfig) extends Bundle{
   val address = UInt(p.addressWidth bit)
   val data = Bits(32 bit)
 }
 
-case class InstructionCacheCpuBus(implicit p : InstructionCacheConfig) extends Bundle with IMasterSlave{
+case class InstructionCacheCpuBus()(implicit p : InstructionCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (InstructionCacheCpuCmd())
   val rsp = Stream (InstructionCacheCpuRsp())
 
@@ -58,14 +58,14 @@ case class InstructionCacheCpuBus(implicit p : InstructionCacheConfig) extends B
 }
 
 
-case class InstructionCacheMemCmd(implicit p : InstructionCacheConfig) extends Bundle{
+case class InstructionCacheMemCmd()(implicit p : InstructionCacheConfig) extends Bundle{
   val address = UInt(p.addressWidth bit)
 }
-case class InstructionCacheMemRsp(implicit p : InstructionCacheConfig) extends Bundle{
+case class InstructionCacheMemRsp()(implicit p : InstructionCacheConfig) extends Bundle{
   val data = Bits(32 bit)
 }
 
-case class InstructionCacheMemBus(implicit p : InstructionCacheConfig) extends Bundle with IMasterSlave{
+case class InstructionCacheMemBus()(implicit val p : InstructionCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (InstructionCacheMemCmd())
   val rsp = Flow (InstructionCacheMemRsp())
 

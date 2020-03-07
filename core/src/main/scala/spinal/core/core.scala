@@ -68,7 +68,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
-
   /**
     * Integer Builder
     */
@@ -230,9 +229,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def IntToBits(that: Int): Bits = B(that)
   implicit def LongToBits(that: Long): Bits = B(that)
   implicit def BigIntToBits(that: BigInt): Bits = B(that)
-  implicit def StringToBits(that: String): Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
-  implicit def StringToUInt(that: String): UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
-  implicit def StringToSInt(that: String): SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 
 
   /**
@@ -287,8 +283,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     var bitCount: Int = -1
 
-    if (str.contains(''')) {
-      val split = str.split(''')
+    if (str.contains('\'')) {
+      val split = str.split('\'')
       bitCount = split(0).toInt
       str = split(1)
     }

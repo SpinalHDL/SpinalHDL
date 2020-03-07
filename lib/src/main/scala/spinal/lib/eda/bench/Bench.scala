@@ -19,7 +19,7 @@ trait Rtl {
 
 
 object Bench{
-  def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String): Unit ={
+  def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String = sys.env.getOrElse("SPINAL_BENCH_WORKSPACE", null)): Unit ={
     import scala.concurrent.ExecutionContext
     implicit val ec = ExecutionContext.fromExecutorService(
       new ForkJoinPool(Math.max(1,Runtime.getRuntime().availableProcessors()*3/4), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
