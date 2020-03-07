@@ -179,32 +179,24 @@ class SimCompiled[T <: Component](backend: VerilatorBackend,val report: SpinalRe
     }
   }
 
-  def doSim(body: T => Unit): Unit = doSim("test")(body)
-  def doSim(name: String)(body: T => Unit) : Unit = doSim(name, Random.nextLong())(body)
-  def doSim(name: String, seed: Long)(body: T => Unit) : Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), false)(body)
+  def doSim(body: T => Unit): Unit =  doSimApi(joinAll = false)(body)
+  def doSim(name: String)(body: T => Unit): Unit = doSimApi(name = name, joinAll = false)(body)
+  def doSim(seed: Long)(body: T => Unit): Unit = doSimApi(seed = seed, joinAll = false)(body)
+  def doSim(name: String, seed: Long)(body : T => Unit): Unit = {
+    doSimApi(name, seed, false)(body)
   }
 
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(body: T => Unit): Unit = doSim("test")(body)
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(name: String)(body: T => Unit): Unit = doSim(name, Random.nextLong())(body)
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(name: String, seed: Long)(body: T => Unit): Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), false)(body)
-  }
-
-  def doSimUntilVoid(body: T => Unit): Unit = doSimUntilVoid("test")(body)
-  def doSimUntilVoid(name: String)(body: T => Unit): Unit = doSimUntilVoid(name, Random.nextLong())(body)
+  def doSimUntilVoid(body: T => Unit): Unit =  doSimApi(joinAll = true)(body)
+  def doSimUntilVoid(name: String)(body: T => Unit): Unit = doSimApi(name = name, joinAll = true)(body)
+  def doSimUntilVoid(seed: Long)(body: T => Unit): Unit = doSimApi(seed = seed, joinAll = true)(body)
   def doSimUntilVoid(name: String, seed: Long)(body : T => Unit): Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), true)(body)
+    doSimApi(name, seed, true)(body)
   }
 
 
-  def doSimPostSeed(name: String, seed: Long, joinAll: Boolean)(body: T => Unit): Unit = {
+  def doSimApi(name: String = "test", seed: Long = Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
+    Random.setSeed(seed)
+
     val allocatedName = allocateTestName(name)
     val seedInt       = seed.toInt
     val backendSeed   = if(seedInt == 0) 1 else seedInt
