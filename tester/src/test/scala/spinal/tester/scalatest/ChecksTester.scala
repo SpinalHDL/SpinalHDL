@@ -376,6 +376,33 @@ class ChecksTester extends FunSuite  {
     }
     generationShouldFaild(new CheckOnlyIoInBundle)
   }
+
+
+  test("catchNegativeRangedAccess1") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7)
+    })
+  }
+
+  test("catchNegativeRangedAccess2") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(-1 downto -2)
+    })
+  }
+  test("catchNegativeRangedAccess3") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7) := 0
+    })
+  }
+
+  test("catchNegativeRangedAccess4") {
+    generationShouldFaild(new Component {
+      val input = in Bits(8 bits)
+      val currState = Vec(Bits(64 bits), 25)
+      currState.assignFromBits(input, 0, 8)
+    })
+  }
+
 }
 
 
