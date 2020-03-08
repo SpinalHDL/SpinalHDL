@@ -1223,7 +1223,7 @@ end
 
   def emitBitVectorLiteral(e: BitVectorLiteral): String = {
     if(e.getWidth > 4){
-      s"${e.getWidth}'h${e.hexString(e.getWidth,true)}"
+      s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
       s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
     }
