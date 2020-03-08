@@ -68,7 +68,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
-
   /**
     * Integer Builder
     */
@@ -222,14 +221,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     * Implicit conversion from Int/BigInt/String to UInt/SInt/Bits
     */
   implicit def IntToUInt(that: Int): UInt = U(that)
+  implicit def LongToUInt(that: Long): UInt = U(that)
   implicit def BigIntToUInt(that: BigInt): UInt = U(that)
   implicit def IntToSInt(that: Int): SInt = S(that)
+  implicit def LongToSInt(that: Long): SInt = S(that)
   implicit def BigIntToSInt(that: BigInt): SInt = S(that)
   implicit def IntToBits(that: Int): Bits = B(that)
+  implicit def LongToBits(that: Long): Bits = B(that)
   implicit def BigIntToBits(that: BigInt): Bits = B(that)
-  implicit def StringToBits(that: String): Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
-  implicit def StringToUInt(that: String): UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
-  implicit def StringToSInt(that: String): SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 
 
   /**
@@ -284,8 +283,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
     var bitCount: Int = -1
 
-    if (str.contains(''')) {
-      val split = str.split(''')
+    if (str.contains('\'')) {
+      val split = str.split('\'')
       bitCount = split(0).toInt
       str = split(1)
     }
@@ -412,11 +411,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME)
   def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT)
   def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, ERROR, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
 
   def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
   def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)

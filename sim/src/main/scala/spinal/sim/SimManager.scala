@@ -62,6 +62,7 @@ abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffini
 }
 
 class SimSuccess extends Exception
+class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
@@ -199,6 +200,9 @@ class SimManager(val raw : SimRaw) {
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
       deltaCycle = 0
+      if(raw.eval()){
+        throw new SimFailure("Verilog assertion failure")
+      }
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
         //Sleep until the next activity
         val nextTime = if(forceDeltaCycle) time else threads.time
@@ -224,7 +228,9 @@ class SimManager(val raw : SimRaw) {
 
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
-          raw.eval()
+          if(raw.eval()){
+            throw new SimFailure("Verilog assertion failure")
+          }
         }
 
         //Execute the threads commands

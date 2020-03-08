@@ -287,6 +287,6 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(ctrl.sclWrite) init(True)
-  io.i2c.sda.write := RegNext(ctrl.sdaWrite) init(True)
+  io.i2c.scl.write := ctrl.sclWrite
+  io.i2c.sda.write := ctrl.sdaWrite
 }

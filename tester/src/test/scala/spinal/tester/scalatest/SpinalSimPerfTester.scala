@@ -129,7 +129,6 @@ class SpinalSimPerfTester extends FunSuite {
           dut.io.c #= c
           dut.clockDomain.waitActiveEdge(); sleep(0)
           if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
-          ()
         }
         val endAt = System.nanoTime
         System.out.println((endAt - startAt) * 1e-6 + " ms")
@@ -154,4 +153,32 @@ class SpinalSimPerfTester extends FunSuite {
 
   }
 
+
+  test("compilationSpeed") {
+    val stages = 100
+    val states = 100
+    val operands = 5
+    SimConfig.withConfig(SpinalConfig(verbose = true)).allOptimisation.doSim(new Component {
+      val inputs = Vec(in UInt (8 bits),states)
+      val outputs = Vec(out UInt (8 bits),states)
+      var ptr = inputs
+      for (s <- 0 until stages) {
+        val result = Vec(Reg(UInt(8 bits)), states).setName("tmp_" + s)
+        for (elementId <- 0 until states) {
+          result(elementId) := (0 until operands).map(_ => ptr(Random.nextInt(states))).reduce(_ + _)
+        }
+        ptr = result
+      }
+      outputs := ptr
+    }) { dut =>
+
+      dut.clockDomain.forkStimulus(10)
+      for (r <- 0 until 10000) {
+        for (input <- dut.inputs) {
+          input.randomize()
+        }
+        dut.clockDomain.waitSampling()
+      }
+    }
+  }
 }

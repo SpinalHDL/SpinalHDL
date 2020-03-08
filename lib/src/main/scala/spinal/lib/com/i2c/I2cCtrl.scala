@@ -199,6 +199,7 @@ object I2cCtrl {
     i2cBuffer <> i2c
 
 
+
     val rxData = new Area {
       val event  = RegNext(False) init(False)
       val listen = RegInit(False)
@@ -328,15 +329,15 @@ object I2cCtrl {
       val txReady = Bool //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine {
-
-        always{
-          when(drop) {
+        always {
+          when(drop || (!isActive(IDLE) && bus.cmd.kind === I2cSlaveCmdMode.DROP)) {
             start := False
-            stop  := False
-            drop  := False
+            stop := False
+            drop := False
             goto(TBUF)
           }
         }
+
 
         val inFrameLate = Reg(Bool) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
         val IDLE: State = new State with EntryPoint {
@@ -364,7 +365,7 @@ object I2cCtrl {
 
         val START2: State = new State {
           onEntry {
-            timer.value := io.config.tsuData.resized
+            timer.value := timer.tLow
           }
           whenIsActive {
             i2cBuffer.sda.write := False

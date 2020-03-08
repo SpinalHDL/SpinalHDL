@@ -49,7 +49,6 @@ class SpinalSimStreamFifoTester extends FunSuite {
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
-            ()
           }
         }
         simSuccess()
@@ -94,7 +93,6 @@ class SpinalSimStreamFifoTester extends FunSuite {
           dut.clockDomain.waitSampling()
           if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
-            ()
           }
         }
         simSuccess()

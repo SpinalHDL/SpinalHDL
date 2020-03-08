@@ -30,8 +30,6 @@ import scala.util.Random
   * Simulation package
   */
 package object sim {
-  type suspendable = spinal.sim.suspendable
-
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")

@@ -20,7 +20,9 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.Nameable.DATAMODEL_WEAK
 import spinal.core.internals.Misc
+import spinal.idslplugin.PostInitCallback
 
 
 
@@ -38,11 +40,35 @@ import spinal.core.internals.Misc
   * }}}
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
   */
-trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated {
+trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec {
+  override def valCallbackRec(obj: Any, name: String): Unit = {
+    obj match {
+      case component: Component =>
+        if (component.parent == this.component) {
+          component.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(component, this)
+        }
+      case namable: Nameable =>
+        if (!namable.isInstanceOf[ContextUser]) {
+          namable.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(namable, this)
+        } else if (namable.asInstanceOf[ContextUser].component == component){
+          namable.setPartialName(name, DATAMODEL_WEAK)
+          OwnableRef.proposal(namable, this)
+        } else {
+          if(component != null) for (kind <- component.children) {
+            //Allow to name a component by his io reference into the parent component
+            if (kind.reflectIo == namable) {
+              kind.setPartialName(name, DATAMODEL_WEAK)
+              OwnableRef.proposal(kind, this)
+            }
+          }
+        }
+      case _ =>
+    }
+  }
 
-  component.addPrePopTask(reflectNames)
-
-  override def toString: String = component.getPath() + "/" + super.toString()
+  override def toString: String = (if(component != null)component.getPath() + "/"  else "") + super.toString()
 }
 
 
@@ -76,16 +102,13 @@ object ImplicitArea{
   *
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain/ ClockDomain Documentation]]
   */
-class ClockingArea(val clockDomain: ClockDomain) extends Area with DelayedInit {
+class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallback {
 
   clockDomain.push()
 
-  override def delayedInit(body: => Unit) = {
-    body
-
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      clockDomain.pop()
-    }
+  override def postInitCallback(): this.type = {
+    clockDomain.pop()
+    this
   }
 }
 
@@ -93,7 +116,7 @@ class ClockingArea(val clockDomain: ClockDomain) extends Area with DelayedInit {
 /**
   * Clock Area with a specila clock enable
   */
-class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
+class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 
   val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
     ClockDomain.current.readClockEnableWire & clockEnable
@@ -104,12 +127,10 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
 
   clockDomain.push()
 
-  override def delayedInit(body: => Unit) = {
-    body
 
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      clockDomain.pop()
-    }
+  override def postInitCallback(): this.type = {
+    clockDomain.pop()
+    this
   }
 }
 
@@ -119,10 +140,10 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
   */
 class SlowArea(factor: BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
   def this(frequency: HertzNumber) {
-    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
+    this((ClockDomain.current.frequency.getValue / frequency).toBigInt)
 
     val factor = ClockDomain.current.frequency.getValue / frequency
-    require(factor.toBigInt() == factor)
+    require(factor.toBigInt == factor)
   }
 }
 
@@ -130,7 +151,7 @@ class SlowArea(factor: BigInt) extends ClockingArea(ClockDomain.current.newClock
 /**
   * ResetArea allow to reset an area with a special reset combining with the current reset (cumulative)
   */
-class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
+class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCallback {
 
   val newReset: Bool = if (ClockDomain.current.config.resetActiveLevel == LOW) {
     if(cumulative) (ClockDomain.current.readResetWire & !reset) else !reset
@@ -141,11 +162,9 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit 
   val clockDomain = ClockDomain.current.copy(reset = newReset)
   clockDomain.push()
 
-  override def delayedInit(body: => Unit) = {
-    body
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      clockDomain.pop()
-    }
+  override def postInitCallback(): this.type = {
+    clockDomain.pop()
+    this
   }
 }
 

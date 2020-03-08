@@ -79,7 +79,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
     io.output.HSIZE     := io.inputs(requestIndex).HSIZE
     io.output.HBURST    := io.inputs(requestIndex).HBURST
     io.output.HPROT     := io.inputs(requestIndex).HPROT
-    io.output.HTRANS    := io.output.HSEL ? io.inputs(requestIndex).HTRANS | "00"
+    io.output.HTRANS    := io.output.HSEL ? io.inputs(requestIndex).HTRANS | B"00"
     io.output.HMASTLOCK := io.inputs(requestIndex).HMASTLOCK
 
     val dataIndex        = RegNextWhen(requestIndex, io.output.HSEL && io.output.HREADY)

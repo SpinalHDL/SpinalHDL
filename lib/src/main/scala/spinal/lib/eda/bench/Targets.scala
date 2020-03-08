@@ -13,7 +13,7 @@ trait Target {
 }
 
 object AlteraStdTargets {
-  def apply(quartusCycloneIIPath : String = null, quartusCycloneIVPath : String = null, quartusCycloneVPath : String = null): Seq[Target] = {
+  def apply(quartusCycloneIIPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_II_BIN", null), quartusCycloneIVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_IV_BIN", null), quartusCycloneVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_V_BIN", null)): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(quartusCycloneVPath != null) {
@@ -67,7 +67,7 @@ object AlteraStdTargets {
 
 
 object XilinxStdTargets {
-  def apply(vivadoArtix7Path : String = null): Seq[Target] = {
+  def apply(vivadoArtix7Path : String = sys.env.getOrElse("VIVADO_ARTIX_7_BIN", null)): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(vivadoArtix7Path != null) {

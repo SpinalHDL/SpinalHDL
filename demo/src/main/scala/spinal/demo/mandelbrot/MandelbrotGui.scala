@@ -32,10 +32,10 @@
 //  def sendCoord(xStart: Double, yStart: Double, xEnd: Double, yEnd: Double) {
 //    val aggregator = new BitAggregator
 //    aggregator.add(0x01, 8)
-//    aggregator.add(BigDecimal(xStart * Math.pow(2, p.fixWidth - p.fixExp - 1)).toBigInt(), p.fixWidth)
-//    aggregator.add(BigDecimal(yStart * Math.pow(2, p.fixWidth - p.fixExp - 1)).toBigInt(), p.fixWidth)
-//    aggregator.add(BigDecimal((xEnd - xStart) / p.screenResX * Math.pow(2, p.fixWidth + 8 - 1 - (p.fixExp - 4))).toBigInt(), p.fixWidth + 8)
-//    aggregator.add(BigDecimal((yEnd - yStart) / p.screenResY * Math.pow(2, p.fixWidth + 8 - 1 - (p.fixExp - 4))).toBigInt(), p.fixWidth + 8)
+//    aggregator.add(BigDecimal(xStart * Math.pow(2, p.fixWidth - p.fixExp - 1)).toBigInt, p.fixWidth)
+//    aggregator.add(BigDecimal(yStart * Math.pow(2, p.fixWidth - p.fixExp - 1)).toBigInt, p.fixWidth)
+//    aggregator.add(BigDecimal((xEnd - xStart) / p.screenResX * Math.pow(2, p.fixWidth + 8 - 1 - (p.fixExp - 4))).toBigInt, p.fixWidth + 8)
+//    aggregator.add(BigDecimal((yEnd - yStart) / p.screenResY * Math.pow(2, p.fixWidth + 8 - 1 - (p.fixExp - 4))).toBigInt, p.fixWidth + 8)
 //    tx(aggregator.toBytes)
 //  }
 //

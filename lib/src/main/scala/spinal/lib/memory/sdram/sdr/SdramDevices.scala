@@ -103,7 +103,29 @@ object W9825G6JH6 {
   )
 }
 
+object EG4S20 {
+  def layout = SdramLayout(
+    generation = SDR,
+    bankWidth = 2,
+    columnWidth = 8,
+    rowWidth = 11,
+    dataWidth = 32
+  )
 
+  def timingGrade7 = SdramTimings(
+    bootRefreshCount =   8,
+    tPOW             = 200 us,
+    tREF             =  64 ms,
+    tRC              =  80 ns,
+    tRFC             =  80 ns,
+    tRAS             =  60 ns,
+    tRP              =  40 ns,
+    tRCD             =  40 ns,
+    cMRD             =  3,
+    tWR              =  60 ns,
+    cWR              =  3
+  )
+}
 
 object MT41K128M16JT{
   def layout = SdramLayout(

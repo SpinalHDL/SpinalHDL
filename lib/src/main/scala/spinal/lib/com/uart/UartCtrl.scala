@@ -12,7 +12,9 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
                              clockDividerWidth: Int = 20, // !! baudrate = Fclk / (rxSamplePerBit*clockDividerWidth) !!
                              preSamplingSize: Int = 1,
                              samplingSize: Int = 5,
-                             postSamplingSize: Int = 2) {
+                             postSamplingSize: Int = 2,
+                             ctsGen : Boolean = false,
+                             rtsGen : Boolean = false) {
   val rxSamplePerBit = preSamplingSize + samplingSize + postSamplingSize
   if ((samplingSize % 2) == 0)
     SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.short} (because of the majority vote)")
@@ -30,15 +32,18 @@ case class UartCtrlConfig(g: UartCtrlGenerics) extends Bundle {
   val clockDivider = UInt (g.clockDividerWidth bit) //see UartCtrlGenerics.clockDividerWidth for calculation
 
   def setClockDivider(baudrate : HertzNumber,clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
-    clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).setScale(0, BigDecimal.RoundingMode.HALF_DOWN).toBigInt() - 1
+    clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).setScale(0, BigDecimal.RoundingMode.HALF_DOWN).toBigInt - 1
   }
 }
 
 class UartCtrlIo(g : UartCtrlGenerics) extends Bundle {
   val config = in(UartCtrlConfig(g))
   val write  = slave(Stream(Bits(g.dataWidthMax bit)))
-  val read   = master(Flow(Bits(g.dataWidthMax bit)))
+  val read   = master(Stream(Bits(g.dataWidthMax bit)))
   val uart   = master(Uart())
+  val readError = out Bool()
+  val writeBreak = in Bool()
+  val readBreak = out Bool()
 }
 
 
@@ -64,11 +69,17 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   tx.io.configFrame := io.config.frame
   rx.io.configFrame := io.config.frame
 
-  tx.io.write << io.write
+  tx.io.write << io.write.throwWhen(rx.io.break)
   rx.io.read >> io.read
 
   io.uart.txd <> tx.io.txd
   io.uart.rxd <> rx.io.rxd
+
+  io.readError := rx.io.error
+  tx.io.cts := (if(g.ctsGen) BufferCC(io.uart.cts) else False)
+  if(g.rtsGen) io.uart.rts := rx.io.rts
+  io.readBreak := rx.io.break
+  tx.io.break := io.writeBreak
 
 
   def driveFrom(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig,baseAddress : Int = 0) = new Area {
@@ -94,30 +105,33 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     }
     io.config := uartConfigReg
 
+    def sat255 (that : UInt) = if(widthOf(that) > 8) that.min(255).resize(8 bits) else that
     //manage TX
     val write = new Area {
       val streamUnbuffered = busCtrlWrapped.createAndDriveFlow(Bits(g.dataWidthMax bits), address = 0).toStream
       val (stream, fifoOccupancy) = streamUnbuffered.queueWithOccupancy(config.txFifoDepth)
       io.write << stream
       busCtrl.busDataWidth match {
-        case 16 => busCtrlWrapped.read(config.txFifoDepth - fifoOccupancy,address = 6,bitOffset = 0)
-        case 32 => busCtrlWrapped.read(config.txFifoDepth - fifoOccupancy,address = 4,bitOffset = 16)
+        case 16 => busCtrlWrapped.read(sat255(config.txFifoDepth - fifoOccupancy),address = 6,bitOffset = 0)
+        case 32 => busCtrlWrapped.read(sat255(config.txFifoDepth - fifoOccupancy),address = 4,bitOffset = 16)
       }
 
       streamUnbuffered.ready.allowPruning()
-//      streamUnbuffered.ready.input.addTag(unusedTag)
+
+      busCtrlWrapped.read(stream.valid, address = 4, 15)
     }
 
     //manage RX
     val read = new Area {
       val (stream, fifoOccupancy) = io.read.queueWithOccupancy(config.rxFifoDepth)
+      val streamBreaked = stream.throwWhen(io.readBreak)
       busCtrl.busDataWidth match {
         case 16 =>
-          busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
-          busCtrlWrapped.read(fifoOccupancy,address = 6, 8)
+          busCtrlWrapped.readStreamNonBlocking(streamBreaked, address = 0, validBitOffset = 15, payloadBitOffset = 0)
+          busCtrlWrapped.read(sat255(fifoOccupancy),address = 6, 8)
         case 32 =>
-          busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 16, payloadBitOffset = 0)
-          busCtrlWrapped.read(fifoOccupancy,address = 4, 24)
+          busCtrlWrapped.readStreamNonBlocking(streamBreaked, address = 0, validBitOffset = 16, payloadBitOffset = 0)
+          busCtrlWrapped.read(sat255(fifoOccupancy),address = 4, 24)
       }
       def genCTS(freeThreshold : Int) = RegNext(fifoOccupancy <= config.rxFifoDepth - freeThreshold) init(False)  // freeThreshold => how many remaining space should be in the fifo before allowing transfer
     }
@@ -126,11 +140,24 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     val interruptCtrl = new Area {
       val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 0) init(False)
       val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 1) init(False)
-      val readInt   = readIntEnable  &  read.stream.valid
+      val readInt   = readIntEnable  &  read.streamBreaked.valid
       val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt
       busCtrlWrapped.read(writeInt, address = 4, 8)
       busCtrlWrapped.read(readInt , address = 4, 9)
+    }
+
+    val misc = new Area{
+      val readError = busCtrlWrapped.createReadAndClearOnSet(Bool, 0x10, 0) init(False) setWhen(io.readError)
+      val readOverflowError = busCtrlWrapped.createReadAndClearOnSet(Bool, 0x10, 1) init(False) setWhen(io.read.isStall)
+      busCtrlWrapped.read(io.readBreak, 0x10, 8)
+      val breakDetected = RegInit(False) setWhen(io.readBreak.rise())
+      busCtrlWrapped.read(breakDetected, 0x10, 9)
+      busCtrlWrapped.clearOnSet(breakDetected, 0x10, 9)
+      val doBreak = RegInit(False)
+      busCtrlWrapped.setOnSet(doBreak, 0x10, 10)
+      busCtrlWrapped.clearOnSet(doBreak, 0x10, 11)
+      io.writeBreak := doBreak
     }
   }
 
@@ -164,10 +191,12 @@ case class UartCtrlInitConfig(
 object UartCtrlMemoryMappedConfig{
   def apply(baudrate: Int,
             txFifoDepth: Int,
-            rxFifoDepth: Int) : UartCtrlMemoryMappedConfig = UartCtrlMemoryMappedConfig(
+            rxFifoDepth: Int,
+            writeableConfig : Boolean,
+            clockDividerWidth : Int) : UartCtrlMemoryMappedConfig = UartCtrlMemoryMappedConfig(
     uartCtrlConfig = UartCtrlGenerics(
       dataWidthMax = 8,
-      clockDividerWidth = 12,
+      clockDividerWidth = clockDividerWidth,
       preSamplingSize = 1,
       samplingSize = 3,
       postSamplingSize = 1
@@ -178,10 +207,20 @@ object UartCtrlMemoryMappedConfig{
       parity = UartParityType.NONE,
       stop = UartStopType.ONE
     ),
-    busCanWriteClockDividerConfig = false,
-    busCanWriteFrameConfig = false,
+    busCanWriteClockDividerConfig = writeableConfig,
+    busCanWriteFrameConfig = writeableConfig,
     txFifoDepth = txFifoDepth,
     rxFifoDepth = rxFifoDepth
+  )
+
+  def apply(baudrate: Int,
+            txFifoDepth: Int,
+            rxFifoDepth: Int) : UartCtrlMemoryMappedConfig = apply(
+    baudrate = baudrate,
+    txFifoDepth = txFifoDepth,
+    rxFifoDepth = rxFifoDepth,
+    writeableConfig = false,
+    clockDividerWidth = 12
   )
 }
 
@@ -195,9 +234,6 @@ case class UartCtrlMemoryMappedConfig(
 ){
   require(txFifoDepth >= 1)
   require(rxFifoDepth >= 1)
-
-  require(txFifoDepth <= 255)
-  require(rxFifoDepth <= 255)
 }
 
 
@@ -217,7 +253,7 @@ class UartCtrlUsageExample extends Component{
   uartCtrl.io.uart <> io.uart
 
   //Assign io.led with a register loaded each time a byte is received
-  io.leds := uartCtrl.io.read.toReg()
+  io.leds := uartCtrl.io.read.toFlow.toReg()
 
   //Write the value of switch on the uart each 4000 cycles
   val write = Stream(Bits(8 bits))

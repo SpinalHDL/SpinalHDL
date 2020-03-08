@@ -105,7 +105,7 @@ object SimManagedTest {
       clkGen.join()
 
       fork{
-        repeatSim(100){
+        for(i <- 0 until 100){
           dut.io.a #= dut.io.a.toLong + 1
           sleep(1)
         }
