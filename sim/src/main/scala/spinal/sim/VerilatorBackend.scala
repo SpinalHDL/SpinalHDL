@@ -3,6 +3,7 @@ package spinal.sim
 import java.io.File
 
 import javax.tools.JavaFileObject
+import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
@@ -382,7 +383,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
     genWrapperCpp()
-    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    val threadCount = VanillaCpuLayout.fromCpuInfo().cpus()
+    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 
