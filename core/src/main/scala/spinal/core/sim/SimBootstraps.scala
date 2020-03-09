@@ -179,32 +179,24 @@ class SimCompiled[T <: Component](backend: VerilatorBackend,val report: SpinalRe
     }
   }
 
-  def doSim(body: T => Unit): Unit = doSim("test")(body)
-  def doSim(name: String)(body: T => Unit) : Unit = doSim(name, Random.nextLong())(body)
-  def doSim(name: String, seed: Long)(body: T => Unit) : Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), false)(body)
+  def doSim(body: T => Unit): Unit =  doSimApi(joinAll = false)(body)
+  def doSim(name: String)(body: T => Unit): Unit = doSimApi(name = name, joinAll = false)(body)
+  def doSim(seed: Int)(body: T => Unit): Unit = doSimApi(seed = seed, joinAll = false)(body)
+  def doSim(name: String, seed: Int)(body : T => Unit): Unit = {
+    doSimApi(name, seed, false)(body)
   }
 
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(body: T => Unit): Unit = doSim("test")(body)
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(name: String)(body: T => Unit): Unit = doSim(name, Random.nextLong())(body)
-  @deprecated("Use doSim instead", "???")
-  def doManagedSim(name: String, seed: Long)(body: T => Unit): Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), false)(body)
-  }
-
-  def doSimUntilVoid(body: T => Unit): Unit = doSimUntilVoid("test")(body)
-  def doSimUntilVoid(name: String)(body: T => Unit): Unit = doSimUntilVoid(name, Random.nextLong())(body)
-  def doSimUntilVoid(name: String, seed: Long)(body : T => Unit): Unit = {
-    Random.setSeed(seed)
-    doSimPostSeed(name, Random.nextLong(), true)(body)
+  def doSimUntilVoid(body: T => Unit): Unit =  doSimApi(joinAll = true)(body)
+  def doSimUntilVoid(name: String)(body: T => Unit): Unit = doSimApi(name = name, joinAll = true)(body)
+  def doSimUntilVoid(seed: Int)(body: T => Unit): Unit = doSimApi(seed = seed, joinAll = true)(body)
+  def doSimUntilVoid(name: String, seed: Int)(body : T => Unit): Unit = {
+    doSimApi(name, seed, true)(body)
   }
 
 
-  def doSimPostSeed(name: String, seed: Long, joinAll: Boolean)(body: T => Unit): Unit = {
+  def doSimApi(name: String = "test", seed: Int = Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
+    Random.setSeed(seed)
+
     val allocatedName = allocateTestName(name)
     val seedInt       = seed.toInt
     val backendSeed   = if(seedInt == 0) 1 else seedInt
@@ -341,19 +333,19 @@ case class SpinalSimConfig(
 
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSim(name)(body)
-  def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Long)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
+  def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
 
   def doSimUntilVoid[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSimUntilVoid(body)
   def doSimUntilVoid[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSimUntilVoid(name)(body)
-  def doSimUntilVoid[T <: Component](report: SpinalReport[T], name: String, seed: Long)(body: T => Unit): Unit = compile(report).doSimUntilVoid(name, seed)(body)
+  def doSimUntilVoid[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSimUntilVoid(name, seed)(body)
 
   def doSim[T <: Component](rtl: => T)(body: T => Unit): Unit = compile(rtl).doSim(body)
   def doSim[T <: Component](rtl: => T, name: String)(body: T => Unit): Unit = compile(rtl).doSim(name)(body)
-  def doSim[T <: Component](rtl: => T, name: String, seed: Long)(body: T => Unit): Unit = compile(rtl).doSim(name, seed)(body)
+  def doSim[T <: Component](rtl: => T, name: String, seed: Int)(body: T => Unit): Unit = compile(rtl).doSim(name, seed)(body)
 
   def doSimUntilVoid[T <: Component](rtl: => T)(body: T => Unit): Unit = compile(rtl).doSimUntilVoid(body)
   def doSimUntilVoid[T <: Component](rtl: => T, name: String)(body: T => Unit): Unit = compile(rtl).doSimUntilVoid(name)(body)
-  def doSimUntilVoid[T <: Component](rtl: => T, name: String, seed: Long)(body: T => Unit): Unit = compile(rtl).doSimUntilVoid(name,seed)(body)
+  def doSimUntilVoid[T <: Component](rtl: => T, name: String, seed: Int)(body: T => Unit): Unit = compile(rtl).doSimUntilVoid(name,seed)(body)
 
   def compile[T <: Component](rtl: => T) : SimCompiled[T] = {
     val uniqueId = SimWorkspace.allocateUniqueId()
@@ -431,15 +423,15 @@ case class SimConfigLegacy[T <: Component](
 
   def doSim(body: T => Unit): Unit = compile.doSim(body)
   def doSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doSim(name: String, seed: Long)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
 
   def doManagedSim(body: T => Unit): Unit = compile.doSim(body)
   def doManagedSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doManagedSim(name: String, seed: Long)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doManagedSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
 
   def doSimUntilVoid(body: T => Unit): Unit = compile.doSimUntilVoid(body)
   def doSimUntilVoid(name: String)(body: T => Unit): Unit = compile.doSimUntilVoid(name)(body)
-  def doSimUntilVoid(name: String, seed: Long)(body: T => Unit): Unit = compile.doSimUntilVoid(name, seed)(body)
+  def doSimUntilVoid(name: String, seed: Int)(body: T => Unit): Unit = compile.doSimUntilVoid(name, seed)(body)
 
   def compile(): SimCompiled[T] = {
     (_rtlGen, _spinalReport)  match {

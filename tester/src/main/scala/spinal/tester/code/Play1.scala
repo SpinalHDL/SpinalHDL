@@ -83,28 +83,56 @@ class ComplexBundle extends Bundle {
 }
 
 
-object PlayGenerator extends App{
+object PlayGeneratorA extends App{
   import spinal.lib.generator._
-  SpinalVerilog(
-    new GeneratorComponent( new Generator{
-      class  Nameable
-      class A extends Nameable
-      class B extends A
-      class C extends Nameable
-      val a = new Handle[A]
-      val b = new Handle[B]
 
-//      a.load(b)
-//      b.load(a)
-//      a.load(c)
-//      a.load(b)
-      def miaou[T2 <: A](y : T2) : Unit = {
-        a.load(y)
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b,signalWidth = Handle[Int]
+
+    //Load signalWidth as the result of a + b
+    val calculator = new Generator{
+      dependencies += a
+      dependencies += b
+
+      add task{
+        signalWidth.load(a.get + b.get)
       }
-      miaou(new B)
-    })
-  )
+    }
 
+    //Generate a signal of signalWidth bits
+    val rtl = new Generator{
+      dependencies += signalWidth
+
+      val signal = Handle[UInt]
+      add task{
+        println(s"rtlSignal will have ${signalWidth.get} bits")
+        signal.load(UInt(signalWidth.get bits))
+      }
+    }
+
+    //load a and b with values, which will then unlock the calculator generator, which will then unlock the rtl generator
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
+}
+
+
+object PlayGeneratorB extends App{
+  import spinal.lib.generator._
+
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b = Handle[Int]
+    val signalWidth = List(a,b).produce(a.get + b.get)
+    val signal = signalWidth.produce(UInt(signalWidth.get bits))
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
 }
 
 
