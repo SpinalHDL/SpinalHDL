@@ -191,7 +191,12 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     * @return (data10bits(8 downto 4), data10bits(3 downto 0))
     */
   def splitAt(n: Int): (Bits,Bits) = {
-    (this(this.high downto n), this(n - 1 downto 0))
+    require(n>=0)
+    if(n==0){
+      (this, Bits(0 bits))
+    } else {
+      (this(this.high downto n), this(n - 1 downto 0))
+    }
   }
 
   /**
