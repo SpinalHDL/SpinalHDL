@@ -1,5 +1,6 @@
 package spinal.tester.scalatest
 
+import org.scalatest.FunSuite
 import spinal.core._
 import spinal.lib._
 
@@ -36,11 +37,31 @@ object BlackboxTester {
     io.outA <> blackBoxtoTest.io.outA
     io.outB <> blackBoxtoTest.io.outB
   }
-
 }
 
 class BlackboxTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "BlackBoxTester"
   override def createToplevel: Component =  new BlackboxTester.BlackBoxTester
   override def pythonTestLocation: String = "tester/src/test/python/spinal/BlackBoxTester"
+}
+
+class BlackboxTesterSpinalSim extends FunSuite {
+  test("test"){
+    import spinal.core.sim._
+    SimConfig.addRtl("tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.v").doSim(new BlackboxTester.BlackBoxTester) {dut =>
+      dut.clockDomain.forkStimulus(10)
+      var outA_ref = 0
+      var outB_ref = 0
+      for(i <- 0 to 1000) {
+        dut.io.inA.randomize()
+        dut.io.inB.randomize()
+        dut.clockDomain.waitSampling()
+        assert(outA_ref == dut.io.outA.toInt)
+        assert(outB_ref == dut.io.outB.toInt)
+        outA_ref = ((outA_ref + dut.io.inA.toInt) & dut.io.outA.maxValue).toInt
+        outB_ref = ((outB_ref + dut.io.inB.toInt) & dut.io.outB.maxValue).toInt
+      }
+    }
+
+  }
 }

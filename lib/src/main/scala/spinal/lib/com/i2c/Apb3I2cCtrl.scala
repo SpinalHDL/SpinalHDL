@@ -46,7 +46,13 @@ case class Apb3I2cCtrl(generics : I2cSlaveMemoryMappedGenerics) extends Componen
 
   val busCtrl = Apb3SlaveFactory(io.apb)
   val bridge = i2cCtrl.io.driveFrom(busCtrl,0)(generics)
-  io.i2c <> bridge.i2cBuffer
+
+  //Phy
+  io.i2c.scl.write := RegNext(bridge.i2cBuffer.scl.write) init(True)
+  io.i2c.sda.write := RegNext(bridge.i2cBuffer.sda.write) init(True)
+  bridge.i2cBuffer.scl.read := io.i2c.scl.read
+  bridge.i2cBuffer.sda.read := io.i2c.sda.read
+
   io.interrupt := bridge.interruptCtrl.interrupt
 }
 

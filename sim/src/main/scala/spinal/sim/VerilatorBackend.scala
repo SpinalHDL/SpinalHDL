@@ -3,6 +3,7 @@ package spinal.sim
 import java.io.File
 
 import javax.tools.JavaFileObject
+import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
@@ -357,7 +358,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
-       | --output-split 4000
+       | --output-split 5000
+       | --output-split-cfuncs 500
+       | --output-split-ctrace 500
        | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
@@ -366,15 +369,22 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | $waveArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${ if(isWindows) ("../../" + new File(config.rtlSourcesPaths.head).toString.replace("\\","/")) else (config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).mkString(" "))}
+       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).map(_.replace("\\","/")).mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
+    var lastTime = System.currentTimeMillis()
+    def bench(msg : String): Unit ={
+      val newTime = System.currentTimeMillis()
+      val sec = (newTime-lastTime)*1e-3
+      println(msg + " " + sec)
+      lastTime = newTime
+    }
+
     assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
-
     genWrapperCpp()
-
-    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    val threadCount = VanillaCpuLayout.fromCpuInfo().cpus()
+    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 

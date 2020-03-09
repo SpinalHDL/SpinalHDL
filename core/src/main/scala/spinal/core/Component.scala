@@ -135,6 +135,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /** Add a new prePopTask */
   def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
