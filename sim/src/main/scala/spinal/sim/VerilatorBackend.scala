@@ -397,7 +397,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
                    new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
     
     genWrapperCpp()
-    val threadCount = VanillaCpuLayout.fromCpuInfo().cpus()
+    val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
     assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
 
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
