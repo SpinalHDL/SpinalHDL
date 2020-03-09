@@ -45,6 +45,12 @@ trait SIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+  override def tag(q: QFormat): SInt = {
+    require(q.signed, "assign UQ to SInt")
+    require(q.width == this.getWidth, s"${q} width dismatch!")
+    Qtag = q
+    this
+  }
 
   override def getTypeObject = TypeSInt
 
@@ -352,8 +358,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF, sym: Boolean = false): SInt = {
+  private def fixToWrap(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     val ret = (section.min, section.max, section.size) match {
@@ -364,6 +369,39 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     }
     if(sym) ret.symmetry else ret
   }
+
+  def fixTo(section: Range.Inclusive, roundType: RoundType, sym: Boolean): SInt = {
+
+    class fixTo(width: Int, section: Range.Inclusive,
+                roundType: RoundType, sym: Boolean) extends Component{
+
+      val symTag = if(sym) "_sym" else ""
+      definitionName = s"SInt${width}fixTo${section.max}_${section.min}_${roundType}${symTag}"
+
+      val din = in SInt(width bits)
+      val dout = out SInt(section.size bits)
+      dout := din.fixToWrap(section, roundType, sym)
+    }
+
+    if(GlobalData.get.config.fixToWithWrap) {
+      val dut = new fixTo(this.getWidth, section, roundType, sym)
+      dut.din := this
+      dut.dout
+    } else {
+      fixToWrap(section, roundType, sym)
+    }
+  }
+
+  def fixTo(section: Range.Inclusive, roundType: RoundType): SInt = fixTo(section, roundType, getFixSym())
+  def fixTo(section: Range.Inclusive): SInt = fixTo(section, getFixRound(), getFixSym())
+
+  def fixTo(q: QFormat, roundType: RoundType, sym: Boolean ): SInt = {
+    val section = getfixSection(q)
+    fixTo(section, roundType, sym)
+  }
+
+  def fixTo(q: QFormat, roundType: RoundType): SInt = fixTo(q, roundType, getFixSym())
+  def fixTo(q: QFormat): SInt = fixTo(q, getFixRound(), getFixSym())
 
   /**
     * Negative number
@@ -432,6 +470,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     val rangesValues = rangesValue +: _rangesValues
     S.applyTuples(this, rangesValues)
   }
+
+  def :=(value : String) : Unit = this := S(value)
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi downto lo).assignFromBits(bits)

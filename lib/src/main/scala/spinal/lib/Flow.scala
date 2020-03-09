@@ -64,7 +64,6 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     ret
   }
 
-
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     payload := that.payload
@@ -139,7 +138,14 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 }
 
-
+/** Create a new Flow that is always valid, with a given payload */
+object ValidFlow {
+  def apply[T <: Data](payload: T): Flow[T] = {
+    val flow = Flow(payload)
+    flow.push(payload)
+    flow
+  }
+}
 
 object RegFlow{
   def apply[T <: Data](dataType : T) : Flow[T] = {
@@ -156,7 +162,6 @@ object FlowCCByToggle {
     return c.io.output
   }
 }
-
 
 class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {

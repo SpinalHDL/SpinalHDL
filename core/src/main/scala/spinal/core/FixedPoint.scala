@@ -21,22 +21,103 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-import spinal.core._
 
 sealed trait RoundType
 
 object RoundType{
-  object CEIL           extends RoundType ;// Wikipedia name: RoundUp
-  object FLOOR          extends RoundType ;// Wikipedia name: RoundDown
-  object FLOORTOZERO    extends RoundType ;// Wikipedia name: RoundToZero
-  object CEILTOINF      extends RoundType ;// Wikipedia name: RoundToInf
-  object ROUNDUP        extends RoundType ;// Wikipedia name: RoundHalfUp
-  object ROUNDDOWN      extends RoundType ;// Wikipedia name: RoundHalfDown
-  object ROUNDTOZERO    extends RoundType ;// Wikipedia name: RoundHalfToZero
-  object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
-  object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
-  object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
+  case object CEIL           extends RoundType ;// Wikipedia name: RoundUp
+  case object FLOOR          extends RoundType ;// Wikipedia name: RoundDown
+  case object FLOORTOZERO    extends RoundType ;// Wikipedia name: RoundToZero
+  case object CEILTOINF      extends RoundType ;// Wikipedia name: RoundToInf
+  case object ROUNDUP        extends RoundType ;// Wikipedia name: RoundHalfUp
+  case object ROUNDDOWN      extends RoundType ;// Wikipedia name: RoundHalfDown
+  case object ROUNDTOZERO    extends RoundType ;// Wikipedia name: RoundHalfToZero
+  case object ROUNDTOINF     extends RoundType ;// Wikipedia name: RoundHalfToInf
+  case object ROUNDTOEVEN    extends RoundType ;// Wikipedia name: RoundHalfToEven; Have not been implemented yet
+  case object ROUNDTOODD     extends RoundType ;// Wikipedia name: RoundHalfToOdd ; Have not been implemented yet
 }
+
+case class FixPointConfig(roundType: RoundType,
+                          symmetric: Boolean) {
+
+  def flush(infos: String = s"${this} enabled!"): FixPointConfig = {
+    setFixRound(roundType)
+    setFixSym(symmetric)
+    SpinalInfo(infos)
+    this
+  }
+
+  def apply[T](block: => T): T = {
+    val outer = FixPointConfig(getFixRound(), getFixSym())
+    this.flush()
+    val ret: T = block
+    outer.flush(s"$outer recovered")
+    ret
+  }
+}
+
+object DefaultFixPointConfig {
+  def apply() = FixPointConfig(RoundType.ROUNDTOINF, false)
+}
+
+object LowCostFixPointConfig {
+  def apply() = FixPointConfig(RoundType.ROUNDUP, true)
+}
+
+/*singleton Object*/
+private object GlobalRoundType{
+  private var roundType: RoundType = RoundType.ROUNDTOINF
+
+  def apply(): RoundType = roundType
+
+  def set(round: RoundType) = {
+    roundType = round
+    roundType
+  }
+}
+
+private object GlobalSymmetricType{
+  private var symmetric: Boolean = false
+
+  def apply(): Boolean = symmetric
+
+  def set(sym: Boolean) = {
+    symmetric = sym
+    symmetric
+  }
+}
+
+object getFixRound{
+  def apply(): RoundType = GlobalRoundType()
+}
+
+object setFixRound{
+  def apply(round: RoundType): RoundType = GlobalRoundType.set(round)
+}
+
+object getFixSym{
+  def apply(): Boolean = GlobalSymmetricType()
+}
+
+object setFixSym{
+  def apply(sym: Boolean): Boolean = GlobalSymmetricType.set(sym)
+}
+
+object ResetFixConfig{
+  def apply() = {
+    DefaultFixPointConfig().flush()
+  }
+}
+
+object ShowFixConfig{
+  def apply(pretag: String = "") = {
+    SpinalInfo(pretag + " " + FixPointConfig(getFixRound(),getFixSym()).toString())
+  }
+}
+
+
+
+
 
 trait SFixFactory extends TypeFactory{
   def SFix(peak: ExpNumber, width: BitCount): SFix = postTypeFactory(new SFix(peak.value, width.value))
@@ -246,9 +327,9 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
 
     val shift = bitCount - maxExp - 1
     val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt
     else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
     this.raw := value
   }
 
@@ -361,9 +442,9 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
     val shift = bitCount - maxExp
     val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt
     else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
     this.raw := value
   }
 

@@ -29,18 +29,21 @@ case class SdrInferedPhy(sl : SdramLayout) extends Component{
     val sdram = master(SdramInterface(sl))
   }
 
-  io.sdram.ADDR  := RegNext(io.ctrl.ADDR)
-  io.sdram.BA    := RegNext(io.ctrl.BA  )
-  io.sdram.DQM   := RegNext(io.ctrl.phases(0).DM(0)  )
-  io.sdram.CASn  := RegNext(io.ctrl.phases(0).CASn)
-  io.sdram.CKE   := RegNext(io.ctrl.phases(0).CKE )
-  io.sdram.CSn   := RegNext(io.ctrl.phases(0).CSn )
-  io.sdram.RASn  := RegNext(io.ctrl.phases(0).RASn)
-  io.sdram.WEn   := RegNext(io.ctrl.phases(0).WEn )
+  val regs = Reg(SdramInterface(sl))
+  regs.ADDR  := io.ctrl.ADDR
+  regs.BA    := io.ctrl.BA
+  regs.DQM   := io.ctrl.phases(0).DM(0)
+  regs.CASn  := io.ctrl.phases(0).CASn
+  regs.CKE   := io.ctrl.phases(0).CKE
+  regs.CSn   := io.ctrl.phases(0).CSn
+  regs.RASn  := io.ctrl.phases(0).RASn
+  regs.WEn   := io.ctrl.phases(0).WEn
 
-  io.sdram.DQ.writeEnable  := RegNext(io.ctrl.writeEnable)
-  io.sdram.DQ.write        := RegNext(io.ctrl.phases(0).DQw(0))
-  io.ctrl.phases(0).DQr(0)  := RegNext(io.sdram.DQ.read )
+  regs.DQ.writeEnable := KeepAttribute(Cat(List.fill(sl.dataWidth)(io.ctrl.writeEnable)))
+  regs.DQ.write        := io.ctrl.phases(0).DQw(0)
+  io.ctrl.phases(0).DQr(0)  := regs.DQ.read
 
   io.ctrl.readValid := io.ctrl.readEnable
+
+  io.sdram <> regs
 }

@@ -49,6 +49,12 @@ trait UIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
+  override def tag(q: QFormat): UInt = {
+    require(!q.signed, "assign SQ to UInt")
+    require(q.width == this.getWidth, s"${q} width dismatch!")
+    Qtag = q
+    this
+  }
 
   override def getTypeObject = TypeUInt
 
@@ -222,8 +228,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   /**Factory fixTo Function*/
-  //TODO: add default fixConfig in spinal global config
-  def fixTo(section: Range.Inclusive, roundType: RoundType = RoundType.ROUNDTOINF): UInt = {
+  private def fixToWrap(section: Range.Inclusive, roundType: RoundType): UInt = {
     val w: Int = this.getWidth
     val wl: Int = w - 1
     (section.min, section.max, section.size) match {
@@ -234,6 +239,34 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
+  def fixTo(section: Range.Inclusive, roundType: RoundType): UInt = {
+
+    class fixTo(width: Int, section: Range.Inclusive,
+                roundType: RoundType) extends Component{
+      val wrapName = s"UInt${width}fixTo${section.max}_${section.min}_${roundType}"
+
+      val din = in UInt(width bits)
+      val dout = out UInt(section.size bits)
+      dout := din.fixToWrap(section, roundType)
+    }
+
+    if(GlobalData.get.config.fixToWithWrap) {
+      val dut = new fixTo(this.getWidth, section, roundType)
+      dut.din := this
+      dut.dout
+    } else {
+      fixToWrap(section, roundType)
+    }
+  }
+
+  def fixTo(section: Range.Inclusive): UInt = fixTo(section, getFixRound())
+
+  def fixTo(q: QFormat, roundType: RoundType): UInt = {
+    val section = getfixSection(q)
+    fixTo(section, roundType)
+  }
+
+  def fixTo(q: QFormat): UInt = fixTo(q, getFixRound())
 
   /**
     * Logical shift Right (output width = input width)
@@ -288,6 +321,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     val rangesValues = rangesValue +: _rangesValues
     U.applyTuples(this, rangesValues)
   }
+
+  def :=(value : String) : Unit = this := U(value)
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi downto lo).assignFromBits(bits)

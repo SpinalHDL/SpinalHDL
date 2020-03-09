@@ -201,6 +201,15 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       }
     }
 
+    for(state <- states){
+      when(!stateRegOneHotMap(state)){
+        state.whenInactiveTasks.foreach(_())
+      }
+      when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
+        state.onExitTasks.foreach(_())
+      }
+    }
+
     switch(stateNext){
       for(state <- states){
         if(state == stateBoot) default {
@@ -211,16 +220,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       }
     }
 
-
     for(state <- states){
       when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
         state.onEntryTasks.foreach(_())
-      }
-      when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
-        state.onExitTasks.foreach(_())
-      }
-      when(!stateRegOneHotMap(state)){
-        state.whenInactiveTasks.foreach(_())
       }
     }
 

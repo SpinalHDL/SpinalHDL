@@ -72,12 +72,40 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     data.foreach(master(_))
   }
 
+  def withoutSs(): SpiXdrMaster ={
+    val ret = SpiXdrMaster(p.copy(ssWidth = 0))
+    ret.sclk := this.sclk
+    for((s,m) <- (ret.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      m.read := s.read
+    }
+    ret
+  }
+
+  def decode(ssId : Int, activeLow : Boolean = true): SpiXdrMaster = decode(ss(ssId) ^ Bool(activeLow), Seq(ss(ssId)))
+
+  def decode(sel : Bool, ss : Seq[Bool]): SpiXdrMaster = {
+    val decoded = SpiXdrMaster(p.copy(ssWidth = ss.length))
+    decoded.sclk := this.sclk
+    decoded.ss := B(ss)
+    for((s,m) <- (decoded.data, this.data).zipped) {
+      s.writeEnable := m.writeEnable
+      s.write := m.write
+      when(sel) {
+        m.read := s.read
+      }
+    }
+    decoded
+  }
+
   def toSpi(): SpiHalfDuplexMaster ={
     val spi = SpiHalfDuplexMaster(
       dataWidth = p.dataWidth,
       ssWidth = p.ssWidth,
       useSclk = true
     )
+    KeepAttribute(spi) //Yosys workaround
 
     p.ioRate match {
       case 1 => {
@@ -157,7 +185,7 @@ object SpiXdrMasterCtrl {
 
   case class WriteMapping(pin : Int, phase : Int, source : Int)
   case class ReadMapping(pin : Int, phase : Int, target : Int)
-  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping]){
+  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping], ouputHighWhenIdle : Boolean){
     def bitrate = readMapping.length
   }
   case class Parameters(dataWidth : Int,
@@ -167,8 +195,8 @@ object SpiXdrMasterCtrl {
 
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1)
-    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0): this.type = {
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
+    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
         val writeMapping = for (pinId <- (0 until spiWidth);
@@ -176,7 +204,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth)) yield ReadMapping(pinId + readPinOffset, 0, pinId)
 
-        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping)
+        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
       } else {
         val pinRate = rate / (if(ddr) 1 else 2)
         val pinDuration =  spi.ioRate / pinRate
@@ -186,7 +214,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth);
                                phaseId <- (0 until pinRate)) yield ReadMapping(pinId + readPinOffset, (phaseId*pinDuration-1) & (spi.ioRate-1), (pinRate - phaseId - 1)*spiWidth + pinId)
-        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping)
+        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
       }
       this
     }
@@ -243,6 +271,7 @@ object SpiXdrMasterCtrl {
                                      xipInstructionDataInit : Int = 0x0B,
                                      xipDummyCountInit : Int = 0,
                                      xipDummyDataInit : Int = 0xFF,
+                                     xipSsId : Int = 0,
                                      xip : XipBusParameters = null)
 
   case class XipBusParameters(addressWidth : Int,
@@ -459,7 +488,7 @@ object SpiXdrMasterCtrl {
           when(xipBus.cmd.valid){
             xipToCtrlCmd.valid := True
             xipToCtrlCmd.kind := True
-            xipToCtrlCmd.data := 1 << xipToCtrlCmd.data.high
+            xipToCtrlCmd.data := (1 << xipToCtrlCmd.data.high) | xipSsId
             when(xipToCtrlCmd.ready) {
               when(instructionEnable) {
                 goto(INSTRUCTION)
@@ -540,7 +569,7 @@ object SpiXdrMasterCtrl {
         STOP.whenIsActive{
           xipToCtrlMod := payloadMod
           xipToCtrlCmd.kind := True
-          xipToCtrlCmd.data := 0
+          xipToCtrlCmd.data := xipSsId
           when(lastFired){
             xipToCtrlCmd.valid := True
             when(xipToCtrlCmd.ready) {
@@ -680,16 +709,24 @@ object SpiXdrMasterCtrl {
 
 
       //Set MOSI signals
-      io.spi.data.foreach(_.writeEnable := False)
+      io.spi.data.foreach(_.writeEnable.allowOverride := False)
       io.spi.data.foreach(_.write.assignDontCare())
       switch(io.config.mod){
         for(mod <- p.mods){
           is(mod.id) {
-            when(io.cmd.valid && io.cmd.write){
+            val doWrite = io.cmd.valid && io.cmd.write
+            if(mod.ouputHighWhenIdle){
               mod.writeMapping.map(_.pin).distinct.foreach(i => io.spi.data(i).writeEnable := True)
-            }
-            for (mapping <- mod.writeMapping) {
-              io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source)
+              for (mapping <- mod.writeMapping) {
+                io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source) || !doWrite
+              }
+            } else {
+              when(doWrite){
+                mod.writeMapping.map(_.pin).distinct.foreach(i => io.spi.data(i).writeEnable := True)
+              }
+              for (mapping <- mod.writeMapping) {
+                io.spi.data(mapping.pin).write(mapping.phase) := dataWrite(mapping.source)
+              }
             }
           }
         }

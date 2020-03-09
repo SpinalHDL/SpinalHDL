@@ -28,7 +28,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-
 class ComponentEmitterVerilog(
   val c                              : Component,
   systemVerilog                      : Boolean,
@@ -52,39 +51,38 @@ class ComponentEmitterVerilog(
   val portMaps     = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
-
   def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
 
   def result: String = {
-    val ret = new StringBuilder()
-    var first = true
-
-    ret ++= s"module ${component.definitionName} ("
-
-    for(portMap <- portMaps){
-      if(first){
-        ret ++= s"\n    $portMap"
-        first = false
-      } else {
-        ret ++= s",\n    $portMap"
-      }
-    }
-
-    ret ++= s");\n"
-    ret ++= declarations
-    ret ++= logics
-    ret ++= s"endmodule\n"
-    ret ++= s"\n"
-    ret.toString()
+    val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
+    s"""
+      |module ${component.definitionName} (
+      |${ports}
+      |${declarations}
+      |${logics}
+      |endmodule
+      |""".stripMargin
   }
 
   def emitEntity(): Unit = {
-    component.getOrdredNodeIo.foreach(baseType =>
-      if(outputsToBufferize.contains(baseType) || baseType.isInput)
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
-      else
-        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
-    )
+    component.getOrdredNodeIo.foreach{baseType =>
+      val syntax     = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+      val dir        = s"${emitDirection(baseType)}"
+      val section    = s"${emitType(baseType)}"
+      val name       = s"${baseType.getName()}"
+      val comma      = if(baseType == component.getOrdredNodeIo.last) " " else ","
+      val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
+
+      if(outputsToBufferize.contains(baseType) || baseType.isInput){
+        portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
+//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
+      } else {
+        val siginit = if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)
+        val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
+        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${siginit}${EDAcomment}${comma}"
+//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
+      }
+    }
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
@@ -130,7 +128,8 @@ class ComponentEmitterVerilog(
       expressionToWrap += select._1
       for(mux <- muxes) {
         val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-        declarations ++= s"  reg ${emitType(mux)} $name;\n"
+        declarations ++= theme.maintab + expressionAlign("reg",emitType(mux), name) + ";\n"
+//        declarations ++= s"  reg ${emitType(mux)} $name;\n"
         wrappedExpressionToName(mux) = name
         //        expressionToWrap ++= mux.inputs
       }
@@ -225,7 +224,7 @@ class ComponentEmitterVerilog(
           logics ++= s"#( \n"
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.head.source)}),\n"
+              case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
               case (name: String, s: String)    => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
               case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
               case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
@@ -238,13 +237,46 @@ class ComponentEmitterVerilog(
         }
       }
 
-      logics ++= s"${child.getName()} ( \n"
-      for (data <- child.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-        logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
+      //Fixing the spacing
+      def netsWithSection(data: BaseType): String = {
+        if(openSubIo.contains(data)) ""
+        else {
+          val wireName = emitReference(data, false)
+          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+          wireName + section
+        }
       }
-      logics.setCharAt(logics.size - 2, ' ')
 
+      val maxNameLength: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => emitReferenceNoOverrides(data).length()).max
+
+      val maxNameLengthCon: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => netsWithSection(data).length()).max
+
+//      var maxNameLength = 0
+//      for(data <- child.getOrdredNodeIo) {
+//        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
+//      }
+//      var maxNameLengthCon = 0
+//      for(data <- child.getOrdredNodeIo) {
+//        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
+//        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
+//      }
+
+      logics ++= s"${child.getName()} ( \n"
+
+      val instports: String = child.getOrdredNodeIo.map{ data =>
+        val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
+        val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
+        val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
+        val dirtag: String = data.dir match{
+          case spinal.core.in  | spinal.core.inWithNull  => "i"
+          case spinal.core.out | spinal.core.outWithNull => "o"
+          case spinal.core.inout                         => "~"
+          case _  => SpinalError("Not founded IO type")
+        }
+        s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
+      }.mkString
+
+      logics ++= instports
       logics ++= s"  );"
       logics ++= s"\n"
     }
@@ -494,10 +526,19 @@ class ComponentEmitterVerilog(
                 case `ERROR` => "ERROR"
                 case `FAILURE` => "FAILURE"
               }
-              b ++= s"${tab}if(!$cond) begin\n"
-              b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
-              if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
-              b ++= s"${tab}end\n"
+
+              b ++= s"${tab}`ifndef SYNTHESIS\n"
+              b ++= s"${tab}  `ifdef FORMAL\n"
+              /* Emit actual assume/assert/cover statements */
+              b ++= s"${tab}    $keyword($cond)\n"
+              b ++= s"${tab}  `else\n"
+              /* Emulate them using $display */
+              b ++= s"${tab}    if(!$cond) begin\n"
+              b ++= s"""${tab}      $$display("$severity $frontString"$backString);\n"""
+              if (assertStatement.severity == `FAILURE`) b ++= tab + "      $finish;\n"
+              b ++= s"${tab}    end\n"
+              b ++= s"${tab}  `endif\n"
+              b ++= s"${tab}`endif\n"
             } else {
               val severity = assertStatement.severity match {
                 case `NOTE` => "$info"
@@ -726,11 +767,20 @@ class ComponentEmitterVerilog(
   def emitExpressionNoWrappeForFirstOne(that: Expression): String = dispatchExpression(that)
 
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
-    s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+    val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
+    val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val siginit = s"${getBaseTypeSignalInitialisation(baseType)}"
+    val comment = s"${emitCommentAttributes(baseType.instanceAttributes)}"
+    val section = emitType(baseType)
+    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${siginit}${comment};\n"
+//    s"  ${}${if(signalNeedProcess(baseType)) s"reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
-    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
+    val net = if(signalNeedProcess(baseType)) "reg" else "wire"
+    val section = emitType(baseType)
+    s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+//    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
   def getBaseTypeSignalInitialisation(signal: BaseType): String = {
@@ -1002,67 +1052,47 @@ end
       }
     }
 
-    def emitPort(port: MemPortStatement, tab: String, b: mutable.StringBuilder): Unit = port match {
-      case memWrite: MemWrite =>
-        if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.mem} because of its mixed width ports")
-        emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount(), memWrite.mem.getMemSymbolWidth(), tab)
-      case memReadSync: MemReadSync =>
-        if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
-        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
-        if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
-        if(memReadSync.readEnable != null) {
-          b ++= s"${tab}if(${emitExpression(memReadSync.readEnable)}) begin\n"
-          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
-          b ++= s"${tab}end\n"
-        } else {
-          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
-        }
-      case memReadWrite: MemReadWrite =>
-        if(memReadWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadWrite.mem} because of its mixed width ports")
-        //                    if (memReadWrite.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VERILOG $memReadWrite")
-        //                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VERILOG $memReadWrite")
-
-        val symbolCount = memReadWrite.mem.getMemSymbolCount()
-        emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
-        b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-        emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-        b ++= s"${tab}end\n"
-    }
-
-    val cdTasks = mutable.LinkedHashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
-    mem.foreachStatements{
-      case port: MemWrite     =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadSync  =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadWrite =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadAsync =>
-    }
-
     val tmpBuilder = new StringBuilder()
 
-    for((cd, ports) <- cdTasks){
-      def syncLogic(tab: String, b: StringBuilder): Unit ={
-        ports.foreach{
-          case port: MemWrite     => emitPort(port, tab, b)
-          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
-          case port: MemReadWrite => emitPort(port, tab, b)
-        }
-      }
-      emitClockedProcess(syncLogic, null, tmpBuilder, cd, false)
-    }
 
     mem.foreachStatements{
-      case port: MemWrite      =>
-      case port: MemReadWrite  =>
-      case port: MemReadSync   =>
-        if(port.readUnderWrite == dontCare)
-          emitClockedProcess(emitPort(port, _, _), null, tmpBuilder, port.clockDomain, false)
+      case memWrite: MemWrite      =>
+        emitClockedProcess((tab, b) => {
+          if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.mem} because of its mixed width ports")
+          emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount(), memWrite.mem.getMemSymbolWidth(), tab)
+        }, null, tmpBuilder, memWrite.clockDomain, false)
+      case memReadWrite: MemReadWrite  =>
+        if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into Verilog $memReadWrite")
+        if(memReadWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadWrite.mem} because of its mixed width ports")
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadWrite.mem.getMemSymbolCount()
+          b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
+          emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+          b ++= s"${tab}end\n"
+        }, null, tmpBuilder, memReadWrite.clockDomain, false)
+
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadWrite.mem.getMemSymbolCount()
+          emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
+        }, null, tmpBuilder, memReadWrite.clockDomain, false)
+
+      case memReadSync: MemReadSync   =>
+        if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
+        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"memReadSync with writeFirst is as dontCare into Verilog $memReadSync")
+        if(memReadSync.readUnderWrite == readFirst) SpinalError(s"memReadSync with readFirst is as dontCare into Verilog $memReadSync")
+        emitClockedProcess((tab, b) => {
+          if(memReadSync.readEnable != null) {
+            b ++= s"${tab}if(${emitExpression(memReadSync.readEnable)}) begin\n"
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
+            b ++= s"${tab}end\n"
+          } else {
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
+          }
+        }, null, tmpBuilder, memReadSync.clockDomain, false)
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VERILOG backend can't emit ${port.mem} because of its mixed width ports")
 
-        if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VERILOG")
+        if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into Verilog")
 
         val symbolCount = port.mem.getMemSymbolCount()
 
@@ -1083,7 +1113,7 @@ end
     def onEachExpression(e: Expression): Unit = {
       e match {
         case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize => applyTo(node.input)
+        case node: Resize    => applyTo(node.input)
         case _               =>
       }
     }
@@ -1192,7 +1222,11 @@ end
   }
 
   def emitBitVectorLiteral(e: BitVectorLiteral): String = {
-    s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+    if(e.getWidth > 4){
+      s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
+    } else {
+      s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+    }
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
@@ -1269,16 +1303,16 @@ end
 
     case  e: Operator.UInt.Equal                      => operatorImplAsBinaryOperator("==")(e)
     case  e: Operator.UInt.NotEqual                   => operatorImplAsBinaryOperator("!=")(e)
-    case  e: Operator.UInt.Smaller                    =>  operatorImplAsBinaryOperator("<")(e)
+    case  e: Operator.UInt.Smaller                    => operatorImplAsBinaryOperator("<")(e)
     case  e: Operator.UInt.SmallerOrEqual             => operatorImplAsBinaryOperator("<=")(e)
 
     case  e: Operator.UInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.UInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.UInt.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
     case  e: Operator.UInt.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
-    case  e: Operator.UInt.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
-    case  e: Operator.UInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.UInt.ShiftRightByIntFixedWidth  => shiftRightByIntFixedWidthImpl(e)
+    case  e: Operator.UInt.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperator("<<<")(e)
 
     //signed
     case  e: Operator.SInt.Add                        => operatorImplAsBinaryOperatorSigned("+")(e)
@@ -1301,10 +1335,10 @@ end
     case  e: Operator.SInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.SInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.SInt.ShiftRightByUInt           => operatorImplAsBinaryOperatorLeftSigned(">>>")(e)
-    case  e: Operator.SInt.ShiftLeftByUInt            =>  shiftLeftByUIntImplSigned(e)
-    case  e: Operator.SInt.ShiftRightByIntFixedWidth  =>  shiftRightSignedByIntFixedWidthImpl(e)
-    case  e: Operator.SInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
+    case  e: Operator.SInt.ShiftLeftByUInt            => shiftLeftByUIntImplSigned(e)
+    case  e: Operator.SInt.ShiftRightByIntFixedWidth  => shiftRightSignedByIntFixedWidthImpl(e)
+    case  e: Operator.SInt.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
 
     //bits
     case  e: Operator.Bits.Cat                        => operatorImplAsCat(e)
@@ -1318,10 +1352,10 @@ end
     case  e: Operator.Bits.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.Bits.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.Bits.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.Bits.ShiftLeftByUInt            =>  shiftLeftByUIntImpl(e)
-    case  e: Operator.Bits.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
-    case  e: Operator.Bits.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.Bits.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
+    case  e: Operator.Bits.ShiftRightByIntFixedWidth  => shiftRightByIntFixedWidthImpl(e)
+    case  e: Operator.Bits.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperator("<<<")(e)
 
     //bool
     case  e: Operator.Bool.Equal                      => operatorImplAsBinaryOperator("==")(e)

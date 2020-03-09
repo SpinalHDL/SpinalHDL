@@ -62,7 +62,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
     unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
-  .aggregate(sim, core, lib, debugger, tester)
+  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
 
 import sys.process._
@@ -72,6 +72,25 @@ def gitHash = (try {
   case e : java.io.IOException => "???"
 }).linesIterator.next()
 
+
+
+lazy val idslpayload = (project in file("idslpayload"))
+  .settings(
+    defaultSettings,
+    name := "SpinalHDL-idsl-payload",
+    version := SpinalVersion.sim
+  )
+
+lazy val idslplugin = (project in file("idslplugin"))
+  .dependsOn(idslpayload)
+  .settings(
+    defaultSettings,
+    name := "SpinalHDL-idsl-plugin",
+    exportJars := true,
+    libraryDependencies ++= Seq(
+      "org.scala-lang" % "scala-compiler" % scalaVersion.value
+    )
+  )
 
 lazy val sim = (project in file("sim"))
   .settings(
@@ -84,12 +103,20 @@ lazy val sim = (project in file("sim"))
     version := SpinalVersion.sim
   )
 
+val defaultSettingsWithPlugin = defaultSettings ++ Seq(
+  scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
+    s"-Xplugin:${file.getAbsolutePath}"
+  }.value
+)
+
 lazy val core = (project in file("core"))
+  .dependsOn(idslplugin)
   .settings(
-    defaultSettings,
+    defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
     sourceGenerators in Compile += Def.task {
@@ -109,7 +136,7 @@ lazy val core = (project in file("core"))
 
 lazy val lib = (project in file("lib"))
   .settings(
-    defaultSettings,
+    defaultSettingsWithPlugin,
     name := "SpinalHDL-lib",
     libraryDependencies += "commons-io" % "commons-io" % "2.4",
     version := SpinalVersion.lib
@@ -119,7 +146,7 @@ lazy val lib = (project in file("lib"))
 
 lazy val debugger = (project in file("debugger"))
   .settings(
-    defaultSettings,
+    defaultSettingsWithPlugin,
     name := "SpinalHDL Debugger",
     version := SpinalVersion.debugger,
     resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
@@ -132,7 +159,7 @@ lazy val debugger = (project in file("debugger"))
 
 lazy val demo = (project in file("demo"))
   .settings(
-    defaultSettings,
+    defaultSettingsWithPlugin,
     name := "SpinalHDL-demo",
     version := SpinalVersion.demo,
     publishArtifact := false,
@@ -143,7 +170,7 @@ lazy val demo = (project in file("demo"))
 
 lazy val tester = (project in file("tester"))
   .settings(
-    defaultSettings,
+    defaultSettingsWithPlugin,
     name := "SpinalHDL-tester",
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),

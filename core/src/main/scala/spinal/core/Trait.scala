@@ -233,12 +233,6 @@ trait ContextUser extends GlobalDataUser with ScalaLocated{
 trait NameableByComponent extends Nameable with GlobalDataUser {
 
   override def getName(default: String): String = {
-    if(!globalData.nodeAreNamed) {
-      if (isUnnamed) {
-        val c = getComponent()
-        if(c != null)c.nameElements()
-      }
-    }
     (getMode, nameableRef) match{
       case (NAMEABLE_REF_PREFIXED, other : NameableByComponent) if other.component != null &&  this.component != other.component =>
         if(nameableRef.isNamed && other.component.isNamed)
@@ -760,6 +754,20 @@ trait OverridedEqualsHashCode{
   * @tparam T the type which is associated with the base operation
   */
 trait Num[T <: Data] {
+
+  private[core] var Qtag: QFormat = null
+
+  def Q: QFormat = Qtag
+
+  def tag(q: QFormat): T
+
+  private[core] def getfixSection(q: QFormat): Range.Inclusive = {
+    require(this.Q != null, "init QFormat first")
+    require(this.Q.fraction >= q.fraction, "fraction part exceed")
+    val lpos = Q.fraction - q.fraction
+    val hpos = lpos + q.width - 1
+    hpos downto lpos
+  }
 
   /** Addition */
   def + (right: T): T

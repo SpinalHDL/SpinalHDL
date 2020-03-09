@@ -76,10 +76,10 @@ getDockerCredentialPass () {
     | tr -d \" \
     | cut -c2- )"
 
-  [ "$(echo "$PASS_URL" | cut -c1-5)" != "https" ] && PASS_URL="https://github.com/docker/docker-credential-helpers/releases/download/v0.6.0/docker-credential-pass-v0.6.0-amd64.tar.gz"
+  [ "$(echo "$PASS_URL" | cut -c1-5)" != "https" ] && PASS_URL="https://github.com/docker/docker-credential-helpers/releases/download/v0.6.3/docker-credential-pass-v0.6.3-amd64.tar.gz"
 
   echo "PASS_URL: $PASS_URL"
-  curl -fsSL "$PASS_URL" | tar xv
+  curl -fsSL "$PASS_URL" | tar -xvz
   chmod + $(pwd)/docker-credential-pass
 }
 
@@ -161,7 +161,7 @@ beforeInstall () {
   unset VERILATOR_ROOT  # For bash
   cd verilator
   git pull        # Make sure we're up-to-date
-  git checkout verilator_4_008
+  git checkout v4.008
   autoconf        # Create ./configure script
   ./configure
   make -j$(nproc)
@@ -176,7 +176,7 @@ beforeInstall () {
 
 compileTest () {
   travis_start "compile" "SBT" "compile"
-  sbt -J-Xss2m compile
+  sbt -Dsbt.supershell=false -J-Xss2m compile
   travis_finish "compile"
 
   travis_start "cocotb" "SBT" "cocotb VPI"
@@ -188,7 +188,7 @@ compileTest () {
   travis_finish "cocotb"
 
   travis_start "test" "SBT" "test"
-  sbt -J-Xss2m test
+  sbt -Dsbt.supershell=false -J-Xss2m test
   travis_finish "test"
 }
 

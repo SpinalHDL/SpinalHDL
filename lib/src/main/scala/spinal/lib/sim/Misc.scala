@@ -1,4 +1,6 @@
 package spinal.lib.sim
+import java.nio.file.{Files, Paths}
+
 import spinal.core.sim._
 import spinal.sim.SimManagerContext
 
@@ -97,4 +99,27 @@ object Phase{
   def check:  Phase = context.check
   private def end:  Phase = context.check
   def isUsed = SimManagerContext.current.contains(Phase)
+}
+
+case class SparseMemory(){
+  val content = Array.fill[Array[Byte]](4096)(null)
+  def getElseAlocate(idx : Int) = {
+    if(content(idx) == null) content(idx) = new Array[Byte](1024*1024)
+    content(idx)
+  }
+
+  def write(address : Long, data : Byte) : Unit = {
+    getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF) = data
+  }
+
+  def read(address : Long) : Byte = {
+    getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
+  }
+
+  def loadBin(offset : Long, file : String): Unit ={
+    val bin = Files.readAllBytes(Paths.get(file))
+    for(byteId <- 0 until bin.size){
+      write(offset + byteId, bin(byteId))
+    }
+  }
 }

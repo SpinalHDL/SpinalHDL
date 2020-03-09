@@ -51,6 +51,12 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
  * target device
  */
 case class Device(vendor: String = "?", family: String = "?", name: String = "?")
+object Device{
+  val ALTERA = Device(vendor = "altera")
+  val XILINX = Device(vendor = "xilinx")
+  val LATTICE = Device(vendor = "lattice")
+  val ACTEL = Device(vendor = "actel")
+}
 
 
 trait MemBlackboxingPolicy {
@@ -130,13 +136,13 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
+                        fixToWithWrap                  : Boolean = true,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
                         private [core] var _withEnumString : Boolean = true
 ){
-
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
@@ -265,7 +271,7 @@ class SpinalReport[T <: Component]() {
           buffer.getLines.foreach{ line => bw.write(line + "\n") }
           buffer.close()
         }else{
-          SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
+          SpinalWarning(s"Merging blackbox sources : Path (${new File(path).getAbsolutePath}) not found ")
         }
       }
 
@@ -291,6 +297,7 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+
     if(config.memBlackBoxers.isEmpty)
       config.addStandardMemBlackboxing(blackboxOnlyIfRequested)
     val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)

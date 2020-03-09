@@ -2,6 +2,7 @@ package spinal.lib.generator
 
 import spinal.core._
 import spinal.core.internals.classNameOf
+import spinal.idslplugin.PostInitCallback
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -73,10 +74,16 @@ object Handle{
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
+  implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
+  implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 
   implicit def miaouImplicitHandle[T](value : Handle[T]) = new {
-    def yolo[T2](body : (T) => T2) = value.produce(body(value))
+    def derivate[T2](body : (T) => T2) = value.produce(body(value))
+  }
+
+  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) = new {
+    def loadi(that : Int) = value.load(BigInt(that))
   }
 }
 
@@ -133,9 +140,18 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
 
   def apply : T = get.asInstanceOf[T]
   def get: T = core.get.asInstanceOf[T]
-  def load[T2 <: T](value : T2): T2 = core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
-  def loadAny(value : Any): Unit = core.load(value.asInstanceOf[T])
-
+  def load[T2 <: T](value : T2): T2 = {
+    applyName(value)
+    core.load(value.asInstanceOf[Any]).asInstanceOf[T2]
+  }
+  def loadAny(value : Any): Unit = {
+    applyName(value)
+    core.load(value.asInstanceOf[T])
+  }
+  def applyName(value : Any) = value match {
+    case value : Nameable => value.setCompositeName(this, Nameable.DATAMODEL_WEAK)
+    case _ =>
+  }
   def isLoaded = core.isLoaded
 
   override def isDone: Boolean = isLoaded
@@ -159,7 +175,7 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
-class Generator() extends Nameable with Dependable with DelayedInit with TagContainer with OverridedEqualsHashCode{
+class Generator() extends Area with Dependable with PostInitCallback with TagContainer with OverridedEqualsHashCode{
   @dontName var parent : Generator = null
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
     parent = Generator.stack.head
@@ -236,12 +252,12 @@ class Generator() extends Nameable with Dependable with DelayedInit with TagCont
     apply {
       for (task <- tasks) {
         task.build()
-        task.handle.get match {
-          case n: Nameable => {
-            n.setCompositeName(this, true)
-          }
-          case _ =>
-        }
+//        task.handle.get match {
+//          case n: Nameable => {
+//            n.setCompositeName(this, true)
+//          }
+//          case _ =>
+//        }
       }
     }
     if(generatorClockDomain.get != null) generatorClockDomain.pop()
@@ -251,13 +267,10 @@ class Generator() extends Nameable with Dependable with DelayedInit with TagCont
   override def isDone: Boolean = elaborated
 
 
-  override def delayedInit(body: => Unit) = {
-    body
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      Generator.stack.pop()
-    }
+  override def postInitCallback(): this.type = {
+    Generator.stack.pop()
+    this
   }
-
 
   def toComponent(): GeneratorComponent[this.type] = new GeneratorComponent(this)
 
@@ -299,7 +312,7 @@ class GeneratorCompiler {
           }
         }
         generatorsAll += generator
-        generator.reflectNames()
+//        generator.reflectNames()
         generator.c = this
         val splitName = classNameOf(generator).splitAt(1)
         if(generator.isUnnamed) generator.setWeakName(splitName._1.toLowerCase + splitName._2)

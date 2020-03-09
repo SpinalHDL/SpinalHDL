@@ -92,7 +92,7 @@ case class SdramModel(io : SdramInterface,
           if((addr & 0x400) != 0)
             report("SDRAM : Write autoprecharge not supported")
 
-          if(io.DQ.writeEnable.toBoolean == false)
+          if(io.DQ.writeEnable.toLong == 0)
             report("SDRAM : Write Wrong DQ direction")
 
           val dqWrite = io.DQ.write.toLong
@@ -106,7 +106,7 @@ case class SdramModel(io : SdramInterface,
           if((addr & 0x400) != 0)
             report("SDRAM : READ autoprecharge not supported")
 
-          if(io.DQ.writeEnable.toBoolean != false)
+          if(io.DQ.writeEnable.toLong != 0)
             report("SDRAM : READ Wrong DQ direction")
 
           //if(io.DQM !=  config->byteCount-1)

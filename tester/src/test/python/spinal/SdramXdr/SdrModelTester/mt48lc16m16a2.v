@@ -152,12 +152,12 @@ end
     parameter tHZ  =   5.4;
     parameter tOH  =   3.0;
     parameter tMRD =   2.0;     // 2 Clk Cycles
-    parameter tRAS =  37.0;
+    parameter tRAS =  42.0;
     parameter tRC  =  60.0;
     parameter tRCD =  15.0;
     parameter tRFC =  66.0;
     parameter tRP  =  15.0;
-    parameter tRRD =  14.0;
+    parameter tRRD =  12.0;     // WARNING MODIFIED FOR 166 MHZ 
     parameter tWRa =   7.0;     // A2 Version - Auto precharge mode (1 Clk + 7 ns)
     parameter tWRm =  12.0;     // WARNING MODIFIED FOR 166 MHZ    A2 Version - Manual precharge mode (14 ns)
 
