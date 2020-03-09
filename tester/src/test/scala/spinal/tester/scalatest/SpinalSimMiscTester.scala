@@ -69,13 +69,12 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
-          ()
         }
       })
     }
   }
 
-  def doStdTestUnamed(name : String): Unit ={
+  def doStdTestUnnamed(name : String): Unit ={
     test(name){
       compiled.doSim(dut => {
         dut.clockDomain.forkStimulus(10)
@@ -88,7 +87,6 @@ class SpinalSimMiscTester extends FunSuite {
             counterModel = (counterModel + 1) & 0xFF
           }
           assert(dut.io.value.toInt == counterModel)
-          ()
         }
       })
     }
@@ -97,9 +95,9 @@ class SpinalSimMiscTester extends FunSuite {
   doStdTest("testStd1")
   doStdTest("testStd2")
   doStdTest("testStd3")
-  doStdTestUnamed("testStd4")
-  doStdTestUnamed("testStd5")
-  doStdTestUnamed("testStd6")
+  doStdTestUnnamed("testStd4")
+  doStdTestUnnamed("testStd5")
+  doStdTestUnnamed("testStd6")
 
 
   test("testSimSuccess"){
@@ -154,7 +152,6 @@ class SpinalSimMiscTester extends FunSuite {
           counterModel = (counterModel + 1) & 0xFF
         }
         assert(dut.io.value.toInt == counterModel)
-        ()
       }
     })
   }
@@ -305,4 +302,49 @@ class SpinalSimMiscTester extends FunSuite {
       }
     }
   }
+
+
+  test("testCatchAssert"){
+    var i = 35
+    import spinal.core.sim._
+	
+	try{
+	  SimConfig.doSim(new Component{
+  	    val a = in UInt(8 bits)
+	    spinal.core.assert(a =/= 42, FAILURE)
+	  }){dut =>
+  	    dut.clockDomain.forkStimulus(10)
+	    while(i < 50){
+		  dut.a #= i
+		  dut.clockDomain.waitSampling()
+		  i += 1
+	    }
+		throw new Exception()
+	  }
+	} catch {
+		case e : Exception => 
+	}
+    assert(i == 43)
+  }
+
+
+
+  test("intLongBigInt"){
+    SimConfig.withWave.doSim(new Component{
+      val x = out Bits(31 bits)
+      val y = out Bits(63 bits)
+      val z = out Bits(128 bits)
+      x := 0x12345678
+      y := 0x1234567812345678l
+      z := BigInt("12345678123456781234567812345678", 16)
+    }){dut =>
+//      dut.clockDomain.forkStimulus(10)
+//      sleep(10)
+      assert(dut.x.toInt == 0x12345678)
+      assert(dut.y.toLong == 0x1234567812345678l)
+      assert(dut.z.toBigInt == BigInt("12345678123456781234567812345678", 16))
+    }
+  }
+
+
 }

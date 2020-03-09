@@ -81,28 +81,24 @@ class SpinalSimVerilatorIoTest extends FunSuite {
         that #= value
         sleep(1)
         assert(that.toBoolean == value, that.getName() + " " + value)
-        ()
       }
 
       def checkInt(value : Int, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toInt == value, that.getName() + " " + value)
-        ()
       }
 
       def checkLong(value : Long, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toLong == value, that.getName() + " " + value)
-        ()
       }
 
       def checkBigInt(value : BigInt, that : BitVector): Unit ={
         that #= value
         sleep(1)
         assert(that.toBigInt == value, that.getName() + " " + value)
-        ()
       }
 
       fork{
@@ -192,13 +188,13 @@ class SpinalSimVerilatorIoTest extends FunSuite {
 
         import SpinalSimVerilatorIoTest._
         def newEnumTest(test : newEnumTest) = {
-          repeatSim(40){
+          for(i <- 0 until 40){
             val e = State.elements(Random.nextInt(State.elements.length))
             test.stateInput #= e
             sleep(1)
             assert(test.stateOutput.toEnum == e)
             assert(test.stateDecoded.toInt == (1 << e.position))
-            ()
+    
           }
         }
 

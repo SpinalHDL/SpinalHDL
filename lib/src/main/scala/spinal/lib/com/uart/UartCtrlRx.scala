@@ -12,10 +12,16 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   import g._
   val io = new Bundle {
     val configFrame  = in(UartCtrlFrameConfig(g))
-    val samplingTick = in Bool
-    val read         = master Flow (Bits(dataWidthMax bit))
-    val rxd          = in Bool
+    val samplingTick = in Bool()
+    val read         = master Stream (Bits(dataWidthMax bit))
+    val rxd          = in Bool()
+    val rts   = out Bool()
+    val error = out Bool()
+    val break = out Bool()
   }
+
+  io.error := False
+  io.rts := RegNext(!io.read.ready) init(False)
 
   // Implement the rxd sampling with a majority vote over samplingSize bits
   // Provide a new sampler.value each time sampler.tick is high
@@ -53,6 +59,21 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
     }
   }
 
+  val break = new Area{
+    val stateCount = g.rxSamplePerBit*(1+8+1+2+1)
+    val counter = Reg(UInt(log2Up(stateCount+1) bits)) init(0)
+    val valid = counter === stateCount
+    when(sampler.value){
+      counter := 0
+    } otherwise {
+      when(io.samplingTick && !valid) {
+        counter := counter + 1
+      }
+    }
+  }
+
+  io.break := break.valid
+
   val stateMachine = new Area {
     import UartCtrlRxState._
 
@@ -67,11 +88,9 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
       parity := parity ^ sampler.value
     }
 
-
-
     switch(state) {
       is(IDLE) {
-        when(sampler.tick && !sampler.value) {
+        when(sampler.tick && !sampler.value && !break.valid) {
           state := START
           bitTimer.reset()
         }
@@ -108,12 +127,14 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
             validReg := True
           } otherwise {
             state := IDLE
+            io.error := True
           }
         }
       }
       is(STOP) {
         when(bitTimer.tick) {
           when(!sampler.value) {
+            io.error := True
             state := IDLE
           }elsewhen(bitCounter.value === toBitCount(io.configFrame.stop)) {
             state := IDLE

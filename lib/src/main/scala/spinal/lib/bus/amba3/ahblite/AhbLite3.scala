@@ -140,7 +140,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
     val beatCounter        = Reg(UInt(4 bits)) init(0)
     val isLast             = Vec(U"0000", U"0011", U"0111", U"1111")(U(HBURST >> 1)) === beatCounter || (HREADY && ERROR)
 
-    when(HSEL && HREADY){
+    when(HSEL && HREADY && HTRANS(1)){
       beatCounter := beatCounter + 1
       when(isLast){
         beatCounter := 0

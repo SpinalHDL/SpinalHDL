@@ -105,6 +105,7 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
       ssWidth = p.ssWidth,
       useSclk = true
     )
+    KeepAttribute(spi) //Yosys workaround
 
     p.ioRate match {
       case 1 => {
@@ -270,6 +271,7 @@ object SpiXdrMasterCtrl {
                                      xipInstructionDataInit : Int = 0x0B,
                                      xipDummyCountInit : Int = 0,
                                      xipDummyDataInit : Int = 0xFF,
+                                     xipSsId : Int = 0,
                                      xip : XipBusParameters = null)
 
   case class XipBusParameters(addressWidth : Int,
@@ -486,7 +488,7 @@ object SpiXdrMasterCtrl {
           when(xipBus.cmd.valid){
             xipToCtrlCmd.valid := True
             xipToCtrlCmd.kind := True
-            xipToCtrlCmd.data := 1 << xipToCtrlCmd.data.high
+            xipToCtrlCmd.data := (1 << xipToCtrlCmd.data.high) | xipSsId
             when(xipToCtrlCmd.ready) {
               when(instructionEnable) {
                 goto(INSTRUCTION)
@@ -567,7 +569,7 @@ object SpiXdrMasterCtrl {
         STOP.whenIsActive{
           xipToCtrlMod := payloadMod
           xipToCtrlCmd.kind := True
-          xipToCtrlCmd.data := 0
+          xipToCtrlCmd.data := xipSsId
           when(lastFired){
             xipToCtrlCmd.valid := True
             when(xipToCtrlCmd.ready) {

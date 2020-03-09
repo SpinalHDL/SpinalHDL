@@ -29,7 +29,7 @@ object SimDemoMultipleRuns {
         }
       }
 
-      repeatSim(times = 100) {
+      for(i <- 0 until 100) {
         val a, b, c = Random.nextInt(256)
         dut.io.a #= a
         dut.io.b #= b
@@ -50,7 +50,7 @@ object SimDemoMultipleRuns {
         }
       }
 
-      repeatSim(times = 50) {
+      for(i <- 0 until 50) {
         val a, b, c = Random.nextInt(256)
         dut.io.a #= a
         dut.io.b #= b

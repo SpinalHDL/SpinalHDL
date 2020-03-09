@@ -34,7 +34,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       ctrl.io.config.frame.stop := UartStopType.ONE
       ctrl.io.uart <> io.uart
       
-      val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()
+      val (flowFragment, _) = ctrl.io.read.toFlow.toFlowFragmentBitsAndReset()
     }
     val mandelbrot = new Area {
       val core = new MandelbrotCore(p)

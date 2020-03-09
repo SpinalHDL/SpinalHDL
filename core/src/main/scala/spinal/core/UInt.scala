@@ -289,6 +289,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     U.applyTuples(this, rangesValues)
   }
 
+  def :=(value : String) : Unit = this := U(value)
+
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi downto lo).assignFromBits(bits)
 

@@ -46,7 +46,7 @@ object DataCacheCpuCmdKind extends SpinalEnum{
   val MEMORY,FLUSH,EVICT = newElement()
 }
 
-case class DataCacheCpuCmd(implicit p : DataCacheConfig) extends Bundle{
+case class DataCacheCpuCmd()(implicit p : DataCacheConfig) extends Bundle{
   val kind = DataCacheCpuCmdKind()
   val wr = Bool
   val address = UInt(p.addressWidth bit)
@@ -56,11 +56,11 @@ case class DataCacheCpuCmd(implicit p : DataCacheConfig) extends Bundle{
   val all = Bool                      //Address should be zero when "all" is used
 
 }
-case class DataCacheCpuRsp(implicit p : DataCacheConfig) extends Bundle{
+case class DataCacheCpuRsp()(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
 }
 
-case class DataCacheCpuBus(implicit p : DataCacheConfig) extends Bundle with IMasterSlave{
+case class DataCacheCpuBus()(implicit p : DataCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (DataCacheCpuCmd())
   val rsp = Flow (DataCacheCpuRsp())
 
@@ -71,18 +71,18 @@ case class DataCacheCpuBus(implicit p : DataCacheConfig) extends Bundle with IMa
 }
 
 
-case class DataCacheMemCmd(implicit p : DataCacheConfig) extends Bundle{
+case class DataCacheMemCmd()(implicit p : DataCacheConfig) extends Bundle{
   val wr = Bool
   val address = UInt(p.addressWidth bit)
   val data = Bits(p.memDataWidth bits)
   val mask = Bits(p.memDataWidth/8 bits)
   val length = UInt(log2Up(p.burstLength+1) bit)
 }
-case class DataCacheMemRsp(implicit p : DataCacheConfig) extends Bundle{
+case class DataCacheMemRsp()(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.memDataWidth bit)
 }
 
-case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMasterSlave{
+case class DataCacheMemBus()(implicit p : DataCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (DataCacheMemCmd())
   val rsp = Flow (DataCacheMemRsp())
 

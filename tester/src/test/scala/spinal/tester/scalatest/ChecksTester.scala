@@ -2,6 +2,9 @@ package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
+import spinal.core.internals.GraphUtils
+import spinal.lib.com.i2c._
+import spinal.lib.com.uart.{UartCtrl, UartCtrlGenerics}
 import spinal.lib.{Delay, StreamFifo}
 
 import scala.sys.process._
@@ -49,35 +52,22 @@ class ChecksTester extends FunSuite  {
     assert(widthOf(t.a) == 32)
   }
 
-  test("reflectionNamming") {
-    val t = SpinalVhdl(new Component{
-      val a = new Area{
-        val aa = Bool
-        val bb = new Area{
-          val aaa = Bool
-          val bbb = Vec(Bool,4)
-          val ccc = Vec(new Bundle{
-            val aaaa = Bool
-            val bbbb = Vec(Bool,8)
-            val cccc = Vec( Vec( Vec(Bool,8),8),8)
-            val dddd = List.fill(4)(Bool)
-            val eeee = List.fill(4)(List.fill(4)(Bool))
-          },4)
-        }
-      }
-      val b = Bool
-    }).toplevel
 
-    assert(t.b.getName() == "b")
-    assert(t.a.aa.getName() == "a_aa")
-    assert(t.a.bb.aaa.getName() == "a_bb_aaa")
-    assert(t.a.bb.bbb(2).getName() == "a_bb_bbb_2")
-    assert(t.a.bb.ccc(3).aaaa.getName() == "a_bb_ccc_3_aaaa")
-    assert(t.a.bb.ccc(3).bbbb(6).getName() == "a_bb_ccc_3_bbbb_6")
-    assert(t.a.bb.ccc(3).cccc(6)(5)(4).getName() == "a_bb_ccc_3_cccc_6_5_4")
-    assert(t.a.bb.ccc(3).dddd(3).getName() == "a_bb_ccc_3_dddd_3")
-    assert(t.a.bb.ccc(3).eeee(3)(2).getName() == "a_bb_ccc_3_eeee_3_2")
+  test("componentNamedByIo") {
+    val t = SpinalVerilog(new Component{
+      val miaou = new Component{
+        val io = new Bundle {
+          val x = out Bool()
+        }
+        assert(io.x.getName() == "io_x")
+      }.io
+    }.setDefinitionName("TopLevel")).toplevel
+
+    assert(t.miaou.component.getName() == "miaou")
+    assert(t.miaou.getName() == "io")
   }
+
+
 
   test("checkWidthAssignment") {
     generationShouldFaild(new Component{
@@ -388,4 +378,81 @@ class ChecksTester extends FunSuite  {
   }
 
 
+  test("catchNegativeRangedAccess1") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7)
+    })
+  }
+
+  test("catchNegativeRangedAccess2") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(-1 downto -2)
+    })
+  }
+  test("catchNegativeRangedAccess3") {
+    generationShouldFaild(new Component {
+      Bits(32 bits)(4 downto 7) := 0
+    })
+  }
+
+  test("catchNegativeRangedAccess4") {
+    generationShouldFaild(new Component {
+      val input = in Bits(8 bits)
+      val currState = Vec(Bits(64 bits), 25)
+      currState.assignFromBits(input, 0, 8)
+    })
+  }
+
+}
+
+
+
+class NameingTester extends FunSuite {
+  import CheckTester._
+
+
+  test("reflectionNamming") {
+    val t = SpinalVhdl(new Component{
+      val a = new Area{
+        val aa = Bool
+        val bb = new Area{
+          val aaa = Bool
+          val bbb = Vec(Bool,4)
+          val ccc = Vec(new Bundle{
+            val aaaa = Bool
+            val bbbb = Vec(Bool,8)
+            val cccc = Vec( Vec( Vec(Bool,8),8),8)
+            val dddd = List.fill(4)(Bool)
+            val eeee = List.fill(4)(List.fill(4)(Bool))
+          },4)
+        }
+      }
+      val b = Bool
+    }).toplevel
+
+    assert(t.b.getName() == "b")
+    assert(t.a.aa.getName() == "a_aa")
+    assert(t.a.bb.aaa.getName() == "a_bb_aaa")
+    assert(t.a.bb.bbb(2).getName() == "a_bb_bbb_2")
+    assert(t.a.bb.ccc(3).aaaa.getName() == "a_bb_ccc_3_aaaa")
+    assert(t.a.bb.ccc(3).bbbb(6).getName() == "a_bb_ccc_3_bbbb_6")
+    assert(t.a.bb.ccc(3).cccc(6)(5)(4).getName() == "a_bb_ccc_3_cccc_6_5_4")
+    assert(t.a.bb.ccc(3).dddd(3).getName() == "a_bb_ccc_3_dddd_3")
+    assert(t.a.bb.ccc(3).eeee(3)(2).getName() == "a_bb_ccc_3_eeee_3_2")
+  }
+
+  test("Apb3I2cCtrl"){
+    def configI2C = I2cSlaveMemoryMappedGenerics(
+      ctrlGenerics       = I2cSlaveGenerics(),
+      addressFilterCount = 0,
+      masterGenerics     = I2cMasterMemoryMappedGenerics(timerWidth = 32)
+    )
+    val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
+    assert(GraphUtils.countNames(dut) == 154)
+  }
+
+  test("Uart"){
+    val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
+    assert(GraphUtils.countNames(dut) == 81)
+  }
 }

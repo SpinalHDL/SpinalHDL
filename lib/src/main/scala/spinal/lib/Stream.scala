@@ -2,10 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
-
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
-
 
   def apply[T <: Data](hardType: HardType[T]) = {
     val ret = new Stream(hardType)
@@ -15,6 +13,7 @@ class StreamFactory extends MSFactory {
 
   def apply[T <: Data](hardType: => T) : Stream[T] = apply(HardType(hardType))
 }
+
 object Stream extends StreamFactory
 
 class EventFactory extends MSFactory {
@@ -24,7 +23,6 @@ class EventFactory extends MSFactory {
     ret
   }
 }
-
 
 class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid   = Bool
@@ -62,7 +60,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret.payload := this.payload
     ret
   }
-
 
   /** Connect that to this
   */
@@ -178,8 +175,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.io.pop
   }
 
-
-  def repeat(times : Int): (Stream[T], UInt) ={
+  /**
+   * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
+   * @return A tuple with the resulting stream that duplicates the items and the counter, indicating how many
+   *				 times the current element has been repeated.
+   */
+  def repeat(times: Int): (Stream[T], UInt) = {
     val ret = Stream(payloadType)
     val counter = Counter(times, ret.fire)
     ret.valid := this.valid
@@ -187,20 +188,49 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.ready := ret.ready && counter.willOverflowIfInc
     (ret, counter)
   }
+  
+  /**
+   * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
+   * It introduces one cycle of latency.
+   */
+  def slowdown(factor: Int): Stream[Vec[T]] = {
+    val next = Stream(Vec(this.payload, factor))
+    val counter = Counter(factor)
+    for (i <- 0 to factor) {
+    	next.payload(i) := RegNextWhen(this.payload, counter === i)
+    }
+    when (counter.willOverflow) {
+      /* All elements are valid, so wait for ready signal to advance */
+      this.ready := next.ready
+      next.valid := True
+      when (next.fire) {
+        counter.increment()
+      }
+    } otherwise {
+      /* Take the elements and save them into a register */
+      this.ready := True
+      next.valid := False
+      when (this.valid) {
+        counter.increment()
+      }
+    }
+    next
+  }
 
-/** Return True when a transaction is present on the bus but the ready is low
+/** Return True when a transaction is present on the bus but the ready signal is low
     */
   def isStall : Bool = valid && !ready
 
-  /** Return True when a transaction is appear (first cycle)
+  /** Return True when a transaction has appeared (first cycle)
     */
   def isNew : Bool = valid && !(RegNext(isStall) init(False))
 
-/** Return True when a transaction occure on the bus (Valid && ready)
+  /** Return True when a transaction occurs on the bus (valid && ready)
   */
   override def fire: Bool = valid & ready
 
   def isFree: Bool = !valid || ready
+  
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -222,11 +252,27 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-
-
   def translateInto[T2 <: Data](into: Stream[T2])(dataAssignment: (T2, T) => Unit): Stream[T2] = {
     into.translateFrom(this)(dataAssignment)
     into
+  }
+
+/** Replace this stream's payload with another one
+  */
+  def translateWith[T2 <: Data](that: T2): Stream[T2] = {
+    val next = new Stream(that).setCompositeName(this, "translated", true)
+    next.arbitrationFrom(this)
+    next.payload := that
+    next
+  }
+
+/** Change the payload's content type. The new type must have the same bit length as the current one.
+  */
+  def transmuteWith[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "transmuted", true)
+    next.arbitrationFrom(this)
+    next.payload.assignFromBits(this.payload.asBits)
+    next
   }
 
   def combStage() : Stream[T] = {
@@ -234,7 +280,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret << this
     ret
   }
-
 
   /** Connect this to a valid/payload register stage and return its output stream
   */
@@ -325,14 +370,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
-  def translateWith[T2 <: Data](that: T2): Stream[T2] = {
-    val next = new Stream(that).setCompositeName(this, "translated", true)
-    next.valid := this.valid
-    this.ready := next.ready
-    next.payload := that
-    next
-  }
-
 /** Block this when cond is False. Return the resulting stream
   */
   def continueWhen(cond: Bool): Stream[T] = {
@@ -356,6 +393,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+  def clearValidWhen(cond : Bool): Stream[T] = {
+    val next = Stream(payloadType).setCompositeName(this, "clearValidWhen", true)
+    next.valid := this.valid && !cond
+    next.payload := this.payload
+    this.ready := next.ready
+    next
+  }
+
   /** Stop transactions on this when cond is True. Return the resulting stream
     */
   def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
@@ -370,10 +415,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     converter.io.input << this
     return converter.io.output
   }
+  
+  /** Convert this stream to a fragmented stream by adding a last bit */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
-    ret.valid := this.valid
-    this.ready := ret.ready
+    ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
     return ret
@@ -382,14 +428,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
 
-
 object StreamArbiter {
+  /** An Arbitration will choose which input stream to take at any moment. */
   object Arbitration{
     def lowerFirst(core: StreamArbiter[_ <: Data]) = new Area {
       import core._
       maskProposal := OHMasking.first(Vec(io.inputs.map(_.valid)))
     }
 
+    /** This arbiter contains an implicit transactionLock */
     def sequentialOrder(core: StreamArbiter[_]) = new Area {
       import core._
       val counter = Counter(core.portCount, io.output.fire)
@@ -409,17 +456,29 @@ object StreamArbiter {
     }
   }
 
-  object Lock{
+  /** When a lock activates, the currently chosen input won't change until it is released. */
+  object Lock {
     def none(core: StreamArbiter[_]) = new Area {
 
     }
 
+    /**
+     * Many handshaking protocols require that once valid is set, it must stay asserted and the payload
+     *  must not changed until the transaction fires, e.g. until ready is set as well. Since some arbitrations
+     *  may change their chosen input at any moment in time (which is not wrong), this may violate such
+     *  handshake protocols. Use this lock to be compliant in those cases.
+     */
     def transactionLock(core: StreamArbiter[_]) = new Area {
       import core._
       locked setWhen(io.output.valid)
       locked.clearWhen(io.output.fire)
     }
 
+    /**
+     * This lock ensures that once a fragmented transaction is started, it will be finished without
+     * interruptions from other streams. Without this, fragments of different streams will get intermingled.
+     * This is only relevant for fragmented streams.
+     */
     def fragmentLock(core: StreamArbiter[_]) = new Area {
       val realCore = core.asInstanceOf[StreamArbiter[Fragment[_]]]
       import realCore._
@@ -429,7 +488,11 @@ object StreamArbiter {
   }
 }
 
-class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area,val lockFactory: (StreamArbiter[T]) => Area) extends Component {
+/**
+ *  A StreamArbiter is like a StreamMux, but with built-in complex selection logic that can arbitrate input
+ *  streams based on a schedule or handle fragmented streams. Use a StreamArbiterFactory to create instances of this class.
+ */
+class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val arbitrationFactory: (StreamArbiter[T]) => Area, val lockFactory: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
@@ -458,7 +521,6 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
   io.chosenOH := maskRouted.asBits
   io.chosen := OHToUInt(io.chosenOH)
 }
-
 
 class StreamArbiterFactory {
   var arbitrationLogic: (StreamArbiter[_ <: Data]) => Area = StreamArbiter.Arbitration.lowerFirst
@@ -501,57 +563,132 @@ class StreamArbiterFactory {
   }
 }
 
-
-
-
-object StreamFork {
-  def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
-    val fork = new StreamFork(input.payloadType, portCount)
-    fork.io.input << input
-    return fork.io.outputs
+/**
+ * This is equivalent to a StreamDemux, but with a counter attached to the port selector.
+ */
+// TODOTEST
+object StreamDispatcherSequential {
+  def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
+    val select = Counter(outputCount)
+    when (input.fire) {
+    select.increment()
+    }
+    StreamDemux(input, select, outputCount)
   }
 }
 
-object StreamFork2 {
-  def apply[T <: Data](input: Stream[T]): (Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 2)
-    fork.io.input << input
-    return (fork.io.outputs(0), fork.io.outputs(1))
+/**
+ * @deprecated Do not use
+ */
+// TODOTEST
+object StreamDispatcherSequencial {
+  def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
+    StreamDispatcherSequential(input, outputCount)
   }
 }
 
-
-//TODOTEST
-class StreamFork[T <: Data](dataType: HardType[T], portCount: Int) extends Component {
+/**
+ * @deprecated Do not use. Use the companion object or a normal regular StreamMux instead.
+ */
+class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val outputs = Vec(master Stream (dataType),portCount)
+    val input = slave Stream (gen)
+    val outputs = Vec(master Stream (gen), n)
   }
-  val linkEnable = Vec(RegInit(True),portCount)
+  val counter = Counter(n, io.input.fire)
 
-  io.input.ready := True
-  for (i <- 0 until portCount) {
-    when(!io.outputs(i).ready && linkEnable(i)) {
-      io.input.ready := False
+  if (n == 1) {
+    io.input >> io.outputs(0)
+  } else {
+    io.input.ready := False
+    for (i <- 0 to n - 1) {
+      io.outputs(i).payload := io.input.payload
+      when(counter =/= i) {
+        io.outputs(i).valid := False
+      } otherwise {
+        io.outputs(i).valid := io.input.valid
+        io.input.ready := io.outputs(i).ready
+      }
     }
-  }
-
-  for (i <- 0 until portCount) {
-    io.outputs(i).valid := io.input.valid && linkEnable(i)
-    io.outputs(i).payload := io.input.payload
-    when(io.outputs(i).fire) {
-      linkEnable(i) := False
-    }
-  }
-
-  when(io.input.ready) {
-    linkEnable.foreach(_ := True)
   }
 }
 
+/**
+ * This is equivalent to a StreamMux, but with a counter attached to the port selector.
+ */
+// TODOTEST
+object StreamCombinerSequential {
+  def apply[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
+    val select = Counter(inputs.length)
+    val stream = StreamMux(select, inputs)
+    when (stream.fire) {
+      select.increment()
+    }
+    stream
+  }
+}
+
+/** Combine a stream and a flow to a new stream. If both input sources fire, the flow will be preferred. */
+object StreamFlowArbiter {
+  def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
+    val output = cloneOf(inputFlow)
+
+    output.valid := inputFlow.valid || inputStream.valid
+    inputStream.ready := !inputFlow.valid
+    output.payload := Mux(inputFlow.valid, inputFlow.payload, inputStream.payload)
+
+    output
+  }
+}
+
+//Give priority to the inputFlow
+class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
+  val io = new Bundle {
+    val inputFlow = slave Flow (dataType)
+    val inputStream = slave Stream (dataType)
+    val output = master Flow (dataType)
+  }
+  io.output.valid := io.inputFlow.valid || io.inputStream.valid
+  io.inputStream.ready := !io.inputFlow.valid
+  io.output.payload := Mux(io.inputFlow.valid, io.inputFlow.payload, io.inputStream.payload)
+}
+
+/**
+ *  Multiplex multiple streams into a single one, always only processing one at a time.
+ */
+object StreamMux {
+  def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
+    val vec = Vec(inputs)
+    StreamMux(select, vec)
+  }
+
+  def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
+    val c = new StreamMux(inputs(0).payload, inputs.length)
+    (c.io.inputs, inputs).zipped.foreach(_ << _)
+    c.io.select := select
+    c.io.output
+  }
+}
+
+class StreamMux[T <: Data](dataType: T, portCount: Int) extends Component {
+  val io = new Bundle {
+    val select = in UInt (log2Up(portCount) bit)
+    val inputs = Vec(slave Stream (dataType), portCount)
+    val output = master Stream (dataType)
+  }
+  for ((input, index) <- io.inputs.zipWithIndex) {
+    input.ready := io.select === index && io.output.ready
+  }
+  io.output.valid := io.inputs(io.select).valid
+  io.output.payload := io.inputs(io.select).payload
+}
+
 //TODOTEST
+/** 
+ *  Demultiplex one stream into multiple output streams, always selecting only one at a time.
+ */
 object StreamDemux{
-  def apply[T <: Data](input: Stream[T],select : UInt, portCount: Int) : Vec[Stream[T]] = {
+  def apply[T <: Data](input: Stream[T], select : UInt, portCount: Int) : Vec[Stream[T]] = {
     val c = new StreamDemux(input.payload,portCount)
     c.io.input << input
     c.io.select := select
@@ -577,6 +714,118 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   }
 }
 
+object StreamFork {
+  def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
+    val fork = new StreamFork(input.payloadType, portCount, synchronous)
+    fork.io.input << input
+    return fork.io.outputs
+  }
+}
+
+object StreamFork2 {
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 2, synchronous)
+    fork.io.input << input
+    return (fork.io.outputs(0), fork.io.outputs(1))
+  }
+}
+
+/**
+ * A StreamFork will clone each incoming data to all its output streams. If synchronous is true,
+ *  all output streams will always fire together, which means that the stream will halt until all 
+ *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
+ *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
+ *  all output streams have processed each item regardlessly.
+ */
+//TODOTEST
+class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
+  val io = new Bundle {
+    val input = slave Stream (dataType)
+    val outputs = Vec(master Stream (dataType), portCount)
+  }
+  if (synchronous) {
+    io.input.ready := io.outputs.map(_.ready).reduce(_ && _)
+    io.outputs.foreach(_.valid := io.input.valid && io.input.ready)
+    io.outputs.foreach(_.payload := io.input.payload)
+  } else {
+    /* Store if an output stream already has taken its value or not */
+    val linkEnable = Vec(RegInit(True),portCount)
+    
+    /* Ready is true when every output stream takes or has taken its value */
+    io.input.ready := True
+    for (i <- 0 until portCount) {
+      when(!io.outputs(i).ready && linkEnable(i)) {
+        io.input.ready := False
+      }
+    }
+
+    /* Outputs are valid if the input is valid and they haven't taken their value yet.
+     * When an output fires, mark its value as taken. */
+    for (i <- 0 until portCount) {
+      io.outputs(i).valid := io.input.valid && linkEnable(i)
+      io.outputs(i).payload := io.input.payload
+      when(io.outputs(i).fire) {
+        linkEnable(i) := False
+      }
+    }
+
+    /* Reset the storage for each new value */
+    when(io.input.ready) {
+      linkEnable.foreach(_ := True)
+    }
+  }
+}
+
+case class EventEmitter(on : Event){
+  val reg = RegInit(False)
+  when(on.ready){
+    reg := False
+  }
+  on.valid := reg
+
+  def emit(): Unit ={
+    reg := True
+  }
+}
+
+/** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
+object StreamJoin {
+  /**
+   * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
+   *  @param hardTypeT The type of the resulting stream. Its bit length must be equal to the sum of the bit length of all input streams.
+   */
+  def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
+    val combined = Stream(hardTypeT)
+    combined.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := combined.ready)
+    combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
+    combined
+  }
+  
+  def arg(sources : Stream[_]*) : Event = apply(sources.seq)
+  
+  /** Join streams, but ignore the payload of the input streams. */
+  def apply(sources: Seq[Stream[_]]): Event = {
+    val event = Event
+    val eventFire = event.fire
+    event.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := eventFire)
+    event
+  }
+  
+  /**
+   * Join streams, but ignore the payload and replace it with a custom one.
+   * @param payload The payload of the resulting stream
+   */
+  def fixedPayload[T <: Data](sources: Seq[Stream[_]], payload: T): Stream[T] = StreamJoin(sources).translateWith(payload)
+}
+
+trait StreamFifoInterface[T <: Data]{
+  def push          : Stream[T]
+  def pop           : Stream[T]
+  def pushOccupancy : UInt
+  def popOccupancy  : UInt
+}
 
 object StreamFifo{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifo(dataType,depth)
@@ -728,14 +977,6 @@ object StreamFifoCC{
   def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
-
-trait StreamFifoInterface[T <: Data]{
-  def push          : Stream[T]
-  def pop           : Stream[T]
-  def pushOccupancy : UInt
-  def popOccupancy  : UInt
-}
-
 //class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
 //
 //  assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
@@ -864,9 +1105,6 @@ object StreamCCByToggle {
   }
 }
 
-
-
-
 class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType)
@@ -906,111 +1144,7 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
   }
 }
 
-object StreamDispatcherSequencial{
-  def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
-    val dispatcher = new StreamDispatcherSequencial(input.payloadType, outputCount)
-    dispatcher.io.input << input
-    return dispatcher.io.outputs
-  }
-}
-class StreamDispatcherSequencial[T <: Data](gen: HardType[T], n: Int) extends Component {
-  val io = new Bundle {
-    val input = slave Stream (gen)
-    val outputs = Vec(master Stream (gen),n)
-  }
-  val counter = Counter(n, io.input.fire)
-
-  if (n == 1) {
-    io.input >> io.outputs(0)
-  } else {
-    io.input.ready := False
-    for (i <- 0 to n - 1) {
-      io.outputs(i).payload := io.input.payload
-      when(counter =/= i) {
-        io.outputs(i).valid := False
-      } otherwise {
-        io.outputs(i).valid := io.input.valid
-        io.input.ready := io.outputs(i).ready
-      }
-    }
-  }
-}
-
-object StreamFlowArbiter {
-  def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
-    val output = cloneOf(inputFlow)
-
-    output.valid := inputFlow.valid || inputStream.valid
-    inputStream.ready := !inputFlow.valid
-    output.payload := Mux(inputFlow.valid, inputFlow.payload, inputStream.payload)
-
-    output
-  }
-}
-
-//Give priority to the inputFlow
-class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
-  val io = new Bundle {
-    val inputFlow = slave Flow (dataType)
-    val inputStream = slave Stream (dataType)
-    val output = master Flow (dataType)
-  }
-  io.output.valid := io.inputFlow.valid || io.inputStream.valid
-  io.inputStream.ready := !io.inputFlow.valid
-  io.output.payload := Mux(io.inputFlow.valid, io.inputFlow.payload, io.inputStream.payload)
-}
-
-
-object StreamMux {
-  def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
-    val vec = Vec(inputs)
-    StreamMux(select, vec)
-  }
-
-  def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
-    val ret = cloneOf(inputs(0))
-    ret.valid := inputs(select).valid
-    ret.payload := inputs(select).payload
-
-    for ((input, index) <- inputs.zipWithIndex) {
-      input.ready := select === index && ret.ready
-    }
-
-    ret
-  }
-}
-
-
-
-case class EventEmitter(on : Event){
-  val reg = RegInit(False)
-  when(on.ready){
-    reg := False
-  }
-  on.valid := reg
-
-  def emit(): Unit ={
-    reg := True
-  }
-}
-
-object StreamJoin{
-  def arg(sources : Stream[_]*) : Event = apply(sources.seq)
-  def apply(sources : Seq[Stream[_]]) : Event = {
-    val event = Event
-    val eventFire = event.fire
-    event.valid := sources.map(_.valid).reduce(_ && _)
-    sources.foreach(_.ready := eventFire)
-    event
-  }
-  def apply[T <: Data](sources : Seq[Stream[_]],payload : T) : Stream[T] = StreamJoin(sources).translateWith(payload)
-}
-
-
-
-
-
-object StreamWidthAdapter{
+object StreamWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
     val outputWidth = widthOf(output.payload)
@@ -1046,8 +1180,6 @@ object StreamWidthAdapter{
     }
   }
 
-
-
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
     StreamWidthAdapter(input,ret,endianness,padding)
@@ -1063,7 +1195,7 @@ object StreamWidthAdapter{
   }
 }
 
-object StreamFragmentWidthAdapter{
+object StreamFragmentWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
