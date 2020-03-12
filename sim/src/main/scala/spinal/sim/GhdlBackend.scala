@@ -6,31 +6,26 @@ import javax.tools.JavaFileObject
 import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
-import sys.process._
+import scala.sys.process._
 
 
-
-class VerilatorBackendConfig{
+class BackendConfig{
   var signals                = ArrayBuffer[Signal]()
   var optimisationLevel: Int = 2
   val rtlSourcesPaths        = ArrayBuffer[String]()
   var toplevelName: String   = null
   var workspacePath: String  = null
   var workspaceName: String  = null
-  var vcdPath: String        = null
-  var vcdPrefix: String      = null
+  var wavePath: String        = null
+  var wavePrefix: String      = null
   var waveFormat             : WaveFormat = WaveFormat.NONE
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
 }
 
 
-
-
-class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
+class GhdlBackend(val config: BackendConfig) extends Backend {
   import Backend._
 
   val workspaceName  = config.workspaceName
@@ -38,12 +33,13 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
+
   def clean(): Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
   }
 
   def genWrapperCpp(): Unit = {
-    val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_VerilatorNative_"
+    val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_GhdlNative_"
     val wrapperString = s"""
 #include <stdint.h>
 #include <string>
@@ -186,7 +182,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
+      tfp.open((std::string("${new File(config.wavePath).getAbsolutePath.replace("\\","\\\\")}/${if(config.wavePrefix != null) config.wavePrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
       #endif
     }
 
@@ -305,8 +301,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     override def buffer[T](f: => T) = f
   }
 
-//     VL_THREADED
-  def compileVerilator(): Unit = {
+
+  def compileGhdl(): Unit = {
     val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
     val jdkIncludes = if(isWindows){
       new File(s"${workspacePath}\\${workspaceName}").mkdirs()
@@ -318,43 +314,26 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
-    config.rtlSourcesPaths.filter(_.endsWith(".bin")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
-
-//    --output-split-cfuncs 200
-//    --output-split-ctrace 200
-
     val waveArgs = config.waveFormat match {
-      case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"
-      case WaveFormat.VCD =>  "-CFLAGS -DTRACE --trace"
       case WaveFormat.NONE => ""
     }
 
-    val verilatorScript = s""" set -e ;
-       | ${if(isWindows)"verilator_bin.exe" else "verilator"}
-       | ${flags.map("-CFLAGS " + _).mkString(" ")}
-       | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
-       | -CFLAGS -fvisibility=hidden
-       | -LDFLAGS -fvisibility=hidden
-       | --output-split 5000
-       | --output-split-cfuncs 500
-       | --output-split-ctrace 500
-       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
-       | --x-assign unique
-       | --trace-depth ${config.waveDepth}
-       | -O3
-       | -CFLAGS -O${config.optimisationLevel}
-       | $waveArgs
-       | --Mdir ${workspaceName}
-       | --top-module ${config.toplevelName}
-       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
-                                                  e.endsWith(".sv") || 
-                                                  e.endsWith(".h"))
-                                     .map(new File(_).getAbsolutePath)
-                                     .map('"' + _.replace("\\","/") + '"')
-                                     .mkString(" ")}
-       | --exe $workspaceName/$wrapperCppName
-       | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
+    val fileList = config.rtlSourcesPaths
+      .map(new File(_).getAbsolutePath)
+      .map('"' + _.replace("\\","/") + '"')
+      .mkString(" ")
+
+    val cflags = "-fPIC -std=c++11 -pedantic -Wall -Wextra -O2"
+    val lflags = "-lboost_fiber -lboost_context -lpthread -no-pie"
+
+    val GhdlScript =
+      s"""
+         |#ghdl --vpi-compile g++ -DVPI_ENTRY_POINT_PTR=$$(ENTRY_POINT_PTR) -c -o vpi_plugin.o vpi_plugin.c $cflags
+         |#ghdl --vpi-link g++ -o vpi_plugin.vpi vpi_plugin.o
+         |
+         |ghdl -a $fileList
+         |ghdl --bind ${config.toplevelName}
+         |""".stripMargin
 
     var lastTime = System.currentTimeMillis()
     
@@ -365,27 +344,27 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       lastTime = newTime
     }
     
-    val verilatorScriptFile = new PrintWriter(new File(workspacePath + "/verilatorScript.sh"))
-    verilatorScriptFile.write(verilatorScript)
-    verilatorScriptFile.close
+    val GhdlScriptFile = new PrintWriter(new File(workspacePath + "/GhdlScript.sh"))
+    GhdlScriptFile.write(GhdlScript)
+    GhdlScriptFile.close
 
     val shCommand = if(isWindows) "sh.exe" else "sh"
-    assert(Process(Seq(shCommand, "verilatorScript.sh"), 
-                   new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    assert(Process(Seq(shCommand, "GhdlScript.sh"), 
+                   new File(workspacePath)).! (new Logger()) == 0, "Ghdl invocation failed")
     
     genWrapperCpp()
     val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
-    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Ghdl C++ model compilation failed")
 
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 
   def compileJava(): Unit = {
-    val verilatorNativeImplCode =
+    val GhdlNativeImplCode =
       s"""package wrapper_${workspaceName};
-         |import spinal.sim.IVerilatorNative;
+         |import spinal.sim.IGhdlNative;
          |
-         |public class VerilatorNative implements IVerilatorNative {
+         |public class GhdlNative implements IGhdlNative {
          |    public long newHandle(String name, int seed) { return newHandle_${uniqueId}(name, seed);}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
@@ -415,9 +394,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |}
        """.stripMargin
 
-    val verilatorNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${workspaceName}.VerilatorNative", verilatorNativeImplCode)
+    val GhdlNativeImplFile = new DynamicCompiler.InMemoryJavaFileObject(s"wrapper_${workspaceName}.GhdlNative", GhdlNativeImplCode)
     import collection.JavaConverters._
-    DynamicCompiler.compile(List[JavaFileObject](verilatorNativeImplFile).asJava, s"${workspacePath}/${workspaceName}")
+    DynamicCompiler.compile(List[JavaFileObject](GhdlNativeImplFile).asJava, s"${workspacePath}/${workspaceName}")
   }
 
   def checks(): Unit ={
@@ -427,13 +406,13 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     }
   }
 
-  clean()
+//  clean()
   checks()
-  compileVerilator()
+  compileGhdl()
   compileJava()
 
-  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
-  val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
+  val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.GhdlNative", s"${workspacePath}/${workspaceName}")
+  val nativeInstance: IGhdlNative = nativeImpl.newInstance().asInstanceOf[IGhdlNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
 }

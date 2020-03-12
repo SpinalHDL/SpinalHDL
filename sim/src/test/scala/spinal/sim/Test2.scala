@@ -55,3 +55,12 @@ object Bench {
 ////    }
 //  }
 //}
+
+object PlayGhdl extends App{
+  val config = new BackendConfig()
+  config.rtlSourcesPaths += "/media/data/open/ghdlSpinalSim/adder.vhd"
+  config.toplevelName = "adder"
+  config.workspacePath = "yolo"
+
+  new GhdlBackend(config)
+}
