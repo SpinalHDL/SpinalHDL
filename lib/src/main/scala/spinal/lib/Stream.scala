@@ -191,28 +191,26 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   
   /**
    * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
-   * It introduces one cycle of latency.
+   * It introduces 0 to factor-1 cycles of latency. Mapping a stream into memory and mapping a slowed
+   * down stream into memory should yield the same result, thus the elements of the input will be
+   * written from high bits to low bits.
    */
   def slowdown(factor: Int): Stream[Vec[T]] = {
-    val counter = Counter(factor)
-    val next = Stream(Vec(payloadType(), factor))
-    for (i <- 0 until factor) {
-      next.payload(i) := RegNextWhen(payload, counter === i)
+    val next = new Stream(Vec(payloadType(), factor)).setCompositeName(this, "slowdown_x" + factor, true)
+    next.payload(0) := this.payload
+    for (i <- 1 until factor) {
+      next.payload(i) := RegNextWhen(next.payload(i - 1), this.fire)
     }
-    when (counter.willOverflowIfInc) {
-      /* All elements are valid, so wait for ready signal to advance */
+    val counter = Counter(factor)
+    when(this.fire) {
+      counter.increment()
+    }
+    when(counter.willOverflowIfInc) {
       this.ready := next.ready
-      next.valid := True
-      when (next.fire) {
-        counter.increment()
-      }
+      next.valid := this.valid
     } otherwise {
-      /* Take the elements and save them into a register */
       this.ready := True
       next.valid := False
-      when (this.valid) {
-        counter.increment()
-      }
     }
     next
   }
