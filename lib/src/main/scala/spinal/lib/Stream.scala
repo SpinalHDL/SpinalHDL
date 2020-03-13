@@ -120,6 +120,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (this ~ translate(this.payload))
   }
 
+/** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
@@ -227,6 +228,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   override def fire: Bool = valid & ready
 
+/** Return True when the bus is ready, but no data is present
+  */
   def isFree: Bool = !valid || ready
   
   def connectFrom(that: Stream[T]): Stream[T] = {
@@ -273,6 +276,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+  */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
     ret << this
@@ -726,6 +731,10 @@ object StreamFork2 {
  *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
  *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
  *  all output streams have processed each item regardlessly.
+ *  
+ *  Note that this means that when synchronous is true, the valid signal of the outputs depends on
+ *  their inputs, which may lead to dead locks when used in combination with systems that have it the
+ *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
  */
 //TODOTEST
 class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
