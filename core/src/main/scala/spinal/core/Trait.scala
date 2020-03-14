@@ -208,6 +208,8 @@ class GlobalData(val config : SpinalConfig) {
 
 
   val userDatabase      = mutable.LinkedHashMap[Any, Any]()
+
+  val scopeProperties   = mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]()
 }
 
 

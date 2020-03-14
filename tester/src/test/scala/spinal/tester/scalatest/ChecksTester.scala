@@ -403,6 +403,41 @@ class ChecksTester extends FunSuite  {
     })
   }
 
+
+  test("scopeProperty"){
+    object FixedPointProperty extends ScopeProperty[Int]{
+      override def default: Int = 42
+    }
+
+    def check(ref : Int): Unit ={
+      println(s"ref:$ref dut:${FixedPointProperty.get}")
+      assert(ref == FixedPointProperty.get)
+    }
+    class Sub extends Component{
+      check(666)
+    }
+    class Toplevel extends Component{
+      check(42)
+      val logic = FixedPointProperty(666) on new Area{
+        check(666)
+        val x = new Sub
+        check(666)
+        FixedPointProperty(1234){
+          check(1234)
+          x.rework{
+            check(666)
+          }
+          check(1234)
+        }
+        check(666)
+      }
+      check(42)
+    }
+
+    val config = SpinalConfig()
+    config.generateVerilog(new Toplevel)
+  }
+
 }
 
 
