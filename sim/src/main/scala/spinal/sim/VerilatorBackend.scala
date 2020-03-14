@@ -365,6 +365,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
+       | -CFLAGS -std=c++11
+       | -LDFLAGS -std=c++11
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500
