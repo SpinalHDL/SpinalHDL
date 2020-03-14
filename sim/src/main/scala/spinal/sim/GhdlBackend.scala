@@ -41,238 +41,120 @@ class GhdlBackend(val config: BackendConfig) extends Backend {
   def genWrapperCpp(): Unit = {
     val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_GhdlNative_"
     val wrapperString = s"""
-#include <stdint.h>
-#include <string>
-#include <jni.h>
-
-#include "V${config.toplevelName}.h"
-#ifdef TRACE
-#include "verilated_${config.waveFormat.ext}_c.h"
-#endif
-#include "V${config.toplevelName}__Syms.h"
-class ISignalAccess{
-public:
-  virtual ~ISignalAccess() {}
-
-  virtual void getAU8(JNIEnv *env, jbyteArray value) {}
-  virtual void setAU8(JNIEnv *env, jbyteArray value, int length) {}
-
-  virtual uint64_t getU64() = 0;
-  virtual void setU64(uint64_t value) = 0;
-};
-
-class  CDataSignalAccess : public ISignalAccess{
-public:
-    CData *raw;
-    CDataSignalAccess(CData *raw) : raw(raw){
-
-    }
-    uint64_t getU64() {return *raw;}
-    void setU64(uint64_t value)  {*raw = value; }
-};
-
-
-class  SDataSignalAccess : public ISignalAccess{
-public:
-    SData *raw;
-    SDataSignalAccess(SData *raw) : raw(raw){
-
-    }
-    uint64_t getU64() {return *raw;}
-    void setU64(uint64_t value)  {*raw = value; }
-};
-
-
-class  IDataSignalAccess : public ISignalAccess{
-public:
-    IData *raw;
-    IDataSignalAccess(IData *raw) : raw(raw){
-
-    }
-    uint64_t getU64() {return *raw;}
-    void setU64(uint64_t value)  {*raw = value; }
-};
-
-
-class  QDataSignalAccess : public ISignalAccess{
-public:
-    QData *raw;
-    QDataSignalAccess(QData *raw) : raw(raw){
-
-    }
-    uint64_t getU64() {return *raw;}
-    void setU64(uint64_t value)  {*raw = value; }
-};
-
-
-
-class  WDataSignalAccess : public ISignalAccess{
-public:
-    WData *raw;
-    uint32_t width;
-    bool sint;
-
-    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){
-
-    }
-
-    uint64_t getU64() {return raw[0] + (((uint64_t)raw[1]) << 32);}
-    void setU64(uint64_t value)  {
-      uint32_t wordsCount = (width+31)/32;
-      raw[0] = value;
-      raw[1] = value >> 32;
-      uint32_t padding = ((value & 0x8000000000000000l) && sint) ? 0xFFFFFFFF : 0;
-      for(uint32_t idx = 2;idx < wordsCount;idx++){
-        raw[idx] = padding;
-      }
-
-      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
-    }
-
-    void getAU8(JNIEnv *env, jbyteArray value) {
-      uint32_t wordsCount = (width+31)/32;
-      uint32_t byteCount = wordsCount*4;
-      uint32_t shift = 32-(width % 32);
-      uint32_t backup = raw[wordsCount-1];
-      uint8_t values[byteCount + !sint];
-      if(sint && shift != 32) raw[wordsCount-1] = (((int32_t)backup) << shift) >> shift;
-      for(uint32_t idx = 0;idx < byteCount;idx++){
-        values[idx + !sint] = ((uint8_t*)raw)[byteCount-idx-1];
-      }
-      (env)->SetByteArrayRegion ( value, 0, byteCount + !sint, reinterpret_cast<jbyte*>(values));
-      raw[wordsCount-1] = backup;
-    }
-
-    void setAU8(JNIEnv *env, jbyteArray jvalue, int length) {
-      jbyte value[length];
-      (env)->GetByteArrayRegion( jvalue, 0, length, value);
-      uint32_t wordsCount = (width+31)/32;
-      uint32_t padding = (value[0] & 0x80 && sint) != 0 ? 0xFFFFFFFF : 0;
-      for(uint32_t idx = 0;idx < wordsCount;idx++){
-        raw[idx] = padding;
-      }
-      uint32_t capedLength = length > 4*wordsCount ? 4*wordsCount : length;
-      for(uint32_t idx = 0;idx < capedLength;idx++){
-        ((uint8_t*)raw)[idx] = value[length-idx-1];
-      }
-      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
-    }
-};
-
-class Wrapper_${uniqueId}{
-public:
-    uint64_t time;
-    bool waveEnabled;
-    V${config.toplevelName} top;
-    ISignalAccess *signalAccess[${config.signals.length}];
-    #ifdef TRACE
-	  Verilated${config.waveFormat.ext.capitalize}C tfp;
-	  #endif
-
-    Wrapper_${uniqueId}(const char * name){
-      time = 0;
-      waveEnabled = true;
-${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
-      yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
-      else if(signal.dataType.width <= 16) "SData"
-      else if(signal.dataType.width <= 32) "IData"
-      else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
-  signalInits.mkString("")}
-      #ifdef TRACE
-      Verilated::traceEverOn(true);
-      top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.wavePath).getAbsolutePath.replace("\\","\\\\")}/${if(config.wavePrefix != null) config.wavePrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
-      #endif
-    }
-
-    virtual ~Wrapper_${uniqueId}(){
-      for(int idx = 0;idx < ${config.signals.length};idx++){
-          delete signalAccess[idx];
-      }
-
-      #ifdef TRACE
-      if(waveEnabled) tfp.dump((vluint64_t)time);
-      tfp.close();
-      #endif
-    }
-
-};
-
-
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include <stdio.h>
-#include <stdint.h>
+#include <cstdint>
+#include <string>
+#include <vector>
+#include "ghdlIface.h"
 
 #define API __attribute__((visibility("default")))
 
 
-JNIEXPORT Wrapper_${uniqueId} * API JNICALL ${jniPrefix}newHandle_1${uniqueId}
-  (JNIEnv * env, jobject obj, jstring name, jint seedValue){
-    #if defined(_WIN32) && !defined(__CYGWIN__)
-    srand(seedValue);
-    #else
-    srand48(seedValue);
-    #endif
-    Verilated::randReset(2);
-    const char* ch = env->GetStringUTFChars(name, 0);
-    Wrapper_${uniqueId} *handle = new Wrapper_${uniqueId}(ch);
-    env->ReleaseStringUTFChars(name, ch);
-    return handle;
+JNIEXPORT HdlSimulation * API JNICALL ${jniPrefix}newSimulation${uniqueId}
+  (JNIEnv* env, jobject obj, jstring simuPath, jint waveFormat, jstring wavePath){
+    
+    (void) obj;
+    
+    char* simuPath_ = env->GetStringChars(simuPath, 0);
+    WaveFormat waveFormat = static_cast<WaveFormat>(waveFormat);
+    char* wavePath_ = env->GetStringChars(wavePath, 0);
+
+    std::string std_simuPath(simuPath_);
+    std::string std_wavePath(wavePath_);
+
+    HdlSimulation *simu = newHdlSimulation(std_simuPath, waveFormat, std_wavePath);
+    env->ReleaseStringChars(simuPath, simuPath_);
+    env->ReleaseStringChars(wavePath, wavePath_);
+    return simu;
 }
 
-JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle){
-   handle->top.eval();
-   return Verilated::gotFinish();
+
+JNIEXPORT jlong API JNICALL ${jniPrefix}getHandle_1${uniqueId}
+  (JNIEnv* env, jobject obj, HdlSimulation* simu, jstring handleName){
+  (void) obj;
+
+  char* handleName_ = env->GetStringChars(handleName, 0);
+  
+  std::string std_handleName(handleName_);
+  uint64_t handle = reinterpret_cast<uint64_t>(simu->getHandle(std_handleName));
+  env->ReleaseStringChars(handlName, handleName_);
+  return (jlong) handle;
 }
 
+JNIEXPORT jint API JNICALL ${jniPrefix}getU32_1${uniqueId}
+  (JNIEnv* env, jobject obj, HdlSimulation* simu, jlong handle){
+    (void) env;
+    (void) obj;
+    vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+    return (jint) simu->getInt(handle_);
+}
 
-JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
-  #ifdef TRACE
-  if(handle->waveEnabled) handle->tfp.dump((vluint64_t)handle->time);
-  #endif
-  handle->time += cycles;
+JNIEXPORT void API JNICALL ${jniPrefix}setU32_1${uniqueId}
+  (JNIEnv *, jobject obj, HdlSimulation* simu, jlong handle, jint value){
+  (void) env;
+  (void) obj;
+  vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+  simu->setInt(handle_, (uint32_t) value);
 }
 
 JNIEXPORT jlong API JNICALL ${jniPrefix}getU64_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id){
-  return handle->signalAccess[id]->getU64();
+  (JNIEnv* env, jobject obj, HdlSimulation* simu, jlong handle){
+    (void) env;
+    (void) obj;
+    vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+    return (jlong) simu->getLong(handle_);
 }
 
 JNIEXPORT void API JNICALL ${jniPrefix}setU64_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t value){
-  handle->signalAccess[id]->setU64(value);
+  (JNIEnv*, jobject obj, HdlSimulation* simu, jlong handle, jlong value){
+  (void) env;
+  (void) obj;
+  vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+  simu->setLong(handle_, (uint64_t) value);
 }
 
-JNIEXPORT void API JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
-  delete handle;
+JNIEXPORT jbyteArray API JNICALL ${jniPrefix}getAU8_1${uniqueId}
+  (JNIEnv* env, jobject obj, HdlSimulation* simu, jlong handle){
+  (void) obj;
+  vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+  std::vector<uint8_t> vec = simu->getBigInt(handle_);
+  jbyteArray arr = env->NewByteArray(vec.size());
+  env->SetByteArrayRegion(arr, 0, vec.size(), reinterpret_cast<jbyte*>(vec.data));
+  return arr;
 }
-
-JNIEXPORT void API JNICALL ${jniPrefix}getAU8_1${uniqueId}
-  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value){
-  handle->signalAccess[id]->getAU8(env, value);
-}
-
-
 
 JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
-  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, jint length){
-  handle->signalAccess[id]->setAU8(env, value, length);
+  (JNIEnv* env, jobject obj, HdlSimulator* simu, jlong handle, jbyteArray value){
+  (void) obj;
+  vpiHandle handle_ = reinterpret_cast<vpiHandle>(handle);
+  std::vector<uint8_t> vec;
+  vec.resize((size_t) env->GetArrayLength(), 0);
+  env->GetByteArrayRegion(arr, 0, vec.size(), reinterpret_cast<jbyte*>(vec.data));
+  simu->setBigInt(handle_, vec);
 }
 
-JNIEXPORT void API JNICALL ${jniPrefix}enableWave_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
-  handle->waveEnabled = true;
+JNIEXPORT void API JNICALL ${jniPrefix}eval_1${uniqueId}
+  (JNIEnv*, jobject obj, HdlSimulation* simu){
+    (void) obj;
+    (void) env;
+    simu->eval();
 }
 
-JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
-  (JNIEnv *, jobject, Wrapper_${uniqueId} * handle){
-  handle->waveEnabled = false;
+JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
+  (JNIEnv*, jobject obj, HdlSimulation* simu, uint64_t cycles){
+  (void) obj;
+  (void) env;
+  simu->sleep(cycles);
+}
+
+JNIEXPORT void API JNICALL ${jniPrefix}end_1${uniqueId}
+  (JNIEnv*, jobject obj, HdlSimulation* simu){
+  (void) obj;
+  (void) env;
+  simu->end();
+  delete simu;
 }
 
 #ifdef __cplusplus
@@ -328,11 +210,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val GhdlScript =
       s"""
-         |#ghdl --vpi-compile g++ -DVPI_ENTRY_POINT_PTR=$$(ENTRY_POINT_PTR) -c -o vpi_plugin.o vpi_plugin.c $cflags
-         |#ghdl --vpi-link g++ -o vpi_plugin.vpi vpi_plugin.o
-         |
-         |ghdl -a $fileList
+         |ghdl -a ${fileList}
          |ghdl --bind ${config.toplevelName}
+         |g++ -c ghdlIface.cpp -o ghdlIface.o ${cflags}
+         |g++ -c ${wrapperCppName} -o ${wrapperCppName}.o ${cflags}
+         |g++ ghdlIface.o ${wrapperCppName}.o -Wl,`ghdl --list-link ${config.toplevelName}` ${cflags} ${ldflags}
          |""".stripMargin
 
     var lastTime = System.currentTimeMillis()
@@ -353,6 +235,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
                    new File(workspacePath)).! (new Logger()) == 0, "Ghdl invocation failed")
     
     genWrapperCpp()
+
     val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
     assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Ghdl C++ model compilation failed")
 

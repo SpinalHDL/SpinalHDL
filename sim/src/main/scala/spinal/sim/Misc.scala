@@ -15,7 +15,9 @@ object SimError{
 
 object WaveFormat{
   object VCD extends WaveFormat("vcd")
+  object VCDGZ extends WaveFormat("vcdgz")
   object FST extends WaveFormat("fst")
+  object GHW extends WaveFormat("ghw")
   object DEFAULT extends WaveFormat
   object NONE extends WaveFormat
 }
