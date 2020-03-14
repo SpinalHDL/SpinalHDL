@@ -1299,8 +1299,8 @@ object PlayFragment{
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
-    SpinalVerilog(new TopLevel)
+    SpinalConfig(headerWithDate = true, rtlHeader = "miaou\n wuff").generateVerilog(new TopLevel)
+    SpinalConfig(headerWithDate = true, rtlHeader = "miaou\n wuff").generateVhdl(new TopLevel)
   }
 }
 

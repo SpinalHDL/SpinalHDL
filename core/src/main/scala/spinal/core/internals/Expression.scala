@@ -2109,7 +2109,7 @@ object BitsLiteral {
     if (value < 0) throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2150,7 +2150,7 @@ object UIntLiteral {
       throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in UInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2188,7 +2188,7 @@ object SIntLiteral {
     var bitCount       = specifiedBitCount
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount ) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount ) throw new Exception(s"literal 0x${value.toString(16)} can't fit in SInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }

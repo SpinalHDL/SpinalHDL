@@ -25,6 +25,8 @@ import java.util.Calendar
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 
 trait MemBitsMaskKind
 object MULTIPLE_RAM extends MemBitsMaskKind
@@ -34,12 +36,15 @@ object SINGLE_RAM   extends MemBitsMaskKind
 object VhdlVerilogBase{
 
   /** Header of the RTL generated */
-  def getHeader(commentSymbol: String, header: String, toplevel: Component): String =
-    s"""$commentSymbol Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}
-       |$commentSymbol Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}
-       |$commentSymbol Component : ${toplevel.definitionName}
-       |${if(header != null) header.split("\n").map(line => s"$commentSymbol $line").mkString("\n") + "\n" else ""}
-       |""".stripMargin
+  def getHeader(commentSymbol: String, header: String, toplevel: Component, withDate : Boolean): String = {
+    var buffer = new StringBuilder()
+    buffer ++= s"$commentSymbol Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}\n"
+    buffer ++= s"$commentSymbol Component : ${toplevel.definitionName}\n"
+    if(withDate) buffer ++= s"$commentSymbol Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}\n"
+    if(header != null) buffer ++= header.split("\n").map(line => s"$commentSymbol $line").mkString("\n") + "\n"
+    buffer ++= "\n"
+    buffer.toString()
+  }
 }
 
 
