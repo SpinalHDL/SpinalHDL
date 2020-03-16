@@ -104,13 +104,13 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area
 
   // implement traits of JtagTapFunctions
   override def idcode(value: Bits)(instructionId: Int) =
-    new JtagInstructionIdcode(value)(this, instructionId)
+    new JtagTapInstructionIdcode(value)(this, instructionId)
   override def read[T <: Data](data: T)(instructionId: Int) =
-    new JtagInstructionRead(data)(this, instructionId)
+    new JtagTapInstructionRead(data)(this, instructionId)
   override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
-    new JtagInstructionWrite[T](data, cleanUpdate, readable)(this, instructionId)
+    new JtagTapInstructionWrite[T](data, cleanUpdate, readable)(this, instructionId)
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) =
-    new JtagInstructionFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
+    new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
 }
 
 //══════════════════════════════════════════════════════════════════════════════
