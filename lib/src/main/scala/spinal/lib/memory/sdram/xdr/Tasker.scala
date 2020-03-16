@@ -13,6 +13,8 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val output = master(CoreTasks(cpa))
   }
 
+  val readyForRefresh = True
+
   val banksRow = Mem(UInt(pl.sdram.rowWidth bits), pl.sdram.bankCount)
 
 //  def Timing(loadValid : Bool, loadValue : UInt, timingWidth : Int = cp.timingWidth) = new Area{
@@ -31,7 +33,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val value = Reg(UInt(timingWidth bits)) randBoot()
     val notZero = value =/= loadValue
     val busy = CombInit(notZero)
-//    val busy = RegNext(busyNext)
     value := value + notZero.asUInt.resized
     when(loadValid) {
       value := 0
@@ -48,7 +49,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val trigger = io.output.ports.map(p => p.active).orR
     val ptr = RegInit(U"00")
     val slots = (0 to 3).map(i => Timing(ptr === i && trigger, io.config.FAW))
-//    val busyNext = Vec(slots.map(_.busy)).read(ptr) || (Vec(slots.map(_.busy)).read(ptr+1) && trigger)
     val busyNext =  Vec(slots.map(_.busy)).read(ptr+1)
     ptr := ptr + U(trigger)
   }
@@ -81,36 +81,23 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   }
   val allowPrechargeAll = banks.map(_.allowPrecharge).andR
 
+  case class Status() extends Bundle {
+    val bankActive = Bool()
+    val bankHit = Bool()
+    val allowPrecharge = Bool()
+    val allowActive = Bool()
+    val allowWrite = Bool()
+    val allowRead = Bool()
 
+    def patch(address: SdramAddress): Unit = {
+      allowPrecharge clearWhen (!banks.map(_.allowPrecharge).read(address.bank))
+      allowActive clearWhen (!banks.map(_.allowActive).read(address.bank))
+      allowWrite clearWhen (!banks.map(_.allowWrite).read(address.bank))
+      allowRead clearWhen (!banks.map(_.allowRead).read(address.bank))
 
-  val gates = for ((port, inputId) <- io.inputs.zipWithIndex) yield new Area {
-
-    val bankActive = Reg(Bool)
-    val bankHit = Reg(Bool)
-    val portAddress = port.address.as(SdramAddress(pl.sdram))
-    val input = port.stage()
-    val address = input.address.as(SdramAddress(pl.sdram))
-//    val patchAddress = input.isStall ? portAddress | address
-    val empty = !(input.valid || port.valid)
-
-//    val bankHit = banksRow.readAsync(address.bank) === address.row
-//    val bankActive = banks.map(_.active ).read(address.bank)
-    val allowPrecharge = Reg(Bool)
-    val allowActive = Reg(Bool)
-    val allowWrite = Reg(Bool)
-    val allowRead = Reg(Bool)
-
-
-
-    def patch(address : SdramAddress): Unit ={
-      allowPrecharge clearWhen(!banks.map(_.allowPrecharge ).read(address.bank))
-      allowActive clearWhen(!banks.map(_.allowActive ).read(address.bank))
-      allowWrite clearWhen(!banks.map(_.allowWrite ).read(address.bank))
-      allowRead clearWhen(!banks.map(_.allowRead ).read(address.bank))
-
-      for(output <- io.output.ports){
+      for (output <- io.output.ports) {
         when(output.address.bank === address.bank) {
-          when(output.precharge){
+          when(output.precharge) {
             bankActive := False
           }
           when(output.active) {
@@ -120,115 +107,166 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
             allowWrite := False
             allowPrecharge := False
           }
-          when(output.read || output.write){
+          when(output.read || output.write) {
             allowPrecharge := False
           }
-          when(output.precharge){
+          when(output.precharge) {
             allowActive := False
           }
         }
       }
     }
+  }
 
+  case class Task() extends Bundle{
+    val write = Bool()
+    val address = UInt(pl.sdram.byteAddressWidth bits)
+    val context = Bits(backendContextWidth bits)
+    val burstLast = Bool()
+    val portId = UInt(log2Up(cpp.size) bits)
+  }
+
+  val inputsArbiter = new Area{
+    def inputs = io.inputs
+    val output = Stream(Task())
+    val state = RegInit(B(1, cpp.size bits))
+    val inputsValids = B(inputs.map(_.valid))
+    val selOH = OHMasking.roundRobin(inputsValids, state)
+
+    val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
+    val tockenIncrement = CombInit(output.ready)
+    when(tockenIncrement){
+      tocken := tocken + 1
+    }
+    when(!(inputs.map(_.valid).asBits & state).orR || tockenIncrement && ((inputs.map(_.burstLast).asBits & state).orR && tocken >= cp.portTockenMin || tocken >= cp.portTockenMax)){
+      state := state.rotateLeft(1)
+      tocken := 0
+    }
+
+    output.valid := (selOH & inputsValids).orR
+    Vec(inputs.map(_.ready)) := Vec(selOH.asBools.map(_ && output.ready))
+    val selPayload = MuxOH(selOH, inputs.map(_.payload.resized))
+    output.write := selPayload.write
+    output.address := selPayload.address
+    output.context := selPayload.context
+    output.burstLast := selPayload.burstLast
+    output.portId := OHToUInt(selOH)
+
+    readyForRefresh clearWhen(inputsValids.orR)
+  }
+
+  val taskConstructor = new Area {
+    val s0 = new Area {
+      def input = inputsArbiter.output
+      val portAddress = input.address.as(SdramAddress(pl.sdram))
+    }
+    val s1 = new Area {
+      val input = s0.input.stage()
+      val address = input.address.as(SdramAddress(pl.sdram))
+      val status = Status()
+      status.allowPrecharge := True
+      status.allowActive := True
+      status.allowWrite := True
+      status.allowRead := True
+      status.bankHit := banksRow.readAsync(address.bank) === address.row
+      status.bankActive := banks.map(_.active).read(address.bank)
+      status.patch(address)
+
+      readyForRefresh clearWhen(input.valid)
+    }
+  }
+
+  val stations = for (stationId <- 0 until cp.stationCount) yield new Area {
+    val id = stationId
+    val othersMask = ((BigInt(1) << cp.stationCount)-1) - ((BigInt(1) << id))
+    val valid = RegInit(False)
+    val status = Reg(Status())
+    val address = Reg(SdramAddress(cpa.pl.sdram))
+    val write = Reg(Bool)
+    val context = Reg(Bits(backendContextWidth bits))
+    val portId = Reg(UInt(log2Up(cpa.cpp.size) bits))
+
+    //Arbitration states vs other ports
+    val stronger = Reg(Bits(cp.stationCount bits)) init(0)                  //Solve basic ordering
+    val afterBank, afterAccess = Reg(Bits(cp.stationCount bits)) init(0)    //Solve port inner oder, bank conflicts across stations and read/write conflicts across stations
+
+    import status._
     allowPrecharge := True
     allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
     allowWrite := !RTW.busy && (if(CCD != null) !CCD.busy else True)
     allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
+    status.patch(address)
 
-    when(!input.isStall) {
-      bankHit := banksRow.readAsync(portAddress.bank) === portAddress.row
-      bankActive := banks.map(_.active ).read(portAddress.bank)
-      patch(portAddress)
-    } otherwise {
-      patch(address)
-    }
-
-
-
-    when(io.output.ports.map(_.active).orR){
-      allowActive := False
-    }
-
-    if(CCD != null) when(io.output.ports.map(p => p.read || p.write).orR){
-      allowRead := False
-      allowWrite := False
-    } else {
-      when(io.output.ports.map(_.read).orR){
-        allowWrite := False
-      }
-      when(io.output.ports.map(_.write).orR){
-        allowRead := False
-      }
-    }
-
+    val inputMiss = !bankActive || !bankHit
     val inputActive = !bankActive
     val inputPrecharge = bankActive && !bankHit
-    val inputWrite =  bankActive && bankHit && input.write
-    val inputRead  = bankActive && bankHit && !input.write
+    val inputAccess =  bankActive && bankHit
+    val inputWrite =  bankActive && bankHit && write
+    val inputRead  = bankActive && bankHit && !write
     val inibated = False
 
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
     val doWrite = inputWrite && allowWrite
     val doRead = inputRead && allowRead
-    val doSomething = input.valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
+    val doSomething = valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
     val cmdOutputPayload = CoreTask(cpa)
-    io.output.ports(inputId).source := inputId
-    io.output.ports(inputId).address := address
-    io.output.ports(inputId).context := input.context.resized
-    io.output.ports(inputId).active := inputActive
-    io.output.ports(inputId).precharge := inputPrecharge
-    io.output.ports(inputId).write := inputWrite
-    io.output.ports(inputId).read := inputRead
+    io.output.ports(stationId).source := portId
+    io.output.ports(stationId).address := address
+    io.output.ports(stationId).context := context
+    io.output.ports(stationId).active := inputActive
+    io.output.ports(stationId).precharge := inputPrecharge
+    io.output.ports(stationId).write := inputWrite
+    io.output.ports(stationId).read := inputRead
+  }
+
+  val loader = new Area{
+    val stationsValid = B(stations.map(_.valid))
+    val stronger = CombInit(stationsValid)
+    val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
+    val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.write =/= taskConstructor.s1.input.write))
+    taskConstructor.s1.input.ready := !stationsValid.andR
+    val slot = for(station <- stations) yield new Area{
+      val canSpawn = ~B(stations.take(station.id).map(_.valid)) === 0 && !station.valid
+      when(taskConstructor.s1.input.valid && canSpawn) {
+        station.valid     := True
+        station.status    := taskConstructor.s1.status
+        station.address   := taskConstructor.s1.address
+        station.write     := taskConstructor.s1.input.write
+        station.context   := taskConstructor.s1.input.context
+        station.portId    := taskConstructor.s1.input.portId
+        station.stronger  := stronger & station.othersMask
+        station.afterBank := afterBank & station.othersMask
+        station.afterAccess := afterBank & station.othersMask
+      }
+    }
   }
 
   val arbiter = new Area{
-    val arbiterState = RegInit(B(1, cpp.size bits))
-    def OhArbiter(that : Seq[Bool]) = OHMasking.roundRobin(that.asBits, arbiterState)
+    val selOH = Bits(cp.stationCount bits)
+    for(station <- stations) yield new Area {
+      station.inibated setWhen(station.inputAccess && station.afterAccess.orR)
+      station.inibated setWhen(station.inputMiss   && station.afterBank.orR)
 
-    val masked = OhArbiter(gates.map(_.doSomething))
-    for((gate, gateId) <- gates.zipWithIndex){
-      val idxs = (gateId + 1 until gates.size) ++ (0 until gateId)
-      var watches = List[Bool]()
-      for(otherId <- idxs; other = gates(otherId)){
-        watches = arbiterState(otherId) :: watches
-        val bankMatch = other.address.bank === gate.address.bank
-        when(other.input.valid && watches.orR) {
-          when((gate.inputActive || gate.inputPrecharge) && bankMatch) {
-            gate.inibated := True
-          }
-          when(gate.inputWrite && other.inputRead || gate.inputRead && other.inputWrite){
-            gate.inibated := True
-          }
+      val othersDoSomething = B(stations.map(_.doSomething)) & station.stronger & B(station.othersMask)
+      selOH(station.id) := station.doSomething && !othersDoSomething.orR
+    }
+
+    for((station, sel, port) <- (stations, selOH.asBools, io.output.ports).zipped){
+      when(sel) {
+        when(station.inputAccess){
+          station.valid := False
         }
-      }
-    }
-
-
-
-    val tockenIncrement = (masked & arbiterState & gates.map(g => g.bankActive && g.bankHit).asBits).orR
-    val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
-    when(tockenIncrement){
-      tocken := tocken + 1
-    }
-
-    when(!(gates.map(_.input.valid).asBits & arbiterState).orR || tockenIncrement && ((gates.map(_.input.burstLast).asBits & arbiterState).orR && tocken >= cp.portTockenMin || tocken === cp.portTockenMax-1)){
-      arbiterState := arbiterState.rotateLeft(1)
-      tocken := 0
-    }
-
-    for((gate, sel, port) <- (gates, masked.asBools,io.output.ports).zipped){
-      when(!sel){
+      } otherwise {
         port.read := False
         port.write := False
         port.active := False
         port.precharge := False
       }
-      gate.input.ready := sel && gate.bankActive && gate.bankHit
     }
 
-    val askRefresh = io.refresh.valid && gates.map(_.empty).andR
+    val askRefresh = io.refresh.valid && readyForRefresh
     io.refresh.ready := False
     io.output.prechargeAll := False
     io.output.refresh := False
@@ -260,8 +298,28 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
-  val selectedAddress = MuxOH(arbiter.masked, io.output.ports.map(_.address))
-  when(arbiter.masked.orR){
+
+  val stationsPatch = for(station <- stations) yield new Area{
+    import station._
+    when(io.output.ports.map(_.active).orR){
+      status.allowActive := False
+    }
+
+    if(CCD != null) when(io.output.ports.map(p => p.read || p.write).orR){
+      status.allowRead := False
+      status.allowWrite := False
+    } else {
+      when(io.output.ports.map(_.read).orR){
+        status.allowWrite := False
+      }
+      when(io.output.ports.map(_.write).orR){
+        status.allowRead := False
+      }
+    }
+  }
+
+  val selectedAddress = MuxOH(arbiter.selOH, io.output.ports.map(_.address))
+  when(arbiter.selOH.orR){
     banksRow.write(selectedAddress.bank, selectedAddress.row)
   }
 }

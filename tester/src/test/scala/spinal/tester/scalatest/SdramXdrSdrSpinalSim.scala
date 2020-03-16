@@ -463,7 +463,7 @@ object SdramXdrTesterHelpers{
     val phyClkRatio = pl.phaseCount
     val simConfig = SimConfig
 //    simConfig.withWave
-    simConfig.withWave(1)
+    simConfig.withWave(0)
     simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
     simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
     simConfig.compile({
@@ -579,12 +579,10 @@ object SdramXdrSdrSpinalSim extends App{
 
   val rl = 2
   val wl = 0
-//  val sdramPeriod = 6250
-//  val sl = MT48LC16M16A2.layout
-//  val pl = SdrInferedPhy.phyLayout(sl)
   val sdramPeriod = 6250
   val sl = MT48LC16M16A2.layout
-  val pl = Ecp5Sdrx2Phy.phyLayout(sl)
+  val pl = SdrInferedPhy.phyLayout(sl)
+//  val pl = Ecp5Sdrx2Phy.phyLayout(sl)
 
   val timing = SdramTiming(
     generation = SdramTiming.SDR,

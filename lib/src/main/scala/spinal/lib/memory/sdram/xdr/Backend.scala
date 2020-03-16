@@ -155,7 +155,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val muxedCmd = MuxOH(io.input.ports.map(p => p.read || p.write || p.precharge || p.active), io.input.ports)
   writePipeline.input.valid := portEvent(p => p.write)
-  writePipeline.input.sel := OHToUInt(io.input.ports.map(p => p.write))
+  writePipeline.input.sel := muxedCmd.source
 
   rspPipeline.input.valid := False
   rspPipeline.input.context := muxedCmd.context

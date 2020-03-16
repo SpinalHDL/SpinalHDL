@@ -305,6 +305,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
+                         stationCount  : Int = 2,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
@@ -324,7 +325,7 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 }
 
 case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave {
-  val ports = Vec(CoreTask(cpa), cpa.portCount)
+  val ports = Vec(CoreTask(cpa), cpa.cp.stationCount)
   val prechargeAll, refresh = Bool() //OH encoded
 
   def stage(): CoreTasks ={
