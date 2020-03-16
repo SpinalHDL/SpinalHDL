@@ -137,7 +137,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
       }
 
       input.HRDATA    := io.output.HRDATA
-      input.HRESP     := io.output.HRESP
+      input.HRESP     := io.output.HRESP & requestRouted
       input.HREADYOUT := (hreadyOut && io.output.HREADYOUT) || (hreadyOut && !requestRouted)
     }
 

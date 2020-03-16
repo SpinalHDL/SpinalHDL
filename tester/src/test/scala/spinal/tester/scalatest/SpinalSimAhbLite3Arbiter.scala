@@ -47,8 +47,13 @@ class AhbLite3ArbiterComponent(config: AhbLite3Config, size: Int, roundRobinArbi
   */
 class SpinalSimAhbLite3Arbiter extends FunSuite {
 
+  trait ArbiterSlaveMode
+  object SinkResponse  extends ArbiterSlaveMode
+  object DelayResponse extends ArbiterSlaveMode
+  object ErrorResponse extends ArbiterSlaveMode
 
-  def testArbiter(config: AhbLite3Config, size: Int, roundRobinArbiter: Boolean, description: String = ""): Unit = {
+
+  def testArbiter(config: AhbLite3Config, size: Int, roundRobinArbiter: Boolean, modeSlave: ArbiterSlaveMode, description: String = ""): Unit = {
 
     val compiledRTL = SimConfig.allOptimisation.withConfig(SpinalConfig(anonymSignalPrefix = "a")).withWave.compile(rtl = new AhbLite3ArbiterComponent(config, size, roundRobinArbiter))
 
@@ -75,24 +80,36 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
 
       dut.clockDomain.waitActiveEdge(10)
 
-      SimTimeout(1000 * 10000)
+     // SimTimeout(1000 * 10000)
 
       val score = ScoreboardInOrder[AhbLite3Transaction]()
 
       /** Slave driver response */
       val receiver = new AhbLite3Driver(dut.io.busOut, dut.clockDomain)
-      receiver.slaveSink()
-      //receiver.slaveRandomWait()
+      modeSlave match{
+        case SinkResponse  => receiver.slaveSink()
+        case DelayResponse => receiver.slaveRandomWait()
+        case ErrorResponse => receiver.slaveRandomError()
+      }
+
 
       /** Monitor the receiver */
       AhbLite3Monitor(dut.io.busOut, dut.clockDomain){ bus =>
-        score.pushRef(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
+        while(dut.io.busOut.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean){
+          val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+          score.pushRef(transaction)
+          //println(f"receiver ${transaction}")
+        }
       }
 
       /** Monitor all senders */
       dut.io.busIn.map{ bus =>
         AhbLite3Monitor(bus, dut.clockDomain){ bus =>
-          score.pushDut(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
+          while(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean) {
+            val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+            score.pushDut(transaction)
+            //println(f"Senders ${transaction}")
+          }
         }
       }
 
@@ -101,7 +118,7 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
 
         val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
 
-        dut.io.busIn.slice(0, 3).foreach{ bus =>
+        dut.io.busIn.foreach{ bus =>
           val busDriver = new AhbLite3Driver(bus, dut.clockDomain)
 
           masterPool += fork{
@@ -109,9 +126,11 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
             /* Generate random transaction */
             val seq = new AhbLite3Sequencer()
 
-            seq.addTransaction(AhbLite3Transaction.createSingleTransaction(Random.nextInt(3)))
-            seq.addTransaction(AhbLite3Transaction(htrans = 2).randomizeAddress().randomizeData())
-            seq.addTransaction(AhbLite3Transaction.createBurstTransaction())
+            seq.addTransaction(AhbLite3Transaction.createSingleTransaction(Random.nextInt(5) + 1))
+            seq.addTransaction(AhbLite3Transaction(htrans = 2, hwrite = true).randomizeAddress().randomizeData())
+            seq.addTransaction(AhbLite3Transaction(htrans = 2, hwrite = false).randomizeAddress())
+            seq.addTransaction(AhbLite3Transaction.createBurstTransaction(true))
+            seq.addTransaction(AhbLite3Transaction.createBurstTransaction(false))
 
             // Random sleep before starting transaction on a slave
             dut.clockDomain.waitActiveEdge(Random.nextInt(4))
@@ -122,19 +141,33 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
               dut.clockDomain.waitActiveEdge(Random.nextInt(2))
             }
 
-            // Check that all transactions has been received
-            assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
           }
         }
 
         masterPool.foreach{process => process.join()}
+
+        // Check that all transactions has been received
+        assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
+
         dut.clockDomain.waitActiveEdge(20)
       }
     }
   }
 
 
-  test("Arbiter Basic"){
-    testArbiter(AhbLite3Config(32, 32), 3, true, "BasisArbiter")
+  test("Arbiter Slave basic response"){
+    testArbiter(AhbLite3Config(32, 32), 3, true, SinkResponse, "BasisArbiter")
   }
+
+  test("Arbiter Slave delay response"){
+    testArbiter(AhbLite3Config(32, 32), 3, true, DelayResponse, "BasisArbiter")
+  }
+
+  /* Arbiter is not influenced by an error of a slave
+
+  test("Arbiter Slave error response"){
+    testArbiter(AhbLite3Config(32, 32), 3, true, ErrorResponse, "BasisArbiter")
+  }
+  */
+
 }

@@ -17,12 +17,16 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
         bus.HADDR   #= transactions.head.haddr
         bus.HTRANS  #= transactions.head.htrans
         bus.HBURST  #= transactions.head.hburst
+        bus.HWRITE  #= transactions.head.hwrite
+
         clockdomain.waitActiveEdge(1)
+
         bus.HSEL    #= false
         bus.HTRANS  #= 0
         bus.HADDR   #= 0
         bus.HBURST  #= 0
-        bus.HWDATA  #= transactions.head.hwdata
+        if (transactions.head.hwrite)  bus.HWDATA  #= transactions.head.hwdata
+
         clockdomain.waitSamplingWhere(bus.HREADYOUT.toBoolean)
 
       } else {
@@ -32,13 +36,14 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
           bus.HADDR  #= trans.haddr
           bus.HTRANS #= trans.htrans
           bus.HBURST #= trans.hburst
+          bus.HWRITE #= trans.hwrite
 
           if(index > 0){
             clockdomain.waitActiveEdgeWhere(bus.HREADYOUT.toBoolean)
           }else{
             clockdomain.waitActiveEdge(1)
           }
-          bus.HWDATA #= trans.hwdata
+          if (trans.hwrite)  bus.HWDATA #= trans.hwdata
         }
 
         bus.HSEL   #= false
@@ -46,7 +51,7 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
         bus.HADDR  #= 0
         bus.HBURST #= 0
 
-        clockdomain.waitActiveEdge(1)
+        clockdomain.waitActiveEdgeWhere(bus.HREADYOUT.toBoolean)
 
         bus.HWDATA #= 0
       }
@@ -61,7 +66,10 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
     val dummy = fork{
       while(true){
         bus.HREADYOUT #= true
-        clockdomain.waitActiveEdge()
+        clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean && bus.HTRANS.toInt != 0 )
+        if (!bus.HWRITE.toBoolean){
+          bus.HRDATA.randomize()
+        }
       }
     }
   }
@@ -87,11 +95,18 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
   /**
     * Generate randomly error
     */
-  def slaveRandomError: Unit = {
+  def slaveRandomError(): Unit = {
     val dummy = fork{
       while(true){
+        bus.HREADYOUT #= true
+        bus.HRESP     #= false
         clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean & bus.HTRANS.toInt == 2)
-        // TODO
+        bus.HREADYOUT #= false
+        bus.HRESP     #= true  // error
+        clockdomain.waitActiveEdge()
+        bus.HRESP     #= true
+        bus.HREADYOUT #= true
+        clockdomain.waitActiveEdge()
       }
     }
   }
