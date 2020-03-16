@@ -13,6 +13,7 @@ object SQ {
 case class QFormat(width: Int, fraction: Int, signed: Boolean) {
   val nonFraction: Int = width - fraction
   val amplify: Int = if(signed) (nonFraction - 1) else nonFraction
+  val numeric: Int = if(signed) (width - 1) else width
   val capcity: Double = scala.math.pow(2, width)
   val halfCapcity: Double = capcity/2
   val resolution: Double  = 1/scala.math.pow(2, fraction)
