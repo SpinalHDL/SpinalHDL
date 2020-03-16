@@ -28,6 +28,25 @@ package spinal.lib.bus.amba3.ahblite
 import spinal.core._
 import spinal.lib._
 
+case class AhbLite3AddrPhase(config: AhbLite3Config) extends Bundle{
+  val HADDR     = UInt(config.addressWidth bits)
+  val HWRITE    = Bool
+  val HSIZE     = Bits(3 bits)
+  val HBURST    = Bits(3 bits)
+  val HPROT     = Bits(4 bits)
+  val HTRANS    = Bits(2 bits)
+  val HMASTLOCK = Bool
+
+  def assignFromBus(bus: AhbLite3): Unit={
+    HADDR     := bus.HADDR
+    HWRITE    := bus.HWRITE
+    HSIZE     := bus.HSIZE
+    HBURST    := bus.HBURST
+    HPROT     := bus.HPROT
+    HTRANS    := bus.HTRANS
+    HMASTLOCK := bus.HMASTLOCK
+   }
+}
 
 /**
   * AHB Lite arbiter
@@ -36,6 +55,8 @@ import spinal.lib._
   * @param inputsCount    : Number of inputs for the arbiter
   */
 case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, roundRobinArbiter : Boolean = true) extends Component {
+
+  //TODO : error => 1 phase address, 1 phase hreadyout zero, 1 phase error
 
   val io = new Bundle {
     val inputs = Vec(slave(AhbLite3(ahbLite3Config)), inputsCount)
@@ -53,42 +74,71 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
     val maskProposal    = Bits(inputsCount bits)
     val maskLocked      = Reg(Bits(inputsCount bits)) init(BigInt(1) << (inputsCount - 1))
     val maskRouted      = Mux(locked || dataPhaseActive, maskLocked, maskProposal)
+    val requestIndex    = OHToUInt(maskRouted)
 
-    when(io.output.HSEL) { //valid
-      maskLocked := maskRouted
-      locked     := True
+    /** Backup address phase */
+    val addressPhaseData  = Vec(Reg(AhbLite3AddrPhase(ahbLite3Config)), io.inputs.length)
+    val addressPhaseValid = Vec(RegInit(False), io.inputs.length)
 
-      when(io.output.HREADY){ //fire
-        when(io.output.last && !io.output.HMASTLOCK) { //End of burst and no lock
-          locked := False
-        }
+    for((input, index) <- io.inputs.zipWithIndex){
+      when(input.HSEL & input.HTRANS === 2 & input.HREADYOUT){
+        addressPhaseData(index).assignFromBus(io.inputs(index))
+        addressPhaseValid(index) := True
       }
     }
 
-    val requests = io.inputs.map(_.HSEL).asBits
-    if(roundRobinArbiter)
-      maskProposal := OHMasking.roundRobin(requests, maskLocked(maskLocked.high - 1 downto 0) ## maskLocked.msb)
-    else
-      maskProposal := OHMasking.first(requests)
+    val transactionOnHold = addressPhaseValid.reduce(_ || _)
 
-    val requestIndex     = OHToUInt(maskRouted)
-    io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduce(_ | _)
-    io.output.HADDR     := io.inputs(requestIndex).HADDR
-    io.output.HREADY    := io.inputs(requestIndex).HREADY
-    io.output.HWRITE    := io.inputs(requestIndex).HWRITE
-    io.output.HSIZE     := io.inputs(requestIndex).HSIZE
-    io.output.HBURST    := io.inputs(requestIndex).HBURST
-    io.output.HPROT     := io.inputs(requestIndex).HPROT
-    io.output.HTRANS    := io.output.HSEL ? io.inputs(requestIndex).HTRANS | B"00"
-    io.output.HMASTLOCK := io.inputs(requestIndex).HMASTLOCK
+
+    when(io.output.HSEL & io.output.HTRANS(1)) { // valid transaction
+      maskLocked := maskRouted
+      locked     := True
+      addressPhaseValid(requestIndex) := False
+
+      when(io.output.HREADY & io.output.last && !io.output.HMASTLOCK) { // End of burst and no lock
+        locked := False
+      }
+    }
+
+    /** Arbiter logic */
+    val requests = Mux(transactionOnHold, addressPhaseValid.asBits, io.inputs.map(bus => bus.HSEL & bus.HTRANS(1)).asBits)
+
+    if(roundRobinArbiter) {
+      maskProposal := OHMasking.roundRobin(requests, maskLocked(maskLocked.high - 1 downto 0) ## maskLocked.msb)
+    }else{
+      maskProposal := OHMasking.first(requests)
+    }
+
+    /** Multiplexer */
+    val bufferAddrEnable = addressPhaseValid(requestIndex)
+
+    io.output.HSEL      := !io.output.isIdle ? (addressPhaseValid(requestIndex) || io.inputs(requestIndex).HSEL) | False
+    io.output.HADDR     := bufferAddrEnable  ? addressPhaseData(requestIndex).HADDR     | io.inputs(requestIndex).HADDR
+    io.output.HREADY    := bufferAddrEnable  ? True | io.inputs(requestIndex).HREADY
+    io.output.HWRITE    := bufferAddrEnable  ? addressPhaseData(requestIndex).HWRITE    | io.inputs(requestIndex).HWRITE
+    io.output.HSIZE     := bufferAddrEnable  ? addressPhaseData(requestIndex).HSIZE     | io.inputs(requestIndex).HSIZE
+    io.output.HBURST    := bufferAddrEnable  ? addressPhaseData(requestIndex).HBURST    | io.inputs(requestIndex).HBURST
+    io.output.HPROT     := bufferAddrEnable  ? addressPhaseData(requestIndex).HPROT     | io.inputs(requestIndex).HPROT
+    io.output.HTRANS    := bufferAddrEnable  ? addressPhaseData(requestIndex).HTRANS    | io.inputs(requestIndex).HTRANS
+    io.output.HMASTLOCK := bufferAddrEnable  ? addressPhaseData(requestIndex).HMASTLOCK | io.inputs(requestIndex).HMASTLOCK
 
     val dataIndex        = RegNextWhen(requestIndex, io.output.HSEL && io.output.HREADY)
     io.output.HWDATA    := io.inputs(dataIndex).HWDATA
 
-    for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
+    /** Drive input response signals  */
+    for((input, requestRouted, onHold) <- (io.inputs, maskRouted.asBools, addressPhaseValid).zipped){
+
+      val hreadyOut  = RegInit(True)
+
+      when(!requestRouted & input.HSEL & input.HTRANS(1)){
+        hreadyOut := False
+      } elsewhen (requestRouted || !onHold){
+        hreadyOut := True
+      }
+
       input.HRDATA    := io.output.HRDATA
       input.HRESP     := io.output.HRESP
-      input.HREADYOUT := (!requestRouted && !input.HSEL) || (requestRouted && io.output.HREADYOUT)
+      input.HREADYOUT := (hreadyOut && io.output.HREADYOUT) || (hreadyOut && !requestRouted)
     }
 
   }
