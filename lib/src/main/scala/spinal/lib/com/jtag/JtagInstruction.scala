@@ -3,40 +3,19 @@ package spinal.lib.com.jtag
 import spinal.core._
 import spinal.lib._
 
-/**
- * Created by PIC32F_USER on 09/04/2016.
- */
+// Created by PIC32F_USER on 05/04/2016.
+// Modified / Extended by HWEngineer 15/03/2020
 
-trait JtagTapAccess {
-  def getTdi : Bool
-  def getTms : Bool
-  def setTdo(value : Bool) : Unit
-
-  def getState : JtagState.C
-  def getInstruction() : Bits
-  def setInstruction(value : Bits) : Unit
-
-  //Instruction wrappers
-  def idcode(value: Bits)(instructionId: Bits) =
-    new JtagInstructionIdcode(value)(this,instructionId)
-
-  def read[T <: Data](data: T)(instructionId: Bits)   =
-    new JtagInstructionRead(data)(this,instructionId)
-
-  def write[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Bits) =
-    new JtagInstructionWrite[T](data,cleanUpdate,readable)(this,instructionId)
-
-  def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(instructionId: Bits) =
-    new JtagInstructionFlowFragmentPush(sink,sinkClockDomain)(this,instructionId)
-}
-
-class JtagInstruction(tap: JtagTapAccess,val instructionId: Bits) extends Area {
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstruction
+//
+class JtagInstruction(tap: JtagTapAccess, val instructionId: Int) extends Area {
   def doCapture(): Unit = {}
   def doShift(): Unit = {}
   def doUpdate(): Unit = {}
   def doReset(): Unit = {}
 
-  val instructionHit = tap.getInstruction === instructionId.resized
+  val instructionHit = tap.getInstruction === B(instructionId, tap.getInstruction.getWidth bits)
 
   Component.current.addPrePopTask(() => {
     when(instructionHit) {
@@ -56,7 +35,13 @@ class JtagInstruction(tap: JtagTapAccess,val instructionId: Bits) extends Area {
   })
 }
 
-class JtagInstructionWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true) (tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId) {
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstructionWrite
+//
+class JtagInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)
+                                     (tap: JtagTapAccess, instructionId: Int)
+                                     extends JtagInstruction(tap, instructionId){
+
   val shifter,store = Reg(Bits(data.getBitsWidth bit))
 
   override def doCapture(): Unit = {
@@ -78,8 +63,15 @@ class JtagInstructionWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, rea
     data.assignFromBits(store)
 }
 
-class JtagInstructionRead[T <: Data](data: T) (tap: JtagTapAccess,instructionId: Bits)extends JtagInstruction(tap,instructionId) {
-  val shifter = Reg(Bits(data.getBitsWidth bit))
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstructionRead
+//
+class JtagInstructionRead[T <: Data](data: T)
+                                    (tap: JtagTapAccess, instructionId: Int)
+                                    extends JtagInstruction(tap, instructionId)
+                                    with JtagTapShifter{
+
+  override val shifter = Reg(Bits(data.getBitsWidth bit))
 
   override def doCapture(): Unit = {
     shifter := data.asBits
@@ -91,7 +83,13 @@ class JtagInstructionRead[T <: Data](data: T) (tap: JtagTapAccess,instructionId:
   }
 }
 
-class JtagInstructionWriteSimpleExample[T <: Data](data: T) (tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId) {
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstructionWriteSimpleExampleB
+//
+class JtagInstructionWriteSimpleExampleB[T <: Data](data: T)
+                                                   (tap: JtagTapAccess, instructionId: Int)
+                                                   extends JtagInstruction(tap, instructionId){
+
   val shifter,store = Reg(Bits(data.getBitsWidth bit))
 
   override def doCapture(): Unit = {
@@ -108,8 +106,12 @@ class JtagInstructionWriteSimpleExample[T <: Data](data: T) (tap: JtagTapAccess,
   data.assignFromBits(store)
 }
 
-
-class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instructionId: Bits)extends JtagInstruction(tap,instructionId) {
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstructionIdcode
+//
+class JtagInstructionIdcode[T <: Data](value: Bits)
+                                      (tap: JtagTapAccess, instructionId: Int)
+                                      extends JtagInstruction(tap, instructionId){
   val shifter = Reg(Bits(32 bit))
 
   override def doShift(): Unit = {
@@ -119,17 +121,23 @@ class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instruct
 
   override def doReset(): Unit = {
     shifter := value
-    tap.setInstruction(instructionId.resized)
+    tap.setInstruction(B(instructionId, tap.getInstruction.getWidth bits))
   }
 }
 
-class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId){
+//══════════════════════════════════════════════════════════════════════════════
+// define JtagInstructionFlowFragmentPush
+//
+class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)
+                                     (tap: JtagTapAccess, instructionId: Int)
+                                     extends JtagInstruction(tap, instructionId){
+
   val source = Flow Fragment(Bits(1 bit))
   source.valid := False
   source.last := tap.getTms
   source.fragment.lsb := tap.getTdi
 
-  sink << FlowCCByToggle(source,outputClock = sinkClockDomain)
+  sink << FlowCCByToggle(source, outputClock = sinkClockDomain)
 
   override def doShift(): Unit = {
     source.valid := True
