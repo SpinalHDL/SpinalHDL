@@ -7,9 +7,9 @@ import spinal.lib._
 // Modified / Extended by HWEngineer 15/03/2020
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstruction
+// define JtagTapInstruction
 //
-class JtagInstruction(tap: JtagTapAccess, val instructionId: Int) extends Area {
+class JtagTapInstruction(tap: JtagTapAccess, val instructionId: Int) extends Area {
   def doCapture(): Unit = {}
   def doShift(): Unit = {}
   def doUpdate(): Unit = {}
@@ -36,11 +36,11 @@ class JtagInstruction(tap: JtagTapAccess, val instructionId: Int) extends Area {
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstructionWrite
+// define JtagTapInstructionWrite
 //
-class JtagInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)
+class JtagTapInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)
                                      (tap: JtagTapAccess, instructionId: Int)
-                                     extends JtagInstruction(tap, instructionId){
+                                     extends JtagTapInstruction(tap, instructionId){
 
   val shifter,store = Reg(Bits(data.getBitsWidth bit))
 
@@ -64,11 +64,11 @@ class JtagInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, read
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstructionRead
+// define JtagTapInstructionRead
 //
-class JtagInstructionRead[T <: Data](data: T)
+class JtagTapInstructionRead[T <: Data](data: T)
                                     (tap: JtagTapAccess, instructionId: Int)
-                                    extends JtagInstruction(tap, instructionId)
+                                    extends JtagTapInstruction(tap, instructionId)
                                     with JtagTapShifter{
 
   override val shifter = Reg(Bits(data.getBitsWidth bit))
@@ -84,11 +84,11 @@ class JtagInstructionRead[T <: Data](data: T)
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstructionWriteSimpleExampleB
+// define JtagTapInstructionWriteSimpleExampleB
 //
-class JtagInstructionWriteSimpleExampleB[T <: Data](data: T)
+class JtagTapInstructionWriteSimpleExampleB[T <: Data](data: T)
                                                    (tap: JtagTapAccess, instructionId: Int)
-                                                   extends JtagInstruction(tap, instructionId){
+                                                   extends JtagTapInstruction(tap, instructionId){
 
   val shifter,store = Reg(Bits(data.getBitsWidth bit))
 
@@ -107,11 +107,11 @@ class JtagInstructionWriteSimpleExampleB[T <: Data](data: T)
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstructionIdcode
+// define JtagTapInstructionIdcode
 //
-class JtagInstructionIdcode[T <: Data](value: Bits)
+class JtagTapInstructionIdcode[T <: Data](value: Bits)
                                       (tap: JtagTapAccess, instructionId: Int)
-                                      extends JtagInstruction(tap, instructionId){
+                                      extends JtagTapInstruction(tap, instructionId){
   val shifter = Reg(Bits(32 bit))
 
   override def doShift(): Unit = {
@@ -126,11 +126,11 @@ class JtagInstructionIdcode[T <: Data](value: Bits)
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// define JtagInstructionFlowFragmentPush
+// define JtagTapInstructionFlowFragmentPush
 //
-class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)
+class JtagTapInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)
                                      (tap: JtagTapAccess, instructionId: Int)
-                                     extends JtagInstruction(tap, instructionId){
+                                     extends JtagTapInstruction(tap, instructionId){
 
   val source = Flow Fragment(Bits(1 bit))
   source.valid := False
