@@ -394,6 +394,50 @@ class ChecksTester extends FunSuite  {
       Bits(32 bits)(4 downto 7) := 0
     })
   }
+
+  test("catchNegativeRangedAccess4") {
+    generationShouldFaild(new Component {
+      val input = in Bits(8 bits)
+      val currState = Vec(Bits(64 bits), 25)
+      currState.assignFromBits(input, 0, 8)
+    })
+  }
+
+
+  test("scopeProperty"){
+    object FixedPointProperty extends ScopeProperty[Int]{
+      override def default: Int = 42
+    }
+
+    def check(ref : Int): Unit ={
+      println(s"ref:$ref dut:${FixedPointProperty.get}")
+      assert(ref == FixedPointProperty.get)
+    }
+    class Sub extends Component{
+      check(666)
+    }
+    class Toplevel extends Component{
+      check(42)
+      val logic = FixedPointProperty(666) on new Area{
+        check(666)
+        val x = new Sub
+        check(666)
+        FixedPointProperty(1234){
+          check(1234)
+          x.rework{
+            check(666)
+          }
+          check(1234)
+        }
+        check(666)
+      }
+      check(42)
+    }
+
+    val config = SpinalConfig()
+    config.generateVerilog(new Toplevel)
+  }
+
 }
 
 

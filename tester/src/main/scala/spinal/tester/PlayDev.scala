@@ -1492,3 +1492,75 @@ object PlayDevSpinalSim2 extends App{
     dut.clockDomain.waitSampling(40)
   }
 }
+
+
+object PlayScopeProperty extends App{
+  object FixedPointProperty extends ScopeProperty[Int]{
+    override def default: Int = 42
+  }
+
+
+  case class ComplexPropertyValue(x : Int, y : Int) extends ScopePropertyValue(ComplexProperty)
+  object ComplexProperty extends ScopeProperty[ComplexPropertyValue]{
+    override def default = ComplexPropertyValue(1,2)
+  }
+
+  def check(ref : Int): Unit ={
+    println(s"ref:$ref dut:${FixedPointProperty.get}")
+  }
+  class Sub extends Component{
+    check(666)
+  }
+  class Toplevel extends Component{
+    check(42)
+    val logic = FixedPointProperty(666) on new Area{
+      check(666)
+      val x = new Sub
+      check(666)
+      FixedPointProperty(1234){
+        check(1234)
+        x.rework{
+          check(666)
+        }
+        check(1234)
+      }
+      check(666)
+    }
+    check(42)
+
+    println(ComplexProperty.get)
+    ComplexPropertyValue(66,99) on new Area{
+      println(ComplexProperty.get)
+    }
+    println(ComplexProperty.get)
+  }
+
+  val config = SpinalConfig()
+  config.generateVerilog(new Toplevel)
+//  42
+  //  ref:666 dut:666
+  //  ref:666 dut:666
+  //  ref:666 dut:666
+  //  ref:1234 dut:1234
+  //  ref:666 dut:666
+  //  ref:1234 dut:1234
+  //  ref:666 dut:666
+//  42
+//  ComplexPropertyValue(1,2)
+//  ComplexPropertyValue(66,99)
+//  ComplexPropertyValue(1,2)
+  config.setScopeProperty(FixedPointProperty, 76)
+  config.generateVerilog(new Toplevel)
+//  76
+//  ref:666 dut:666
+//  ref:666 dut:666
+//  ref:666 dut:666
+//  ref:1234 dut:1234
+//  ref:666 dut:666
+//  ref:1234 dut:1234
+//  ref:666 dut:666
+//  76
+//  ComplexPropertyValue(1,2)
+//  ComplexPropertyValue(66,99)
+//  ComplexPropertyValue(1,2)
+}

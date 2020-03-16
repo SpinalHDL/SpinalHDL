@@ -1,8 +1,9 @@
 package spinal.sim
 
-import java.io.File
+import java.io.{File, PrintWriter}
 
 import javax.tools.JavaFileObject
+import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable
@@ -130,8 +131,6 @@ public:
     void setU64(uint64_t value)  {*raw = value; }
 };
 
-
-
 class  WDataSignalAccess : public ISignalAccess{
 public:
     WData *raw;
@@ -185,6 +184,9 @@ public:
     }
 };
 
+class Wrapper_${uniqueId};
+thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
+
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
@@ -196,6 +198,7 @@ public:
 	  #endif
 
     Wrapper_${uniqueId}(const char * name){
+      simHandle${uniqueId} = this;
       time = 0;
       waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
@@ -224,6 +227,10 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
     }
 
 };
+
+double sc_time_stamp () {
+  return simHandle${uniqueId}->time;
+}
 
 
 #ifdef __cplusplus
@@ -351,13 +358,18 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case WaveFormat.NONE => ""
     }
 
-    val verilatorCmd = s"""${if(isWindows)"verilator_bin.exe" else "verilator"}
+    val verilatorScript = s""" set -e ;
+       | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
-       | --output-split 4000
+       | -CFLAGS -std=c++11
+       | -LDFLAGS -std=c++11
+       | --output-split 5000
+       | --output-split-cfuncs 500
+       | --output-split-ctrace 500
        | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
@@ -366,15 +378,36 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | $waveArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
-       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || e.endsWith(".sv") || e.endsWith(".h")).map(new File(_).getAbsolutePath).map(_.replace("\\","/")).mkString(" ")}
+       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
+                                                  e.endsWith(".sv") || 
+                                                  e.endsWith(".h"))
+                                     .map(new File(_).getAbsolutePath)
+                                     .map('"' + _.replace("\\","/") + '"')
+                                     .mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
-    assert(Process(verilatorCmd, new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    var lastTime = System.currentTimeMillis()
+    
+    def bench(msg : String): Unit ={
+      val newTime = System.currentTimeMillis()
+      val sec = (newTime-lastTime)*1e-3
+      println(msg + " " + sec)
+      lastTime = newTime
+    }
+    
+    val verilatorScriptFile = new PrintWriter(new File(workspacePath + "/verilatorScript.sh"))
+    verilatorScriptFile.write(verilatorScript)
+    verilatorScriptFile.close
 
+    val shCommand = if(isWindows) "sh.exe" else "sh"
+    assert(Process(Seq(shCommand, "verilatorScript.sh"), 
+                   new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    
     genWrapperCpp()
+    val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
+    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
 
-    assert(s"make -j4 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
   }
 
