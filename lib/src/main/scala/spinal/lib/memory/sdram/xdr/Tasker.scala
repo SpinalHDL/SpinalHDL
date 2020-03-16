@@ -178,7 +178,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
   val stations = for (stationId <- 0 until cp.stationCount) yield new Area {
     val id = stationId
-    val othersMask = ((BigInt(1) << cp.stationCount)-1) - ((BigInt(1) << id))
+    val othersMask = (BigInt(1) << cp.stationCount)-1 - (BigInt(1) << id)
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(SdramAddress(cpa.pl.sdram))
@@ -219,6 +219,9 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     io.output.ports(stationId).precharge := inputPrecharge
     io.output.ports(stationId).write := inputWrite
     io.output.ports(stationId).read := inputRead
+
+
+    readyForRefresh clearWhen(valid)
   }
 
   val loader = new Area{
@@ -226,19 +229,20 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val stronger = CombInit(stationsValid)
     val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
     val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.write =/= taskConstructor.s1.input.write))
-    taskConstructor.s1.input.ready := !stationsValid.andR
+    taskConstructor.s1.input.ready := !stations.map(_.valid).andR
     val slot = for(station <- stations) yield new Area{
       val canSpawn = ~B(stations.take(station.id).map(_.valid)) === 0 && !station.valid
+      //Insert taskConstructor into one free station
       when(taskConstructor.s1.input.valid && canSpawn) {
-        station.valid     := True
-        station.status    := taskConstructor.s1.status
-        station.address   := taskConstructor.s1.address
-        station.write     := taskConstructor.s1.input.write
-        station.context   := taskConstructor.s1.input.context
-        station.portId    := taskConstructor.s1.input.portId
-        station.stronger  := stronger & station.othersMask
-        station.afterBank := afterBank & station.othersMask
-        station.afterAccess := afterBank & station.othersMask
+        station.valid       := True
+        station.status      := taskConstructor.s1.status
+        station.address     := taskConstructor.s1.address
+        station.write       := taskConstructor.s1.input.write
+        station.context     := taskConstructor.s1.input.context
+        station.portId      := taskConstructor.s1.input.portId
+        station.stronger    := stronger & station.othersMask
+        station.afterBank   := afterBank & station.othersMask
+        station.afterAccess := afterAccess & station.othersMask
       }
     }
   }
@@ -257,6 +261,13 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       when(sel) {
         when(station.inputAccess){
           station.valid := False
+
+          //Remove priorities when a station is done
+          for(station2 <- stations if station2 != station){
+            station2.stronger(station.id) := False
+            station2.afterAccess(station.id) := False
+            station2.afterBank(station.id) := False
+          }
         }
       } otherwise {
         port.read := False

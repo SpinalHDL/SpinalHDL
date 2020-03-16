@@ -463,7 +463,7 @@ object SdramXdrTesterHelpers{
     val phyClkRatio = pl.phaseCount
     val simConfig = SimConfig
 //    simConfig.withWave
-    simConfig.withWave(0)
+    simConfig.withWave(1)
     simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
     simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
     simConfig.compile({

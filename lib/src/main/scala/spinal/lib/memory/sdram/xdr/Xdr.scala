@@ -305,7 +305,7 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
-                         stationCount  : Int = 2,
+                         stationCount  : Int = 3,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
