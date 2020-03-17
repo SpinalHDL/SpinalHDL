@@ -144,12 +144,11 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   def outputs : List[AhbLite3] = io.outputs.toList ++ List(if(addDefaultSlaveInterface) io.defaultSlave else defaultSlave.io)
 
   val isIdle  = io.input.isIdle
-  val wasIdle = RegNextWhen(isIdle, io.input.HREADY) init(True)
 
   val slaveReadyOutReduction = outputs.map(_.HREADYOUT).reduce(_ & _)
 
-  val decodesSlaves      = decodings.map(_.hit(io.input.HADDR) && io.input.HSEL).asBits
-  val decodeDefaultSlave = decodesSlaves === 0  && io.input.HSEL
+  val decodesSlaves      = decodings.map(_.hit(io.input.HADDR) && io.input.HSEL && !isIdle).asBits
+  val decodeDefaultSlave = decodesSlaves === 0  && io.input.HSEL && !isIdle
   val decodedSels        = decodeDefaultSlave ## decodesSlaves // !! reverse order compare to def outputs
 
 
@@ -192,7 +191,4 @@ class AhbLite3Decoder(ahbLite3Config: AhbLite3Config, decodings: Seq[SizeMapping
   io.input.HRESP     := switchBufferValid ? switchBufferHRESP  | slaveHRESP
   io.input.HREADYOUT := slaveReadyOutReduction && !noneIdleSwitchDetected
 
-  when(wasIdle){
-    io.input.HRESP := False
-  }
 }

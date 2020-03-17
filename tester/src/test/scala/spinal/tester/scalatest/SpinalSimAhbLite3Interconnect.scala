@@ -17,22 +17,43 @@ import scala.util.Random
 class AhbLite3InterconnectComponent(config: AhbLite3Config) extends Component{
 
   val io = new Bundle{
-    val busMasters  = Vec(slave(AhbLite3Master(config)), 3)
+    val busMasters  = Vec(slave(AhbLite3(config)), 3)
     val busSlaves   = Vec(master(AhbLite3(config)), 3)
   }
 
+  val busMaster = Vec(AhbLite3(config), io.busMasters.length)
+
+  (busMaster, io.busMasters).zipped.foreach{ (tmpBus, ioBus) =>
+
+    tmpBus.HSEL      := ioBus.HSEL
+    tmpBus.HADDR     := ioBus.HADDR
+    tmpBus.HTRANS    := ioBus.HTRANS
+    tmpBus.HBURST    := ioBus.HBURST
+    tmpBus.HSIZE     := ioBus.HSIZE
+    tmpBus.HMASTLOCK := ioBus.HMASTLOCK
+    tmpBus.HWDATA    := ioBus.HWDATA
+    tmpBus.HPROT     := ioBus.HPROT
+    tmpBus.HWRITE    := ioBus.HWRITE
+    tmpBus.HREADY    := tmpBus.HREADYOUT
+
+    ioBus.HREADYOUT := tmpBus.HREADYOUT
+    ioBus.HRDATA    := tmpBus.HRDATA
+    ioBus.HRESP     := tmpBus.HRESP
+  }
+
   val crossbar = AhbLite3CrossbarFactory(config)
-               .addSlaves(
-                 io.busSlaves(0) -> (0x1000, 0x1000),
-                 io.busSlaves(1) -> (0x3000, 0x1000),
-                 io.busSlaves(2) -> (0x4000, 0x1000)
-                )
-                .addConnections(
-                   io.busMasters(0).toAhbLite3() -> List(io.busSlaves(0), io.busSlaves(1)),
-                   io.busMasters(1).toAhbLite3() -> List(io.busSlaves(1), io.busSlaves(2), io.busSlaves(3)),
-                   io.busMasters(2).toAhbLite3() -> List(io.busSlaves(0), io.busSlaves(3))
-                )
-                .build()
+       .addSlaves(
+         io.busSlaves(0) -> (0x1000, 1 KiB),
+         io.busSlaves(1) -> (0x3000, 1 KiB),
+         io.busSlaves(2) -> (0x4000, 1 KiB)
+        )
+        .addConnections(
+          busMaster(0) -> List(io.busSlaves(0), io.busSlaves(1)),
+          busMaster(1) -> List(io.busSlaves(0), io.busSlaves(1), io.busSlaves(2)),
+          busMaster(2) -> List(io.busSlaves(0), io.busSlaves(2))
+        )
+
+    crossbar.build()
 
 }
 
@@ -60,6 +81,7 @@ class SpinalSimAhbLite3Interconnect extends FunSuite {
 
       /* Init master value */
       dut.io.busMasters.foreach{ bus =>
+        bus.HSEL      #= false
         bus.HADDR.randomize()
         bus.HWRITE.randomize()
         bus.HSIZE     #= 0
@@ -77,38 +99,55 @@ class SpinalSimAhbLite3Interconnect extends FunSuite {
 
       val score = ScoreboardInOrder[AhbLite3Transaction]()
 
-      //val receiver = new AhbLite3Driver(dut.io.busOut, dut.clockDomain)
 
-      //      /** Monitor the master */
-      //      AhbLite3Monitor(dut.io.busMaster, dut.clockDomain){ bus =>
-      //        score.pushRef(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
-      //      }
-      //
-      //      /** Monitor all slaves */
-      //      dut.io.busSlaves.map{ bus =>
-      //        AhbLite3Monitor(bus, dut.clockDomain){ bus =>
-      //          score.pushDut(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
-      //        }
-      //      }
+      dut.io.busSlaves.foreach{ bus =>
+        val receiver = new AhbLite3Driver(bus, dut.clockDomain)
+        receiver.slaveSink()
+      }
+
+      /** Monitor all slaves */
+      dut.io.busSlaves.map{ bus =>
+        AhbLite3Monitor(bus, dut.clockDomain){ bus =>
+          while(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean) {
+            val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+           // score.pushDut(transaction)
+           // println(f"Slaves ${transaction}")
+          }
+        }
+      }
+
+
+      /** Monitor all Master */
+      dut.io.busMasters.map{ bus =>
+        AhbLite3Monitor(bus, dut.clockDomain){ bus =>
+          while(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean) {
+            val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+            //score.pushDut(transaction)
+           // println(f"Master ${transaction}")
+          }
+        }
+      }
 
       /** Do several time the tests */
       for(_ <- 0 until 1){
 
         val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
 
+        dut.io.busMasters.zipWithIndex.slice(0, 3).foreach { case (busMaster, index) =>
 
-        dut.io.busMasters.slice(0, 1).foreach { bus =>
-
-          val busDriver = new AhbLite3Driver(bus.toAhbLite3(), dut.clockDomain)
+          // get list of slave of the master
+          val slaves = dut.crossbar.slavesFromMaster(dut.busMaster(index))
+          
+          val busDriver = new AhbLite3Driver(busMaster, dut.clockDomain)
 
           masterPool += fork {
 
             /* Generate random transaction */
             val seq = new AhbLite3Sequencer()
 
-            //seq.addTransaction(AhbLite3Transaction.createSingleTransaction(Random.nextInt(3)))
-            seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = 0x100).randomizeData())
-            seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = 0x500).randomizeData())
+            //seq.addTransaction(AhbLite3Transaction.createSingleTransaction(3))
+            seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = slaves.head._2.mapping.base).randomizeData())
+            seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = slaves(1)._2.mapping.base).randomizeData())
             //seq.addTransaction(AhbLite3Transaction.createBurstTransaction())
 
             // Random sleep before starting transaction on a slave
@@ -120,14 +159,15 @@ class SpinalSimAhbLite3Interconnect extends FunSuite {
               busDriver.drive(seq.nextTransaction)
               dut.clockDomain.waitActiveEdge(Random.nextInt(2))
             }
-
-            // Check that all transactions has been received
-            assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
           }
         }
 
-
         masterPool.foreach{process => process.join()}
+
+
+        // Check that all transactions has been received
+        assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
+
         dut.clockDomain.waitActiveEdge(20)
       }
     }
