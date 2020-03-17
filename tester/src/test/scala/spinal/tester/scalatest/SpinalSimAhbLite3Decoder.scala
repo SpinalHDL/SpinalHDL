@@ -21,22 +21,45 @@ class AhbLite3DecoderComponent(config: AhbLite3Config, size: Int) extends Compon
     val busSlaves  = Vec(master(AhbLite3(config)), size)
   }
 
+  val busMaster = AhbLite3(config)
+
+  busMaster.HSEL      := io.busMaster.HSEL
+  busMaster.HADDR     := io.busMaster.HADDR
+  busMaster.HTRANS    := io.busMaster.HTRANS
+  busMaster.HBURST    := io.busMaster.HBURST
+  busMaster.HSIZE     := io.busMaster.HSIZE
+  busMaster.HMASTLOCK := io.busMaster.HMASTLOCK
+  busMaster.HWDATA    := io.busMaster.HWDATA
+  busMaster.HPROT     := io.busMaster.HPROT
+  busMaster.HWRITE    := io.busMaster.HWRITE
+  busMaster.HREADY    := busMaster.HREADYOUT
+
+  io.busMaster.HREADYOUT := busMaster.HREADYOUT
+  io.busMaster.HRDATA    := busMaster.HRDATA
+  io.busMaster.HRESP     := busMaster.HRESP
+
+
   val decoder = AhbLite3Decoder(
-    master  = io.busMaster,
+    master  = busMaster,
     slaves  = for(i <- 0 until size) yield (io.busSlaves(i) -> SizeMapping((i << 10), 1 KiB))
   )
 }
 
 
 /**
-  * Test the AhbLite3 Arbiter
+  * Test the AhbLite3 Decoder
   */
 class SpinalSimAhbLite3Decoder extends FunSuite {
 
+  trait ArbiterSlaveMode
+  object SinkResponse  extends ArbiterSlaveMode
+  object DelayResponse extends ArbiterSlaveMode
+  object ErrorResponse extends ArbiterSlaveMode
 
-  def testDecoder(config: AhbLite3Config, size: Int, description: String = ""): Unit = {
 
-    val compiledRTL = SimConfig.allOptimisation.withConfig(SpinalConfig(anonymSignalPrefix = "a")).withWave.compile(rtl = new AhbLite3DecoderComponent(config, size))
+  def testDecoder(config: AhbLite3Config, size: Int, modeSlave: ArbiterSlaveMode, description: String = ""): Unit = {
+
+    val compiledRTL = SimConfig.allOptimisation.withConfig(SpinalConfig(anonymSignalPrefix = "a")).compile(rtl = new AhbLite3DecoderComponent(config, size))
 
     compiledRTL.doSim(description){ dut =>
 
@@ -66,36 +89,51 @@ class SpinalSimAhbLite3Decoder extends FunSuite {
 
       val score = ScoreboardInOrder[AhbLite3Transaction]()
 
-      //val receiver = new AhbLite3Driver(dut.io.busOut, dut.clockDomain)
+      dut.io.busSlaves.foreach{ bus =>
+        val receiver = new AhbLite3Driver(bus, dut.clockDomain)
+        modeSlave match{
+          case SinkResponse  => receiver.slaveSink()
+          case DelayResponse => receiver.slaveRandomWait()
+          case ErrorResponse => receiver.slaveRandomError()
+        }
 
-//      /** Monitor the master */
-//      AhbLite3Monitor(dut.io.busMaster, dut.clockDomain){ bus =>
-//        score.pushRef(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
-//      }
-//
-//      /** Monitor all slaves */
-//      dut.io.busSlaves.map{ bus =>
-//        AhbLite3Monitor(bus, dut.clockDomain){ bus =>
-//          score.pushDut(AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain))
-//        }
-//      }
+      }
+
+      /** Monitor the master */
+      AhbLite3Monitor(dut.io.busMaster, dut.clockDomain){ bus =>
+        while(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean){
+          val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+          score.pushRef(transaction)
+          //println(f"Master ${transaction}")
+        }
+      }
+
+      /** Monitor all slaves */
+      dut.io.busSlaves.map{ bus =>
+        AhbLite3Monitor(bus, dut.clockDomain){ bus =>
+          while(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0 & bus.HREADYOUT.toBoolean) {
+            val transaction = AhbLite3Transaction.sampleAsSlave(bus, dut.clockDomain)
+            score.pushDut(transaction)
+            //println(f"Slaves ${transaction}")
+          }
+        }
+      }
 
       /** Do several time the tests */
       for(_ <- 0 until 1){
 
-        //val masterPool = scala.collection.mutable.ListBuffer[SimThread]()
-
           val busDriver = new AhbLite3Driver(dut.io.busMaster, dut.clockDomain)
 
-          fork{
+          val masterFork = fork{
 
             /* Generate random transaction */
             val seq = new AhbLite3Sequencer()
 
-            //seq.addTransaction(AhbLite3Transaction.createSingleTransaction(Random.nextInt(3)))
+            seq.addTransaction(for(i <- 0 until 4) yield AhbLite3Transaction(htrans = 2, haddr = 0x100 + (i * 0x300)).randomizeData().randomizeRW())
             seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = 0x100).randomizeData())
             seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = 0x500).randomizeData())
-            //seq.addTransaction(AhbLite3Transaction.createBurstTransaction())
+            seq.addTransaction(AhbLite3Transaction(htrans = 2, haddr = 0xA00).randomizeData())
+            seq.addTransaction(AhbLite3Transaction.createBurstTransaction(true))
 
             // Random sleep before starting transaction on a slave
             dut.clockDomain.waitActiveEdge(Random.nextInt(1))
@@ -107,19 +145,25 @@ class SpinalSimAhbLite3Decoder extends FunSuite {
               dut.clockDomain.waitActiveEdge(Random.nextInt(2))
             }
 
-            // Check that all transactions has been received
-            assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
           }
 
+        masterFork.join()
 
-//        masterPool.foreach{process => process.join()}
+
+        // Check that all transactions has been received
+        assert(score.dut.isEmpty & score.ref.isEmpty, "Transaction errors")
+
         dut.clockDomain.waitActiveEdge(20)
       }
     }
   }
 
 
-  test("Arbiter"){
-    testDecoder(AhbLite3Config(32, 32), 3, "BasisDecoder")
+  test("Decoder basic response"){
+    testDecoder(AhbLite3Config(32, 32), 3, SinkResponse, "BasisDecoder")
+  }
+
+  test("Decoder Delay response"){
+    testDecoder(AhbLite3Config(32, 32), 3, DelayResponse, "BasisDecoder")
   }
 }

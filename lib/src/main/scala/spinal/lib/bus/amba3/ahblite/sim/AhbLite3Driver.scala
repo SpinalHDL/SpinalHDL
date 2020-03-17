@@ -88,6 +88,9 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
           bus.HREADYOUT #= false
           clockdomain.waitActiveEdge()
         }
+        if (!bus.HWRITE.toBoolean){
+          bus.HRDATA.randomize()
+        }
       }
     }
   }

@@ -55,7 +55,7 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
 
   def testArbiter(config: AhbLite3Config, size: Int, roundRobinArbiter: Boolean, modeSlave: ArbiterSlaveMode, description: String = ""): Unit = {
 
-    val compiledRTL = SimConfig.allOptimisation.withConfig(SpinalConfig(anonymSignalPrefix = "a")).withWave.compile(rtl = new AhbLite3ArbiterComponent(config, size, roundRobinArbiter))
+    val compiledRTL = SimConfig.allOptimisation.withConfig(SpinalConfig(anonymSignalPrefix = "a")).compile(rtl = new AhbLite3ArbiterComponent(config, size, roundRobinArbiter))
 
     compiledRTL.doSim(description){ dut =>
 
@@ -80,7 +80,7 @@ class SpinalSimAhbLite3Arbiter extends FunSuite {
 
       dut.clockDomain.waitActiveEdge(10)
 
-     // SimTimeout(1000 * 10000)
+     SimTimeout(1000 * 10000)
 
       val score = ScoreboardInOrder[AhbLite3Transaction]()
 
