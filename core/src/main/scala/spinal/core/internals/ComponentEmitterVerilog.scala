@@ -49,15 +49,15 @@ class ComponentEmitterVerilog(
   override def component = c
 
   val portMaps     = ArrayBuffer[String]()
+  val definitionAttributes  = new StringBuilder()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
-  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
-    val attributeString = emitSyntaxAttributes(component.definition.instanceAttributes)
     s"""
-      |${attributeString}module ${component.definitionName} (
+      |${definitionAttributes}module ${component.definitionName} (
       |${ports}
       |${declarations}
       |${logics}
@@ -93,6 +93,8 @@ class ComponentEmitterVerilog(
   }
 
   def emitArchitecture(): Unit = {
+    definitionAttributes ++= emitSyntaxAttributes(component.definition.instanceAttributes)
+
     for(mem <- mems){
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
