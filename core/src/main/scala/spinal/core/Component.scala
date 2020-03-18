@@ -77,6 +77,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
+  val definition = new SpinalTagReady {
+
+  }
+
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 

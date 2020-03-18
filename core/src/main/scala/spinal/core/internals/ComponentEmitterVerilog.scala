@@ -55,8 +55,9 @@ class ComponentEmitterVerilog(
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
+    val attributeString = emitSyntaxAttributes(component.definition.instanceAttributes)
     s"""
-      |module ${component.definitionName} (
+      |${attributeString}module ${component.definitionName} (
       |${ports}
       |${declarations}
       |${logics}
@@ -214,7 +215,9 @@ class ComponentEmitterVerilog(
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
-      logics ++= s"  $definitionString "
+      val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
+
+      logics ++= s"  $instanceAttributes$definitionString "
 
       if (isBB) {
         val bb = child.asInstanceOf[BlackBox]
