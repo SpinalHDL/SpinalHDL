@@ -5,19 +5,19 @@ import spinal.core.HardType
 import spinal.core.Bundle
 
 case class TupleBundle1[
-    T1 <: Data,
+    T1 <: Data
     ](
-        val payloadType1: HardType[T1],
+        val payloadType1: HardType[T1]
         ) extends Bundle {
   val _1 = payloadType1()
 }
 
 case class TupleBundle2[
     T1 <: Data,
-    T2 <: Data,
+    T2 <: Data
     ](
         val payloadType1: HardType[T1],
-        val payloadType2: HardType[T2],
+        val payloadType2: HardType[T2]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -26,11 +26,11 @@ case class TupleBundle2[
 case class TupleBundle3[
     T1 <: Data,
     T2 <: Data,
-    T3 <: Data,
+    T3 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
-        val payloadType3: HardType[T3],
+        val payloadType3: HardType[T3]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -41,12 +41,12 @@ case class TupleBundle4[
     T1 <: Data,
     T2 <: Data,
     T3 <: Data,
-    T4 <: Data,
+    T4 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
         val payloadType3: HardType[T3],
-        val payloadType4: HardType[T4],
+        val payloadType4: HardType[T4]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -59,13 +59,13 @@ case class TupleBundle5[
     T2 <: Data,
     T3 <: Data,
     T4 <: Data,
-    T5 <: Data,
+    T5 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
         val payloadType3: HardType[T3],
         val payloadType4: HardType[T4],
-        val payloadType5: HardType[T5],
+        val payloadType5: HardType[T5]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -80,14 +80,14 @@ case class TupleBundle6[
     T3 <: Data,
     T4 <: Data,
     T5 <: Data,
-    T6 <: Data,
+    T6 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
         val payloadType3: HardType[T3],
         val payloadType4: HardType[T4],
         val payloadType5: HardType[T5],
-        val payloadType6: HardType[T6],
+        val payloadType6: HardType[T6]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -104,7 +104,7 @@ case class TupleBundle7[
     T4 <: Data,
     T5 <: Data,
     T6 <: Data,
-    T7 <: Data,
+    T7 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -112,7 +112,7 @@ case class TupleBundle7[
         val payloadType4: HardType[T4],
         val payloadType5: HardType[T5],
         val payloadType6: HardType[T6],
-        val payloadType7: HardType[T7],
+        val payloadType7: HardType[T7]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -131,7 +131,7 @@ case class TupleBundle8[
     T5 <: Data,
     T6 <: Data,
     T7 <: Data,
-    T8 <: Data,
+    T8 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -140,7 +140,7 @@ case class TupleBundle8[
         val payloadType5: HardType[T5],
         val payloadType6: HardType[T6],
         val payloadType7: HardType[T7],
-        val payloadType8: HardType[T8],
+        val payloadType8: HardType[T8]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -161,7 +161,7 @@ case class TupleBundle9[
     T6 <: Data,
     T7 <: Data,
     T8 <: Data,
-    T9 <: Data,
+    T9 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -171,7 +171,7 @@ case class TupleBundle9[
         val payloadType6: HardType[T6],
         val payloadType7: HardType[T7],
         val payloadType8: HardType[T8],
-        val payloadType9: HardType[T9],
+        val payloadType9: HardType[T9]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -194,7 +194,7 @@ case class TupleBundle10[
     T7 <: Data,
     T8 <: Data,
     T9 <: Data,
-    T10 <: Data,
+    T10 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -205,7 +205,7 @@ case class TupleBundle10[
         val payloadType7: HardType[T7],
         val payloadType8: HardType[T8],
         val payloadType9: HardType[T9],
-        val payloadType10: HardType[T10],
+        val payloadType10: HardType[T10]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -230,7 +230,7 @@ case class TupleBundle11[
     T8 <: Data,
     T9 <: Data,
     T10 <: Data,
-    T11 <: Data,
+    T11 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -242,7 +242,7 @@ case class TupleBundle11[
         val payloadType8: HardType[T8],
         val payloadType9: HardType[T9],
         val payloadType10: HardType[T10],
-        val payloadType11: HardType[T11],
+        val payloadType11: HardType[T11]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -269,7 +269,7 @@ case class TupleBundle12[
     T9 <: Data,
     T10 <: Data,
     T11 <: Data,
-    T12 <: Data,
+    T12 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -282,7 +282,7 @@ case class TupleBundle12[
         val payloadType9: HardType[T9],
         val payloadType10: HardType[T10],
         val payloadType11: HardType[T11],
-        val payloadType12: HardType[T12],
+        val payloadType12: HardType[T12]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -311,7 +311,7 @@ case class TupleBundle13[
     T10 <: Data,
     T11 <: Data,
     T12 <: Data,
-    T13 <: Data,
+    T13 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -325,7 +325,7 @@ case class TupleBundle13[
         val payloadType10: HardType[T10],
         val payloadType11: HardType[T11],
         val payloadType12: HardType[T12],
-        val payloadType13: HardType[T13],
+        val payloadType13: HardType[T13]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -356,7 +356,7 @@ case class TupleBundle14[
     T11 <: Data,
     T12 <: Data,
     T13 <: Data,
-    T14 <: Data,
+    T14 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -371,7 +371,7 @@ case class TupleBundle14[
         val payloadType11: HardType[T11],
         val payloadType12: HardType[T12],
         val payloadType13: HardType[T13],
-        val payloadType14: HardType[T14],
+        val payloadType14: HardType[T14]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -404,7 +404,7 @@ case class TupleBundle15[
     T12 <: Data,
     T13 <: Data,
     T14 <: Data,
-    T15 <: Data,
+    T15 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -420,7 +420,7 @@ case class TupleBundle15[
         val payloadType12: HardType[T12],
         val payloadType13: HardType[T13],
         val payloadType14: HardType[T14],
-        val payloadType15: HardType[T15],
+        val payloadType15: HardType[T15]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -455,7 +455,7 @@ case class TupleBundle16[
     T13 <: Data,
     T14 <: Data,
     T15 <: Data,
-    T16 <: Data,
+    T16 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -472,7 +472,7 @@ case class TupleBundle16[
         val payloadType13: HardType[T13],
         val payloadType14: HardType[T14],
         val payloadType15: HardType[T15],
-        val payloadType16: HardType[T16],
+        val payloadType16: HardType[T16]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -509,7 +509,7 @@ case class TupleBundle17[
     T14 <: Data,
     T15 <: Data,
     T16 <: Data,
-    T17 <: Data,
+    T17 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -527,7 +527,7 @@ case class TupleBundle17[
         val payloadType14: HardType[T14],
         val payloadType15: HardType[T15],
         val payloadType16: HardType[T16],
-        val payloadType17: HardType[T17],
+        val payloadType17: HardType[T17]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -566,7 +566,7 @@ case class TupleBundle18[
     T15 <: Data,
     T16 <: Data,
     T17 <: Data,
-    T18 <: Data,
+    T18 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -585,7 +585,7 @@ case class TupleBundle18[
         val payloadType15: HardType[T15],
         val payloadType16: HardType[T16],
         val payloadType17: HardType[T17],
-        val payloadType18: HardType[T18],
+        val payloadType18: HardType[T18]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -626,7 +626,7 @@ case class TupleBundle19[
     T16 <: Data,
     T17 <: Data,
     T18 <: Data,
-    T19 <: Data,
+    T19 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -646,7 +646,7 @@ case class TupleBundle19[
         val payloadType16: HardType[T16],
         val payloadType17: HardType[T17],
         val payloadType18: HardType[T18],
-        val payloadType19: HardType[T19],
+        val payloadType19: HardType[T19]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -689,7 +689,7 @@ case class TupleBundle20[
     T17 <: Data,
     T18 <: Data,
     T19 <: Data,
-    T20 <: Data,
+    T20 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -710,7 +710,7 @@ case class TupleBundle20[
         val payloadType17: HardType[T17],
         val payloadType18: HardType[T18],
         val payloadType19: HardType[T19],
-        val payloadType20: HardType[T20],
+        val payloadType20: HardType[T20]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -755,7 +755,7 @@ case class TupleBundle21[
     T18 <: Data,
     T19 <: Data,
     T20 <: Data,
-    T21 <: Data,
+    T21 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -777,7 +777,7 @@ case class TupleBundle21[
         val payloadType18: HardType[T18],
         val payloadType19: HardType[T19],
         val payloadType20: HardType[T20],
-        val payloadType21: HardType[T21],
+        val payloadType21: HardType[T21]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
@@ -824,7 +824,7 @@ case class TupleBundle22[
     T19 <: Data,
     T20 <: Data,
     T21 <: Data,
-    T22 <: Data,
+    T22 <: Data
     ](
         val payloadType1: HardType[T1],
         val payloadType2: HardType[T2],
@@ -847,7 +847,7 @@ case class TupleBundle22[
         val payloadType19: HardType[T19],
         val payloadType20: HardType[T20],
         val payloadType21: HardType[T21],
-        val payloadType22: HardType[T22],
+        val payloadType22: HardType[T22]
         ) extends Bundle {
   val _1 = payloadType1()
   val _2 = payloadType2()
