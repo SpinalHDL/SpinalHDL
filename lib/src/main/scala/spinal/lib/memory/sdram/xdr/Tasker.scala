@@ -10,6 +10,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val config = in(CoreConfig(cpa))
     val refresh = slave(Event)
     val inputs = Vec(cpp.map(cpp => slave(Stream(CoreCmd(cpp, cpa)))))
+    val writeDataTockens = Vec(cpp.map(p => UInt(p.writeTockenInterfaceWidth bits)))
     val output = master(CoreTasks(cpa))
   }
 
@@ -118,11 +119,20 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
+
+  val writeTockens = for(portId <- 0 until cpp.size) yield new Area{
+    val consume = False
+    val counter = Reg(UInt(cpp(portId).writeTockenBufferSize bits)) init(0)
+    counter := counter + io.writeDataTockens(portId) - (U(consume) << log2Up(pl.beatCount))
+    val ready = RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter === pl.beatCount)
+  }
+
   case class Task() extends Bundle{
     val write = Bool()
     val address = UInt(pl.sdram.byteAddressWidth bits)
     val context = Bits(backendContextWidth bits)
     val burstLast = Bool()
+    val length = Reg(UInt(cp.stationLengthWidth bits))
     val portId = UInt(log2Up(cpp.size) bits)
   }
 
@@ -150,6 +160,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     output.address := selPayload.address
     output.context := selPayload.context
     output.burstLast := selPayload.burstLast
+    output.length := selPayload.length
     output.portId := OHToUInt(selOH)
 
     readyForRefresh clearWhen(inputsValids.orR)
@@ -172,10 +183,14 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       status.bankActive := banks.map(_.active).read(address.bank)
       status.patch(address)
 
+
+
       readyForRefresh clearWhen(input.valid)
     }
   }
 
+  val columnBurstShift = log2Up(pl.transferPerBurst)
+  val columnBurstMask  = (pl.sdram.columnSize-1) - (cp.stationLengthMax-1 << columnBurstShift)
   val stations = for (stationId <- 0 until cp.stationCount) yield new Area {
     val id = stationId
     val othersMask = (BigInt(1) << cp.stationCount)-1 - (BigInt(1) << id)
@@ -185,6 +200,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val write = Reg(Bool)
     val context = Reg(Bits(backendContextWidth bits))
     val portId = Reg(UInt(log2Up(cpa.cpp.size) bits))
+    val offset, offsetLast = Reg(UInt(cp.stationLengthWidth bits))
 
     //Arbitration states vs other ports
     val stronger = Reg(Bits(cp.stationCount bits)) init(0)                  //Solve basic ordering
@@ -207,42 +223,63 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
     val doActive = inputActive && allowActive
     val doPrecharge = inputPrecharge && allowPrecharge
-    val doWrite = inputWrite && allowWrite
+    val doWrite = inputWrite && allowWrite && writeTockens.map(_.ready).read(portId)
     val doRead = inputRead && allowRead
     val doSomething = valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
+    val sel = False //Arbitration allow you to do your stuff
+    val fire = False //It is the last cycle for this station
+
     val cmdOutputPayload = CoreTask(cpa)
     io.output.ports(stationId).source := portId
-    io.output.ports(stationId).address := address
+    io.output.ports(stationId).address.byte := address.byte
+    io.output.ports(stationId).address.column := address.column | (offset << columnBurstShift).resized
+    io.output.ports(stationId).address.bank := address.bank
+    io.output.ports(stationId).address.row := address.row
     io.output.ports(stationId).context := context
-    io.output.ports(stationId).active := inputActive
-    io.output.ports(stationId).precharge := inputPrecharge
-    io.output.ports(stationId).write := inputWrite
-    io.output.ports(stationId).read := inputRead
+    io.output.ports(stationId).active := inputActive && sel
+    io.output.ports(stationId).precharge := inputPrecharge && sel
+    io.output.ports(stationId).write := inputWrite && sel
+    io.output.ports(stationId).read := inputRead && sel
 
+
+    todo tocken consume ???
+    when(sel && inputAccess){
+      offset := offset + 1
+      when(offset === offsetLast) {
+        valid := False
+        fire := True
+      }
+    }
 
     readyForRefresh clearWhen(valid)
   }
-
   val loader = new Area{
     val stationsValid = B(stations.map(_.valid))
     val stronger = CombInit(stationsValid)
     val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
     val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.write =/= taskConstructor.s1.input.write))
     taskConstructor.s1.input.ready := !stations.map(_.valid).andR
+    val offset = taskConstructor.s1.address.column(columnBurstShift, cp.stationLengthWidth bits)
+    val offsetLast = offset + taskConstructor.s1.input.length
     val slot = for(station <- stations) yield new Area{
       val canSpawn = ~B(stations.take(station.id).map(_.valid)) === 0 && !station.valid
       //Insert taskConstructor into one free station
       when(taskConstructor.s1.input.valid && canSpawn) {
-        station.valid       := True
-        station.status      := taskConstructor.s1.status
-        station.address     := taskConstructor.s1.address
-        station.write       := taskConstructor.s1.input.write
-        station.context     := taskConstructor.s1.input.context
-        station.portId      := taskConstructor.s1.input.portId
-        station.stronger    := stronger & station.othersMask
-        station.afterBank   := afterBank & station.othersMask
-        station.afterAccess := afterAccess & station.othersMask
+        station.valid          := True
+        station.status         := taskConstructor.s1.status
+        station.address.byte   := taskConstructor.s1.address.byte
+        station.address.column := taskConstructor.s1.address.column & columnBurstMask
+        station.address.bank   := taskConstructor.s1.address.bank
+        station.address.row    := taskConstructor.s1.address.row
+        station.offset         := offset
+        station.offsetLast     := offsetLast
+        station.write          := taskConstructor.s1.input.write
+        station.context        := taskConstructor.s1.input.context
+        station.portId         := taskConstructor.s1.input.portId
+        station.stronger       := stronger & station.othersMask
+        station.afterBank      := afterBank & station.othersMask
+        station.afterAccess    := afterAccess & station.othersMask
       }
     }
   }
@@ -258,22 +295,16 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
 
     for((station, sel, port) <- (stations, selOH.asBools, io.output.ports).zipped){
-      when(sel) {
-        when(station.inputAccess){
-          station.valid := False
-
-          //Remove priorities when a station is done
-          for(station2 <- stations if station2 != station){
-            station2.stronger(station.id) := False
-            station2.afterAccess(station.id) := False
-            station2.afterBank(station.id) := False
+      when(sel){
+        station.sel := True
+        //Remove priorities when a station is done
+        when(station.fire) {
+          for (anotherStation <- stations if anotherStation != station) {
+            anotherStation.stronger(station.id) := False
+            anotherStation.afterAccess(station.id) := False
+            anotherStation.afterBank(station.id) := False
           }
         }
-      } otherwise {
-        port.read := False
-        port.write := False
-        port.active := False
-        port.precharge := False
       }
     }
 

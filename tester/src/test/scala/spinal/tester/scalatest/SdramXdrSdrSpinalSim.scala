@@ -462,8 +462,8 @@ object SdramXdrTesterHelpers{
     import spinal.core.sim._
     val phyClkRatio = pl.phaseCount
     val simConfig = SimConfig
-//    simConfig.withWave
-    simConfig.withWave(1)
+    simConfig.withWave
+//    simConfig.withWave(1)
     simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
     simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
     simConfig.compile({

@@ -13,11 +13,10 @@ case class PhyLayout(sdram : SdramLayout,
                      phaseCount : Int, //How many DRAM clock per core clock
                      dataRate : Int, //(SDR=1, DDR=2, QDR=4)
                      outputLatency : Int, //Max delay for a command on the phy to arrive on the sdram
-                     // inputLatency : Int,
                      readDelay : Int, //Max delay between readEnable and readValid
                      writeDelay : Int, //Delay between writeEnable and data/dm
                      cmdToDqDelayDelta : Int, //How many cycle extra the DQ need to be on the pin compared to CAS/RAS
-                     transferPerBurst : Int){ //How many transfer per per burst
+                     transferPerBurst : Int){ //How many transfer per burst
   import sdram._
   def beatWidth = phaseCount * dataRate * dataWidth
   def beatCount = transferPerBurst / phaseCount / dataRate
@@ -161,16 +160,21 @@ case class SdramXdrIo(g : SdramLayout) extends Bundle with IMasterSlave {
 
 
 
-case class CorePortParameter( contextWidth : Int)
+case class CorePortParameter(contextWidth : Int,
+                             writeTockenInterfaceWidth : Int,
+                             writeTockenBufferSize : Int)
 
 case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
   val cmd = Stream(CoreCmd(cpp, cpa))
   val writeData = Stream(CoreWriteData(cpp, cpa))
   val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
 
+  val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
+
   override def asMaster(): Unit = {
     master(cmd)
     master(writeData)
+    out(writeDataAdded)
     slave(rsp)
   }
 }
@@ -181,6 +185,7 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val address = UInt(pl.sdram.byteAddressWidth bits)
   val context = Bits(cpp.contextWidth bits)
   val burstLast = Bool()
+  val length = UInt(log2Up(cpa.cp.stationLengthMax)  bits)
 }
 case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
@@ -306,10 +311,14 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
                          stationCount  : Int = 3,
+                         stationLengthMax : Int = 8,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
-                         readLatencies : List[Int])
+                         readLatencies : List[Int]){
+  assert(isPow2(stationLengthMax))
+  def stationLengthWidth = log2Up(stationLengthMax)
+}
 
 object FrontendCmdOutputKind extends SpinalEnum{
   val READ, WRITE, ACTIVE, PRECHARGE, REFRESH = newElement()
@@ -391,7 +400,6 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     val output = master(CorePort(cpp, cpa))
   }
 
-
   case class Context() extends Bundle{
     val input = Bits(ip.contextWidth bits)
     val source = UInt(ip.sourceWidth bits)
@@ -403,13 +411,14 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   cmdContext.input := io.input.cmd.context
   cmdContext.source := io.input.cmd.source
 
-  io.output.cmd.valid := io.input.cmd.valid && io.input.cmd.last && io.input.cmd.ready
+  io.output.cmd.valid := io.input.cmd.firstFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
+  io.output.cmd.length := 0
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
-  io.output.writeData.valid := io.input.cmd.valid && io.input.cmd.isWrite && io.input.cmd.ready
+  io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
   io.output.writeData.data := io.input.cmd.data
   io.output.writeData.mask := io.input.cmd.mask
 

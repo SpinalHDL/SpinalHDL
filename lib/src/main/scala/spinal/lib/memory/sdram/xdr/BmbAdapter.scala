@@ -2,14 +2,16 @@ package spinal.lib.memory.sdram.xdr
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAligner, BmbCmd, BmbLengthFixer}
+import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbCmd, BmbLengthFixer}
 
 object BmbAdapter{
   def corePortParameter(pp : BmbPortParameter, pl : PhyLayout) = CorePortParameter(
     contextWidth = {
       val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.burstWidth/8)), log2Up(pl.burstWidth/8))
       converterBmb.contextWidth + converterBmb.sourceWidth
-    }
+    },
+    writeTockenInterfaceWidth = 1,
+    writeTockenBufferSize = pp.dataBufferSize + 4
   )
 }
 
@@ -32,12 +34,12 @@ case class BmbAdapter(pp : BmbPortParameter,
     val aligner = pp.clockDomain(BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8)))
     aligner.io.input << io.input
 
-    val lengthFixer = BmbLengthFixer(aligner.io.output.p, log2Up(pl.burstWidth / 8))
-    lengthFixer.io.input << aligner.io.output
+    val spliter = BmbAlignedSpliter(aligner.io.output.p, pp.beatPerBurst * pl.bytePerBurst)
+    spliter.io.input << aligner.io.output
 
-    val converter = BmbToCorePort(lengthFixer.io.output.p, io.output.cpp, cpa)
-    converter.io.input << lengthFixer.io.output
-    converter.io.inputBurstLast := lengthFixer.io.outputBurstLast
+    val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa)
+    converter.io.input << spliter.io.output
+    converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 
   val cmdAddressBuffer = asyncCc match {
