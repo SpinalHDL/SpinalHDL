@@ -789,20 +789,41 @@ case class EventEmitter(on : Event){
 
 /** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
 object StreamJoin {
+  
   /**
-   * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
-   *  @param hardTypeT The type of the resulting stream. Its bit length must be equal to the sum of the bit length of all input streams.
+   * Convert a tuple of streams into a stream of tuples
    */
-  def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
-    val combined = Stream(hardTypeT)
+  def apply[
+    T1 <: Data,
+    T2 <: Data,
+    ](
+        source1: Stream[T1],
+        source2: Stream[T2],
+        ): Stream[TupleBundle2[T1, T2]] = {
+    val sources = Seq(source1, source2)
+    val combined = Stream(TupleBundle2(
+        source1.payloadType,
+        source2.payloadType,
+        ))
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
-    combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
+    combined.payload._1 := source1.payload
+    combined.payload._2 := source2.payload
+    combined
+  }
+
+  /**
+   * Convert a vector of streams into a stream of vectors.
+   */
+  def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
+    val combined = Stream(Vec(sources.map(_.payload)))
+    combined.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := combined.fire)
     combined
   }
   
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
-  
+
   /** Join streams, but ignore the payload of the input streams. */
   def apply(sources: Seq[Stream[_]]): Event = {
     val event = Event
