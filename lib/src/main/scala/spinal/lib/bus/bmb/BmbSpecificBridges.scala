@@ -182,3 +182,97 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     io.input.rsp.context := io.output.rsp.context.resized
   }
 }
+
+
+object BmbAlignedSpliter{
+  def outputParameter(ip : BmbParameter, lengthMax : Int) = ip.copy(
+    lengthWidth = log2Up(lengthMax),
+    contextWidth = ip.contextWidth + 2
+  )
+}
+
+
+//Break big burst into multiple ones, not bigger than lengthMax and not crossing lengthMax address boundardy
+case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Component{
+  val op = BmbAlignedSpliter.outputParameter(ip, lengthMax)
+
+  val io = new Bundle{
+    val input = slave(Bmb(ip))
+    val output = master(Bmb(op))
+    val outputBurstLast = out Bool()
+  }
+
+  val beatCountMax = lengthMax / ip.byteCount
+  val splitCountMax = ip.transferBeatCount / beatCountMax + (if(ip.alignment.allowWord) 1 else 0)
+  val splitRange =  log2Up(lengthMax)-1 downto 0
+  val addressRange =  ip.addressWidth-1 downto splitRange.high + 1
+
+  case class Context() extends Bundle{
+    val input = Bits(ip.contextWidth bits)
+    val last = Bool()
+    val write = Bool()
+  }
+
+  val cmdLogic = new Area {
+    val beatCounter = Reg(UInt(log2Up(beatCountMax) bits)) init (0)
+    val splitCounter = Reg(UInt(log2Up(splitCountMax) bits)) init (0)
+
+    val headLenghtMax = lengthMax-1-io.input.cmd.address(splitRange)
+    val bodyLength = lengthMax-1
+    val lastAddress = io.input.cmd.address(splitRange) + (U"0" @@ io.input.cmd.length)
+    val tailLength = lastAddress(splitRange)
+    val splitCount =  (lastAddress >> splitRange.size)
+
+    val firstSplit = RegInit(True) clearWhen(io.output.cmd.lastFire)
+    val lastSplit = splitCounter === splitCount
+
+    val addressBase = CombInit(io.input.cmd.address)
+    when(!firstSplit){ addressBase(splitRange) := 0 }
+
+    val beatsInSplit = U(lengthMax / ip.byteCount) - (firstSplit ? io.input.cmd.address(splitRange.high downto log2Up(ip.byteCount)) | U(0))
+
+    val context = Context()
+    context.input := io.input.cmd.context
+    context.last := lastSplit
+    context.write := io.input.cmd.isWrite
+
+    io.output.cmd.valid := io.input.cmd.valid
+    io.output.cmd.last := io.input.cmd.last || (beatCounter === beatsInSplit-1)
+    io.output.cmd.address := Bmb.addToAddress(addressBase, splitCounter << addressRange.low, ip)
+    io.output.cmd.context := B(context)
+    io.output.cmd.source := io.input.cmd.source
+    io.output.cmd.opcode := io.input.cmd.opcode
+    io.output.cmd.length := (firstSplit ## lastSplit) mux(
+      B"10" -> headLenghtMax,
+      B"00" -> U(lengthMax-1),
+      B"01" -> tailLength,
+      B"11" -> io.input.cmd.length.resize(op.lengthWidth)
+    )
+    io.output.cmd.data := io.input.cmd.data
+    io.output.cmd.mask := io.input.cmd.mask
+    io.outputBurstLast := context.last
+    io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
+
+    when(io.output.cmd.fire){
+      beatCounter := beatCounter + U(io.input.cmd.isWrite).resized
+      when(io.output.cmd.last){
+        splitCounter := splitCounter + U(1).resized
+        beatCounter := 0
+      }
+    }
+    when(io.input.cmd.lastFire){
+      splitCounter := 0
+      firstSplit := True
+    }
+  }
+
+  val rspLogic = new Area{
+    val context = io.output.rsp.context.as(Context())
+    io.input.rsp.arbitrationFrom(io.output.rsp.takeWhen(!context.write || context.last && io.output.rsp.last))
+    io.input.rsp.last := io.output.rsp.last && context.last
+    io.input.rsp.source := io.output.rsp.source
+    io.input.rsp.opcode := io.output.rsp.opcode
+    io.input.rsp.data := io.output.rsp.data
+    io.input.rsp.context := io.output.rsp.context.resized
+  }
+}
