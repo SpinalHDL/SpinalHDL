@@ -26,7 +26,7 @@ trait ScopeProperty[T]{
   }
 }
 
-class ScopePropertyValue(dady : ScopeProperty[_ <: Any]){
+class ScopePropertyValue(val dady : ScopeProperty[_ <: Any]){
   def on[B](body : => B) = {
     dady.stack.asInstanceOf[mutable.Stack[Any]].push(this)
     val b = body

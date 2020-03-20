@@ -192,6 +192,11 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     scopeProperties(scopeProperty) = value
     this
   }
+
+  def setScopeProperty[T](value: ScopePropertyValue): this.type ={
+    scopeProperties(value.dady) = value
+    this
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)
