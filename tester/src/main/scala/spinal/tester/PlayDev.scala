@@ -1494,10 +1494,37 @@ object PlayDevSpinalSim2 extends App{
 }
 
 
+object PlayFixPointProperty extends App{
+  class Topxx extends Component {
+    val start = in Bool()
+
+    val area = FixedPointProperty(LowCostFixPointConfig()) on new Area{
+      check(RoundType.ROUNDUP, true)
+    }
+    def check(roundType: RoundType, sym: Boolean): Unit = {
+      println(s"${FixedPointProperty.get}, $roundType, $sym ")
+    }
+
+    check(RoundType.ROUNDTOINF, false)
+    FixedPointProperty(RoundType.CEIL, false)
+    check(RoundType.CEIL, false)
+    val a = {
+      FixedPointProperty(RoundType.FLOOR, true)
+      check(RoundType.FLOOR, true)
+    }
+    check(RoundType.CEIL, false)
+  }
+
+  val config = SpinalConfig(targetDirectory = "./tmp")
+  config.generateVerilog(new Topxx)
+}
+
+
 object PlayScopeProperty extends App{
   object FixedPointProperty extends ScopeProperty[Int]{
     override def default: Int = 42
   }
+
 
 
   case class ComplexPropertyValue(x : Int, y : Int) extends ScopePropertyValue(ComplexProperty)

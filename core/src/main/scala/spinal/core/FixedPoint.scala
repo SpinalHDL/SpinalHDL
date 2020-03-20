@@ -38,22 +38,8 @@ object RoundType{
 }
 
 case class FixPointConfig(roundType: RoundType,
-                          symmetric: Boolean) {
+                          symmetric: Boolean){
 
-  def flush(infos: String = s"${this} enabled!"): FixPointConfig = {
-    setFixRound(roundType)
-    setFixSym(symmetric)
-    SpinalInfo(infos)
-    this
-  }
-
-  def apply[T](block: => T): T = {
-    val outer = FixPointConfig(getFixRound(), getFixSym())
-    this.flush()
-    val ret: T = block
-    outer.flush(s"$outer recovered")
-    ret
-  }
 }
 
 object DefaultFixPointConfig {
@@ -64,56 +50,92 @@ object LowCostFixPointConfig {
   def apply() = FixPointConfig(RoundType.ROUNDUP, true)
 }
 
-/*singleton Object*/
-private object GlobalRoundType{
-  private var roundType: RoundType = RoundType.ROUNDTOINF
-
-  def apply(): RoundType = roundType
-
-  def set(round: RoundType) = {
-    roundType = round
-    roundType
-  }
-}
-
-private object GlobalSymmetricType{
-  private var symmetric: Boolean = false
-
-  def apply(): Boolean = symmetric
-
-  def set(sym: Boolean) = {
-    symmetric = sym
-    symmetric
-  }
+object FixedPointProperty extends ScopeProperty[FixPointConfig]{
+  override def default: FixPointConfig = DefaultFixPointConfig()
+  def apply(roundType: RoundType, sym: Boolean): Unit =  stack.push(FixPointConfig(roundType, sym))
 }
 
 object getFixRound{
-  def apply(): RoundType = GlobalRoundType()
-}
-
-object setFixRound{
-  def apply(round: RoundType): RoundType = GlobalRoundType.set(round)
+  def apply(): RoundType = FixedPointProperty.get.roundType
 }
 
 object getFixSym{
-  def apply(): Boolean = GlobalSymmetricType()
+  def apply(): Boolean = FixedPointProperty.get.symmetric
+  FixedPointProperty(LowCostFixPointConfig())
 }
 
-object setFixSym{
-  def apply(sym: Boolean): Boolean = GlobalSymmetricType.set(sym)
-}
 
-object ResetFixConfig{
-  def apply() = {
-    DefaultFixPointConfig().flush()
-  }
-}
+//case class FixPointConfig(roundType: RoundType,
+//                          symmetric: Boolean) {
+//
+//  def flush(infos: String = s"${this} enabled!"): FixPointConfig = {
+//    setFixRound(roundType)
+//    setFixSym(symmetric)
+//    SpinalInfo(infos)
+//    this
+//  }
+//
+//  def apply[T](block: => T): T = {
+//    val outer = FixPointConfig(getFixRound(), getFixSym())
+//    this.flush()
+//    val ret: T = block
+//    outer.flush(s"$outer recovered")
+//    ret
+//  }
+//}
+//
 
-object ShowFixConfig{
-  def apply(pretag: String = "") = {
-    SpinalInfo(pretag + " " + FixPointConfig(getFixRound(),getFixSym()).toString())
-  }
-}
+//
+///*singleton Object*/
+//private object GlobalRoundType{
+//  private var roundType: RoundType = RoundType.ROUNDTOINF
+//
+//  def apply(): RoundType = roundType
+//
+//  def set(round: RoundType) = {
+//    roundType = round
+//    roundType
+//  }
+//}
+//
+//private object GlobalSymmetricType{
+//  private var symmetric: Boolean = false
+//
+//  def apply(): Boolean = symmetric
+//
+//  def set(sym: Boolean) = {
+//    symmetric = sym
+//    symmetric
+//  }
+//}
+//
+//object getFixRound{
+//  def apply(): RoundType = GlobalRoundType()
+//}
+//
+//object setFixRound{
+//  def apply(round: RoundType): RoundType = GlobalRoundType.set(round)
+//}
+//
+//object getFixSym{
+//  def apply(): Boolean = GlobalSymmetricType()
+//}
+//
+//object setFixSym{
+//  def apply(sym: Boolean): Boolean = GlobalSymmetricType.set(sym)
+//}
+//
+//object ResetFixConfig{
+//  def apply() = {
+//    DefaultFixPointConfig().flush()
+//  }
+//}
+//
+//object ShowFixConfig{
+//  def apply(pretag: String = "") = {
+//    SpinalInfo(pretag + " " + FixPointConfig(getFixRound(),getFixSym()).toString())
+//  }
+//}
 
 
 
