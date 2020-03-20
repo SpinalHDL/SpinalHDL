@@ -77,6 +77,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
+  val definition = new SpinalTagReady {
+
+  }
+
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
@@ -292,11 +297,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
+  val scopeProperties = globalData.scopeProperties.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
+    scopeProperties.foreach{ case (p, v) => p.stack.push(v)}
     val ret = gen
     prePop()
+    scopeProperties.foreach{ case (p, v) => p.stack.pop}
     Component.pop(this)
     ClockDomain.pop(this.clockDomain)
     ret

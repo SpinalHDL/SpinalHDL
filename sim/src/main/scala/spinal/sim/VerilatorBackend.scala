@@ -131,8 +131,6 @@ public:
     void setU64(uint64_t value)  {*raw = value; }
 };
 
-
-
 class  WDataSignalAccess : public ISignalAccess{
 public:
     WData *raw;
@@ -186,6 +184,9 @@ public:
     }
 };
 
+class Wrapper_${uniqueId};
+thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
+
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
@@ -197,6 +198,7 @@ public:
 	  #endif
 
     Wrapper_${uniqueId}(const char * name){
+      simHandle${uniqueId} = this;
       time = 0;
       waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
@@ -225,6 +227,10 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
     }
 
 };
+
+double sc_time_stamp () {
+  return simHandle${uniqueId}->time;
+}
 
 
 #ifdef __cplusplus
@@ -359,6 +365,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
+       | -CFLAGS -std=c++11
+       | -LDFLAGS -std=c++11
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500

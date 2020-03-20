@@ -11,6 +11,8 @@ case class BmbDecoder(p : BmbParameter,
                       mappings : Seq[AddressMapping],
                       capabilities : Seq[BmbParameter],
                       pendingMax : Int = 15) extends Component{
+  assert(!AddressMapping.verifyOverlapping(mappings), "BMB address decoding overlapping")
+
   val io = new Bundle {
     val input = slave(Bmb(p))
     val outputs = Vec(master(Bmb(p)), mappings.size)
