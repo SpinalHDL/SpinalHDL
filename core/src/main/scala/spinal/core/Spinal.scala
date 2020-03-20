@@ -21,15 +21,14 @@
 package spinal.core
 
 
-import java.io.{File, FileWriter, BufferedWriter}
+import java.io.{BufferedWriter, File, FileWriter}
 
 import spinal.core.internals._
-
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 import scala.util.matching.Regex
 
@@ -142,6 +141,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
+                        scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
@@ -157,6 +157,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedEnable = debugComponents.nonEmpty
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
+    for((p, v) <- scopeProperties){
+      p.stack.asInstanceOf[mutable.Stack[Any]].push(v)
+    }
   }
 
   def dumpWave(depth: Int = 0, vcdPath: String = "wave.vcd"): SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
@@ -183,6 +186,12 @@ case class SpinalConfig(mode                           : SpinalMode = null,
   def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
   def includeFormal : this.type = {flags += GenerationFlags.formal; formalAsserts = true; this}
   def includeSimulation : this.type = {flags += GenerationFlags.simulation; this}
+
+
+  def setScopeProperty[T](scopeProperty: ScopeProperty[T], value : T): this.type ={
+    scopeProperties(scopeProperty) = value
+    this
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)

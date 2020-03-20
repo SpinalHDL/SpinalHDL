@@ -23,6 +23,13 @@ package spinal.lib.bus.misc
 import spinal.core._
 
 
+object AddressMapping{
+  def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
+    val sizeMapped = mapping.filter(_.isInstanceOf[SizeMapping]).map(_.asInstanceOf[SizeMapping])
+    SizeMapping.verifyOverlapping(sizeMapped)
+  }
+}
+
 trait AddressMapping{
   def hit(address: UInt): Bool
   def removeOffset(address: UInt): UInt
@@ -60,14 +67,11 @@ object SizeMapping{
     *
     *  @return : true = overlapping found, false = no overlapping
     */
-  def verifyOverlapping(mapping: Seq[SizeMapping]): Boolean = {
-
-    val mappingSorted = mapping.sortWith(_.base < _.base)
-
-    val hasOverlaps = if(mapping.size == 1) false else (0 until mapping.length - 1).map(i => mappingSorted(i).end >= mappingSorted(i + 1).base).reduce(_ | _)
-
-    return hasOverlaps
-
+  def verifyOverlapping(mappings: Seq[SizeMapping]): Boolean = {
+    for(m1 <- mappings; m2 <- mappings if m1 != m2){
+      if(m1.overlap(m2)) return true
+    }
+    return false
   }
 }
 

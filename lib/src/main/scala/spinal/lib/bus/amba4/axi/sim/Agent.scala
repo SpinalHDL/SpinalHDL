@@ -3,7 +3,8 @@ package spinal.lib.bus.amba4.axi.sim
 
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4ReadOnly, Axi4WriteOnly}
+import spinal.lib.Stream
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Ar, Axi4Aw, Axi4B, Axi4R, Axi4ReadOnly, Axi4W, Axi4WriteOnly}
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.{SimData, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
@@ -193,35 +194,42 @@ abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDom
   }
 }
 
-class Axi4WriteOnlySlaveAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain) {
+class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream[Axi4B], clockDomain: ClockDomain) {
+  def this(bus: Axi4WriteOnly, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+  val busConfig = aw.config
   val awQueue = mutable.Queue[Int]()
   var wCount = 0
-  val bQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+  val bQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
 
   def update(): Unit ={
     if(awQueue.nonEmpty && wCount > 0){
       val id = awQueue.dequeue()
       wCount -= 1
       bQueue(id) += {() =>
-        bus.b.id #= id
-        bus.b.resp #= 0
+        b.id #= id
+        b.resp #= 0
       }
     }
   }
 
-  val awMonitor = StreamMonitor(bus.aw, clockDomain){aw =>
+  val awMonitor = StreamMonitor(aw, clockDomain){aw =>
     val id = aw.id.toInt
     awQueue += id
     update()
   }
-  val wMonitor = StreamMonitor(bus.w, clockDomain){w =>
+  val wMonitor = StreamMonitor(w, clockDomain){w =>
     if(w.last.toBoolean) {
       wCount = wCount + 1
       update()
     }
   }
 
-  StreamDriver(bus.b, clockDomain){ _ =>
+  StreamDriver(b, clockDomain){ _ =>
     val queues = bQueue.filter(_.nonEmpty)
     if(queues.nonEmpty) {
       queues(Random.nextInt(queues.size)).dequeue().apply()
@@ -231,47 +239,54 @@ class Axi4WriteOnlySlaveAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain) {
     }
   }
 
-  StreamReadyRandomizer(bus.aw, clockDomain)
-  StreamReadyRandomizer(bus.w, clockDomain)
+  StreamReadyRandomizer(aw, clockDomain)
+  StreamReadyRandomizer(w, clockDomain)
 }
 
 
-class Axi4ReadOnlySlaveAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain) {
-  val rQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain) {
+  def this(bus: Axi4ReadOnly, clockDomain: ClockDomain) {
+    this(bus.ar, bus.r, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain) {
+    this(bus.ar, bus.r, clockDomain);
+  }
+  val busConfig = ar.config
+  val rQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
 
-  val arMonitor = StreamMonitor(bus.ar, clockDomain){ar =>
-    val size = bus.ar.size.toInt
-    val len = bus.ar.len.toInt
-    val id = bus.ar.id.toInt
-    val burst = bus.ar.burst.toInt
-    val addr = bus.ar.addr.toBigInt
+  val arMonitor = StreamMonitor(ar, clockDomain){ar =>
+    val size = ar.size.toInt
+    val len = ar.len.toInt
+    val id = ar.id.toInt
+    val burst = ar.burst.toInt
+    val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(bus.config.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(bus.config.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
         }
       }
       rQueue(id) += { () =>
-        bus.r.id #= id
-        bus.r.resp #= 0
-        bus.r.last #= (beat == len)
+        r.id #= id
+        r.resp #= 0
+        r.last #= (beat == len)
         var data = BigInt(0)
-        for(i <- 0 until bus.config.bytePerWord){
+        for(i <- 0 until busConfig.bytePerWord){
           data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i*8
         }
-        bus.r.data #= data
+        r.data #= data
       }
     }
   }
 
 
-  StreamDriver(bus.r, clockDomain){ _ =>
+  StreamDriver(r, clockDomain){ _ =>
     val queues = rQueue.filter(_.nonEmpty)
     if(queues.nonEmpty) {
       queues(Random.nextInt(queues.size)).dequeue().apply()
@@ -281,11 +296,17 @@ class Axi4ReadOnlySlaveAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain) {
     }
   }
 
-  StreamReadyRandomizer(bus.ar, clockDomain)
+  StreamReadyRandomizer(ar, clockDomain)
 }
 
-abstract class Axi4WriteOnlyMonitor(bus : Axi4WriteOnly, clockDomain: ClockDomain){
-
+abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream[Axi4B], clockDomain: ClockDomain) {
+  def this(bus: Axi4WriteOnly, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+  val busConfig = aw.config
   def onWriteByte(address : BigInt, data : Byte) : Unit
 
   case class WTransaction(data : BigInt, strb : BigInt, last : Boolean){
@@ -300,27 +321,27 @@ abstract class Axi4WriteOnlyMonitor(bus : Axi4WriteOnly, clockDomain: ClockDomai
     }
   }
 
-  val awMonitor = StreamMonitor(bus.aw, clockDomain){_ =>
-    val size = bus.aw.size.toInt
-    val len = bus.aw.len.toInt
-    val burst = bus.aw.burst.toInt
-    val addr = bus.aw.addr.toBigInt
+  val awMonitor = StreamMonitor(aw, clockDomain){_ =>
+    val size = aw.size.toInt
+    val len = aw.len.toInt
+    val burst = aw.burst.toInt
+    val addr = aw.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(bus.config.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(bus.config.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
         }
       }
       wProcess += { (w : WTransaction) =>
         assert(w.last == (beat == len))
         val strb = w.strb
         val data = w.data
-        for(i <- 0 until bus.config.bytePerWord){
+        for(i <- 0 until busConfig.bytePerWord){
           if(((strb >> i) & 1) != 0){
             onWriteByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte)
           }
@@ -330,7 +351,7 @@ abstract class Axi4WriteOnlyMonitor(bus : Axi4WriteOnly, clockDomain: ClockDomai
     update()
   }
 
-  val wMonitor = StreamMonitor(bus.w, clockDomain){w =>
+  val wMonitor = StreamMonitor(w, clockDomain){w =>
     wQueue += WTransaction(w.data.toBigInt, w.strb.toBigInt, w.last.toBoolean)
     update()
   }

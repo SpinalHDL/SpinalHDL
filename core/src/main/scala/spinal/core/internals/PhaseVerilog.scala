@@ -23,6 +23,7 @@ package spinal.core.internals
 import spinal.core._
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
@@ -43,11 +44,15 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
     emitEnumPackage(outFile)
 
+    val componentsText = ArrayBuffer[() => String]()
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
-//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-        compile(c)
+        componentsText += compile(c)
       }
+    }
+
+    for(e <- componentsText.reverse){
+      outFile.write(e())
     }
 
     outFile.flush()
@@ -56,7 +61,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
-  def compile(component: Component): Unit = {
+  def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
       systemVerilog               = pc.config.isSystemVerilog,
@@ -86,17 +91,14 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     val trace = componentBuilderVerilog.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
-    val text = if (oldComponent == null) {
+    if (oldComponent == null) {
       emitedComponent += (trace -> component)
-      componentBuilderVerilog.result
+      () => componentBuilderVerilog.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      val str =  s"//${component.definitionName} replaced by ${oldComponent.definitionName}\n"
       component.definitionName = oldComponent.definitionName
-      str
+      () => s"\n//${component.definitionName} replaced by ${oldComponent.definitionName}\n"
     }
-
-    outFile.write(text)
   }
 
   val emitedComponent    = mutable.Map[ComponentEmitterTrace, Component]()
