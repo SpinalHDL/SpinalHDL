@@ -31,7 +31,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
       val region = regionAllocate(1 << bus.p.lengthWidth)
       if(region == null) return null
       val length = region.size.toInt-1
-      val context = bus.cmd.context.randomizedInt
+      val context = bus.cmd.context.randomizedLong
       val source = bus.cmd.source.randomizedInt
       val address = region.base
       val opcode = List(Bmb.Cmd.Opcode.READ, Bmb.Cmd.Opcode.WRITE)(Random.nextInt(2))
@@ -57,7 +57,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
           val rspReadData = new Array[Byte](length + 1)
           for(beat <- 0 until beatCount) rspQueue(source).enqueue{ () =>
             val beatAddress = (startAddress & ~(bus.p.byteCount-1)) + beat*bus.p.byteCount
-            assert(bus.rsp.context.toInt == context)
+            assert(bus.rsp.context.toLong == context)
             assert(bus.rsp.source.toInt == source)
             assert(bus.rsp.opcode.toInt == (if(mapped) Bmb.Rsp.Opcode.SUCCESS else Bmb.Rsp.Opcode.ERROR))
             val data = bus.rsp.data.toBigInt
@@ -101,7 +101,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
 
           //WRITE RSP
           rspQueue(source).enqueue { () =>
-            assert(bus.rsp.context.toInt == context)
+            assert(bus.rsp.context.toLong == context)
             assert(bus.rsp.source.toInt == source)
             assert(bus.rsp.opcode.toInt == (if (mapped) Bmb.Rsp.Opcode.SUCCESS else Bmb.Rsp.Opcode.ERROR))
             regionFree(region)
