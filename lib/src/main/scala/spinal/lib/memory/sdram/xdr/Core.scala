@@ -16,6 +16,7 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
     val config = in(CoreConfig(cpa))
     val soft = slave(SoftBus(cpa))
     val ports = Vec(cpp.map(cpp => slave(CorePort(cpp, cpa))))
+    val writeDataTockens = Vec(cpp.map(p => in UInt(p.writeTockenInterfaceWidth bits)))
     val phy = master(SdramXdrPhyCtrl(pl))
     val refresh = out Bool()
   }
@@ -30,6 +31,7 @@ case class Core(cpa : CoreParameterAggregate) extends Component {
   tasker.io.config <> config
   tasker.io.inputs <> Vec(io.ports.map(_.cmd))
   tasker.io.refresh <> refresher.io.refresh
+  tasker.io.writeDataTockens <> io.writeDataTockens
 
   val backend = Backend(cpa)
   backend.io.config := config

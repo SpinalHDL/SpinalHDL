@@ -10,7 +10,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val config = in(CoreConfig(cpa))
     val refresh = slave(Event)
     val inputs = Vec(cpp.map(cpp => slave(Stream(CoreCmd(cpp, cpa)))))
-    val writeDataTockens = Vec(cpp.map(p => UInt(p.writeTockenInterfaceWidth bits)))
+    val writeDataTockens = Vec(cpp.map(p => in UInt(p.writeTockenInterfaceWidth bits)))
     val output = master(CoreTasks(cpa))
   }
 
@@ -121,10 +121,10 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
 
   val writeTockens = for(portId <- 0 until cpp.size) yield new Area{
-    val consume = False
-    val counter = Reg(UInt(cpp(portId).writeTockenBufferSize bits)) init(0)
+    val consume = io.output.ports.map(p => p.write && p.portId === portId).orR
+    val counter = Reg(UInt(log2Up(cpp(portId).writeTockenBufferSize + 1) bits)) init(0)
     counter := counter + io.writeDataTockens(portId) - (U(consume) << log2Up(pl.beatCount))
-    val ready = RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter === pl.beatCount)
+    val ready = RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter < pl.beatCount*2)
   }
 
   case class Task() extends Bundle{
@@ -142,6 +142,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val state = RegInit(B(1, cpp.size bits))
     val inputsValids = B(inputs.map(_.valid))
     val selOH = OHMasking.roundRobin(inputsValids, state)
+//    val selOH = OHMasking.roundRobin(inputsValids & B((inputs, writeTockens).zipped.map(!_.write || _.ready)), state)
 
     val tocken = Reg(UInt(log2Up(cp.portTockenMax) bits)) init(0)
     val tockenIncrement = CombInit(output.ready)
@@ -182,8 +183,6 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       status.bankHit := banksRow.readAsync(address.bank) === address.row
       status.bankActive := banks.map(_.active).read(address.bank)
       status.patch(address)
-
-
 
       readyForRefresh clearWhen(input.valid)
     }
@@ -227,11 +226,13 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val doRead = inputRead && allowRead
     val doSomething = valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
+    val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId)
+
     val sel = False //Arbitration allow you to do your stuff
     val fire = False //It is the last cycle for this station
-
+    val last = offset === offsetLast
     val cmdOutputPayload = CoreTask(cpa)
-    io.output.ports(stationId).source := portId
+    io.output.ports(stationId).portId := portId
     io.output.ports(stationId).address.byte := address.byte
     io.output.ports(stationId).address.column := address.column | (offset << columnBurstShift).resized
     io.output.ports(stationId).address.bank := address.bank
@@ -241,12 +242,11 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     io.output.ports(stationId).precharge := inputPrecharge && sel
     io.output.ports(stationId).write := inputWrite && sel
     io.output.ports(stationId).read := inputRead && sel
+    io.output.ports(stationId).last := last
 
-
-    todo tocken consume ???
     when(sel && inputAccess){
       offset := offset + 1
-      when(offset === offsetLast) {
+      when(last) {
         valid := False
         fire := True
       }

@@ -328,8 +328,9 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 
 //  val kind = FrontendCmdOutputKind()
   val read, write, active, precharge = Bool() //OH encoded
+  val last = Bool()
   val address = SdramAddress(pl.sdram)
-  val source = UInt(log2Up(cpp.size) bits)
+  val portId = UInt(log2Up(cpp.size) bits)
   val context = Bits(backendContextWidth bits)
 }
 
@@ -393,7 +394,7 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
   }
 }
 
-case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
+case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate, pp : BmbPortParameter) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool()
@@ -405,7 +406,14 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     val source = UInt(ip.sourceWidth bits)
   }
 
-  io.input.cmd.ready := io.output.cmd.ready && io.output.writeData.ready
+  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
+
+  val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
+  rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
+
+  val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*cpa.pl.beatCount //Pessimistic
+
+  io.input.cmd.ready := io.output.cmd.ready && io.output.writeData.ready && !toManyRsp
 
   val cmdContext = Context()
   cmdContext.input := io.input.cmd.context
@@ -414,7 +422,8 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.valid := io.input.cmd.firstFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
-  io.output.cmd.length := 0
+  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(cpa.pl.bytePerBurst))
+  io.output.cmd.length := (io.input.cmd.length >> log2Up(cpa.pl.bytePerBurst)).resized
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 

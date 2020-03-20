@@ -97,6 +97,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   case class PipelineCmd() extends Bundle {
     val write = Bool
+    val last = Bool
     val context = Bits(backendContextWidth bits)
     val source = UInt(log2Up(portCount) bits)
   }
@@ -128,10 +129,10 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     val beatCounter = Counter(pl.beatCount, io.phy.readValid)
 
     val output = Flow(Fragment(PipelineRsp()))
-    output.valid := cmd.valid && cmd.write || io.phy.readValid
+    output.valid := cmd.valid && cmd.write && cmd.last || io.phy.readValid
     output.context := cmd.context
     output.source := cmd.source
-    output.last := cmd.write || beatCounter.willOverflowIfInc
+    output.last := cmd.write || beatCounter.willOverflowIfInc && cmd.last
     cmd.ready := cmd.write || beatCounter.willOverflow
 
     for ((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped) {
@@ -155,11 +156,12 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val muxedCmd = MuxOH(io.input.ports.map(p => p.read || p.write || p.precharge || p.active), io.input.ports)
   writePipeline.input.valid := portEvent(p => p.write)
-  writePipeline.input.sel := muxedCmd.source
+  writePipeline.input.sel := muxedCmd.portId
 
   rspPipeline.input.valid := False
+  rspPipeline.input.last := muxedCmd.last
   rspPipeline.input.context := muxedCmd.context
-  rspPipeline.input.source := muxedCmd.source
+  rspPipeline.input.source := muxedCmd.portId
   rspPipeline.input.write.assignDontCare()
 
   val phase = new {

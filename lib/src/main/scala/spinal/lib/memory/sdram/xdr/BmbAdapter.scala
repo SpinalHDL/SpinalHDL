@@ -19,14 +19,15 @@ case class BmbAdapter(pp : BmbPortParameter,
                       cpa : CoreParameterAggregate) extends Component{
   import cpa._
 
-  val corePortParameter = BmbAdapter.corePortParameter(pp, cpa.pl)
+  val cpp = BmbAdapter.corePortParameter(pp, cpa.pl)
   assert(pl.beatCount*4 <= pp.rspBufferSize, s"SDRAM rspBufferSize should be at least ${pl.beatCount*4}")
   assert(pl.beatCount <= pp.dataBufferSize, s"SDRAM dataBufferSize should be at least ${pl.beatCount}")
 
   val io = new Bundle{
     val refresh = in Bool()
     val input = slave(Bmb(pp.bmb))
-    val output = master(CorePort(corePortParameter, cpa))
+    val output = master(CorePort(cpp, cpa))
+    val writeDataTocken = out UInt(cpp.writeTockenInterfaceWidth bits)
   }
 
   val asyncCc = pp.clockDomain != ClockDomain.current
@@ -37,39 +38,39 @@ case class BmbAdapter(pp : BmbPortParameter,
     val spliter = BmbAlignedSpliter(aligner.io.output.p, pp.beatPerBurst * pl.bytePerBurst)
     spliter.io.input << aligner.io.output
 
-    val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa)
+    val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa, pp)
     converter.io.input << spliter.io.output
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 
-  val cmdAddressBuffer = asyncCc match {
-    case false => new StreamFifoLowLatency(inputLogic.converter.io.output.cmd.payloadType, pp.cmdBufferSize, 1).io
-    case true  => new StreamFifoCC(inputLogic.converter.io.output.cmd.payloadType, pp.cmdBufferSize, pp.clockDomain, ClockDomain.current).io
+  val cmdAddress = Stream(CoreCmd(cpp, cpa))
+  val syncBuffer = if(!asyncCc) new Area{
+    cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
+    inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(pp.rspBufferSize, 1)
+
+    io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(pp.dataBufferSize, 1)
+    io.writeDataTocken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init(0)
   }
-  val cmdDataBuffer = asyncCc match {
-    case false => new StreamFifoLowLatency(inputLogic.converter.io.output.writeData.payloadType, pp.dataBufferSize, 1).io
-    case true  => new StreamFifoCC(inputLogic.converter.io.output.writeData.payloadType, pp.dataBufferSize, pp.clockDomain, ClockDomain.current).io
+  val asyncBuffer = if(asyncCc) new Area{
+    cmdAddress << inputLogic.converter.io.output.cmd.queue(pp.cmdBufferSize, pp.clockDomain, ClockDomain.current)
+    inputLogic.converter.io.output.rsp << io.output.rsp.queue(pp.rspBufferSize,  ClockDomain.current, pp.clockDomain)
+
+    val writeData = new Area{
+      val fifo = new StreamFifoCC(inputLogic.converter.io.output.writeData.payloadType, pp.dataBufferSize, pp.clockDomain, ClockDomain.current)
+      fifo.io.push << inputLogic.converter.io.output.writeData
+      io.output.writeData << fifo.io.pop
+
+      val pushCounter = fromGray(fifo.popCC.pushPtrGray.pull())
+      val tockenCounter = Reg(UInt(fifo.ptrWidth bits)) init(0)
+      val tockenIncrement = tockenCounter =/= pushCounter
+      when(tockenIncrement){
+        tockenCounter := tockenCounter + 1
+      }
+
+      io.writeDataTocken := RegNext(U(tockenIncrement)) init(0)
+    }
   }
-  val rspBuffer = asyncCc match {
-    case false => new StreamFifoLowLatency(inputLogic.converter.io.output.rsp.payloadType, pp.rspBufferSize, 1).io
-    case true  => new StreamFifoCC(inputLogic.converter.io.output.rsp.payloadType, pp.rspBufferSize, ClockDomain.current, pp.clockDomain).io
-  }
-  assert(!rspBuffer.push.isStall, "SDRAM rsp buffer stalled !")
 
-  val stateToArbitrationLatency = 2
-  val cmdAddressBufferPop = cmdAddressBuffer.pop.s2mPipe()
-  val cmdToRspCount = (cmdAddressBufferPop.fire) ? (cmdAddressBufferPop.write ? U(1) | U(pl.beatCount))| U(0)
-
-  val inFlightRsp = Reg(UInt(log2Up(pp.rspBufferSize+1) bits)) init(0)
-  inFlightRsp := inFlightRsp + RegNext(cmdToRspCount).init(0) - U(RegNext(rspBuffer.push.fire) init(False))
-
-  val toManyPendingRsp = RegNext(rspBuffer.pushOccupancy + inFlightRsp > pp.rspBufferSize - pl.beatCount*(1+stateToArbitrationLatency)) init(False)
-
-  //Do not need to check that write data are available for the given address pop, as the converter push write address on last beat
-  cmdAddressBuffer.push << inputLogic.converter.io.output.cmd
-  cmdAddressBufferPop.m2sPipe().haltWhen(toManyPendingRsp || RegNext(io.refresh)) >> io.output.cmd //No pipelining after the halt please
-  cmdDataBuffer.push << inputLogic.converter.io.output.writeData
-  cmdDataBuffer.pop >> io.output.writeData
-  rspBuffer.push << io.output.rsp
-  rspBuffer.pop >> inputLogic.converter.io.output.rsp
+  io.output.cmd << cmdAddress.m2sPipe().haltWhen(RegNext(io.refresh)) //No pipelining after the halt please, else refresh incoherency
+  assert(!io.output.rsp.isStall, "SDRAM rsp buffer stalled !")
 }
