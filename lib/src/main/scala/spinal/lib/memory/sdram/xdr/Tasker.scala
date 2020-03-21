@@ -177,9 +177,9 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
       val address = input.address.as(SdramAddress(pl.sdram))
       val status = Status()
       status.allowPrecharge := True
-      status.allowActive := True
-      status.allowWrite := True
-      status.allowRead := True
+      status.allowActive := !RRD.busy && (if(generation.FAW) !FAW.busyNext else True)
+      status.allowWrite := !RTW.busy && (if(CCD != null) !CCD.busy else True)
+      status.allowRead := !WTR.busy &&  (if(CCD != null) !CCD.busy else True)
       status.bankHit := banksRow.readAsync(address.bank) === address.row
       status.bankActive := banks.map(_.active).read(address.bank)
       status.patch(address)
@@ -226,7 +226,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val doRead = inputRead && allowRead
     val doSomething = valid && (doActive || doPrecharge || doWrite || doRead) && !inibated
 
-    val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId)
+    val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId) //For debug visualisation
 
     val sel = False //Arbitration allow you to do your stuff
     val fire = False //It is the last cycle for this station

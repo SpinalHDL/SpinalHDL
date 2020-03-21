@@ -128,8 +128,8 @@ object SdramXdrTesterHelpers{
         ),
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
-        dataBufferSize = 16*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount*16,
+        dataBufferSize = 32*pl.beatCount,
+        rspBufferSize = 16*pl.beatCount,
         beatPerBurst = 16
       ),
 
@@ -144,7 +144,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 32,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 32*pl.beatCount*8,
+        rspBufferSize = 32*pl.beatCount,
         beatPerBurst = 8
       ),
 
@@ -159,8 +159,8 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 4,
         dataBufferSize = 1*pl.beatCount,
-        rspBufferSize = 4*pl.beatCount*4,
-        beatPerBurst = 4
+        rspBufferSize = 8*pl.beatCount,
+        beatPerBurst = 8
       ),
 
       BmbPortParameter(
@@ -174,7 +174,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 1,
         dataBufferSize = 8*pl.beatCount,
-        rspBufferSize = 8*pl.beatCount*8,
+        rspBufferSize = 8*pl.beatCount,
         beatPerBurst = 8
       )
     )
@@ -479,7 +479,7 @@ object SdramXdrTesterHelpers{
           timingWidth = 5,
           refWidth = 16,
           stationLengthMax = 16,
-          stationCount = 2,
+          stationCount = 4,
           writeLatencies = List((wl+phyClkRatio-1)/phyClkRatio - pl.cmdToDqDelayDelta),
           readLatencies = List((rl+phyClkRatio-1)/phyClkRatio)
         )
@@ -723,4 +723,79 @@ object SdramSdrSyntBench extends App{
 
 
 
+}
+
+
+object SdramSdrGen extends App{
+  SpinalVerilog({
+    val sl = MT48LC16M16A2.layout.copy(bankWidth = 3)
+    val cp = CtrlParameter(
+      core = CoreParameter(
+        portTockenMin = 4,
+        portTockenMax = 8,
+        timingWidth = 4,
+        refWidth = 16,
+        stationCount = 2,
+        writeLatencies = List(0),
+        readLatencies = List(2)
+      ),
+      ports = Seq(
+        BmbPortParameter(
+          bmb = BmbParameter(
+            addressWidth = sl.byteAddressWidth,
+            dataWidth = 16,
+            lengthWidth = 3,
+            sourceWidth = 0,
+            contextWidth = 0
+          ),
+          clockDomain = ClockDomain.current,
+          cmdBufferSize = 8,
+          dataBufferSize = 8,
+          rspBufferSize = 16
+        ),
+
+        BmbPortParameter(
+          bmb = BmbParameter(
+            addressWidth = sl.byteAddressWidth,
+            dataWidth = 16,
+            lengthWidth = 4,
+            sourceWidth = 0,
+            contextWidth = 0
+          ),
+          clockDomain = ClockDomain.current,
+          cmdBufferSize = 8,
+          dataBufferSize = 8,
+          rspBufferSize = 16
+        )/*,
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = sl.byteAddressWidth,
+          dataWidth = 16,
+          lengthWidth = 5,
+          sourceWidth = 0,
+          contextWidth = 0
+        ),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 8,
+        rspBufferSize = 2
+      )*//*,
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = sl.byteAddressWidth,
+          dataWidth = 16,
+          lengthWidth = 5,
+          sourceWidth = 0,
+          contextWidth = 0
+        ),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 8,
+        rspBufferSize = 2
+      )*/
+      )
+    )
+    val c = new CtrlWithoutPhy(cp, SdrInferedPhy.phyLayout(sl))
+    c
+  })
 }

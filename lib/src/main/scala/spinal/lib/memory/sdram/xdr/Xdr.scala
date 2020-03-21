@@ -406,7 +406,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     val source = UInt(ip.sourceWidth bits)
   }
 
-  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
+  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length.resize(log2Up(pp.beatPerBurst)) +^ 1) << log2Up(cpa.pl.beatCount)
 
   val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
   rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
