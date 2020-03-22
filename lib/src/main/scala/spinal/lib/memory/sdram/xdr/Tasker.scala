@@ -228,7 +228,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
 
     val blockedByWriteTocken = inputWrite && allowWrite && !writeTockens.map(_.ready).read(portId) //For debug visualisation
 
-    val sel = False //Arbitration allow you to do your stuff
+    val sel = Bool() //Arbitration allow you to do your stuff
     val fire = False //It is the last cycle for this station
     val last = offset === offsetLast
     val cmdOutputPayload = CoreTask(cpa)
@@ -253,12 +253,21 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
 
     readyForRefresh clearWhen(valid)
+
+    val frustration = new Area {
+      val counter = Reg(UInt(cp.frustrationWidth bits))
+      val increment = False
+      val full = counter.msb
+      when(increment && !full){
+        counter := counter + 1
+      }
+    }
   }
   val loader = new Area{
     val stationsValid = B(stations.map(_.valid))
     val stronger = CombInit(stationsValid)
     val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
-    val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId))
+    val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.frustration.full))
     taskConstructor.s1.input.ready := !stations.map(_.valid).andR
     val offset = taskConstructor.s1.address.column(columnBurstShift, cp.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.s1.input.length
@@ -280,13 +289,14 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
         station.stronger       := stronger & station.othersMask
         station.afterBank      := afterBank & station.othersMask
         station.afterAccess    := afterAccess & station.othersMask
+        station.frustration.counter := 0
       }
     }
   }
 
   val arbiter = new Area{
     val selOH = Bits(cp.stationCount bits)
-    for(station <- stations) yield new Area {
+    val logic = for(station <- stations) yield new Area {
       station.inibated setWhen(station.inputAccess && station.afterAccess.orR)
       station.inibated setWhen(station.inputMiss   && station.afterBank.orR)
 
@@ -295,14 +305,15 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
 
     for((station, sel, port) <- (stations, selOH.asBools, io.output.ports).zipped){
-      when(sel){
-        station.sel := True
+      station.sel := sel
+      when(station.fire) {
         //Remove priorities when a station is done
-        when(station.fire) {
-          for (anotherStation <- stations if anotherStation != station) {
-            anotherStation.stronger(station.id) := False
-            anotherStation.afterAccess(station.id) := False
-            anotherStation.afterBank(station.id) := False
+        for (anotherStation <- stations if anotherStation != station) {
+          anotherStation.stronger(station.id) := False
+          anotherStation.afterAccess(station.id) := False
+          anotherStation.afterBank(station.id) := False
+          when(station.stronger(anotherStation.id)) {
+            anotherStation.frustration.increment := True
           }
         }
       }
