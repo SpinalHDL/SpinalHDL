@@ -32,7 +32,7 @@ case class BmbAdapter(pp : BmbPortParameter,
 
   val asyncCc = pp.clockDomain != ClockDomain.current
   val inputLogic = new ClockingArea(pp.clockDomain) {
-    val aligner = pp.clockDomain(BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8)))
+    val aligner = BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8))
     aligner.io.input << io.input
 
     val spliter = BmbAlignedSpliter(aligner.io.output.p, pp.beatPerBurst * pl.bytePerBurst)

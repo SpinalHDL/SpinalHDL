@@ -258,7 +258,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val stationsValid = B(stations.map(_.valid))
     val stronger = CombInit(stationsValid)
     val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
-    val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.write =/= taskConstructor.s1.input.write))
+    val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId))
     taskConstructor.s1.input.ready := !stations.map(_.valid).andR
     val offset = taskConstructor.s1.address.column(columnBurstShift, cp.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.s1.input.length

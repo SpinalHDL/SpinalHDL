@@ -126,6 +126,7 @@ object SdramXdrTesterHelpers{
           sourceWidth = 3,
           contextWidth = 8
         ),
+//        clockDomain = ClockDomain.external("port_0"),
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
@@ -171,8 +172,9 @@ object SdramXdrTesterHelpers{
           sourceWidth = 3,
           contextWidth = 8
         ),
+//        clockDomain = ClockDomain.external("port_3"),
         clockDomain = ClockDomain.current,
-        cmdBufferSize = 1,
+        cmdBufferSize = 2,
         dataBufferSize = 8*pl.beatCount,
         rspBufferSize = 8*pl.beatCount,
         beatPerBurst = 8
@@ -403,10 +405,10 @@ object SdramXdrTesterHelpers{
     val bytePerBeat = dut.phy.pl.bytePerBeat
 
     val tester = new BmbMemoryMultiPortTester(
-      ports = dut.bmb.map(port =>
+      ports = (0 until dut.bmb.size).map(portId =>
         BmbMemoryMultiPort(
-          bmb = port,
-          cd = dut.clockDomain
+          bmb = dut.bmb(portId),
+          cd = dut.cp.ports(portId).clockDomain
         )
       ),
       forkClocks = false
@@ -520,6 +522,7 @@ object SdramXdrDdr3SpinalSim extends App{
     timing = timing
   ).doSimUntilVoid("test", 42) { dut =>
     dut.clockDomain.forkStimulus(sdramPeriod*pl.phaseCount)
+    dut.cp.ports.map(_.clockDomain).filter(_ != dut.clockDomain).foreach(_.forkStimulus(sdramPeriod*pl.phaseCount*2))
     SdramXdrTesterHelpers.setup(dut, noStall = false, sdramPeriod = sdramPeriod)
     SdramXdrTesterHelpers.ddr3Init(
       dut = dut,
