@@ -275,8 +275,10 @@ case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Compone
       B"01" -> tailLength,
       B"11" -> io.input.cmd.length.resize(op.lengthWidth)
     )
-    io.output.cmd.data := io.input.cmd.data
-    io.output.cmd.mask := io.input.cmd.mask
+    if(ip.canWrite) {
+      io.output.cmd.data := io.input.cmd.data
+      io.output.cmd.mask := io.input.cmd.mask
+    }
     io.outputBurstLast := context.last
     io.input.cmd.ready := io.output.cmd.ready && (io.input.cmd.isWrite || context.last)
 
@@ -299,7 +301,9 @@ case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Compone
     io.input.rsp.last := io.output.rsp.last && context.last
     io.input.rsp.source := io.output.rsp.source
     io.input.rsp.opcode := io.output.rsp.opcode
-    io.input.rsp.data := io.output.rsp.data
+    if(ip.canRead) {
+      io.input.rsp.data := io.output.rsp.data
+    }
     io.input.rsp.context := io.output.rsp.context.resized
   }
 }
