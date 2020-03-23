@@ -7,6 +7,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
@@ -15,6 +16,8 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   val cmdQueue = mutable.Queue[() => Unit]()
   val rspQueue = Array.fill(1 << bus.p.sourceWidth)(mutable.Queue[() => Unit]())
 
+  var pendingMax = 50
+  var pendingCounter = 0
   StreamReadyRandomizer(bus.rsp, clockDomain).factor = rspFactor
 
   def regionAllocate(sizeMax : Int) : SizeMapping
@@ -25,17 +28,21 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   def onRspRead(address : BigInt, data : Byte) : Unit = {}
   def onCmdWrite(address : BigInt, data : Byte) : Unit = {}
 
+  var usableOpcodes = ArrayBuffer[Int]()
+  if(bus.p.canRead)  usableOpcodes += Bmb.Cmd.Opcode.READ
+  if(bus.p.canWrite) usableOpcodes += Bmb.Cmd.Opcode.WRITE
+
   def getCmd(): () => Unit = {
     //Generate a new CMD if none is pending
-    if(cmdQueue.isEmpty) {
+    if(cmdQueue.isEmpty && pendingCounter < pendingMax) {
+      pendingCounter += 1
       val region = regionAllocate(1 << bus.p.lengthWidth)
       if(region == null) return null
       val length = region.size.toInt-1
       val context = bus.cmd.context.randomizedLong
       val source = bus.cmd.source.randomizedInt
       val address = region.base
-      val opcode = List(Bmb.Cmd.Opcode.READ, Bmb.Cmd.Opcode.WRITE)(Random.nextInt(2))
-//      val opcode = List(Bmb.Cmd.Opcode.READ)(Random.nextInt(1))
+      val opcode = usableOpcodes(Random.nextInt(usableOpcodes.size))
       val startAddress = address
       val endAddress = address + length + 1
       val beatCount = ((((endAddress + bus.p.wordMask) & ~bus.p.wordMask) - (startAddress & ~bus.p.wordMask)) / bus.p.byteCount).toInt
@@ -120,6 +127,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   }
 
   val rspMonitor = StreamMonitor(bus.rsp, clockDomain){_ =>
+    if(bus.rsp.last.toBoolean) pendingCounter -= 1
     rspQueue(bus.rsp.source.toInt).dequeue()()
   }
 }

@@ -8,10 +8,10 @@ object BmbAligner{
   def outputParameter(ip : BmbParameter, alignmentWidth : Int) = {
     val beatCount = (1 << alignmentWidth) / ip.byteCount
     val transferCount = ip.transferBeatCount
-
+    val readContext = if(ip.canRead)log2Up(beatCount) + log2Up(transferCount) else 0
     var op = if(!bypass(ip, alignmentWidth)) ip.copy(
       lengthWidth = ip.lengthWidth + 1,
-      contextWidth = ip.contextWidth + 1 + log2Up(beatCount) + log2Up(transferCount) + ip.sourceWidth,
+      contextWidth = ip.contextWidth + 1 + readContext + ip.sourceWidth,
       sourceWidth = 0
     ) else {
       ip
@@ -49,62 +49,89 @@ case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component
     case class Context() extends Bundle {
       val input = Bits(ip.contextWidth bits)
       val write = Bool()
-      val paddings = UInt(log2Up(beatCount) bits)
-      val transfers = UInt(log2Up(transferCount) bits)
+      val paddings = ip.canRead generate UInt(log2Up(beatCount) bits)
+      val transfers = ip.canRead generate UInt(log2Up(transferCount) bits)
       val source = UInt(ip.sourceWidth bits)
     }
 
     val cmdLogic = new Area {
-      val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
-      beatCounter := beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)
+      io.output.cmd.valid := io.input.cmd.valid
+      io.output.cmd.address := io.input.cmd.address(ip.addressWidth - 1 downto alignmentWidth) << alignmentWidth
+      io.output.cmd.opcode := io.input.cmd.opcode
+      io.output.cmd.length := (io.input.cmd.address(alignmentWidth-1 downto 0) + io.input.cmd.length.resize(op.lengthWidth)) | ((1 << alignmentWidth) - 1)
+      io.output.cmd.last := False
 
+      val paddings = io.input.cmd.address(alignmentWidth - 1 downto log2Up(ip.byteCount))
       val context = Context()
       context.input := io.input.cmd.context
-      context.paddings := io.input.cmd.address(alignmentWidth - 1 downto log2Up(ip.byteCount))
-      context.transfers := io.input.cmd.transferBeatCountMinusOne
       context.write := io.input.cmd.isWrite
       context.source := io.input.cmd.source
 
-      val prePadding = io.input.cmd.isWrite && io.input.cmd.first && beatCounter < context.paddings
-      val postPadding = RegInit(False) setWhen(!prePadding && io.output.cmd.fire && io.input.cmd.last) clearWhen(io.input.cmd.ready)
-
-      io.output.cmd.valid := io.input.cmd.valid
-      io.output.cmd.last := io.input.cmd.isRead || io.input.cmd.last && beatCounter === beatCount-1
-      io.output.cmd.address := io.input.cmd.address(ip.addressWidth - 1 downto alignmentWidth) << alignmentWidth
       io.output.cmd.context := B(context)
-      io.output.cmd.opcode := io.input.cmd.opcode
-      io.output.cmd.length := (io.input.cmd.address(alignmentWidth-1 downto 0) + io.input.cmd.length.resize(op.lengthWidth)) | ((1 << alignmentWidth) - 1)
-      io.output.cmd.data := io.input.cmd.data
-      io.output.cmd.mask := (!(prePadding || postPadding) ? io.input.cmd.mask | 0)
-      io.input.cmd.ready := io.output.cmd.ready && (io.output.cmd.isRead || !prePadding && !(io.input.cmd.last && beatCounter =/= beatCount-1))
+
+      val inputReadyOk = False
+      io.input.cmd.ready := io.output.cmd.ready && inputReadyOk
+
+
+      val forWrite = ip.canWrite generate new Area {
+        val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
+        beatCounter := beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)
+
+        val prePadding = io.input.cmd.isWrite && io.input.cmd.first && beatCounter < paddings
+        val postPadding = RegInit(False) setWhen (!prePadding && io.output.cmd.fire && io.input.cmd.last) clearWhen (io.input.cmd.ready)
+
+        io.output.cmd.last setWhen(io.input.cmd.last && beatCounter === beatCount-1)
+        io.output.cmd.data := io.input.cmd.data
+        io.output.cmd.mask := (!(prePadding || postPadding) ? io.input.cmd.mask | 0)
+        inputReadyOk setWhen(!prePadding && !(io.input.cmd.last && beatCounter =/= beatCount-1))
+      }
+      val forRead = ip.canRead generate new Area {
+        io.output.cmd.last setWhen(io.input.cmd.isRead)
+        inputReadyOk setWhen(io.input.cmd.isRead)
+        context.paddings := paddings
+        context.transfers := io.input.cmd.transferBeatCountMinusOne
+      }
     }
 
     val rspLogic = new Area {
       val context = io.output.rsp.context.as(Context())
 
-      val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
-      when(io.output.rsp.fire) {
-        beatCounter := beatCounter + U(!context.write)
-      }
-
-      val transferCounter = Reg(UInt(log2Up(transferCount + 1) bits)) init (0)
-      when(io.input.rsp.fire) {
-        transferCounter := transferCounter + 1
-      }
-      when(io.output.rsp.fire && io.output.rsp.last){
-        transferCounter := 0
-      }
-
-      val drop = !context.write && (io.input.rsp.first && beatCounter(context.paddings.range) < context.paddings || transferCounter > context.transfers)
-
+      val drop = False
       io.input.rsp.arbitrationFrom(io.output.rsp.throwWhen(drop))
-      io.input.rsp.last := context.write || transferCounter === context.transfers
+      io.input.rsp.last := False
       io.input.rsp.opcode := io.output.rsp.opcode
-      io.input.rsp.data := io.output.rsp.data
       io.input.rsp.context := io.output.rsp.context.resized
       io.input.rsp.source := context.source
+
+      val forRead = ip.canRead generate new Area {
+        val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
+        when(io.output.rsp.fire) {
+          beatCounter := beatCounter + U(!context.write)
+        }
+
+        val transferCounter = Reg(UInt(log2Up(transferCount + 1) bits)) init (0)
+        when(io.input.rsp.fire) {
+          transferCounter := transferCounter + 1
+        }
+        when(io.output.rsp.fire && io.output.rsp.last) {
+          transferCounter := 0
+        }
+
+        drop setWhen(!context.write && (io.input.rsp.first && beatCounter(context.paddings.range) < context.paddings || transferCounter > context.transfers))
+
+        io.input.rsp.last setWhen(transferCounter === context.transfers)
+        io.input.rsp.data := io.output.rsp.data
+      }
+
+      val forWrite = ip.canWrite generate new Area{
+        io.input.rsp.last setWhen(context.write)
+      }
     }
   }
+
+  //For simulation
+  clockDomain.readClockWire
+  clockDomain.readResetWire
 }
 
 object BmbLengthFixer{
