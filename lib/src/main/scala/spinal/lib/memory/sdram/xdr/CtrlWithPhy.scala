@@ -85,7 +85,6 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyLayout) extends Component{
 
   val core = Core(cpa)
   core.io.ports <> Vec(bmbAdapter.map(_.io.output))
-  core.io.writeDataTockens <> Vec(bmbAdapter.map(_.io.writeDataTocken))
   bmbAdapter.foreach(_.io.refresh := core.io.refresh)
 
   io.phy <> core.io.phy

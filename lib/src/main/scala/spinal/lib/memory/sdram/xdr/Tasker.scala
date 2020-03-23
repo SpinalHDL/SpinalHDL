@@ -10,7 +10,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val config = in(CoreConfig(cpa))
     val refresh = slave(Event)
     val inputs = Vec(cpp.map(cpp => slave(Stream(CoreCmd(cpp, cpa)))))
-    val writeDataTockens = Vec(cpp.map(p => in UInt(p.writeTockenInterfaceWidth bits)))
+    val writeDataTockens = Vec(cpp.filter(_.canWrite).map(p => in UInt(p.writeTockenInterfaceWidth bits)))
     val output = master(CoreTasks(cpa))
   }
 
@@ -119,12 +119,17 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     }
   }
 
-
+  var writeTockensId = 0
   val writeTockens = for(portId <- 0 until cpp.size) yield new Area{
+    val canWrite = cpp(portId).canWrite
     val consume = io.output.ports.map(p => p.write && p.portId === portId).orR
-    val counter = Reg(UInt(log2Up(cpp(portId).writeTockenBufferSize + 1) bits)) init(0)
-    counter := counter + io.writeDataTockens(portId) - (U(consume) << log2Up(pl.beatCount))
-    val ready = RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter < pl.beatCount*2)
+    val counter = canWrite generate Reg(UInt(log2Up(cpp(portId).writeTockenBufferSize + 1) bits)).init(0)
+    if(canWrite) {
+      counter := counter + io.writeDataTockens(writeTockensId) - (U(consume) << log2Up(pl.beatCount))
+      writeTockensId += 1
+    }
+    val ready = if(canWrite) RegInit(False) setWhen(counter >= pl.beatCount) clearWhen(consume && counter < pl.beatCount*2) else True
+
   }
 
   case class Task() extends Bundle{

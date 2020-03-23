@@ -162,19 +162,23 @@ case class SdramXdrIo(g : SdramLayout) extends Bundle with IMasterSlave {
 
 case class CorePortParameter(contextWidth : Int,
                              writeTockenInterfaceWidth : Int,
-                             writeTockenBufferSize : Int)
+                             writeTockenBufferSize : Int,
+                             canRead : Boolean,
+                             canWrite : Boolean)
 
 case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
   val cmd = Stream(CoreCmd(cpp, cpa))
-  val writeData = Stream(CoreWriteData(cpp, cpa))
+  val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
+  val writeDataTocken = cpp.canWrite generate (out UInt(cpp.writeTockenInterfaceWidth bits))
   val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
 
   val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
 
   override def asMaster(): Unit = {
     master(cmd)
-    master(writeData)
+    masterWithNull(writeData)
     out(writeDataAdded)
+    outWithNull(writeDataTocken)
     slave(rsp)
   }
 }
@@ -193,7 +197,7 @@ case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) 
   val mask = Bits(pl.beatWidth/8 bits)
 }
 case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
-  val data = Bits(cpa.pl.beatWidth bits)
+  val data = cpp.canRead generate Bits(cpa.pl.beatWidth bits)
   val context = Bits(cpp.contextWidth bits)
 }
 
@@ -414,7 +418,8 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
 
   val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*cpa.pl.beatCount //Pessimistic
 
-  io.input.cmd.ready := io.output.cmd.ready && io.output.writeData.ready && !toManyRsp
+  io.input.cmd.ready := io.output.cmd.ready && !toManyRsp
+  if(ip.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
 
   val cmdContext = Context()
   cmdContext.input := io.input.cmd.context
@@ -428,15 +433,17 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
-  io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
-  io.output.writeData.data := io.input.cmd.data
-  io.output.writeData.mask := io.input.cmd.mask
+  if(ip.canWrite) {
+    io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
+    io.output.writeData.data := io.input.cmd.data
+    io.output.writeData.mask := io.input.cmd.mask
+  }
 
   val rspContext = io.output.rsp.context.as(Context())
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
   io.input.rsp.last := io.output.rsp.last
-  io.input.rsp.data := io.output.rsp.data
+  if(ip.canRead) io.input.rsp.data := io.output.rsp.data
   io.input.rsp.context := rspContext.input
   io.input.rsp.source := rspContext.source
 }

@@ -11,7 +11,9 @@ object BmbAdapter{
       converterBmb.contextWidth + converterBmb.sourceWidth
     },
     writeTockenInterfaceWidth = 1,
-    writeTockenBufferSize = pp.dataBufferSize + 4
+    writeTockenBufferSize = pp.dataBufferSize + 4,
+    canRead = pp.bmb.canRead,
+    canWrite = pp.bmb.canWrite
   )
 }
 
@@ -27,7 +29,6 @@ case class BmbAdapter(pp : BmbPortParameter,
     val refresh = in Bool()
     val input = slave(Bmb(pp.bmb))
     val output = master(CorePort(cpp, cpa))
-    val writeDataTocken = out UInt(cpp.writeTockenInterfaceWidth bits)
   }
 
   val asyncCc = pp.clockDomain != ClockDomain.current
@@ -48,26 +49,28 @@ case class BmbAdapter(pp : BmbPortParameter,
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
     inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(pp.rspBufferSize, 1)
 
-    io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(pp.dataBufferSize, 1)
-    io.writeDataTocken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init(0)
+    if(pp.bmb.canWrite) {
+      io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(pp.dataBufferSize, 1)
+      io.output.writeDataTocken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init (0)
+    }
   }
-  val asyncBuffer = if(asyncCc) new Area{
+  val asyncBuffer = if(asyncCc) new Area {
     cmdAddress << inputLogic.converter.io.output.cmd.queue(pp.cmdBufferSize, pp.clockDomain, ClockDomain.current)
-    inputLogic.converter.io.output.rsp << io.output.rsp.queue(pp.rspBufferSize,  ClockDomain.current, pp.clockDomain)
+    inputLogic.converter.io.output.rsp << io.output.rsp.queue(pp.rspBufferSize, ClockDomain.current, pp.clockDomain)
 
-    val writeData = new Area{
+    val writeData = if (pp.bmb.canWrite) new Area {
       val fifo = new StreamFifoCC(inputLogic.converter.io.output.writeData.payloadType, pp.dataBufferSize, pp.clockDomain, ClockDomain.current)
       fifo.io.push << inputLogic.converter.io.output.writeData
       io.output.writeData << fifo.io.pop
 
       val pushCounter = fromGray(fifo.popCC.pushPtrGray.pull())
-      val tockenCounter = Reg(UInt(fifo.ptrWidth bits)) init(0)
+      val tockenCounter = Reg(UInt(fifo.ptrWidth bits)) init (0)
       val tockenIncrement = tockenCounter =/= pushCounter
-      when(tockenIncrement){
+      when(tockenIncrement) {
         tockenCounter := tockenCounter + 1
       }
 
-      io.writeDataTocken := RegNext(U(tockenIncrement)) init(0)
+      io.output.writeDataTocken := RegNext(U(tockenIncrement)) init (0)
     }
   }
 

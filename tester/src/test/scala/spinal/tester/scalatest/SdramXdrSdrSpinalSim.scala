@@ -118,6 +118,40 @@ object SdramXdrTesterHelpers{
 //        dataBufferSize = 64 * pl.beatCount,
 //        rspBufferSize = 64 * pl.beatCount
 //      )
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = pl.sdram.byteAddressWidth,
+          dataWidth = pl.beatWidth,
+          lengthWidth = log2Up(16*pl.bytePerBurst),
+          sourceWidth = 3,
+          contextWidth = 8,
+          canRead = false
+        ),
+        //        clockDomain = ClockDomain.external("port_0"),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 16,
+        dataBufferSize = 32*pl.beatCount,
+        rspBufferSize = 16*pl.beatCount,
+        beatPerBurst = 16
+      ),
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = pl.sdram.byteAddressWidth,
+          dataWidth = pl.beatWidth,
+          lengthWidth = log2Up(16*pl.bytePerBurst),
+          sourceWidth = 3,
+          contextWidth = 8,
+          canWrite = false
+        ),
+        //        clockDomain = ClockDomain.external("port_0"),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 16,
+        dataBufferSize = 32*pl.beatCount,
+        rspBufferSize = 16*pl.beatCount,
+        beatPerBurst = 16
+      ),
       BmbPortParameter(
         bmb = BmbParameter(
           addressWidth = pl.sdram.byteAddressWidth,
@@ -178,6 +212,39 @@ object SdramXdrTesterHelpers{
         dataBufferSize = 8*pl.beatCount,
         rspBufferSize = 8*pl.beatCount,
         beatPerBurst = 8
+      ),
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = pl.sdram.byteAddressWidth,
+          dataWidth = pl.beatWidth,
+          lengthWidth = log2Up(16*pl.bytePerBurst),
+          sourceWidth = 3,
+          contextWidth = 8,
+          canRead = false
+        ),
+        //        clockDomain = ClockDomain.external("port_0"),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 16,
+        dataBufferSize = 32*pl.beatCount,
+        rspBufferSize = 16*pl.beatCount,
+        beatPerBurst = 16
+      ),
+
+      BmbPortParameter(
+        bmb = BmbParameter(
+          addressWidth = pl.sdram.byteAddressWidth,
+          dataWidth = pl.beatWidth,
+          lengthWidth = log2Up(16*pl.bytePerBurst),
+          sourceWidth = 3,
+          contextWidth = 8,
+          canWrite = false
+        ),
+        //        clockDomain = ClockDomain.external("port_0"),
+        clockDomain = ClockDomain.current,
+        cmdBufferSize = 16,
+        dataBufferSize = 32*pl.beatCount,
+        rspBufferSize = 16*pl.beatCount,
+        beatPerBurst = 16
       )
     )
   )
@@ -468,8 +535,8 @@ object SdramXdrTesterHelpers{
     import spinal.core.sim._
     val phyClkRatio = pl.phaseCount
     val simConfig = SimConfig
-    simConfig.withWave
-//    simConfig.withWave(1)
+//    simConfig.withWave
+    simConfig.withWave(1)
     simConfig.addSimulatorFlag("-Wno-MULTIDRIVEN")
     simConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(1e12/(sdramPeriod*phyClkRatio) Hz)))
     simConfig.compile({
