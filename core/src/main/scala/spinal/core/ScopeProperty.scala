@@ -3,10 +3,38 @@ package spinal.core
 import spinal.idslplugin.PostInitCallback
 
 import scala.collection.mutable
-import scala.collection.mutable.Stack
+import scala.collection.mutable.{ArrayBuffer, Stack}
+
+object ScopeProperty {
+  private [core] val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]]
+  def get : mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]] = {
+    val v = it.get()
+    if(v != null) return v
+    it.set(mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]())
+    it.get()
+  }
+
+  case class Capture(context : Seq[(ScopeProperty[Any], Seq[Any])]){
+    def restore(): Unit ={
+      for(e <- context){
+        get.update(e._1, Stack.concat(e._2))
+      }
+    }
+  }
+
+  def capture(): Capture ={
+    Capture(context = get.toSeq.map(e => e._1 -> Seq.concat(e._2)))
+  }
+
+  def sandbox[T](body : => T) = {
+    val spc = ScopeProperty.capture()
+    try{ body } finally { spc.restore() }
+  }
+}
+
 
 trait ScopeProperty[T]{
-  def stack = GlobalData.get.scopeProperties.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
+  def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
   def get = if(stack.isEmpty) default else stack.head
   def default : T
 

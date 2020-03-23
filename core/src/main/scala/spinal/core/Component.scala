@@ -297,7 +297,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
-  val scopeProperties = globalData.scopeProperties.map{case (p, s) => (p, s.head)}
+  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
