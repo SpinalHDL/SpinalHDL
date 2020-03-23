@@ -158,7 +158,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
     for((p, v) <- scopeProperties){
-      p.stack.asInstanceOf[mutable.Stack[Any]].push(v)
+      p.asInstanceOf[ScopeProperty[Any]].push(v)
     }
   }
 

@@ -301,10 +301,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
-    scopeProperties.foreach{ case (p, v) => p.stack.push(v)}
+    scopeProperties.foreach{ case (p, v) => p.push(v)}
     val ret = gen
     prePop()
-    scopeProperties.foreach{ case (p, v) => p.stack.pop}
+    scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
     ClockDomain.pop(this.clockDomain)
     ret

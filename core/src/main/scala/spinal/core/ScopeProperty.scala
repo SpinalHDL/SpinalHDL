@@ -34,21 +34,28 @@ object ScopeProperty {
 
 
 trait ScopeProperty[T]{
-  def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
-  def get = if(stack.isEmpty) default else stack.head
+  private def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
+  def get = if(!ScopeProperty.get.contains(this.asInstanceOf[ScopeProperty[Any]]) || stack.isEmpty) default else stack.head
+  def push(v : T) = stack.push(v)
+  def pop() = {
+    stack.pop()
+    if(stack.isEmpty){
+      ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
+    }
+  }
   def default : T
 
   def apply(value : T) = new {
     def apply[B](body : => B): B ={
-      stack.push(value)
+      push(value)
       val b = body
-      stack.pop()
+      pop()
       b
     }
     def on[B](body : => B) = {
-      stack.push(value)
+      push(value)
       val b = body
-      stack.pop()
+      pop()
       b
     }
   }
@@ -56,9 +63,9 @@ trait ScopeProperty[T]{
 
 class ScopePropertyValue(val dady : ScopeProperty[_ <: Any]){
   def on[B](body : => B) = {
-    dady.stack.asInstanceOf[mutable.Stack[Any]].push(this)
+    dady.asInstanceOf[ScopeProperty[Any]].push(this)
     val b = body
-    dady.stack.pop()
+    dady.pop()
     b
   }
 }
