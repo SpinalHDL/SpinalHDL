@@ -188,7 +188,7 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
-  val verboseLog = new java.io.FileWriter("verbose.log")
+  val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
   def doPhase(phase: Phase): Unit ={
     if(config.verbose) verboseLog.write(s"phase: $phase\n")
