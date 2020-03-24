@@ -36,7 +36,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate))
+    outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
     if(pc.config.dumpWave != null) {
       outFile.write("`timescale 1ns/1ps ")
