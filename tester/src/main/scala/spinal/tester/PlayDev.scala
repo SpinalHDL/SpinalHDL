@@ -1495,28 +1495,43 @@ object PlayDevSpinalSim2 extends App{
 
 
 object PlayFixPointProperty extends App{
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixedPointProperty.get}, $roundType, $sym ")
+  }
+
   class Topxx extends Component {
+    check(RoundType.ROUNDUP, true)
     val start = in Bool()
 
-    val area = FixedPointProperty(LowCostFixPointConfig()) on new Area{
-      check(RoundType.ROUNDUP, true)
-    }
-    def check(roundType: RoundType, sym: Boolean): Unit = {
-      println(s"${FixedPointProperty.get}, $roundType, $sym ")
+    val area = FixedPointProperty(DefaultFixPointConfig) on new Area{
+      check(RoundType.ROUNDTOINF, false)
     }
 
-    check(RoundType.ROUNDTOINF, false)
-    FixedPointProperty(RoundType.CEIL, false)
+    FixedPointProperty.push(FixPointConfig(RoundType.CEIL, false))
     check(RoundType.CEIL, false)
     val a = {
-      FixedPointProperty(RoundType.FLOOR, true)
-      check(RoundType.FLOOR, true)
+      FixedPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
+        check(RoundType.FLOOR, true)
+      }
+      FixPointConfig(RoundType.ROUNDTOZERO, false){
+        check(RoundType.ROUNDTOZERO, false)
+      }
+      FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+        check(RoundType.ROUNDTOEVEN, true)
+      }
     }
     check(RoundType.CEIL, false)
   }
-
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+  }
+  LowCostFixPointConfig{
+    check(RoundType.ROUNDUP, true)
+  }
   val config = SpinalConfig(targetDirectory = "./tmp")
   config.generateVerilog(new Topxx)
+  config.setScopeProperty(FixedPointProperty, LowCostFixPointConfig)
+  check(RoundType.CEIL, false)
 }
 
 
