@@ -417,7 +417,7 @@ class ChecksTester extends FunSuite  {
       check(666)
     }
     class Toplevel extends Component{
-      check(42)
+      check(55)
       val logic = FixedPointProperty(666) on new Area{
         check(666)
         val x = new Sub
@@ -430,12 +430,25 @@ class ChecksTester extends FunSuite  {
           check(1234)
         }
         check(666)
+//        throw new Exception("asd")
       }
-      check(42)
+      check(55)
     }
 
-    val config = SpinalConfig()
-    config.generateVerilog(new Toplevel)
+
+    check(42)
+    FixedPointProperty(55){
+      check(55)
+      val config = SpinalConfig()
+//      try {
+      config.generateVerilog(new Toplevel)
+//      } catch {
+//        case e : Exception =>
+//      }
+      check(55)
+    }
+    check(42)
+    assert(ScopeProperty.get.isEmpty)
   }
 
 }

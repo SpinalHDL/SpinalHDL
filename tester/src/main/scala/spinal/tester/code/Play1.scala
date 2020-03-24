@@ -2782,12 +2782,12 @@ object PlayMux2 {
 object PlayAttributes {
 
   class SubComponent extends Component {
-    val output = out(True).addAttribute("Yolo")
-    val output2 = out(True).addAttribute("Yolo")
+    val output = out(True).addAttribute("Yolo1")
+    val output2 = out(True).addAttribute("Yolo2")
   }
   class TopLevel extends Component {
-    val output = out(True).addAttribute("Yolo")
-    val output2 = out(True).addAttribute("Yolo")
+    val output = out(True).addAttribute("Yolo3")
+    val output2 = out(True).addAttribute("Yolo4")
 
     val sub = new SubComponent()
     val subX = out Bool
@@ -2795,10 +2795,14 @@ object PlayAttributes {
 
     subX := sub.output
     suby := sub.output2
+
+    sub.addAttribute("Rawrrr","TRUE")
+    this.definition.addAttribute("Wuff", "FALSE")
   }
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
     println("Done")
   }
 }
