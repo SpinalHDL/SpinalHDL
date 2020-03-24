@@ -1577,6 +1577,7 @@ object PlayScopeProperty extends App{
 //  ComplexPropertyValue(66,99)
 //  ComplexPropertyValue(1,2)
   config.setScopeProperty(FixedPointProperty, 76)
+  config.setScopeProperty(ComplexPropertyValue(54,65))
   config.generateVerilog(new Toplevel)
 //  76
 //  ref:666 dut:666
