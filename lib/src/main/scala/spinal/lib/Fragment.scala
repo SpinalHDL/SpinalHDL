@@ -56,6 +56,36 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
 
   def toStreamOfFragment : Stream[T] = pimped.translateWith(pimped.fragment)
 
+/**
+ * Stepwise reduction of all fragments into a single value. With this, you can calculate
+ * the (check)sum of every n elements or parity bits.
+ * @param accumulator A combinatorial function that accumulates the current (param 3) and the previous
+ * 	(param 2) value into the next one (param 1)
+ * @example {{{ outStream = inStream.reduce[SInt]((a, b, c) => { a := b + c }) }}}
+ */
+  def reduce[U <: Data](identity: U, accumulator: (U, U, T) => Unit): Stream[U] = {
+    val next = new Stream(identity).setCompositeName(pimped, "reduced", true)
+    val acc = Reg(identity)
+    
+    accumulator(next.payload, acc, pimped.fragment)
+    
+    when(pimped.fire) {
+      acc := Mux(pimped.last, identity, next.payload)
+    }
+    when(pimped.last) {
+      pimped.ready := next.ready
+      next.valid := pimped.valid
+    } otherwise {
+      pimped.ready := True
+      next.valid := False
+    }
+    next
+  }
+
+  /** 
+   * Insert a given header value at the begin of each new packet. This may stall
+   * upstream during the insertion.
+   */
   def insertHeader(header: T): Stream[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
@@ -82,7 +112,11 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
     ret
   }
 
-  //not tested
+  //TODOTEST not tested
+  /** 
+   * Insert a given header value at the begin of each new packet. This may stall
+   * upstream during the insertion.
+   */
   def insertHeader(header: Vec[T]): Stream[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val packetWait = RegInit(True)

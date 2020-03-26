@@ -411,13 +411,31 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     return converter.io.output
   }
   
-  /** Convert this stream to a fragmented stream by adding a last bit */
+  /**
+   * Convert this stream to a fragmented stream by adding a last bit. To view it from
+   * another perspective, bundle together successive events as fragments of a larger whole.
+   * You can then use enhanced operations on fragmented streams, like reducing of elements.
+   */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
     return ret
+  }
+  
+  /** 
+   *  Like addFragmentLast(Bool), but instead of manually telling which values go together,
+   *  let a counter do the job. The counter will increment for each passing element. Last
+   *  will be set high at the end of each revolution.
+	 * @example {{{ outStream = inStream.addFragmentLast(new Counter(5)) }}}
+   */
+  def addFragmentLast(counter: Counter) : Stream[Fragment[T]] = {
+    when (this.fire) {
+      counter.increment()
+    }
+    val last = counter.willOverflowIfInc
+    return addFragmentLast(last)
   }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
