@@ -145,19 +145,25 @@ object PlayFixedPoint {
 
 
 object PlayBug75 {
-  implicit class StreamPimped(pimped : Stream[UInt]){
-    def asStreamSInt() : Stream[SInt] = pimped.translateWith(pimped.payload.asSInt)
+  class Top extends Component{
+    val a = in SInt(8 bits)
+    val b = out SInt(8 bits)
+    def withWrapper(a: SInt) = {
+      class FixTo extends Component{
+        this.setDefinitionName(s"FixTo${a.getWidth}")
+        val din = in SInt()
+        val dout = out SInt()
+        dout := din
+      }
+      val dut = new FixTo
+      dut.din := a
+      dut.dout
+    }
+
+    b := withWrapper(a)
   }
-
-  class TopLevel extends Component {
-    val src = slave Stream(UInt(4 bits))
-    val sink = master Stream(SInt(4 bits))
-
-    sink << src.asStreamSInt()
-  }
-
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new Top)
   }
 }
 

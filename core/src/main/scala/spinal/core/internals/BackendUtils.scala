@@ -51,7 +51,7 @@ object VhdlVerilogBase{
             override def out(s: => String): Unit = {}
             override def err(s: => String): Unit = {}
             override def buffer[T](f: => T): T = f
-          }).lines().iterator().next()
+          }).linesIterator.next()
           buffer ++=  s"$commentSymbol Git hash  : ${hash}\n"
         }
       } catch{
