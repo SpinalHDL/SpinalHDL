@@ -39,7 +39,8 @@ class PhaseContext(val config: SpinalConfig) {
 
   def privateNamespaceName = config.globalPrefix + (if(config.privateNamespace) topLevel.definitionName + "_" else "")
 
-  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+//  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val duplicationPostfix  = ""
   val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.LinkedHashMap[SpinalEnum,mutable.LinkedHashSet[SpinalEnumEncoding]]()

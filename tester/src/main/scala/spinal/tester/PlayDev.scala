@@ -1585,6 +1585,7 @@ object PlayAnonymousComponent extends App{
   val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
   config.setScopeProperty(FixPointProperty, LowCostFixPointConfig)
   config.generateVerilog(new Top)
+  config.generateVhdl(new Top)
 }
 
 
