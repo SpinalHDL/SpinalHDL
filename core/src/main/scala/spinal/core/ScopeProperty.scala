@@ -36,14 +36,16 @@ object ScopeProperty {
 trait ScopeProperty[T]{
   private def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
   def get = if(!ScopeProperty.get.contains(this.asInstanceOf[ScopeProperty[Any]]) || stack.isEmpty) default else stack.head
-  def push(v : T) = stack.push(v)
-  def pop() = {
+  protected[core] def push(v : T) = stack.push(v)
+  protected[core] def pop() = {
     stack.pop()
     if(stack.isEmpty){
       ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
     }
   }
-  def default : T
+  protected var _default: T
+  def default : T = _default
+  def setDefault(x: T): Unit = _default = x
 
   def apply(value : T) = new {
     def apply[B](body : => B): B ={
