@@ -189,7 +189,7 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val address = UInt(pl.sdram.byteAddressWidth bits)
   val context = Bits(cpp.contextWidth bits)
   val burstLast = Bool()
-  val length = UInt(log2Up(cpa.cp.stationLengthMax)  bits)
+  val length = UInt(cpa.stationLengthWidth bits)
 }
 case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
@@ -315,14 +315,15 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
                          stationCount  : Int = 3,
-                         stationLengthMax : Int = 8,
-                         frustrationWidth : Int = 4,
+                         bytePerTaskMax : Int = 64,
+                         frustrationMax : Int = 8,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
                          readLatencies : List[Int]){
-  assert(isPow2(stationLengthMax))
-  def stationLengthWidth = log2Up(stationLengthMax)
+  assert(isPow2(bytePerTaskMax))
+  assert(isPow2(frustrationMax))
+  def frustrationWidth = log2Up(frustrationMax + 1)
 }
 
 object FrontendCmdOutputKind extends SpinalEnum{
@@ -411,7 +412,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
     val source = UInt(ip.sourceWidth bits)
   }
 
-  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length.resize(log2Up(pp.beatPerBurst)) +^ 1) << log2Up(cpa.pl.beatCount)
+  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
 
   val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
   rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)

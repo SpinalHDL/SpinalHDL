@@ -132,8 +132,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount,
-        beatPerBurst = 16
+        rspBufferSize = 16*pl.beatCount
       ),
 
       BmbPortParameter(
@@ -149,8 +148,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount,
-        beatPerBurst = 16
+        rspBufferSize = 16*pl.beatCount
       ),
       BmbPortParameter(
         bmb = BmbParameter(
@@ -164,8 +162,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount,
-        beatPerBurst = 16
+        rspBufferSize = 16*pl.beatCount
       ),
 
       BmbPortParameter(
@@ -179,8 +176,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 32,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 32*pl.beatCount,
-        beatPerBurst = 8
+        rspBufferSize = 32*pl.beatCount
       ),
 
       BmbPortParameter(
@@ -194,8 +190,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 4,
         dataBufferSize = 1*pl.beatCount,
-        rspBufferSize = 8*pl.beatCount,
-        beatPerBurst = 8
+        rspBufferSize = 8*pl.beatCount
       ),
 
       BmbPortParameter(
@@ -210,8 +205,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 2,
         dataBufferSize = 8*pl.beatCount,
-        rspBufferSize = 8*pl.beatCount,
-        beatPerBurst = 8
+        rspBufferSize = 8*pl.beatCount
       ),
       BmbPortParameter(
         bmb = BmbParameter(
@@ -226,8 +220,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount,
-        beatPerBurst = 16
+        rspBufferSize = 16*pl.beatCount
       ),
 
       BmbPortParameter(
@@ -243,8 +236,7 @@ object SdramXdrTesterHelpers{
         clockDomain = ClockDomain.current,
         cmdBufferSize = 16,
         dataBufferSize = 32*pl.beatCount,
-        rspBufferSize = 16*pl.beatCount,
-        beatPerBurst = 16
+        rspBufferSize = 16*pl.beatCount
       )
     )
   )
@@ -547,7 +539,7 @@ object SdramXdrTesterHelpers{
           portTockenMax = 16,
           timingWidth = 5,
           refWidth = 16,
-          stationLengthMax = 16,
+          bytePerTaskMax = pl.bytePerBurst*8,
           stationCount = 4,
           writeLatencies = List((wl+phyClkRatio-1)/phyClkRatio - pl.cmdToDqDelayDelta),
           readLatencies = List((rl+phyClkRatio-1)/phyClkRatio)

@@ -137,7 +137,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val address = UInt(pl.sdram.byteAddressWidth bits)
     val context = Bits(backendContextWidth bits)
     val burstLast = Bool()
-    val length = Reg(UInt(cp.stationLengthWidth bits))
+    val length = Reg(UInt(cpa.stationLengthWidth bits))
     val portId = UInt(log2Up(cpp.size) bits)
   }
 
@@ -194,7 +194,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
   }
 
   val columnBurstShift = log2Up(pl.transferPerBurst)
-  val columnBurstMask  = (pl.sdram.columnSize-1) - (cp.stationLengthMax-1 << columnBurstShift)
+  val columnBurstMask  = (pl.sdram.columnSize-1) - (cpa.stationLengthMax-1 << columnBurstShift)
   val stations = for (stationId <- 0 until cp.stationCount) yield new Area {
     val id = stationId
     val othersMask = (BigInt(1) << cp.stationCount)-1 - (BigInt(1) << id)
@@ -204,7 +204,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val write = Reg(Bool)
     val context = Reg(Bits(backendContextWidth bits))
     val portId = Reg(UInt(log2Up(cpa.cpp.size) bits))
-    val offset, offsetLast = Reg(UInt(cp.stationLengthWidth bits))
+    val offset, offsetLast = Reg(UInt(cpa.stationLengthWidth bits))
 
     //Arbitration states vs other ports
     val stronger = Reg(Bits(cp.stationCount bits)) init(0)                  //Solve basic ordering
@@ -274,7 +274,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val afterBank = stationsValid & B(stations.map(s => s.address.bank === taskConstructor.s1.address.bank))
     val afterAccess = stationsValid & B(stations.map(s => s.portId === taskConstructor.s1.input.portId || s.frustration.full))
     taskConstructor.s1.input.ready := !stations.map(_.valid).andR
-    val offset = taskConstructor.s1.address.column(columnBurstShift, cp.stationLengthWidth bits)
+    val offset = taskConstructor.s1.address.column(columnBurstShift, cpa.stationLengthWidth bits)
     val offsetLast = offset + taskConstructor.s1.input.length
     val slot = for(station <- stations) yield new Area{
       val canSpawn = ~B(stations.take(station.id).map(_.valid)) === 0 && !station.valid

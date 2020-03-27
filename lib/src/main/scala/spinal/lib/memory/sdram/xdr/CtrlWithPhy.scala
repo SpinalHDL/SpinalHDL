@@ -19,9 +19,7 @@ case class BmbPortParameter(bmb : BmbParameter,
                             clockDomain : ClockDomain,
                             cmdBufferSize : Int,
                             dataBufferSize : Int,
-                            rspBufferSize : Int,
-                            beatPerBurst : Int = 8){
-  assert(rspBufferSize >= beatPerBurst)
+                            rspBufferSize : Int){
 }
 
 case class CtrlParameter( core : CoreParameter,

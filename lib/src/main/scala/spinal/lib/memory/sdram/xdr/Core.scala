@@ -7,6 +7,8 @@ case class CoreParameterAggregate(cp : CoreParameter, pl : PhyLayout, cpp : Seq[
   def backendContextWidth = cpp.map(_.contextWidth).max
   def portCount = cpp.size
   def generation = pl.sdram.generation
+  def stationLengthWidth = log2Up(stationLengthMax)
+  def stationLengthMax = cp.bytePerTaskMax/pl.bytePerBurst
 }
 
 case class Core(cpa : CoreParameterAggregate) extends Component {

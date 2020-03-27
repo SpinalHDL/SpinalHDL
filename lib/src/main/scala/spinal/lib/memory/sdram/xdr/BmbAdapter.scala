@@ -36,7 +36,11 @@ case class BmbAdapter(pp : BmbPortParameter,
     val aligner = BmbAligner(pp.bmb, log2Up(pl.burstWidth / 8))
     aligner.io.input << io.input
 
-    val spliter = BmbAlignedSpliter(aligner.io.output.p, pp.beatPerBurst * pl.bytePerBurst)
+
+    val splitLength = Math.min(cpa.cp.bytePerTaskMax, 1 << pp.bmb.lengthWidth)
+    assert(pp.rspBufferSize*cpa.pl.bytePerBeat >= splitLength)
+
+    val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
     spliter.io.input << aligner.io.output
 
     val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa, pp)
