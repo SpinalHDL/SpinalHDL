@@ -232,7 +232,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     for (child <- children) {
       OwnableRef.proposal(child, this)
       if (child.isUnnamed) {
-        var name = child.getClass.getSimpleName
+        var name = classNameOf(child)
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName().setName(name, Nameable.DATAMODEL_WEAK)
       }
