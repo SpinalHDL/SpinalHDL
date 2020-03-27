@@ -34,7 +34,6 @@ import scala.io.Source
 
 
 class PhaseContext(val config: SpinalConfig) {
-
   var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
@@ -189,7 +188,7 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
-  val verboseLog = new java.io.FileWriter("verbose.log")
+  val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
   def doPhase(phase: Phase): Unit ={
     if(config.verbose) verboseLog.write(s"phase: $phase\n")
@@ -2147,7 +2146,6 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
 
 
 object SpinalVhdlBoot{
-
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     if(config.debugComponents.nonEmpty){
       return singleShot(config)(gen)
@@ -2184,7 +2182,7 @@ object SpinalVhdlBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
 
@@ -2308,7 +2306,7 @@ object SpinalVerilogBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
+  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
 
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc

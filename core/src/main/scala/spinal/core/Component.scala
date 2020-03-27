@@ -232,7 +232,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     for (child <- children) {
       OwnableRef.proposal(child, this)
       if (child.isUnnamed) {
-        var name = child.getClass.getSimpleName
+        var name = classNameOf(child)
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName().setName(name, Nameable.DATAMODEL_WEAK)
       }
@@ -297,14 +297,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
-  val scopeProperties = globalData.scopeProperties.map{case (p, s) => (p, s.head)}
+  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
-    scopeProperties.foreach{ case (p, v) => p.stack.push(v)}
+    scopeProperties.foreach{ case (p, v) => p.push(v)}
     val ret = gen
     prePop()
-    scopeProperties.foreach{ case (p, v) => p.stack.pop}
+    scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
     ClockDomain.pop(this.clockDomain)
     ret

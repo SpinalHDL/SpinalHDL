@@ -1,12 +1,17 @@
 package spinal.tester.scalatest
 
+import java.io.File
+
+import org.apache.commons.io.FileUtils
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.core.internals.GraphUtils
 import spinal.lib.com.i2c._
 import spinal.lib.com.uart.{UartCtrl, UartCtrlGenerics}
+import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.lib.{Delay, StreamFifo}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.sys.process._
 
 object CheckTester{
@@ -417,7 +422,7 @@ class ChecksTester extends FunSuite  {
       check(666)
     }
     class Toplevel extends Component{
-      check(42)
+      check(55)
       val logic = FixedPointProperty(666) on new Area{
         check(666)
         val x = new Sub
@@ -430,17 +435,79 @@ class ChecksTester extends FunSuite  {
           check(1234)
         }
         check(666)
+//        throw new Exception("asd")
       }
-      check(42)
+      check(55)
     }
 
-    val config = SpinalConfig()
-    config.generateVerilog(new Toplevel)
+
+    check(42)
+    FixedPointProperty(55){
+      check(55)
+      val config = SpinalConfig()
+//      try {
+      config.generateVerilog(new Toplevel)
+//      } catch {
+//        case e : Exception =>
+//      }
+      check(55)
+    }
+    check(42)
+    assert(ScopeProperty.get.isEmpty)
   }
 
 }
 
+class RepeatabilityTester extends FunSuite{
+  var checkOutputHashCounter = 0
+  def checkOutputHash(gen : => Component): Unit ={
+    checkOutputHashCounter = checkOutputHashCounter + 1
+    var ref = ""
+    for(i <- 0 until 8) {
+      val report = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(gen.setDefinitionName(s"checkOutputHash_${checkOutputHashCounter}"))
+      FileUtils.copyFile(new File(report.generatedSourcesPaths.head),new File(report.generatedSourcesPaths.head + "_" + i + ".v"))
 
+      import sys.process._
+      val hash = s"md5sum ${report.generatedSourcesPaths.head}".!!
+      if(i == 0) ref = hash
+      else assert(ref == hash)
+    }
+  }
+  def configI2C = I2cSlaveMemoryMappedGenerics(
+    ctrlGenerics       = I2cSlaveGenerics(),
+    addressFilterCount = 0,
+    masterGenerics     = I2cMasterMemoryMappedGenerics(timerWidth = 32)
+  )
+
+  test("Apb3I2cCtrlGraph"){
+    val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
+    assert(GraphUtils.countNames(dut) == 154)
+  }
+
+  test("UartGraph"){
+    val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
+    assert(GraphUtils.countNames(dut) == 81)
+  }
+
+
+
+  test("Apb3I2cCtrlVerilog"){
+    checkOutputHash(new Apb3I2cCtrl(configI2C))
+  }
+
+
+  test("UartVerilog"){
+    checkOutputHash(new UartCtrl(UartCtrlGenerics()))
+  }
+
+  test("PinsecVerilog"){
+    checkOutputHash(new Pinsec(PinsecConfig.default))
+  }
+
+  test("BmbInterconnectVerilog"){
+    checkOutputHash(SpinalSimBmbInterconnectGeneratorTester.f())
+  }
+}
 
 class NameingTester extends FunSuite {
   import CheckTester._
@@ -475,19 +542,7 @@ class NameingTester extends FunSuite {
     assert(t.a.bb.ccc(3).dddd(3).getName() == "a_bb_ccc_3_dddd_3")
     assert(t.a.bb.ccc(3).eeee(3)(2).getName() == "a_bb_ccc_3_eeee_3_2")
   }
-
-  test("Apb3I2cCtrl"){
-    def configI2C = I2cSlaveMemoryMappedGenerics(
-      ctrlGenerics       = I2cSlaveGenerics(),
-      addressFilterCount = 0,
-      masterGenerics     = I2cMasterMemoryMappedGenerics(timerWidth = 32)
-    )
-    val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
-    assert(GraphUtils.countNames(dut) == 154)
-  }
-
-  test("Uart"){
-    val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
-    assert(GraphUtils.countNames(dut) == 81)
-  }
 }
+
+
+

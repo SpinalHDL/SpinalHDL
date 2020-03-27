@@ -137,6 +137,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         noAssert                       : Boolean = false,
                         fixToWithWrap                  : Boolean = true,
                         headerWithDate                 : Boolean = false,
+                        headerWithRepoHash             : Boolean = true,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -158,7 +159,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
     for((p, v) <- scopeProperties){
-      p.stack.asInstanceOf[mutable.Stack[Any]].push(v)
+      p.asInstanceOf[ScopeProperty[Any]].push(v)
     }
   }
 
@@ -190,6 +191,11 @@ case class SpinalConfig(mode                           : SpinalMode = null,
 
   def setScopeProperty[T](scopeProperty: ScopeProperty[T], value : T): this.type ={
     scopeProperties(scopeProperty) = value
+    this
+  }
+
+  def setScopeProperty[T](value: ScopePropertyValue): this.type ={
+    scopeProperties(value.dady) = value
     this
   }
 }

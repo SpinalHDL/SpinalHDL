@@ -292,6 +292,14 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
   }
 }
 
+object GeneratorCompiler{
+  def apply[T <: Generator](g : T): Unit ={
+    val c = new GeneratorCompiler()
+    c.rootGenerators += g
+    c.build()
+  }
+}
+
 
 class GeneratorCompiler {
 //  Composable.stack.push(this)
@@ -365,3 +373,4 @@ class GeneratorComponent[T <: Generator](val generator : T) extends Component{
   generator.setName("")
   this.setDefinitionName(classNameOf(generator))
 }
+

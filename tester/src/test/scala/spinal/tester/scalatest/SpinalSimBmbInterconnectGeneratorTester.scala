@@ -15,8 +15,7 @@ import scala.util.Random
 
 
 
-//TODO handle generation when a master has no slave
-class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
+object SpinalSimBmbInterconnectGeneratorTester{
   def f() = {
     new GeneratorComponent(new Generator {
       val interconnect = BmbInterconnectGenerator()
@@ -202,8 +201,12 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
       //      interconnect.addConnection(mB, List(sA))
     })
   }
+}
+//TODO handle generation when a master has no slave
+class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
+
   test("test1"){
-    SimConfig.allOptimisation.compile(f).doSimUntilVoid("test1", 42){dut => //TODO remove seed
+    SimConfig.allOptimisation.compile(SpinalSimBmbInterconnectGeneratorTester.f).doSimUntilVoid("test1", 42){dut => //TODO remove seed
       Phase.boot()
       Phase.setup {
         dut.clockDomain.forkStimulus(10)

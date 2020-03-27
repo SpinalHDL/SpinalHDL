@@ -1494,10 +1494,93 @@ object PlayDevSpinalSim2 extends App{
 }
 
 
+object PlayFixPointProperty extends App{
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixedPointProperty.get}, $roundType, $sym ")
+  }
+
+  class Topxx extends Component {
+    check(RoundType.ROUNDUP, true)
+    val start = in Bool()
+    val din = in SInt(16 bits)
+
+    val area = FixedPointProperty(DefaultFixPointConfig) on new Area{
+      check(RoundType.ROUNDTOINF, false)
+      val broundtoinffalse = din.fixTo(10 downto 3)
+    }
+
+    FixedPointProperty.push(FixPointConfig(RoundType.CEIL, false))
+    check(RoundType.CEIL, false)
+    val cceilfalse = {
+      FixedPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
+        check(RoundType.FLOOR, true)
+      }
+      FixPointConfig(RoundType.ROUNDTOZERO, false){
+        check(RoundType.ROUNDTOZERO, false)
+      }
+      FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+        check(RoundType.ROUNDTOEVEN, true)
+      }
+      din.fixTo(4 downto 1)
+    }
+    check(RoundType.CEIL, false)
+    FixedPointProperty.pop()
+    val droudnuptrue = din.fixTo(12 downto 9)
+    check(RoundType.ROUNDUP, true)
+  }
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+  }
+  LowCostFixPointConfig{
+    check(RoundType.ROUNDUP, true)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp")
+  config.setScopeProperty(FixedPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Topxx)
+  check(RoundType.ROUNDTOINF, true)
+}
+
+object PlayFixWrapper extends App{
+  class Top extends Component{
+    val a = in SInt( 16 bits)
+    val b = out SInt(8 bits)
+    b := a.tag(SQ(16,10)).fixTo(SQ(8,4))
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
+  config.generateVerilog(new Top)
+}
+
+object PlayAnonymousComponent extends App{
+
+  class Top extends Component{
+    val a = in SInt(8 bits)
+    val b,c = out SInt(8 bits)
+    def withWrapper(a: SInt) = {
+      class FixTo extends Component{
+        this.setDefinitionName(s"FixTo${a.getWidth}")
+        val din = in SInt()
+        val dout = out SInt()
+        dout := din
+      }
+      val dut = new FixTo
+      dut.din := a
+      dut.dout
+    }
+
+    b := withWrapper(a)
+    c := withWrapper(a)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
+  config.setScopeProperty(FixedPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Top)
+}
+
+
 object PlayScopeProperty extends App{
   object FixedPointProperty extends ScopeProperty[Int]{
     override def default: Int = 42
   }
+
 
 
   case class ComplexPropertyValue(x : Int, y : Int) extends ScopePropertyValue(ComplexProperty)
@@ -1550,6 +1633,7 @@ object PlayScopeProperty extends App{
 //  ComplexPropertyValue(66,99)
 //  ComplexPropertyValue(1,2)
   config.setScopeProperty(FixedPointProperty, 76)
+  config.setScopeProperty(ComplexPropertyValue(54,65))
   config.generateVerilog(new Toplevel)
 //  76
 //  ref:666 dut:666
