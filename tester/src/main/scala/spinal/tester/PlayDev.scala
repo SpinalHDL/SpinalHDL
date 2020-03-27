@@ -1502,14 +1502,16 @@ object PlayFixPointProperty extends App{
   class Topxx extends Component {
     check(RoundType.ROUNDUP, true)
     val start = in Bool()
+    val din = in SInt(16 bits)
 
     val area = FixedPointProperty(DefaultFixPointConfig) on new Area{
       check(RoundType.ROUNDTOINF, false)
+      val broundtoinffalse = din.fixTo(10 downto 3)
     }
 
     FixedPointProperty.push(FixPointConfig(RoundType.CEIL, false))
     check(RoundType.CEIL, false)
-    val a = {
+    val cceilfalse = {
       FixedPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
         check(RoundType.FLOOR, true)
       }
@@ -1519,8 +1521,12 @@ object PlayFixPointProperty extends App{
       FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
         check(RoundType.ROUNDTOEVEN, true)
       }
+      din.fixTo(4 downto 1)
     }
     check(RoundType.CEIL, false)
+    FixedPointProperty.pop()
+    val droudnuptrue = din.fixTo(12 downto 9)
+    check(RoundType.ROUNDUP, true)
   }
   FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
     check(RoundType.ROUNDTOEVEN, true)
@@ -1529,9 +1535,44 @@ object PlayFixPointProperty extends App{
     check(RoundType.ROUNDUP, true)
   }
   val config = SpinalConfig(targetDirectory = "./tmp")
-  config.generateVerilog(new Topxx)
   config.setScopeProperty(FixedPointProperty, LowCostFixPointConfig)
-  check(RoundType.CEIL, false)
+  config.generateVerilog(new Topxx)
+  check(RoundType.ROUNDTOINF, true)
+}
+
+object PlayFixWrapper extends App{
+  class Top extends Component{
+    val a = in SInt( 16 bits)
+    val b = out SInt(8 bits)
+    b := a.tag(SQ(16,10)).fixTo(SQ(8,4))
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
+  config.generateVerilog(new Top)
+}
+
+object PlayAnonymousComponent extends App{
+
+  class Top extends Component{
+    val a = in SInt(8 bits)
+    val b,c = out SInt(8 bits)
+    def withWrapper(a: SInt) = {
+      class FixTo extends Component{
+        this.setDefinitionName(s"FixTo${a.getWidth}")
+        val din = in SInt()
+        val dout = out SInt()
+        dout := din
+      }
+      val dut = new FixTo
+      dut.din := a
+      dut.dout
+    }
+
+    b := withWrapper(a)
+    c := withWrapper(a)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
+  config.setScopeProperty(FixedPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Top)
 }
 
 
