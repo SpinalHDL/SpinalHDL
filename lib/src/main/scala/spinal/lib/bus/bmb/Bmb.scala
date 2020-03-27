@@ -47,6 +47,13 @@ object Bmb{
     result := (highCat @@ ((base + p.byteCount) & ~U(p.byteCount-1, widthOf(base) bits))).resized
     result
   }
+  def addToAddress(address : UInt, value : UInt, p : BmbParameter) : UInt = {
+    val result = UInt(address.getWidth bits)
+    val highCat = if (address.getWidth > boundaryWidth) address(address.high downto boundaryWidth) else U""
+    val base = address(Math.min(boundaryWidth, address.getWidth) - 1 downto 0).resize(boundaryWidth)
+    result := (highCat @@ (base + value)).resized
+    result
+  }
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)

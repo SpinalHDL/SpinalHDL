@@ -46,7 +46,7 @@ class BmbMemoryAgent(val memorySize : BigInt) {
         val opcode = bus.cmd.opcode.toInt
         val last = bus.cmd.last.toBoolean
         val source = bus.cmd.source.toInt
-        val context = bus.cmd.context.toInt
+        val context = bus.cmd.context.toLong
         opcode match {
           case Bmb.Cmd.Opcode.READ => {
             assert(bus.p.canRead)
