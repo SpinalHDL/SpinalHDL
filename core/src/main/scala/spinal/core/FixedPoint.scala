@@ -40,25 +40,26 @@ object RoundType{
 case class FixPointConfig(roundType: RoundType,
                           symmetric: Boolean){
   def on[B](body : => B) = {
-    FixedPointProperty(this) on {
+    FixPointProperty(this) on {
       body
     }
   }
   def apply[B](body : => B): B = on(body)
+  def setAsDefault() = FixPointProperty.setDefault(this)
 }
 
 
 
-object FixedPointProperty extends ScopeProperty[FixPointConfig]{
-  override def default: FixPointConfig = DefaultFixPointConfig
+object FixPointProperty extends ScopeProperty[FixPointConfig]{
+  var _default: FixPointConfig = DefaultFixPointConfig
 }
 
 object getFixRound{
-  def apply(): RoundType = FixedPointProperty.get.roundType
+  def apply(): RoundType = FixPointProperty.get.roundType
 }
 
 object getFixSym{
-  def apply(): Boolean = FixedPointProperty.get.symmetric
+  def apply(): Boolean = FixPointProperty.get.symmetric
 }
 
 
