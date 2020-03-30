@@ -23,7 +23,7 @@ object RegIfDocument{
       val fieldsNumbers = reginst.getFields.size
       s"""          <tr class="reg" align="left">
          |            <td align="center" rowspan="${fieldsNumbers}">0x${reginst.addr.toHexString}</td>
-         |            <td align="center" rowspan="${fieldsNumbers}">${reginst.name}</td>
+         |            <td align="left" rowspan="${fieldsNumbers}">${reginst.name}</td>
          |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${reginst.doc} </td>
          |            <td align="center" rowspan="${fieldsNumbers}">${reginst.busif.busDataWidth}</td>
          |${reginst.getFields.last.tds}
