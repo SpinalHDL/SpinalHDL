@@ -1,13 +1,20 @@
 package spinal.lib.bus.regif
 
 object RegIfDocument{
+
+  def FormatResetValue(value: BigInt, bitCount: Int):String = {
+    val hexCount = scala.math.ceil(bitCount/4.0).toInt
+    val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
+    if(value == 0) s"${bitCount}'b0" else s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+  }
+
   implicit class FieldsDocument(fd: Field){
     def tds: String = {
       val reserved = if (fd.accType == AccessType.NA) "reserved" else ""
       s"""            <td class="${reserved}" >${Section(fd.section)}</td>
          |            <td class="${reserved}" >${fd.name}</td>
          |            <td class="${reserved}" align="center">${fd.accType}</td>
-         |            <td class="${reserved}" align="center">0x${fd.resetValue.toHexString}</td>
+         |            <td class="${reserved}" align="right">${FormatResetValue(fd.resetValue, fd.hardbit.getWidth)}</td>
          |            <td class="${reserved} fixWidth2" >${fd.doc}</td>""".stripMargin
     }
 
