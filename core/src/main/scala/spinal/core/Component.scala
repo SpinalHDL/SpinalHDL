@@ -111,6 +111,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
 
+  var withoutReservedKeywords = false
+  def withoutKeywords(): Unit ={
+    withoutReservedKeywords = true
+  }
+  def withKeywords(): Unit ={
+    withoutReservedKeywords = false
+  }
 
   // Check if it is a top level component or a children of another component
   if (parent != null) {
@@ -225,7 +232,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   var localNamingScope : NamingScope = null
   private[core] def allocateNames(globalScope: NamingScope): Unit = {
 
-    localNamingScope = globalScope.newChild()
+    localNamingScope = if(withoutReservedKeywords) new NamingScope(globalScope.duplicationPostfix) else globalScope.newChild()
     val anonymPrefix = if(globalData.phaseContext.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + this.definitionName else globalData.anonymSignalPrefix
     localNamingScope.allocateName(anonymPrefix)
 

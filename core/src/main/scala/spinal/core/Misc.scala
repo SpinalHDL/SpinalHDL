@@ -302,7 +302,7 @@ object cloneable {
 }
 
 
-class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
+class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
   val map  = mutable.Map[String, Int]()
 
