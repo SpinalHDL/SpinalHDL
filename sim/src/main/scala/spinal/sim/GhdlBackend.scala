@@ -206,7 +206,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}end_1${uniqueId}
       .mkString(" ")
 
     val cflags = "-fPIC -std=c++11 -pedantic -Wall -Wextra -O2"
-    val lflags = "-lboost_fiber -lboost_context -lpthread -no-pie"
+    val ldflags = "-lboost_fiber -lboost_context -lpthread -no-pie"
 
     val GhdlScript =
       s"""
