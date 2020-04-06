@@ -5,9 +5,7 @@ import spinal.lib._
 
 object PlayDevErrorReport{
   class Top extends Component {
-
-    val output = out(False)
-
+    val and = out(False)
     withoutKeywords()
   }
 
