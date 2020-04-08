@@ -147,20 +147,7 @@ object PlayFixedPoint {
 object PlayBug75 {
   class Top extends Component{
     val a = in SInt(8 bits)
-    val b = out SInt(8 bits)
-    def withWrapper(a: SInt) = {
-      class FixTo extends Component{
-        this.setDefinitionName(s"FixTo${a.getWidth}")
-        val din = in SInt()
-        val dout = out SInt()
-        dout := din
-      }
-      val dut = new FixTo
-      dut.din := a
-      dut.dout
-    }
-
-    b := withWrapper(a)
+    val b = out(a(10))
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new Top)

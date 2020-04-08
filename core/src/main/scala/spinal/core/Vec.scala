@@ -190,8 +190,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     if(address.hasTag(tagAutoResize)){
       address.resize(log2Up(length))
     }else{
-      val location = ScalaLocated.long
-      PendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n\n${location}")
+      LocatedPendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
       address
     }
   }else{
