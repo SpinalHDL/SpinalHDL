@@ -1,5 +1,6 @@
 package spinal.lib.eda.bench
 
+import spinal.core._
 import spinal.lib.eda.altera.QuartusFlow
 import spinal.lib.eda.xilinx.VivadoFlow
 import spinal.lib.eda.microsemi.LiberoFlow
@@ -75,12 +76,27 @@ object XilinxStdTargets {
         override def getFamilyName(): String = "Artix 7"
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           VivadoFlow(
+            frequencyTarget = 50 MHz,
             vivadoPath=vivadoArtix7Path,
-            workspacePath=workspace,
+            workspacePath=workspace + "_area",
             toplevelPath=rtl.getRtlPath(),
             family=getFamilyName(),
             device="xc7A75t-fgg484-3"
-//            device="xc7k70t-fbg676-3"
+            //            device="xc7k70t-fbg676-3"
+          )
+        }
+      }
+      targets += new Target {
+        override def getFamilyName(): String = "Artix 7"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          VivadoFlow(
+            frequencyTarget = 400 MHz,
+            vivadoPath=vivadoArtix7Path,
+            workspacePath=workspace + "_fmax",
+            toplevelPath=rtl.getRtlPath(),
+            family=getFamilyName(),
+            device="xc7A75t-fgg484-3"
+            //            device="xc7k70t-fbg676-3"
           )
         }
       }
