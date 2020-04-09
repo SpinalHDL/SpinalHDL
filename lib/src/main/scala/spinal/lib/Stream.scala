@@ -811,18 +811,12 @@ object StreamJoin {
   /**
    * Convert a tuple of streams into a stream of tuples
    */
-  def apply[
-    T1 <: Data,
-    T2 <: Data
-    ](
-        source1: Stream[T1],
-        source2: Stream[T2]
-        ): Stream[TupleBundle2[T1, T2]] = {
+  def apply[T1 <: Data,T2 <: Data](source1: Stream[T1], source2: Stream[T2]): Stream[TupleBundle2[T1, T2]] = {
     val sources = Seq(source1, source2)
     val combined = Stream(TupleBundle2(
         source1.payloadType,
         source2.payloadType
-        ))
+    ))
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
     combined.payload._1 := source1.payload
