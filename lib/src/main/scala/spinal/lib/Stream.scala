@@ -120,6 +120,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (this ~ translate(this.payload))
   }
 
+/** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
@@ -191,28 +192,26 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   
   /**
    * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
-   * It introduces one cycle of latency.
+   * It introduces 0 to factor-1 cycles of latency. Mapping a stream into memory and mapping a slowed
+   * down stream into memory should yield the same result, thus the elements of the input will be
+   * written from high bits to low bits.
    */
   def slowdown(factor: Int): Stream[Vec[T]] = {
-    val next = Stream(Vec(this.payload, factor))
-    val counter = Counter(factor)
-    for (i <- 0 to factor) {
-    	next.payload(i) := RegNextWhen(this.payload, counter === i)
+    val next = new Stream(Vec(payloadType(), factor)).setCompositeName(this, "slowdown_x" + factor, true)
+    next.payload(0) := this.payload
+    for (i <- 1 until factor) {
+      next.payload(i) := RegNextWhen(next.payload(i - 1), this.fire)
     }
-    when (counter.willOverflow) {
-      /* All elements are valid, so wait for ready signal to advance */
+    val counter = Counter(factor)
+    when(this.fire) {
+      counter.increment()
+    }
+    when(counter.willOverflowIfInc) {
       this.ready := next.ready
-      next.valid := True
-      when (next.fire) {
-        counter.increment()
-      }
+      next.valid := this.valid
     } otherwise {
-      /* Take the elements and save them into a register */
       this.ready := True
       next.valid := False
-      when (this.valid) {
-        counter.increment()
-      }
     }
     next
   }
@@ -229,6 +228,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   override def fire: Bool = valid & ready
 
+/** Return True when the bus is ready, but no data is present
+  */
   def isFree: Bool = !valid || ready
   
   def connectFrom(that: Stream[T]): Stream[T] = {
@@ -275,6 +276,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+  */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
     ret << this
@@ -416,13 +419,31 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     return converter.io.output
   }
   
-  /** Convert this stream to a fragmented stream by adding a last bit */
+  /**
+   * Convert this stream to a fragmented stream by adding a last bit. To view it from
+   * another perspective, bundle together successive events as fragments of a larger whole.
+   * You can then use enhanced operations on fragmented streams, like reducing of elements.
+   */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
     return ret
+  }
+  
+  /** 
+   *  Like addFragmentLast(Bool), but instead of manually telling which values go together,
+   *  let a counter do the job. The counter will increment for each passing element. Last
+   *  will be set high at the end of each revolution.
+	 * @example {{{ outStream = inStream.addFragmentLast(new Counter(5)) }}}
+   */
+  def addFragmentLast(counter: Counter) : Stream[Fragment[T]] = {
+    when (this.fire) {
+      counter.increment()
+    }
+    val last = counter.willOverflowIfInc
+    return addFragmentLast(last)
   }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
@@ -736,6 +757,10 @@ object StreamFork2 {
  *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
  *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
  *  all output streams have processed each item regardlessly.
+ *  
+ *  Note that this means that when synchronous is true, the valid signal of the outputs depends on
+ *  their inputs, which may lead to dead locks when used in combination with systems that have it the
+ *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
  */
 //TODOTEST
 class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
@@ -790,20 +815,35 @@ case class EventEmitter(on : Event){
 
 /** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
 object StreamJoin {
+  
   /**
-   * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
-   *  @param hardTypeT The type of the resulting stream. Its bit length must be equal to the sum of the bit length of all input streams.
+   * Convert a tuple of streams into a stream of tuples
    */
-  def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
-    val combined = Stream(hardTypeT)
+  def apply[T1 <: Data,T2 <: Data](source1: Stream[T1], source2: Stream[T2]): Stream[TupleBundle2[T1, T2]] = {
+    val sources = Seq(source1, source2)
+    val combined = Stream(TupleBundle2(
+        source1.payloadType,
+        source2.payloadType
+    ))
     combined.valid := sources.map(_.valid).reduce(_ && _)
-    sources.foreach(_.ready := combined.ready)
-    combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
+    sources.foreach(_.ready := combined.fire)
+    combined.payload._1 := source1.payload
+    combined.payload._2 := source2.payload
+    combined
+  }
+
+  /**
+   * Convert a vector of streams into a stream of vectors.
+   */
+  def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
+    val combined = Stream(Vec(sources.map(_.payload)))
+    combined.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := combined.fire)
     combined
   }
   
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
-  
+
   /** Join streams, but ignore the payload of the input streams. */
   def apply(sources: Seq[Stream[_]]): Event = {
     val event = Event
