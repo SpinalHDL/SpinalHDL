@@ -81,7 +81,7 @@ object XilinxStdTargets {
             workspacePath=workspace + "_area",
             toplevelPath=rtl.getRtlPath(),
             family=getFamilyName(),
-            device="xc7A75t-fgg484-3"
+            device="xc7a200tfbg676-3"
             //            device="xc7k70t-fbg676-3"
           )
         }
@@ -95,7 +95,7 @@ object XilinxStdTargets {
             workspacePath=workspace + "_fmax",
             toplevelPath=rtl.getRtlPath(),
             family=getFamilyName(),
-            device="xc7A75t-fgg484-3"
+            device="xc7a200tfbg676-3"
             //            device="xc7k70t-fbg676-3"
           )
         }
