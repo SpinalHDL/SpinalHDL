@@ -124,6 +124,30 @@ class GhdlBackendConfig extends VpiBackendConfig {
 
 class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
   import config._
+  
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VCDGZ,
+                               WaveFormat.FST, WaveFormat.GHW, 
+                               WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains waveFormat){
+                waveFormat  
+              } else {
+                println("Wave format " + waveFormat + " not supported by IVerilog")
+                WaveFormat.NONE
+              }
+
+  if(!(Array(WaveFormat.DEFAULT, 
+             WaveFormat.NONE) contains format)) {
+              
+               if(format == WaveFormat.GHW){
+                 runFlags += " --wave=" + wavePath
+               } else {
+                 runFlags += " --" + format.ext + "=" + wavePath
+               }
+      }
+
+
+
   if(ghdlPath == null) ghdlPath = "ghdl"
   var vpiModuleName = "vpi_ghdl.vpi"
 
@@ -224,6 +248,27 @@ class IVerilogBackendConfig extends VpiBackendConfig {
 class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) {
 
   import config._
+
+  val availableFormats = Array(WaveFormat.VCD, 
+                               WaveFormat.FST, WaveFormat.FST_SPEED, WaveFormat.FST_SPACE, 
+                               WaveFormat.LXT, WaveFormat.LXT_SPEED, WaveFormat.LXT_SPACE, 
+                               WaveFormat.LXT2, WaveFormat.LXT2_SPEED, WaveFormat.LXT2_SPACE, 
+                               WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat){
+                config.waveFormat  
+              } else {
+                println("Wave format " + config.waveFormat + " not supported by IVerilog")
+                WaveFormat.NONE
+              }
+
+  if(!(Array(WaveFormat.DEFAULT, 
+             WaveFormat.NONE) contains format)) {
+
+      println("Warning! IVerilog backend does not support the generation of wave files")
+      runFlags += " -" + format.ext
+    }
+
   val vpiModuleName = "vpi_iverilog.vpi"
   val vpiModulePath = pluginsPath + "/" + vpiModuleName
   val iverilogPath    = binDirectory + "iverilog"

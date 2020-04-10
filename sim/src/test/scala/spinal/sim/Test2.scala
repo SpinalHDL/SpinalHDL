@@ -66,6 +66,8 @@ object PlayGhdl extends App{
   config.pluginsPath = "simulation_plugins"
   config.workspacePath = "yolo"
   config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
 
   val ghdlbackend = new GhdlBackend(config).instanciate
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
@@ -77,7 +79,7 @@ object PlayGhdl extends App{
   println("3 + 5 = " + ghdlbackend.read32(sum).toString)
   ghdlbackend.write64(nibble1, 4)
   ghdlbackend.write64(nibble2, 1)
-  ghdlbackend.eval
+  ghdlbackend.sleep(3)
   println("4 + 1 = " + ghdlbackend.read64(sum).toString)
   ghdlbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
   ghdlbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
@@ -108,7 +110,7 @@ object PlayIVerilog extends App{
   println("3 + 5 = " + iverilogbackend.read32(sum).toString)
   iverilogbackend.write64(nibble1, 4)
   iverilogbackend.write64(nibble2, 1)
-  iverilogbackend.eval
+  iverilogbackend.sleep(3)
   println("4 + 1 = " + iverilogbackend.read64(sum).toString)
   iverilogbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
   iverilogbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
