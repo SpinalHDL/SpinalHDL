@@ -86,6 +86,7 @@ case class BmbParameter(addressWidth : Int,
                         alignmentMin : Int = 0,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
+                        canExclusive : Boolean = false,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
@@ -103,6 +104,7 @@ case class BmbParameter(addressWidth : Int,
 case class BmbCmd(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
+  val exclusive = p.canExclusive generate Bool()
   val address = UInt(p.addressWidth bits)
   val length = UInt(p.lengthWidth bits)
   val data = p.canWrite generate Bits(p.dataWidth bits)
@@ -139,6 +141,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
 case class BmbRsp(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
+  val exclusive = p.canExclusive generate Bool()
   val data = p.canRead generate Bits(p.dataWidth bits)
   val context = Bits(p.contextWidth bits)
 
