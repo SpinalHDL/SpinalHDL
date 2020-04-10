@@ -263,18 +263,18 @@ SWIGINTERN jint SWIG_VectorSize(size_t size) {
   return sz;
 }
 
-SWIGINTERN std::vector< uint8_t > *new_std_vector_Sl_uint8_t_Sg___SWIG_2(jint count,unsigned char const &value){
+SWIGINTERN std::vector< int8_t > *new_std_vector_Sl_int8_t_Sg___SWIG_2(jint count,signed char const &value){
         if (count < 0)
           throw std::out_of_range("vector count must be positive");
-        return new std::vector< unsigned char >(static_cast<std::vector< unsigned char >::size_type>(count), value);
+        return new std::vector< signed char >(static_cast<std::vector< signed char >::size_type>(count), value);
       }
-SWIGINTERN jint std_vector_Sl_uint8_t_Sg__doSize(std::vector< uint8_t > const *self){
+SWIGINTERN jint std_vector_Sl_int8_t_Sg__doSize(std::vector< int8_t > const *self){
         return SWIG_VectorSize(self->size());
       }
-SWIGINTERN void std_vector_Sl_uint8_t_Sg__doAdd__SWIG_0(std::vector< uint8_t > *self,std::vector< unsigned char >::value_type const &x){
+SWIGINTERN void std_vector_Sl_int8_t_Sg__doAdd__SWIG_0(std::vector< int8_t > *self,std::vector< signed char >::value_type const &x){
         self->push_back(x);
       }
-SWIGINTERN void std_vector_Sl_uint8_t_Sg__doAdd__SWIG_1(std::vector< uint8_t > *self,jint index,std::vector< unsigned char >::value_type const &x){
+SWIGINTERN void std_vector_Sl_int8_t_Sg__doAdd__SWIG_1(std::vector< int8_t > *self,jint index,std::vector< signed char >::value_type const &x){
         jint size = static_cast<jint>(self->size());
         if (0 <= index && index <= size) {
           self->insert(self->begin() + index, x);
@@ -282,34 +282,34 @@ SWIGINTERN void std_vector_Sl_uint8_t_Sg__doAdd__SWIG_1(std::vector< uint8_t > *
           throw std::out_of_range("vector index out of range");
         }
       }
-SWIGINTERN std::vector< unsigned char >::value_type std_vector_Sl_uint8_t_Sg__doRemove(std::vector< uint8_t > *self,jint index){
+SWIGINTERN std::vector< signed char >::value_type std_vector_Sl_int8_t_Sg__doRemove(std::vector< int8_t > *self,jint index){
         jint size = static_cast<jint>(self->size());
         if (0 <= index && index < size) {
-          unsigned char const old_value = (*self)[index];
+          signed char const old_value = (*self)[index];
           self->erase(self->begin() + index);
           return old_value;
         } else {
           throw std::out_of_range("vector index out of range");
         }
       }
-SWIGINTERN std::vector< unsigned char >::value_type const &std_vector_Sl_uint8_t_Sg__doGet(std::vector< uint8_t > *self,jint index){
+SWIGINTERN std::vector< signed char >::value_type const &std_vector_Sl_int8_t_Sg__doGet(std::vector< int8_t > *self,jint index){
         jint size = static_cast<jint>(self->size());
         if (index >= 0 && index < size)
           return (*self)[index];
         else
           throw std::out_of_range("vector index out of range");
       }
-SWIGINTERN std::vector< unsigned char >::value_type std_vector_Sl_uint8_t_Sg__doSet(std::vector< uint8_t > *self,jint index,std::vector< unsigned char >::value_type const &val){
+SWIGINTERN std::vector< signed char >::value_type std_vector_Sl_int8_t_Sg__doSet(std::vector< int8_t > *self,jint index,std::vector< signed char >::value_type const &val){
         jint size = static_cast<jint>(self->size());
         if (index >= 0 && index < size) {
-          unsigned char const old_value = (*self)[index];
+          signed char const old_value = (*self)[index];
           (*self)[index] = val;
           return old_value;
         }
         else
           throw std::out_of_range("vector index out of range");
       }
-SWIGINTERN void std_vector_Sl_uint8_t_Sg__doRemoveRange(std::vector< uint8_t > *self,jint fromIndex,jint toIndex){
+SWIGINTERN void std_vector_Sl_int8_t_Sg__doRemoveRange(std::vector< int8_t > *self,jint fromIndex,jint toIndex){
         jint size = static_cast<jint>(self->size());
         if (0 <= fromIndex && fromIndex <= toIndex && toIndex <= size) {
           self->erase(self->begin() + fromIndex, self->begin() + toIndex);
@@ -322,61 +322,61 @@ SWIGINTERN void std_vector_Sl_uint8_t_Sg__doRemoveRange(std::vector< uint8_t > *
 extern "C" {
 #endif
 
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorUint8_1_1SWIG_10(JNIEnv *jenv, jclass jcls) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorInt8_1_1SWIG_10(JNIEnv *jenv, jclass jcls) {
   jlong jresult = 0 ;
-  std::vector< uint8_t > *result = 0 ;
+  std::vector< int8_t > *result = 0 ;
   
   (void)jenv;
   (void)jcls;
-  result = (std::vector< uint8_t > *)new std::vector< uint8_t >();
-  *(std::vector< uint8_t > **)&jresult = result; 
+  result = (std::vector< int8_t > *)new std::vector< int8_t >();
+  *(std::vector< int8_t > **)&jresult = result; 
   return jresult;
 }
 
 
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorUint8_1_1SWIG_11(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorInt8_1_1SWIG_11(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
   jlong jresult = 0 ;
-  std::vector< uint8_t > *arg1 = 0 ;
-  std::vector< uint8_t > *result = 0 ;
+  std::vector< int8_t > *arg1 = 0 ;
+  std::vector< int8_t > *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1;
+  arg1 = *(std::vector< int8_t > **)&jarg1;
   if (!arg1) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< uint8_t > const & reference is null");
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< int8_t > const & reference is null");
     return 0;
   } 
-  result = (std::vector< uint8_t > *)new std::vector< uint8_t >((std::vector< uint8_t > const &)*arg1);
-  *(std::vector< uint8_t > **)&jresult = result; 
+  result = (std::vector< int8_t > *)new std::vector< int8_t >((std::vector< int8_t > const &)*arg1);
+  *(std::vector< int8_t > **)&jresult = result; 
   return jresult;
 }
 
 
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1capacity(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1capacity(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
   jlong jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
-  std::vector< unsigned char >::size_type result;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
+  std::vector< signed char >::size_type result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
-  result = ((std::vector< uint8_t > const *)arg1)->capacity();
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
+  result = ((std::vector< int8_t > const *)arg1)->capacity();
   jresult = (jlong)result; 
   return jresult;
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1reserve(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
-  std::vector< unsigned char >::size_type arg2 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1reserve(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
+  std::vector< signed char >::size_type arg2 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
-  arg2 = (std::vector< unsigned char >::size_type)jarg2; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
+  arg2 = (std::vector< signed char >::size_type)jarg2; 
   try {
     (arg1)->reserve(arg2);
   } catch(std::length_error &_e) {
@@ -386,66 +386,66 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1re
 }
 
 
-SWIGEXPORT jboolean JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1isEmpty(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+SWIGEXPORT jboolean JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1isEmpty(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
   jboolean jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   bool result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
-  result = (bool)((std::vector< uint8_t > const *)arg1)->empty();
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
+  result = (bool)((std::vector< int8_t > const *)arg1)->empty();
   jresult = (jboolean)result; 
   return jresult;
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1clear(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1clear(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   (arg1)->clear();
 }
 
 
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorUint8_1_1SWIG_12(JNIEnv *jenv, jclass jcls, jint jarg1, jshort jarg2) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1VectorInt8_1_1SWIG_12(JNIEnv *jenv, jclass jcls, jint jarg1, jbyte jarg2) {
   jlong jresult = 0 ;
   jint arg1 ;
-  unsigned char *arg2 = 0 ;
-  unsigned char temp2 ;
-  std::vector< uint8_t > *result = 0 ;
+  signed char *arg2 = 0 ;
+  signed char temp2 ;
+  std::vector< int8_t > *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   arg1 = jarg1; 
-  temp2 = (unsigned char)jarg2; 
+  temp2 = (signed char)jarg2; 
   arg2 = &temp2; 
   try {
-    result = (std::vector< uint8_t > *)new_std_vector_Sl_uint8_t_Sg___SWIG_2(arg1,(unsigned char const &)*arg2);
+    result = (std::vector< int8_t > *)new_std_vector_Sl_int8_t_Sg___SWIG_2(arg1,(signed char const &)*arg2);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return 0;
   }
-  *(std::vector< uint8_t > **)&jresult = result; 
+  *(std::vector< int8_t > **)&jresult = result; 
   return jresult;
 }
 
 
-SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doSize(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doSize(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
   jint jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   try {
-    result = std_vector_Sl_uint8_t_Sg__doSize((std::vector< unsigned char > const *)arg1);
+    result = std_vector_Sl_int8_t_Sg__doSize((std::vector< signed char > const *)arg1);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return 0;
@@ -455,36 +455,36 @@ SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1do
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doAdd_1_1SWIG_10(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jshort jarg2) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
-  std::vector< unsigned char >::value_type *arg2 = 0 ;
-  std::vector< unsigned char >::value_type temp2 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doAdd_1_1SWIG_10(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jbyte jarg2) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
+  std::vector< signed char >::value_type *arg2 = 0 ;
+  std::vector< signed char >::value_type temp2 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
-  temp2 = (std::vector< unsigned char >::value_type)jarg2; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
+  temp2 = (std::vector< signed char >::value_type)jarg2; 
   arg2 = &temp2; 
-  std_vector_Sl_uint8_t_Sg__doAdd__SWIG_0(arg1,(unsigned char const &)*arg2);
+  std_vector_Sl_int8_t_Sg__doAdd__SWIG_0(arg1,(signed char const &)*arg2);
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doAdd_1_1SWIG_11(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jshort jarg3) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doAdd_1_1SWIG_11(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jbyte jarg3) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint arg2 ;
-  std::vector< unsigned char >::value_type *arg3 = 0 ;
-  std::vector< unsigned char >::value_type temp3 ;
+  std::vector< signed char >::value_type *arg3 = 0 ;
+  std::vector< signed char >::value_type temp3 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   arg2 = jarg2; 
-  temp3 = (std::vector< unsigned char >::value_type)jarg3; 
+  temp3 = (std::vector< signed char >::value_type)jarg3; 
   arg3 = &temp3; 
   try {
-    std_vector_Sl_uint8_t_Sg__doAdd__SWIG_1(arg1,arg2,(unsigned char const &)*arg3);
+    std_vector_Sl_int8_t_Sg__doAdd__SWIG_1(arg1,arg2,(signed char const &)*arg3);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return ;
@@ -492,89 +492,89 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1do
 }
 
 
-SWIGEXPORT jshort JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doRemove(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2) {
-  jshort jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT jbyte JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doRemove(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2) {
+  jbyte jresult = 0 ;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint arg2 ;
-  std::vector< unsigned char >::value_type result;
+  std::vector< signed char >::value_type result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   arg2 = jarg2; 
   try {
-    result = (std::vector< unsigned char >::value_type)std_vector_Sl_uint8_t_Sg__doRemove(arg1,arg2);
+    result = (std::vector< signed char >::value_type)std_vector_Sl_int8_t_Sg__doRemove(arg1,arg2);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return 0;
   }
-  jresult = (jshort)result; 
+  jresult = (jbyte)result; 
   return jresult;
 }
 
 
-SWIGEXPORT jshort JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doGet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2) {
-  jshort jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT jbyte JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doGet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2) {
+  jbyte jresult = 0 ;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint arg2 ;
-  std::vector< unsigned char >::value_type *result = 0 ;
+  std::vector< signed char >::value_type *result = 0 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   arg2 = jarg2; 
   try {
-    result = (std::vector< unsigned char >::value_type *) &std_vector_Sl_uint8_t_Sg__doGet(arg1,arg2);
+    result = (std::vector< signed char >::value_type *) &std_vector_Sl_int8_t_Sg__doGet(arg1,arg2);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return 0;
   }
-  jresult = (jshort)*result; 
+  jresult = (jbyte)*result; 
   return jresult;
 }
 
 
-SWIGEXPORT jshort JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doSet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jshort jarg3) {
-  jshort jresult = 0 ;
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT jbyte JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doSet(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jbyte jarg3) {
+  jbyte jresult = 0 ;
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint arg2 ;
-  std::vector< unsigned char >::value_type *arg3 = 0 ;
-  std::vector< unsigned char >::value_type temp3 ;
-  std::vector< unsigned char >::value_type result;
+  std::vector< signed char >::value_type *arg3 = 0 ;
+  std::vector< signed char >::value_type temp3 ;
+  std::vector< signed char >::value_type result;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   arg2 = jarg2; 
-  temp3 = (std::vector< unsigned char >::value_type)jarg3; 
+  temp3 = (std::vector< signed char >::value_type)jarg3; 
   arg3 = &temp3; 
   try {
-    result = (std::vector< unsigned char >::value_type)std_vector_Sl_uint8_t_Sg__doSet(arg1,arg2,(unsigned char const &)*arg3);
+    result = (std::vector< signed char >::value_type)std_vector_Sl_int8_t_Sg__doSet(arg1,arg2,(signed char const &)*arg3);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return 0;
   }
-  jresult = (jshort)result; 
+  jresult = (jbyte)result; 
   return jresult;
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1doRemoveRange(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jint jarg3) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorInt8_1doRemoveRange(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jint jarg3) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   jint arg2 ;
   jint arg3 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   arg2 = jarg2; 
   arg3 = jarg3; 
   try {
-    std_vector_Sl_uint8_t_Sg__doRemoveRange(arg1,arg2,arg3);
+    std_vector_Sl_int8_t_Sg__doRemoveRange(arg1,arg2,arg3);
   } catch(std::out_of_range &_e) {
     SWIG_JavaThrowException(jenv, SWIG_JavaIndexOutOfBoundsException, (&_e)->what());
     return ;
@@ -582,12 +582,12 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_VectorUint8_1do
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_delete_1VectorUint8(JNIEnv *jenv, jclass jcls, jlong jarg1) {
-  std::vector< uint8_t > *arg1 = (std::vector< uint8_t > *) 0 ;
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_delete_1VectorInt8(JNIEnv *jenv, jclass jcls, jlong jarg1) {
+  std::vector< int8_t > *arg1 = (std::vector< int8_t > *) 0 ;
   
   (void)jenv;
   (void)jcls;
-  arg1 = *(std::vector< uint8_t > **)&jarg1; 
+  arg1 = *(std::vector< int8_t > **)&jarg1; 
   delete arg1;
 }
 
@@ -641,11 +641,11 @@ SWIGEXPORT jstring JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIfa
 }
 
 
-SWIGEXPORT jobject JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1get_1signal_1handle(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jstring jarg2) {
-  jobject jresult = 0 ;
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1get_1signal_1handle(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jstring jarg2) {
+  jlong jresult = 0 ;
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
   std::string *arg2 = 0 ;
-  uint64_t result;
+  int64_t result;
   
   (void)jenv;
   (void)jcls;
@@ -660,356 +660,122 @@ SWIGEXPORT jobject JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIfa
   std::string arg2_str(arg2_pstr);
   arg2 = &arg2_str;
   jenv->ReleaseStringUTFChars(jarg2, arg2_pstr); 
-  result = (uint64_t)(arg1)->get_signal_handle((std::string const &)*arg2);
-  {
-    jbyteArray ba = jenv->NewByteArray(9);
-    jbyte* bae = jenv->GetByteArrayElements(ba, 0);
-    jclass clazz = jenv->FindClass("java/math/BigInteger");
-    jmethodID mid = jenv->GetMethodID(clazz, "<init>", "([B)V");
-    jobject bigint;
-    int i;
-    
-    bae[0] = 0;
-    for(i=1; i<9; i++ ) {
-      bae[i] = (jbyte)(result>>8*(8-i));
-    }
-    
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-    bigint = jenv->NewObject(clazz, mid, ba);
-    jenv->DeleteLocalRef(ba);
-    jresult = bigint;
-  }
-  return jresult;
-}
-
-
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2) {
-  jlong jresult = 0 ;
-  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  std::vector< uint8_t > result;
-  
-  (void)jenv;
-  (void)jcls;
-  (void)jarg1_;
-  arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return 0;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  result = (arg1)->read(arg2);
-  *(std::vector< uint8_t > **)&jresult = new std::vector< uint8_t >((const std::vector< uint8_t > &)result); 
-  return jresult;
-}
-
-
-SWIGEXPORT jobject JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read_1u64(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2) {
-  jobject jresult = 0 ;
-  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  uint64_t result;
-  
-  (void)jenv;
-  (void)jcls;
-  (void)jarg1_;
-  arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return 0;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  result = (uint64_t)(arg1)->read_u64(arg2);
-  {
-    jbyteArray ba = jenv->NewByteArray(9);
-    jbyte* bae = jenv->GetByteArrayElements(ba, 0);
-    jclass clazz = jenv->FindClass("java/math/BigInteger");
-    jmethodID mid = jenv->GetMethodID(clazz, "<init>", "([B)V");
-    jobject bigint;
-    int i;
-    
-    bae[0] = 0;
-    for(i=1; i<9; i++ ) {
-      bae[i] = (jbyte)(result>>8*(8-i));
-    }
-    
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-    bigint = jenv->NewObject(clazz, mid, ba);
-    jenv->DeleteLocalRef(ba);
-    jresult = bigint;
-  }
-  return jresult;
-}
-
-
-SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read_1u32(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2) {
-  jlong jresult = 0 ;
-  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  uint32_t result;
-  
-  (void)jenv;
-  (void)jcls;
-  (void)jarg1_;
-  arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return 0;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  result = (uint32_t)(arg1)->read_u32(arg2);
+  result = (int64_t)(arg1)->get_signal_handle((std::string const &)*arg2);
   jresult = (jlong)result; 
   return jresult;
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2, jlong jarg3, jobject jarg3_) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+  jlong jresult = 0 ;
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  std::vector< uint8_t > *arg3 = 0 ;
+  int64_t arg2 ;
+  std::vector< int8_t > result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  result = (arg1)->read(arg2);
+  *(std::vector< int8_t > **)&jresult = new std::vector< int8_t >((const std::vector< int8_t > &)result); 
+  return jresult;
+}
+
+
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read64(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+  jlong jresult = 0 ;
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int64_t result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  result = (int64_t)(arg1)->read64(arg2);
+  jresult = (jlong)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read32(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+  jint jresult = 0 ;
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int32_t result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  result = (int32_t)(arg1)->read32(arg2);
+  jresult = (jint)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3, jobject jarg3_) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  std::vector< int8_t > *arg3 = 0 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
   (void)jarg3_;
   arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return ;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  arg3 = *(std::vector< uint8_t > **)&jarg3;
+  arg2 = (int64_t)jarg2; 
+  arg3 = *(std::vector< int8_t > **)&jarg3;
   if (!arg3) {
-    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< uint8_t > const & reference is null");
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< int8_t > const & reference is null");
     return ;
   } 
-  (arg1)->write(arg2,(std::vector< uint8_t > const &)*arg3);
+  (arg1)->write(arg2,(std::vector< int8_t > const &)*arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write_1u64(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2, jobject jarg3) {
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write64(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  uint64_t arg3 ;
+  int64_t arg2 ;
+  int64_t arg3 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
   arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return ;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg3) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return ;
-    }
-    clazz = jenv->GetObjectClass(jarg3);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg3, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg3 = 0;
-    if (sz > 0) {
-      arg3 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg3 = (arg3 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  (arg1)->write_u64(arg2,arg3);
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int64_t)jarg3; 
+  (arg1)->write64(arg2,arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write_1u32(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2, jlong jarg3) {
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write32(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jint jarg3) {
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
-  uint32_t arg3 ;
+  int64_t arg2 ;
+  int32_t arg3 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
   arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return ;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
-  arg3 = (uint32_t)jarg3; 
-  (arg1)->write_u32(arg2,arg3);
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int32_t)jarg3; 
+  (arg1)->write32(arg2,arg3);
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1sleep(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jobject jarg2) {
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1sleep(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
-  uint64_t arg2 ;
+  int64_t arg2 ;
   
   (void)jenv;
   (void)jcls;
   (void)jarg1_;
   arg1 = *(SharedMemIface **)&jarg1; 
-  {
-    jclass clazz;
-    jmethodID mid;
-    jbyteArray ba;
-    jbyte* bae;
-    jsize sz;
-    int i;
-    
-    if (!jarg2) {
-      SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "BigInteger null");
-      return ;
-    }
-    clazz = jenv->GetObjectClass(jarg2);
-    mid = jenv->GetMethodID(clazz, "toByteArray", "()[B");
-    ba = (jbyteArray)jenv->CallObjectMethod(jarg2, mid);
-    bae = jenv->GetByteArrayElements(ba, 0);
-    sz = jenv->GetArrayLength(ba);
-    arg2 = 0;
-    if (sz > 0) {
-      arg2 = (uint64_t)(signed char)bae[0];
-      for(i=1; i<sz; i++) {
-        arg2 = (arg2 << 8) | (uint64_t)(unsigned char)bae[i];
-      }
-    }
-    jenv->ReleaseByteArrayElements(ba, bae, 0);
-  }
+  arg2 = (int64_t)jarg2; 
   (arg1)->sleep(arg2);
 }
 

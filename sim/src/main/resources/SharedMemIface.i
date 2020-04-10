@@ -9,7 +9,7 @@
 %}
 
 namespace std {
-    %template(VectorUint8) vector<uint8_t>;
+    %template(VectorInt8) vector<int8_t>;
 };
 
 class SharedMemIface {
@@ -17,14 +17,14 @@ public:
     SharedMemIface(const std::string& shmem_name_, size_t shmem_size_);
     ~SharedMemIface();
     std::string print_signals();
-    uint64_t get_signal_handle(const std::string& handle_name);
-    std::vector<uint8_t> read(uint64_t handle);
-    uint64_t read_u64(uint64_t handle);
-    uint32_t read_u32(uint64_t handle);
-    void write(uint64_t handle, const std::vector<uint8_t>& data);
-    void write_u64(uint64_t handle, uint64_t data);
-    void write_u32(uint64_t handle, uint32_t data);
-    void sleep(uint64_t sleep_cycles);
+    int64_t get_signal_handle(const std::string& handle_name);
+    std::vector<int8_t> read(int64_t handle);
+    int64_t read64(int64_t handle);
+    int32_t read32(int64_t handle);
+    void write(int64_t handle, const std::vector<int8_t>& data);
+    void write64(int64_t handle, int64_t data);
+    void write32(int64_t handle, int32_t data);
+    void sleep(int64_t sleep_cycles);
     void eval();
     bool error_happened();
     std::string error_string();

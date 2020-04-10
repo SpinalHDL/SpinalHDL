@@ -10,14 +10,14 @@ class SharedMemIface {
     public:
     SharedMemIface(const string& shmem_name_, size_t shmem_size_);
     string print_signals();
-    uint64_t get_signal_handle(const string& handle_name);
-    std::vector<uint8_t> read(uint64_t handle);
-    uint64_t read_u64(uint64_t handle);
-    uint32_t read_u32(uint64_t handle);
-    void write(uint64_t handle, const std::vector<uint8_t>& data);
-    void write_u64(uint64_t handle, uint64_t data);
-    void write_u32(uint64_t handle, uint32_t data);
-    void sleep(uint64_t sleep_cycles);
+    int64_t get_signal_handle(const string& handle_name);
+    std::vector<int8_t> read(int64_t handle);
+    int64_t read64(int64_t handle);
+    int32_t read32(int64_t handle);
+    void write(int64_t handle, const std::vector<int8_t>& data);
+    void write64(int64_t handle, int64_t data);
+    void write32(int64_t handle, int32_t data);
+    void sleep(int64_t sleep_cycles);
     void eval();
     void close();
     bool error_happened();

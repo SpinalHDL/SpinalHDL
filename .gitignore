@@ -65,3 +65,8 @@ tmp/
 null/
 sim/yolo
 command
+
+sim/simulation_plugins/*
+!sim/simulation_plugins/.gitignore
+sim/simulation_plugins/*
+!sim/simulation_plugins/yolo

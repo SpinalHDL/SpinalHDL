@@ -44,35 +44,35 @@ public class SharedMemIface {
     return JNISharedMemIfaceJNI.SharedMemIface_print_signals(swigCPtr, this);
   }
 
-  public java.math.BigInteger get_signal_handle(String handle_name) {
+  public long get_signal_handle(String handle_name) {
     return JNISharedMemIfaceJNI.SharedMemIface_get_signal_handle(swigCPtr, this, handle_name);
   }
 
-  public VectorUint8 read(java.math.BigInteger handle) {
-    return new VectorUint8(JNISharedMemIfaceJNI.SharedMemIface_read(swigCPtr, this, handle), true);
+  public VectorInt8 read(long handle) {
+    return new VectorInt8(JNISharedMemIfaceJNI.SharedMemIface_read(swigCPtr, this, handle), true);
   }
 
-  public java.math.BigInteger read_u64(java.math.BigInteger handle) {
-    return JNISharedMemIfaceJNI.SharedMemIface_read_u64(swigCPtr, this, handle);
+  public long read64(long handle) {
+    return JNISharedMemIfaceJNI.SharedMemIface_read64(swigCPtr, this, handle);
   }
 
-  public long read_u32(java.math.BigInteger handle) {
-    return JNISharedMemIfaceJNI.SharedMemIface_read_u32(swigCPtr, this, handle);
+  public int read32(long handle) {
+    return JNISharedMemIfaceJNI.SharedMemIface_read32(swigCPtr, this, handle);
   }
 
-  public void write(java.math.BigInteger handle, VectorUint8 data) {
-    JNISharedMemIfaceJNI.SharedMemIface_write(swigCPtr, this, handle, VectorUint8.getCPtr(data), data);
+  public void write(long handle, VectorInt8 data) {
+    JNISharedMemIfaceJNI.SharedMemIface_write(swigCPtr, this, handle, VectorInt8.getCPtr(data), data);
   }
 
-  public void write_u64(java.math.BigInteger handle, java.math.BigInteger data) {
-    JNISharedMemIfaceJNI.SharedMemIface_write_u64(swigCPtr, this, handle, data);
+  public void write64(long handle, long data) {
+    JNISharedMemIfaceJNI.SharedMemIface_write64(swigCPtr, this, handle, data);
   }
 
-  public void write_u32(java.math.BigInteger handle, long data) {
-    JNISharedMemIfaceJNI.SharedMemIface_write_u32(swigCPtr, this, handle, data);
+  public void write32(long handle, int data) {
+    JNISharedMemIfaceJNI.SharedMemIface_write32(swigCPtr, this, handle, data);
   }
 
-  public void sleep(java.math.BigInteger sleep_cycles) {
+  public void sleep(long sleep_cycles) {
     JNISharedMemIfaceJNI.SharedMemIface_sleep(swigCPtr, this, sleep_cycles);
   }
 

@@ -29,7 +29,7 @@ string SharedMemIface::print_signals(){
     return ret;
 }
 
-uint64_t SharedMemIface::get_signal_handle(const string& handle_name){
+int64_t SharedMemIface::get_signal_handle(const string& handle_name){
     while(shared_struct->proc_status == ProcStatus::init);
     assert(shared_struct->proc_status == ProcStatus::ready);
     assert(!shared_struct->closed);
@@ -43,11 +43,11 @@ uint64_t SharedMemIface::get_signal_handle(const string& handle_name){
 }
 
 
-std::vector<uint8_t> SharedMemIface::read(uint64_t handle){
+std::vector<int8_t> SharedMemIface::read(int64_t handle){
     while(shared_struct->proc_status == ProcStatus::init);
     assert(shared_struct->proc_status == ProcStatus::ready);
     assert(!shared_struct->closed);
-    std::vector<uint8_t> ret_vec;
+    std::vector<int8_t> ret_vec;
     shared_struct->handle = handle;
     shared_struct->proc_status = ProcStatus::read;
     wait();
@@ -58,29 +58,29 @@ std::vector<uint8_t> SharedMemIface::read(uint64_t handle){
     return ret_vec;
 }
 
-uint64_t SharedMemIface::read_u64(uint64_t handle){
-    uint64_t ret = 0ul;
-    std::vector<uint8_t> read_data = this->read(handle);
+int64_t SharedMemIface::read64(int64_t handle){
+    int64_t ret = 0ul;
+    std::vector<int8_t> read_data = this->read(handle);
     size_t copy_size = std::min(8ul, read_data.size());
     size_t start_orig = read_data.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
-        ((uint8_t*) &ret)[i] = read_data[start_orig - i];
+        ((int8_t*) &ret)[i] = read_data[start_orig - i];
     }
     return ret;
 }
 
-uint32_t SharedMemIface::read_u32(uint64_t handle){
-    uint32_t ret = 0ul;
-    std::vector<uint8_t> read_data = this->read(handle);
+int32_t SharedMemIface::read32(int64_t handle){
+    int32_t ret = 0ul;
+    std::vector<int8_t> read_data = this->read(handle);
     size_t copy_size = std::min(4ul, read_data.size());
     size_t start_orig = read_data.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
-        ((uint8_t*) &ret)[i] = read_data[start_orig - i];
+        ((int8_t*) &ret)[i] = read_data[start_orig - i];
     }
     return ret;
 }
 
-void SharedMemIface::write(uint64_t handle, const std::vector<uint8_t>& data_){
+void SharedMemIface::write(int64_t handle, const std::vector<int8_t>& data_){
     while(shared_struct->proc_status == ProcStatus::init);
     assert(shared_struct->proc_status == ProcStatus::ready);
     assert(!shared_struct->closed);
@@ -92,24 +92,24 @@ void SharedMemIface::write(uint64_t handle, const std::vector<uint8_t>& data_){
     assert(shared_struct->proc_status == ProcStatus::ready);
 }
 
-void SharedMemIface::write_u64(uint64_t handle, uint64_t data_){
+void SharedMemIface::write64(int64_t handle, int64_t data_){
     
-    std::vector<uint8_t> vdata;
+    std::vector<int8_t> vdata;
     vdata.resize(8);
     for(uint8_t i = 0; i < 8; i++) vdata[7-i] = (data_ >> 8*i) & 0xFF;
     this->write(handle, vdata);
 }
 
-void SharedMemIface::write_u32(uint64_t handle, uint32_t data_){
-    std::vector<uint8_t> vdata;
+void SharedMemIface::write32(int64_t handle, int32_t data_){
+    std::vector<int8_t> vdata;
     vdata.resize(4);
     for(uint8_t i = 0; i < 4; i++) vdata[3-i] = (data_ >> 8*i) & 0xFF;
     this->write(handle, vdata);
 }
 
-void SharedMemIface::sleep(uint64_t sleep_cycles){
+void SharedMemIface::sleep(int64_t sleep_cycles){
+    assert(sleep_cycles > 0);
     while(shared_struct->proc_status == ProcStatus::init);
-
     assert(shared_struct->proc_status == ProcStatus::ready);
     assert(!shared_struct->closed);
     shared_struct->sleep_cycles = sleep_cycles;

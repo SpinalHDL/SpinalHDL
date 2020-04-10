@@ -123,10 +123,12 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
   override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < -maxLongValue-1 || that > maxLongValue) rangeError(that, signal)
   override def toString = s"SInt[$width bits]"
 }
+
 class Signal(val path : Seq[String],val dataType : DataType) {
   var id : Long = -1
-
+  var validId = false
   override def toString = s"${path.mkString("/")} : $dataType"
+  def toVPIAddress = path.mkString(".")
 }
 
 
