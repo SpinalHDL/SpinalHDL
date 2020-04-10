@@ -42,7 +42,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter) {
 
   val exclusiveSuccess = sources.map(s => s.valid && s.addressHit).read(io.input.cmd.source)
   val lockHit = sources.map(_.lockHit).orR
-  val lockSource = sources.map(s => s.lock).read(io.input.cmd.source)
+  val lockSource = sources.map(s => s.lock).read(io.input.cmd.source) //Normaly not used
   io.output.cmd.arbitrationFrom(io.input.cmd.haltWhen(lockHit || lockSource))
   io.output.cmd.payload.assignSomeByName(io.input.cmd.payload)
   io.output.cmd.context.removeAssignments() := (io.input.cmd.exclusive && exclusiveSuccess) ## io.input.cmd.context
