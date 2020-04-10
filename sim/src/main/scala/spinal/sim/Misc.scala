@@ -18,6 +18,8 @@ object WaveFormat{
   object VCDGZ extends WaveFormat("vcdgz")
   object FST extends WaveFormat("fst")
   object GHW extends WaveFormat("ghw")
+  object LXT extends WaveFormat("lxt")
+  object LXT2 extends WaveFormat("lxt2")
   object DEFAULT extends WaveFormat
   object NONE extends WaveFormat
 }

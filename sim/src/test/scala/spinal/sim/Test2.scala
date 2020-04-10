@@ -57,10 +57,43 @@ object Bench {
 //}
 
 object PlayGhdl extends App{
-  val config = new BackendConfig()
-  config.rtlSourcesPaths += "/media/data/open/ghdlSpinalSim/adder.vhd"
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "/home/bellaz/Projects/HDL/GHDLInteropREPL/adder.vhd"
   config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
   config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
 
-  new GhdlBackend(config)
+  val ghdlbackend = new GhdlBackend(config).instanciate
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  val sum = ghdlbackend.get_signal_handle("adder.sum")
+  ghdlbackend.write_u32(nibble1, 3)
+  ghdlbackend.write_u32(nibble2, 5)
+  ghdlbackend.eval
+  val res = ghdlbackend.read_u32(sum)
+  ghdlbackend.close
+  println("3 + 5 = " + res.toString)
+  println("Finished PlayGhdl")
+}
+
+object PlayIVerilog extends App{
+  val config = new IVerilogBackendConfig()
+  config.rtlSourcesPaths += "/home/bellaz/Projects/HDL/GHDLInteropREPL/adder.v"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+
+  val iverilogbackend = new IVerilogBackend(config).instanciate
+  val nibble1 = iverilogbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = iverilogbackend.get_signal_handle("adder.nibble2")
+  val sum = iverilogbackend.get_signal_handle("adder.sum")
+  iverilogbackend.write_u32(nibble1, 3)
+  iverilogbackend.write_u32(nibble2, 5)
+  iverilogbackend.eval
+  val res = iverilogbackend.read_u32(sum)
+  iverilogbackend.close
+  println("3 + 5 = " + res.toString)
+  println("Finished PlayIVerilog")
 }

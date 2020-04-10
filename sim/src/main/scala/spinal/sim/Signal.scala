@@ -124,7 +124,7 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
   override def toString = s"SInt[$width bits]"
 }
 class Signal(val path : Seq[String],val dataType : DataType) {
-  var id = -1
+  var id : Long = -1
 
   override def toString = s"${path.mkString("/")} : $dataType"
 }
