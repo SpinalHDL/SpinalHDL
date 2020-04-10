@@ -40,6 +40,14 @@ object Bmb{
     }
   }
 
+  object Inv {
+    object Opcode {
+      val NONE = 0
+      val EXCEPTED_SOURCE = 1
+      val ALL = 2
+    }
+  }
+
   def incr(address : UInt, p : BmbParameter) : UInt = {
     val result = UInt(address.getWidth bits)
     val highCat = if (address.getWidth > boundaryWidth) address(address.high downto boundaryWidth) else U""
@@ -87,6 +95,9 @@ case class BmbParameter(addressWidth : Int,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
                         canExclusive : Boolean = false,
+                        canInvalidate : Boolean = false,
+                        invalidateLength : Int = 0,
+                        invalidateAlignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
@@ -160,14 +171,31 @@ case class BmbRsp(p : BmbParameter) extends Bundle{
   }
 }
 
+case class BmbInv(p: BmbParameter) extends Bundle{
+  val opcode = Bits(2 bits)
+  val address = UInt(p.addressWidth bits)
+  val length = UInt(p.invalidateLength bits)
+  val source = UInt(p.sourceWidth bits)
+}
+
+case class BmbAck(p: BmbParameter) extends Bundle{
+  val hit = Bool()
+}
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
   val cmd = Stream(Fragment(BmbCmd(p)))
   val rsp = Stream(Fragment(BmbRsp(p)))
 
+  val inv = p.canInvalidate generate Stream(BmbInv(p))
+  val ack = p.canInvalidate generate Stream(BmbAck(p))
+
   override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
+    if(p.canInvalidate) {
+      slave(inv)
+      master(ack)
+    }
   }
 
 
