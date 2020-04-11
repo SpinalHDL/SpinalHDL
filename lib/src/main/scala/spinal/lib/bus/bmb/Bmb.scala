@@ -183,10 +183,10 @@ case class BmbAck(p: BmbParameter) extends Bundle{
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
   val cmd = Stream(Fragment(BmbCmd(p)))
-  val rsp = Stream(Fragment(BmbRsp(p)))
+  val rsp = Stream(Fragment(BmbRsp(p))) //Out of order across source
 
   val inv = p.canInvalidate generate Stream(BmbInv(p))
-  val ack = p.canInvalidate generate Stream(BmbAck(p))
+  val ack = p.canInvalidate generate Stream(BmbAck(p)) //In order
 
   override def asMaster(): Unit = {
     master(cmd)

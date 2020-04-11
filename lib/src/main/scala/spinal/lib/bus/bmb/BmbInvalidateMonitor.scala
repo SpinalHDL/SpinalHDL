@@ -14,9 +14,14 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter, pendingInvMax : I
     val output = master(Bmb(BmbInvalidateMonitor.outputParameter(inputParameter)))
   }
 
-  val ackCounter = CounterUpDown(
+
+  val invSource = io.input.inv.translateWith(io.input.inv.source).toFlow.toStream
+  val ackSource = invSource.queue(pendingInvMax)
+  ackSource.ready := io.input.ack.fire
+
+  val ackCounters = for(sourceId <- 0 until 1 << inputParameter.sourceWidth) yield CounterUpDown(
     stateCount = log2Up(pendingInvMax) + 1,
-    incWhen    = io.input.ack.fire,
+    incWhen    = io.input.ack.fire && ackSource.payload === sourceId,
     decWhen    = io.output.rsp.fire && io.output.rsp.context.msb
   )
   val invCounter = CounterUpDown(
@@ -26,8 +31,7 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter, pendingInvMax : I
   )
 
   val haltInv = invCounter.msb //Protect counter from overflow
-  val haltRsp = ackCounter === 0 //Ensure that writes is coherent
-
+  val haltRsp = ackCounters.map(_.value).read(io.output.rsp.source) === 0 //Ensure that writes is coherent
 
   val (cmdToOutput, cmdToInv) = StreamFork2(io.input.cmd)
 
