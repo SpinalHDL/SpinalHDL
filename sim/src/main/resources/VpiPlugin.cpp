@@ -90,7 +90,8 @@ void entry_point_cb() {
     data = ret_data.first; 
     register_cb(start_cb, cbStartOfSimulation, -1);
     register_cb(end_cb, cbEndOfSimulation, -1);
-    register_cb(delay_rw_cb, cbAfterDelay, 0);
+    register_cb(rw_cb, cbReadWriteSynch, 0);
+    //register_cb(delay_rw_cb, cbAfterDelay, 0);
 }
 
 bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
@@ -246,7 +247,8 @@ bool write_cmd(){
 
 bool sleep_cmd(){
 
-    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
+    //register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
+    register_cb(rw_cb, cbReadWriteSynch, shared_struct->sleep_cycles);
     return true;
 }
 
@@ -303,22 +305,22 @@ PLI_INT32 rw_cb(p_cb_data){
     return 0;
 }
 
-PLI_INT32 ro_cb(p_cb_data){
-    register_cb(delay_rw_cb, cbAfterDelay, 0);
-    return 0;
-}
-
-PLI_INT32 delay_rw_cb(p_cb_data){
-
-    register_cb(rw_cb, cbReadWriteSynch, 0);
-    return 0;
-}
-
-PLI_INT32 delay_ro_cb(p_cb_data){
-
-    register_cb(ro_cb, cbReadOnlySynch, 0);
-    return 0;
-}
+//PLI_INT32 ro_cb(p_cb_data){
+//    register_cb(delay_rw_cb, cbAfterDelay, 0);
+//    return 0;
+//}
+//
+//PLI_INT32 delay_rw_cb(p_cb_data){
+//
+//    register_cb(rw_cb, cbReadWriteSynch, 0);
+//    return 0;
+//}
+//
+//PLI_INT32 delay_ro_cb(p_cb_data){
+//
+//    register_cb(ro_cb, cbReadOnlySynch, 0);
+//    return 0;
+//}
 
 extern "C" {
     void (*vlog_startup_routines[]) () = {
