@@ -83,6 +83,31 @@ class SpinalSimClockDomainTest extends FunSuite {
     }
   }
 
+  test("TestDeltaCycle wake"){
+    for(resetKind <- resetKinds) {
+      val compiled = SimConfig
+        .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind)))
+        .compile(new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest1().setDefinitionName("SpinalSimClockDomainTest1" + resetKind.getClass.getSimpleName.toString.take(4)))
+        .doSim(resetKind.toString) { dut =>
+          //        dut.clockDomain.forkStimulus(period = 10)
+          val cd = ClockDomain(dut.io.mClk, dut.io.mReset)
+          dut.io.a #= 0
+          dut.io.b #= 0
+          dut.io.c #= 0
+          sleep(10)
+          cd.forkStimulus(period = 10)
+          cd.waitSampling()
+          cd.waitSampling()
+          dut.io.a #=42
+          cd.waitSampling()
+          assert(dut.io.result.toInt == 0) //Wakeup while rising edge, but before FF got the result out
+          sleep(0)
+          assert(dut.io.result.toInt == 42)
+        }
+    }
+  }
+
+
   test("Test2"){
     for(resetKind <- resetKinds) {
       SimConfig
