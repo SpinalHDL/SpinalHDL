@@ -9,7 +9,9 @@ import spinal.lib._
 case class BmbArbiter(p : BmbParameter,
                       portCount : Int,
                       pendingRspMax : Int,
-                      lowerFirstPriority : Boolean) extends Component{
+                      lowerFirstPriority : Boolean,
+                      inputsWithInv : Seq[Boolean] = null,
+                      pendingInvMax : Int = 0) extends Component{
   val sourceRouteWidth = log2Up(portCount)
   val inputSourceWidth = p.sourceWidth - sourceRouteWidth
   val inputsParameter = p.copy(sourceWidth = inputSourceWidth)
@@ -22,17 +24,20 @@ case class BmbArbiter(p : BmbParameter,
     val output = master(Bmb(p))
   }
 
-  val logic = if(portCount == 1) new Area{
+  val bypass = (portCount == 1) generate new Area{
     io.output << io.inputs(0)
-  } else new Area {
+    if(p.canInvalidate){
+      io.inputs(0).inv << io.output.inv
+      io.inputs(0).ack >> io.output.ack
+    }
+  }
+
+  val memory = (portCount > 1) generate new Area {
     assert(sourceRouteRange.high < p.sourceWidth, "Not enough source bits")
 
     val arbiterFactory = StreamArbiterFactory.fragmentLock
-    if(lowerFirstPriority) {
-      arbiterFactory.lowerFirst
-    } else {
-      arbiterFactory.roundRobin
-    }
+    if(lowerFirstPriority) arbiterFactory.lowerFirst else arbiterFactory.roundRobin
+
     val arbiter = arbiterFactory.build(Fragment(BmbCmd(p)), portCount)
 
     //Connect arbiters inputs
@@ -56,6 +61,35 @@ case class BmbArbiter(p : BmbParameter,
       input.rsp.weakAssignFrom(io.output.rsp)
     }
     io.output.rsp.ready := io.inputs(rspSel).rsp.ready
+  }
+
+  val invalidate = (portCount > 1 && p.canInvalidate) generate new Area {
+    assert(inputsWithInv != null)
+    assert(pendingInvMax != 0)
+    val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsWithInv(inputId)) yield (io.inputs(inputId), inputId)).unzip
+
+    val invCounter = CounterUpDown(
+      stateCount = log2Up(pendingInvMax) + 1,
+      incWhen    = io.output.inv.fire,
+      decWhen    = io.output.ack.fire
+    )
+
+    val haltInv = invCounter.msb
+    val forks = StreamFork(io.output.inv.haltWhen(haltInv), inputs.size)
+    val logics = for((input, inputId) <- (inputs, inputsIndex).zipped) yield new Area{
+      val ackCounter = CounterUpDown(
+        stateCount = log2Up(pendingInvMax) + 1,
+        incWhen    = input.ack.fire,
+        decWhen    = io.output.ack.fire
+      )
+      input.inv.arbitrationFrom(forks(inputId))
+      input.inv.address := forks(inputId).address
+      input.inv.length := forks(inputId).length
+      input.inv.source := forks(inputId).source(sourceInputRange)
+      input.inv.all := io.output.inv.all || io.output.inv.source(sourceRouteRange) =/= inputId
+    }
+
+    io.output.ack.valid := logics.map(_.ackCounter =/= 0).toSeq.andR
   }
 }
 

@@ -42,9 +42,8 @@ object Bmb{
 
   object Inv {
     object Opcode {
-      val NONE = 0
-      val EXCEPTED_SOURCE = 1
-      val ALL = 2
+      val EXCEPTED_SOURCE = 0
+      val ALL = 1
     }
   }
 
@@ -172,14 +171,14 @@ case class BmbRsp(p : BmbParameter) extends Bundle{
 }
 
 case class BmbInv(p: BmbParameter) extends Bundle{
-  val opcode = Bits(2 bits)
+  val all = Bool() //If cleared, should not invalidate the source
   val address = UInt(p.addressWidth bits)
   val length = UInt(p.invalidateLength bits)
   val source = UInt(p.sourceWidth bits)
 }
 
 case class BmbAck(p: BmbParameter) extends Bundle{
-  val hit = Bool()
+//  val hit = Bool()
 }
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
