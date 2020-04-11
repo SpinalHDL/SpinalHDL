@@ -73,9 +73,13 @@ object PlayGhdl extends App{
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
+  ghdlbackend.write32(nibble1, 0)
+  ghdlbackend.eval
   ghdlbackend.write32(nibble1, 3)
   ghdlbackend.write32(nibble2, 5)
+  println("? = " + ghdlbackend.read32(nibble1).toString)
   ghdlbackend.eval
+  println("3 = " + ghdlbackend.read32(nibble1).toString)
   println("3 + 5 = " + ghdlbackend.read32(sum).toString)
   ghdlbackend.write64(nibble1, 4)
   ghdlbackend.write64(nibble2, 1)
@@ -104,9 +108,14 @@ object PlayIVerilog extends App{
   val nibble1 = iverilogbackend.get_signal_handle("adder.nibble1")
   val nibble2 = iverilogbackend.get_signal_handle("adder.nibble2")
   val sum = iverilogbackend.get_signal_handle("adder.sum")
+
+  iverilogbackend.write32(nibble1, 0)
+  iverilogbackend.eval
   iverilogbackend.write32(nibble1, 3)
   iverilogbackend.write32(nibble2, 5)
+  println("? = " + iverilogbackend.read32(nibble1).toString)
   iverilogbackend.eval
+  println("3 = " + iverilogbackend.read32(nibble1).toString)
   println("3 + 5 = " + iverilogbackend.read32(sum).toString)
   iverilogbackend.write64(nibble1, 4)
   iverilogbackend.write64(nibble2, 1)
@@ -122,3 +131,5 @@ object PlayIVerilog extends App{
   iverilogbackend.close
   println("Finished PlayIVerilog")
 }
+
+

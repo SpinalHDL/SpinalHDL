@@ -32,9 +32,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
 
-/**
-  * Backend configuration for verilator
-  */
+
 case class SpinalVerilatorBackendConfig[T <: Component](
                                                          rtl               : SpinalReport[T],
                                                          waveFormat        : WaveFormat = WaveFormat.NONE,
@@ -48,9 +46,6 @@ case class SpinalVerilatorBackendConfig[T <: Component](
 )
 
 
-/**
-  * Backend verilator
-  */
 object SpinalVerilatorBackend {
 
   def apply[T <: Component](config: SpinalVerilatorBackendConfig[T]) = {
@@ -132,6 +127,95 @@ object SpinalVerilatorSim {
     val sim = new SimVerilator(backend, backend.instanciate("test1", seed))
     sim.userData = backend.config.signals
     sim
+  }
+}
+
+case class SpinalGhdlBackendConfig[T <: Component](      rtl               : SpinalReport[T],
+                                                         waveFormat        : WaveFormat = WaveFormat.NONE,
+                                                         workspacePath     : String = "./",
+                                                         workspaceName     : String = null,
+                                                         vcdPath           : String = null,
+                                                         vcdPrefix         : String = null,
+                                                         waveDepth         : Int = 0,
+                                                         optimisationLevel : Int = 2,
+                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                       )
+
+
+object SpinalGhdlBackend {
+
+  def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) = {
+
+    import config._
+
+    val vconfig = new GhdlBackendConfig()
+    vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
+    vconfig.toplevelName      = rtl.toplevelName
+    vconfig.wavePath          = "wave.vcd"
+    vconfig.waveFormat        = WaveFormat.VCD
+//    vconfig.vcdPath           = vcdPath
+//    vconfig.vcdPrefix         = vcdPrefix
+    vconfig.workspaceName     = workspaceName
+    vconfig.workspacePath     = workspacePath
+//    vconfig.waveFormat        = waveFormat match {
+//      case WaveFormat.DEFAULT => WaveFormat.VCD
+//      case _ => waveFormat
+//    }
+//    vconfig.waveDepth         = waveDepth
+//    vconfig.optimisationLevel = optimisationLevel
+//    vconfig.simulatorFlags        = simulatorFlags
+    vconfig.pluginsPath = workspacePath
+
+    var signalId = 0
+
+    val signalsColector = ArrayBuffer[Signal]()
+
+    def addSignal(bt: BaseType): Unit ={
+      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
+        case bt: Bool               => new BoolDataType
+        case bt: Bits               => new BitsDataType(bt.getBitsWidth)
+        case bt: UInt               => new UIntDataType(bt.getBitsWidth)
+        case bt: SInt               => new SIntDataType(bt.getBitsWidth)
+        case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+      })
+
+      bt.algoInt = signalId
+      bt.algoIncrementale = -1
+      signal.id = signalId
+      signalsColector += signal
+      signalId += 1
+    }
+
+    GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(s => {
+      s match {
+        case bt: BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
+          addSignal(bt)
+        }
+        case _ =>{
+          s.algoInt = -1
+        }
+      }
+    }))
+
+    for(io <- rtl.toplevel.getAllIo){
+      val bt = io
+      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
+        case bt: Bool               => new BoolDataType
+        case bt: Bits               => new BitsDataType(bt.getBitsWidth)
+        case bt: UInt               => new UIntDataType(bt.getBitsWidth)
+        case bt: SInt               => new SIntDataType(bt.getBitsWidth)
+        case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+      })
+
+      bt.algoInt = signalId
+      bt.algoIncrementale = -1
+      signal.id = signalId
+      signalsColector += signal
+      signalId += 1
+    }
+    new GhdlBackend(vconfig){
+      val signals = signalsColector
+    }
   }
 }
 
@@ -367,7 +451,14 @@ case class SpinalSimConfig(
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
-    val report = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public)).generateVerilog(rtl)
+    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId")
+    val report = _backend match {
+      case SpinalSimBackendSel.VERILATOR => {
+        config.addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public))
+        config.generateVerilog(rtl)
+      }
+      case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
+    }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     compile[T](report)
   }
@@ -417,24 +508,29 @@ case class SpinalSimConfig(
         }
 
       case SpinalSimBackendSel.GHDL =>
-//        println(f"[Progress] GHDL compilation started")
-//        val startAt = System.nanoTime()
-//        val vConfig = SpinalGhdlBackendConfig[T](
-//          rtl = report,
-//          waveFormat = _waveFormat,
-//          workspacePath = s"${_workspacePath}/${_workspaceName}",
-//          vcdPath = s"${_workspacePath}/${_workspaceName}",
-//          vcdPrefix = null,
-//          workspaceName = "verilator",
-//          waveDepth = _waveDepth,
-//          optimisationLevel = _optimisationLevel,
-//          simulatorFlags = _simulatorFlags
-//        )
-//        val backend = SpinalGhdlBackend(vConfig)
-//        val deltaTime = (System.nanoTime() - startAt) * 1e-6
-//        println(f"[Progress] GHDL compilation done in $deltaTime%1.3f ms")
-//        new SimCompiled(backend, report)
-        ???
+        println(f"[Progress] GHDL compilation started")
+        val startAt = System.nanoTime()
+        val vConfig = SpinalGhdlBackendConfig[T](
+          rtl = report,
+          waveFormat = _waveFormat,
+          workspacePath = s"${_workspacePath}/${_workspaceName}",
+          vcdPath = s"${_workspacePath}/${_workspaceName}",
+          vcdPrefix = null,
+          workspaceName = "verilator",
+          waveDepth = _waveDepth,
+          optimisationLevel = _optimisationLevel,
+          simulatorFlags = _simulatorFlags
+        )
+        val backend = SpinalGhdlBackend(vConfig)
+        val deltaTime = (System.nanoTime() - startAt) * 1e-6
+        println(f"[Progress] GHDL compilation done in $deltaTime%1.3f ms")
+        new SimCompiled(report){
+          override def newSimRaw(name: String, seed: Int): SimRaw = {
+            val raw = new SimVpi(backend)
+            raw.userData = backend.signals
+            raw
+          }
+        }
     }
   }
 }

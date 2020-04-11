@@ -201,7 +201,7 @@ class SimManager(val raw : SimRaw) {
       var evalNanoTimeRef = System.nanoTime()
       deltaCycle = 0
       if(raw.eval()){
-        throw new SimFailure("Verilog assertion failure")
+        throw new SimFailure("RTL assertion failure")
       }
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
         //Sleep until the next activity

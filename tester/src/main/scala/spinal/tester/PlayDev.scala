@@ -1492,3 +1492,19 @@ object PlayDevSpinalSim2 extends App{
     dut.clockDomain.waitSampling(40)
   }
 }
+
+object PlayDevSpinalSim3 extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
+  }).doSim { dut =>
+    dut.input #= 0
+    sleep(3)
+    dut.input #= 5
+    println(dut.input.toInt)
+    sleep(0)
+    println(dut.input.toInt)
+  }
+}

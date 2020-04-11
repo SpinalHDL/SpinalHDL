@@ -132,7 +132,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
   val format = if(availableFormats contains waveFormat){
                 waveFormat  
               } else {
-                println("Wave format " + waveFormat + " not supported by IVerilog")
+                println("Wave format " + waveFormat + " not supported by GHDL")
                 WaveFormat.NONE
               }
 

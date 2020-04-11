@@ -48,7 +48,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
   
   override def eval() : Boolean = {
     nativeIface.eval
-    true
+    false
   } 
   
   override def end() {

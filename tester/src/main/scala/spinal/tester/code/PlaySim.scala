@@ -81,8 +81,15 @@ object PlaySimGhdl extends App{
     io.result := RegNext(io.a + io.b - io.c) init(0)
   }
 
-  SimConfig.withWave.doSim(new Dut, "choubaka") { dut =>
+  SimConfig.withGhdl.withWave.doSim(new Dut, "choubaka") { dut =>
+
+    dut.io.c #= 42
+    sleep(100)
+    for(i <- 0 until 20) sleep(0)
+    sleep(1)
+
     dut.clockDomain.forkStimulus(period = 10)
+
 
     var idx = 0
     while (idx < 100) {
@@ -91,9 +98,11 @@ object PlaySimGhdl extends App{
       dut.io.b #= b
       dut.io.c #= c
       dut.clockDomain.waitActiveEdge()
-      sleep(0)
+      sleep(0) //TODO assert should fail without it.
       assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
       idx += 1
     }
+
+    sleep(1000)
   }
 }
