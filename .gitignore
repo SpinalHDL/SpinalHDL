@@ -63,3 +63,10 @@ log.txt
 simWorkspace/
 tmp/
 null/
+command
+
+sim/simulation_plugins/*
+!sim/simulation_plugins/.gitignore
+sim/yolo/*
+!sim/yolo/adder.vhd
+!sim/yolo/adder.v

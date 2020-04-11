@@ -1,7 +1,8 @@
 package spinal.sim
 
 import java.math.BigInteger
-
+import spinal.sim.vpi._
+import scala.collection.JavaConverters._
 
 import scala.collection.mutable.ArrayBuffer
 import sys.process._
@@ -56,11 +57,68 @@ object Bench {
 //  }
 //}
 
-object PlayGhdl extends App{
-  val config = new BackendConfig()
-  config.rtlSourcesPaths += "/media/data/open/ghdlSpinalSim/adder.vhd"
-  config.toplevelName = "adder"
-  config.workspacePath = "yolo"
 
-  new GhdlBackend(config)
+
+object PlayGhdl extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val ghdlbackend = new GhdlBackend(config).instanciate
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  val sum = ghdlbackend.get_signal_handle("adder.sum")
+  ghdlbackend.write32(nibble1, 3)
+  ghdlbackend.write32(nibble2, 5)
+  ghdlbackend.eval
+  println("3 + 5 = " + ghdlbackend.read32(sum).toString)
+  ghdlbackend.write64(nibble1, 4)
+  ghdlbackend.write64(nibble2, 1)
+  ghdlbackend.sleep(3)
+  println("4 + 1 = " + ghdlbackend.read64(sum).toString)
+  ghdlbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
+  ghdlbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
+  ghdlbackend.eval
+  println("2 + 3 = " + BigInt(ghdlbackend.read(sum)
+                                         .asScala
+                                         .toArray
+                                         .map{x => x.toByte}).toString)
+  ghdlbackend.close
+  println("Finished PlayGhdl")
+}
+
+object PlayIVerilog extends App{
+  val config = new IVerilogBackendConfig()
+  config.rtlSourcesPaths += "adder.v"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+
+  val iverilogbackend = new IVerilogBackend(config).instanciate
+  val nibble1 = iverilogbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = iverilogbackend.get_signal_handle("adder.nibble2")
+  val sum = iverilogbackend.get_signal_handle("adder.sum")
+  iverilogbackend.write32(nibble1, 3)
+  iverilogbackend.write32(nibble2, 5)
+  iverilogbackend.eval
+  println("3 + 5 = " + iverilogbackend.read32(sum).toString)
+  iverilogbackend.write64(nibble1, 4)
+  iverilogbackend.write64(nibble2, 1)
+  iverilogbackend.sleep(3)
+  println("4 + 1 = " + iverilogbackend.read64(sum).toString)
+  iverilogbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
+  iverilogbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
+  iverilogbackend.eval
+  println("2 + 3 = " + BigInt(iverilogbackend.read(sum)
+                                             .asScala
+                                             .toArray
+                                             .map{x => x.toByte}).toString)
+  iverilogbackend.close
+  println("Finished PlayIVerilog")
 }

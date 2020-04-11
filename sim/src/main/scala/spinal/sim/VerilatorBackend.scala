@@ -42,6 +42,16 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
   }
 
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.FST, 
+                               WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat){
+                config.waveFormat  
+              } else {
+                println("Wave format " + config.waveFormat + " not supported by Verilator")
+                WaveFormat.NONE
+              }
+
   def genWrapperCpp(): Unit = {
     val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_VerilatorNative_"
     val wrapperString = s"""
@@ -51,7 +61,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
-#include "verilated_${config.waveFormat.ext}_c.h"
+#include "verilated_${format.ext}_c.h"
 #endif
 #include "V${config.toplevelName}__Syms.h"
 class ISignalAccess{
@@ -170,7 +180,7 @@ public:
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
-	  Verilated${config.waveFormat.ext.capitalize}C tfp;
+	  Verilated${format.ext.capitalize}C tfp;
 	  #endif
 
     Wrapper_${uniqueId}(const char * name){
@@ -186,7 +196,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
+      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
     }
 
@@ -323,7 +333,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200
 
-    val waveArgs = config.waveFormat match {
+    val waveArgs = format match {
       case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"
       case WaveFormat.VCD =>  "-CFLAGS -DTRACE --trace"
       case WaveFormat.NONE => ""
