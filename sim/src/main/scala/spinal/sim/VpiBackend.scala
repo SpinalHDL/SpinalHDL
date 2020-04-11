@@ -36,7 +36,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val sharedMemIfaceName = "shared_mem_iface." + sharedExtension
   val sharedMemIfacePath = pluginsPath + "/" + sharedMemIfaceName
 
-  CFLAGS += " -fPIC -I " + pluginsPath
+  CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
   CFLAGS += (if(isMac) " -dynamiclib " else "")
   LDFLAGS += (if(!isMac) " -shared" else "")
 
@@ -241,6 +241,12 @@ object GhdlBackend {
   }
 }
 
+
+/* README first!
+
+  This backend doesn't work because of incompatibilities between IVerilog and SpinalSim execution method
+
+*/
 class IVerilogBackendConfig extends VpiBackendConfig {
   var binDirectory: String = ""
 }

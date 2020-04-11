@@ -246,7 +246,7 @@ bool write_cmd(){
 
 bool sleep_cmd(){
 
-    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles-1);
+    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
     return true;
 }
 
@@ -304,7 +304,7 @@ PLI_INT32 rw_cb(p_cb_data){
 }
 
 PLI_INT32 ro_cb(p_cb_data){
-    register_cb(delay_rw_cb, cbAfterDelay, 1);
+    register_cb(delay_rw_cb, cbAfterDelay, 0);
     return 0;
 }
 
