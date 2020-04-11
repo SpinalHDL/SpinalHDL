@@ -57,8 +57,6 @@ object Bench {
 //  }
 //}
 
-
-
 object PlayGhdl extends App{
   val config = new GhdlBackendConfig()
   config.rtlSourcesPaths += "adder.vhd"
