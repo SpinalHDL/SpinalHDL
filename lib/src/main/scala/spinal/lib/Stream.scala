@@ -737,7 +737,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 
 object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
-    val fork = new StreamFork(input.payloadType, portCount, synchronous)
+    val fork = new StreamFork(input.payloadType, portCount, synchronous).setCompositeName(input, "fork", true)
     fork.io.input << input
     return fork.io.outputs
   }
