@@ -108,7 +108,6 @@ void SharedMemIface::write32(int64_t handle, int32_t data_){
 }
 
 void SharedMemIface::sleep(int64_t sleep_cycles){
-    assert(sleep_cycles > 0);
     while(shared_struct->proc_status == ProcStatus::init);
     assert(shared_struct->proc_status == ProcStatus::ready);
     assert(!shared_struct->closed);
@@ -118,7 +117,7 @@ void SharedMemIface::sleep(int64_t sleep_cycles){
 }
 
 void SharedMemIface::eval(){
-    this->sleep(1);
+    this->sleep(0);
 }
 
 void SharedMemIface::close(){
