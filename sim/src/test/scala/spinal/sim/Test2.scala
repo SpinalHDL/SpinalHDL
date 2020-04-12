@@ -68,6 +68,7 @@ object PlayGhdl extends App{
   config.waveFormat = WaveFormat.VCD
 
   val ghdlbackend = new GhdlBackend(config).instanciate
+  println(ghdlbackend.print_signals())
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -92,6 +93,86 @@ object PlayGhdl extends App{
                                          .map{x => x.toByte}).toString)
   ghdlbackend.close
   println("Finished PlayGhdl")
+}
+
+object StressGhdl1 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val ghdlbackend = new GhdlBackend(config).instanciate
+  for(i <- 0 to 100000){
+    ghdlbackend.eval
+    ghdlbackend.eval
+    ghdlbackend.eval
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.sleep(10)
+    ghdlbackend.sleep(10)
+    ghdlbackend.sleep(10)
+    ghdlbackend.sleep(10)
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.sleep(10)
+    ghdlbackend.eval
+    ghdlbackend.eval
+  }
+  ghdlbackend.close
+  println("Finished StressGhdl1")
+}
+
+object StressGhdl2 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val ghdlbackend = new GhdlBackend(config).instanciate
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  val sum = ghdlbackend.get_signal_handle("adder.sum")
+  for(i <- 0 to 100000){
+    ghdlbackend.write32(nibble1, 0)
+    ghdlbackend.eval
+    ghdlbackend.eval
+    ghdlbackend.write32(nibble1, 3)
+    ghdlbackend.write32(nibble2, 5)
+    ghdlbackend.eval
+    println("3 = " + ghdlbackend.read32(nibble1).toString)
+    println("3 + 5 = " + ghdlbackend.read32(sum).toString)
+    ghdlbackend.write64(nibble1, 4)
+    ghdlbackend.write64(nibble2, 1)
+    ghdlbackend.sleep(3)
+    println("4 + 1 = " + ghdlbackend.read64(sum).toString)
+    ghdlbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
+    ghdlbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
+    ghdlbackend.eval
+    println("2 + 3 = " + BigInt(ghdlbackend.read(sum)
+                                           .asScala
+                                           .toArray
+                                           .map{x => x.toByte}).toString)
+  }
+  ghdlbackend.close
+  println("Finished StressGhdl2")
 }
 
 //object PlayIVerilog extends App{

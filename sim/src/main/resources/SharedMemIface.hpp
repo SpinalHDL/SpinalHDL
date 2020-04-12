@@ -25,10 +25,9 @@ class SharedMemIface {
     virtual ~SharedMemIface();
 
     private:
-    bool wait();
+    bool closed;
     managed_shared_memory segment;
     SharedStruct* shared_struct; 
-    SharedVector* data; 
     string shmem_name;
     size_t shmem_size;
 };
