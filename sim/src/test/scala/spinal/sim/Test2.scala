@@ -96,7 +96,7 @@ object PlayGhdl extends App{
 }
 
 object StressGhdl1 extends App{
-  val config = new GhdlBackendConfig()
+    val config = new GhdlBackendConfig()
   config.rtlSourcesPaths += "adder.vhd"
   config.toplevelName = "adder"
   config.pluginsPath = "simulation_plugins"
@@ -106,6 +106,11 @@ object StressGhdl1 extends App{
   config.waveFormat = WaveFormat.VCD
 
   val ghdlbackend = new GhdlBackend(config).instanciate
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  ghdlbackend.write32(nibble1, 0)
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+
+
   for(i <- 0 to 100000){
     ghdlbackend.eval
     ghdlbackend.eval
