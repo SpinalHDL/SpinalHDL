@@ -54,7 +54,11 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     nativeIface.eval
     false
   } 
-  
+
+  def randomize(seed: Long) {
+    nativeIface.randomize(seed)
+  }
+
   override def end() {
     nativeIface.close
     thread.join

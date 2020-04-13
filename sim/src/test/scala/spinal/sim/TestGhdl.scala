@@ -309,3 +309,63 @@ object TestGhdl10 extends App {
   println("Finished TestGhdl10")
 }
 
+object TestGhdl11 extends App {
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "toplevel.vhd"
+  config.toplevelName = "toplevel"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+  config.useCache = true
+
+  val (ghdlbackend, _) = GhdlBackend.getGCC(config).instanciate
+   for(i <- 0l to 1000000l){
+    ghdlbackend.randomize(i)
+    ghdlbackend.sleep(1)
+  }
+  ghdlbackend.close
+  println("Finished TestGhdl11")
+}
+
+object TestGhdl12 extends App {
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "toplevel.vhd"
+  config.toplevelName = "toplevel"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+  config.useCache = true
+
+  val (ghdlbackend, _) = GhdlBackend.getLLVM(config).instanciate
+   for(i <- 0l to 1000000l){
+    ghdlbackend.randomize(i)
+    ghdlbackend.sleep(1)
+  }
+  ghdlbackend.close
+  println("Finished TestGhdl12")
+}
+
+
+object TestGhdl13 extends App {
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "toplevel.vhd"
+  config.toplevelName = "toplevel"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+  config.useCache = true
+
+  val (ghdlbackend, _) = GhdlBackend.getMCODE(config).instanciate
+   for(i <- 0l to 1000000l){
+    ghdlbackend.randomize(i)
+    ghdlbackend.sleep(1)
+  }
+  ghdlbackend.close
+  println("Finished TestGhdl13")
+}
