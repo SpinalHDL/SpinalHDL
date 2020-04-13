@@ -11,6 +11,7 @@ case class BmbArbiter(p : BmbParameter,
                       pendingRspMax : Int,
                       lowerFirstPriority : Boolean,
                       inputsWithInv : Seq[Boolean] = null,
+                      inputsWithSync : Seq[Boolean] = null,
                       pendingInvMax : Int = 0) extends Component{
   val sourceRouteWidth = log2Up(portCount)
   val inputSourceWidth = p.sourceWidth - sourceRouteWidth
@@ -90,6 +91,17 @@ case class BmbArbiter(p : BmbParameter,
     }
 
     io.output.ack.valid := logics.map(_.ackCounter =/= 0).toSeq.andR
+  }
+
+  val sync = p.canSync generate new Area{
+    assert(inputsWithSync != null)
+
+    val syncSel = io.output.sync.source(sourceRouteRange)
+    for((input, index) <- io.inputs.zipWithIndex){
+      input.sync.valid := io.output.sync.valid && syncSel === index
+      input.sync.source := io.output.sync.source
+    }
+    io.output.sync.ready := io.inputs(syncSel).sync.ready
   }
 }
 

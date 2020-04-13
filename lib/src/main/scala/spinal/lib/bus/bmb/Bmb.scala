@@ -95,6 +95,7 @@ case class BmbParameter(addressWidth : Int,
                         canWrite : Boolean = true,
                         canExclusive : Boolean = false,
                         canInvalidate : Boolean = false,
+                        canSync : Boolean = false,
                         invalidateLength : Int = 0,
                         invalidateAlignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
@@ -178,7 +179,11 @@ case class BmbInv(p: BmbParameter) extends Bundle{
 }
 
 case class BmbAck(p: BmbParameter) extends Bundle{
-//  val hit = Bool()
+
+}
+
+case class BmbSync(p: BmbParameter) extends Bundle{
+  val source = UInt(p.sourceWidth bits)
 }
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
@@ -187,6 +192,7 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
 
   val inv = p.canInvalidate generate Stream(BmbInv(p))
   val ack = p.canInvalidate generate Stream(BmbAck(p)) //In order
+  val sync = p.canSync generate Stream(BmbSync(p)) //In order
 
   override def asMaster(): Unit = {
     master(cmd)
