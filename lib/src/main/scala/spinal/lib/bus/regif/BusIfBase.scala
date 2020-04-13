@@ -43,8 +43,8 @@ trait BusIf extends BusIfBase {
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
     assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc:${wordAddressInc}")
     assert(address >= regPtr, s"located Position conflict to Pre allocated Address:${regPtr}")
-    creatReg(symbol.name, address, doc)
     regPtr = address + wordAddressInc
+    creatReg(symbol.name, address, doc)
   }
 
   def newReg(doc: String)(implicit symbol: SymbolName) = {
@@ -57,6 +57,17 @@ trait BusIf extends BusIfBase {
     val ret = new RegInst(name, addr, doc, this)
     RegInsts += ret
     ret
+  }
+
+  def newRAM(name: String, addr: Long, size: Long, doc: String) = {
+    class bmi extends Bundle{
+      val wr     = Bool()
+      val waddr  = UInt()
+      val wdata  = Bits()
+      val rd     = Bool()
+      val raddr  = UInt()
+      val rdata  = Bits()
+    }
   }
 
   def document(docName: String, docType: DocType = DocType.HTML) = {

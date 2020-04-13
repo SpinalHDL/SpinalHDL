@@ -77,6 +77,7 @@ object DocTemplate {
 
   val commonCSS =
     """
+      |      body{ font-size: 0.8em; }
       |      p.regif-title{
       |          font-weight:800;
       |          font-size:1.2em;
