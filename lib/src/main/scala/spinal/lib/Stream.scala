@@ -751,6 +751,14 @@ object StreamFork2 {
   }
 }
 
+object StreamFork3 {
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 3, synchronous)
+    fork.io.input << input
+    return (fork.io.outputs(0), fork.io.outputs(1), fork.io.outputs(2))
+  }
+}
+
 /**
  * A StreamFork will clone each incoming data to all its output streams. If synchronous is true,
  *  all output streams will always fire together, which means that the stream will halt until all 
