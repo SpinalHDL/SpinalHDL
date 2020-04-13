@@ -42,6 +42,7 @@ public:
     void write32(int64_t handle, int32_t data);
     void sleep(int64_t sleep_cycles);
     void eval();
+    void randomize(int64_t seed);
     void close();
     bool is_closed();
 };

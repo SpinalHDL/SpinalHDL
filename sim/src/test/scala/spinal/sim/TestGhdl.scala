@@ -57,12 +57,8 @@ object TestGhdl2 extends App{
   config.waveFormat = WaveFormat.VCD
 
   val (ghdlbackend, _) = new GhdlBackend(config).instanciate
-  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
-  ghdlbackend.write32(nibble1, 0)
-  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
 
-
-  for(i <- 0 to 100000){
+  for(i <- 0l to 2000000000l){
     ghdlbackend.eval
     ghdlbackend.eval
     ghdlbackend.eval
@@ -249,4 +245,47 @@ object TestGhdl7 extends App{
   simVpi.eval
   println("2 + 3 = " + simVpi.getBigInt(sum).toString)
   println("Finished TestGhdl7")
+}
+
+object TestGhdl8 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "toplevel.vhd"
+  config.toplevelName = "toplevel"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
+  println(ghdlbackend.print_signals())
+  ghdlbackend.eval
+  ghdlbackend.close
+  println("Finished TestGhdl8")
+}
+
+object TestGhdl9 extends App{
+    val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  val sum = ghdlbackend.get_signal_handle("adder.sum")
+  
+  for(i <- 0l to 1024l){
+    ghdlbackend.randomize(i)
+    ghdlbackend.sleep(1)
+    println(ghdlbackend.read32(nibble1).toString + " " + 
+            ghdlbackend.read32(nibble2).toString + " " + 
+            ghdlbackend.read32(sum).toString)
+  }
+  ghdlbackend.close
+  println("Finished StressGhdl9")
 }
