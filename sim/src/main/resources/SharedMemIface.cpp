@@ -6,114 +6,98 @@
 #include<cassert>
 #include<cstring>
 
+
 SharedMemIface::SharedMemIface(const string& shmem_name_, size_t shmem_size_) :
-    shmem_name(shmem_name_), shmem_size(shmem_size_) {
+    closed(false), shmem_name(shmem_name_), shmem_size(shmem_size_), data_buffer(),
+    error_string() {
     shared_memory_object::remove(shmem_name.c_str());
     segment = managed_shared_memory(create_only, shmem_name.c_str(), shmem_size);
-    shared_struct = segment.construct<SharedStruct>("SharedStruct")();
     const ShmemAllocator alloc_inst(segment.get_segment_manager());
-    data = segment.construct<SharedVector>("SharedVector")(alloc_inst);
-    shared_struct->proc_status = ProcStatus::init;
+    shared_struct = segment.construct<SharedStruct>("SharedStruct")(alloc_inst);
+    shared_struct->proc_status.store(ProcStatus::init);
 }
 
 string SharedMemIface::print_signals(){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
+    this->check_ready();
     std::string ret;
-    shared_struct->proc_status = ProcStatus::print_signals;
-    wait();
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    ret = (const char*)data->data();
+    shared_struct->proc_status.store(ProcStatus::print_signals);
+    this->check_ready();
+    ret = (const char*)shared_struct->data.data();
 
     return ret;
 }
 
 int64_t SharedMemIface::get_signal_handle(const string& handle_name){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
-    data->resize(handle_name.size()+1);
-    memcpy(data->data(), handle_name.c_str(), handle_name.size());
-    data->at(handle_name.size()) = '\0';
-    shared_struct->proc_status = ProcStatus::get_signal_handle;
-    wait();
-    assert(shared_struct->proc_status == ProcStatus::ready);
+    this->check_ready();
+    shared_struct->data.resize(handle_name.size());
+    std::copy(handle_name.begin(), handle_name.end(), shared_struct->data.begin());
+    shared_struct->data.push_back(0);
+    shared_struct->proc_status.store(ProcStatus::get_signal_handle);
+    this->check_ready();
     return shared_struct->handle;
 }
 
+void SharedMemIface::read(int64_t handle, std::vector<int8_t>& data_){
+    this->check_ready();
+    shared_struct->handle.store(handle);
+    shared_struct->proc_status.store(ProcStatus::read);
+    this->check_ready();
+    data_.resize(shared_struct->data.size());
+    std::copy(shared_struct->data.begin(), shared_struct->data.end(), data_.begin());
+}
 
 std::vector<int8_t> SharedMemIface::read(int64_t handle){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
-    std::vector<int8_t> ret_vec;
-    shared_struct->handle = handle;
-    shared_struct->proc_status = ProcStatus::read;
-    wait();
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    ret_vec.resize(data->size());
-    memcpy(ret_vec.data(), data->data(), data->size());
-
-    return ret_vec;
+    this->read(handle, data_buffer);
+    return this->data_buffer;
 }
 
 int64_t SharedMemIface::read64(int64_t handle){
     int64_t ret = 0ul;
-    std::vector<int8_t> read_data = this->read(handle);
-    size_t copy_size = std::min(8ul, read_data.size());
-    size_t start_orig = read_data.size()-1;
+    this->read(handle, this->data_buffer);
+    size_t copy_size = std::min(8ul, this->data_buffer.size());
+    size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
-        ((int8_t*) &ret)[i] = read_data[start_orig - i];
+        ((int8_t*) &ret)[i] = this->data_buffer[start_orig - i];
     }
     return ret;
 }
 
 int32_t SharedMemIface::read32(int64_t handle){
     int32_t ret = 0ul;
-    std::vector<int8_t> read_data = this->read(handle);
-    size_t copy_size = std::min(4ul, read_data.size());
-    size_t start_orig = read_data.size()-1;
+    this->read(handle, this->data_buffer);
+    size_t copy_size = std::min(4ul, this->data_buffer.size());
+    size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
-        ((int8_t*) &ret)[i] = read_data[start_orig - i];
+        ((int8_t*) &ret)[i] = this->data_buffer[start_orig - i];
     }
     return ret;
 }
 
 void SharedMemIface::write(int64_t handle, const std::vector<int8_t>& data_){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
-    shared_struct->handle = handle;
-    data->resize(data_.size());
-    memcpy(data->data(), data_.data(), data_.size());
-    shared_struct->proc_status = ProcStatus::write;
-    wait();
-    assert(shared_struct->proc_status == ProcStatus::ready);
+    this->check_ready();
+    shared_struct->handle.store(handle);
+    shared_struct->data.resize(data_.size());
+    std::copy(data_.begin(), data_.end(), shared_struct->data.begin());
+    shared_struct->proc_status.store(ProcStatus::write);
 }
 
 void SharedMemIface::write64(int64_t handle, int64_t data_){
     
-    std::vector<int8_t> vdata;
-    vdata.resize(8);
-    for(uint8_t i = 0; i < 8; i++) vdata[7-i] = (data_ >> 8*i) & 0xFF;
-    this->write(handle, vdata);
+    this->data_buffer.resize(8);
+    for(uint8_t i = 0; i < 8; i++) this->data_buffer[7-i] = (data_ >> 8*i) & 0xFF;
+    this->write(handle, this->data_buffer);
 }
 
 void SharedMemIface::write32(int64_t handle, int32_t data_){
-    std::vector<int8_t> vdata;
-    vdata.resize(4);
-    for(uint8_t i = 0; i < 4; i++) vdata[3-i] = (data_ >> 8*i) & 0xFF;
-    this->write(handle, vdata);
+    this->data_buffer.resize(4);
+    for(uint8_t i = 0; i < 4; i++) this->data_buffer[3-i] = (data_ >> 8*i) & 0xFF;
+    this->write(handle, this->data_buffer);
 }
 
 void SharedMemIface::sleep(int64_t sleep_cycles){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
-    shared_struct->sleep_cycles = sleep_cycles;
-    shared_struct->proc_status = ProcStatus::sleep;
-    wait();
+    this->check_ready();
+    shared_struct->sleep_cycles.store(sleep_cycles);
+    shared_struct->proc_status.store(ProcStatus::sleep);
 }
 
 void SharedMemIface::eval(){
@@ -121,42 +105,26 @@ void SharedMemIface::eval(){
 }
 
 void SharedMemIface::close(){
-    while(shared_struct->proc_status == ProcStatus::init);
-    assert(shared_struct->proc_status == ProcStatus::ready);
-    assert(!shared_struct->closed);
-    shared_struct->proc_status = ProcStatus::close;
-    wait();
-    
-    assert(shared_struct->closed);
-}
-
-bool SharedMemIface::error_happened(){
-    return shared_struct->proc_status == ProcStatus::error;
-}
-
-std::string SharedMemIface::error_string(){
-     
-    return std::string((const char*)data->data());
-}
-
-SharedMemIface::~SharedMemIface(){
-    if(!shared_struct->closed){
-        close();
-    }
-
-    segment.destroy<SharedVector>("SharedVector");
+    this->check_ready();
+    shared_struct->proc_status.store(ProcStatus::close);
+    this->closed = true;
     segment.destroy<SharedStruct>("SharedStruct");
     shared_memory_object::remove(shmem_name.c_str());
 }
 
-bool SharedMemIface::wait(){
-    
-    assert(shared_struct->proc_status != ProcStatus::ready);
-    assert(shared_struct->proc_status != ProcStatus::error);
-    shared_struct->barrier.wait();
-    // Here the VPI side is doing its steps..    
-    shared_struct->barrier.wait();
-    assert((shared_struct->proc_status == ProcStatus::ready) | 
-           (shared_struct->proc_status == ProcStatus::error));
-    return error_happened();
+SharedMemIface::~SharedMemIface(){}
+
+void SharedMemIface::check_ready(){
+    if(this->closed) throw VpiException("Attempt to access an already closed simulation");
+    ProcStatus status = shared_struct->proc_status.load();
+    while(status != ProcStatus::ready) {
+        if (status == ProcStatus::error) {
+            error_string = (const char*) shared_struct->data.data();
+            this->closed = true;
+            segment.destroy<SharedStruct>("SharedStruct");
+            shared_memory_object::remove(shmem_name.c_str());
+            throw VpiException(error_string.c_str()); 
+        }
+        status = shared_struct->proc_status.load();
+    }
 }

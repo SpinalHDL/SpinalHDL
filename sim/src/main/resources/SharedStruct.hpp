@@ -4,6 +4,10 @@
 #include<boost/interprocess/sync/scoped_lock.hpp>
 #include<boost/interprocess/sync/interprocess_condition.hpp>
 #include<boost/interprocess/containers/vector.hpp>
+#include<exception>
+#include<atomic>
+#include<iostream>
+#include<string>
 #include<cstdint>
 
 using namespace boost::interprocess;
@@ -11,49 +15,63 @@ using namespace boost::interprocess;
 typedef allocator<uint8_t, managed_shared_memory::segment_manager>  ShmemAllocator;
 typedef vector<uint8_t, ShmemAllocator> SharedVector;
 
-enum class ProcStatus {
-    init,
-    ready,
-    print_signals,
-    get_signal_handle,
-    read,
-    write,
-    sleep,
-    close,
-    error
+class VpiException: public std::exception
+{
+    public:
+    VpiException(const char* msg_): exception(), msg(msg_) {};
+    virtual const char* what() const throw(){
+        return msg.c_str();
+    };
+
+    private:
+    std::string msg;
+};
+
+enum class ProcStatus : int8_t {
+    ready = 0,
+    error = -1,
+    init = 1,
+    print_signals = 2,
+    get_signal_handle = 3,
+    read = 4,
+    write = 5,
+    sleep = 6,
+    close = 7,
 };
 
 class SharedStruct {
     public:
-    SharedStruct() : 
-        sleep_cycles(0), 
+    SharedStruct(const ShmemAllocator alloc_inst_) : 
+        alloc_inst(alloc_inst_),
         proc_status(ProcStatus::init),  
+        sleep_cycles(0), 
         handle(0),
-        closed(false) {}
+        data(alloc_inst){}
 
     virtual ~SharedStruct(){}
 
-    volatile uint64_t sleep_cycles;
-    volatile ProcStatus proc_status;
-    volatile size_t handle;
-    volatile bool closed;
-
-    class {
-        public:
-        void wait(){
-            scoped_lock<interprocess_mutex> b_lock(b_mutex);
-            
-            if(blocked){
-                blocked = false;
-                b_block.notify_one();
-            }else{
-                blocked = true;
-                b_block.wait(b_lock);
+    void check_ready(){
+        ProcStatus status = this->proc_status.load();
+        while(status != ProcStatus::ready) {
+            if (status == ProcStatus::error) {
+               throw VpiException((const char*) this->data.data()); 
             }
+            status = this->proc_status.load();
         }
+    }
+    
+    ProcStatus check_not_ready() {
+    ProcStatus status = this->proc_status.load();
+    while(status == ProcStatus::ready) {
+            status = this->proc_status.load();
+        }
+        
+    return status;
+    }
 
-        volatile bool blocked = false;
-        interprocess_mutex b_mutex;
-        interprocess_condition b_block;
-    } barrier;
+    const ShmemAllocator alloc_inst;
+    std::atomic<ProcStatus> proc_status;
+    std::atomic<uint64_t> sleep_cycles;
+    std::atomic<size_t> handle;
+    SharedVector data; 
 };

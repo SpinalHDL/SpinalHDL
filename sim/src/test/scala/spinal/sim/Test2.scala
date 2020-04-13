@@ -67,7 +67,8 @@ object PlayGhdl extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val ghdlbackend = new GhdlBackend(config).instanciate
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
+  println(ghdlbackend.print_signals())
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
   val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -94,39 +95,4 @@ object PlayGhdl extends App{
   println("Finished PlayGhdl")
 }
 
-//object PlayIVerilog extends App{
-//  val config = new IVerilogBackendConfig()
-//  config.rtlSourcesPaths += "adder.v"
-//  config.toplevelName = "adder"
-//  config.pluginsPath = "simulation_plugins"
-//  config.workspacePath = "yolo"
-//  config.workspaceName = "yolo"
-//
-//  val iverilogbackend = new IVerilogBackend(config).instanciate
-//  val nibble1 = iverilogbackend.get_signal_handle("adder.nibble1")
-//  val nibble2 = iverilogbackend.get_signal_handle("adder.nibble2")
-//  val sum = iverilogbackend.get_signal_handle("adder.sum")
-//
-//  iverilogbackend.write32(nibble1, 0)
-//  iverilogbackend.eval
-//  iverilogbackend.write32(nibble1, 3)
-//  iverilogbackend.write32(nibble2, 5)
-//  println("? = " + iverilogbackend.read32(nibble1).toString)
-//  iverilogbackend.eval
-//  println("3 = " + iverilogbackend.read32(nibble1).toString)
-//  println("3 + 5 = " + iverilogbackend.read32(sum).toString)
-//  iverilogbackend.write64(nibble1, 4)
-//  iverilogbackend.write64(nibble2, 1)
-//  iverilogbackend.sleep(3)
-//  println("4 + 1 = " + iverilogbackend.read64(sum).toString)
-//  iverilogbackend.write(nibble1, new VectorInt8(BigInt(2).toByteArray))
-//  iverilogbackend.write(nibble2, new VectorInt8(BigInt(3).toByteArray))
-//  iverilogbackend.eval
-//  println("2 + 3 = " + BigInt(iverilogbackend.read(sum)
-//                                             .asScala
-//                                             .toArray
-//                                             .map{x => x.toByte}).toString)
-//  iverilogbackend.close
-//  println("Finished PlayIVerilog")
-//}
 

@@ -28,7 +28,8 @@ public class JNISharedMemIfaceJNI {
   public final static native void delete_SharedMemIface(long jarg1);
   public final static native String SharedMemIface_print_signals(long jarg1, SharedMemIface jarg1_);
   public final static native long SharedMemIface_get_signal_handle(long jarg1, SharedMemIface jarg1_, String jarg2);
-  public final static native long SharedMemIface_read(long jarg1, SharedMemIface jarg1_, long jarg2);
+  public final static native long SharedMemIface_read__SWIG_0(long jarg1, SharedMemIface jarg1_, long jarg2);
+  public final static native void SharedMemIface_read__SWIG_1(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, VectorInt8 jarg3_);
   public final static native long SharedMemIface_read64(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native int SharedMemIface_read32(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native void SharedMemIface_write(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, VectorInt8 jarg3_);
@@ -36,7 +37,6 @@ public class JNISharedMemIfaceJNI {
   public final static native void SharedMemIface_write32(long jarg1, SharedMemIface jarg1_, long jarg2, int jarg3);
   public final static native void SharedMemIface_sleep(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native void SharedMemIface_eval(long jarg1, SharedMemIface jarg1_);
-  public final static native boolean SharedMemIface_error_happened(long jarg1, SharedMemIface jarg1_);
-  public final static native String SharedMemIface_error_string(long jarg1, SharedMemIface jarg1_);
   public final static native void SharedMemIface_close(long jarg1, SharedMemIface jarg1_);
+  public final static native boolean SharedMemIface_is_closed(long jarg1, SharedMemIface jarg1_);
 }

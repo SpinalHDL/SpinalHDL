@@ -2,11 +2,16 @@ package spinal.sim
 
 import spinal.sim.vpi._
 import collection.JavaConverters._
+import scala.sys._
+import java.lang.Exception
+
+class VpiException(message: String) extends Exception(message)
 
 class SimVpi(backend: VpiBackend) extends SimRaw {
 
   val zeroByte = 0.toByte
-  val nativeIface = backend.instanciate()
+  val (nativeIface, process) = backend.instanciate()
+  val vectorInt8 = new VectorInt8()
 
   override def getInt(signal : Signal) = {
     val id = getSignalId(signal)
@@ -31,9 +36,9 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   override def getBigInt(signal : Signal) : BigInt = {
     val id = getSignalId(signal)
-    val readVec = nativeIface.read(id)
-    if(!signal.dataType.isInstanceOf[SIntDataType]) readVec.add(0, zeroByte) 
-    BigInt(readVec.asScala.toArray.map{x => x.toByte})
+    nativeIface.read(id, vectorInt8)
+    if(!signal.dataType.isInstanceOf[SIntDataType]) vectorInt8.add(0, zeroByte) 
+    BigInt(vectorInt8.asScala.toArray.map{x => x.toByte})
   }
 
   override def setBigInt(signal : Signal, value : BigInt) {
@@ -51,8 +56,17 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     false
   } 
   
+  def shutdown_hook() : Unit = {
+    if(!nativeIface.is_closed) {
+      nativeIface.close
+    }
+  }
+  
+  val hookThread = addShutdownHook(shutdown_hook)
+
   override def end() {
     nativeIface.close
+    hookThread.remove
   }
 
   def getSignalId(signal: Signal) : Long = {
@@ -61,8 +75,9 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
      signal.id = nativeIface.get_signal_handle(signal.toVPIAddress)
      signal.validId = true
      signal.id
-   }
+     }
   }
+
 
   override def enableWave() {}
   override def disableWave() {}
