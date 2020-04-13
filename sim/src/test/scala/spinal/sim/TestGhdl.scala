@@ -289,3 +289,22 @@ object TestGhdl9 extends App{
   ghdlbackend.close
   println("Finished StressGhdl9")
 }
+
+object TestGhdl10 extends App {
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "toplevel.vhd"
+  config.toplevelName = "toplevel"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
+   for(i <- 0l to 1024l){
+    ghdlbackend.randomize(i)
+    ghdlbackend.sleep(1)
+  }
+  ghdlbackend.close
+  println("Finished TestGhdl10")
+}

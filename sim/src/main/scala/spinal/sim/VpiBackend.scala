@@ -27,6 +27,7 @@ class VpiBackendConfig {
   var CC: String             = "g++" 
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing" 
   var LDFLAGS: String        = "-lrt -lpthread " 
+  var useCache: Boolean      = false
 }
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -53,8 +54,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     override def buffer[T](f: => T) = f
   }
 
-  //if(!Files.exists(Paths.get(sharedMemIfacePath))) { //removed to simplify the development
-  if(true) { 
+  if(!Files.exists(Paths.get(sharedMemIfacePath)) && useCache) {
     List("/SharedMemIface.cpp", 
          "/SharedMemIface.hpp", 
          "/SharedMemIface_wrap.cxx", 
@@ -109,9 +109,15 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def instanciate() : (SharedMemIface, Thread) = {
     compileVPI()
     analyzeRTL()
-    val sharedMemIface = new SharedMemIface("SpinalHDL_" + uniqueId.toString, sharedMemSize)
+    val shmemKey = Seq("SpinalHDL_", 
+                       uniqueId.toString,
+                       hashCode().toString, 
+                       System.currentTimeMillis().toString,
+                       scala.util.Random.nextLong().toString).mkString("_")
+
+    val sharedMemIface = new SharedMemIface(shmemKey, sharedMemSize)
     var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
-    shmemFile.write("SpinalHDL_" + uniqueId.toString) 
+    shmemFile.write(shmemKey) 
     shmemFile.close
     val thread = runSimulation()
     (sharedMemIface, thread)
@@ -155,8 +161,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
 
   def compileVPI() = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName
-    //if(!Files.exists(Paths.get(vpiModulePath))) { //removed to simplify the development
-    if(true) {
+    if(!Files.exists(Paths.get(vpiModulePath)) && useCache) {
 
       for(filename <- Array("/VpiPlugin.cpp", 
                             "/SharedStruct.hpp")) {
