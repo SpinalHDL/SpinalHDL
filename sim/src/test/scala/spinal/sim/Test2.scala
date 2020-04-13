@@ -67,7 +67,7 @@ object PlayGhdl extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val ghdlbackend = new GhdlBackend(config).instanciate
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
   println(ghdlbackend.print_signals())
   val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
   val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")

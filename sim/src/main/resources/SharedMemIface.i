@@ -16,10 +16,15 @@ namespace std {
   try {
     $action
   } catch (VpiException &e) {
-    jclass clazz = jenv->FindClass("java/lang/RuntimeException");
+    jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+    jenv->ThrowNew(clazz, e.what());
+    return $null;
+  } catch (std::exception &e) {
+    jclass clazz = jenv->FindClass("java/lang/Exception");
     jenv->ThrowNew(clazz, e.what());
     return $null;
   }
+
 }
 
 class SharedMemIface {
