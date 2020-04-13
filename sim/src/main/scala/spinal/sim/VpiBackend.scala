@@ -54,7 +54,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     override def buffer[T](f: => T) = f
   }
 
-  if(!Files.exists(Paths.get(sharedMemIfacePath)) && useCache) {
+  if(!(Files.exists(Paths.get(sharedMemIfacePath)) && useCache)) {
     List("/SharedMemIface.cpp", 
          "/SharedMemIface.hpp", 
          "/SharedMemIface_wrap.cxx", 
@@ -161,7 +161,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
 
   def compileVPI() = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName
-    if(!Files.exists(Paths.get(vpiModulePath)) && useCache) {
+    if(!(Files.exists(Paths.get(vpiModulePath)) && useCache)) {
 
       for(filename <- Array("/VpiPlugin.cpp", 
                             "/SharedStruct.hpp")) {

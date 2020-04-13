@@ -308,3 +308,4 @@ object TestGhdl10 extends App {
   ghdlbackend.close
   println("Finished TestGhdl10")
 }
+
