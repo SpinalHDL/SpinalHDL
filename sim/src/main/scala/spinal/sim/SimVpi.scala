@@ -7,6 +7,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   val zeroByte = 0.toByte
   val nativeIface = backend.instanciate()
+  val vectorInt8 = new VectorInt8()
 
   override def getInt(signal : Signal) = {
     val id = getSignalId(signal)
@@ -31,9 +32,9 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   override def getBigInt(signal : Signal) : BigInt = {
     val id = getSignalId(signal)
-    val readVec = nativeIface.read(id)
-    if(!signal.dataType.isInstanceOf[SIntDataType]) readVec.add(0, zeroByte) 
-    BigInt(readVec.asScala.toArray.map{x => x.toByte})
+    nativeIface.read(id, vectorInt8)
+    if(!signal.dataType.isInstanceOf[SIntDataType]) vectorInt8.add(0, zeroByte) 
+    BigInt(vectorInt8.asScala.toArray.map{x => x.toByte})
   }
 
   override def setBigInt(signal : Signal, value : BigInt) {

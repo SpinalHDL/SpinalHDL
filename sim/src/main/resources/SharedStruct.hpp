@@ -7,6 +7,7 @@
 #include<exception>
 #include<atomic>
 #include<iostream>
+#include<string>
 #include<cstdint>
 
 using namespace boost::interprocess;
@@ -19,11 +20,11 @@ class VpiException: public std::exception
     public:
     VpiException(const char* msg_): exception(), msg(msg_) {};
     virtual const char* what() const throw(){
-        return msg;
+        return msg.c_str();
     };
 
     private:
-    const char * msg;
+    std::string msg;
 };
 
 enum class ProcStatus : int8_t {

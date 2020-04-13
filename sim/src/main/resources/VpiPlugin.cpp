@@ -20,6 +20,8 @@ using namespace std;
 
 managed_shared_memory segment;
 SharedStruct* shared_struct;
+stringstream ss;
+string val_str;
 
 PLI_INT32 start_cb(p_cb_data);
 PLI_INT32 end_cb(p_cb_data);
@@ -190,42 +192,58 @@ bool get_signal_handle_cmd(){
 
 bool read_cmd(){
     
+    bool valid = true;
     s_vpi_value value_struct;
     value_struct.format = vpiBinStrVal;
     shared_struct->data.clear();
     vpi_get_value((vpiHandle)shared_struct->handle.load(), &value_struct);
     if(check_error()) return true;
     size_t valueStrLen = strlen(value_struct.value.str);
-    size_t valueByteLen = valueStrLen/8;
-    size_t bitShift = valueStrLen%8;
-
-    if(bitShift != 0) {
-        char accum_string[9] = "00000000";
-        accum_string[8] = '\0';
-        uint8_t accum = 0;
-        memcpy(accum_string+(8-bitShift),
-                value_struct.value.str,
-                bitShift);
-
-        accum = stoul(string(accum_string),
-                nullptr,
-                2);
-        shared_struct->data.push_back(accum);
+    
+    for(size_t i = 0; i < valueStrLen; i++){
+        char c = value_struct.value.str[i];
+        if ((c != '0') && (c != '1')){
+            valid = false;
+            cout << "Warning, character \"" << c 
+                 << "\" is not 0 or 1. The returned value is 0" <<endl;
+            break;
+        }
     }
+    
+    if(valid) {
+        size_t valueByteLen = valueStrLen/8;
+        size_t bitShift = valueStrLen%8;
 
-    for(size_t i = 0; i<valueByteLen; i++){
-        char accum_string[9];
-        accum_string[8] = '\0';
-        uint8_t accum = 0;
-        memcpy(accum_string,
-               value_struct.value.str+bitShift+i*8,
-               8);
+        if(bitShift != 0) {
+            char accum_string[9] = "00000000";
+            accum_string[8] = '\0';
+            uint8_t accum = 0;
+            memcpy(accum_string+(8-bitShift),
+                    value_struct.value.str,
+                    bitShift);
 
-        accum = stoul(string(accum_string),
-                nullptr,
-                2);
+            accum = stoul(string(accum_string),
+                    nullptr,
+                    2);
+            shared_struct->data.push_back(accum);
+        }
 
-        shared_struct->data.push_back(accum);
+        for(size_t i = 0; i<valueByteLen; i++){
+            char accum_string[9];
+            accum_string[8] = '\0';
+            uint8_t accum = 0;
+            memcpy(accum_string,
+                   value_struct.value.str+bitShift+i*8,
+                   8);
+
+            accum = stoul(string(accum_string),
+                    nullptr,
+                    2);
+
+            shared_struct->data.push_back(accum);
+        }
+    } else {
+        shared_struct->data.push_back(0);
     }
 
     return false;
@@ -234,14 +252,14 @@ bool read_cmd(){
 bool write_cmd(){
 
     s_vpi_value value_struct;
-    stringstream ss;
+    ss.str(std::string());
     ss << setw(8);
     ss << setfill('0');
 
     for(uint8_t& el: shared_struct->data) ss << bitset<8>(el);
 
     value_struct.format = vpiBinStrVal;
-    string val_str = ss.str();
+    val_str = ss.str();
     value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
     vpi_put_value((vpiHandle)shared_struct->handle.load(), 
                   &value_struct, 

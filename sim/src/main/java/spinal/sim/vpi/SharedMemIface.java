@@ -49,7 +49,11 @@ public class SharedMemIface {
   }
 
   public VectorInt8 read(long handle) {
-    return new VectorInt8(JNISharedMemIfaceJNI.SharedMemIface_read(swigCPtr, this, handle), true);
+    return new VectorInt8(JNISharedMemIfaceJNI.SharedMemIface_read__SWIG_0(swigCPtr, this, handle), true);
+  }
+
+  public void read(long handle, VectorInt8 data) {
+    JNISharedMemIfaceJNI.SharedMemIface_read__SWIG_1(swigCPtr, this, handle, VectorInt8.getCPtr(data), data);
   }
 
   public long read64(long handle) {
@@ -80,16 +84,12 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_eval(swigCPtr, this);
   }
 
-  public boolean error_happened() {
-    return JNISharedMemIfaceJNI.SharedMemIface_error_happened(swigCPtr, this);
-  }
-
-  public String error_string() {
-    return JNISharedMemIfaceJNI.SharedMemIface_error_string(swigCPtr, this);
-  }
-
   public void close() {
     JNISharedMemIfaceJNI.SharedMemIface_close(swigCPtr, this);
+  }
+
+  public boolean is_closed() {
+    return JNISharedMemIfaceJNI.SharedMemIface_is_closed(swigCPtr, this);
   }
 
 }
