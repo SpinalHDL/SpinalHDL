@@ -37,6 +37,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val sharedExtension = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
   val sharedMemIfaceName = "shared_mem_iface." + sharedExtension
   val sharedMemIfacePath = pluginsPath + "/" + sharedMemIfaceName
+  var runIface = 0
 
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
   CFLAGS += (if(isMac) " -dynamiclib " else "")
@@ -109,11 +110,14 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def instanciate() : (SharedMemIface, Thread) = {
     compileVPI()
     analyzeRTL()
-    val shmemKey = Seq("SpinalHDL_", 
+    val shmemKey = Seq("SpinalHDL",
+                       runIface.toString,
                        uniqueId.toString,
                        hashCode().toString, 
                        System.currentTimeMillis().toString,
                        scala.util.Random.nextLong().toString).mkString("_")
+
+    runIface += 1
 
     val sharedMemIface = new SharedMemIface(shmemKey, sharedMemSize)
     var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
