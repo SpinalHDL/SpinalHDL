@@ -7,6 +7,7 @@ import spinal.lib.bus.amba4.axi.Axi4
 
 import scala.collection.mutable
 import scala.collection.mutable.StringBuilder
+import spinal.lib.bus.amba4.axilite.AxiLite4
 
 object QSysify{
   def apply(that : Component) : Unit = {
@@ -14,6 +15,7 @@ object QSysify{
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ApbEmitter()
     tool.interfaceEmiters += new Axi4Emitter()
+    tool.interfaceEmiters += new AxiLite4Emitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
     tool.interfaceEmiters += new ResetEmitterEmitter()
     tool.interfaceEmiters += new InterruptReceiverEmitter()
@@ -567,6 +569,89 @@ class Axi4Emitter extends QSysifyInterfaceEmiter{
       if(useResp) builder ++= s"add_interface_port $name ${e.b.payload.resp.getName()} bresp ${slavePinDir} 2\n"
       if(useBUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} buser ${slavePinDir} ${bUserWidth}\n"
 
+
+      true
+      }
+    case _ => false
+  }
+}
+
+class AxiLite4Emitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data,builder : StringBuilder): Boolean = i match {
+    case e: AxiLite4 =>{
+      import e.config._
+      val isMaster = e.isMasterInterface
+      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
+      val name = e.getName()
+      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      val clockName = clockDomainTag.get.clockDomain.clock.getName()
+      val resetName = clockDomainTag.get.clockDomain.reset.getName()
+      builder ++= s"""
+|#
+|# connection point $name
+|#
+|add_interface $name axi4lite $startEnd
+|
+|set_interface_property $name associatedClock $clockName
+|set_interface_property $name associatedReset $resetName
+|
+|set_interface_property $name ENABLED true
+|set_interface_property $name EXPORT_OF ""
+|set_interface_property $name PORT_NAME_MAP ""
+|set_interface_property $name SVD_ADDRESS_GROUP ""
+""".stripMargin
+
+      if(isMaster) builder ++= s"""
+|set_interface_property $name readIssuingCapability ${readIssuingCapability}
+|set_interface_property $name writeIssuingCapability ${writeIssuingCapability}
+|set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}
+""".stripMargin
+      else builder ++= s"""
+|set_interface_property $name readAcceptanceCapability ${readIssuingCapability}
+|set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}
+|set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}
+|set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}
+""".stripMargin
+
+      // emit AR
+      builder ++= s"""
+|add_interface_port $name ${e.ar.valid.getName()} arvalid ${masterPinDir} 1
+|add_interface_port $name ${e.ar.ready.getName()} arready ${slavePinDir} 1
+|add_interface_port $name ${e.ar.payload.addr.getName()} araddr ${masterPinDir} ${addressWidth}
+|add_interface_port $name ${e.ar.payload.prot.getName()} arprot ${masterPinDir} 3
+""".stripMargin
+
+      // emit AW
+      builder ++= s"""
+|add_interface_port $name ${e.aw.valid.getName()} awvalid ${masterPinDir} 1
+|add_interface_port $name ${e.aw.ready.getName()} awready ${slavePinDir} 1
+|add_interface_port $name ${e.aw.payload.addr.getName()} awaddr ${masterPinDir} ${addressWidth}
+|add_interface_port $name ${e.aw.payload.prot.getName()} awprot ${masterPinDir} 3
+""".stripMargin
+
+      // emit R
+      builder ++= s"""
+|add_interface_port $name ${e.r.valid.getName()} rvalid ${slavePinDir} 1
+|add_interface_port $name ${e.r.ready.getName()} rready ${masterPinDir} 1
+|add_interface_port $name ${e.r.payload.data.getName()} rdata ${slavePinDir} ${dataWidth}
+|add_interface_port $name ${e.r.payload.resp.getName()} rresp ${slavePinDir} 2
+""".stripMargin
+
+      // emit W
+      builder ++= s"""
+|add_interface_port $name ${e.w.valid.getName()} wvalid ${masterPinDir} 1
+|add_interface_port $name ${e.w.ready.getName()} wready ${slavePinDir} 1
+|add_interface_port $name ${e.w.payload.data.getName()} wdata ${masterPinDir} ${dataWidth}
+|add_interface_port $name ${e.w.payload.strb.getName()} wstrb ${masterPinDir} ${dataWidth/8}
+""".stripMargin
+
+      // emit B
+      builder ++= s"""
+|add_interface_port $name ${e.b.valid.getName()} bvalid ${slavePinDir} 1
+|add_interface_port $name ${e.b.ready.getName()} bready ${masterPinDir} 1
+|add_interface_port $name ${e.b.payload.resp.getName()} bresp ${slavePinDir} 2
+""".stripMargin
 
       true
       }
