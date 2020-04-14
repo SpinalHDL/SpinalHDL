@@ -13,7 +13,8 @@ object BmbExclusiveMonitorState extends SpinalEnum{
 
 //Only LENGTH aligned access for now
 //Ensure exclusive ordering across sources by waiting on conflicts
-case class BmbExclusiveMonitor(inputParameter : BmbParameter, pendingWriteMax : Int) {
+case class BmbExclusiveMonitor(inputParameter : BmbParameter,
+                               pendingWriteMax : Int) extends Component{
   import BmbExclusiveMonitorState._
   assert(inputParameter.alignment == BmbParameter.BurstAlignement.LENGTH)
   val io = new Bundle {

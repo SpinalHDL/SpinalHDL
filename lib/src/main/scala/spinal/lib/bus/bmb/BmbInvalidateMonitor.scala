@@ -8,7 +8,7 @@ object BmbInvalidateMonitor{
 }
 
 case class BmbInvalidateMonitor(inputParameter : BmbParameter,
-                                pendingInvMax : Int) {
+                                pendingInvMax : Int) extends Component{
   val outputParameter = BmbInvalidateMonitor.outputParameter(inputParameter)
 
   val io = new Bundle {
