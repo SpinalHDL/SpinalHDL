@@ -27,6 +27,7 @@ class VpiBackendConfig {
   var CC: String             = "g++" 
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing" 
   var LDFLAGS: String        = "-lrt -lpthread " 
+  var useCache: Boolean      = false
 }
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -36,6 +37,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val sharedExtension = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
   val sharedMemIfaceName = "shared_mem_iface." + sharedExtension
   val sharedMemIfacePath = pluginsPath + "/" + sharedMemIfaceName
+  var runIface = 0
 
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
   CFLAGS += (if(isMac) " -dynamiclib " else "")
@@ -53,8 +55,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     override def buffer[T](f: => T) = f
   }
 
-  //if(!Files.exists(Paths.get(sharedMemIfacePath))) { //removed to simplify the development
-  if(true) { 
+  if(!(Files.exists(Paths.get(sharedMemIfacePath)) && useCache)) {
     List("/SharedMemIface.cpp", 
          "/SharedMemIface.hpp", 
          "/SharedMemIface_wrap.cxx", 
@@ -109,26 +110,20 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def instanciate() : (SharedMemIface, Thread) = {
     compileVPI()
     analyzeRTL()
-    val sharedMemIface = new SharedMemIface("SpinalHDL_" + uniqueId.toString, sharedMemSize)
+    val shmemKey = Seq("SpinalHDL",
+                       runIface.toString,
+                       uniqueId.toString,
+                       hashCode().toString, 
+                       System.currentTimeMillis().toString,
+                       scala.util.Random.nextLong().toString).mkString("_")
+
+    runIface += 1
+
+    val sharedMemIface = new SharedMemIface(shmemKey, sharedMemSize)
     var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
-    shmemFile.write("SpinalHDL_" + uniqueId.toString)
+    shmemFile.write(shmemKey) 
     shmemFile.close
     val thread = runSimulation()
-    println("asd")
-    for(i <- 0 until 200000000){
-      sharedMemIface.sleep(2)
-    }
-    println("xxx")
-//    sharedMemIface.eval()
-//    val a =sharedMemIface.get_signal_handle("toplevel.io_a")
-//    val b =sharedMemIface.get_signal_handle("toplevel.io_b")
-//    val c =sharedMemIface.get_signal_handle("toplevel.io_c")
-//    val comb =sharedMemIface.get_signal_handle("toplevel.io_comb")
-//    sharedMemIface.sleep(10)
-//    sharedMemIface.write32(a, 1)
-//    sharedMemIface.write32(b, 2)
-//    sharedMemIface.write32(c, 3)
-
     (sharedMemIface, thread)
   }
 }
@@ -170,8 +165,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
 
   def compileVPI() = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName
-    //if(!Files.exists(Paths.get(vpiModulePath))) { //removed to simplify the development
-    if(true) {
+    if(!(Files.exists(Paths.get(vpiModulePath)) && useCache)) {
 
       for(filename <- Array("/VpiPlugin.cpp", 
                             "/SharedStruct.hpp")) {

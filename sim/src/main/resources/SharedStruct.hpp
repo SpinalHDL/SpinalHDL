@@ -37,6 +37,7 @@ enum class ProcStatus : int8_t {
     write = 5,
     sleep = 6,
     close = 7,
+    randomize = 8,
 };
 
 class SharedStruct {
@@ -45,6 +46,7 @@ class SharedStruct {
         alloc_inst(alloc_inst_),
         proc_status(ProcStatus::init),  
         sleep_cycles(0), 
+        seed(12345),
         handle(0),
         data(alloc_inst){}
 
@@ -72,6 +74,7 @@ class SharedStruct {
     const ShmemAllocator alloc_inst;
     std::atomic<ProcStatus> proc_status;
     std::atomic<uint64_t> sleep_cycles;
+    std::atomic<uint64_t> seed;
     std::atomic<size_t> handle;
     SharedVector data; 
 };

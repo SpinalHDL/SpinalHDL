@@ -13,6 +13,7 @@
 #include<algorithm>
 #include<iterator>
 #include<type_traits>
+#include<random>
 #include<vpi_user.h>
 #include"SharedStruct.hpp"
 
@@ -165,6 +166,7 @@ bool print_signals_cmd(){
         }
 
         top_mod_handle = vpi_scan(top_mod_iterator);
+        if(check_error()) return true;
     }
 
     const string msg_str(msg_ss.str());
@@ -173,6 +175,74 @@ bool print_signals_cmd(){
     shared_struct->data.push_back('\0');
     return false;
 }
+
+bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
+    
+    vpiHandle net_iterator = vpi_iterate(vpiNet, module_handle);
+    if(check_error()) return true;
+    if(net_iterator){
+        while(vpiHandle net_handle = vpi_scan(net_iterator)) {
+            if(check_error()) return true;
+            uint32_t signal_size = vpi_get(vpiSize, net_handle);
+            if(check_error()) return true;
+            uint32_t words = signal_size/64;
+            if(signal_size%64) words++;
+            s_vpi_value value_struct;
+            ss.str(std::string());
+            ss << setw(64);
+            ss << setfill('0');
+            for(uint32_t i = 0; i < words; i++) ss << bitset<64>(mt_rand());
+            value_struct.format = vpiBinStrVal;
+            val_str = ss.str();
+            value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
+            vpi_put_value(net_handle, 
+                          &value_struct, 
+                          NULL, 
+                          vpiNoDelay);
+            if(check_error()) return true;
+        }
+    } 
+    
+    return false;
+}
+
+bool randomize_cmd(){
+        
+    vpiHandle top_mod_iterator;
+    vpiHandle top_mod_handle;
+    mt19937 mt_rand(shared_struct->seed.load());
+
+    top_mod_iterator = vpi_iterate(vpiModule,NULL);
+    if(check_error()) return true;
+    if( !top_mod_iterator ){
+        return false;
+    }
+
+    top_mod_handle = vpi_scan(top_mod_iterator);
+    if(check_error()) return true;
+    while(top_mod_handle) {
+        if(randomize_in_module(top_mod_handle, mt_rand)) return true;
+        vpiHandle module_iterator = vpi_iterate(vpiModule, top_mod_handle);
+        if(check_error()) return true;
+        if (module_iterator){
+            vpiHandle module_handle;
+            module_handle = vpi_scan(module_iterator);
+            if(check_error()) return true;
+            while (module_handle) {
+                if(randomize_in_module(module_handle, mt_rand)) return true;
+                module_handle = vpi_scan(module_iterator);
+                if(check_error()) return true;
+            }
+        }
+
+        top_mod_handle = vpi_scan(top_mod_iterator);
+        if(check_error()) return true;
+    }
+
+    return false;
+}
+
+
 
 bool get_signal_handle_cmd(){
    
@@ -306,6 +376,7 @@ PLI_INT32 rw_cb(p_cb_data){
             case ProcStatus::read : run_simulation = read_cmd(); break;
             case ProcStatus::write : run_simulation = write_cmd(); break;
             case ProcStatus::sleep : run_simulation = sleep_cmd(); break;
+            case ProcStatus::randomize : run_simulation = randomize_cmd(); break;
             case ProcStatus::close : run_simulation = close_cmd(); break;
             default : {
                         run_simulation = true; 

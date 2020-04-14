@@ -3,14 +3,13 @@ package spinal.sim
 import spinal.sim.vpi._
 import collection.JavaConverters._
 import scala.sys._
-import java.lang.Exception
 
 class VpiException(message: String) extends Exception(message)
 
 class SimVpi(backend: VpiBackend) extends SimRaw {
 
   val zeroByte = 0.toByte
-  val (nativeIface, process) = backend.instanciate()
+  val (nativeIface, thread) = backend.instanciate()
   val vectorInt8 = new VectorInt8()
 
   override def getInt(signal : Signal) = {
@@ -55,18 +54,14 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     nativeIface.eval
     false
   } 
-  
-  def shutdown_hook() : Unit = {
-    if(!nativeIface.is_closed) {
-      nativeIface.close
-    }
+
+  def randomize(seed: Long) {
+    nativeIface.randomize(seed)
   }
-  
-  val hookThread = addShutdownHook(shutdown_hook)
 
   override def end() {
     nativeIface.close
-    hookThread.remove
+    thread.join
   }
 
   def getSignalId(signal: Signal) : Long = {
@@ -75,10 +70,9 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
      signal.id = nativeIface.get_signal_handle(signal.toVPIAddress)
      signal.validId = true
      signal.id
-     }
+   }
   }
-
-
+  
   override def enableWave() {}
   override def disableWave() {}
   override def isBufferedWrite = backend.isBufferedWrite

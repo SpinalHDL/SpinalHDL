@@ -618,7 +618,7 @@ SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_new_1SharedMem
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -643,7 +643,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_delete_1SharedM
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -669,7 +669,7 @@ SWIGEXPORT jstring JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIfa
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -707,7 +707,7 @@ SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -737,7 +737,7 @@ SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -772,7 +772,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -800,7 +800,7 @@ SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -830,7 +830,7 @@ SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }
@@ -865,7 +865,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -893,7 +893,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -921,7 +921,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -947,7 +947,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -971,7 +971,33 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1randomize(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  {
+    try {
+      (arg1)->randomize(arg2);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -995,7 +1021,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
       jenv->ThrowNew(clazz, e.what());
       return ;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return ;
     }
@@ -1021,7 +1047,7 @@ SWIGEXPORT jboolean JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIf
       jenv->ThrowNew(clazz, e.what());
       return 0;
     } catch (std::exception &e) {
-      jclass clazz = jenv->FindClass("java/lang/VpiException");
+      jclass clazz = jenv->FindClass("java/lang/Exception");
       jenv->ThrowNew(clazz, e.what());
       return 0;
     }

@@ -30,6 +30,7 @@ class SpinalSimPerfTester extends FunSuite {
   test("compile") {
     compiled = SimConfig
       .allOptimisation
+      .withGhdl
       .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
   }
 
@@ -42,7 +43,7 @@ class SpinalSimPerfTester extends FunSuite {
       var model = -1
       var times = 0
       dut.clockDomain.onSamplings{
-        assert(dut.io.result.toInt == model || model == -1)
+        assert(model == -1 || dut.io.result.toInt == model)
         model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
         dut.io.a #= Random.nextInt(256)
         dut.io.b #= Random.nextInt(256)

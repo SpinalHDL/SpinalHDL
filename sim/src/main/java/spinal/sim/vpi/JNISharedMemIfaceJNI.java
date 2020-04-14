@@ -37,6 +37,7 @@ public class JNISharedMemIfaceJNI {
   public final static native void SharedMemIface_write32(long jarg1, SharedMemIface jarg1_, long jarg2, int jarg3);
   public final static native void SharedMemIface_sleep(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native void SharedMemIface_eval(long jarg1, SharedMemIface jarg1_);
+  public final static native void SharedMemIface_randomize(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native void SharedMemIface_close(long jarg1, SharedMemIface jarg1_);
   public final static native boolean SharedMemIface_is_closed(long jarg1, SharedMemIface jarg1_);
 }

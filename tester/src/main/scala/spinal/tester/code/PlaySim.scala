@@ -102,7 +102,7 @@ object PlaySimGhdl extends App{
       dut.io.b #= b
       dut.io.c #= c
       dut.clockDomain.waitActiveEdge()
-//      sleep(0) //TODO assert should fail without it.
+      sleep(0) //TODO assert should fail without it.
       assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
       idx += 1
     }
