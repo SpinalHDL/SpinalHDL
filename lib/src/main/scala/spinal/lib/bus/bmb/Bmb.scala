@@ -201,6 +201,9 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
       slave(inv)
       master(ack)
     }
+    if(p.canSync) {
+      slave(sync)
+    }
   }
 
 

@@ -72,6 +72,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     exclusiveReadCmd.address := address
     exclusiveReadCmd.length := length
     exclusiveReadCmd.context := context
+    exclusiveReadCmd.source := sourceId
     exclusiveReadCmd.last := True
 
     switch(state){
@@ -120,7 +121,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), sourceCount)
   exclusiveReadArbiter.io.inputs <> Vec(sources.map(_.exclusiveReadCmd))
 
-  val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), sourceCount)
+  val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), 2)
   cmdArbiter.io.inputs(0) << exclusiveReadArbiter.io.output
 
   val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).read(io.input.cmd.source))
@@ -144,4 +145,13 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   io.input.rsp.payload.assignSomeByName(io.output.rsp.payload)
   io.input.rsp.context.removeAssignments() := io.output.rsp.context.resized
   io.input.rsp.exclusive := io.output.rsp.context.msb
+
+  //misc
+  if(inputParameter.canInvalidate) {
+    io.input.inv <> io.output.inv
+    io.input.ack <> io.output.ack
+  }
+  if(inputParameter.canSync) {
+    io.input.sync <> io.output.sync
+  }
 }
