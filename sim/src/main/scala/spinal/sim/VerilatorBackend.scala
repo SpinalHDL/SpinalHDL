@@ -446,5 +446,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
+
+  override def isBufferedWrite: Boolean = false
 }
 

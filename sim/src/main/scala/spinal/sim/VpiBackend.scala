@@ -111,9 +111,24 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     analyzeRTL()
     val sharedMemIface = new SharedMemIface("SpinalHDL_" + uniqueId.toString, sharedMemSize)
     var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
-    shmemFile.write("SpinalHDL_" + uniqueId.toString) 
+    shmemFile.write("SpinalHDL_" + uniqueId.toString)
     shmemFile.close
     val thread = runSimulation()
+    println("asd")
+    for(i <- 0 until 200000000){
+      sharedMemIface.sleep(2)
+    }
+    println("xxx")
+//    sharedMemIface.eval()
+//    val a =sharedMemIface.get_signal_handle("toplevel.io_a")
+//    val b =sharedMemIface.get_signal_handle("toplevel.io_b")
+//    val c =sharedMemIface.get_signal_handle("toplevel.io_c")
+//    val comb =sharedMemIface.get_signal_handle("toplevel.io_comb")
+//    sharedMemIface.sleep(10)
+//    sharedMemIface.write32(a, 1)
+//    sharedMemIface.write32(b, 2)
+//    sharedMemIface.write32(c, 3)
+
     (sharedMemIface, thread)
   }
 }
@@ -223,6 +238,8 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     thread.start()
     thread
   }
+
+  override def isBufferedWrite: Boolean = true
 }
 
 object GhdlBackend {

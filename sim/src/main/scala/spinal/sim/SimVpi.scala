@@ -81,5 +81,5 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   override def enableWave() {}
   override def disableWave() {}
-  override def isBufferedWrite = false
+  override def isBufferedWrite = backend.isBufferedWrite
 }

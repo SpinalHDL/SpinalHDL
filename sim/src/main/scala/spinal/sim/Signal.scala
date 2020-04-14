@@ -14,6 +14,7 @@ abstract class DataType(){
     SimError(f"READ ERROR : $signal is to big to be read with an Long")
   def checkBigIntRange(value : BigInt, signal : Signal): Unit
   def checkLongRange(value : Long, signal : Signal) : Unit
+  def checkIntRange(value : Int, signal : Signal) : Unit
 }
 
 class BoolDataType extends DataType{
@@ -39,6 +40,7 @@ class BoolDataType extends DataType{
   }
 
   override def checkLongRange(that: Long, signal: Signal): Unit = if((that & ~1l) != 0) rangeError(that, signal)
+  override def checkIntRange(that: Int, signal: Signal): Unit = if((that & ~1) != 0) rangeError(that, signal)
 
   override def toString = "Bool"
 }
@@ -49,6 +51,7 @@ abstract class BitVectorDataType(override val width : Int) extends DataType{
 
 class BitsDataType(width : Int) extends BitVectorDataType(width) {
   val maxLongValue = if (width >= 63) Long.MaxValue else ((1l << width) - 1)
+  val maxIntValue = if (width >= 31) Long.MaxValue else ((1 << width) - 1)
 
   override def longToRaw64(that: Long, signal : Signal) = {
     if(that < 0 || that > maxLongValue) rangeError(that, signal)
@@ -70,6 +73,7 @@ class BitsDataType(width : Int) extends BitVectorDataType(width) {
   }
 
   override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < 0 || that > maxLongValue) rangeError(that, signal)
+  override def checkIntRange(that: Int, signal: Signal): Unit =  if(that < 0 || that > maxIntValue) rangeError(that, signal)
 
 
   override def toString = s"Bits[$width bits]"
@@ -77,6 +81,7 @@ class BitsDataType(width : Int) extends BitVectorDataType(width) {
 
 class UIntDataType(width : Int) extends BitVectorDataType(width){
   val maxLongValue = if(width >= 63) Long.MaxValue else ((1l << width)-1)
+  val maxIntValue = if(width >= 31) Long.MaxValue else ((1 << width)-1)
   override def longToRaw64(that: Long, signal : Signal) = {
     if(that < 0 || that > maxLongValue) rangeError(that, signal)
     that
@@ -96,12 +101,15 @@ class UIntDataType(width : Int) extends BitVectorDataType(width){
     if(value.signum == -1 || value.bitCount > width) rangeError(value, signal)
   }
   override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < 0 || that > maxLongValue) rangeError(that, signal)
+  override def checkIntRange(that: Int, signal: Signal): Unit =  if(that < 0 || that > maxIntValue) rangeError(that, signal)
 
   override def toString = s"UInt[$width bits]"
 }
 
 class SIntDataType(width : Int) extends BitVectorDataType(width){
   val maxLongValue = if(width >= 63) Long.MaxValue else ((1l << width-1)-1)
+  val maxIntValue = if(width >= 31) Long.MaxValue else ((1 << width-1)-1)
+
   override def longToRaw64(that: Long, signal : Signal) = {
     if(that < -maxLongValue-1 || that > maxLongValue) rangeError(that, signal)
     that & ((maxLongValue << 1) + 1)
@@ -121,6 +129,7 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
     if(value.bitLength + (if(value.signum == -1) 1 else 0) > width) rangeError(value, signal)
   }
   override def checkLongRange(that: Long, signal: Signal): Unit =  if(that < -maxLongValue-1 || that > maxLongValue) rangeError(that, signal)
+  override def checkIntRange(that: Int, signal: Signal): Unit =  if(that < -maxIntValue-1 || that > maxIntValue) rangeError(that, signal)
   override def toString = s"SInt[$width bits]"
 }
 

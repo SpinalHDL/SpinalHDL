@@ -39,6 +39,7 @@ object PlayDevMem{
 }
 
 object PlayDevErrorReport{
+
   class TopLevel extends Component {
     val a = in UInt(8 bits)
     val b = in UInt(10 bits)
@@ -1506,5 +1507,34 @@ object PlayDevSpinalSim3 extends App{
     println(dut.input.toInt)
     sleep(0)
     println(dut.input.toInt)
+  }
+}
+
+import spinal.core._
+import spinal.core.sim._
+
+object OutputBug {
+  def main(args: Array[String]) {
+    var dut = SimConfig
+      .compile(new Component {
+        val io = new Bundle {
+          val cond0 = in Bool
+        }
+        val counter = Reg(UInt(8 bits)) init (0)
+
+        when(io.cond0) {
+          counter := counter + 1
+        }
+      })
+
+    dut.doSim("write") { dut =>
+      SimTimeout(10000 * 10)
+      dut.clockDomain.onActiveEdges({
+        println(f"${simTime()} this is only dummy output, and a bit of it")
+      })
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.waitActiveEdge(10100)
+      assert(false)
+    }
   }
 }

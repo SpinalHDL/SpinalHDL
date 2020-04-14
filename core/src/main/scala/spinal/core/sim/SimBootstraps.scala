@@ -130,16 +130,16 @@ object SpinalVerilatorSim {
   }
 }
 
-case class SpinalGhdlBackendConfig[T <: Component](      rtl               : SpinalReport[T],
-                                                         waveFormat        : WaveFormat = WaveFormat.NONE,
-                                                         workspacePath     : String = "./",
-                                                         workspaceName     : String = null,
-                                                         vcdPath           : String = null,
-                                                         vcdPrefix         : String = null,
-                                                         waveDepth         : Int = 0,
-                                                         optimisationLevel : Int = 2,
-                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
-                                                       )
+case class SpinalGhdlBackendConfig[T <: Component](rtl               : SpinalReport[T],
+                                                   waveFormat        : WaveFormat = WaveFormat.NONE,
+                                                   workspacePath     : String = "./",
+                                                   workspaceName     : String = null,
+                                                   wavePath           : String = null,
+                                                   wavePrefix         : String = null,
+                                                   waveDepth         : Int = 0,
+                                                   optimisationLevel : Int = 2,
+                                                   simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                  )
 
 
 object SpinalGhdlBackend {
@@ -514,8 +514,8 @@ case class SpinalSimConfig(
           rtl = report,
           waveFormat = _waveFormat,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
-          vcdPath = s"${_workspacePath}/${_workspaceName}",
-          vcdPrefix = null,
+          wavePath = s"${_workspacePath}/${_workspaceName}",
+          wavePrefix = null,
           workspaceName = "verilator",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,

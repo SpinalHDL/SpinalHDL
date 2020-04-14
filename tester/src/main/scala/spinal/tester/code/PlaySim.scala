@@ -73,22 +73,26 @@ object SimSTimedCall {
 
 
 object PlaySimGhdl extends App{
-  class Dut extends Component {
+  class toplevel extends Component {
     val io = new Bundle {
       val a, b, c = in UInt (8 bits)
       val result = out UInt (8 bits)
+      val comb   = out UInt (8 bits)
     }
-    io.result := RegNext(io.a + io.b - io.c) init(0)
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+    io.comb := RegNext(io.a + io.b - io.c) init (0)
+//    io.comb := io.a + io.b + io.c
   }
 
-  SimConfig.withGhdl.withWave.doSim(new Dut, "choubaka") { dut =>
+  SimConfig.withGhdl.withWave.doSim(new toplevel, "choubaka") { dut =>
 
-    dut.io.c #= 42
-    sleep(100)
-    for(i <- 0 until 20) sleep(0)
+//    dut.io.c #= 42
+//    sleep(100)
+//    for(i <- 0 until 20) sleep(0)
     sleep(1)
 
     dut.clockDomain.forkStimulus(period = 10)
+    dut.clockDomain.forkSimSpeedPrinter(0.2)
 
 
     var idx = 0
@@ -98,11 +102,106 @@ object PlaySimGhdl extends App{
       dut.io.b #= b
       dut.io.c #= c
       dut.clockDomain.waitActiveEdge()
-      sleep(0) //TODO assert should fail without it.
+//      sleep(0) //TODO assert should fail without it.
       assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
       idx += 1
     }
 
+
+
     sleep(1000)
   }
+}
+
+object PlaySimGhdl2 extends App{
+  class toplevel extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+      val comb   = out UInt (8 bits)
+    }
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+    io.comb := io.a + io.b + io.c
+  }
+
+  SimConfig.withWave.withGhdl.doSim(new toplevel){ dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+    dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+
+    var model = -1
+    var times = 0
+    dut.clockDomain.onSamplings{
+//      println(simTime())
+//      if(times > 10) {
+//        simFailure("Rawr at ")
+        assert(dut.io.result.toInt == model || model == -1)
+        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+//      }
+      dut.io.a #= Random.nextInt(256)
+      dut.io.b #= Random.nextInt(256)
+      dut.io.c #= Random.nextInt(256)
+      times += 1
+    }
+
+
+//    sleep(1000)
+    for(repeat <- 0 until 4) {
+      val startAt = System.nanoTime
+      waitUntil(times == 2000000)
+      times = 0
+      val endAt = System.nanoTime
+      System.out.println((endAt - startAt) * 1e-6 + " ms")
+    }
+  }
+}
+
+
+
+object PlaySimGhdl3 extends App{
+  class toplevel extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+      val comb   = out UInt (8 bits)
+    }
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+    io.comb := io.a + io.b + io.c
+  }
+  val compiled = SimConfig.withWave.withGhdl.compile(new toplevel)
+  def tb(){
+    compiled.doSim { dut =>
+      dut.clockDomain.forkStimulus(period = 10)
+      dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+
+      var model = -1
+      var times = 0
+      dut.clockDomain.onSamplings {
+        //      println(simTime())
+        //      if(times > 10) {
+        //        simFailure("Rawr at ")
+        assert(dut.io.result.toInt == model || model == -1)
+        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+        //      }
+        dut.io.a #= Random.nextInt(256)
+        dut.io.b #= Random.nextInt(256)
+        dut.io.c #= Random.nextInt(256)
+        times += 1
+      }
+
+
+      //    sleep(1000)
+      for (repeat <- 0 until 4) {
+        val startAt = System.nanoTime
+        waitUntil(times == 2000)
+        times = 0
+        val endAt = System.nanoTime
+        System.out.println((endAt - startAt) * 1e-6 + " ms")
+      }
+    }
+  }
+
+  tb()
+  tb()
 }

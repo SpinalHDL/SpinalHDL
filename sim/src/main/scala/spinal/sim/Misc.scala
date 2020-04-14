@@ -35,6 +35,7 @@ class WaveFormat(val ext : String = "???")
 
 trait Backend{
   val uniqueId       = Backend.allocateUniqueId()
+  def isBufferedWrite : Boolean
 }
 
 object Backend{

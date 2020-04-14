@@ -94,7 +94,7 @@ void entry_point_cb() {
     if(check_error()) return;
     register_cb(end_cb, cbEndOfSimulation, -1);
     if(check_error()) return;
-    register_cb(delay_ro_cb, cbReadWriteSynch, 0);
+    register_cb(delay_ro_cb, cbAfterDelay, 0);
     if(check_error()) return;
 }
 
