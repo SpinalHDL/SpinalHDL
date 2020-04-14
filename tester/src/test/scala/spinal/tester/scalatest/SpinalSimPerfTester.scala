@@ -30,7 +30,7 @@ class SpinalSimPerfTester extends FunSuite {
   test("compile") {
     compiled = SimConfig
       .allOptimisation
-      .withGhdl
+//      .withGhdl
       .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
   }
 
