@@ -232,7 +232,7 @@ class SimManager(val raw : SimRaw) {
 
       //TODO
 
-      if(raw.isInstanceOf[SimVerilator] && raw.eval()){
+      if(raw.eval()){
         throw new SimFailure("RTL assertion failure")
       }
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
