@@ -23,6 +23,8 @@ package spinal.core
 import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
+import scala.collection.generic.Shrinkable
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -193,7 +195,31 @@ package object sim {
   }
 
 
-  /**
+  implicit class SimSeqPimper[T](pimped: Seq[T]){
+    def randomPick(): T = pimped(Random.nextInt(pimped.length))
+    def randomPickWithIndex(): (T, Int) = {
+      val index = Random.nextInt(pimped.length)
+      (pimped(index), index)
+    }
+  }
+
+  implicit class SimArrayBufferPimper[T](pimped: ArrayBuffer[T]){
+    def randomPop() : T = {
+      val index = Random.nextInt(pimped.length)
+      val ret = pimped(index)
+      pimped(index) = pimped.last
+      pimped.reduceToSize(pimped.length-1)
+      ret
+    }
+    def pop() : T = {
+      val index = 0
+      val ret = pimped(index)
+      pimped(index) = pimped.last
+      pimped.reduceToSize(pimped.length-1)
+      ret
+    }
+  }
+    /**
     * Add implicit function to Data
     */
   implicit class SimDataPimper[T <: Data](bt: T) {
