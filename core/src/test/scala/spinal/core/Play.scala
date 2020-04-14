@@ -60,7 +60,7 @@ import spinal.idslplugin.{PostInitCallback, ValCallback}
 //  val x = 443335252
 //}
 //class Base
-class Toplevel {
+class Toplevel extends Component {
   val io = new Bundle{
 
 
