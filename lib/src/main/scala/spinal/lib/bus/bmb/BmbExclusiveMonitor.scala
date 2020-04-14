@@ -32,7 +32,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     val busy = RegInit(False) clearWhen(done) setWhen(start)
   }
 
-  val exclusiveReadCancel = False
+  val exclusiveWriteCancel = False
   val sources = for(sourceId <- 0 until sourceCount) yield new Area{
     val valid = RegInit(False) //Validity of the reservation for the given source
     val exclusiveWritePending = RegInit(False)  //While a exclusive write is ongoing, this is used to block all conflicting writes to ensure atomicity
@@ -42,23 +42,26 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     val context = Reg(Bits(inputParameter.contextWidth bits))
     val addressHit = address >> inputParameter.lengthWidth === io.input.cmd.address >> inputParameter.lengthWidth
     val sourceHit = io.input.cmd.source === sourceId
-    val haltSource = state =/= IDLE || exclusiveWritePending
+    val haltSource = state =/= IDLE
 
-    exclusiveReadCancel setWhen(exclusiveWritePending && addressHit)
 
     when(io.output.rsp.fire && io.output.rsp.source === sourceId && io.output.rsp.context.msb){
       exclusiveWritePending := False
     }
 
-    when(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive && sourceHit){
-      valid := !exclusiveReadCancel
-      address := io.input.cmd.address
-      length := io.input.cmd.length
-      context := io.input.cmd.context
-      state := FENCE_START
+    when(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive){
+      when(sourceHit && !haltSource) {
+        valid := True
+        address := io.input.cmd.address
+        length := io.input.cmd.length
+        context := io.input.cmd.context
+        state := FENCE_START
+      }
     }
     when(addressHit && io.input.cmd.lastFire && io.input.cmd.isWrite){
-      valid := False
+      when(!exclusiveWriteCancel){
+        valid := False
+      }
       when(sourceHit){
         exclusiveWritePending := True
       }
@@ -98,8 +101,8 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     val tracker = new Area{
       val cmdCounter, rspCounter = Reg(UInt(log2Up(pendingWriteMax) + 1 bits)) init(0)
       val full = cmdCounter.msb =/= rspCounter.msb && cmdCounter.trim(1) === rspCounter.trim(1)
-      when(io.input.cmd.firstFire){ cmdCounter := cmdCounter + 1 }
-      when(io.input.rsp.firstFire){ rspCounter := rspCounter + 1 }
+      when(io.output.cmd.firstFire &&  io.output.cmd.source === sourceId){ cmdCounter := cmdCounter + 1 }
+      when(io.output.rsp.firstFire &&  io.output.rsp.source === sourceId){ rspCounter := rspCounter + 1 }
 
 
       val target = Reg(UInt(log2Up(pendingWriteMax) + 1 bits))
@@ -124,7 +127,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), 2)
   cmdArbiter.io.inputs(0) << exclusiveReadArbiter.io.output
 
-  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).read(io.input.cmd.source))
+  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).read(io.input.cmd.source)).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
   cmdArbiter.io.inputs(1).arbitrationFrom(inputCmdHalted)
   cmdArbiter.io.inputs(1).payload.assignSomeByName(inputCmdHalted.payload)
 
@@ -138,6 +141,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   io.output.cmd.mask := io.input.cmd.mask
   when(io.input.cmd.exclusive && !exclusiveSuccess){
     io.output.cmd.mask := 0
+    exclusiveWriteCancel := True
   }
 
   //rsp
