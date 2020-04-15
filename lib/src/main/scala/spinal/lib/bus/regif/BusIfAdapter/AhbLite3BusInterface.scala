@@ -21,18 +21,18 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, readSync: B
     readData  := 0
   }
 
-  val askWrite    = bus.HSEL & bus.HTRANS === 2 & bus.HWRITE
-  val askRead     = bus.HSEL & bus.HTRANS === 2 & !bus.HWRITE
-  val doWrite     = bus.HSEL & bus.HTRANS === 2 & bus.HWRITE & bus.HREADY
-  val doRead      = bus.HSEL & bus.HTRANS === 2 & !bus.HWRITE & bus.HREADY
+  val askWrite    = bus.HSEL & bus.HTRANS(1) === True &  bus.HWRITE
+  val askRead     = bus.HSEL & bus.HTRANS(1) === True & !bus.HWRITE
+  val doWrite     = bus.HREADY & RegNext(askWrite, False)
+  val doRead      = bus.HREADY & askRead
 
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
   bus.HREADYOUT := True
   bus.HRESP     := False
   bus.HRDATA    := 0
 
-  def readAddress():UInt   =  bus.HADDR
-  def writeAddress(): UInt = bus.HADDR
+  def readAddress():UInt   = bus.HADDR
+  def writeAddress(): UInt = addressDelay
 
   def readHalt(): Unit  = bus.HREADY === False
   def writeHalt(): Unit = bus.HREADY === False
