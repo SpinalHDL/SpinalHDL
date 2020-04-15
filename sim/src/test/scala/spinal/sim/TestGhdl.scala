@@ -369,3 +369,49 @@ object TestGhdl13 extends App {
   ghdlbackend.close
   println("Finished TestGhdl13")
 }
+
+object TestGhdl14 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val backendFactory = new GhdlBackend(config)
+  var (ghdlbackend, _) = backendFactory.instanciate
+  var nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  var nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  var sum = ghdlbackend.get_signal_handle("adder.sum")
+  ghdlbackend.write32(nibble1, 3)
+  ghdlbackend.write32(nibble2, 5)
+  ghdlbackend.eval
+  println("3 + 5 = " + ghdlbackend.read32(sum).toString)
+  ghdlbackend.close
+
+  config.wavePath = "test2.vcd"
+  val (ghdlbackend2, _) = backendFactory.instanciate
+  nibble1 = ghdlbackend2.get_signal_handle("adder.nibble1")
+  nibble2 = ghdlbackend2.get_signal_handle("adder.nibble2")
+  sum = ghdlbackend2.get_signal_handle("adder.sum")
+  ghdlbackend2.write32(nibble1, 3)
+  ghdlbackend2.write32(nibble2, 5)
+  ghdlbackend2.eval
+  println("3 + 5 = " + ghdlbackend2.read32(sum).toString)
+  ghdlbackend2.close
+
+  config.wavePath = "test3.vcd"
+  val (ghdlbackend3, _) = backendFactory.instanciate
+  nibble1 = ghdlbackend3.get_signal_handle("adder.nibble1")
+  nibble2 = ghdlbackend3.get_signal_handle("adder.nibble2")
+  sum = ghdlbackend3.get_signal_handle("adder.sum")
+  ghdlbackend3.write32(nibble1, 3)
+  ghdlbackend3.write32(nibble2, 5)
+  ghdlbackend3.eval
+  println("3 + 5 = " + ghdlbackend3.read32(sum).toString)
+  ghdlbackend3.close
+
+  println("Finished TestGhdl14")
+}

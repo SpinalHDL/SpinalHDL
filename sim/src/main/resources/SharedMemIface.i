@@ -44,6 +44,7 @@ public:
     void eval();
     void randomize(int64_t seed);
     void close();
+    void check_ready();
     bool is_closed();
 };
 

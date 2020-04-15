@@ -1030,6 +1030,30 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
 }
 
 
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1check_1ready(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  {
+    try {
+      (arg1)->check_ready();
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
 SWIGEXPORT jboolean JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1is_1closed(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_) {
   jboolean jresult = 0 ;
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;

@@ -88,6 +88,7 @@ void entry_point_cb() {
     ifstream shmem_file(SHMEM_FILENAME);
     string shmem_name;
     getline(shmem_file, shmem_name);
+    cout << "Shared memory key : " << shmem_name << endl;
     segment = managed_shared_memory(open_only, shmem_name.c_str());
     auto ret_struct = segment.find<SharedStruct>("SharedStruct");
     shared_struct = ret_struct.first; 

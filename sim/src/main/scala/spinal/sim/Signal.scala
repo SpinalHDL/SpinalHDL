@@ -134,10 +134,10 @@ class SIntDataType(width : Int) extends BitVectorDataType(width){
 }
 
 class Signal(val path : Seq[String],val dataType : DataType) {
-  var id : Long = -1
-  var validId = false
+  var id : Int = -1
   override def toString = s"${path.mkString("/")} : $dataType"
-  def toVPIAddress = path.mkString(".")
+  def toVpiAddress = path.mkString(".")
+  val hash = toVpiAddress.hashCode()
 }
 
 

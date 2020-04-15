@@ -92,6 +92,10 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_close(swigCPtr, this);
   }
 
+  public void check_ready() {
+    JNISharedMemIfaceJNI.SharedMemIface_check_ready(swigCPtr, this);
+  }
+
   public boolean is_closed() {
     return JNISharedMemIfaceJNI.SharedMemIface_is_closed(swigCPtr, this);
   }

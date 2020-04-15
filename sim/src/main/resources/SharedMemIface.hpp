@@ -23,10 +23,10 @@ class SharedMemIface {
     void randomize(int64_t seed);
     void close();
     bool is_closed(){ return this->closed; };
+    void check_ready();
     virtual ~SharedMemIface();
 
     private:
-    void check_ready();
     bool closed;
     managed_shared_memory segment;
     SharedStruct* shared_struct; 
