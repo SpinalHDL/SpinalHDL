@@ -7,6 +7,9 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
 import java.lang.RuntimeException
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 object TestGhdl1 extends App{
   val config = new GhdlBackendConfig()
@@ -414,4 +417,41 @@ object TestGhdl14 extends App{
   ghdlbackend3.close
 
   println("Finished TestGhdl14")
+}
+
+object TestGhdl15 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test.vcd"
+  config.waveFormat = WaveFormat.VCD
+  config.useCache = true
+
+  val backendFactory = new GhdlBackend(config)
+ 
+  val runningSims = (0 to 7).map { i =>
+    Future {
+      val (ghdlbackend, _) = backendFactory.instanciate()
+      val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+      val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+      val sum = ghdlbackend.get_signal_handle("adder.sum")
+      ghdlbackend.write32(nibble1, i)
+      ghdlbackend.write32(nibble2, i+1)
+      ghdlbackend.eval
+      val ret = Seq(i.toString, 
+                "+", 
+                (i+1).toString,
+                "=",
+                ghdlbackend.read32(sum).toString).mkString(" ")
+      ghdlbackend.close
+      ret
+    }
+  }.toArray
+
+
+  runningSims.foreach { res => println(Await.result(res, Duration.Inf))}
+  println("Finished TestGhdl15")
 }
