@@ -45,6 +45,7 @@ public:
     void randomize(int64_t seed);
     void close();
     void check_ready();
+    void set_crashed(int64_t ret_code_);
     bool is_closed();
 };
 

@@ -96,6 +96,10 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_check_ready(swigCPtr, this);
   }
 
+  public void set_crashed(long ret_code_) {
+    JNISharedMemIfaceJNI.SharedMemIface_set_crashed(swigCPtr, this, ret_code_);
+  }
+
   public boolean is_closed() {
     return JNISharedMemIfaceJNI.SharedMemIface_is_closed(swigCPtr, this);
   }

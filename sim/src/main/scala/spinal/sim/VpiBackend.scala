@@ -15,20 +15,20 @@ import spinal.sim.vpi._
 
 case class VpiBackendConfig(
   val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
-  var toplevelName: String     = null,
-  var pluginsPath: String      = "simulation_plugins",
-  var workspacePath: String    = null,
-  var workspaceName: String    = null,
-  var wavePath: String         = null,
-  var waveFormat: WaveFormat   = WaveFormat.NONE,
-  var analyzeFlags: String     = "",
-  var runFlags: String         = "",
-  var sharedMemSize: Int       = 65536,
-  var CC: String               = "g++",
-  var CFLAGS: String           = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
-  var LDFLAGS: String          = "-lrt -lpthread ", 
-  var useCache: Boolean        = false,
-  var logGhdlProcess: Boolean  = false
+  var toplevelName: String   = null,
+  var pluginsPath: String    = "simulation_plugins",
+  var workspacePath: String  = null,
+  var workspaceName: String  = null,
+  var wavePath: String       = null,
+  var waveFormat: WaveFormat = WaveFormat.NONE,
+  var analyzeFlags: String   = "",
+  var runFlags: String       = "",
+  var sharedMemSize: Int     = 65536,
+  var CC: String             = "g++",
+  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
+  var LDFLAGS: String        = "-lrt -lpthread ", 
+  var useCache: Boolean      = false,
+  var logSimProcess: Boolean = false
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -47,7 +47,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   var CFLAGS          = config.CFLAGS
   var LDFLAGS         = config.LDFLAGS
   val useCache        = config.useCache              
-  val logGhdlProcess  = config.logGhdlProcess
+  val logSimProcess   = config.logSimProcess
 
   val sharedExtension = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
   val sharedMemIfaceName = "shared_mem_iface." + sharedExtension
@@ -65,8 +65,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   else "linux"))}"
 
   class Logger extends ProcessLogger { 
-    override def err(s: => String): Unit = { if(logGhdlProcess) println(s) }
-    override def out(s: => String): Unit = { if(logGhdlProcess) println(s) }
+    override def err(s: => String): Unit = { if(logSimProcess) println(s) }
+    override def out(s: => String): Unit = { if(logSimProcess) println(s) }
     override def buffer[T](f: => T) = f
   }
 
@@ -126,7 +126,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   def compileVPI()  // Return the plugin name
   def analyzeRTL()
-  def runSimulation() : Thread
+  def runSimulation(sharedMemIface: SharedMemIface) : Thread
   def instanciate() : (SharedMemIface, Thread) = {
     VpiBackend.synchronized {     
         delayed_compilation
@@ -144,7 +144,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
       shmemFile.write(shmemKey) 
       shmemFile.close
-      val thread = runSimulation()
+      val thread = runSimulation(sharedMemIface)
       sharedMemIface.check_ready
       (sharedMemIface, thread)
     }
@@ -243,18 +243,21 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     s"Elaboration of $toplevelName failed")
   }
 
-  def runSimulation() : Thread = {
+  def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
     val vpiModulePath = pluginsPath + "/" + vpiModuleName
     val thread = new Thread(new Runnable {
+      val iface = sharedMemIface
       def run(): Unit = {
-        assert(Process(Seq(ghdlPath,
-          "-r",
-          elaborationFlags,
-          toplevelName,
-          s"--vpi=${pwd + "/" + vpiModulePath}",
-          runFlags).mkString(" "), 
-        new File(workspacePath)).! (new Logger()) == 0,
-      s"Simulation of $toplevelName failed")
+        val retCode = Process(Seq(ghdlPath,
+                      "-r",
+                      elaborationFlags,
+                      toplevelName,
+                      s"--vpi=${pwd + "/" + vpiModulePath}",
+                      runFlags).mkString(" "), 
+                      new File(workspacePath)).! (new Logger())
+                      
+        if (retCode != 0) iface.set_crashed(retCode)
+        assert(retCode == 0, s"Simulation of $toplevelName failed")
       }
     }
     )

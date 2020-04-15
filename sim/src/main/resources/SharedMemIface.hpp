@@ -2,6 +2,7 @@
 #include"SharedStruct.hpp"
 #include<string>
 #include<vector>
+#include<atomic>
 
 using namespace std;
 
@@ -24,6 +25,7 @@ class SharedMemIface {
     void close();
     bool is_closed(){ return this->closed; };
     void check_ready();
+    void set_crashed(int64_t ret_code_){ this->ret_code.store(ret_code_); };
     virtual ~SharedMemIface();
 
     private:
@@ -32,6 +34,7 @@ class SharedMemIface {
     SharedStruct* shared_struct; 
     string shmem_name;
     size_t shmem_size;
+    std::atomic<int64_t> ret_code;
     std::vector<int8_t> data_buffer;
     std::string error_string;
 };
