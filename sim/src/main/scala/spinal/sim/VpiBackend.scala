@@ -72,7 +72,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
   val pwd = new File(".").getAbsolutePath().mkString
 
-  VpiBackend.synchronized {
+  lazy val delayed_compilation: Unit = {
     if(!(Files.exists(Paths.get(sharedMemIfacePath)) && useCache)) {
       List("/SharedMemIface.cpp", 
         "/SharedMemIface.hpp", 
@@ -115,6 +115,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     }
 
     System.load(pwd + "/" + sharedMemIfacePath)
+    compileVPI()
+    analyzeRTL() 
   }
  
   def clean() {
@@ -126,9 +128,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def analyzeRTL()
   def runSimulation() : Thread
   def instanciate() : (SharedMemIface, Thread) = {
-    VpiBackend.synchronized {  
-        compileVPI()
-        analyzeRTL()      
+    VpiBackend.synchronized {     
+        delayed_compilation
         val shmemKey = Seq("SpinalHDL",
                            runIface.toString,
                            uniqueId.toString,
@@ -240,7 +241,6 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
         toplevelName).mkString(" "), 
       new File(workspacePath)).! (new Logger()) == 0,
     s"Elaboration of $toplevelName failed")
-
   }
 
   def runSimulation() : Thread = {
