@@ -138,6 +138,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
   }
 
   def transferBeatCountMinusOne : UInt = {
@@ -168,6 +169,7 @@ case class BmbRsp(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare(), allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = false,  allowDownSize = true, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
   }
 }
 
@@ -176,14 +178,29 @@ case class BmbInv(p: BmbParameter) extends Bundle{
   val address = UInt(p.addressWidth bits)
   val length = UInt(p.invalidateLength bits)
   val source = UInt(p.sourceWidth bits)
+
+  def weakAssignFrom(m : BmbInv): Unit ={
+    def s = this
+    WeakConnector(m, s, m.source , s.source , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.length , s.length , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.all    , s.all    , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+  }
 }
 
 case class BmbAck(p: BmbParameter) extends Bundle{
+  def weakAssignFrom(m : BmbAck): Unit ={
 
+  }
 }
 
 case class BmbSync(p: BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
+
+  def weakAssignFrom(m : BmbSync): Unit ={
+    def s = this
+    WeakConnector(m, s, m.source , s.source , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+  }
 }
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
@@ -217,6 +234,17 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
 
     s.cmd.weakAssignFrom(m.cmd)
     m.rsp.weakAssignFrom(s.rsp)
+
+    if(p.canInvalidate){
+      m.inv.arbitrationFrom(s.inv)
+      s.ack.arbitrationFrom(m.ack)
+      m.inv.weakAssignFrom(s.inv)
+      s.ack.weakAssignFrom(m.ack)
+    }
+    if(p.canSync){
+      m.sync.arbitrationFrom(s.sync)
+      m.sync.weakAssignFrom(s.sync)
+    }
   }
   def >>(s : Bmb) : Unit = s << this
 

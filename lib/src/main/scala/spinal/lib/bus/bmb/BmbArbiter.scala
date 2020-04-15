@@ -27,10 +27,6 @@ case class BmbArbiter(p : BmbParameter,
 
   val bypass = (portCount == 1) generate new Area{
     io.output << io.inputs(0)
-    if(p.canInvalidate){
-      io.inputs(0).inv << io.output.inv
-      io.inputs(0).ack >> io.output.ack
-    }
   }
 
   val memory = (portCount > 1) generate new Area {
@@ -70,7 +66,7 @@ case class BmbArbiter(p : BmbParameter,
     val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsWithInv(inputId)) yield (io.inputs(inputId), inputId)).unzip
 
     val invCounter = CounterUpDown(
-      stateCount = log2Up(pendingInvMax) + 1,
+      stateCount = log2Up(pendingInvMax) << 1,
       incWhen    = io.output.inv.fire,
       decWhen    = io.output.ack.fire
     )
@@ -79,7 +75,7 @@ case class BmbArbiter(p : BmbParameter,
     val forks = StreamFork(io.output.inv.haltWhen(haltInv), inputs.size)
     val logics = for((input, inputId) <- (inputs, inputsIndex).zipped) yield new Area{
       val ackCounter = CounterUpDown(
-        stateCount = log2Up(pendingInvMax) + 1,
+        stateCount = log2Up(pendingInvMax) << 1,
         incWhen    = input.ack.fire,
         decWhen    = io.output.ack.fire
       )
@@ -88,18 +84,20 @@ case class BmbArbiter(p : BmbParameter,
       input.inv.length := forks(inputId).length
       input.inv.source := forks(inputId).source(sourceInputRange)
       input.inv.all := io.output.inv.all || io.output.inv.source(sourceRouteRange) =/= inputId
+
+      input.ack.ready := True
     }
 
     io.output.ack.valid := logics.map(_.ackCounter =/= 0).toSeq.andR
   }
 
-  val sync = p.canSync generate new Area{
+  val sync = (portCount > 1 && p.canSync) generate new Area{
     assert(inputsWithSync != null)
 
     val syncSel = io.output.sync.source(sourceRouteRange)
     for((input, index) <- io.inputs.zipWithIndex){
       input.sync.valid := io.output.sync.valid && syncSel === index
-      input.sync.source := io.output.sync.source
+      input.sync.source := io.output.sync.source.resized
     }
     io.output.sync.ready := io.inputs(syncSel).sync.ready
   }
