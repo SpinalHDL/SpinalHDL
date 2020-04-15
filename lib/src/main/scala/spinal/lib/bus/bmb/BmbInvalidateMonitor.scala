@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 object BmbInvalidateMonitor{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(canInvalidate = false, contextWidth = inputParameter.contextWidth + inputParameter.addressWidth + inputParameter.lengthWidth)
+  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(canInvalidate = false, canSync = false, contextWidth = 1 + inputParameter.contextWidth + inputParameter.addressWidth + inputParameter.lengthWidth)
 }
 
 case class BmbInvalidateMonitor(inputParameter : BmbParameter,
@@ -49,7 +49,7 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter,
     io.input.inv.source := rspToInvFiltred.source
     io.input.inv.all    := False
 
-    val rspToSyncFiltred = rspToInv.translateWith(rspToInv.source).takeWhen(rspContext.write)
+    val rspToSyncFiltred = rspToSync.translateWith(rspToInv.source).takeWhen(rspContext.write)
   }
 
 

@@ -17,9 +17,10 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
                                pendingWriteMax : Int) extends Component{
   import BmbExclusiveMonitorState._
   assert(inputParameter.alignment == BmbParameter.BurstAlignement.LENGTH)
+  val outputParameter = BmbExclusiveMonitor.outputParameter(inputParameter)
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
-    val output = master(Bmb(BmbExclusiveMonitor.outputParameter(inputParameter)))
+    val output = master(Bmb(outputParameter))
   }
 
   val sourceCount = 1 << inputParameter.sourceWidth
