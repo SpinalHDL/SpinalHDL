@@ -1,118 +1,93 @@
 package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
-import spinal.core._
 import spinal.core.sim.SimConfig
-import spinal.lib.bus.bmb.{BmbAligner, BmbDownSizerBridge, BmbParameter}
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
+import spinal.lib.bus.bmb.{BmbAlignedSpliter, BmbParameter}
 
-class SpinalSimBmbAlignerTester extends FunSuite {
+class SpinalSimBmbLengthSpliterTester extends FunSuite {
   for(w <- List(false, true); r <- List(false, true);   if w || r) {
-    val header = "_" + (if(w) "w" else "") + (if(r) "r" else "")
-    test("BmbAligner_bypass" + header) {
+    val header = "_" + (if (w) "w" else "") + (if (r) "r" else "")
+    test("bypass" + header) {
       SimConfig.compile {
-        val c = BmbAligner(
+        val c = BmbAlignedSpliter(
           ip = BmbParameter(
             addressWidth = 16,
             dataWidth = 32,
             lengthWidth = 6,
             sourceWidth = 4,
             contextWidth = 3,
+            alignmentMin = 0,
             canRead = r,
             canWrite = w,
             alignment = BmbParameter.BurstAlignement.WORD
           ),
-          alignmentWidth = 2
+          lengthMax = 4
         )
-        c.rework {
-          RegNext(True) init (False) setName ("dummy")
-        }
         c
       }.doSimUntilVoid("test") { dut =>
         new BmbBridgeTester(
           master = dut.io.input,
           masterCd = dut.clockDomain,
           slave = dut.io.output,
-          slaveCd = dut.clockDomain
+          slaveCd = dut.clockDomain,
+          alignmentMinWidth = dut.ip.alignmentMin
         )
       }
     }
 
-    test("BmbAligner_4" + header) {
+    test("8" + header) {
       SimConfig.compile {
-        BmbAligner(
+        val c = BmbAlignedSpliter(
           ip = BmbParameter(
             addressWidth = 16,
             dataWidth = 32,
             lengthWidth = 6,
             sourceWidth = 4,
-            contextWidth = 3,
+            contextWidth = 8,
+            alignmentMin = 0,
             canRead = r,
             canWrite = w,
             alignment = BmbParameter.BurstAlignement.WORD
           ),
-          alignmentWidth = 4
+          lengthMax = 8
         )
-      }.doSimUntilVoid("test") { dut =>
-        new BmbBridgeTester(
-          master = dut.io.input,
-          masterCd = dut.clockDomain,
-          slave = dut.io.output,
-          slaveCd = dut.clockDomain
-        )
-      }
-    }
-
-    test("BmbAligner_3" + header) {
-      SimConfig.compile {
-        BmbAligner(
-          ip = BmbParameter(
-            addressWidth = 16,
-            dataWidth = 32,
-            lengthWidth = 6,
-            sourceWidth = 4,
-            contextWidth = 3,
-            canRead = r,
-            canWrite = w,
-            alignment = BmbParameter.BurstAlignement.WORD
-          ),
-          alignmentWidth = 3
-        )
-      }.doSimUntilVoid("test") { dut =>
-        new BmbBridgeTester(
-          master = dut.io.input,
-          masterCd = dut.clockDomain,
-          slave = dut.io.output,
-          slaveCd = dut.clockDomain
-        )
-      }
-    }
-
-    test("BmbAligner_1" + header) {
-      SimConfig.compile {
-        val c = BmbAligner(
-          ip = BmbParameter(
-            addressWidth = 16,
-            dataWidth = 32,
-            lengthWidth = 6,
-            sourceWidth = 4,
-            contextWidth = 3,
-            canRead = r,
-            canWrite = w,
-            alignment = BmbParameter.BurstAlignement.WORD
-          ),
-          alignmentWidth = 1
-        )
-        c.rework {
-          RegNext(True) init (False) setName ("dummy")
-        }
         c
       }.doSimUntilVoid("test") { dut =>
         new BmbBridgeTester(
           master = dut.io.input,
           masterCd = dut.clockDomain,
           slave = dut.io.output,
-          slaveCd = dut.clockDomain
+          slaveCd = dut.clockDomain,
+          alignmentMinWidth = dut.ip.alignmentMin
+        )
+      }
+    }
+
+    test("16" + header) {
+      SimConfig.compile {
+        val c = BmbAlignedSpliter(
+          ip = BmbParameter(
+            addressWidth = 16,
+            dataWidth = 32,
+            lengthWidth = 6,
+            sourceWidth = 4,
+            contextWidth = 8,
+            alignmentMin = 0,
+            canRead = r,
+            canWrite = w,
+            alignment = BmbParameter.BurstAlignement.WORD
+          ),
+          lengthMax = 16
+        )
+        c
+      }.doSimUntilVoid("test") { dut =>
+        new BmbBridgeTester(
+          master = dut.io.input,
+          masterCd = dut.clockDomain,
+          slave = dut.io.output,
+          slaveCd = dut.clockDomain,
+          alignmentMinWidth = dut.ip.alignmentMin
         )
       }
     }

@@ -71,7 +71,7 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.last) " " else ","
+      val comma      = if(baseType == component.getOrdredNodeIo.last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -226,7 +226,7 @@ class ComponentEmitterVerilog(
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#( \n"
+          logics ++= s"#(\n"
           for (e <- genericFlat) {
             e match {
               case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
@@ -266,7 +266,7 @@ class ComponentEmitterVerilog(
 //        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
 //      }
 
-      logics ++= s"${child.getName()} ( \n"
+      logics ++= s"${child.getName()} (\n"
 
       val instports: String = child.getOrdredNodeIo.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
