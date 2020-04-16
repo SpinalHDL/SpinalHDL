@@ -10,6 +10,8 @@ import scala.collection.mutable
 import scala.util.Random
 import spinal.lib.bus.misc.SizeMapping
 
+import scala.collection.mutable.ArrayBuffer
+
 
 class BmbMemoryAgent(val memorySize : BigInt) {
 //  val memory = new Array[Byte](memorySize.toInt)
@@ -20,10 +22,14 @@ class BmbMemoryAgent(val memorySize : BigInt) {
   def getByte(address : Long) = memory.read(address)
   def setByte(address : Long, value : Byte) = memory.write(address, value)
 
-  def addPort(bus : Bmb, busAddress : Long, clockDomain : ClockDomain, withDriver : Boolean) = {
+  def addPort(bus : Bmb, busAddress : Long, clockDomain : ClockDomain, withDriver : Boolean, withStall : Boolean = true) = {
     var cmdBeat = 0
+    var writeFragments = ArrayBuffer[() => Unit]() //Allow to apply write data on their rsp (out of oder)
 
-    if(withDriver) StreamReadyRandomizer(bus.cmd, clockDomain)
+    if(withDriver) {
+      bus.cmd.ready #= true
+      if(withStall)StreamReadyRandomizer(bus.cmd, clockDomain)
+    }
 
     val rspQueue =  Array.fill(1 << bus.p.sourceWidth)(mutable.Queue[mutable.Queue[() => Unit]]())
     var rspActive =  mutable.Queue[() => Unit]()
@@ -32,20 +38,23 @@ class BmbMemoryAgent(val memorySize : BigInt) {
       rspQueue(source).enqueue(rsps)
     }
 
-    if(withDriver) StreamDriver(bus.rsp, clockDomain){ _ =>
-      if(rspActive.isEmpty){
-        val threads = rspQueue.filter(_.nonEmpty)
-        if(threads.nonEmpty){
-          val thread = threads(Random.nextInt(threads.size))
-          rspActive = thread.dequeue()
+    if(withDriver) {
+      val driver = StreamDriver(bus.rsp, clockDomain){ _ =>
+        if(rspActive.isEmpty){
+          val threads = rspQueue.filter(_.nonEmpty)
+          if(threads.nonEmpty){
+            val thread = threads(Random.nextInt(threads.size))
+            rspActive = thread.dequeue()
+          }
+        }
+        if(rspActive.nonEmpty){
+          rspActive.dequeue().apply()
+          true
+        } else {
+          false
         }
       }
-      if(rspActive.nonEmpty){
-        rspActive.dequeue().apply()
-        true
-      } else {
-        false
-      }
+      if(!withStall) driver.transactionDelay = () => 0
     }
 
     StreamMonitor(bus.cmd, clockDomain) { payload =>
@@ -87,10 +96,15 @@ class BmbMemoryAgent(val memorySize : BigInt) {
             val address = bus.cmd.address.toLong + busAddress
             val data = bus.cmd.data.toBigInt
             val beatAddress = (address & ~(bus.p.byteCount - 1)) + cmdBeat * bus.p.byteCount
-            for (byteId <- 0 until bus.p.byteCount) if ((mask & (1l << byteId)) != 0) {
-              setByte(beatAddress + byteId, (data >> byteId * 8).toByte)
+            writeFragments += {() =>
+              for (byteId <- 0 until bus.p.byteCount) if ((mask & (1l << byteId)) != 0) {
+                setByte(beatAddress + byteId, (data >> byteId * 8).toByte)
+              }
             }
             if (last) {
+              writeFragments.foreach(_.apply())
+              writeFragments.clear()
+
               val rsps = mutable.Queue[() => Unit]()
               rsps += { () =>
                 bus.rsp.last #= true
