@@ -107,6 +107,7 @@ package object sim {
   /** Success/Failure simulation */
   def simSuccess(): Unit = throw new SimSuccess()
   def simFailure(message: String = ""): Unit = throw new SimFailure(message)
+  def onSimEnd(body : => Unit): Unit = SimManagerContext.current.manager.onEnd(body)
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
