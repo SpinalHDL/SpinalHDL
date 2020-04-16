@@ -76,10 +76,17 @@ abstract class BlackBox extends Component{
   val genericElements = ArrayBuffer[(String, Any)]()
   val librariesUsages = mutable.HashSet[String]();
 
-  private var isBb = true
+  private var isBb = false
+  setBlackBox()
+
   def isBlackBox = isBb
-  def setBlackBox() = isBb = true
-  def clearBlackBox() = isBb = false
+  def setBlackBox() = {
+    isBb = true
+    withoutReservedKeywords = true
+  }
+  def clearBlackBox() = {
+    isBb = false
+  }
 
   def addGeneric(name : String, that : Any) : Unit = that match {
     case bt: BaseType => genericElements += Tuple2(name, bt.addTag(GenericValue(bt.head.source)))

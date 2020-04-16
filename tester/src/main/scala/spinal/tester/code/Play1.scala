@@ -1168,7 +1168,7 @@ object PlaySymplify {
 
 //addAttribute("ramstyle", "no_rw_check")
 
-object PlayBug {
+object PlayRamInfer2 {
   class TopLevel extends Component{
     val a = new Area {
       val ram = Mem(Bits(8 bits), 1024)

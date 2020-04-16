@@ -11,7 +11,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   val io = new Bundle {
     val config = in(CoreConfig(cpa))
     val input = slave(CoreTasks(cpa))
-    val writeDatas = Vec(cpa.cpp.map(cpp => slave(Stream(CoreWriteData(cpp, cpa)))))
+    val writeDatas = Vec(cpa.cpp.filter(_.canWrite).map(cpp => slave(Stream(CoreWriteData(cpp, cpa)))))
     val phy = master(SdramXdrPhyCtrl(pl))
     val outputs = Vec(cpa.cpp.map(cpp => master(Flow(Fragment(CoreRsp(cpp, cpa))))))
     val soft = slave(SoftBus(cpa))
@@ -49,7 +49,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val writePipeline = new Area {
     case class Cmd() extends Bundle {
-      val sel = UInt(log2Up(cpp.length) bits)
+      val sel = UInt(log2Up(cpp.filter(_.canWrite).length) bits)
     }
 
     val input = Flow(Cmd())
@@ -97,6 +97,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   case class PipelineCmd() extends Bundle {
     val write = Bool
+    val last = Bool
     val context = Bits(backendContextWidth bits)
     val source = UInt(log2Up(portCount) bits)
   }
@@ -128,10 +129,10 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     val beatCounter = Counter(pl.beatCount, io.phy.readValid)
 
     val output = Flow(Fragment(PipelineRsp()))
-    output.valid := cmd.valid && cmd.write || io.phy.readValid
+    output.valid := cmd.valid && cmd.write && cmd.last || io.phy.readValid
     output.context := cmd.context
     output.source := cmd.source
-    output.last := cmd.write || beatCounter.willOverflowIfInc
+    output.last := cmd.write || beatCounter.willOverflowIfInc && cmd.last
     cmd.ready := cmd.write || beatCounter.willOverflow
 
     for ((outputData, phase) <- (output.data.subdivideIn(pl.phaseCount slices), io.phy.phases).zipped) {
@@ -146,7 +147,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     val hit = rspPop.source === outputId
     output.valid := rspPop.valid && hit
     output.last := rspPop.last
-    output.data := rspPop.data
+    if(output.cpp.canRead) output.data := rspPop.data
     output.context := rspPop.context.resized
   }
 
@@ -155,11 +156,13 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
 
   val muxedCmd = MuxOH(io.input.ports.map(p => p.read || p.write || p.precharge || p.active), io.input.ports)
   writePipeline.input.valid := portEvent(p => p.write)
-  writePipeline.input.sel := OHToUInt(io.input.ports.map(p => p.write))
+  val portIdToWriteId = cpp.zipWithIndex.filter(_._1.canWrite).map(_._2).zipWithIndex
+  writePipeline.input.sel := muxedCmd.portId.muxListDc(portIdToWriteId.map{case (portId, writeId) => portId -> U(writeId, widthOf(writePipeline.input.sel) bits)})
 
   rspPipeline.input.valid := False
+  rspPipeline.input.last := muxedCmd.last
   rspPipeline.input.context := muxedCmd.context
-  rspPipeline.input.source := muxedCmd.source
+  rspPipeline.input.source := muxedCmd.portId
   rspPipeline.input.write.assignDontCare()
 
   val phase = new {

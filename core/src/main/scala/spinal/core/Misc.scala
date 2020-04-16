@@ -302,7 +302,7 @@ object cloneable {
 }
 
 
-class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
+class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
   val map  = mutable.Map[String, Int]()
 
@@ -434,7 +434,7 @@ object PendingError {
 
 
 object LocatedPendingError {
-  def apply(error:  String) = {
+  def apply(error: => String) = {
     val location = ScalaLocated.long
     GlobalData.get.pendingErrors += (() => error + "\n" + location)
   }

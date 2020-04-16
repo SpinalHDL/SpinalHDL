@@ -1017,10 +1017,10 @@ object PlayPatch{
     }
   }
 
-  val io = new Bundle{
-    val input  = slave(HandShake(8))
-    val output = master(HandShake(8))
-  }
+//  val io = new Bundle{
+//    val input  = slave(HandShake(8))
+//    val output = master(HandShake(8))
+//  }
 
 
 
