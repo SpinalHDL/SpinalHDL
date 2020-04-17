@@ -3,14 +3,12 @@ package spinal.lib.com.jtag
 import spinal.core._
 import spinal.lib._
 
-import scala.collection.immutable.HashMap
-import scala.collection.mutable.ArrayBuffer
+// Created by PIC32F_USER on 05/04/2016.
+// Modified / Extended by HWEngineer 15/03/2020
 
-/**
- * Created by PIC32F_USER on 05/04/2016.
- */
-
-
+//══════════════════════════════════════════════════════════════════════════════
+// define Jtag IO's
+//
 case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
   val tms = Bool
   val tdi = Bool
@@ -32,12 +30,19 @@ case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
   }
 }
 
+//══════════════════════════════════════════════════════════════════════════════
+// define Jtag States
+//
 object JtagState extends SpinalEnum {
   val RESET, IDLE,
       IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE,
-      DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE = newElement()
+      DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE
+      = newElement()
 }
 
+//══════════════════════════════════════════════════════════════════════════════
+// define Jtag FSM
+//
 class JtagFsm(jtag: Jtag) extends Area {
   import JtagState._
   val stateNext = JtagState()
@@ -62,7 +67,13 @@ class JtagFsm(jtag: Jtag) extends Area {
   )
 }
 
-class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess{
+//══════════════════════════════════════════════════════════════════════════════
+// define "generic" JTagTap
+//
+class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area
+                                                 with JtagTapAccess
+                                                 with JtagTapFunctions{
+
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
@@ -83,16 +94,28 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess
     }
   }
 
-  //JtagTapAccess impl
+  // implement traits of JtagTapAccess
   override def getInstruction(): Bits = instruction
   override def setInstruction(value: Bits): Unit = instruction := value
   override def getState: JtagState.C = fsm.state
   override def getTdi: Bool = jtag.tdi
   override def setTdo(value: Bool): Unit = tdoUnbufferd := value
   override def getTms: Bool = jtag.tms
+
+  // implement traits of JtagTapFunctions
+  override def idcode(value: Bits)(instructionId: Int) =
+    new JtagTapInstructionIdcode(value)(this, instructionId)
+  override def read[T <: Data](data: T)(instructionId: Int) =
+    new JtagTapInstructionRead(data)(this, instructionId)
+  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
+    new JtagTapInstructionWrite[T](data, cleanUpdate, readable)(this, instructionId)
+  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) =
+    new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
 }
 
-
+//══════════════════════════════════════════════════════════════════════════════
+// define SimpleJtagTap
+//
 class SimpleJtagTap extends Component {
   val io = new Bundle {
     val jtag    = slave(Jtag())
@@ -110,8 +133,9 @@ class SimpleJtagTap extends Component {
   }
 }
 
-
-
+//══════════════════════════════════════════════════════════════════════════════
+// define SimpleJtagTap object
+//
 object SimpleJtagTap {
   def main(args: Array[String]) {
     SpinalVhdl(new SimpleJtagTap())
