@@ -147,7 +147,7 @@ beforeInstall () {
   git reset --hard a463cee498346cb26fc215ced25c088039490665
   cd ..
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  export PATH=$(pwd)/ghdl/bin:$PATH
+  export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
   export COCOTB=$(pwd)/cocotb
   cd SpinalHDL/tester/src/test/python/spinal/Dummy
   make TOPLEVEL_LANG=verilog
