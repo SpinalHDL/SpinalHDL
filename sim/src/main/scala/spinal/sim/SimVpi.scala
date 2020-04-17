@@ -2,6 +2,8 @@ package spinal.sim
 
 import spinal.sim.vpi._
 import collection.JavaConverters._
+import scala.collection.mutable.HashMap
+import java.util.NoSuchElementException
 import scala.sys._
 
 class VpiException(message: String) extends Exception(message)
@@ -10,6 +12,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   val zeroByte = 0.toByte
   val (nativeIface, thread) = backend.instanciate()
+  val handleMap: HashMap[Int, Long] = new HashMap()
   val vectorInt8 = new VectorInt8()
 
   override def getInt(signal : Signal) = {
@@ -65,12 +68,15 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
   }
 
   def getSignalId(signal: Signal) : Long = {
-   if (signal.validId) signal.id
-   else {
-     signal.id = nativeIface.get_signal_handle(signal.toVPIAddress)
-     signal.validId = true
-     signal.id
-   }
+    try {
+      handleMap(signal.hash)
+    } catch {
+      case _: NoSuchElementException => {
+        val handle = nativeIface.get_signal_handle(signal.toVpiAddress)
+        handleMap += (signal.hash -> handle)
+        handle
+      }
+    }
   }
   
   override def enableWave() {}
