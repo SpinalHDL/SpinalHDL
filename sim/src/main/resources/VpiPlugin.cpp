@@ -126,6 +126,8 @@ bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
             if (net_full_name.compare(net_full_name2)){
                 assert(0);
             }
+
+            vpi_free_object(net_handle);
         }
     } else {
         cout << "   No handles." << endl;
@@ -161,11 +163,13 @@ bool print_signals_cmd(){
             if(check_error()) return true;
             while (module_handle) {
                 if(print_net_in_module(module_handle, msg_ss)) return true;
+                vpi_free_object(module_handle);
                 module_handle = vpi_scan(module_iterator);
                 if(check_error()) return true;
             }
         }
 
+        vpi_free_object(top_mod_handle);
         top_mod_handle = vpi_scan(top_mod_iterator);
         if(check_error()) return true;
     }
@@ -201,6 +205,7 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
                           NULL, 
                           vpiNoDelay);
             if(check_error()) return true;
+            vpi_free_object(net_handle);
         }
     } 
     
@@ -231,11 +236,13 @@ bool randomize_cmd(){
             if(check_error()) return true;
             while (module_handle) {
                 if(randomize_in_module(module_handle, mt_rand)) return true;
+                vpi_free_object(module_handle);
                 module_handle = vpi_scan(module_iterator);
                 if(check_error()) return true;
             }
         }
 
+        vpi_free_object(top_mod_handle);
         top_mod_handle = vpi_scan(top_mod_iterator);
         if(check_error()) return true;
     }

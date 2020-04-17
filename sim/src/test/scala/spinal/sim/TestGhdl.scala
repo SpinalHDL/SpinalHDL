@@ -295,18 +295,24 @@ object TestGhdl9 extends App{
 
 object TestGhdl10 extends App {
   val config = new GhdlBackendConfig()
-  config.rtlSourcesPaths += "toplevel.vhd"
-  config.toplevelName = "toplevel"
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
   config.pluginsPath = "simulation_plugins"
   config.workspacePath = "yolo"
   config.workspaceName = "yolo"
   config.wavePath = "test.vcd"
-  config.waveFormat = WaveFormat.VCD
-
+  config.waveFormat = WaveFormat.NONE
   val (ghdlbackend, _) = new GhdlBackend(config).instanciate
-   for(i <- 0l to 1024l){
-    ghdlbackend.randomize(i)
+  val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+  val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+  val sum = ghdlbackend.get_signal_handle("adder.sum")
+
+   for(i <- 0l to 1000000l){
+    ghdlbackend.randomize(i) 
     ghdlbackend.sleep(1)
+    ghdlbackend.write32(nibble1, 1)
+    ghdlbackend.write32(nibble1, 2)
+    ghdlbackend.read32(sum)
   }
   ghdlbackend.close
   println("Finished TestGhdl10")
