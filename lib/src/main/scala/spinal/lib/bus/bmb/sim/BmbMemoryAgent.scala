@@ -18,7 +18,7 @@ class BmbMemoryAgent(val memorySize : BigInt) {
   val memory = SparseMemory()
 
 
-  def getByteAsInt(address : Long) = memory.read(address).toInt & 0xFF
+  def getByteAsInt(address : Long) = getByte(address).toInt & 0xFF
   def getByte(address : Long) = memory.read(address)
   def setByte(address : Long, value : Byte) = memory.write(address, value)
 
