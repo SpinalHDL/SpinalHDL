@@ -10,12 +10,12 @@
 SharedMemIface::SharedMemIface(const string& shmem_name_, size_t shmem_size_) :
     closed(false), shmem_name(shmem_name_), shmem_size(shmem_size_), ret_code(0),
     data_buffer(), error_string() {
-    shared_memory_object::remove(shmem_name.c_str());
-    segment = managed_shared_memory(create_only, shmem_name.c_str(), shmem_size);
-    const ShmemAllocator alloc_inst(segment.get_segment_manager());
-    shared_struct = segment.construct<SharedStruct>("SharedStruct")(alloc_inst);
-    shared_struct->proc_status.store(ProcStatus::init);
-}
+        shared_memory_object::remove(shmem_name.c_str());
+        segment = managed_shared_memory(create_only, shmem_name.c_str(), shmem_size);
+        const ShmemAllocator alloc_inst(segment.get_segment_manager());
+        shared_struct = segment.construct<SharedStruct>("SharedStruct")(alloc_inst);
+        shared_struct->proc_status.store(ProcStatus::init);
+    }
 
 string SharedMemIface::print_signals(){
     this->check_ready();
@@ -82,7 +82,7 @@ void SharedMemIface::write(int64_t handle, const std::vector<int8_t>& data_){
 }
 
 void SharedMemIface::write64(int64_t handle, int64_t data_){
-    
+
     this->data_buffer.resize(8);
     for(uint8_t i = 0; i < 8; i++) this->data_buffer[7-i] = (data_ >> 8*i) & 0xFF;
     this->write(handle, this->data_buffer);
@@ -124,7 +124,7 @@ SharedMemIface::~SharedMemIface(){}
 void SharedMemIface::check_ready(){
     if(this->closed) throw VpiException("Attempt to access an already closed simulation");
     ProcStatus status = shared_struct->proc_status.load();
-    while(status != ProcStatus::ready) {
+    for(uint32_t spin_count = 0; status != ProcStatus::ready; ++spin_count) {
         if (status == ProcStatus::error) {
             this->closed = true;
             error_string = (const char*) shared_struct->data.data();
@@ -133,7 +133,7 @@ void SharedMemIface::check_ready(){
             throw VpiException(error_string.c_str()); 
         }
 
-        int64_t retcode = this->ret_code.load();
+        int64_t retcode = this->ret_code.load(std::memory_order_relaxed);
         if(retcode) {
             this->closed = true;
             error_string = "Simulation crashed with return status ";
@@ -142,7 +142,13 @@ void SharedMemIface::check_ready(){
             shared_memory_object::remove(shmem_name.c_str());
             throw VpiException(error_string.c_str());
         }
-        
+        if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
+            _mm_pause();
+        } else {
+            std::this_thread::yield();
+            spin_count = 0;
+        }
+
         status = shared_struct->proc_status.load();
     }
 }
