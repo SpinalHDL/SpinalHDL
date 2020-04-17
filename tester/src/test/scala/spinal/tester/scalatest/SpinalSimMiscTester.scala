@@ -30,8 +30,8 @@ object SpinalSimMiscTester{
 
 object SpinalSimTester{
   def apply()(body :  => SpinalSimConfig => Unit): Unit = {
-//    body(SimConfig.withVerilator)
-    body(SimConfig.withGhdl)
+    body(SimConfig.withVerilator)
+//    body(SimConfig.withGhdl)
   }
 }
 
