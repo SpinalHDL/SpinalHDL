@@ -164,6 +164,13 @@ package object sim {
     SimManagerContext.current.manager.schedule(delay)(body)
   }
 
+  def periodicaly(delay : Long)(body : => Unit) : Unit = {
+    SimManagerContext.current.manager.schedule(delay){
+      body
+      periodicaly(delay)(body)
+    }
+  }
+
   /**
     * Add implicit function to BaseType for simulation
     */
