@@ -70,10 +70,7 @@ class JtagFsm(jtag: Jtag) extends Area {
 //══════════════════════════════════════════════════════════════════════════════
 // define "generic" JTagTap
 //
-class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area
-                                                 with JtagTapAccess
-                                                 with JtagTapFunctions{
-
+class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFunctions{
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
@@ -94,23 +91,50 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area
     }
   }
 
-  // implement traits of JtagTapAccess
-  override def getInstruction(): Bits = instruction
-  override def setInstruction(value: Bits): Unit = instruction := value
-  override def getState: JtagState.C = fsm.state
-  override def getTdi: Bool = jtag.tdi
-  override def setTdo(value: Bool): Unit = tdoUnbufferd := value
-  override def getTms: Bool = jtag.tms
+  def map(ctrl : JtagTapInstructionCtrl, instructionId : Int): Unit ={
+    ctrl.tdi     := jtag.tdi
+    ctrl.enable  := instruction === instructionId
+    ctrl.capture := fsm.state === JtagState.DR_CAPTURE
+    ctrl.shift   := fsm.state === JtagState.DR_SHIFT
+    ctrl.update  := fsm.state === JtagState.DR_UPDATE
+    ctrl.reset   := fsm.state === JtagState.RESET
+    when(ctrl.enable) { tdoUnbufferd := ctrl.tdo }
+  }
 
   // implement traits of JtagTapFunctions
-  override def idcode(value: Bits)(instructionId: Int) =
-    new JtagTapInstructionIdcode(value)(this, instructionId)
-  override def read[T <: Data](data: T)(instructionId: Int) =
-    new JtagTapInstructionRead(data)(this, instructionId)
-  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
-    new JtagTapInstructionWrite[T](data, cleanUpdate, readable)(this, instructionId)
-  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) =
-    new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
+  override def idcode(value: Bits)(instructionId: Int) = {
+    val area = new JtagTapInstructionIdcode(value)
+    map(area.ctrl, instructionId)
+    when(fsm.state === JtagState.RESET){ instruction := instructionId}
+    area
+  }
+
+  override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) = {
+    val area = new JtagTapInstructionRead(data, light = light)
+    map(area.ctrl, instructionId)
+    area
+  }
+
+  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) = {
+    val area = new JtagTapInstructionWrite(data, cleanUpdate, readable)
+    map(area.ctrl, instructionId)
+    area
+  }
+  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
+    val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
+    map(area.ctrl, instructionId)
+    area
+  }
+
+  def instructionWrapper(headerWidth : Int) (instructionId: Int)  = {
+    val area = new JtagInstructionWrapper(headerWidth)
+    map(area.ctrl, instructionId)
+    area
+  }
+
+//  override def hasUpdate(now : Bool)(instructionId : Int): Unit ={
+//    now :=  instruction === instructionId && fsm.state === JtagState.DR_UPDATE
+//  }
 }
 
 //══════════════════════════════════════════════════════════════════════════════
