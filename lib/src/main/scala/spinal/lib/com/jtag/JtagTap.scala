@@ -76,6 +76,9 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
   val instructionShift = Reg(Bits(instructionWidth bit))
   val bypass = RegNext(jtag.tdi)
   val tdoUnbufferd = CombInit(bypass)
+  val tdoDr = False
+  val tdoIr = instructionShift.lsb
+
   jtag.tdo := ClockDomain.current.withRevertedClockEdge()(RegNext(tdoUnbufferd))
 
   switch(fsm.state) {
@@ -84,10 +87,14 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     }
     is(JtagState.IR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
-      tdoUnbufferd := instructionShift.lsb
+      tdoUnbufferd := tdoIr
     }
     is(JtagState.IR_UPDATE) {
       instruction := instructionShift
+    }
+    is(JtagState.DR_SHIFT) {
+      instructionShift := (jtag.tdi ## instructionShift) >> 1
+      tdoUnbufferd := tdoDr
     }
   }
 
@@ -98,7 +105,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     ctrl.shift   := fsm.state === JtagState.DR_SHIFT
     ctrl.update  := fsm.state === JtagState.DR_UPDATE
     ctrl.reset   := fsm.state === JtagState.RESET
-    when(ctrl.enable) { tdoUnbufferd := ctrl.tdo }
+    when(ctrl.enable) { tdoDr := ctrl.tdo }
   }
 
   // implement traits of JtagTapFunctions

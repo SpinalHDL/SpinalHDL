@@ -7,7 +7,7 @@ import spinal.lib._
 // Modified / Extended by HWEngineer 15/03/2020
 
 
-case class JtagTapInstructionCtrl() extends Bundle{
+case class JtagTapInstructionCtrl() extends Bundle with IMasterSlave {
   val tdi = Bool()
   val tdo = Bool()
   val enable = Bool()
@@ -15,6 +15,11 @@ case class JtagTapInstructionCtrl() extends Bundle{
   val shift = Bool()
   val update = Bool()
   val reset = Bool()
+
+  override def asMaster(): Unit = {
+    out(tdi, enable, capture, shift, update, reset)
+    in(tdo)
+  }
 }
 
 
