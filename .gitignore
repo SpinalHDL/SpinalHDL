@@ -59,6 +59,7 @@ log.txt
 *_tb
 /tester/**/sim_build/
 /*.tar.gz
+*.lst
 
 simWorkspace/
 tmp/

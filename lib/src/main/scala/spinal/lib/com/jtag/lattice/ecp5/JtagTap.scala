@@ -139,7 +139,11 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
     assert(false, """sorry a custom JTAG idcode is not supported by the embedded jtagg controller\n
                   |Idcode always 0xE0\n
                   |delete the code ... = tap.idcode(...) it's not necessary\n""".stripMargin)
+<<<<<<< HEAD
   override def read[T <: Data](data: T)(instructionId: Int) =
+=======
+  override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) =
+>>>>>>> 0d74d517c332bebef7e69ed58e5381275764f5c0
     new JtagTapCommandRead(data)(this, instructionId)
   override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
     new JtagTapCommandWrite[T](data, cleanUpdate, readable)(this, instructionId)

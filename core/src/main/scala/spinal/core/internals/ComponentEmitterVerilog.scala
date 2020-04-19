@@ -49,14 +49,15 @@ class ComponentEmitterVerilog(
   override def component = c
 
   val portMaps     = ArrayBuffer[String]()
+  val definitionAttributes  = new StringBuilder()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
-  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
     s"""
-      |module ${component.definitionName} (
+      |${definitionAttributes}module ${component.definitionName} (
       |${ports}
       |${declarations}
       |${logics}
@@ -70,7 +71,7 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.last) " " else ","
+      val comma      = if(baseType == component.getOrdredNodeIo.last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -92,6 +93,8 @@ class ComponentEmitterVerilog(
   }
 
   def emitArchitecture(): Unit = {
+    definitionAttributes ++= emitSyntaxAttributes(component.definition.instanceAttributes)
+
     for(mem <- mems){
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
@@ -214,14 +217,16 @@ class ComponentEmitterVerilog(
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
-      logics ++= s"  $definitionString "
+      val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
+
+      logics ++= s"  $instanceAttributes$definitionString "
 
       if (isBB) {
         val bb = child.asInstanceOf[BlackBox]
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#( \n"
+          logics ++= s"#(\n"
           for (e <- genericFlat) {
             e match {
               case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
@@ -261,7 +266,7 @@ class ComponentEmitterVerilog(
 //        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
 //      }
 
-      logics ++= s"${child.getName()} ( \n"
+      logics ++= s"${child.getName()} (\n"
 
       val instports: String = child.getOrdredNodeIo.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))

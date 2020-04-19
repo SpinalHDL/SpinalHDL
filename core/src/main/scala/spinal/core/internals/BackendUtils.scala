@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core.internals
 
+import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
@@ -36,10 +37,27 @@ object SINGLE_RAM   extends MemBitsMaskKind
 object VhdlVerilogBase{
 
   /** Header of the RTL generated */
-  def getHeader(commentSymbol: String, header: String, toplevel: Component, withDate : Boolean): String = {
+  def getHeader(commentSymbol: String, header: String, toplevel: Component, withDate : Boolean, withRepoHash : Boolean): String = {
     var buffer = new StringBuilder()
     buffer ++= s"$commentSymbol Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}\n"
     buffer ++= s"$commentSymbol Component : ${toplevel.definitionName}\n"
+    if(withRepoHash) {
+      import sys.process._
+      try {
+        Console.withErr(new OutputStream {
+          override def write(i: Int): Unit = {}
+        }) {
+          val hash = "git rev-parse HEAD".!!(new ProcessLogger {
+            override def out(s: => String): Unit = {}
+            override def err(s: => String): Unit = {}
+            override def buffer[T](f: => T): T = f
+          }).linesIterator.next()
+          buffer ++=  s"$commentSymbol Git hash  : ${hash}\n"
+        }
+      } catch{
+        case e : Exception =>
+      }
+    }
     if(withDate) buffer ++= s"$commentSymbol Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}\n"
     if(header != null) buffer ++= header.split("\n").map(line => s"$commentSymbol $line").mkString("\n") + "\n"
     buffer ++= "\n"

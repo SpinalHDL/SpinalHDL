@@ -40,11 +40,25 @@ object Bmb{
     }
   }
 
+  object Inv {
+    object Opcode {
+      val EXCEPTED_SOURCE = 0
+      val ALL = 1
+    }
+  }
+
   def incr(address : UInt, p : BmbParameter) : UInt = {
     val result = UInt(address.getWidth bits)
     val highCat = if (address.getWidth > boundaryWidth) address(address.high downto boundaryWidth) else U""
     val base = address(Math.min(boundaryWidth, address.getWidth) - 1 downto 0).resize(boundaryWidth)
     result := (highCat @@ ((base + p.byteCount) & ~U(p.byteCount-1, widthOf(base) bits))).resized
+    result
+  }
+  def addToAddress(address : UInt, value : UInt, p : BmbParameter) : UInt = {
+    val result = UInt(address.getWidth bits)
+    val highCat = if (address.getWidth > boundaryWidth) address(address.high downto boundaryWidth) else U""
+    val base = address(Math.min(boundaryWidth, address.getWidth) - 1 downto 0).resize(boundaryWidth)
+    result := (highCat @@ (base + value)).resized
     result
   }
 }
@@ -79,6 +93,11 @@ case class BmbParameter(addressWidth : Int,
                         alignmentMin : Int = 0,
                         canRead : Boolean = true,
                         canWrite : Boolean = true,
+                        canExclusive : Boolean = false,
+                        canInvalidate : Boolean = false,
+                        canSync : Boolean = false,
+                        invalidateLength : Int = 0,
+                        invalidateAlignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
                         maximumPendingTransactionPerId : Int = Int.MaxValue){
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
@@ -96,6 +115,7 @@ case class BmbParameter(addressWidth : Int,
 case class BmbCmd(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
+  val exclusive = p.canExclusive generate Bool()
   val address = UInt(p.addressWidth bits)
   val length = UInt(p.lengthWidth bits)
   val data = p.canWrite generate Bits(p.dataWidth bits)
@@ -118,6 +138,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
   }
 
   def transferBeatCountMinusOne : UInt = {
@@ -132,6 +153,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
 case class BmbRsp(p : BmbParameter) extends Bundle{
   val source = UInt(p.sourceWidth bits)
   val opcode = Bits(1 bits)
+  val exclusive = p.canExclusive generate Bool()
   val data = p.canRead generate Bits(p.dataWidth bits)
   val context = Bits(p.contextWidth bits)
 
@@ -147,17 +169,58 @@ case class BmbRsp(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.dataWidth bits).assignDontCare(), allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = false,  allowDownSize = true, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
   }
 }
 
+case class BmbInv(p: BmbParameter) extends Bundle{
+  val all = Bool() //If cleared, should not invalidate the source
+  val address = UInt(p.addressWidth bits)
+  val length = UInt(p.invalidateLength bits)
+  val source = UInt(p.sourceWidth bits)
+
+  def weakAssignFrom(m : BmbInv): Unit ={
+    def s = this
+    WeakConnector(m, s, m.source , s.source , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.address, s.address, defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.length , s.length , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.all    , s.all    , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+  }
+}
+
+case class BmbAck(p: BmbParameter) extends Bundle{
+  def weakAssignFrom(m : BmbAck): Unit ={
+
+  }
+}
+
+case class BmbSync(p: BmbParameter) extends Bundle{
+  val source = UInt(p.sourceWidth bits)
+
+  def weakAssignFrom(m : BmbSync): Unit ={
+    def s = this
+    WeakConnector(m, s, m.source , s.source , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
+  }
+}
 
 case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
   val cmd = Stream(Fragment(BmbCmd(p)))
-  val rsp = Stream(Fragment(BmbRsp(p)))
+  val rsp = Stream(Fragment(BmbRsp(p))) //Out of order across source
+
+  val inv = p.canInvalidate generate Stream(BmbInv(p))
+  val ack = p.canInvalidate generate Stream(BmbAck(p)) //In order
+  val sync = p.canSync generate Stream(BmbSync(p)) //In order
 
   override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
+    if(p.canInvalidate) {
+      slave(inv)
+      master(ack)
+    }
+    if(p.canSync) {
+      slave(sync)
+    }
   }
 
 
@@ -171,6 +234,17 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
 
     s.cmd.weakAssignFrom(m.cmd)
     m.rsp.weakAssignFrom(s.rsp)
+
+    if(p.canInvalidate){
+      m.inv.arbitrationFrom(s.inv)
+      s.ack.arbitrationFrom(m.ack)
+      m.inv.weakAssignFrom(s.inv)
+      s.ack.weakAssignFrom(m.ack)
+    }
+    if(p.canSync){
+      m.sync.arbitrationFrom(s.sync)
+      m.sync.weakAssignFrom(s.sync)
+    }
   }
   def >>(s : Bmb) : Unit = s << this
 

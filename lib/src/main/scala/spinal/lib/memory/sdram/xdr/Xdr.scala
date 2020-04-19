@@ -13,11 +13,10 @@ case class PhyLayout(sdram : SdramLayout,
                      phaseCount : Int, //How many DRAM clock per core clock
                      dataRate : Int, //(SDR=1, DDR=2, QDR=4)
                      outputLatency : Int, //Max delay for a command on the phy to arrive on the sdram
-                     // inputLatency : Int,
                      readDelay : Int, //Max delay between readEnable and readValid
                      writeDelay : Int, //Delay between writeEnable and data/dm
                      cmdToDqDelayDelta : Int, //How many cycle extra the DQ need to be on the pin compared to CAS/RAS
-                     transferPerBurst : Int){ //How many transfer per per burst
+                     transferPerBurst : Int){ //How many transfer per burst
   import sdram._
   def beatWidth = phaseCount * dataRate * dataWidth
   def beatCount = transferPerBurst / phaseCount / dataRate
@@ -161,16 +160,25 @@ case class SdramXdrIo(g : SdramLayout) extends Bundle with IMasterSlave {
 
 
 
-case class CorePortParameter( contextWidth : Int)
+case class CorePortParameter(contextWidth : Int,
+                             writeTockenInterfaceWidth : Int,
+                             writeTockenBufferSize : Int,
+                             canRead : Boolean,
+                             canWrite : Boolean)
 
 case class CorePort(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{
   val cmd = Stream(CoreCmd(cpp, cpa))
-  val writeData = Stream(CoreWriteData(cpp, cpa))
+  val writeData = cpp.canWrite generate Stream(CoreWriteData(cpp, cpa))
+  val writeDataTocken = cpp.canWrite generate (out UInt(cpp.writeTockenInterfaceWidth bits))
   val rsp = Stream(Fragment(CoreRsp(cpp, cpa)))
+
+  val writeDataAdded = UInt(cpp.writeTockenInterfaceWidth bits)
 
   override def asMaster(): Unit = {
     master(cmd)
-    master(writeData)
+    masterWithNull(writeData)
+    out(writeDataAdded)
+    outWithNull(writeDataTocken)
     slave(rsp)
   }
 }
@@ -181,6 +189,7 @@ case class CoreCmd(cpp : CorePortParameter, cpa : CoreParameterAggregate) extend
   val address = UInt(pl.sdram.byteAddressWidth bits)
   val context = Bits(cpp.contextWidth bits)
   val burstLast = Bool()
+  val length = UInt(cpa.stationLengthWidth bits)
 }
 case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
   import cpa._
@@ -188,7 +197,7 @@ case class CoreWriteData(cpp : CorePortParameter, cpa : CoreParameterAggregate) 
   val mask = Bits(pl.beatWidth/8 bits)
 }
 case class CoreRsp(cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Bundle{
-  val data = Bits(cpa.pl.beatWidth bits)
+  val data = cpp.canRead generate Bits(cpa.pl.beatWidth bits)
   val context = Bits(cpp.contextWidth bits)
 }
 
@@ -305,10 +314,17 @@ case class CoreConfig(cpa : CoreParameterAggregate) extends Bundle {
 
 case class CoreParameter(portTockenMin : Int,
                          portTockenMax : Int,
+                         stationCount  : Int = 2,
+                         bytePerTaskMax : Int = 64,
+                         frustrationMax : Int = 8,
                          timingWidth : Int,
                          refWidth : Int,
                          writeLatencies : List[Int],
-                         readLatencies : List[Int])
+                         readLatencies : List[Int]){
+  assert(isPow2(bytePerTaskMax))
+  assert(isPow2(frustrationMax))
+  def frustrationWidth = log2Up(frustrationMax + 1)
+}
 
 object FrontendCmdOutputKind extends SpinalEnum{
   val READ, WRITE, ACTIVE, PRECHARGE, REFRESH = newElement()
@@ -318,13 +334,14 @@ case class CoreTask(cpa : CoreParameterAggregate) extends Bundle {
 
 //  val kind = FrontendCmdOutputKind()
   val read, write, active, precharge = Bool() //OH encoded
+  val last = Bool()
   val address = SdramAddress(pl.sdram)
-  val source = UInt(log2Up(cpp.size) bits)
+  val portId = UInt(log2Up(cpp.size) bits)
   val context = Bits(backendContextWidth bits)
 }
 
 case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave {
-  val ports = Vec(CoreTask(cpa), cpa.portCount)
+  val ports = Vec(CoreTask(cpa), cpa.cp.stationCount)
   val prechargeAll, refresh = Bool() //OH encoded
 
   def stage(): CoreTasks ={
@@ -383,40 +400,51 @@ case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlav
   }
 }
 
-case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate) extends Component{
+case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreParameterAggregate, pp : BmbPortParameter) extends Component{
   val io = new Bundle{
     val input = slave(Bmb(ip))
     val inputBurstLast = in Bool()
     val output = master(CorePort(cpp, cpa))
   }
 
-
   case class Context() extends Bundle{
     val input = Bits(ip.contextWidth bits)
     val source = UInt(ip.sourceWidth bits)
   }
 
-  io.input.cmd.ready := io.output.cmd.ready && io.output.writeData.ready
+  val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
+
+  val rspPendingCounter = Reg(UInt(log2Up(pp.rspBufferSize + 1) bits)) init(0)
+  rspPendingCounter := rspPendingCounter + (io.input.cmd.lastFire ? cmdToRspCount | U(0)) - U(io.output.rsp.fire)
+
+  val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*cpa.pl.beatCount //Pessimistic
+
+  io.input.cmd.ready := io.output.cmd.ready && !toManyRsp
+  if(ip.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
 
   val cmdContext = Context()
   cmdContext.input := io.input.cmd.context
   cmdContext.source := io.input.cmd.source
 
-  io.output.cmd.valid := io.input.cmd.valid && io.input.cmd.last && io.input.cmd.ready
+  io.output.cmd.valid := io.input.cmd.firstFire
   io.output.cmd.write := io.input.cmd.isWrite
   io.output.cmd.address := io.input.cmd.address
+  assert(widthOf(io.output.cmd.length) >= widthOf(io.input.cmd.length) - log2Up(cpa.pl.bytePerBurst))
+  io.output.cmd.length := (io.input.cmd.length >> log2Up(cpa.pl.bytePerBurst)).resized
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
-  io.output.writeData.valid := io.input.cmd.valid && io.input.cmd.isWrite && io.input.cmd.ready
-  io.output.writeData.data := io.input.cmd.data
-  io.output.writeData.mask := io.input.cmd.mask
+  if(ip.canWrite) {
+    io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
+    io.output.writeData.data := io.input.cmd.data
+    io.output.writeData.mask := io.input.cmd.mask
+  }
 
   val rspContext = io.output.rsp.context.as(Context())
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
   io.input.rsp.last := io.output.rsp.last
-  io.input.rsp.data := io.output.rsp.data
+  if(ip.canRead) io.input.rsp.data := io.output.rsp.data
   io.input.rsp.context := rspContext.input
   io.input.rsp.source := rspContext.source
 }

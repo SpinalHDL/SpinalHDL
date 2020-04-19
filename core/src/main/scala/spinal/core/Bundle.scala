@@ -98,7 +98,7 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other == null)
-        PendingError(s"Bundle assignment is not complete. Missing $name\n " + ScalaLocated.long)
+        LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
       else element match {
         case b: Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
         case _         => element := other
@@ -127,8 +127,7 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
         for ((name, element) <- elements) {
           val other = that.find(name)
           if (other == null) {
-            val trace = ScalaLocated.long
-            PendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
+            LocatedPendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.")
           }
           else
             element.compositAssignFrom(other,element,kind)
