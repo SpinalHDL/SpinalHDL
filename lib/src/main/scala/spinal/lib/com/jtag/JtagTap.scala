@@ -70,14 +70,7 @@ class JtagFsm(jtag: Jtag) extends Area {
 //══════════════════════════════════════════════════════════════════════════════
 // define "generic" JTagTap
 //
-<<<<<<< HEAD
-class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area
-                                                 with JtagTapAccess
-                                                 with JtagTapFunctions{
-
-=======
 class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFunctions{
->>>>>>> 0d74d517c332bebef7e69ed58e5381275764f5c0
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
@@ -105,25 +98,6 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     }
   }
 
-<<<<<<< HEAD
-  // implement traits of JtagTapAccess
-  override def getInstruction(): Bits = instruction
-  override def setInstruction(value: Bits): Unit = instruction := value
-  override def getState: JtagState.C = fsm.state
-  override def getTdi: Bool = jtag.tdi
-  override def setTdo(value: Bool): Unit = tdoUnbufferd := value
-  override def getTms: Bool = jtag.tms
-
-  // implement traits of JtagTapFunctions
-  override def idcode(value: Bits)(instructionId: Int) =
-    new JtagTapInstructionIdcode(value)(this, instructionId)
-  override def read[T <: Data](data: T)(instructionId: Int) =
-    new JtagTapInstructionRead(data)(this, instructionId)
-  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
-    new JtagTapInstructionWrite[T](data, cleanUpdate, readable)(this, instructionId)
-  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) =
-    new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
-=======
   def map(ctrl : JtagTapInstructionCtrl, instructionId : Int): Unit ={
     ctrl.tdi     := jtag.tdi
     ctrl.enable  := instruction === instructionId
@@ -168,7 +142,6 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
 //  override def hasUpdate(now : Bool)(instructionId : Int): Unit ={
 //    now :=  instruction === instructionId && fsm.state === JtagState.DR_UPDATE
 //  }
->>>>>>> 0d74d517c332bebef7e69ed58e5381275764f5c0
 }
 
 //══════════════════════════════════════════════════════════════════════════════
