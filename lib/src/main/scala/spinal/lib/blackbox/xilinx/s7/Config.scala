@@ -36,3 +36,21 @@ case class STARTUPE2() extends BlackBox{
   val USRDONEO = in Bool()
   val USRDONETS = in Bool()
 }
+
+
+case class BSCANE2(userId : Int) extends BlackBox{
+  addGeneric("DISABLE_JTAG", "FASLE")
+  addGeneric("JTAG_CHAIN", userId)
+
+  val CAPTURE  = out Bool()
+  val DRCK  = out Bool()
+  val RESET  = out Bool()
+  val RUNTEST  = out Bool()
+  val SEL  = out Bool()
+  val SHIFT  = out Bool()
+  val TCK  = out Bool()
+  val TDI  = out Bool()
+  val TMS  = out Bool()
+  val UPDATE  = out Bool()
+  val TDO  = in Bool()
+}
