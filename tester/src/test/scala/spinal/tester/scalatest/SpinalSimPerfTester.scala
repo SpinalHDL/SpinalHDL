@@ -24,161 +24,164 @@ object SpinalSimPerfTester {
 }
 
 class SpinalSimPerfTester extends FunSuite {
+  SpinalSimTester { env =>
+    import env._
+    
+    var compiled: SimCompiled[SpinalSimPerfTester.SpinalSimPerfTesterDut] = null
 
-  var compiled: SimCompiled[SpinalSimPerfTester.SpinalSimPerfTesterDut] = null
-
-  test("compile") {
-    compiled = SimConfig
-      .allOptimisation
-//      .withGhdl
-      .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
-  }
-
-
-  test("TestStdSimIntThreadLess") {
-    compiled.doSim { dut =>
-      dut.clockDomain.forkStimulus(period = 10)
-      dut.clockDomain.forkSimSpeedPrinter(0.2)
-
-      var model = -1
-      var times = 0
-      dut.clockDomain.onSamplings{
-        assert(model == -1 || dut.io.result.toInt == model)
-        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
-        dut.io.a #= Random.nextInt(256)
-        dut.io.b #= Random.nextInt(256)
-        dut.io.c #= Random.nextInt(256)
-        times += 1
-      }
-
-      for(repeat <- 0 until 4) {
-        val startAt = System.nanoTime
-        waitUntil(times == 2000000)
-        times = 0
-        val endAt = System.nanoTime
-        System.out.println((endAt - startAt) * 1e-6 + " ms")
-      }
+    test(prefix + "compile") {
+      compiled = SimConfig
+        .allOptimisation
+        //      .withGhdl
+        .compile(new SpinalSimPerfTester.SpinalSimPerfTesterDut())
     }
-  }
 
 
-  test("TestStdSimInt") {
-    compiled.doSim { dut =>
-      dut.clockDomain.forkStimulus(period = 10)
-      dut.clockDomain.forkSimSpeedPrinter(0.2)
+    test(prefix + "TestStdSimIntThreadLess") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        dut.clockDomain.forkSimSpeedPrinter(0.2)
 
-      var model = 0
-      for(repeat <- 0 until 4) {
-        val times = 200000
-        val startAt = System.nanoTime
-        for(repeat2 <- 0 until times) {
+        var model = -1
+        var times = 0
+        dut.clockDomain.onSamplings {
+          assert(model == -1 || dut.io.result.toInt == model)
+          model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
           dut.io.a #= Random.nextInt(256)
           dut.io.b #= Random.nextInt(256)
           dut.io.c #= Random.nextInt(256)
-          dut.clockDomain.waitActiveEdge()
-          if (dut.clockDomain.isResetDeasserted) {
-            assert(dut.io.result.toInt == model)
-            model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
-          }
+          times += 1
         }
-        val endAt = System.nanoTime
-        System.out.println((endAt - startAt) * 1e-6 + " ms")
+
+        for (repeat <- 0 until 4) {
+          val startAt = System.nanoTime
+          waitUntil(times == (2000000*durationFactor).toInt)
+          times = 0
+          val endAt = System.nanoTime
+          System.out.println((endAt - startAt) * 1e-6 + " ms")
+        }
       }
     }
-  }
 
 
-  test("TestStdSimIntx2") {
-    compiled.doSim { dut =>
-      dut.clockDomain.forkStimulus(period = 10)
+    test(prefix + "TestStdSimInt") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+        dut.clockDomain.forkSimSpeedPrinter(0.2)
 
-      for(repeat <- 0 until 4) {
-        val times = 80000
-        val startAt = System.nanoTime
-        val t1, t2 = fork {
-          val rand = new Random(1)
-          for(repeat2 <- 0 until times) {
-            val a, b, c = rand.nextInt(256)
+        var model = 0
+        for (repeat <- 0 until 4) {
+          val times = (2000000*durationFactor).toInt
+          val startAt = System.nanoTime
+          for (repeat2 <- 0 until times) {
+            dut.io.a #= Random.nextInt(256)
+            dut.io.b #= Random.nextInt(256)
+            dut.io.c #= Random.nextInt(256)
+            dut.clockDomain.waitActiveEdge()
+            if (dut.clockDomain.isResetDeasserted) {
+              assert(dut.io.result.toInt == model)
+              model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+            }
+          }
+          val endAt = System.nanoTime
+          System.out.println((endAt - startAt) * 1e-6 + " ms")
+        }
+      }
+    }
+
+
+    test(prefix + "TestStdSimIntx2") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+
+        for (repeat <- 0 until 4) {
+          val times = (80000*durationFactor).toInt
+          val startAt = System.nanoTime
+          val t1, t2 = fork {
+            val rand = new Random(1)
+            for (repeat2 <- 0 until times) {
+              val a, b, c = rand.nextInt(256)
+              dut.io.a #= a
+              dut.io.b #= b
+              dut.io.c #= c
+              dut.clockDomain.waitActiveEdge()
+              sleep(0)
+              val dummy = if (dut.clockDomain.isResetDeasserted)
+                assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+            }
+          }
+          t1.join(); t2.join()
+          val endAt = System.nanoTime
+          System.out.println((endAt - startAt) * 1e-6 + " ms")
+        }
+      }
+    }
+
+
+    test(prefix + "TestStdSimBigInt") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
+
+        for (repeat <- 0 until 4) {
+          val times = (80000*durationFactor).toInt
+          val startAt = System.nanoTime
+          for (repeat2 <- 0 until times) {
+            val a, b, c = BigInt(Random.nextInt(256))
             dut.io.a #= a
             dut.io.b #= b
             dut.io.c #= c
-            dut.clockDomain.waitActiveEdge()
-            sleep(0)
-            val dummy = if (dut.clockDomain.isResetDeasserted)
-              assert(dut.io.result.toInt == ((a + b - c) & 0xFF))
+            dut.clockDomain.waitActiveEdge(); sleep(0)
+            if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
           }
+          val endAt = System.nanoTime
+          System.out.println((endAt - startAt) * 1e-6 + " ms")
         }
-        t1.join();t2.join()
-        val endAt = System.nanoTime
-        System.out.println((endAt - startAt) * 1e-6 + " ms")
-      }
-    }
-  }
-
-
-  test("TestStdSimBigInt") {
-    compiled.doSim { dut =>
-      dut.clockDomain.forkStimulus(period = 10)
-
-      for(repeat <- 0 until 4) {
-        val times = 80000
-        val startAt = System.nanoTime
-        for(repeat2 <- 0 until times) {
-          val a, b, c = BigInt(Random.nextInt(256))
-          dut.io.a #= a
-          dut.io.b #= b
-          dut.io.c #= c
-          dut.clockDomain.waitActiveEdge(); sleep(0)
-          if (dut.clockDomain.isResetDeasserted) assert(dut.io.result.toBigInt == ((a + b - c) & 0xFF))
-        }
-        val endAt = System.nanoTime
-        System.out.println((endAt - startAt) * 1e-6 + " ms")
-      }
-    }
-  }
-
-  test("TestSleep0") {
-    compiled.doSim { dut =>
-      dut.clockDomain.forkStimulus(period = 10)
-
-      for(repeat <- 0 until 4) {
-        val times = 100000
-        val startAt = System.nanoTime
-        for(repeat2 <- 0 until times) {
-          sleep(0)
-        }
-        val endAt = System.nanoTime
-        System.out.println((endAt - startAt) * 1e-6 + " ms")
       }
     }
 
-  }
+    test(prefix + "TestSleep0") {
+      compiled.doSim { dut =>
+        dut.clockDomain.forkStimulus(period = 10)
 
-
-  test("compilationSpeed") {
-    val stages = 100
-    val states = 100
-    val operands = 5
-    SimConfig.withConfig(SpinalConfig(verbose = true)).allOptimisation.doSim(new Component {
-      val inputs = Vec(in UInt (8 bits),states)
-      val outputs = Vec(out UInt (8 bits),states)
-      var ptr = inputs
-      for (s <- 0 until stages) {
-        val result = Vec(Reg(UInt(8 bits)), states).setName("tmp_" + s)
-        for (elementId <- 0 until states) {
-          result(elementId) := (0 until operands).map(_ => ptr(Random.nextInt(states))).reduce(_ + _)
+        for (repeat <- 0 until 4) {
+          val times = (100000*durationFactor).toInt
+          val startAt = System.nanoTime
+          for (repeat2 <- 0 until times) {
+            sleep(0)
+          }
+          val endAt = System.nanoTime
+          System.out.println((endAt - startAt) * 1e-6 + " ms")
         }
-        ptr = result
       }
-      outputs := ptr
-    }) { dut =>
 
-      dut.clockDomain.forkStimulus(10)
-      for (r <- 0 until 10000) {
-        for (input <- dut.inputs) {
-          input.randomize()
+    }
+
+
+    test(prefix + "compilationSpeed") {
+      val stages = 100
+      val states = (100*designFactor).toInt
+      val operands = 5
+      SimConfig.withConfig(SpinalConfig(verbose = true)).allOptimisation.doSim(new Component {
+        val inputs = Vec(in UInt (8 bits), states)
+        val outputs = Vec(out UInt (8 bits), states)
+        var ptr = inputs
+        for (s <- 0 until stages) {
+          val result = Vec(Reg(UInt(8 bits)), states).setName("tmp_" + s)
+          for (elementId <- 0 until states) {
+            result(elementId) := (0 until operands).map(_ => ptr(Random.nextInt(states))).reduce(_ + _)
+          }
+          ptr = result
         }
-        dut.clockDomain.waitSampling()
+        outputs := ptr
+      }) { dut =>
+
+        dut.clockDomain.forkStimulus(10)
+        for (r <- 0 until (10000*durationFactor).toInt) {
+          for (input <- dut.inputs) {
+            input.randomize()
+          }
+          dut.clockDomain.waitSampling()
+        }
       }
     }
   }
