@@ -79,6 +79,7 @@ class SharedStruct {
 
         ProcStatus check_not_ready() {
             ProcStatus status = this->proc_status.load();
+            #ifndef NO_SPINLOCK_YIELD_OPTIMIZATION
             for(uint32_t spin_count = 0; status == ProcStatus::ready; ++spin_count) {
 
                 if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
@@ -89,6 +90,9 @@ class SharedStruct {
                 }
                 status = this->proc_status.load();
             }
+            #else
+            while(status == ProcStatus::ready) status = this->proc_status.load();
+            #endif
             return status;
         }
 

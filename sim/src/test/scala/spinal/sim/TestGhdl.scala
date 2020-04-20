@@ -437,10 +437,9 @@ object TestGhdl15 extends App{
   config.useCache = true
 
   val backendFactory = new GhdlBackend(config)
- 
   val runningSims = (0 to 7).map { i =>
     Future {
-      val (ghdlbackend, _) = backendFactory.instanciate()
+    val (ghdlbackend, _) = backendFactory.instanciate()
       val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
       val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
       val sum = ghdlbackend.get_signal_handle("adder.sum")
@@ -460,4 +459,102 @@ object TestGhdl15 extends App{
 
   runningSims.foreach { res => println(Await.result(res, Duration.Inf))}
   println("Finished TestGhdl15")
+}
+
+object TestGhdl16 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.waveFormat = WaveFormat.NONE
+  config.useCache = false
+
+  val backendFactory = new GhdlBackend(config)
+ 
+  val ghdlbackends = (0 to 7).map { i =>
+    val (ghdlbend, _) = backendFactory.instanciate()
+    ghdlbend
+  }.toArray
+
+  val startAt = System.nanoTime 
+  val runningSims = (0 to 7).map { i =>
+    Future {
+      val ghdlbackend = ghdlbackends(i)
+      val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+      val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+      val sum = ghdlbackend.get_signal_handle("adder.sum")
+      
+      for(j <- 0 to 1000000) {
+        ghdlbackend.write32(nibble1, i)
+        ghdlbackend.write32(nibble2, i+1)
+        ghdlbackend.eval
+      }
+
+      val ret = Seq(i.toString, 
+                "+", 
+                (i+1).toString,
+                "=",
+                ghdlbackend.read32(sum).toString).mkString(" ")
+      ghdlbackend.close
+      ret
+    }
+  }.toArray
+
+
+  runningSims.foreach { res => println(Await.result(res, Duration.Inf))}
+  val endAt = System.nanoTime
+  println(((endAt - startAt) * 1e-6).toString + " ms")
+  println("Finished TestGhdl16")
+}
+
+
+object TestGhdl17 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "adder.vhd"
+  config.toplevelName = "adder"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.waveFormat = WaveFormat.NONE
+  config.useCache = false
+  config.CFLAGS += " -DNO_SPINLOCK_YIELD_OPTIMIZATION "
+
+  val backendFactory = new GhdlBackend(config)
+
+  val ghdlbackends = (0 to 7).map { i =>
+    val (ghdlbend, _) = backendFactory.instanciate()
+    ghdlbend
+  }.toArray
+ 
+  val startAt = System.nanoTime 
+  val runningSims = (0 to 7).map { i =>
+    Future {
+      val ghdlbackend = ghdlbackends(i)
+      val nibble1 = ghdlbackend.get_signal_handle("adder.nibble1")
+      val nibble2 = ghdlbackend.get_signal_handle("adder.nibble2")
+      val sum = ghdlbackend.get_signal_handle("adder.sum")
+      
+      for(j <- 0 to 1000000) {
+        ghdlbackend.write32(nibble1, i)
+        ghdlbackend.write32(nibble2, i+1)
+        ghdlbackend.eval
+      }
+
+      val ret = Seq(i.toString, 
+                "+", 
+                (i+1).toString,
+                "=",
+                ghdlbackend.read32(sum).toString).mkString(" ")
+      ghdlbackend.close
+      ret
+    }
+  }.toArray
+
+
+  runningSims.foreach { res => println(Await.result(res, Duration.Inf))}
+  val endAt = System.nanoTime
+  println(((endAt - startAt) * 1e-6).toString + " ms")
+  println("Finished TestGhdl17")
 }

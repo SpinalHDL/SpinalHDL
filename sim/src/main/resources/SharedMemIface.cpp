@@ -124,7 +124,11 @@ SharedMemIface::~SharedMemIface(){}
 void SharedMemIface::check_ready(){
     if(this->closed) throw VpiException("Attempt to access an already closed simulation");
     ProcStatus status = shared_struct->proc_status.load();
+    #ifndef NO_SPINLOCK_YIELD_OPTIMIZATION
     for(uint32_t spin_count = 0; status != ProcStatus::ready; ++spin_count) {
+    #else
+    while(status != ProcStatus::ready) {
+    #endif
         if (status == ProcStatus::error) {
             this->closed = true;
             error_string = (const char*) shared_struct->data.data();
@@ -142,12 +146,15 @@ void SharedMemIface::check_ready(){
             shared_memory_object::remove(shmem_name.c_str());
             throw VpiException(error_string.c_str());
         }
+
+        #ifndef NO_SPINLOCK_YIELD_OPTIMIZATION
         if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
             _mm_pause();
         } else {
             std::this_thread::yield();
             spin_count = 0;
         }
+        #endif
 
         status = shared_struct->proc_status.load();
     }
