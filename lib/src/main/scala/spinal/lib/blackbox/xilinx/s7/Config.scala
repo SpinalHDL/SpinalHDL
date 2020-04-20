@@ -39,7 +39,7 @@ case class STARTUPE2() extends BlackBox{
 
 
 case class BSCANE2(userId : Int) extends BlackBox{
-  addGeneric("DISABLE_JTAG", "FASLE")
+  addGeneric("DISABLE_JTAG", "FALSE")
   addGeneric("JTAG_CHAIN", userId)
 
   val CAPTURE  = out Bool()
