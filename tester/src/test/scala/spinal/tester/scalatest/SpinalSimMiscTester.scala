@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.sim._
-import spinal.core.sim._
+import spinal.core.sim.{SpinalSimConfig, _}
 import spinal.lib.BufferCC
 import spinal.tester
 import spinal.tester.scalatest
@@ -27,17 +27,47 @@ object SpinalSimMiscTester{
 
 }
 
+abstract class SpinalSimTester{
+  def SimConfig : SpinalSimConfig
+  def durationFactor : Double
+  def designFactor : Double
+  def prefix : String
+}
+
+object SpinalSimTesterGhdl extends SpinalSimTester{
+  override def SimConfig: SpinalSimConfig = spinal.core.sim.SimConfig.withGhdl
+  override def durationFactor: Double = 0.01
+  override def designFactor: Double = 0.1
+  override def prefix: String = "ghdl_"
+}
+
+object SpinalSimTesterVerilator extends SpinalSimTester{
+  override def SimConfig: SpinalSimConfig = spinal.core.sim.SimConfig.withVerilator
+  override def durationFactor: Double = 1.0
+  override def designFactor: Double = 1.0
+  override def prefix: String = "verilator_"
+}
 
 object SpinalSimTester{
-  def apply()(body :  => SpinalSimConfig => Unit): Unit = {
-    body(SimConfig.withVerilator)
-//    body(SimConfig.withGhdl)
+  def apply(body :  => SpinalSimTester => Unit): Unit = {
+    body(SpinalSimTesterGhdl)
+    body(SpinalSimTesterVerilator)
+  }
+}
+
+class SpinalSimTesterTest extends FunSuite {
+  SpinalSimTester{ env =>
+    import env._
+
+    test(prefix + "a"){
+      println(SimConfig._backend + " " + durationFactor)
+    }
   }
 }
 
 class SpinalSimMiscTester extends FunSuite {
-  SpinalSimTester() { SimConfig =>
-    val prefix = SimConfig._backend
+  SpinalSimTester { env =>
+    import env._
     var compiled: SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
 
     test(prefix + "testForkSensitive") {
