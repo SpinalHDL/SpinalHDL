@@ -69,6 +69,14 @@ trait ExpressionContainer {
     })
   }
 
+  // Traverse the subtrees first before accessing the parent node
+  def walkExpressionPostorder(func: (Expression) => Unit): Unit = {
+    foreachExpression(e => {
+      e.walkExpressionPostorder(func)
+      func(e)
+    })
+  }
+
   def walkDrivingExpressions(func: (Expression) => Unit): Unit = {
     foreachDrivingExpression(e => {
       func(e)
