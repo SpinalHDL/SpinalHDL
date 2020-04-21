@@ -28,7 +28,7 @@ case class VpiBackendConfig(
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
-  var logSimProcess: Boolean = true
+  var logSimProcess: Boolean = false
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -40,7 +40,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   val workspaceName   = config.workspaceName   
   val wavePath        = config.wavePath        
   val waveFormat      = config.waveFormat      
-  val analyzeFlags    = config.analyzeFlags    
+  val analyzeFlags    = config.analyzeFlags
   var runFlags        = config.runFlags        
   val sharedMemSize   = config.sharedMemSize   
   val CC              = config.CC
