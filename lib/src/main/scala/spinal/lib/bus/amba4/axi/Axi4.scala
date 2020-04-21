@@ -55,10 +55,10 @@ case class Axi4Config(addressWidth : Int,
                       wUserWidth   : Int = -1,
                       bUserWidth   : Int = -1,
                       
-                      readIssuingCapability     : Int = 1,
-                      writeIssuingCapability    : Int = 1,
-                      combinedIssuingCapability : Int = 1,
-                      readDataReorderingDepth   : Int = 1) {
+                      readIssuingCapability     : Int = -1,
+                      writeIssuingCapability    : Int = -1,
+                      combinedIssuingCapability : Int = -1,
+                      readDataReorderingDepth   : Int = -1) {
 
 
   def useArUser = arUserWidth >= 0

@@ -492,17 +492,24 @@ class Axi4Emitter extends QSysifyInterfaceEmiter{
 |set_interface_property $name SVD_ADDRESS_GROUP ""
 """.stripMargin
 
-      if(isMaster) builder ++= s"""
-|set_interface_property $name readIssuingCapability ${readIssuingCapability}
-|set_interface_property $name writeIssuingCapability ${writeIssuingCapability}
-|set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}
-""".stripMargin
-      else builder ++= s"""
-|set_interface_property $name readAcceptanceCapability ${readIssuingCapability}
-|set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}
-|set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}
-|set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}
-""".stripMargin
+      if(isMaster) {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readIssuingCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeIssuingCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}\n"
+      }
+      else {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readAcceptanceCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}\n"
+        if(readDataReorderingDepth > -1)
+          builder ++= s"set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}\n"
+      }
 
       // emit AR
       builder ++= s"""
@@ -602,17 +609,24 @@ class AxiLite4Emitter extends QSysifyInterfaceEmiter{
 |set_interface_property $name SVD_ADDRESS_GROUP ""
 """.stripMargin
 
-      if(isMaster) builder ++= s"""
-|set_interface_property $name readIssuingCapability ${readIssuingCapability}
-|set_interface_property $name writeIssuingCapability ${writeIssuingCapability}
-|set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}
-""".stripMargin
-      else builder ++= s"""
-|set_interface_property $name readAcceptanceCapability ${readIssuingCapability}
-|set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}
-|set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}
-|set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}
-""".stripMargin
+      if(isMaster) {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readIssuingCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeIssuingCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}\n"
+      }
+      else {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readAcceptanceCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}\n"
+        if(readDataReorderingDepth > -1)
+          builder ++= s"set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}\n"
+      }
 
       // emit AR
       builder ++= s"""

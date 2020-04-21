@@ -84,10 +84,10 @@ object AxiLite4 {
 case class AxiLite4Config(addressWidth : Int,
                           dataWidth    : Int,
                           
-                          readIssuingCapability     : Int = 1,
-                          writeIssuingCapability    : Int = 1,
-                          combinedIssuingCapability : Int = 1,
-                          readDataReorderingDepth   : Int = 1){
+                          readIssuingCapability     : Int = -1,
+                          writeIssuingCapability    : Int = -1,
+                          combinedIssuingCapability : Int = -1,
+                          readDataReorderingDepth   : Int = -1){
   def bytePerWord = dataWidth/8
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
