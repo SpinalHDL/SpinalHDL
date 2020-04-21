@@ -26,7 +26,7 @@ case class VpiBackendConfig(
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
-  var LDFLAGS: String        = "-lrt -lpthread ", 
+  var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false
 )
@@ -57,6 +57,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
   CFLAGS += (if(isMac) " -dynamiclib " else "")
   LDFLAGS += (if(!isMac) " -shared" else "")
+  LDFLAGS += (if(!isWindows) " -lrt" else "")
 
   val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
 
@@ -159,6 +160,7 @@ class GhdlBackendConfig extends VpiBackendConfig {
 }
 
 class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
+  import Backend._
   var ghdlPath = config.ghdlPath
   val elaborationFlags = config.elaborationFlags
 
@@ -244,7 +246,12 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
   }
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
-    val vpiModulePath = pluginsPath + "/" + vpiModuleName
+    val vpiModulePath = if(!isWindows) pluginsPath + "/" + vpiModuleName
+                        else (pluginsPath + "/" + vpiModuleName).replaceAll("/C",raw"C:").replaceAll(raw"/",raw"\\")
+
+    val pathStr = if(!isWindows) sys.env("PATH")
+                  else sys.env("PATH") + ";" + (ghdlPath + " --vpi-library-dir").!!.trim
+
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
       def run(): Unit = {
@@ -254,7 +261,8 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
                       toplevelName,
                       s"--vpi=${pwd + "/" + vpiModulePath}",
                       runFlags).mkString(" "), 
-                      new File(workspacePath)).! (new Logger())
+                      new File(workspacePath),
+                      "PATH" -> pathStr).! (new Logger())
                       
         if (retCode != 0) iface.set_crashed(retCode)
         assert(retCode == 0, s"Simulation of $toplevelName failed")

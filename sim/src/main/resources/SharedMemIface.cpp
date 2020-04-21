@@ -52,9 +52,9 @@ std::vector<int8_t> SharedMemIface::read(int64_t handle){
 }
 
 int64_t SharedMemIface::read64(int64_t handle){
-    int64_t ret = 0ul;
+    int64_t ret = 0;
     this->read(handle, this->data_buffer);
-    size_t copy_size = std::min(8ul, this->data_buffer.size());
+    size_t copy_size = std::min((size_t)8, this->data_buffer.size());
     size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
         ((int8_t*) &ret)[i] = this->data_buffer[start_orig - i];
@@ -63,9 +63,9 @@ int64_t SharedMemIface::read64(int64_t handle){
 }
 
 int32_t SharedMemIface::read32(int64_t handle){
-    int32_t ret = 0ul;
+    int32_t ret = 0;
     this->read(handle, this->data_buffer);
-    size_t copy_size = std::min(4ul, this->data_buffer.size());
+    size_t copy_size = std::min((size_t)4, this->data_buffer.size());
     size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
         ((int8_t*) &ret)[i] = this->data_buffer[start_orig - i];

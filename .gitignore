@@ -25,7 +25,8 @@ project/plugins/project/
 .settings
 .bloop
 .metals
-
+*.swp
+*.swo
 .idea
 out
 
@@ -46,7 +47,9 @@ log.txt
 *.out
 *.o
 *.bin
+*.exe
 *.so
+*.dll
 *.vpi
 *.vpl
 
