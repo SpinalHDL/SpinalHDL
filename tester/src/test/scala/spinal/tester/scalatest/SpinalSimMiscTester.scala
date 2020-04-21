@@ -49,6 +49,7 @@ object SpinalSimTesterVerilator extends SpinalSimTester{
 }
 
 object SpinalSimTester{
+
   def apply(body :  => SpinalSimTester => Unit): Unit = {
     body(SpinalSimTesterGhdl)
     body(SpinalSimTesterVerilator)

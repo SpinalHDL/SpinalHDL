@@ -212,4 +212,46 @@ object PlaySimGhdl3 extends App{
   tb()
 }
 
+object PlaySimGhdl4 extends App{
+  class toplevel extends Component {
+    val io = new Bundle {
+      val a, b, c = in UInt (8 bits)
+      val result = out UInt (8 bits)
+      val comb   = out UInt (8 bits)
+    }
+    io.result := RegNext(io.a + io.b - io.c) init (0)
+    io.comb := io.a + io.b + io.c
+  }
+
+  SimConfig.withGhdl.doSim(new toplevel){ dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+    dut.clockDomain.forkSimSpeedPrinter(0.2)
+
+
+    var model = -1
+    var times = 0
+    dut.clockDomain.onSamplings{
+//      println(simTime())
+//      if(times > 10) {
+//        simFailure("Rawr at ")
+        assert(dut.io.result.toInt == model || model == -1)
+        model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
+//      }
+      dut.io.a #= Random.nextInt(256)
+      dut.io.b #= Random.nextInt(256)
+      dut.io.c #= Random.nextInt(256)
+      times += 1
+    }
+
+
+//    sleep(1000)
+    for(repeat <- 0 until 4) {
+      val startAt = System.nanoTime
+      waitUntil(times == 2000000)
+      times = 0
+      val endAt = System.nanoTime
+      System.out.println((endAt - startAt) * 1e-6 + " ms")
+    }
+  }
+}
 

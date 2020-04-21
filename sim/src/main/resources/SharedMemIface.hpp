@@ -25,7 +25,10 @@ class SharedMemIface {
     void close();
     bool is_closed(){ return this->closed; };
     void check_ready();
-    void set_crashed(int64_t ret_code_){ this->ret_code.store(ret_code_); };
+    void set_crashed(int64_t ret_code_){ 
+        this->ret_code.store(ret_code_, std::memory_order_relaxed); 
+    };
+    
     virtual ~SharedMemIface();
 
     private:
