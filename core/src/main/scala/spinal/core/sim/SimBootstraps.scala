@@ -188,7 +188,7 @@ object SpinalGhdlBackend {
 
     GraphUtils.walkAllComponents(rtl.toplevel, c => c.dslBody.walkStatements(s => {
       s match {
-        case bt: BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
+        case bt: BaseType if bt.hasTag(SimPublic) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
         }
         case _ =>{
