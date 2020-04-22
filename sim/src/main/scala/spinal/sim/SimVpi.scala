@@ -17,7 +17,12 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   override def getInt(signal : Signal) = {
     val id = getSignalId(signal)
-    nativeIface.read32(id)
+    val ret = nativeIface.read32(id)
+    
+    if(signal.dataType.isInstanceOf[SIntDataType] &&
+       (signal.dataType.width < 32)){
+        (ret << (32-signal.dataType.width)) >> (32-signal.dataType.width)  
+    } else ret
   }
 
   //for some reason setInt is not in SimRaw...
@@ -28,7 +33,11 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
 
   override def getLong(signal : Signal) = {
     val id = getSignalId(signal)
-    nativeIface.read64(id)
+    val ret = nativeIface.read64(id)
+    if(signal.dataType.isInstanceOf[SIntDataType] &&
+       (signal.dataType.width < 64)){
+        (ret << (64-signal.dataType.width)) >> (64-signal.dataType.width) 
+    } else ret
   }
 
   override def setLong(signal : Signal, value: Long) {
