@@ -49,11 +49,16 @@ case class Axi4Config(addressWidth : Int,
                       useResp      : Boolean = true,
                       useProt      : Boolean = true,
                       useStrb      : Boolean = true,
-                      arUserWidth   : Int = -1,
-                      awUserWidth   : Int = -1,
+                      arUserWidth  : Int = -1,
+                      awUserWidth  : Int = -1,
                       rUserWidth   : Int = -1,
                       wUserWidth   : Int = -1,
-                      bUserWidth   : Int = -1) {
+                      bUserWidth   : Int = -1,
+                      
+                      readIssuingCapability     : Int = -1,
+                      writeIssuingCapability    : Int = -1,
+                      combinedIssuingCapability : Int = -1,
+                      readDataReorderingDepth   : Int = -1) {
 
 
   def useArUser = arUserWidth >= 0
@@ -66,6 +71,11 @@ case class Axi4Config(addressWidth : Int,
 
   if(useId)
     require(idWidth >= 0,"You need to set idWidth")
+
+  require(combinedIssuingCapability >= scala.math.max(readIssuingCapability, writeIssuingCapability),
+    "Inconsistent combined issuing capability")
+  require(readDataReorderingDepth <= readIssuingCapability,
+    "Inconsistent read data reordering depth")
 
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
