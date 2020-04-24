@@ -63,3 +63,6 @@ log.txt
 simWorkspace/
 tmp/
 null/
+
+#mac 
+*.DS_Store

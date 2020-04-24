@@ -82,7 +82,7 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
     val dummy = fork{
       while(true){
         bus.HREADYOUT #= true
-        clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean & bus.HTRANS.toInt == 2)
+        clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0)
         val waitCycle = Random.nextInt(3)
         for(_ <- 0 until waitCycle){
           bus.HREADYOUT #= false
@@ -103,13 +103,16 @@ class AhbLite3Driver(bus: AhbLite3, clockdomain: ClockDomain){
       while(true){
         bus.HREADYOUT #= true
         bus.HRESP     #= false
-        clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean & bus.HTRANS.toInt == 2)
-        bus.HREADYOUT #= false
-        bus.HRESP     #= true  // error
-        clockdomain.waitActiveEdge()
-        bus.HRESP     #= true
-        bus.HREADYOUT #= true
-        clockdomain.waitActiveEdge()
+        clockdomain.waitActiveEdgeWhere(bus.HSEL.toBoolean & bus.HTRANS.toInt != 0)
+        val rndError = Random.nextBoolean()
+        if(rndError){
+          bus.HREADYOUT #= false
+          bus.HRESP     #= true  // error
+          clockdomain.waitActiveEdge()
+          bus.HRESP     #= true
+          bus.HREADYOUT #= true
+          clockdomain.waitActiveEdge()
+        }
       }
     }
   }

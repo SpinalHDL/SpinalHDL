@@ -137,7 +137,7 @@ class SpinalSimAhbLite3Interconnect extends FunSuite {
 
           // get list of slave of the master
           val slaves = dut.crossbar.slavesFromMaster(dut.busMaster(index))
-          
+
           val busDriver = new AhbLite3Driver(busMaster, dut.clockDomain)
 
           masterPool += fork {

@@ -56,8 +56,6 @@ case class AhbLite3AddrPhase(config: AhbLite3Config) extends Bundle{
   */
 case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, roundRobinArbiter : Boolean = true) extends Component {
 
-  //TODO : error => 1 phase address, 1 phase hreadyout zero, 1 phase error
-
   val io = new Bundle {
     val inputs = Vec(slave(AhbLite3(ahbLite3Config)), inputsCount)
     val output = master(AhbLite3(ahbLite3Config))
