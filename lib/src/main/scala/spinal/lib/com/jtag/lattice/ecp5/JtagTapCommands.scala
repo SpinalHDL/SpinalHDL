@@ -3,138 +3,156 @@ package spinal.lib.com.jtag.lattice.ecp5
 import spinal.core._
 import spinal.lib._
 
-import spinal.lib.blackbox.lattice.ecp5.{JtaggIo}
-import spinal.lib.com.jtag.{JtagTapFunctions, JtagTapShifter}
+import spinal.lib.com.jtag.{JtagTapInstructionCtrl}
 
 //══════════════════════════════════════════════════════════════════════════════
-// JtagTapCommand
+// JtagTapInstruction Write / Read / JtagTapInstructionFlowFragmentPush
 //
-class JtagTapCommand(tap: JtagTapInternalProtocol, instructionId: Int) extends Area {
+// functionally identical with spinal.lib.com.jtag.JtagTapInstructionXXX classes
+// but due to the fact that the ECP5 JTAGG has a buffer already implemented
+// at the TDI signal, we can use the internal JTDI signal directly for combinatorial
+// logic. 
+// This way we mimic the same behaviour of the generic JtagTapInstructionXXX classes
+// the code looks messy though...
+//
+// underlaying we implement a mealy-maschine to act like a moore-maschine.
 
-  assert( (instructionId == 0x32) || (instructionId == 0x38),
-          "Only instructions 0x32 / 0x38 are for embedded jtagg usage")
+//══════════════════════════════════════════════════════════════════════════════
+// JtaggShifter
+//
+// An area where the MSB of the shiftreg value is either tdi or the last saved tdi state.
+//
+class JtaggShifter(dataWidth: Int, ctrl: JtagTapInstructionCtrl, readable: Boolean) extends ImplicitArea[Bits] {
 
-  def doCapture(): Unit = {}
-  def doShift(): Unit = {}
-  def doUpdate(): Unit = {}
-  def doLastShift(): Unit = {}
-  def doReset(): Unit = {}
+    // in the original code, the internal shift register stores all serial data.
+    // we use the JTDI signal directly as the MSB of this register.
+    // because we're not shure if the JTDI signal changed in a transitional state,
+    // we have to buffer the JTDI value when where not in the shifted state
+    //
+    // the readable feature:
+    // With the readable flag set, we can read out the old value of the connected register
+    // also we make sure, that the data in a jtag daisy chain is pushed through.
+    // But the first TDO value is expected at the first pos clock edge in the shift state.
+    // Due to the buffering of the JTDI this is a discrepancy of one clock cycle.
+    // We can mitigate this by adding an additional shift state at the beginning of the transaction.
+    // we need an additional flipflop to make shure the injected shift cycle is only run once per transaction.
 
-  if(instructionId == 0x32){
-    Component.current.addPrePopTask(() => {
-          switch(tap.getJTaggState){
-            is(JtagTapState.Capture_DR1){
-              doCapture()
-            }
-            is(JtagTapState.Shift_DR1){
-              doShift()
-            }
-            is(JtagTapState.Shift_DR1_Last){
-              doShift()
-              doLastShift()
-            }
-            is(JtagTapState.Update_DR1){
-              doUpdate()
-            }
-            is(JtagTapState.Reset){
-              doReset()
-            }
-          }
-      })
+    val shifter = Reg(Bits(dataWidth-1 bit))
+    
+    val lateshift = RegNext(ctrl.shift && ctrl.enable)
+    val holdTdi = RegNextWhen(ctrl.tdi, lateshift)
+    val shiftedOnce = readable generate Reg(Bool) init(False)
+
+    val msb = lateshift ? ctrl.tdi | holdTdi
+    val value = msb ## shifter
+
+    when(ctrl.enable){
+        if (readable) when(ctrl.update) {
+            shiftedOnce := False
+        }
+    }
+
+    def capture(store: Bits): Unit = {
+        this.holdTdi := store.msb
+        this.shifter := store.resized
+    }
+
+    def shift(): Unit = {
+        if (readable) when(!this.shiftedOnce) {
+            this.shifter := (holdTdi ## this.shifter) >> 1
+            this.shiftedOnce :=True
+        }
+
+        if (readable) when(this.shiftedOnce) {
+            this.shifter := (ctrl.tdi ## shifter) >> 1
+        }
+
+        if (!readable){
+            this.shifter := (ctrl.tdi ## shifter) >> 1
+        }
+    }
+
+    override def implicitValue: Bits = this.value
+}
+
+
+//══════════════════════════════════════════════════════════════════════════════
+// JtagTapInstructionWrite
+//
+class JtagTapInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true) extends Area {
+
+  val ctrl = JtagTapInstructionCtrl()
+  
+  val shifter = new JtaggShifter(widthOf(data), ctrl, readable)                 
+  val store = readable generate Reg(Bits(data.getBitsWidth bit))
+  
+  when(ctrl.enable) {
+    if (readable) when(ctrl.capture) {
+        shifter.capture(store)
+    }
+
+    when(ctrl.shift) {
+      shifter.shift()
+    }
+
+    if (readable) when(ctrl.update) {
+        store := shifter
+    }
   }
 
-  if(instructionId == 0x38){
-    Component.current.addPrePopTask(() => {
-          switch(tap.getJTaggState){
-            is(JtagTapState.Capture_DR2){
-              doCapture()
-            }
-            is(JtagTapState.Shift_DR2){
-              doShift()
-            }
-            is(JtagTapState.Shift_DR2_Last){
-              doShift()
-              doLastShift()
-            }
-            is(JtagTapState.Update_DR2){
-              doUpdate()
-            }
-            is(JtagTapState.Reset){
-              doReset()
-            }
-          }
-      })
+  if (readable) ctrl.tdo := shifter.lsb else ctrl.tdo := False
+  data.assignFromBits(if (!cleanUpdate) shifter else store)
+}
+
+
+//══════════════════════════════════════════════════════════════════════════════
+// JtagTapInstructionRead
+//
+class JtagTapInstructionRead[T <: Data](data: T, light : Boolean) extends Area {    
+  val ctrl = JtagTapInstructionCtrl()
+
+  val full = !light generate new Area {
+    val shifter = new JtaggShifter(widthOf(data), ctrl, true) // in read, always readable 
+    when(ctrl.enable) {
+        when(ctrl.capture) {
+            shifter.capture(B(data))
+        }
+        when(ctrl.shift){
+            shifter.shift()
+        }
+    }
+    ctrl.tdo := shifter.lsb
+  }
+
+  val reduced = light generate new Area{  
+    val counter = Reg(UInt(log2Up(widthOf(data)) bits))
+    when(ctrl.enable) {
+      when(ctrl.capture){
+        counter := 0
+      }
+      when(ctrl.shift) {
+        counter := counter + 1
+      }
+    }
+    ctrl.tdo := B(data)(counter)
   }
 }
 
 //══════════════════════════════════════════════════════════════════════════════
-// JtagTapCommandRead
+// JtagTapInstructionFlowFragmentPush
 //
-class JtagTapCommandRead[T <: Data](data: T)
-                                   (tap: JtagTapInternalProtocol, instructionId: Int)
-                                   extends JtagTapCommand(tap, instructionId)
-                                   with JtagTapShifter{
-
-  override val shifter = Reg(Bits(data.getBitsWidth bit))
-
-  override def doCapture(): Unit = {
-    shifter := data.asBits
-  }
-
-  override def doShift(): Unit = {
-    shifter := (tap.getTdi ## shifter) >> 1
-    tap.setTdo(shifter.lsb)
-  }
-}
-
-//══════════════════════════════════════════════════════════════════════════════
-// JtagTapCommandWrite
-//
-class JtagTapCommandWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true)
-                                    (tap: JtagTapInternalProtocol, instructionId: Int)
-                                    extends JtagTapCommand(tap, instructionId){
-
-  val shifter = Reg(Bits(data.getBitsWidth bit))
-  val store = Reg(Bits(data.getBitsWidth bit))
-
-  override def doCapture(): Unit = {
-    shifter := store
-  }
-
-  override def doShift(): Unit = {
-    shifter := (tap.getTdi ## shifter) >> 1
-    if (readable) tap.setTdo(shifter.lsb)
-  }
-
-  override def doUpdate(): Unit = {
-    store := shifter
-  }
-
-  if (!cleanUpdate)
-    data.assignFromBits(shifter)
-  else
-    data.assignFromBits(store)
-}
-
-//══════════════════════════════════════════════════════════════════════════════
-// JtagTapCommandFlowFragmentPush
-//
-class JtagTapCommandFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)
-                                    (tap: JtagTapInternalProtocol, instructionId: Int)
-                                    extends JtagTapCommand(tap, instructionId){
+class JtagTapInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain) extends Area {
+  val ctrl = JtagTapInstructionCtrl()
 
   val source = Flow Fragment(Bits(1 bit))
-  source.valid := False
-  source.last := False
-  source.fragment.lsb := tap.getTdi
+  val valid = RegNext(ctrl.enable && ctrl.shift) 
+  val data = ctrl.tdi
+
+  source.valid := valid
+  source.last := !(ctrl.enable && ctrl.shift)
+  source.fragment.lsb := data
 
   sink << FlowCCByToggle(source, outputClock = sinkClockDomain)
 
-  override def doLastShift(): Unit = {
-    source.last := True
-  }
-
-  override def doShift(): Unit = {
-    source.valid := True
-  }
+  ctrl.tdo := False
 }
