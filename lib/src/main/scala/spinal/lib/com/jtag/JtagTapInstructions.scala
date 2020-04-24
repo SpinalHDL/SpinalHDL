@@ -2,6 +2,7 @@ package spinal.lib.com.jtag
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.xilinx.s7.BSCANE2
 
 // Created by PIC32F_USER on 05/04/2016.
 // Modified / Extended by HWEngineer 15/03/2020
@@ -9,16 +10,28 @@ import spinal.lib._
 
 case class JtagTapInstructionCtrl() extends Bundle with IMasterSlave {
   val tdi = Bool()
-  val tdo = Bool()
   val enable = Bool()
   val capture = Bool()
   val shift = Bool()
   val update = Bool()
   val reset = Bool()
+  val tdo = Bool()
 
   override def asMaster(): Unit = {
     out(tdi, enable, capture, shift, update, reset)
     in(tdo)
+  }
+
+  def fromXilinxBscane2(userId : Int) = {
+    val tap = BSCANE2(userId)
+    tdi     := tap.TDI
+    enable  := tap.SEL
+    capture := tap.CAPTURE
+    shift   := tap.SHIFT
+    update  := tap.UPDATE
+    reset   := tap.RESET
+    tap.TDO := tdo
+    tap
   }
 }
 
