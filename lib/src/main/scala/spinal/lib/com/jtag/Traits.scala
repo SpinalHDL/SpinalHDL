@@ -15,26 +15,3 @@ trait JtagTapFunctions {
   def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int)
 //  def hasUpdate(now : Bool)(instructionId : Int): Unit
 }
-
-//══════════════════════════════════════════════════════════════════════════════
-// define JtagTapAccess traits
-// is used for the "internal" use of the JtagTap to have defined interface to
-// the subclasses
-trait JtagTapAccess {
-  def getTdi : Bool
-  def getTms : Bool
-  def setTdo(value : Bool) : Unit
-
-  def getState : JtagState.C
-  def getInstruction() : Bits
-  def setInstruction(value : Bits) : Unit
-}
-
-//══════════════════════════════════════════════════════════════════════════════
-// define JtagTapShifter traits
-// this trait was a trade off.
-// to not-break a current implementation of the JtagTap this trait was necessary
-// its only used on the read commands of the JtagTagFunctions
-trait JtagTapShifter {
-  def shifter : Bits
-}
