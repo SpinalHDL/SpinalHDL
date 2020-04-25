@@ -558,3 +558,55 @@ object TestGhdl17 extends App{
   println(((endAt - startAt) * 1e-6).toString + " ms")
   println("Finished TestGhdl17")
 }
+
+object TestGhdl18 extends App{
+  val config = new GhdlBackendConfig()
+  config.rtlSourcesPaths += "SpinalSimVerilatorIoTestTop.vhd"
+  config.toplevelName = "SpinalSimVerilatorIoTestTop"
+  config.pluginsPath = "simulation_plugins"
+  config.workspacePath = "yolo"
+  config.workspaceName = "yolo"
+  config.wavePath = "test3.vcd"
+  config.waveFormat = WaveFormat.VCD
+
+  val (ghdlbackend, _) = new GhdlBackend(config).instanciate
+  val native_in = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateInput")
+  val native_out = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateOutput")
+  val native_decoded = ghdlbackend.get_signal_handle("SpinalSimVerilatorIoTestTop.nativeEncoding_stateDecoded")
+
+  println("in -> 0")
+  ghdlbackend.write32(native_in, 0)
+  ghdlbackend.sleep(1)
+  println(ghdlbackend.read32(native_in))
+  println(ghdlbackend.read32(native_out))
+  println(ghdlbackend.read32(native_decoded))
+  println("in -> 1")
+  ghdlbackend.write32(native_in, 1)
+  ghdlbackend.sleep(1)
+  println(ghdlbackend.read32(native_in))
+  println(ghdlbackend.read32(native_out))
+  println(ghdlbackend.read32(native_decoded))
+  println("in -> 2")
+  ghdlbackend.write32(native_in, 2)
+  ghdlbackend.sleep(1)
+  println(ghdlbackend.read32(native_in))
+  println(ghdlbackend.read32(native_out))
+  println(ghdlbackend.read32(native_decoded))
+  println("in -> 3")
+  ghdlbackend.write32(native_in, 3)
+  ghdlbackend.sleep(1)
+  println(ghdlbackend.read32(native_in))
+  println(ghdlbackend.read32(native_out))
+  println(ghdlbackend.read32(native_decoded))
+  println("in -> 4")
+  ghdlbackend.write32(native_in, 4)
+  ghdlbackend.sleep(1)
+  println(ghdlbackend.read32(native_in))
+  println(ghdlbackend.read32(native_out))
+  println(ghdlbackend.read32(native_decoded))
+  ghdlbackend.close
+
+  println("Finished TestGhdl18")
+}
+
+
