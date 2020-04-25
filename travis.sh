@@ -120,7 +120,7 @@ beforeInstall () {
   travis_start "ghdl" "GHDL" "build and install"
   sudo apt install -y gnat-4.9 zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
-  git reset --hard "0c05fa85d3695fc82336e2712ae223170c310cc1"
+  git reset --hard "a4e7fd3e6286b24350d9c4a782cdba15cb081a9c"
   ./dist/ci-run.sh -bmcode build
   mv install-mcode ../ghdl
   cd ..
@@ -144,7 +144,7 @@ beforeInstall () {
   sudo apt install -y git make gcc g++ swig python-dev
   git clone https://github.com/potentialventures/cocotb
   cd cocotb
-  git reset --hard a463cee498346cb26fc215ced25c088039490665
+  git reset --hard "a463cee498346cb26fc215ced25c088039490665"
   cd ..
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
   export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
