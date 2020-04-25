@@ -1302,7 +1302,7 @@ case class StreamFifoMultiChannelPush[T <: Data](payloadType : HardType[T], chan
 }
 
 case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
-  val channel = UInt(log2Up(channelCount) bits)
+  val channel = Bits(channelCount bits)
   val empty   = Bits(channelCount bits)
   val stream  = Stream(payloadType)
 
@@ -1311,14 +1311,31 @@ case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], chann
     slave(stream)
     in(empty)
   }
+
+  def toStreams(withCombinatorialBuffer : Boolean) = new Area{
+    val bufferIn, bufferOut = Vec(Stream(payloadType), channelCount)
+    (bufferOut, bufferIn).zipped.foreach((s, m) => if(withCombinatorialBuffer) s </< m else s <-< m)
+
+    val needRefill = B(bufferIn.map(_.ready))
+    val selOh = OHMasking.first(needRefill & ~empty) //TODO
+    val nonEmpty = (~empty).orR
+    channel := selOh
+    for((feed, sel) <- (bufferIn, selOh.asBools).zipped){
+      feed.valid := sel && nonEmpty
+      feed.payload := stream.payload
+    }
+    stream.ready := (selOh & B(bufferIn.map(_.ready))).orR
+  }.setCompositeName(this,"toStreams", true).bufferOut
+
 }
 
 
-case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int) extends Component{
+case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
   assert(isPow2(depth))
   val io = new Bundle {
     val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
     val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
+    val availability = out UInt(log2Up(depth) + 1 bits)
   }
   val ptrWidth = log2Up(depth)
 
@@ -1329,15 +1346,17 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   io.push.full := full
   io.push.stream.ready := !full
 
-  val pushNextEntry = Reg(UInt(ptrWidth bits)) init(0)
+  val pushNextEntry = UInt(ptrWidth bits)
   val popNextEntry = nextRam.wordType()
+
+
 
   val channels = for (channelId <- 0 until channelCount) yield new Area {
     val valid = RegInit(False)
     val headPtr = Reg(UInt(ptrWidth bits))
     val lastPtr = Reg(UInt(ptrWidth bits))
     val lastFire = False
-    when(io.pop.stream.fire && io.pop.channel === channelId) {
+    when(io.pop.stream.fire && io.pop.channel(channelId)) {
       headPtr := popNextEntry
       when(headPtr === lastPtr){
         lastFire := True
@@ -1353,13 +1372,11 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
       }
     }
     io.pop.empty(channelId) := !valid
-    full setWhen(valid && pushNextEntry === headPtr)
   }
 
   val pushLogic = new Area{
     val previousAddress = channels.map(_.lastPtr).read(io.push.channel)
     when(io.push.stream.fire) {
-      pushNextEntry := pushNextEntry + 1
       payloadRam.write(pushNextEntry, io.push.stream.payload)
       when(channels.map(_.valid).read(io.push.channel)) {
         nextRam.write(previousAddress, pushNextEntry)
@@ -1368,22 +1385,44 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   }
 
   val popLogic = new Area {
-    val readAddress = channels.map(_.headPtr).read(io.pop.channel)
-    val readIndex   = nextRam.readAsync(readAddress)
-    io.pop.stream.valid := !io.pop.empty(io.pop.channel)
+    val readAddress = channels.map(_.headPtr).read(OHToUInt(io.pop.channel))
+    io.pop.stream.valid := (io.pop.channel & ~io.pop.empty).orR
     io.pop.stream.payload := payloadRam.readAsync(readAddress)
     popNextEntry := nextRam.readAsync(readAddress)
+  }
+
+  val allocationByCounter = !withAllocationFifo generate new Area{
+    val allocationPtr = Reg(UInt(ptrWidth bits)) init(0)
+
+    when(io.push.stream.fire) {
+      allocationPtr := allocationPtr + 1
+    }
+
+    val onChannels = for(c <- channels) yield new Area{
+      full setWhen(c.valid && allocationPtr === c.headPtr)
+      val availability = (c.valid ? (c.headPtr-allocationPtr) | depth)
+    }
+
+    io.availability := onChannels.map(_.availability).reduceBalancedTree(_.min(_))
+
+    pushNextEntry := allocationPtr
+  }
+
+
+  val allocationByFifo = withAllocationFifo generate new Area{
+    ???
   }
 }
 
 object StreamFifoMultiChannelBench extends App{
+  val payloadType = HardType(Bits(8 bits))
   class BenchFpga(channelCount : Int) extends Rtl{
     override def getName(): String = "Bench" + channelCount
     override def getRtlPath(): String = getName() + ".v"
     SpinalVerilog(new Component{
-      val push = slave(StreamFifoMultiChannelPush(Bits(32 bits), channelCount))
-      val pop  = slave(StreamFifoMultiChannelPop(Bits(32 bits), channelCount))
-      val fifo = StreamFifoMultiChannel(Bits(32 bits), channelCount, 32)
+      val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
+      val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
+      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
 
       fifo.io.push.channel := RegNext(push.channel)
       push.full := RegNext(fifo.io.push.full)
@@ -1396,10 +1435,25 @@ object StreamFifoMultiChannelBench extends App{
       setDefinitionName(BenchFpga.this.getName())
     })
   }
+  class BenchFpga2(channelCount : Int) extends Rtl{
+    override def getName(): String = "BenchToStream" + channelCount
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
+      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+
+      fifo.io.push.channel := RegNext(push.channel)
+      push.full := RegNext(fifo.io.push.full)
+      fifo.io.push.stream  <-/< push.stream
+
+      setDefinitionName(BenchFpga2.this.getName())
+
+      val outputs = fifo.io.pop.toStreams(false).map(_.s2mPipe().asMaster())
+    })
+  }
 
 
-
-  val rtls = List(2,4,8).map(width => new BenchFpga(width))
+  val rtls = List(2,4,8).map(width => new BenchFpga(width)) ++ List(2,4,8).map(width => new BenchFpga2(width))
 
   val targets = XilinxStdTargets()// ++ AlteraStdTargets()
 

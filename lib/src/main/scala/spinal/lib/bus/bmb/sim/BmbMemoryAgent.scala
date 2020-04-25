@@ -13,7 +13,7 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable.ArrayBuffer
 
 
-class BmbMemoryAgent(val memorySize : BigInt) {
+class BmbMemoryAgent(val memorySize : BigInt = 0) {
 //  val memory = new Array[Byte](memorySize.toInt)
   val memory = SparseMemory()
 
@@ -22,7 +22,11 @@ class BmbMemoryAgent(val memorySize : BigInt) {
   def getByte(address : Long) = memory.read(address)
   def setByte(address : Long, value : Byte) = memory.write(address, value)
 
-  def addPort(bus : Bmb, busAddress : Long, clockDomain : ClockDomain, withDriver : Boolean, withStall : Boolean = true) = {
+  def addPort(bus : Bmb,
+              busAddress : Long,
+              clockDomain : ClockDomain,
+              withDriver : Boolean,
+              withStall : Boolean = true) = {
     var cmdBeat = 0
     var writeFragments = ArrayBuffer[() => Unit]() //Allow to apply write data on their rsp (out of oder)
 

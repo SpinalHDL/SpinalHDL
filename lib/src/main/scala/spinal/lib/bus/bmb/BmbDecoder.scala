@@ -86,3 +86,125 @@ case class BmbDecoder(p : BmbParameter,
     }
   }
 }
+
+
+case class BmbDecoderOutOfOrder(p : BmbParameter,
+                                mappings : Seq[AddressMapping],
+                                capabilities : Seq[BmbParameter],
+                                pendingRspMax : Int) extends Component{
+  assert(!AddressMapping.verifyOverlapping(mappings), "BMB address decoding overlapping")
+
+  val io = new Bundle {
+    val input = slave(Bmb(p))
+    val outputs = Vec(master(Bmb(p)), mappings.size)
+  }
+  val sourceCount = 1 << p.sourceWidth
+  val portCount = mappings.size
+
+  case class SourceHistory() extends Bundle {
+    val outputId = UInt(log2Up(mappings.size) bits)
+    //    val context = Bits(p.contextWidth bits)
+  }
+
+  val sourceOrderingFifo = StreamFifoMultiChannel(SourceHistory(), channelCount = sourceCount, depth = pendingRspMax)
+  val sourceOrderingUnbuffered = sourceOrderingFifo.io.pop.toStreams(withCombinatorialBuffer = true).unsetName()
+  val sourceOrdering = sourceOrderingUnbuffered.map(_.m2sPipe())
+
+  val cmdToRspCountMinusOne = io.input.cmd.isRead ? io.input.cmd.transferBeatCountMinusOne | 0
+
+  val portsLogic = for ((port, portId) <- io.outputs.zipWithIndex) yield new Area {
+    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(p)), channelCount = sourceCount, depth = pendingRspMax)
+    rspFifo.io.push.stream.valid := port.rsp.valid
+    rspFifo.io.push.stream.payload := port.rsp.payload
+    rspFifo.io.push.channel := port.rsp.source
+    port.rsp.ready := True
+    assert(!(rspFifo.io.push.stream.isStall))
+
+    val sourceHits = B(for (sourceId <- 0 until sourceCount) yield !rspFifo.io.pop.empty(sourceId) && sourceOrdering(sourceId).valid && sourceOrdering(sourceId).outputId === portId)
+    val sourceHit = sourceHits.orR
+    val sourceArbiter = B(OHMasking.first(sourceHits)) //TODO
+    val lockValid = RegInit(False)
+    val lockSel = Reg(Bits(sourceCount bits))
+    val sourceSel = lockValid ? lockSel | sourceArbiter
+
+    when(io.input.rsp.valid){
+      lockValid := True
+      lockSel := sourceSel
+      when(io.input.rsp.ready && io.input.rsp.last){
+        lockValid := False
+      }
+    }
+    rspFifo.io.pop.channel := sourceSel
+
+
+    val incomingRspCount = Reg(UInt(log2Up(pendingRspMax + 1) bits)) init(0)
+    val incomingRspAdd = port.cmd.lastFire ? ((U"0" @@ cmdToRspCountMinusOne) + 1) | 0
+    incomingRspCount := incomingRspCount + incomingRspAdd - U(port.rsp.fire)
+
+    val rspFifoFull = cmdToRspCountMinusOne + incomingRspCount >= (rspFifo.io.availability)
+  }
+
+
+  val cmdLogic = new Area {
+    assert(mappings.contains(DefaultMapping))
+    val rspCount = io.input.cmd.transferBeatCountMinusOne + 1
+
+    val (orderingFork, cmdFork) = StreamFork2(io.input.cmd)
+    val halt = False
+    val hits = Vec(Bool, mappings.size)
+    for (portId <- 0 until mappings.length) yield {
+      val slaveBus = io.outputs(portId)
+      val memorySpace = mappings(portId)
+      val capability = capabilities(portId)
+      val hit = hits(portId)
+      hit := (memorySpace match {
+        case DefaultMapping => !hits.filterNot(_ == hit).orR
+        case _ => memorySpace.hit(io.input.cmd.address)
+      })
+      if (!capability.canWrite) hit clearWhen (io.input.cmd.isWrite)
+      if (!capability.canRead) hit clearWhen (io.input.cmd.isRead)
+
+      halt.setWhen(hit && portsLogic(portId).rspFifoFull)
+      slaveBus.cmd.valid   := cmdFork.valid && hit && !portsLogic(portId).rspFifoFull
+      slaveBus.cmd.payload := cmdFork.payload.resized
+    }
+    cmdFork.ready := (hits, io.outputs).zipped.map(_ && _.cmd.ready).orR && !halt
+
+    val portId = OHToUInt(hits)
+
+    sourceOrderingFifo.io.push.channel := io.input.cmd.source
+    sourceOrderingFifo.io.push.stream.arbitrationFrom(orderingFork.throwWhen(!orderingFork.isFirst))
+    sourceOrderingFifo.io.push.stream.outputId := portId
+    //  sourceOrderingFifo.io.push.stream.context := io.input.cmd.context
+  }
+
+
+
+  val rspLogic = new Area {
+    val lockValid = RegInit(False)
+    val lockSel = Reg(Bits(portCount bits))
+    val arbiterSel = B(OHMasking.first(portsLogic.map(_.sourceHit))) //TODO
+    val portSel = lockValid ? lockSel | arbiterSel
+
+    when(io.input.rsp.valid){
+      lockValid := True
+      lockSel := portSel
+      when(io.input.rsp.ready && io.input.rsp.last){
+        lockValid := False
+      }
+    }
+
+
+    (portsLogic, portSel.asBools).zipped.foreach(_.rspFifo.io.pop.stream.ready := _ && io.input.rsp.ready)
+
+    val sourceSel = MuxOH(portSel, portsLogic.map(_.sourceSel))
+
+    io.input.rsp.valid := (B(portsLogic.map(_.rspFifo.io.pop.stream.valid)) & portSel).orR
+    io.input.rsp.payload := MuxOH(portSel, portsLogic.map(_.rspFifo.io.pop.stream.payload))
+    for(sourceId <- 0 until sourceCount) {
+      sourceOrdering(sourceId).ready := sourceSel(sourceId) && io.input.rsp.fire && io.input.rsp.last
+    }
+  }
+}
+
+
