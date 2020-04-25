@@ -1329,7 +1329,7 @@ case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], chann
 
 }
 
-
+//io.availability has one cycle latency
 case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
   assert(isPow2(depth))
   val io = new Bundle {
@@ -1364,12 +1364,13 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
       }
     }
 
+    when(!valid || lastFire){
+      headPtr := pushNextEntry
+    }
+
     when(io.push.stream.fire && io.push.channel === channelId) {
       lastPtr := pushNextEntry
       valid := True
-      when(!valid || lastFire){
-        headPtr := pushNextEntry
-      }
     }
     io.pop.empty(channelId) := !valid
   }
@@ -1400,10 +1401,12 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
 
     val onChannels = for(c <- channels) yield new Area{
       full setWhen(c.valid && allocationPtr === c.headPtr)
-      val availability = (c.valid ? (c.headPtr-allocationPtr) | depth)
+      val wasValid = RegNext(c.valid) init(False)
+      val availability = RegNext(c.headPtr-allocationPtr)
     }
 
-    io.availability := onChannels.map(_.availability).reduceBalancedTree(_.min(_))
+    val (availabilityValid, availabilityValue) = onChannels.map(c => (c.wasValid, c.availability)).reduceBalancedTree{case (a,b) => (a._1 || b._1, (a._1 && (!b._1 || a._2 < b._2)) ? a._2 | b._2)}
+    io.availability := (availabilityValid ? availabilityValue | depth)
 
     pushNextEntry := allocationPtr
   }
@@ -1412,6 +1415,8 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   val allocationByFifo = withAllocationFifo generate new Area{
     ???
   }
+
+
 }
 
 object StreamFifoMultiChannelBench extends App{

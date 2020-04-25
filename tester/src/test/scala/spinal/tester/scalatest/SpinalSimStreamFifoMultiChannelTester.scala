@@ -24,6 +24,8 @@ class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
 
       val successCount = Array.fill(4)(0)
       dut.clockDomain.onSamplings {
+        assert(!(dut.io.push.full.toBoolean && (dut.io.availability.toInt > 1)))
+
         if (dut.io.push.stream.valid.toBoolean && dut.io.push.stream.ready.toBoolean) {
           queueModel(dut.io.push.channel.toInt).enqueue(dut.io.push.stream.payload.toLong)
         }
