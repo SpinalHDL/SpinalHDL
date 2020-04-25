@@ -45,9 +45,9 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       )
     }
   }
-//  test("2p_4s") {doIt(1, 4)}
-//  test("4p_4s") {doIt(3, 4)}
-//  test("2p_8s") {doIt(1, 8)}
+  test("2p_4s") {doIt(1, 4)}
+  test("4p_4s") {doIt(3, 4)}
+  test("2p_8s") {doIt(1, 8)}
   test("4p_8s") {doIt(3, 8)}
 }
 

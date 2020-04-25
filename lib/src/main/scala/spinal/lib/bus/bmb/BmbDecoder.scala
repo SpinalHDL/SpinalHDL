@@ -93,6 +93,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
                                 capabilities : Seq[BmbParameter],
                                 pendingRspMax : Int) extends Component{
   assert(!AddressMapping.verifyOverlapping(mappings), "BMB address decoding overlapping")
+  assert(isPow2(pendingRspMax))
 
   val io = new Bundle {
     val input = slave(Bmb(p))
@@ -137,11 +138,12 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     rspFifo.io.pop.channel := sourceSel
 
 
-    val incomingRspCount = Reg(UInt(log2Up(pendingRspMax + 1) bits)) init(0)
+    val incomingRspCount = Reg(UInt(log2Up(pendingRspMax) + 1 bits)) init(2 + p.transferBeatCount) //Init 2 to compensate rspFifo availability latency in a pessimistic way
     val incomingRspAdd = port.cmd.lastFire ? ((U"0" @@ cmdToRspCountMinusOne) + 1) | 0
     incomingRspCount := incomingRspCount + incomingRspAdd - U(port.rsp.fire)
 
-    val rspFifoFull = cmdToRspCountMinusOne + incomingRspCount >= (rspFifo.io.availability)
+//    val rspFifoFull = cmdToRspCountMinusOne + incomingRspCount >= RegNext(rspFifo.io.availability)
+    val rspFifoFull = incomingRspCount >= RegNext(rspFifo.io.availability) //Pessimistic
   }
 
 
