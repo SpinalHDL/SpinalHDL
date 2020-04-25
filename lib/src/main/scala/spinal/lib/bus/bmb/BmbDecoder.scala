@@ -104,6 +104,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
 
   case class SourceHistory() extends Bundle {
     val outputId = UInt(log2Up(mappings.size) bits)
+    val beatCount = UInt(p.beatCounterWidth bits)
     //    val context = Bits(p.contextWidth bits)
   }
 
@@ -177,6 +178,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     sourceOrderingFifo.io.push.channel := io.input.cmd.source
     sourceOrderingFifo.io.push.stream.arbitrationFrom(orderingFork.throwWhen(!orderingFork.isFirst))
     sourceOrderingFifo.io.push.stream.outputId := portId
+    sourceOrderingFifo.io.push.stream.beatCount := cmdToRspCountMinusOne
     //  sourceOrderingFifo.io.push.stream.context := io.input.cmd.context
   }
 
@@ -188,11 +190,17 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     val arbiterSel = B(OHMasking.first(portsLogic.map(_.sourceHit))) //TODO
     val portSel = lockValid ? lockSel | arbiterSel
 
+    val beatCounter = Reg(UInt(p.beatCounterWidth bits)) init(0)
+
     when(io.input.rsp.valid){
       lockValid := True
       lockSel := portSel
-      when(io.input.rsp.ready && io.input.rsp.last){
-        lockValid := False
+      when(io.input.rsp.ready){
+        beatCounter := beatCounter + 1
+        when(io.input.rsp.last){
+          lockValid := False
+          beatCounter := 0
+        }
       }
     }
 
@@ -200,9 +208,14 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     (portsLogic, portSel.asBools).zipped.foreach(_.rspFifo.io.pop.stream.ready := _ && io.input.rsp.ready)
 
     val sourceSel = MuxOH(portSel, portsLogic.map(_.sourceSel))
+    val lasts = B(sourceOrdering.map(_.beatCount === beatCounter))
+    val last = (lasts & sourceSel).orR
+
 
     io.input.rsp.valid := (B(portsLogic.map(_.rspFifo.io.pop.stream.valid)) & portSel).orR
     io.input.rsp.payload := MuxOH(portSel, portsLogic.map(_.rspFifo.io.pop.stream.payload))
+    io.input.rsp.last.removeAssignments() := last
+
     for(sourceId <- 0 until sourceCount) {
       sourceOrdering(sourceId).ready := sourceSel(sourceId) && io.input.rsp.fire && io.input.rsp.last
     }

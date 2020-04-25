@@ -106,14 +106,14 @@ object SpinalSimBmbDecoderOutOfOrderSynthesisBench extends App{
         pendingRspMax = 64
       )
       var sum = 0
-      decoder.io.input.cmd <-/< input.cmd
-      decoder.io.input.rsp >/-> input.rsp
+      decoder.io.input.cmd << input.cmd
+      decoder.io.input.rsp >> input.rsp
       sum += widthOf(input.cmd.payload)
       sum += widthOf(input.rsp.payload)
 
       (decoder.io.outputs, outputs).zipped.foreach{case (d, o) =>
-        o.cmd <-/< d.cmd
-        o.rsp >/-> d.rsp
+        o.cmd << d.cmd
+        o.rsp >> d.rsp
         sum += widthOf(d.cmd.payload)
         sum += widthOf(d.rsp.payload)
       }
