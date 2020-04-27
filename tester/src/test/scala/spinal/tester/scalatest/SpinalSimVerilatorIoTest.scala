@@ -206,7 +206,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
     }
 
     test(prefix + "compile") {
-      compiled = SimConfig.withWave.compile(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop)
+      compiled = SimConfig.compile(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop)
     }
 
     test(prefix + "test1") {

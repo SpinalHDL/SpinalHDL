@@ -202,80 +202,88 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
       //      interconnect.addConnection(mB, List(sA))
     })
   }
-  test("test1"){
-    SimConfig.allOptimisation.compile(f).doSimUntilVoid("test1", 42){dut => //TODO remove seed
-      Phase.boot()
-      Phase.setup {
-        dut.clockDomain.forkStimulus(10)
-        dut.clockDomain.forkSimSpeedPrinter()
 
-        val memorySize = 0x100000
-        val allowedWrites = mutable.HashMap[Long, Byte]()
-        val memory = new BmbMemoryAgent(memorySize){
-          override def setByte(address: Long, value: Byte): Unit = {
-            val option = allowedWrites.get(address)
-            assert(option.isDefined)
-            assert(option.get == value)
-            super.setByte(address, value)
-            allowedWrites.remove(address)
+  SpinalSimTester { env =>
+    import env._
+
+    test(prefix + "test1") {
+      SimConfig.allOptimisation.compile(f).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
+        Phase.boot()
+        Phase.setup {
+          dut.clockDomain.forkStimulus(10)
+          dut.clockDomain.forkSimSpeedPrinter()
+
+          val memorySize = 0x100000
+          val allowedWrites = mutable.HashMap[Long, Byte]()
+          val memory = new BmbMemoryAgent(memorySize) {
+            override def setByte(address: Long, value: Byte): Unit = {
+              val option = allowedWrites.get(address)
+              assert(option.isDefined)
+              assert(option.get == value)
+              super.setByte(address, value)
+              allowedWrites.remove(address)
+            }
           }
-        }
-        for((bus, model) <- dut.generator.interconnect.slaves){
-          memory.addPort(
-            bus = bus,
-            busAddress = model.mapping.lowerBound.toLong,
-            clockDomain = dut.clockDomain,
-            withDriver = true
-          )
-        }
+          for ((bus, model) <- dut.generator.interconnect.slaves) {
+            memory.addPort(
+              bus = bus,
+              busAddress = model.mapping.lowerBound.toLong,
+              clockDomain = dut.clockDomain,
+              withDriver = true
+            )
+          }
 
-        val regions = BmbRegionAllocator()
-        for((bus, model) <- dut.generator.interconnect.masters){
-          val agent = new BmbMasterAgent(bus, dut.clockDomain){
-            override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
-              val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
-              if(ref != data){
-                simFailure(s"Read missmatch on $bus\n  REF=$ref\n  DUT=$data")
-              }
-            }
-
-            override def getCmd(): () => Unit = if(Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-            override def onCmdWrite(address: BigInt, data: Byte): Unit = {
-              val addressLong = address.toLong
-              assert(!allowedWrites.contains(addressLong))
-              allowedWrites(addressLong) = data
-            }
-
-            override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.p)
-            override def regionFree(region: SizeMapping): Unit = regions.free(region)
-            override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = {
-              dut.generator.interconnect.slaves.values.exists{model =>
-                val opcodeOk = opcode match {
-                  case Bmb.Cmd.Opcode.WRITE => model.requirements.canWrite
-                  case Bmb.Cmd.Opcode.READ => model.requirements.canRead
+          val regions = BmbRegionAllocator()
+          for ((bus, model) <- dut.generator.interconnect.masters) {
+            val agent = new BmbMasterAgent(bus, dut.clockDomain) {
+              override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
+                val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
+                if (ref != data) {
+                  simFailure(s"Read missmatch on $bus\n  REF=$ref\n  DUT=$data")
                 }
-                val addressOk = model.mapping.lowerBound <= region.end && model.mapping.get.asInstanceOf[SizeMapping].end >= region.base
+              }
 
-                addressOk && opcodeOk
+              override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
+
+              override def onCmdWrite(address: BigInt, data: Byte): Unit = {
+                val addressLong = address.toLong
+                assert(!allowedWrites.contains(addressLong))
+                allowedWrites(addressLong) = data
+              }
+
+              override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.p)
+
+              override def regionFree(region: SizeMapping): Unit = regions.free(region)
+
+              override def regionIsMapped(region: SizeMapping, opcode: Int): Boolean = {
+                dut.generator.interconnect.slaves.values.exists { model =>
+                  val opcodeOk = opcode match {
+                    case Bmb.Cmd.Opcode.WRITE => model.requirements.canWrite
+                    case Bmb.Cmd.Opcode.READ => model.requirements.canRead
+                  }
+                  val addressOk = model.mapping.lowerBound <= region.end && model.mapping.get.asInstanceOf[SizeMapping].end >= region.base
+
+                  addressOk && opcodeOk
+                }
               }
             }
-          }
 
-          //Retain the flush phase until all Bmb rsp are received
-          Phase.flush.retain()
-          Phase.flush(fork{
-            while(agent.rspQueue.exists(_.nonEmpty)) {
+            //Retain the flush phase until all Bmb rsp are received
+            Phase.flush.retain()
+            Phase.flush(fork {
+              while (agent.rspQueue.exists(_.nonEmpty)) {
+                dut.clockDomain.waitSampling(1000)
+              }
               dut.clockDomain.waitSampling(1000)
-            }
-            dut.clockDomain.waitSampling(1000)
-            Phase.flush.release()
-          })
+              Phase.flush.release()
+            })
 
-          //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-          val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer(300)) //TODO
-          agent.rspMonitor.addCallback{_ =>
-            if(bus.rsp.last.toBoolean){
-              retainers(bus.rsp.source.toInt).release()
+            //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
+            val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer((300*durationFactor).toInt)) //TODO
+            agent.rspMonitor.addCallback { _ =>
+              if (bus.rsp.last.toBoolean) {
+                retainers(bus.rsp.source.toInt).release()
+              }
             }
           }
         }
