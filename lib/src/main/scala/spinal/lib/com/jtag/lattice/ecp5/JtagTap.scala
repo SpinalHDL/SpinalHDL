@@ -4,7 +4,9 @@ import spinal.core._
 import spinal.lib._
 
 import spinal.lib.blackbox.lattice.ecp5.{JtaggIo, JTAGG, JtaggGeneric}
-import spinal.lib.com.jtag.{JtagTapFunctions, JtagTapShifter, JtagTapFactory}
+import spinal.lib.com.jtag.{JtagTapFunctions, JtagTapFactory, JtagTapInstructionCtrl}
+// import spinal.lib.com.jtag.{JtagInstructionWrapper}
+
 
 import scala.collection.immutable.HashMap
 import scala.collection.mutable.ArrayBuffer
@@ -58,93 +60,104 @@ import scala.collection.mutable.ArrayBuffer
 // will change the SHIFT_DRx signal to the next state. Thus we have to generate
 // a "late shift" signal to enable this last receive pulse.
 
-
-//══════════════════════════════════════════════════════════════════════════════
-// define lattice.ecp5 specific traits
-//
-trait JtagTapInternalProtocol {
-  def getTdi : Bool
-  def setTdo(value : Bool) : Unit
-  def getJTaggState : JtagTapState.C
-}
-
 //══════════════════════════════════════════════════════════════════════════════
 // define lattice.ecp5 specific enums
-//
 object JtagTapState extends SpinalEnum {
-  val Reset, Idle, Update_DR1, Capture_DR1, Shift_DR1, Shift_DR1_Last,
-                   Update_DR2, Capture_DR2, Shift_DR2, Shift_DR2_Last = newElement()
+  val Reset, Idle, Update_DR, Capture_DR, Shift_DR = newElement()
 }
 
 //══════════════════════════════════════════════════════════════════════════════
 // define lattice.ecp5 specific JTagTap
 //
 class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
-                                                    with JtagTapFunctions
-                                                    with JtagTapInternalProtocol{
+                                                    with JtagTapFunctions{
 
   assert( instructionWidth == 8,
     """The ECP5 JTAGG implements only 8-Bit instruction width.\n
       |Only instructions 0x32 / 0x38 are for embedded jtag usage""".stripMargin)
 
-  val lateShift1  = RegNext(io.JSHIFT && io.JCE1) init(False)
-  val lateShift2  = RegNext(io.JSHIFT && io.JCE2) init(False)
-
-  val trigger1    = Reg(Bool) init(False)
-  val trigger2    = Reg(Bool) init(False)
-
+  val instruction     = Bool // 0-> 0x32 / 1-> 0x38
+  val tdo             = Bool(false)
+  val state           = asJtagTapState(io)
+  val lastInstruction = Reg(Bool) init(False)
+  
   when(io.JCE1.rise){
-    trigger1 := True
+    lastInstruction := False
   }
+
   when(io.JCE2.rise){
-    trigger2 := True
+    lastInstruction := True
   }
 
-  when(io.JUPDATE.fall){
-    trigger1 := False
-    trigger2 := False
-  }
+  instruction := B(io.JCE1 ## io.JCE2 ## lastInstruction).mux(
+    M"10-"  -> False,
+    M"01-"  -> True,
+    default -> lastInstruction
+  )
 
-  val state       = JtagTapState()
-  val tdo         = Bool
+  io.JTDO1 := tdo;
+  io.JTDO2 := tdo;
 
-  tdo             := False // default
-  state           := asJtagTapState(io, lateShift1, lateShift2, trigger1, trigger2)
-
-  io.JTDO1 := tdo; //default
-  io.JTDO2 := tdo; //default
-
-  def asJtagTapState(io: JtaggIo, lateShift1 : Bool, lateShift2 : Bool, trigger1 : Bool, trigger2 : Bool): JtagTapState.C = {
-    B(io.JRSTN ## io.JSHIFT ## io.JUPDATE ## io.JCE1 ## io.JCE2  ## lateShift1 ## lateShift2 ## trigger1 ## trigger2).mux(
-      M"0--------"  -> JtagTapState.Reset,          // JtagState : Reset
-      M"1-1----1-"  -> JtagTapState.Update_DR1,     // JtagState : DR-Update for ER1
-      M"1-1-----1"  -> JtagTapState.Update_DR2,     // JtagState : DR-Update for ER2
-      M"11-1-----"  -> JtagTapState.Shift_DR1,      // JtagState : DR-Shift for ER1
-      M"11--1----"  -> JtagTapState.Shift_DR2,      // JtagState : DR-Shift for ER2
-      M"10-1-----"  -> JtagTapState.Capture_DR1,    // JtagState : DR-Capture for ER1
-      M"10--1----"  -> JtagTapState.Capture_DR2,    // JtagState : DR-Capture for ER2
-      M"1----1---"  -> JtagTapState.Shift_DR1_Last, // JtagState : (late) DR-Shift for ER1 or ER2
-      M"1-----1--"  -> JtagTapState.Shift_DR2_Last, // JtagState : (late) DR-Shift for ER1 or ER2
-      default       -> JtagTapState.Idle            // JtagState : every other state
+  def asJtagTapState(io: JtaggIo): JtagTapState.C = {
+    val JCE = (io.JCE1 || io.JCE2)
+    B(io.JRSTN ## io.JSHIFT ## io.JUPDATE ## JCE).mux(
+      M"0---"  -> JtagTapState.Reset,         // JtagState : Reset
+      M"1-1-"  -> JtagTapState.Update_DR,     // JtagState : DR-Update for ER1 / ER2
+      M"1101"  -> JtagTapState.Shift_DR,      // JtagState : DR-Shift for ER1 / ER2
+      M"1001"  -> JtagTapState.Capture_DR,    // JtagState : DR-Capture for ER1 / ER2
+      default  -> JtagTapState.Idle           // JtagState : every other state
     )
   }
 
-  // implement traits of JtagTapInternalProtocol
-  override def getTdi : Bool = io.JTDI
-  override def setTdo(value: Bool): Unit = tdo := value
-  override def getJTaggState : JtagTapState.C = state
+  def map(ctrl : JtagTapInstructionCtrl, instructionId : Int): Unit ={
+    // instructionId can be either 0x32 / 0x38
+    // to have a small (synthesised) area footprint we convert the 0x32 / 0x38 to a Bool
+    // 0x32 : False / 0x38 : True
+    assert( instructionId == 0x32 || instructionId == 0x38,
+    """The ECP5 JTAGG implements two user instructions: 0x32 / 0x38 for embedded jtag usage.\n
+      |use 0x32 or 0x38 as instructionId""".stripMargin)
+
+    val idshort = if(instructionId == 0x38) 1 else 0 
+
+    ctrl.tdi     := io.JTDI
+    ctrl.enable  := instruction.asBits === idshort
+    ctrl.capture := state === JtagTapState.Capture_DR
+    ctrl.shift   := state === JtagTapState.Shift_DR
+    ctrl.update  := state === JtagTapState.Update_DR
+    ctrl.reset   := state === JtagTapState.Reset
+    when(ctrl.enable) { tdo := ctrl.tdo }
+  }
 
   // implement traits of JtagTapFunctions
-  override def idcode(value: Bits)(instructionId: Int): Unit =
+  override def idcode(value: Bits)(instructionId: Int) = 
     assert(false, """sorry a custom JTAG idcode is not supported by the embedded jtagg controller\n
-                  |Idcode always 0xE0\n
-                  |delete the code ... = tap.idcode(...) it's not necessary\n""".stripMargin)
-  override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) =
-    new JtagTapCommandRead(data)(this, instructionId)
-  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) =
-    new JtagTapCommandWrite[T](data, cleanUpdate, readable)(this, instructionId)
-  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) =
-    new JtagTapCommandFlowFragmentPush(sink, sinkClockDomain)(this, instructionId)
+                   |Idcode always 0xE0\n
+                   |delete the code ... = tap.idcode(...) it's not necessary\n""".stripMargin)
+
+  override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) = {
+    val area = new JtagTapInstructionRead(data, light = light)
+    map(area.ctrl, instructionId)
+    area
+  }
+
+  override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) = {
+    val area = new JtagTapInstructionWrite(data, cleanUpdate, readable)
+    map(area.ctrl, instructionId)
+    area
+  }
+  
+  override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
+    val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
+    map(area.ctrl, instructionId)
+    area
+  }
+
+  // def instructionWrapper(headerWidth : Int) (instructionId: Int)  = {
+  //   val area = new JtagInstructionWrapper(headerWidth)
+  //   map(area.ctrl, instructionId)
+  //   area
+  // }
+
 }
 
 //══════════════════════════════════════════════════════════════════════════════

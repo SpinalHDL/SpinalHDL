@@ -40,8 +40,8 @@ case class JtagTapInstructionCtrl() extends Bundle with IMasterSlave {
 class JtagTapInstructionWrite[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true) extends Area {
   val ctrl = JtagTapInstructionCtrl()
 
-  val shifter = Reg(Bits(data.getBitsWidth bit))
-  val store = readable generate Reg(Bits(data.getBitsWidth bit))
+  val shifter = Reg(Bits(widthOf(data) bit))
+  val store = readable generate Reg(Bits(widthOf(data) bit))
 
   when(ctrl.enable) {
     if (readable) when(ctrl.capture) {
