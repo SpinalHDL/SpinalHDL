@@ -115,6 +115,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  def pipelined(m2s : Boolean = false,
+                s2m : Boolean = false,
+                halfRate : Boolean = false) : Stream[T] = {
+    val ret = Stream(payloadType)
+    (m2s, s2m, halfRate) match {
+      case (false,false,false) => this
+      case (true,false,false) => val ret = Stream(payloadType); ret << this.m2sPipe(); ret
+      case (false,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe(); ret
+      case (true,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe().m2sPipe(); ret
+      case (false,false,true) => val ret = Stream(payloadType); ret << this.halfPipe(); ret
+    }
+  }
+
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
