@@ -29,7 +29,7 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       p             = p,
       mappings      = Seq(DefaultMapping) ++ Seq.tabulate(outputCount)(e => SizeMapping(0x40000*e, 0x40000)),
       capabilities  = Seq.fill(outputCount + 1)(p),
-      pendingRspMax = 64
+      pendingRspTransactionMax = 64
     )).doSimUntilVoid(seed = 42) { dut =>
       SimTimeout(10000000)
       dut.clockDomain.forkStimulus(2)
@@ -103,7 +103,7 @@ object SpinalSimBmbDecoderOutOfOrderSynthesisBench extends App{
         p             = p,
         mappings      = Seq(DefaultMapping) ++ Seq.tabulate(outputCount-1)(e => SizeMapping(0x40000*e, 0x40000)),
         capabilities  = Seq.fill(outputCount)(p),
-        pendingRspMax = 64
+        pendingRspTransactionMax = 64
       )
       var sum = 0
       decoder.io.input.cmd << input.cmd

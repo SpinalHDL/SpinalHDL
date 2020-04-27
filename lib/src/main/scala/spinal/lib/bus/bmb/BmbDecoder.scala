@@ -91,9 +91,9 @@ case class BmbDecoder(p : BmbParameter,
 case class BmbDecoderOutOfOrder(p : BmbParameter,
                                 mappings : Seq[AddressMapping],
                                 capabilities : Seq[BmbParameter],
-                                pendingRspMax : Int) extends Component{
+                                pendingRspTransactionMax : Int) extends Component{
   assert(!AddressMapping.verifyOverlapping(mappings), "BMB address decoding overlapping")
-  assert(isPow2(pendingRspMax))
+  assert(isPow2(pendingRspTransactionMax))
 
   val io = new Bundle {
     val input = slave(Bmb(p))
@@ -108,14 +108,14 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     //    val context = Bits(p.contextWidth bits)
   }
 
-  val sourceOrderingFifo = StreamFifoMultiChannel(SourceHistory(), channelCount = sourceCount, depth = pendingRspMax)
+  val sourceOrderingFifo = StreamFifoMultiChannel(SourceHistory(), channelCount = sourceCount, depth = pendingRspTransactionMax)
   val sourceOrderingUnbuffered = sourceOrderingFifo.io.pop.toStreams(withCombinatorialBuffer = true).unsetName()
   val sourceOrdering = sourceOrderingUnbuffered.map(_.m2sPipe())
 
   val cmdToRspCountMinusOne = io.input.cmd.isRead ? io.input.cmd.transferBeatCountMinusOne | 0
 
   val portsLogic = for ((port, portId) <- io.outputs.zipWithIndex) yield new Area {
-    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(p)), channelCount = sourceCount, depth = pendingRspMax)
+    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(p)), channelCount = sourceCount, depth = pendingRspTransactionMax)
     rspFifo.io.push.stream.valid := port.rsp.valid
     rspFifo.io.push.stream.payload := port.rsp.payload
     rspFifo.io.push.channel := port.rsp.source
@@ -139,7 +139,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     rspFifo.io.pop.channel := sourceSel
 
 
-    val incomingRspCount = Reg(UInt(log2Up(pendingRspMax) + 1 bits)) init(2 + p.transferBeatCount) //Init 2 to compensate rspFifo availability latency in a pessimistic way
+    val incomingRspCount = Reg(UInt(log2Up(pendingRspTransactionMax) + 1 bits)) init(2 + p.transferBeatCount) //Init 2 to compensate rspFifo availability latency in a pessimistic way
     val incomingRspAdd = port.cmd.lastFire ? ((U"0" @@ cmdToRspCountMinusOne) + 1) | 0
     incomingRspCount := incomingRspCount + incomingRspAdd - U(port.rsp.fire)
 
