@@ -38,8 +38,10 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     bus.ACK := reg_reg && bus.STB                 //Classic: Acknoledge at the next clock cycle
   }
 
-  override def readAddress() = bus.ADR
-  override def writeAddress() = bus.ADR
+  val byteAddress = bus.ADR << log2Up(bus.config.dataWidth/8)
+
+  override def readAddress()  = byteAddress
+  override def writeAddress() = byteAddress
 
   override def readHalt() = bus.ACK := False
   override def writeHalt() = bus.ACK := False
@@ -60,7 +62,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
       readData = bus.DAT_MISO
     )
 
-    switch(bus.ADR) {
+    switch(byteAddress) {
       for ((address, jobs) <- elementsPerAddress if address.isInstanceOf[SingleMapping]) {
         is(address.asInstanceOf[SingleMapping].address) {
           doMappedElements(jobs)
@@ -69,7 +71,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
     }
 
     for ((address, jobs) <- elementsPerAddress if !address.isInstanceOf[SingleMapping]) {
-      when(address.hit(bus.ADR)){
+      when(address.hit(byteAddress)){
         doMappedElements(jobs)
       }
     }
