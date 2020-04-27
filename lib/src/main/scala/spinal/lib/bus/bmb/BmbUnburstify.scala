@@ -45,8 +45,10 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne
   val requireBuffer = cmdTransferBeatCount =/= 0
 
-  io.output.cmd.data := io.input.cmd.data
-  io.output.cmd.mask := io.input.cmd.mask
+  if(outputParameter.canWrite) {
+    io.output.cmd.data := io.input.cmd.data
+    io.output.cmd.mask := io.input.cmd.mask
+  }
   io.output.cmd.last := True
 
   case class Context() extends Bundle {
