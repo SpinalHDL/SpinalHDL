@@ -2,6 +2,20 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
+import org.scalatest._
+
+trait TravisFold extends FunSuite with BeforeAndAfterAllConfigMap{
+  def isTravis: Boolean = sys.env.get("TRAVIS").nonEmpty
+  override def beforeAll(configMap: ConfigMap) ={
+    if(isTravis) println(s"travis_fold:start:${this.getClass.getSimpleName}")
+    super.beforeAll(configMap)
+  }
+
+  override def afterAll(configMap: ConfigMap) = {
+    super.afterAll(configMap)
+    if(isTravis) println(s"travis_fold:end:${this.getClass.getSimpleName}")
+  }
+}
 
 object CommonTester {
 

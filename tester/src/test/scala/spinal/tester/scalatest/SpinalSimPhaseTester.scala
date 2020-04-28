@@ -9,7 +9,7 @@ import spinal.lib.graphic.Rgb
 
 import scala.util.Random
 
-class SpinalSimPhaseTester extends FunSuite{
+class SpinalSimPhaseTester extends FunSuite with TravisFold{
   test("test1"){
 //    val compiled = SimConfig.withWave.compile(StreamFifo(UInt(8 bits),16))
     case class Transaction() extends Bundle {

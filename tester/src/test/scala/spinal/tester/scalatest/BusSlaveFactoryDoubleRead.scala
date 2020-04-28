@@ -40,7 +40,7 @@ object TestTopLevel {
 
 }
 
-class BusSlaveFactoryDoubleReadTester extends FunSuite {
+class BusSlaveFactoryDoubleReadTester extends FunSuite with TravisFold {
 
   test("BusSlaveFactoryDoubleRead") {
 

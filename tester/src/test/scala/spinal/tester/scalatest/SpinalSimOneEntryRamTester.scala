@@ -5,7 +5,7 @@ import spinal.core.sim._
 import spinal.core._
 import spinal.lib._
 
-class SpinalSimOneEntryRamTester extends FunSuite{
+class SpinalSimOneEntryRamTester extends FunSuite with TravisFold{
   test("general"){
     SimConfig.withWave.doSim(new Component{
       val mem = Mem(Bits(8 bits), 1) randBoot()

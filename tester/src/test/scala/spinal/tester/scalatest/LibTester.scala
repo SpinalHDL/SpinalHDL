@@ -32,7 +32,7 @@ class LibTesterCocotbBoot extends SpinalTesterCocotbBase {
 
 
 
-class CoreMiscTester extends FunSuite{
+class CoreMiscTester extends FunSuite with TravisFold{
   import spinal.core.sim._
   test("SlowArea"){
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{

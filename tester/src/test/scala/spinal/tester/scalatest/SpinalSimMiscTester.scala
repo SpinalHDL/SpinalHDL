@@ -27,7 +27,7 @@ object SpinalSimMiscTester{
 
 }
 
-class SpinalSimMiscTester extends FunSuite {
+class SpinalSimMiscTester extends FunSuite with TravisFold {
   var compiled : SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
 
   test("testForkSensitive"){

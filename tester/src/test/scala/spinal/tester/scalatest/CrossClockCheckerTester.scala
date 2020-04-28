@@ -44,7 +44,7 @@ class CrossClockCheckerTesterC extends Component{
 }
 
 
-class CrossClockCheckerTester extends FunSuite{
+class CrossClockCheckerTester extends FunSuite with TravisFold{
   import CheckTester._
 
   test("a") {

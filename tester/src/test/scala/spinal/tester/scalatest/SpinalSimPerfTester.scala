@@ -23,7 +23,7 @@ object SpinalSimPerfTester {
 
 }
 
-class SpinalSimPerfTester extends FunSuite {
+class SpinalSimPerfTester extends FunSuite with TravisFold {
 
   var compiled: SimCompiled[SpinalSimPerfTester.SpinalSimPerfTesterDut] = null
 

@@ -18,7 +18,8 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
   dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
 
-//sbt clean reload publishSigned
+  //set SBT_OPTS="-Xmx2G"
+  //sbt clean reload publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
   publishArtifact in Test := false,

@@ -10,7 +10,7 @@ import spinal.tester
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimStreamFifoCCTester extends FunSuite {
+class SpinalSimStreamFifoCCTester extends FunSuite with TravisFold {
 
   def testbench(dut : StreamFifoCC[Bits]): Unit ={
     val queueModel = mutable.Queue[Long]()

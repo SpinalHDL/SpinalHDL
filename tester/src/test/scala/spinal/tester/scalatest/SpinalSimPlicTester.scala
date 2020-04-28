@@ -14,7 +14,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-class SpinalSimPlicTester extends FunSuite {
+class SpinalSimPlicTester extends FunSuite with TravisFold {
   test("test1"){
     //Compile the simulator
 

@@ -36,7 +36,7 @@ object CheckTester{
   }
 }
 
-class ChecksTester extends FunSuite  {
+class ChecksTester extends FunSuite with TravisFold {
   import CheckTester._
 
 
