@@ -129,7 +129,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def analyzeRTL()
   def runSimulation(sharedMemIface: SharedMemIface) : Thread
   def instanciate() : (SharedMemIface, Thread) = {
-    VpiBackend.synchronized {     
+    this.synchronized {
         delayed_compilation
         val shmemKey = Seq("SpinalHDL",
                            runIface.toString,
