@@ -800,7 +800,7 @@ object Delay {
 
 object DelayWithInit {
   def apply[T <: Data](that: T, cycleCount: Int)(onEachReg: (T) => Unit = null): T = {
-    Delay(that, cycleCount, onEachReg = onEachReg)
+    Delay[T](that, cycleCount, onEachReg = onEachReg)
   }
 }
 
