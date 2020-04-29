@@ -92,4 +92,20 @@ object Bench{
     )
     Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
   }
+
+  def compressIo[T <: Component](c : T) : T = {
+    c.rework{
+      var outputXor = False
+      for(output <- c.getOrdredNodeIo.filter(_.isOutput)){
+        output.setAsDirectionLess().allowDirectionLessIo
+        for(outputBit <- output.asBits.asBools){
+          outputXor \= outputXor ^ outputBit
+        }
+      }
+      outputXor.asOutput().setName("finalOutput")
+
+
+    }
+    c
+  }
 }
