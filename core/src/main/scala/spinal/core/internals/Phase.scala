@@ -132,6 +132,10 @@ class PhaseContext(val config: SpinalConfig) {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkExpressionPostorder(func: Expression => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpressionPostorder(func)))
+  }
+
   def walkDeclarations(func: DeclarationStatement => Unit): Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
@@ -1144,7 +1148,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       var somethingChange = false
 
       //Infer width on all expressions
-      walkExpression {
+      //Use post-order traversal so that a parent node can get the widths of its children before inferring width,
+      // which could help reducing the number of iterations
+      walkExpressionPostorder {
         case e: DeclarationStatement =>
         case e: Widthable =>
           val hasChange = e.inferWidth
@@ -1724,7 +1730,11 @@ class PhaseCheckHiearchy extends PhaseCheck{
         if(!error) s.walkExpression {
           case bt: BaseType =>
             if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              if(bt.component == null || bt.getComponents().head != pc.topLevel){
+                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+              } else {
+                PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              }
             }
           case _ =>
         }

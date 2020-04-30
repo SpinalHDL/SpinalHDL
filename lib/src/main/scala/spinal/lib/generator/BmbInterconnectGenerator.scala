@@ -57,7 +57,7 @@ case class BmbInterconnectGenerator() extends Generator{
     dependencies += lock
     val logic = add task new Area{
       val busConnections = connections.filter(_.s == bus).sortBy(connection => getMaster(connection.m).priority).reverse
-      val arbiter = new BmbArbiter(arbiterRequirements, busConnections.size, 3, lowerFirstPriority = defaultArbitration == BmbInterconnectGenerator.STATIC_PRIORITY)
+      val arbiter = new BmbArbiter(arbiterRequirements, busConnections.size, lowerFirstPriority = defaultArbitration == BmbInterconnectGenerator.STATIC_PRIORITY)
       arbiter.setCompositeName(bus, "arbiter")
       val requireBurstSpliting = arbiterRequirements.lengthWidth != requirements.lengthWidth
       @dontName var busPtr = arbiter.io.output

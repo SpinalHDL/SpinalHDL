@@ -6,15 +6,13 @@ import spinal.lib._
 object BmbUnburstify{
   def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(
     lengthWidth = log2Up(inputParameter.byteCount),
-    contextWidth = inputParameter.contextWidth + 2
+    contextWidth = inputParameter.contextWidth + 2 + inputParameter.sourceWidth
   )
 }
 
 //TODO check inputParameter requirements
 case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   val outputParameter = BmbUnburstify.outputParameter(inputParameter)
-  val contextDropBit = inputParameter.contextWidth
-  val contextLastBit = inputParameter.contextWidth+1
 
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
@@ -47,19 +45,29 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne
   val requireBuffer = cmdTransferBeatCount =/= 0
 
-  io.output.cmd.data := io.input.cmd.data
-  io.output.cmd.mask := io.input.cmd.mask
+  if(outputParameter.canWrite) {
+    io.output.cmd.data := io.input.cmd.data
+    io.output.cmd.mask := io.input.cmd.mask
+  }
   io.output.cmd.last := True
+
+  case class Context() extends Bundle {
+    val context = Bits(inputParameter.contextWidth bits)
+    val drop, last = Bool()
+    val source = UInt(inputParameter.sourceWidth bits)
+  }
+  val cmdContext = Context()
+  io.output.cmd.context := B(cmdContext)
+  io.output.cmd.source := 0
 
   //payload muxes
   when(buffer.valid) {
-    io.output.cmd.source := buffer.source
     io.output.cmd.address := buffer.addressIncr
     io.output.cmd.opcode := buffer.opcode
     io.output.cmd.length := inputParameter.byteCount-1
-    io.output.cmd.context(inputParameter.contextWidth-1 downto 0) := buffer.context
+    cmdContext.context := buffer.context
+    cmdContext.source := buffer.source
   } otherwise {
-    io.output.cmd.source := io.input.cmd.source
     io.output.cmd.address := io.input.cmd.address
     io.output.cmd.opcode := io.input.cmd.opcode
     when(requireBuffer) {
@@ -68,7 +76,8 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     } otherwise {
       io.output.cmd.length := io.input.cmd.length.resized
     }
-    io.output.cmd.context(inputParameter.contextWidth-1 downto 0) := io.input.cmd.context
+    cmdContext.context := io.input.cmd.context
+    cmdContext.source :=  io.input.cmd.source
   }
 
 
@@ -77,8 +86,8 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   when(buffer.valid){
     io.output.cmd.valid := !(buffer.isWrite && !io.input.cmd.valid)
     io.input.cmd.ready  :=   buffer.isWrite && io.output.cmd.ready
-    io.output.cmd.context(contextLastBit) := buffer.last
-    io.output.cmd.context(contextDropBit) := buffer.isWrite
+    cmdContext.last := buffer.last
+    cmdContext.drop := buffer.isWrite
   }otherwise{
     io.input.cmd.ready  := io.output.cmd.ready
     io.output.cmd.valid := io.input.cmd.valid
@@ -87,16 +96,17 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     buffer.address := io.input.cmd.address
     buffer.context := io.input.cmd.context
     buffer.beat    := cmdTransferBeatCount
-    io.output.cmd.context(contextDropBit) := io.input.cmd.isWrite
-    io.output.cmd.context(contextLastBit) := !requireBuffer
+    cmdContext.drop := io.input.cmd.isWrite
+    cmdContext.last := !requireBuffer
     buffer.valid := requireBuffer && io.output.cmd.fire
   }
 
-  io.input.rsp.valid := io.output.rsp.valid && (io.output.rsp.context(contextLastBit) || !io.output.rsp.context(contextDropBit))
-  io.input.rsp.last := io.output.rsp.context(contextLastBit)
-  io.input.rsp.source := io.output.rsp.source
+  val rspContext = io.output.rsp.context.as(Context())
+  io.input.rsp.valid := io.output.rsp.valid && (rspContext.last || !rspContext.drop)
+  io.input.rsp.last := rspContext.last
+  io.input.rsp.source := rspContext.source
   io.input.rsp.opcode := io.output.rsp.opcode
   io.input.rsp.data := io.output.rsp.data
-  io.input.rsp.context := io.output.rsp.context.resized
+  io.input.rsp.context := rspContext.context
   io.output.rsp.ready := io.input.rsp.ready
 }

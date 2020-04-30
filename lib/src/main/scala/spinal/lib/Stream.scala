@@ -1,6 +1,7 @@
 package spinal.lib
 
 import spinal.core._
+import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
@@ -114,12 +115,26 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  def pipelined(m2s : Boolean = false,
+                s2m : Boolean = false,
+                halfRate : Boolean = false) : Stream[T] = {
+    val ret = Stream(payloadType)
+    (m2s, s2m, halfRate) match {
+      case (false,false,false) => this
+      case (true,false,false) => val ret = Stream(payloadType); ret << this.m2sPipe(); ret
+      case (false,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe(); ret
+      case (true,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe().m2sPipe(); ret
+      case (false,false,true) => val ret = Stream(payloadType); ret << this.halfPipe(); ret
+    }
+  }
+
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
   def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.payload))
   }
 
+/** Ignore the payload */
   def toEvent() : Event = {
     val ret = Event
     ret.arbitrationFrom(this)
@@ -191,28 +206,26 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   
   /**
    * Connect this to a new stream whose payload is n times as wide, but that only fires every n cycles.
-   * It introduces one cycle of latency.
+   * It introduces 0 to factor-1 cycles of latency. Mapping a stream into memory and mapping a slowed
+   * down stream into memory should yield the same result, thus the elements of the input will be
+   * written from high bits to low bits.
    */
   def slowdown(factor: Int): Stream[Vec[T]] = {
-    val next = Stream(Vec(this.payload, factor))
-    val counter = Counter(factor)
-    for (i <- 0 to factor) {
-    	next.payload(i) := RegNextWhen(this.payload, counter === i)
+    val next = new Stream(Vec(payloadType(), factor)).setCompositeName(this, "slowdown_x" + factor, true)
+    next.payload(0) := this.payload
+    for (i <- 1 until factor) {
+      next.payload(i) := RegNextWhen(next.payload(i - 1), this.fire)
     }
-    when (counter.willOverflow) {
-      /* All elements are valid, so wait for ready signal to advance */
+    val counter = Counter(factor)
+    when(this.fire) {
+      counter.increment()
+    }
+    when(counter.willOverflowIfInc) {
       this.ready := next.ready
-      next.valid := True
-      when (next.fire) {
-        counter.increment()
-      }
+      next.valid := this.valid
     } otherwise {
-      /* Take the elements and save them into a register */
       this.ready := True
       next.valid := False
-      when (this.valid) {
-        counter.increment()
-      }
     }
     next
   }
@@ -229,6 +242,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   override def fire: Bool = valid & ready
 
+/** Return True when the bus is ready, but no data is present
+  */
   def isFree: Bool = !valid || ready
   
   def connectFrom(that: Stream[T]): Stream[T] = {
@@ -275,6 +290,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
+/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+  */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
     ret << this
@@ -416,13 +433,31 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     return converter.io.output
   }
   
-  /** Convert this stream to a fragmented stream by adding a last bit */
+  /**
+   * Convert this stream to a fragmented stream by adding a last bit. To view it from
+   * another perspective, bundle together successive events as fragments of a larger whole.
+   * You can then use enhanced operations on fragmented streams, like reducing of elements.
+   */
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(payloadType))
     ret.arbitrationFrom(this)
     ret.last := last
     ret.fragment := this.payload
     return ret
+  }
+  
+  /** 
+   *  Like addFragmentLast(Bool), but instead of manually telling which values go together,
+   *  let a counter do the job. The counter will increment for each passing element. Last
+   *  will be set high at the end of each revolution.
+	 * @example {{{ outStream = inStream.addFragmentLast(new Counter(5)) }}}
+   */
+  def addFragmentLast(counter: Counter) : Stream[Fragment[T]] = {
+    when (this.fire) {
+      counter.increment()
+    }
+    val last = counter.willOverflowIfInc
+    return addFragmentLast(last)
   }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
@@ -716,7 +751,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 
 object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int, synchronous: Boolean = false): Vec[Stream[T]] = {
-    val fork = new StreamFork(input.payloadType, portCount, synchronous)
+    val fork = new StreamFork(input.payloadType, portCount, synchronous).setCompositeName(input, "fork", true)
     fork.io.input << input
     return fork.io.outputs
   }
@@ -724,9 +759,17 @@ object StreamFork {
 
 object StreamFork2 {
   def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 2, synchronous)
+    val fork = new StreamFork(input.payloadType, 2, synchronous).setCompositeName(input, "fork", true)
     fork.io.input << input
     return (fork.io.outputs(0), fork.io.outputs(1))
+  }
+}
+
+object StreamFork3 {
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.payloadType, 3, synchronous).setCompositeName(input, "fork", true)
+    fork.io.input << input
+    return (fork.io.outputs(0), fork.io.outputs(1), fork.io.outputs(2))
   }
 }
 
@@ -736,6 +779,10 @@ object StreamFork2 {
  *  output streams are ready. If synchronous is false, output streams may be ready one at a time,
  *  at the cost of an additional flip flop (1 bit per output). The input stream will block until
  *  all output streams have processed each item regardlessly.
+ *  
+ *  Note that this means that when synchronous is true, the valid signal of the outputs depends on
+ *  their inputs, which may lead to dead locks when used in combination with systems that have it the
+ *  other way around. It also violates the handshake of the AXI specification (section A3.3.1).
  */
 //TODOTEST
 class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: Boolean = false) extends Component {
@@ -790,20 +837,35 @@ case class EventEmitter(on : Event){
 
 /** Join multiple streams into one. The resulting stream will only fire if all of them fire, so you may want to buffer the inputs. */
 object StreamJoin {
+  
   /**
-   * Join streams, concatenating their data bitwise in the order they are provided by the input sequence.
-   *  @param hardTypeT The type of the resulting stream. Its bit length must be equal to the sum of the bit length of all input streams.
+   * Convert a tuple of streams into a stream of tuples
    */
-  def apply[T <: Data](sources: Seq[Stream[_ <: Data]], hardTypeT: HardType[T]): Stream[T] = {
-    val combined = Stream(hardTypeT)
+  def apply[T1 <: Data,T2 <: Data](source1: Stream[T1], source2: Stream[T2]): Stream[TupleBundle2[T1, T2]] = {
+    val sources = Seq(source1, source2)
+    val combined = Stream(TupleBundle2(
+        source1.payloadType,
+        source2.payloadType
+    ))
     combined.valid := sources.map(_.valid).reduce(_ && _)
-    sources.foreach(_.ready := combined.ready)
-    combined.payload.assignFromBits(sources.map(_.payload.asBits).reduce(_ ## _))
+    sources.foreach(_.ready := combined.fire)
+    combined.payload._1 := source1.payload
+    combined.payload._2 := source2.payload
+    combined
+  }
+
+  /**
+   * Convert a vector of streams into a stream of vectors.
+   */
+  def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
+    val combined = Stream(Vec(sources.map(_.payload)))
+    combined.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := combined.fire)
     combined
   }
   
   def arg(sources : Stream[_]*) : Event = apply(sources.seq)
-  
+
   /** Join streams, but ignore the payload of the input streams. */
   def apply(sources: Seq[Stream[_]]): Event = {
     val event = Event
@@ -1238,4 +1300,181 @@ object StreamFragmentWidthAdapter {
     StreamFragmentWidthAdapter(input,ret,endianness,padding)
     ret
   }
+}
+
+case class StreamFifoMultiChannelPush[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
+  val channel = UInt(log2Up(channelCount) bits)
+  val full = Bool()
+  val stream = Stream(payloadType)
+
+  override def asMaster(): Unit = {
+    out(channel)
+    master(stream)
+    in(full)
+  }
+}
+
+case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
+  val channel = Bits(channelCount bits)
+  val empty   = Bits(channelCount bits)
+  val stream  = Stream(payloadType)
+
+  override def asMaster(): Unit = {
+    out(channel)
+    slave(stream)
+    in(empty)
+  }
+
+  def toStreams(withCombinatorialBuffer : Boolean) = new Area{
+    val bufferIn, bufferOut = Vec(Stream(payloadType), channelCount)
+    (bufferOut, bufferIn).zipped.foreach((s, m) => if(withCombinatorialBuffer) s </< m else s <-< m)
+
+    val needRefill = B(bufferIn.map(_.ready))
+    val selOh = OHMasking.first(needRefill & ~empty) //TODO
+    val nonEmpty = (~empty).orR
+    channel := selOh
+    for((feed, sel) <- (bufferIn, selOh.asBools).zipped){
+      feed.valid := sel && nonEmpty
+      feed.payload := stream.payload
+    }
+    stream.ready := (selOh & B(bufferIn.map(_.ready))).orR
+  }.setCompositeName(this,"toStreams", true).bufferOut
+
+}
+
+//io.availability has one cycle latency
+case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
+  assert(isPow2(depth))
+  val io = new Bundle {
+    val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
+    val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
+    val availability = out UInt(log2Up(depth) + 1 bits)
+  }
+  val ptrWidth = log2Up(depth)
+
+  val payloadRam = Mem(payloadType(), depth)
+  val nextRam = Mem(UInt(ptrWidth bits), depth)
+
+  val full = False
+  io.push.full := full
+  io.push.stream.ready := !full
+
+  val pushNextEntry = UInt(ptrWidth bits)
+  val popNextEntry = nextRam.wordType()
+
+
+
+  val channels = for (channelId <- 0 until channelCount) yield new Area {
+    val valid = RegInit(False)
+    val headPtr = Reg(UInt(ptrWidth bits))
+    val lastPtr = Reg(UInt(ptrWidth bits))
+    val lastFire = False
+    when(io.pop.stream.fire && io.pop.channel(channelId)) {
+      headPtr := popNextEntry
+      when(headPtr === lastPtr){
+        lastFire := True
+        valid := False
+      }
+    }
+
+    when(!valid || lastFire){
+      headPtr := pushNextEntry
+    }
+
+    when(io.push.stream.fire && io.push.channel === channelId) {
+      lastPtr := pushNextEntry
+      valid := True
+    }
+    io.pop.empty(channelId) := !valid
+  }
+
+  val pushLogic = new Area{
+    val previousAddress = channels.map(_.lastPtr).read(io.push.channel)
+    when(io.push.stream.fire) {
+      payloadRam.write(pushNextEntry, io.push.stream.payload)
+      when(channels.map(_.valid).read(io.push.channel)) {
+        nextRam.write(previousAddress, pushNextEntry)
+      }
+    }
+  }
+
+  val popLogic = new Area {
+    val readAddress = channels.map(_.headPtr).read(OHToUInt(io.pop.channel))
+    io.pop.stream.valid := (io.pop.channel & ~io.pop.empty).orR
+    io.pop.stream.payload := payloadRam.readAsync(readAddress)
+    popNextEntry := nextRam.readAsync(readAddress)
+  }
+
+  val allocationByCounter = !withAllocationFifo generate new Area{
+    val allocationPtr = Reg(UInt(ptrWidth bits)) init(0)
+
+    when(io.push.stream.fire) {
+      allocationPtr := allocationPtr + 1
+    }
+
+    val onChannels = for(c <- channels) yield new Area{
+      full setWhen(c.valid && allocationPtr === c.headPtr)
+      val wasValid = RegNext(c.valid) init(False)
+      val availability = RegNext(c.headPtr-allocationPtr)
+    }
+
+    val (availabilityValid, availabilityValue) = onChannels.map(c => (c.wasValid, c.availability)).reduceBalancedTree{case (a,b) => (a._1 || b._1, (a._1 && (!b._1 || a._2 < b._2)) ? a._2 | b._2)}
+    io.availability := (availabilityValid ? availabilityValue | depth)
+
+    pushNextEntry := allocationPtr
+  }
+
+
+  val allocationByFifo = withAllocationFifo generate new Area{
+    ???
+  }
+
+
+}
+
+object StreamFifoMultiChannelBench extends App{
+  val payloadType = HardType(Bits(8 bits))
+  class BenchFpga(channelCount : Int) extends Rtl{
+    override def getName(): String = "Bench" + channelCount
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
+      val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
+      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+
+      fifo.io.push.channel := RegNext(push.channel)
+      push.full := RegNext(fifo.io.push.full)
+      fifo.io.push.stream  <-/< push.stream
+
+      fifo.io.pop.channel := RegNext(pop.channel)
+      pop.empty := RegNext(fifo.io.pop.empty)
+      pop.stream  <-/<  fifo.io.pop.stream
+
+      setDefinitionName(BenchFpga.this.getName())
+    })
+  }
+  class BenchFpga2(channelCount : Int) extends Rtl{
+    override def getName(): String = "BenchToStream" + channelCount
+    override def getRtlPath(): String = getName() + ".v"
+    SpinalVerilog(new Component{
+      val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
+      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+
+      fifo.io.push.channel := RegNext(push.channel)
+      push.full := RegNext(fifo.io.push.full)
+      fifo.io.push.stream  <-/< push.stream
+
+      setDefinitionName(BenchFpga2.this.getName())
+
+      val outputs = fifo.io.pop.toStreams(false).map(_.s2mPipe().asMaster())
+    })
+  }
+
+
+  val rtls = List(2,4,8).map(width => new BenchFpga(width)) ++ List(2,4,8).map(width => new BenchFpga2(width))
+
+  val targets = XilinxStdTargets()// ++ AlteraStdTargets()
+
+
+  Bench(rtls, targets)
 }

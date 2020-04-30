@@ -434,7 +434,7 @@ object PendingError {
 
 
 object LocatedPendingError {
-  def apply(error:  String) = {
+  def apply(error: => String) = {
     val location = ScalaLocated.long
     GlobalData.get.pendingErrors += (() => error + "\n" + location)
   }

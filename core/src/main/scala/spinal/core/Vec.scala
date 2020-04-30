@@ -101,14 +101,10 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Vector Vec Documentation]]
   */
 class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
-
-  if(component != null) component.addPrePopTask(() => {
-    for(i <- elements.indices){
-      val e = elements(i)._2
-      if(OwnableRef.proposal(e, this)) e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
-    }
-  })
-
+  for(i <- elements.indices){
+    val e = elements(i)._2
+    if(OwnableRef.proposal(e, this)) e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
+  }
 
   def range = vec.indices
 
@@ -190,8 +186,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     if(address.hasTag(tagAutoResize)){
       address.resize(log2Up(length))
     }else{
-      val location = ScalaLocated.long
-      PendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n\n${location}")
+      LocatedPendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
       address
     }
   }else{

@@ -22,7 +22,7 @@ object Bench{
   def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String = sys.env.getOrElse("SPINAL_BENCH_WORKSPACE", null)): Unit ={
     import scala.concurrent.ExecutionContext
     implicit val ec = ExecutionContext.fromExecutorService(
-      new ForkJoinPool(Math.max(1,Runtime.getRuntime().availableProcessors()*3/4), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
+      new ForkJoinPool(Math.max(1,Runtime.getRuntime().availableProcessors()/2), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
     )
 
     val results = (for (rtl <- rtls) yield {
@@ -91,5 +91,21 @@ object Bench{
       quartusCycloneVPath  = "/media/miaou/HD/linux/intelFPGA_lite/18.1/quartus/bin"
     )
     Bench(rtls, targets, "/media/miaou/HD/linux/tmp")
+  }
+
+  def compressIo[T <: Component](c : T) : T = {
+    c.rework{
+      var outputXor = False
+      for(output <- c.getOrdredNodeIo.filter(_.isOutput)){
+        output.setAsDirectionLess().allowDirectionLessIo
+        for(outputBit <- output.asBits.asBools){
+          outputXor \= outputXor ^ outputBit
+        }
+      }
+      outputXor.asOutput().setName("finalOutput")
+
+
+    }
+    c
   }
 }
