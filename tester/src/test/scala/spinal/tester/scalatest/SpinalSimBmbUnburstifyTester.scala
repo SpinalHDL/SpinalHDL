@@ -28,7 +28,8 @@ class SpinalSimBmbUnburstifyTester extends FunSuite {
         masterCd = dut.clockDomain,
         slave = dut.io.output,
         slaveCd = dut.clockDomain,
-        alignmentMinWidth = dut.inputParameter.alignmentMin
+        alignmentMinWidth = dut.inputParameter.alignmentMin,
+        rspCountTarget = 1000
       )
     }
   }
