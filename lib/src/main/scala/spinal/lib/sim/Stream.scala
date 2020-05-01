@@ -135,3 +135,23 @@ case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: Clo
 //    }
 //  }
 //}
+
+
+class SimStreamAssert[T <: Data](s : Stream[T], cd : ClockDomain){
+  var valid = false
+  var payload : SimData = null
+  import spinal.core.sim._
+  cd.onSamplings{
+    if(!valid){
+      if(s.valid.toBoolean) {
+        valid = true
+        payload = SimData.copy(s.payload)
+      }
+    }else {
+      assert(payload.equals(SimData.copy(s.payload)))
+    }
+    if(s.ready.toBoolean) {
+      valid = false
+    }
+  }
+}
