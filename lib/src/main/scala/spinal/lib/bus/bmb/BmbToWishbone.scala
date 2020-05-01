@@ -20,7 +20,7 @@ case class BmbToWishbone(p : BmbParameter) extends Component{
     val output = master(Wishbone(BmbToWishbone.getWishboneConfig(p)))
   }
 
-  val beatCounter = Reg(UInt(p.beatCounterWidth bits))
+  val beatCounter = Reg(UInt(p.beatCounterWidth bits)) init(0)
   val beatLast = beatCounter === io.input.cmd.transferBeatCountMinusOne
   when(io.input.cmd.valid && io.output.ACK){
     beatCounter := beatCounter + 1
