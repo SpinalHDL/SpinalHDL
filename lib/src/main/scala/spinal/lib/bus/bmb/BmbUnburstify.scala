@@ -102,11 +102,11 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   }
 
   val rspContext = io.output.rsp.context.as(Context())
-  io.input.rsp.valid := io.output.rsp.valid && (rspContext.last || !rspContext.drop)
+  io.input.rsp.arbitrationFrom(io.output.rsp.takeWhen(rspContext.last || !rspContext.drop))
   io.input.rsp.last := rspContext.last
   io.input.rsp.source := rspContext.source
   io.input.rsp.opcode := io.output.rsp.opcode
   io.input.rsp.data := io.output.rsp.data
   io.input.rsp.context := rspContext.context
-  io.output.rsp.ready := io.input.rsp.ready
 }
+
