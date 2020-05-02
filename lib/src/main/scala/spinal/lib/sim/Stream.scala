@@ -20,9 +20,29 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
     this
   }
 
+  var keepValue = false
+  var payload : SimData = null
+  var keepValueEnable = false
+
   clockDomain.onSamplings{
-    if (stream.valid.toBoolean && stream.ready.toBoolean) {
+    val valid = stream.valid.toBoolean
+    val ready = stream.ready.toBoolean
+
+    if (valid && ready) {
       callbacks.foreach(_ (stream.payload))
+    }
+    if(keepValueEnable) {
+      if (!keepValue) {
+        if (valid) {
+          keepValue = true
+          payload = SimData.copy(stream.payload)
+        }
+      } else {
+        assert(payload.equals(SimData.copy(stream.payload)))
+      }
+      if (ready) {
+        keepValue = false
+      }
     }
   }
 }
