@@ -789,10 +789,10 @@ object Delay {
       else
         ptr = RegNextWhen(ptr, when, init)
 
+      ptr.unsetName().setCompositeName(that, "delay_" + (i + 1), true)
       if(onEachReg != null) {
         onEachReg(ptr)
       }
-      ptr.unsetName().setCompositeName(that, "delay_" + (i + 1), true)
     }
     ptr
   }
