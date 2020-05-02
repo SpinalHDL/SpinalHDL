@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbParameter}
-import spinal.lib.sim.{Phase, SparseMemory, StreamDriver, StreamMonitor, StreamReadyRandomizer}
+import spinal.lib.sim.{Phase, SimStreamAssert, SparseMemory, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.collection.mutable
 import scala.util.Random
@@ -61,6 +61,7 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
       if(!withStall) driver.transactionDelay = () => 0
     }
 
+//    new SimStreamAssert(bus.cmd,clockDomain)
     StreamMonitor(bus.cmd, clockDomain) { payload =>
       delayed(0) { //To be sure the of timing relation ship between CMD and RSP
         val opcode = bus.cmd.opcode.toInt

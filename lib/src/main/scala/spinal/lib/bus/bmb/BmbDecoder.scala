@@ -154,6 +154,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
 
     val (orderingFork, cmdFork) = StreamFork2(io.input.cmd)
     val halt = False
+    val lock = RegInit(False) setWhen(io.input.cmd.valid && !halt) clearWhen(io.input.cmd.ready) //Counter act the pessimistic occupancy tracking
     val hits = Vec(Bool, mappings.size)
     for (portId <- 0 until mappings.length) yield {
       val slaveBus = io.outputs(portId)
@@ -168,9 +169,11 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
       if (!capability.canRead) hit clearWhen (io.input.cmd.isRead)
 
       halt.setWhen(hit && portsLogic(portId).rspFifoFull)
-      slaveBus.cmd.valid   := cmdFork.valid && hit && !portsLogic(portId).rspFifoFull
+      slaveBus.cmd.valid   := cmdFork.valid && hit && (!portsLogic(portId).rspFifoFull || lock)
       slaveBus.cmd.payload := cmdFork.payload.resized
     }
+
+    halt clearWhen(lock)
     cmdFork.ready := (hits, io.outputs).zipped.map(_ && _.cmd.ready).orR && !halt
 
     val portId = OHToUInt(hits)
