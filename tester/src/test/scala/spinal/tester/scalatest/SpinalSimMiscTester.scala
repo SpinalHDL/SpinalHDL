@@ -66,6 +66,23 @@ class SpinalSimTesterTest extends FunSuite {
   }
 }
 
+class SpinalSimFunSuite extends FunSuite{
+  var SimConfig : SpinalSimConfig = null
+  var durationFactor = 0.0
+  def test(testName: String)(testFun: => Unit): Unit = {
+    super.test("ghdl_" + testName) {
+      SimConfig = SpinalSimTesterGhdl.SimConfig
+      durationFactor = SpinalSimTesterGhdl.durationFactor
+      testFun
+    }
+    super.test("verilator_" + testName) {
+      SimConfig = SpinalSimTesterVerilator.SimConfig
+      durationFactor = SpinalSimTesterVerilator.durationFactor
+      testFun
+    }
+  }
+}
+
 class SpinalSimMiscTester extends FunSuite {
   SpinalSimTester { env =>
     import env._
