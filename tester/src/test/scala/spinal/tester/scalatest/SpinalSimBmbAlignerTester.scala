@@ -6,7 +6,7 @@ import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.{BmbAligner, BmbDownSizerBridge, BmbParameter}
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 
-class SpinalSimBmbAlignerTester extends FunSuite {
+class SpinalSimBmbAlignerTester extends SpinalSimFunSuite {
   test("BmbAligner_bypass") {
     SimConfig.compile {
       val c = BmbAligner(

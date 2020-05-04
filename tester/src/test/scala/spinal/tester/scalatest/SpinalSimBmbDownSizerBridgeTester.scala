@@ -14,7 +14,7 @@ import scala.util.Random
 
 class SpinalSimBmbDownSizerBridgeTester extends SpinalSimFunSuite{
   test("test1"){
-    SimConfig.compile{
+    SimConfig.withWave.compile{
       BmbDownSizerBridge(
         inputParameter = BmbParameter(
           addressWidth = 16,

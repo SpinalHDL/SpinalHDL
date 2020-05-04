@@ -55,6 +55,8 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   var state = 0
   var delay = transactionDelay()
   stream.valid #= false
+  stream.payload.randomize()
+
   def fsm(): Unit = {
     state match{
       case 0 => {

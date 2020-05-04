@@ -150,7 +150,7 @@ class OpenDrainInterconnect(clockDomain: ClockDomain){
 
 
 
-class SpinalSimApbI2C extends FunSuite {
+class SpinalSimApbI2C extends SpinalSimFunSuite {
 
   case class I2CSlaveModel(sda: OpenDrainSoftConnection, scl: OpenDrainSoftConnection){
 
@@ -354,141 +354,134 @@ class SpinalSimApbI2C extends FunSuite {
       assert(bufferCmd.zip(slave).map(i2c => i2c._1 == i2c._2).reduce( _ && _ ), s"Mismatch between slave and master \nMaster : \n ${bufferCmd.mkString("\n ")} \nSlave : \n ${slave.mkString("\n ")}")
     }
   }
+  
+  test("1 Master <-> 1 Slave") {
 
 
+    def configI2C = I2cSlaveMemoryMappedGenerics(
+      ctrlGenerics = I2cSlaveGenerics(),
+      addressFilterCount = 0,
+      masterGenerics = I2cMasterMemoryMappedGenerics(timerWidth = 32)
+    )
+
+    SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz))).compile(new Apb3I2cCtrl(configI2C)).doSim { dut =>
+
+      val apb = Apb3Sim(dut.io.apb, dut.clockDomain)
+      val i2c = I2CHelper(apb)
+      val frequency_i2c = 400 kHz
+
+      val sdaInterconnect = new OpenDrainInterconnect(dut.clockDomain)
+      sdaInterconnect.addHardDriver(dut.io.i2c.sda.write)
+      sdaInterconnect.addHardReader(dut.io.i2c.sda.read)
+
+      val sclInterconnect = new OpenDrainInterconnect(dut.clockDomain)
+      sclInterconnect.addHardDriver(dut.io.i2c.scl.write)
+      sclInterconnect.addHardReader(dut.io.i2c.scl.read)
+
+      val mainClkPeriod = (1e12 / dut.clockDomain.frequency.getValue.toDouble).toLong
+
+      dut.clockDomain.forkStimulus(mainClkPeriod)
+
+      apb.initIO()
+
+      dut.clockDomain.waitSampling()
 
 
-  SpinalSimTester { env =>
-    import env._
+      /**
+        * I2C Configuration
+        */
 
-    test(prefix + "1 Master <-> 1 Slave") {
+      // Master configuration
+      apb.write(i2c.reg.t_buf, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
+      apb.write(i2c.reg.t_high, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
+      apb.write(i2c.reg.t_low, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
 
-
-      def configI2C = I2cSlaveMemoryMappedGenerics(
-        ctrlGenerics = I2cSlaveGenerics(),
-        addressFilterCount = 0,
-        masterGenerics = I2cMasterMemoryMappedGenerics(timerWidth = 32)
-      )
-
-      SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz))).compile(new Apb3I2cCtrl(configI2C)).doSim { dut =>
-
-        val apb = Apb3Sim(dut.io.apb, dut.clockDomain)
-        val i2c = I2CHelper(apb)
-        val frequency_i2c = 400 kHz
-
-        val sdaInterconnect = new OpenDrainInterconnect(dut.clockDomain)
-        sdaInterconnect.addHardDriver(dut.io.i2c.sda.write)
-        sdaInterconnect.addHardReader(dut.io.i2c.sda.read)
-
-        val sclInterconnect = new OpenDrainInterconnect(dut.clockDomain)
-        sclInterconnect.addHardDriver(dut.io.i2c.scl.write)
-        sclInterconnect.addHardReader(dut.io.i2c.scl.read)
-
-        val mainClkPeriod = (1e12 / dut.clockDomain.frequency.getValue.toDouble).toLong
-
-        dut.clockDomain.forkStimulus(mainClkPeriod)
-
-        apb.initIO()
-
-        dut.clockDomain.waitSampling()
+      // I2C Configuration
+      apb.write(i2c.reg.sampling_clock, (dut.clockDomain.frequency.getValue / (10 MHz)).toBigInt) // sampling frequency 10 MHz
+      apb.write(i2c.reg.timeout, (dut.clockDomain.frequency.getValue * 2).toBigDecimal.toBigInt) // Timeout after 2 secondes
+      apb.write(i2c.reg.tsu_data, 25)
 
 
-        /**
-          * I2C Configuration
-          */
+      /**
+        * Create slave model
+        */
+      val slave = I2CSlaveModel(sdaInterconnect.newSoftConnection(), sclInterconnect.newSoftConnection())
 
-        // Master configuration
-        apb.write(i2c.reg.t_buf, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
-        apb.write(i2c.reg.t_high, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
-        apb.write(i2c.reg.t_low, ((frequency_i2c.toTime / 2) * dut.clockDomain.frequency.getValue).toBigInt)
+      /**
+        * Check Write operation
+        */
+      slave.cmdSlave.clear()
+      slave.cmdSlave += Start_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x06.toByte, false)
+      slave.cmdSlave += DataWrite_i2c(0xAA.toByte, true)
+      slave.cmdSlave += Stop_i2c()
+      slave.run()
 
-        // I2C Configuration
-        apb.write(i2c.reg.sampling_clock, (dut.clockDomain.frequency.getValue / (10 MHz)).toBigInt) // sampling frequency 10 MHz
-        apb.write(i2c.reg.timeout, (dut.clockDomain.frequency.getValue * 2).toBigDecimal.toBigInt) // Timeout after 2 secondes
-        apb.write(i2c.reg.tsu_data, 25)
+      i2c.bufferCmd.clear()
+      i2c.start()
+      i2c.write(0x06)
+      i2c.write(0xAA)
+      i2c.stop()
 
-
-        /**
-          * Create slave model
-          */
-        val slave = I2CSlaveModel(sdaInterconnect.newSoftConnection(), sclInterconnect.newSoftConnection())
-
-        /**
-          * Check Write operation
-          */
-        slave.cmdSlave.clear()
-        slave.cmdSlave += Start_i2c()
-        slave.cmdSlave += DataWrite_i2c(0x06.toByte, false)
-        slave.cmdSlave += DataWrite_i2c(0xAA.toByte, true)
-        slave.cmdSlave += Stop_i2c()
-        slave.run()
-
-        i2c.bufferCmd.clear()
-        i2c.start()
-        i2c.write(0x06)
-        i2c.write(0xAA)
-        i2c.stop()
-
-        i2c.checkCmd(slave.cmdSlave)
+      i2c.checkCmd(slave.cmdSlave)
 
 
-        dut.clockDomain.waitActiveEdge(10)
+      dut.clockDomain.waitActiveEdge(10)
 
 
-        /**
-          * Check Write and read operations
-          */
-        slave.cmdSlave.clear()
-        slave.cmdSlave += Start_i2c()
-        slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
-        slave.cmdSlave += DataRead_i2c(0xAA.toByte, false)
-        slave.cmdSlave += DataRead_i2c(0x55.toByte, true)
-        slave.cmdSlave += Stop_i2c()
-        slave.run()
+      /**
+        * Check Write and read operations
+        */
+      slave.cmdSlave.clear()
+      slave.cmdSlave += Start_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0xAA.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x55.toByte, true)
+      slave.cmdSlave += Stop_i2c()
+      slave.run()
 
 
-        i2c.bufferCmd.clear()
-        i2c.start()
-        i2c.write(0x07)
-        i2c.read(false)
-        i2c.read(true)
-        i2c.stop()
+      i2c.bufferCmd.clear()
+      i2c.start()
+      i2c.write(0x07)
+      i2c.read(false)
+      i2c.read(true)
+      i2c.stop()
 
-        i2c.checkCmd(slave.cmdSlave)
-
-
-        dut.clockDomain.waitActiveEdge(10)
-
-        /**
-          * Check Write, Restart and read operations
-          */
-        slave.cmdSlave.clear()
-        slave.cmdSlave += Start_i2c()
-        slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
-        slave.cmdSlave += DataWrite_i2c(0x00.toByte, false)
-        slave.cmdSlave += Restart_i2c()
-        slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
-        slave.cmdSlave += DataRead_i2c(0x3D.toByte, false)
-        slave.cmdSlave += DataRead_i2c(0x5A.toByte, true)
-        slave.cmdSlave += Stop_i2c()
-        slave.run()
+      i2c.checkCmd(slave.cmdSlave)
 
 
-        i2c.bufferCmd.clear()
-        i2c.start()
-        i2c.write(0x07)
-        i2c.write(0x00)
-        i2c.restart()
-        i2c.write(0x07)
-        i2c.read(false)
-        i2c.read(true)
-        i2c.stop()
+      dut.clockDomain.waitActiveEdge(10)
 
-        i2c.checkCmd(slave.cmdSlave)
+      /**
+        * Check Write, Restart and read operations
+        */
+      slave.cmdSlave.clear()
+      slave.cmdSlave += Start_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataWrite_i2c(0x00.toByte, false)
+      slave.cmdSlave += Restart_i2c()
+      slave.cmdSlave += DataWrite_i2c(0x07.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x3D.toByte, false)
+      slave.cmdSlave += DataRead_i2c(0x5A.toByte, true)
+      slave.cmdSlave += Stop_i2c()
+      slave.run()
 
 
-        dut.clockDomain.waitActiveEdge(200)
-      }
+      i2c.bufferCmd.clear()
+      i2c.start()
+      i2c.write(0x07)
+      i2c.write(0x00)
+      i2c.restart()
+      i2c.write(0x07)
+      i2c.read(false)
+      i2c.read(true)
+      i2c.stop()
+
+      i2c.checkCmd(slave.cmdSlave)
+
+
+      dut.clockDomain.waitActiveEdge(200)
     }
   }
 }

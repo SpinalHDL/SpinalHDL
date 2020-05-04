@@ -26,7 +26,7 @@ object SpinalSimPerfTester {
 class SpinalSimPerfTester extends FunSuite {
   SpinalSimTester { env =>
     import env._
-    
+
     var compiled: SimCompiled[SpinalSimPerfTester.SpinalSimPerfTesterDut] = null
 
     test(prefix + "compile") {

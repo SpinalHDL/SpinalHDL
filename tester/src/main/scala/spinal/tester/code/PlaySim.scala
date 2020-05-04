@@ -124,7 +124,7 @@ object PlaySimGhdl2 extends App{
     io.comb := io.a + io.b + io.c
   }
 
-  SimConfig.withWave.withGhdl.doSim(new toplevel){ dut =>
+  SimConfig.withWave.withGhdl.doSim(new toplevel, "rawrr"){ dut =>
     dut.clockDomain.forkStimulus(period = 10)
     dut.clockDomain.forkSimSpeedPrinter(0.2)
 
