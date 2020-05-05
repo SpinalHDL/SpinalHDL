@@ -545,7 +545,17 @@ package object sim {
 
     }
 
-    def forkStimulus(period: Long) : Unit = fork(doStimulus(period))
+    def forkStimulus(period: Long) : Unit = {
+      cd.config.clockEdge match {
+        case RISING  => fallingEdge()
+        case FALLING => risingEdge()
+      }
+      if(cd.hasResetSignal) cd.deassertReset()
+      if(cd.hasSoftResetSignal) cd.deassertSoftReset()
+      if(cd.hasClockEnableSignal) cd.deassertClockEnable()
+      fork(doStimulus(period))
+    }
+
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 
     def onRisingEdges(block : => Unit): Unit ={
