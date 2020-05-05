@@ -2,10 +2,6 @@
 #define SHMEM_FILENAME "./shmem_name"
 #endif
 
-#ifndef GLOBAL_RANDOM_SEED
-#define GLOBAL_RANDOM_SEED 0x5EED5EED
-#endif
-
 #include<boost/interprocess/sync/scoped_lock.hpp>
 #include<cassert>
 #include<iostream>
@@ -14,6 +10,7 @@
 #include<sstream>
 #include<fstream>
 #include<string>
+#include<vector>
 #include<algorithm>
 #include<iterator>
 #include<type_traits>
@@ -23,8 +20,6 @@
 
 using namespace std;
 
-mt19937 global_rand(GLOBAL_RANDOM_SEED);
-uniform_int_distribution<> binary_dis(0, 1);
 managed_shared_memory segment;
 SharedStruct* shared_struct;
 stringstream ss;
@@ -218,6 +213,31 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
     return false;
 }
 
+bool iterate_module(vpiHandle mod_handle, mt19937& mt_rand){
+
+    if(randomize_in_module(mod_handle, mt_rand)) return true;
+
+    vpiHandle mod_iterator;
+    vpiHandle child_mod_handle;
+    mod_iterator = vpi_iterate(vpiModule, mod_handle);
+    if(check_error()) return true;
+    if( !mod_iterator ){
+        return false;
+    }
+    
+    child_mod_handle = vpi_scan(mod_iterator);
+    if(check_error()) return true;
+    while(child_mod_handle) {
+
+        if(iterate_module(child_mod_handle, mt_rand)) return true;
+        vpi_free_object(child_mod_handle);
+        child_mod_handle = vpi_scan(mod_iterator);
+        if(check_error()) return true;
+    }
+
+    return false;
+}
+
 bool randomize_cmd(){
 
     vpiHandle top_mod_iterator;
@@ -226,28 +246,12 @@ bool randomize_cmd(){
 
     top_mod_iterator = vpi_iterate(vpiModule,NULL);
     if(check_error()) return true;
-    if( !top_mod_iterator ){
-        return false;
-    }
-
+    if(!top_mod_iterator){ return false; }
     top_mod_handle = vpi_scan(top_mod_iterator);
     if(check_error()) return true;
     while(top_mod_handle) {
-        if(randomize_in_module(top_mod_handle, mt_rand)) return true;
-        vpiHandle module_iterator = vpi_iterate(vpiModule, top_mod_handle);
-        if(check_error()) return true;
-        if (module_iterator){
-            vpiHandle module_handle;
-            module_handle = vpi_scan(module_iterator);
-            if(check_error()) return true;
-            while (module_handle) {
-                if(randomize_in_module(module_handle, mt_rand)) return true;
-                vpi_free_object(module_handle);
-                module_handle = vpi_scan(module_iterator);
-                if(check_error()) return true;
-            }
-        }
-
+        
+        if(iterate_module(top_mod_handle, mt_rand)) return true;
         vpi_free_object(top_mod_handle);
         top_mod_handle = vpi_scan(top_mod_iterator);
         if(check_error()) return true;
@@ -278,8 +282,7 @@ bool get_signal_handle_cmd(){
 void sanitize_byte_str(char* byte_str){
    for(size_t i = 0; i< 8; i++) {
        if ((byte_str[i] != '0') && (byte_str[i] != '1')) { 
-           char c = binary_dis(global_rand) == 0 ? '0' : '1';
-           byte_str[i] = c;
+           byte_str[i] = 0;
        }
    } 
 }

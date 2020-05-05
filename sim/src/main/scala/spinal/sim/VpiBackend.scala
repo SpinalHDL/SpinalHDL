@@ -28,7 +28,8 @@ case class VpiBackendConfig(
   var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
-  var logSimProcess: Boolean = false
+  var logSimProcess: Boolean = false,
+  var randomSeed : Long = 0x533D533D
 )
 
 abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
@@ -48,6 +49,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   var LDFLAGS         = config.LDFLAGS
   val useCache        = config.useCache              
   val logSimProcess   = config.logSimProcess
+  val randomSeed      = config.randomSeed
 
   val sharedExtension = if(isWindows) "dll" else (if(isMac) "dylib" else "so")
   val sharedMemIfaceName = "shared_mem_iface." + sharedExtension
@@ -129,7 +131,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def analyzeRTL()
   def runSimulation(sharedMemIface: SharedMemIface) : Thread
   def instanciate() : (SharedMemIface, Thread) = {
-    this.synchronized {
+    val ret = this.synchronized {
         delayed_compilation
         val shmemKey = Seq("SpinalHDL",
                            runIface.toString,
@@ -146,9 +148,12 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       shmemFile.write(shmemKey) 
       shmemFile.close
       val thread = runSimulation(sharedMemIface)
-      sharedMemIface.check_ready
+      sharedMemIface.check_ready 
       (sharedMemIface, thread)
     }
+    ret._1.randomize(randomSeed)
+    ret._1.eval
+    ret
   }
 }
 
