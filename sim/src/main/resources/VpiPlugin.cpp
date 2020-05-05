@@ -194,6 +194,8 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
             if(check_error()) return true;
             
             s_vpi_value value_struct;
+            bool invalid = false;
+
             value_struct.format = vpiBinStrVal;
             vpi_get_value(net_handle, &value_struct);
             if(check_error()) return true;
@@ -201,15 +203,19 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
             for(char& c : val_str) {
                 if ((c != '0') && (c != '1')) { 
                     c = bin_dis(mt_rand) == 0 ? '0' : '1';
+                    invalid = true;
                 }       
             }
 
-            value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
-            vpi_put_value(net_handle, 
+            if(invalid){
+                value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
+                vpi_put_value(net_handle, 
                           &value_struct, 
                           NULL, 
                           vpiNoDelay);
-            if(check_error()) return true;
+                if(check_error()) return true;
+            }
+
             vpi_free_object(net_handle);
         }
     } 
