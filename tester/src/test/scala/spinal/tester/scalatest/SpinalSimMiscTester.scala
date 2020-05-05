@@ -122,7 +122,7 @@ class SpinalSimMiscTester extends FunSuite {
           var counterModel = 0
           for (repeat <- 0 until 100) {
             dut.io.enable.randomize()
-            dut.clockDomain.waitActiveEdge(); sleep(0)
+            dut.clockDomain.waitSampling(); sleep(0)
             if (dut.io.enable.toBoolean) {
               counterModel = (counterModel + 1) & 0xFF
             }
@@ -140,7 +140,7 @@ class SpinalSimMiscTester extends FunSuite {
           var counterModel = 0
           for (repeat <- 0 until 100) {
             dut.io.enable.randomize()
-            dut.clockDomain.waitActiveEdge(); sleep(0)
+            dut.clockDomain.waitSampling(); sleep(0)
             if (dut.io.enable.toBoolean) {
               counterModel = (counterModel + 1) & 0xFF
             }
@@ -166,7 +166,7 @@ class SpinalSimMiscTester extends FunSuite {
         var counter = 0
         while (true) {
           dut.io.enable.randomize()
-          dut.clockDomain.waitActiveEdge();
+          dut.clockDomain.waitSampling();
           sleep(0)
           if (dut.io.enable.toBoolean) {
             counterModel = (counterModel + 1) & 0xFF
@@ -186,7 +186,7 @@ class SpinalSimMiscTester extends FunSuite {
           var counterModel = 0
           for (repeat <- 0 until 100) {
             dut.io.enable.randomize()
-            dut.clockDomain.waitActiveEdge()
+            dut.clockDomain.waitSampling()
             if (dut.io.enable.toBoolean) {
               counterModel = (counterModel + 2) & 0xFF
             }
@@ -221,8 +221,8 @@ class SpinalSimMiscTester extends FunSuite {
       compiled.doSimUntilVoid("testdoSimUntilVoid")(dut => {
         fork {
           dut.clockDomain.deassertReset()
-          sleep(0)
           dut.clockDomain.fallingEdge()
+          sleep(0)
           dut.clockDomain.assertReset()
           sleep(10)
           dut.clockDomain.deassertReset()
@@ -241,7 +241,7 @@ class SpinalSimMiscTester extends FunSuite {
           var counterModel = 0
           for (repeat <- 0 until 1000) {
             dut.io.enable.randomize()
-            dut.clockDomain.waitActiveEdge(); sleep(0)
+            dut.clockDomain.waitSampling(); sleep(0)
             if (dut.io.enable.toBoolean) {
               counterModel = (counterModel + 1) & 0xFF
             }
@@ -262,7 +262,7 @@ class SpinalSimMiscTester extends FunSuite {
         var counterModel = 0
         for (repeat <- 0 until 100) {
           dut.io.enable.randomize()
-          dut.clockDomain.waitActiveEdge(); sleep(0)
+          dut.clockDomain.waitSampling(); sleep(0)
           if (dut.io.enable.toBoolean) {
             counterModel = (counterModel + 1) & 0xFF
           }
@@ -281,7 +281,7 @@ class SpinalSimMiscTester extends FunSuite {
         var counterModel = 0
         for (repeat <- 0 until 100) {
           dut.io.enable.randomize()
-          dut.clockDomain.waitActiveEdge(); sleep(0)
+          dut.clockDomain.waitSampling(); sleep(0)
           if (dut.io.enable.toBoolean) {
             counterModel = (counterModel + 1) & 0xFF
           }

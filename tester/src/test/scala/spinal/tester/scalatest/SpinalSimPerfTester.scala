@@ -41,6 +41,9 @@ class SpinalSimPerfTester extends FunSuite {
       compiled.doSim { dut =>
         dut.clockDomain.forkStimulus(period = 10)
         dut.clockDomain.forkSimSpeedPrinter(0.2)
+        dut.io.a.randomize()
+        dut.io.b.randomize()
+        dut.io.c.randomize()
 
         var model = -1
         var times = 0
