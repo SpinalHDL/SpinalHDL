@@ -20,6 +20,7 @@
 
 using namespace std;
 
+uniform_int_distribution<> bin_dis(0, 1);
 managed_shared_memory segment;
 SharedStruct* shared_struct;
 stringstream ss;
@@ -142,39 +143,41 @@ bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
 
 bool print_signals_cmd(){
 
-    vpiHandle top_mod_iterator;
-    vpiHandle top_mod_handle;
+    vpiHandle mod_iterator;
+    vpiHandle mod_handle, child_mod_handle;
+    std::vector<vpiHandle> mod_handles;
     stringstream msg_ss;
 
-    top_mod_iterator = vpi_iterate(vpiModule,NULL);
+    mod_iterator = vpi_iterate(vpiModule,NULL);
     if(check_error()) return true;
-    if( !top_mod_iterator ){
-        return 0;
+    if(!mod_iterator){ return false; }
+    mod_handle = vpi_scan(mod_iterator);
+    if(check_error()) return true;
+    while(mod_handle) {
+        mod_handles.push_back(mod_handle);
+        mod_handle = vpi_scan(mod_iterator);
+        if(check_error()) return true;
     }
 
-    top_mod_handle = vpi_scan(top_mod_iterator);
-    if(check_error()) return true;
-    while(top_mod_handle) {
-        if(print_net_in_module(top_mod_handle, msg_ss)) return true;
-        vpiHandle module_iterator = vpi_iterate(vpiModule,top_mod_handle);
+    while(mod_handles.size() != 0) {
+        mod_handle = mod_handles.back();
+        mod_handles.pop_back();
+        if(print_net_in_module(mod_handle, msg_ss)) return true;
+        mod_iterator = vpi_iterate(vpiModule, mod_handle);
         if(check_error()) return true;
-        if (module_iterator){
-            vpiHandle module_handle;
-            module_handle = vpi_scan(module_iterator);
+        if(mod_iterator){ 
+            child_mod_handle = vpi_scan(mod_iterator);
             if(check_error()) return true;
-            while (module_handle) {
-                if(print_net_in_module(module_handle, msg_ss)) return true;
-                vpi_free_object(module_handle);
-                module_handle = vpi_scan(module_iterator);
+            while(child_mod_handle) {
+                mod_handles.push_back(child_mod_handle);
+                child_mod_handle = vpi_scan(mod_iterator);
                 if(check_error()) return true;
             }
         }
-
-        vpi_free_object(top_mod_handle);
-        top_mod_handle = vpi_scan(top_mod_iterator);
+        vpi_free_object(mod_handle);
         if(check_error()) return true;
     }
-
+    
     const string msg_str(msg_ss.str());
     shared_struct->data.resize(msg_str.size());
     std::copy(msg_str.begin(), msg_str.end(), shared_struct->data.begin());
@@ -189,22 +192,23 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
     if(net_iterator){
         while(vpiHandle net_handle = vpi_scan(net_iterator)) {
             if(check_error()) return true;
-            uint32_t signal_size = vpi_get(vpiSize, net_handle);
-            if(check_error()) return true;
-            uint32_t words = signal_size/64;
-            if(signal_size%64) words++;
+            
             s_vpi_value value_struct;
-            ss.str(std::string());
-            ss << setw(64);
-            ss << setfill('0');
-            for(uint32_t i = 0; i < words; i++) ss << bitset<64>(mt_rand());
             value_struct.format = vpiBinStrVal;
-            val_str = ss.str();
+            vpi_get_value(net_handle, &value_struct);
+            if(check_error()) return true;
+            val_str = (const char*) value_struct.value.str;
+            for(char& c : val_str) {
+                if ((c != '0') && (c != '1')) { 
+                    c = bin_dis(mt_rand) == 0 ? '0' : '1';
+                }       
+            }
+
             value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
             vpi_put_value(net_handle, 
-                    &value_struct, 
-                    NULL, 
-                    vpiNoDelay);
+                          &value_struct, 
+                          NULL, 
+                          vpiNoDelay);
             if(check_error()) return true;
             vpi_free_object(net_handle);
         }
@@ -213,47 +217,40 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
     return false;
 }
 
-bool iterate_module(vpiHandle mod_handle, mt19937& mt_rand){
-
-    if(randomize_in_module(mod_handle, mt_rand)) return true;
+bool randomize_cmd(){
 
     vpiHandle mod_iterator;
-    vpiHandle child_mod_handle;
-    mod_iterator = vpi_iterate(vpiModule, mod_handle);
-    if(check_error()) return true;
-    if( !mod_iterator ){
-        return false;
-    }
-    
-    child_mod_handle = vpi_scan(mod_iterator);
-    if(check_error()) return true;
-    while(child_mod_handle) {
+    vpiHandle mod_handle, child_mod_handle;
+    std::vector<vpiHandle> mod_handles;
+    mt19937 mt_rand(shared_struct->seed.load());
 
-        if(iterate_module(child_mod_handle, mt_rand)) return true;
-        vpi_free_object(child_mod_handle);
-        child_mod_handle = vpi_scan(mod_iterator);
+    mod_iterator = vpi_iterate(vpiModule,NULL);
+    if(check_error()) return true;
+    if(!mod_iterator){ return false; }
+    mod_handle = vpi_scan(mod_iterator);
+    if(check_error()) return true;
+    while(mod_handle) {
+        mod_handles.push_back(mod_handle);
+        mod_handle = vpi_scan(mod_iterator);
         if(check_error()) return true;
     }
 
-    return false;
-}
-
-bool randomize_cmd(){
-
-    vpiHandle top_mod_iterator;
-    vpiHandle top_mod_handle;
-    mt19937 mt_rand(shared_struct->seed.load());
-
-    top_mod_iterator = vpi_iterate(vpiModule,NULL);
-    if(check_error()) return true;
-    if(!top_mod_iterator){ return false; }
-    top_mod_handle = vpi_scan(top_mod_iterator);
-    if(check_error()) return true;
-    while(top_mod_handle) {
-        
-        if(iterate_module(top_mod_handle, mt_rand)) return true;
-        vpi_free_object(top_mod_handle);
-        top_mod_handle = vpi_scan(top_mod_iterator);
+    while(mod_handles.size() != 0) {
+        mod_handle = mod_handles.back();
+        mod_handles.pop_back();
+        if(randomize_in_module(mod_handle, mt_rand)) return true;
+        mod_iterator = vpi_iterate(vpiModule, mod_handle);
+        if(check_error()) return true;
+        if(mod_iterator){ 
+            child_mod_handle = vpi_scan(mod_iterator);
+            if(check_error()) return true;
+            while(child_mod_handle) {
+                mod_handles.push_back(child_mod_handle);
+                child_mod_handle = vpi_scan(mod_iterator);
+                if(check_error()) return true;
+            }
+        }
+        vpi_free_object(mod_handle);
         if(check_error()) return true;
     }
 
@@ -280,11 +277,11 @@ bool get_signal_handle_cmd(){
 
 
 void sanitize_byte_str(char* byte_str){
-   for(size_t i = 0; i< 8; i++) {
-       if ((byte_str[i] != '0') && (byte_str[i] != '1')) { 
-           byte_str[i] = 0;
-       }
-   } 
+    for(size_t i = 0; i< 8; i++) {
+        if ((byte_str[i] != '0') && (byte_str[i] != '1')) { 
+            byte_str[i] = '0';
+        }
+    } 
 }
 
 bool read_cmd(){
@@ -299,7 +296,7 @@ bool read_cmd(){
     for(size_t i = 0; i < valueStrLen; i++){
         char c = value_struct.value.str[i];
         if ((c != '0') && (c != '1')) {
-            cout << "Warning, value '" << c << "' at position "<< i << " is neither '0' or '1'. value set to a random value." << endl;
+            cout << "Warning, value '" << c << "' at position "<< i << " is neither '0' or '1'. value set to '0'." << endl;
         }
     }
 
