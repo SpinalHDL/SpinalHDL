@@ -2,6 +2,10 @@
 #define SHMEM_FILENAME "./shmem_name"
 #endif
 
+#ifndef INITIAL_SEED
+#define INITIAL_SEED 0x5EED5EED
+#endif
+
 #include<boost/interprocess/sync/scoped_lock.hpp>
 #include<cassert>
 #include<iostream>
@@ -20,6 +24,7 @@
 
 using namespace std;
 
+mt19937 global_mt_rand(INITIAL_SEED);
 uniform_int_distribution<> bin_dis(0, 1);
 managed_shared_memory segment;
 SharedStruct* shared_struct;
@@ -223,6 +228,11 @@ bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
     return false;
 }
 
+bool set_seed_cmd(){
+    global_mt_rand.seed(shared_struct->seed.load());
+    return false;
+}
+
 bool randomize_cmd(){
 
     vpiHandle mod_iterator;
@@ -285,7 +295,7 @@ bool get_signal_handle_cmd(){
 void sanitize_byte_str(char* byte_str){
     for(size_t i = 0; i< 8; i++) {
         if ((byte_str[i] != '0') && (byte_str[i] != '1')) { 
-            byte_str[i] = '0';
+            byte_str[i] = bin_dis(global_mt_rand) == 0 ? '0' : '1';
         }
     } 
 }
@@ -400,6 +410,7 @@ PLI_INT32 rw_cb(p_cb_data){
             case ProcStatus::read : run_simulation = read_cmd(); break;
             case ProcStatus::write : run_simulation = write_cmd(); break;
             case ProcStatus::sleep : run_simulation = sleep_cmd(); break;
+            case ProcStatus::set_seed : run_simulation = set_seed_cmd(); break;
             case ProcStatus::randomize : run_simulation = randomize_cmd(); break;
             case ProcStatus::close : run_simulation = close_cmd(); break;
             default : {

@@ -84,6 +84,10 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_eval(swigCPtr, this);
   }
 
+  public void set_seed(long seed) {
+    JNISharedMemIfaceJNI.SharedMemIface_set_seed(swigCPtr, this, seed);
+  }
+
   public void randomize(long seed) {
     JNISharedMemIfaceJNI.SharedMemIface_randomize(swigCPtr, this, seed);
   }

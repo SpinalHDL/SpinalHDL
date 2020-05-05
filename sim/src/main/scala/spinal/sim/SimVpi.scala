@@ -26,7 +26,6 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  //for some reason setInt is not in SimRaw...
   def setInt(signal : Signal, value: Int) {
     val id = getSignalId(signal)
     if (signal.dataType.width > 32) this.setBigInt(signal, BigInt(value))

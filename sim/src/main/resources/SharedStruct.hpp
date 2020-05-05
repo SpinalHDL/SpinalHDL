@@ -43,7 +43,8 @@ enum class ProcStatus : int8_t {
     write = 5,
     sleep = 6,
     close = 7,
-    randomize = 8,
+    set_seed = 8,
+    randomize = 9,
 };
 
 class SharedStruct {

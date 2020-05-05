@@ -149,8 +149,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       sharedMemIface.check_ready 
       (sharedMemIface, thread)
     }
-    ret._1.eval
-    ret._1.randomize(seed)
+
+    ret._1.set_seed(seed)
     ret._1.eval
     ret
   }

@@ -104,6 +104,13 @@ void SharedMemIface::eval(){
     this->sleep(0);
 }
 
+void SharedMemIface::set_seed(int64_t seed){
+    this->check_ready();
+    shared_struct->seed.store(seed);
+    shared_struct->proc_status.store(ProcStatus::set_seed);
+    this->check_ready();
+}
+
 void SharedMemIface::randomize(int64_t seed){
     this->check_ready();
     shared_struct->seed.store(seed);
