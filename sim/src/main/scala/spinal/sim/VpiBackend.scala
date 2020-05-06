@@ -345,10 +345,12 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                 WaveFormat.NONE
               }
 
+  var hasWave = false
   if(!(Array(WaveFormat.DEFAULT, 
              WaveFormat.NONE) contains format)) {
 
       runFlags += " -" +  format.ext
+      hasWave = true
     }
 
   val vpiModuleName = "vpi_iverilog.vpi"
@@ -410,8 +412,8 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                |module __simulation_def;
                                |initial
                                | begin
-                               |  $$dumpfile("${wavePath}");
-                               |  $$dumpvars(0,${toplevelName});
+                               |  ${ if(hasWave) "$dumpfile(\"" + wavePath + "\");" else ""}
+                               |  ${ if(hasWave) "$dumpvars(0," + toplevelName + ");" else ""}
                                |  $$readmempath("./rtl/");
                                | end
                                |endmodule""".stripMargin
