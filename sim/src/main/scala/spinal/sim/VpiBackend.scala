@@ -119,7 +119,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     compileVPI()
     analyzeRTL() 
   }
- 
+
   def clean() {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
     FileUtils.cleanDirectory(new File(pluginsPath))
@@ -128,28 +128,38 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def compileVPI()  // Return the plugin name
   def analyzeRTL()
   def runSimulation(sharedMemIface: SharedMemIface) : Thread
+
+  def instanciate_() : (SharedMemIface, Thread) = {
+    delayed_compilation
+    val shmemKey = Seq("SpinalHDL",
+      runIface.toString,
+      uniqueId.toString,
+      hashCode().toString, 
+      pwd.hashCode().toString,
+      System.currentTimeMillis().toString,
+      scala.util.Random.nextLong().toString).mkString("_")
+
+    runIface += 1
+
+    val sharedMemIface = new SharedMemIface(shmemKey, sharedMemSize)
+    var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
+    shmemFile.write(shmemKey) 
+    shmemFile.close
+    val thread = runSimulation(sharedMemIface)
+    sharedMemIface.check_ready 
+    (sharedMemIface, thread)
+  }
+
   def instanciate(seed : Long) : (SharedMemIface, Thread) = {
-    val ret = this.synchronized {
-        delayed_compilation
-        val shmemKey = Seq("SpinalHDL",
-                           runIface.toString,
-                           uniqueId.toString,
-                           hashCode().toString, 
-                           pwd.hashCode().toString,
-                           System.currentTimeMillis().toString,
-                           scala.util.Random.nextLong().toString).mkString("_")
-
-      runIface += 1
-      
-      val sharedMemIface = new SharedMemIface(shmemKey, sharedMemSize)
-      var shmemFile = new PrintWriter(new File(workspacePath + "/shmem_name"))
-      shmemFile.write(shmemKey) 
-      shmemFile.close
-      val thread = runSimulation(sharedMemIface)
-      sharedMemIface.check_ready 
-      (sharedMemIface, thread)
+    val ret = if(useCache) {
+      VpiBackend.synchronized {
+        instanciate_
+      }
+    } else {
+      this.synchronized {
+        instanciate_
+      }
     }
-
     ret._1.set_seed(seed)
     ret._1.eval
     ret
@@ -253,25 +263,25 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
     val vpiModulePath = if(!isWindows) pluginsPath + "/" + vpiModuleName
-                        else (pluginsPath + "/" + vpiModuleName).replaceAll("/C",raw"C:").replaceAll(raw"/",raw"\\")
+    else (pluginsPath + "/" + vpiModuleName).replaceAll("/C",raw"C:").replaceAll(raw"/",raw"\\")
 
     val pathStr = if(!isWindows) sys.env("PATH")
-                  else sys.env("PATH") + ";" + (ghdlPath + " --vpi-library-dir").!!.trim
+    else sys.env("PATH") + ";" + (ghdlPath + " --vpi-library-dir").!!.trim
 
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
       def run(): Unit = {
         val retCode = Process(Seq(ghdlPath,
-                      "-r",
-                      elaborationFlags,
-                      toplevelName,
-                      s"--vpi=${pwd + "/" + vpiModulePath}",
-                      runFlags).mkString(" "), 
-                      new File(workspacePath),
-                      "PATH" -> pathStr).! (new Logger())
-                      
-        if (retCode != 0) iface.set_crashed(retCode)
-        assert(retCode == 0, s"Simulation of $toplevelName failed")
+          "-r",
+          elaborationFlags,
+          toplevelName,
+          s"--vpi=${pwd + "/" + vpiModulePath}",
+          runFlags).mkString(" "), 
+        new File(workspacePath),
+        "PATH" -> pathStr).! (new Logger())
+
+      if (retCode != 0) iface.set_crashed(retCode)
+      assert(retCode == 0, s"Simulation of $toplevelName failed")
       }
     }
     )

@@ -138,7 +138,9 @@ case class SpinalGhdlBackendConfig[T <: Component](rtl               : SpinalRep
                                                    wavePrefix         : String = null,
                                                    waveDepth         : Int = 0,
                                                    optimisationLevel : Int = 2,
-                                                   simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                   simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                   usePluginsCache   : Boolean = true,
+                                                   pluginsCachePath  : String = "./simWorkspace/.pluginsCachePath"
                                                   )
 
 
@@ -164,7 +166,15 @@ object SpinalGhdlBackend {
 //    vconfig.waveDepth         = waveDepth
 //    vconfig.optimisationLevel = optimisationLevel
 //    vconfig.simulatorFlags        = simulatorFlags
-    vconfig.pluginsPath = workspacePath
+    
+    vconfig.useCache = usePluginsCache
+    vconfig.pluginsPath = if(usePluginsCache) {
+      val pluginsCachePathFile = new File(pluginsCachePath)
+      if(!pluginsCachePathFile.exists()) {
+        pluginsCachePathFile.mkdirs
+      }
+      pluginsCachePath
+    } else workspacePath
 
     var signalId = 0
 
