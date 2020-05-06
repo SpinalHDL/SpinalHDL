@@ -45,6 +45,7 @@ enum class ProcStatus : int8_t {
     close = 7,
     set_seed = 8,
     randomize = 9,
+    closed = 10,
 };
 
 class SharedStruct {
@@ -58,25 +59,6 @@ class SharedStruct {
             data(alloc_inst){}
 
         virtual ~SharedStruct(){}
-
-// unused
-//        void check_ready(){
-//            ProcStatus status = this->proc_status.load();
-//            for(uint32_t spin_count = 0; status != ProcStatus::ready; ++spin_count) {
-//                if (status == ProcStatus::error) {
-//                    throw VpiException((const char*) this->data.data()); 
-//                }
-//
-//                if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
-//                    _mm_pause();
-//                } else {
-//                    std::this_thread::yield();
-//                    spin_count = 0;
-//                }
-//
-//                status = this->proc_status.load();
-//            }
-//        }
 
         ProcStatus check_not_ready() {
             ProcStatus status = this->proc_status.load();

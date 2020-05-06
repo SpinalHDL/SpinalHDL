@@ -391,7 +391,7 @@ bool sleep_cmd(){
 
 bool close_cmd(){
     vpi_control(vpiFinish, 0);
-    if(!check_error()) shared_struct->proc_status.store(ProcStatus::ready);
+    if(!check_error()) shared_struct->proc_status.store(ProcStatus::closed);
     return true;
 }
 
@@ -401,6 +401,12 @@ PLI_INT32 start_cb(p_cb_data){
 }
 
 PLI_INT32 end_cb(p_cb_data){
+
+    ProcStatus status = shared_struct->proc_status.load();
+    if((status != ProcStatus::closed) && (status != ProcStatus::closed)) {
+        string error_str("Unexpected termination of the simulation");
+        set_error(error_str);
+    }
     cout << "End of simulation" << endl;
     return 0;
 }

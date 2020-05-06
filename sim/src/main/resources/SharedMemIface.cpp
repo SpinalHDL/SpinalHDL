@@ -144,6 +144,13 @@ void SharedMemIface::check_ready(){
             throw VpiException(error_string.c_str()); 
         }
 
+        if (status == ProcStatus::closed) {
+            this->closed = true;
+            segment.destroy<SharedStruct>("SharedStruct");
+            shared_memory_object::remove(shmem_name.c_str());
+            throw VpiException("Unexpected closed simulation");
+        }
+
         int64_t retcode = this->ret_code.load(std::memory_order_relaxed);
         if(retcode) {
             this->closed = true;
