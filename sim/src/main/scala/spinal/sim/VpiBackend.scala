@@ -348,7 +348,6 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
   if(!(Array(WaveFormat.DEFAULT, 
              WaveFormat.NONE) contains format)) {
 
-      println("Warning! IVerilog backend does not support the generation of wave files")
       runFlags += " -" +  format.ext
     }
 
@@ -407,11 +406,28 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                                            s.endsWith(".vl")) }
                                             .mkString(" ")
 
+    val simulationDefSource = s"""
+                               |module __simulation_def;
+                               |initial
+                               | begin
+                               |  $$dumpfile("${wavePath}");
+                               |  $$dumpvars(0,${toplevelName});
+                               |  $$readmempath("./rtl/");
+                               | end
+                               |endmodule""".stripMargin
+
+    val simulationDefSourceFile = new PrintWriter(new File(s"${workspacePath}/rtl/" ++ 
+                                                           "__simulation_def.v"))
+    simulationDefSourceFile.write(simulationDefSource) 
+    simulationDefSourceFile.close
+
     assert(Process(Seq(iverilogPath,
                        analyzeFlags,
+                       "-s __simulation_def",
                        "-s",
                        toplevelName,
                        verilogSourcePaths,
+                       s"./rtl/__simulation_def.v",
                        "-o",
                        toplevelName + ".vvp").mkString(" "), 
                      new File(workspacePath)).! (new Logger()) == 0, 
