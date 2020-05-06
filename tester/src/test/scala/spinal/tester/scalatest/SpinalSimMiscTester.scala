@@ -67,16 +67,17 @@ class SpinalSimTesterTest extends FunSuite {
 }
 
 class SpinalSimFunSuite extends FunSuite{
-  var SimConfig : SpinalSimConfig = null
+  var tester : SpinalSimTester = null
+  def SimConfig = tester.SimConfig
   var durationFactor = 0.0
   def test(testName: String)(testFun: => Unit): Unit = {
     super.test("ghdl_" + testName) {
-      SimConfig = SpinalSimTesterGhdl.SimConfig
+      tester = SpinalSimTesterGhdl
       durationFactor = SpinalSimTesterGhdl.durationFactor
       testFun
     }
     super.test("verilator_" + testName) {
-      SimConfig = SpinalSimTesterVerilator.SimConfig
+      tester = SpinalSimTesterVerilator
       durationFactor = SpinalSimTesterVerilator.durationFactor
       testFun
     }
