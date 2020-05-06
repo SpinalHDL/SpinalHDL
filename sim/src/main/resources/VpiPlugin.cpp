@@ -103,7 +103,11 @@ void entry_point_cb() {
     if(check_error()) return;
     register_cb(end_cb, cbEndOfSimulation, -1);
     if(check_error()) return;
+    #ifndef IVERILOG_PLUGIN
     register_cb(delay_ro_cb, cbAfterDelay, 0);
+    #else
+    register_cb(delay_rw_cb, cbAfterDelay, 0);
+    #endif
     if(check_error()) return;
 }
 
@@ -375,7 +379,12 @@ bool write_cmd(){
 
 bool sleep_cmd(){
 
+    #ifndef IVERILOG_PLUGIN
     register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
+    #else
+    register_cb(delay_rw_cb, cbAfterDelay, shared_struct->sleep_cycles);
+    #endif
+
     check_error();
     return true;
 }

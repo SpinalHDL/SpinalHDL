@@ -319,118 +319,132 @@ object GhdlBackend {
 }
 
 
-///* README first!
-//
-//  This backend doesn't work because of incompatibilities between IVerilog and SpinalSim execution method
-//
-//*/
-//class IVerilogBackendConfig extends VpiBackendConfig {
-//  var binDirectory: String = ""
-//}
-//
-//class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) {
-//
-//  import config._
-//
-//  val availableFormats = Array(WaveFormat.VCD, 
-//                               WaveFormat.FST, WaveFormat.FST_SPEED, WaveFormat.FST_SPACE, 
-//                               WaveFormat.LXT, WaveFormat.LXT_SPEED, WaveFormat.LXT_SPACE, 
-//                               WaveFormat.LXT2, WaveFormat.LXT2_SPEED, WaveFormat.LXT2_SPACE, 
-//                               WaveFormat.DEFAULT, WaveFormat.NONE)
-//
-//  val format = if(availableFormats contains config.waveFormat){
-//                config.waveFormat  
-//              } else {
-//                println("Wave format " + config.waveFormat + " not supported by IVerilog")
-//                WaveFormat.NONE
-//              }
-//
-//  if(!(Array(WaveFormat.DEFAULT, 
-//             WaveFormat.NONE) contains format)) {
-//
-//      println("Warning! IVerilog backend does not support the generation of wave files")
-//      runFlags += " -" + format.ext
-//    }
-//
-//  val vpiModuleName = "vpi_iverilog.vpi"
-//  val vpiModulePath = pluginsPath + "/" + vpiModuleName
-//  val iverilogPath    = binDirectory + "iverilog"
-//  val iverilogVpiPath = binDirectory + "iverilog-vpi"
-//  val vvpPath         = binDirectory + "vvp"
-//
-//  val IVERILOGCFLAGS = "-Wstrict-prototypes".r
-//                                            .replaceAllIn(Process(Seq(iverilogVpiPath, 
-//                                                                      "--cflags")).!!,
-//                                                          "")
-//  val IVERILOGLDFLAGS = Process(Seq(iverilogVpiPath, "--ldflags")).!!
-//  val IVERILOGLDLIBS = Process(Seq(iverilogVpiPath, "--ldlibs")).!!
-//
-//  def compileVPI() = {
-//    val vpiModulePath = pluginsPath + "/" + vpiModuleName
-//    if(!Files.exists(Paths.get(vpiModulePath))) {
-//
-//      for(filename <- Array("/VpiPlugin.cpp", 
-//                            "/SharedStruct.hpp")) {
-//             var cppSourceFile = new PrintWriter(new File(pluginsPath + "/" + filename))
-//             var stream = getClass.getResourceAsStream(filename)
-//             cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString) 
-//             cppSourceFile.close
-//           }
-//
-//           assert(Process(Seq(CC,
-//                              "-c", 
-//                              IVERILOGCFLAGS,
-//                              CFLAGS, 
-//                              "VpiPlugin.cpp",
-//                              "-o",
-//                              "VpiPlugin.o").mkString(" "), 
-//                            new File(pluginsPath)).! (new Logger()) == 0, 
-//                  "Compilation of VpiPlugin.o failed")
-//
-//            assert(Process(Seq(CC,
-//                              IVERILOGCFLAGS,
-//                              CFLAGS,
-//                              "VpiPlugin.o",
-//                              IVERILOGLDFLAGS,
-//                              IVERILOGLDLIBS,
-//                              LDFLAGS,
-//                              "-o",
-//                              vpiModuleName).mkString(" "), 
-//                            new File(pluginsPath)).! (new Logger()) == 0, 
-//                  s"Compilation of $vpiModuleName failed")
-//    }
-//  } 
-//
-//  def analyzeRTL() {
-//    val verilogSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".v") || 
-//                                                           s.endsWith(".sv") ||
-//                                                           s.endsWith(".vl")) }
-//                                            .mkString(" ")
-//
-//    assert(Process(Seq(iverilogPath,
-//                       analyzeFlags,
-//                       "-s",
-//                       toplevelName,
-//                       verilogSourcePaths,
-//                       "-o",
-//                       toplevelName + ".vvp").mkString(" "), 
-//                     new File(workspacePath)).! (new Logger()) == 0, 
-//           s"Analyze step of verilog files failed") 
-//  }
-//
-//  def runSimulation() {
-//    val vpiModulePath = pluginsPath + "/" + vpiModuleName
-//    Future {
-//    assert(Process(Seq(vvpPath,
-//                "-M.",
-//                s"-m${pwd + "/" +vpiModulePath}",
-//                runFlags,
-//                toplevelName + ".vvp").mkString(" "), 
-//             new File(workspacePath)).! (new Logger()) == 0,
-//            s"Simulation of $toplevelName failed")
-//    }
-//  }
-//}
-//
+/* README first!
+
+  This backend doesn't work because of incompatibilities between IVerilog and SpinalSim execution method
+
+*/
+class IVerilogBackendConfig extends VpiBackendConfig {
+  var binDirectory: String = ""
+}
+
+class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) {
+  import Backend._
+  import config._
+
+  val availableFormats = Array(WaveFormat.VCD, 
+                               WaveFormat.FST, WaveFormat.FST_SPEED, WaveFormat.FST_SPACE, 
+                               WaveFormat.LXT, WaveFormat.LXT_SPEED, WaveFormat.LXT_SPACE, 
+                               WaveFormat.LXT2, WaveFormat.LXT2_SPEED, WaveFormat.LXT2_SPACE, 
+                               WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat){
+                config.waveFormat  
+              } else {
+                println("Wave format " + config.waveFormat + " not supported by IVerilog")
+                WaveFormat.NONE
+              }
+
+  if(!(Array(WaveFormat.DEFAULT, 
+             WaveFormat.NONE) contains format)) {
+
+      println("Warning! IVerilog backend does not support the generation of wave files")
+      runFlags += " -" +  format.ext
+    }
+
+  val vpiModuleName = "vpi_iverilog.vpi"
+  val vpiModulePath = pluginsPath + "/" + vpiModuleName
+  val iverilogPath    = binDirectory + "iverilog"
+  val iverilogVpiPath = binDirectory + "iverilog-vpi"
+  val vvpPath         = binDirectory + "vvp"
+
+  val IVERILOGCFLAGS = "-Wstrict-prototypes".r
+                                            .replaceAllIn(Process(Seq(iverilogVpiPath, 
+                                                                      "--cflags")).!!,
+                                                          "")
+  val IVERILOGLDFLAGS = Process(Seq(iverilogVpiPath, "--ldflags")).!!
+  val IVERILOGLDLIBS = Process(Seq(iverilogVpiPath, "--ldlibs")).!!
+
+  def compileVPI() = {
+    val vpiModulePath = pluginsPath + "/" + vpiModuleName
+    if(!Files.exists(Paths.get(vpiModulePath))) {
+
+      for(filename <- Array("/VpiPlugin.cpp", 
+                            "/SharedStruct.hpp")) {
+             var cppSourceFile = new PrintWriter(new File(pluginsPath + "/" + filename))
+             var stream = getClass.getResourceAsStream(filename)
+             cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString) 
+             cppSourceFile.close
+           }
+
+           assert(Process(Seq(CC,
+                              "-c", 
+                              IVERILOGCFLAGS,
+                              CFLAGS + " -DIVERILOG_PLUGIN", 
+                              "VpiPlugin.cpp",
+                              "-o",
+                              "VpiPlugin.o").mkString(" "), 
+                            new File(pluginsPath)).! (new Logger()) == 0, 
+                  "Compilation of VpiPlugin.o failed")
+
+            assert(Process(Seq(CC,
+                              IVERILOGCFLAGS,
+                              CFLAGS,
+                              "VpiPlugin.o",
+                              IVERILOGLDFLAGS,
+                              IVERILOGLDLIBS,
+                              LDFLAGS,
+                              "-o",
+                              vpiModuleName).mkString(" "), 
+                            new File(pluginsPath)).! (new Logger()) == 0, 
+                  s"Compilation of $vpiModuleName failed")
+    }
+  } 
+
+  def analyzeRTL() {
+    val verilogSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".v") || 
+                                                           s.endsWith(".sv") ||
+                                                           s.endsWith(".vl")) }
+                                            .mkString(" ")
+
+    assert(Process(Seq(iverilogPath,
+                       analyzeFlags,
+                       "-s",
+                       toplevelName,
+                       verilogSourcePaths,
+                       "-o",
+                       toplevelName + ".vvp").mkString(" "), 
+                     new File(workspacePath)).! (new Logger()) == 0, 
+           s"Analyze step of verilog files failed") 
+  }
+
+  def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
+    val vpiModulePath = if(!isWindows) pluginsPath + "/" + vpiModuleName
+    else (pluginsPath + "/" + vpiModuleName).replaceAll("/C",raw"C:").replaceAll(raw"/",raw"\\")
+
+    val pathStr = if(!isWindows) sys.env("PATH")
+
+    val thread = new Thread(new Runnable {
+      val iface = sharedMemIface
+      def run(): Unit = {
+        val retCode = Process(Seq(vvpPath,
+                                "-M.",
+                                s"-m${pwd + "/" +vpiModulePath}",
+                                toplevelName + ".vvp",
+                                runFlags).mkString(" "), 
+                              new File(workspacePath)).! (new Logger())
+      if (retCode != 0) iface.set_crashed(retCode)
+      assert(retCode == 0, s"Simulation of $toplevelName failed")
+      }
+    })
+
+    thread.setDaemon(true)
+    thread.start()
+    thread
+  }
+
+  override def isBufferedWrite: Boolean = true
+}
+
 
 
