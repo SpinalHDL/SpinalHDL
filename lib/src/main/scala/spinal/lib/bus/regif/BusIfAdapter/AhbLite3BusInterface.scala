@@ -29,7 +29,7 @@ case class AhbLite3BusInterface(bus: AhbLite3, sizeMap: SizeMapping, readSync: B
   val addressDelay = RegNextWhen(bus.HADDR, askRead | askWrite)
   bus.HREADYOUT := True
   bus.HRESP     := False
-  bus.HRDATA    := 0
+  bus.HRDATA    := readData
 
   def readAddress():UInt   = bus.HADDR
   def writeAddress(): UInt = addressDelay
