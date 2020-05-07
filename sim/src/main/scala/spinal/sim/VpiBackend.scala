@@ -409,6 +409,8 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                             .mkString(" ")
 
     val simulationDefSource = s"""
+                               |`timescale 1ns/1ns
+                               |
                                |module __simulation_def;
                                |initial
                                | begin

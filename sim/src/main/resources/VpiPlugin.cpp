@@ -380,7 +380,7 @@ bool write_cmd(){
 bool sleep_cmd(){
 
     #ifndef IVERILOG_PLUGIN
-    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles);
+    register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles*1000000);
     #else
     register_cb(delay_rw_cb, cbAfterDelay, shared_struct->sleep_cycles);
     #endif

@@ -218,23 +218,17 @@ object SpinalVpiBackend {
 
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
     vconfig.toplevelName      = rtl.toplevelName
-    vconfig.wavePath          = "wave.vcd"
-    vconfig.waveFormat        = WaveFormat.VCD
-//    vconfig.vcdPath           = vcdPath
-//    vconfig.vcdPrefix         = vcdPrefix
+    vconfig.wavePath          = "test.vcd"
+    vconfig.waveFormat        = waveFormat match {
+      case WaveFormat.DEFAULT => WaveFormat.VCD
+      case _ => waveFormat
+    }
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
-//    vconfig.waveFormat        = waveFormat match {
-//      case WaveFormat.DEFAULT => WaveFormat.VCD
-//      case _ => waveFormat
-//    }
-//    vconfig.waveDepth         = waveDepth
-//    vconfig.optimisationLevel = optimisationLevel
-//    vconfig.simulatorFlags        = simulatorFlags
-    
     vconfig.useCache = usePluginsCache
     vconfig.pluginsPath = if(usePluginsCache) {
-      val pluginsCachePathFile = new File(pluginsCachePath)
+    
+    val pluginsCachePathFile = new File(pluginsCachePath)
       if(!pluginsCachePathFile.exists()) {
         pluginsCachePathFile.mkdirs
       }
