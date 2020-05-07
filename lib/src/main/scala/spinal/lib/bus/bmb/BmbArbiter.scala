@@ -8,7 +8,6 @@ import spinal.lib._
 
 case class BmbArbiter(p : BmbParameter,
                       portCount : Int,
-                      pendingRspMax : Int,
                       lowerFirstPriority : Boolean,
                       inputsWithInv : Seq[Boolean] = null,
                       inputsWithSync : Seq[Boolean] = null,
@@ -114,7 +113,6 @@ object BmbArbiter{
         contextWidth = 3
       ),
       portCount = 4,
-      pendingRspMax = 3,
       lowerFirstPriority = false
     ))
   }

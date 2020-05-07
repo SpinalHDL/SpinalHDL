@@ -370,7 +370,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500
-       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
+       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST -Wno-UNSIGNED
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
        | -O3

@@ -138,7 +138,8 @@ object BmbLengthFixer{
   def outputParameter(ip : BmbParameter, fixedWidth : Int) = ip.copy(
     lengthWidth = fixedWidth,
     alignmentMin = fixedWidth,
-    contextWidth = ip.contextWidth + 2
+    contextWidth = ip.contextWidth + 2 + ip.sourceWidth,
+    sourceWidth = 0
   )
 }
 
@@ -161,6 +162,7 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     val input = Bits(ip.contextWidth bits)
     val last = Bool()
     val write = Bool()
+    val source = UInt(ip.sourceWidth bits)
   }
 
   val cmdLogic = new Area {
@@ -175,12 +177,13 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     context.input := io.input.cmd.context
     context.last := splitCounter === (io.input.cmd.length >> fixedWidth)
     context.write := io.input.cmd.isWrite
+    context.source := io.input.cmd.source
 
     io.output.cmd.valid := io.input.cmd.valid
     io.output.cmd.last := io.input.cmd.last || beatCounter === beatCount-1
     io.output.cmd.address := (fixedAddress @@ (baseAddress + splitCounter)) << op.lengthWidth
     io.output.cmd.context := B(context)
-    io.output.cmd.source := io.input.cmd.source
+    io.output.cmd.source := 0
     io.output.cmd.opcode := io.input.cmd.opcode
     io.output.cmd.length := (1 << fixedWidth) - 1
     io.output.cmd.data := io.input.cmd.data
@@ -203,7 +206,7 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
     val context = io.output.rsp.context.as(Context())
     io.input.rsp.arbitrationFrom(io.output.rsp.takeWhen(!context.write || context.last && io.output.rsp.last))
     io.input.rsp.last := io.output.rsp.last && context.last
-    io.input.rsp.source := io.output.rsp.source
+    io.input.rsp.source := context.source
     io.input.rsp.opcode := io.output.rsp.opcode
     io.input.rsp.data := io.output.rsp.data
     io.input.rsp.context := io.output.rsp.context.resized
@@ -214,7 +217,7 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
 object BmbAlignedSpliter{
   def outputParameter(ip : BmbParameter, lengthMax : Int) = ip.copy(
     lengthWidth = log2Up(lengthMax),
-    contextWidth = ip.contextWidth + 2
+    contextWidth = ip.contextWidth + 2 + ip.sourceWidth
   )
 }
 
@@ -236,6 +239,7 @@ case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Compone
 
   case class Context() extends Bundle{
     val input = Bits(ip.contextWidth bits)
+    val source = UInt(ip.sourceWidth bits)
     val last = Bool()
     val write = Bool()
   }
@@ -262,12 +266,13 @@ case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Compone
     context.input := io.input.cmd.context
     context.last := lastSplit
     context.write := io.input.cmd.isWrite
+    context.source := io.input.cmd.source
 
     io.output.cmd.valid := io.input.cmd.valid
     io.output.cmd.last := io.input.cmd.last || (beatCounter === beatsInSplit-1)
     io.output.cmd.address := Bmb.addToAddress(addressBase, splitCounter << addressRange.low, ip)
     io.output.cmd.context := B(context)
-    io.output.cmd.source := io.input.cmd.source
+    io.output.cmd.source := 0
     io.output.cmd.opcode := io.input.cmd.opcode
     io.output.cmd.length := (firstSplit ## lastSplit) mux(
       B"10" -> headLenghtMax,
@@ -299,7 +304,7 @@ case class BmbAlignedSpliter(ip : BmbParameter, lengthMax : Int) extends Compone
     val context = io.output.rsp.context.as(Context())
     io.input.rsp.arbitrationFrom(io.output.rsp.takeWhen(!context.write || context.last && io.output.rsp.last))
     io.input.rsp.last := io.output.rsp.last && context.last
-    io.input.rsp.source := io.output.rsp.source
+    io.input.rsp.source := context.source
     io.input.rsp.opcode := io.output.rsp.opcode
     if(ip.canRead) {
       io.input.rsp.data := io.output.rsp.data

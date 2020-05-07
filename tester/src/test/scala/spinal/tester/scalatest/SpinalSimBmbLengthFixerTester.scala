@@ -8,7 +8,7 @@ import spinal.lib.bus.bmb.{BmbAligner, BmbLengthFixer, BmbParameter}
 
 class SpinalSimBmbLengthFixerTester extends FunSuite {
   test("bypass") {
-    SimConfig.compile {
+    SimConfig.withWave.compile {
       val c = BmbLengthFixer(
         ip = BmbParameter(
           addressWidth = 16,

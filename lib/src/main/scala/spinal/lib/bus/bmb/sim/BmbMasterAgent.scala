@@ -126,8 +126,20 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
     cmd != null
   }
 
+  var rspSourceLocked = false
+  var rspSourceId = 0
   val rspMonitor = StreamMonitor(bus.rsp, clockDomain){_ =>
-    if(bus.rsp.last.toBoolean) pendingCounter -= 1
-    rspQueue(bus.rsp.source.toInt).dequeue()()
+    val source = bus.rsp.source.toInt
+    if(rspSourceLocked){
+      assert(source == rspSourceId)
+    } else {
+      rspSourceLocked = true
+      rspSourceId = source
+    }
+    if(bus.rsp.last.toBoolean) {
+      pendingCounter -= 1
+      rspSourceLocked = false
+    }
+    rspQueue(source).dequeue()()
   }
 }

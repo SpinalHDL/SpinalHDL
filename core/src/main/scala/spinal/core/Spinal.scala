@@ -267,10 +267,12 @@ class SpinalReport[T <: Component]() {
     blackboxesSourcesPaths.foreach{ path =>
       val vhdl_regex    = """.*\.(vhdl|vhd)""".r
       val verilog_regex = """.*\.(v)""".r
+      val systemVerilog_regex = """.*\.(sv)""".r
 
       path.toLowerCase match {
         case vhdl_regex(f)    => bb_vhdl    += path
         case verilog_regex(f) => bb_verilog += path
+        case systemVerilog_regex(f) => bb_verilog += path
         case _                => SpinalWarning(s"Merging blackbox sources : Extension file not supported (${path})")
       }
     }

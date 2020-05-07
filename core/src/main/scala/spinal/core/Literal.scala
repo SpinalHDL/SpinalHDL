@@ -118,6 +118,7 @@ object B extends BitVectorLiteralFactory[Bits] {
     }
     ret
   }
+  def apply[T <: Data](value : Vec[Bool]) : Bits = B(value.asInstanceOf[Data])
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
