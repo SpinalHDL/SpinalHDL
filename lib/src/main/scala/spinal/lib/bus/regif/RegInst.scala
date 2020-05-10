@@ -125,7 +125,7 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   protected var Rerror: Boolean = false
 
   def readErrorTag = Rerror
-  def getFields = fields
+  def getFields = fields.toList
 
   val hitRead  = busif.readAddress === U(addr)
   val hitWrite = busif.writeAddress === U(addr)

@@ -3,6 +3,7 @@ package spinal.lib.bus.regif
 import spinal.core._
 import spinal.lib.bus.amba3.apb._
 import RegIfDocument._
+import CHeads._
 import spinal.lib.bus.misc.SizeMapping
 import language.experimental.macros
 
@@ -38,6 +39,7 @@ trait BusIf extends BusIfBase {
   component.addPrePopTask(() => {
     readGenerator()
     document(getModuleName)
+    genCHead(getModuleName)
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
@@ -120,11 +122,24 @@ trait BusIf extends BusIfBase {
   private def HTML(docName: String) = {
     val pc = GlobalData.get.phaseContext
     def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
-    val body = RegInsts.map(_.trs).foldLeft("")(_+_)
+    val body = RegInsts.map(_.trs).reduce(_+_)
     val html = DocTemplate.getHTML(docName, body)
     import java.io.PrintWriter
     val fp = new PrintWriter(targetPath)
     fp.write(html)
+    fp.close
+  }
+
+  def genCHead(cFileName: String) = {
+    val pc = GlobalData.get.phaseContext
+    def targetPath = s"${pc.config.targetDirectory}/${cFileName}.h"
+    val maxRegNameWidth = RegInsts.map(_.name.length).max
+    val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth)).mkString("\n")
+    val structs = RegInsts.map(_.cStruct()).mkString("\n")
+    import java.io.PrintWriter
+    val fp = new PrintWriter(targetPath)
+    fp.write(heads)
+    fp.write("\n\n" + structs)
     fp.close
   }
 
