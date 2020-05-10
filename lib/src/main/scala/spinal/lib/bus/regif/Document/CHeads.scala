@@ -11,7 +11,7 @@ object CHeads {
   }
 
   implicit class RegInstCStruct(reginst : RegInst) {
-    def cStruct(): String = {
+    def cStruct(pre: String = ""): String = {
       val uint_t = s"uint${reginst.busif.busDataWidth}_t"
       s"""
          |typedef union{
@@ -19,13 +19,13 @@ object CHeads {
          |    struct{
          |${reservedRenamed(reginst.getFields.toList, uint_t)}
          |    } reg;
-         |} ${reginst.name.toLowerCase()}_t""".stripMargin
+         |} ${(pre + reginst.name).toLowerCase()}_t""".stripMargin
     }
   }
 
   implicit class RegInstCHead(reginst : RegInst) {
-    def cHeadDefine(alignWidth: Int = 20): String = {
-      s"#define %-${alignWidth}s = 0x%s".format(reginst.name, reginst.addr.toHexString)
+    def cHeadDefine(alignWidth: Int = 20, pre: String = ""): String = {
+      s"#define %-${alignWidth}s = 0x%s".format((pre + reginst.name).toUpperCase(), reginst.addr.toHexString)
     }
   }
 }

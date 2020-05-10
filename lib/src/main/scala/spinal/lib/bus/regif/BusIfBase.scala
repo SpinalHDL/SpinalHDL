@@ -35,6 +35,7 @@ trait BusIf extends BusIfBase {
   private var regPtr: Int = 0
 
   def getModuleName: String
+  val regPre: String
 
   component.addPrePopTask(() => {
     readGenerator()
@@ -122,7 +123,7 @@ trait BusIf extends BusIfBase {
   private def HTML(docName: String) = {
     val pc = GlobalData.get.phaseContext
     def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
-    val body = RegInsts.map(_.trs).reduce(_+_)
+    val body = RegInsts.map(_.trs(regPre)).reduce(_+_)
     val html = DocTemplate.getHTML(docName, body)
     import java.io.PrintWriter
     val fp = new PrintWriter(targetPath)
@@ -134,8 +135,8 @@ trait BusIf extends BusIfBase {
     val pc = GlobalData.get.phaseContext
     def targetPath = s"${pc.config.targetDirectory}/${cFileName}.h"
     val maxRegNameWidth = RegInsts.map(_.name.length).max
-    val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth)).mkString("\n")
-    val structs = RegInsts.map(_.cStruct()).mkString("\n")
+    val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth, regPre)).mkString("\n")
+    val structs = RegInsts.map(_.cStruct(regPre)).mkString("\n")
     import java.io.PrintWriter
     val fp = new PrintWriter(targetPath)
     fp.write(heads)

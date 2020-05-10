@@ -12,7 +12,7 @@ class RegIfExample extends Component {
     val apb = slave(Apb3(Apb3Config(16,32)))
   }
 
-  val busif = BusInterface(io.apb,(0x000,1 KiB), 0)
+  val busif = BusInterface(io.apb,(0x000,1 KiB), 0, regPre = "AP")
 
   val M_TURBO_EARLY_QUIT    = busif.newReg(doc = "Turbo Hardware-mode register1")
   val early_quit  = M_TURBO_EARLY_QUIT.field(1 bit, RW, 0, doc = "CRC validate early quit enable").asOutput()
