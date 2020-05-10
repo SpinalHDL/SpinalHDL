@@ -134,7 +134,7 @@ trait BusIf extends BusIfBase {
   def genCHead(cFileName: String) = {
     val pc = GlobalData.get.phaseContext
     def targetPath = s"${pc.config.targetDirectory}/${cFileName}.h"
-    val maxRegNameWidth = RegInsts.map(_.name.length).max
+    val maxRegNameWidth = RegInsts.map(_.name.length).max + regPre.size
     val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth, regPre)).mkString("\n")
     val structs = RegInsts.map(_.cStruct(regPre)).mkString("\n")
     import java.io.PrintWriter
