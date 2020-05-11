@@ -652,7 +652,8 @@ class ComponentEmitterVerilog(
 
                 case _ => {
                   def emitIsCond(that: Expression): String = that match {
-                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
+                    case e: BitVectorLiteral => emitBitVectorLiteral(e)
+//                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
                     case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
                     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
                   }
@@ -1230,7 +1231,7 @@ end
     if(e.getWidth > 4){
       s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
-      s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
     }
   }
 

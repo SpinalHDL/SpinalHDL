@@ -105,8 +105,9 @@ package object sim {
   def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
 
   /** Success/Failure simulation */
-  def simSuccess(): Unit = throw new SimSuccess()
-  def simFailure(message: String = ""): Unit = throw new SimFailure(message)
+  def simSuccess(): Nothing = throw new SimSuccess()
+  def simFailure(message: String = ""): Nothing = throw new SimFailure(message)
+  def onSimEnd(body : => Unit): Unit = SimManagerContext.current.manager.onEnd(body)
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
@@ -161,6 +162,13 @@ package object sim {
 
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
+  }
+
+  def periodicaly(delay : Long)(body : => Unit) : Unit = {
+    SimManagerContext.current.manager.schedule(delay){
+      body
+      periodicaly(delay)(body)
+    }
   }
 
   /**

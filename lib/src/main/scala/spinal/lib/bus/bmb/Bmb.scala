@@ -3,6 +3,7 @@ package spinal.lib.bus.bmb
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.AddressMapping
+import spinal.lib.bus.wishbone.Wishbone
 
 
 object WeakConnector{
@@ -272,6 +273,91 @@ case class Bmb(p : BmbParameter)  extends Bundle with IMasterSlave {
     val ret = cloneOf(this)
     this.cmd >> ret.cmd
     this.rsp << ret.rsp.s2mPipe()
+    ret
+  }
+
+  def resize(dataWidth : Int): Bmb = this match {
+    case _ if dataWidth == p.dataWidth => this
+    case _ if dataWidth < p.dataWidth => {
+      val bridge = BmbDownSizerBridge(
+        inputParameter = p,
+        outputParameter = BmbDownSizerBridge.outputParameterFrom(p, dataWidth)
+      ).setCompositeName(this, "downSizer", true)
+      bridge.io.input << this
+      bridge.io.output
+    }
+
+    case _ if dataWidth > p.dataWidth => {
+      val bridge = BmbUpSizerBridge(
+        inputParameter = p,
+        outputParameter = BmbUpSizerBridge.outputParameterFrom(p, dataWidth)
+      ).setCompositeName(this, "upSizer", true)
+      bridge.io.input << this
+      bridge.io.output
+    }
+  }
+
+  def unburstify() : Bmb = {
+    val bridge = BmbUnburstify(p).setCompositeName(this, "unburstify", true)
+    bridge.io.input << this
+    bridge.io.output
+  }
+
+  def toWishbone() : Wishbone = {
+    val bridge = BmbToWishbone(p).setCompositeName(this, "toWishbone", true)
+    bridge.io.input << this
+    bridge.io.output
+  }
+
+  def pipelined(cmdValid : Boolean = false,
+                cmdReady : Boolean = false,
+                cmdHalfRate : Boolean = false,
+                rspValid : Boolean = false,
+                rspReady : Boolean = false,
+                rspHalfRate : Boolean = false,
+                invValid : Boolean = false,
+                invReady : Boolean = false,
+                invHalfRate : Boolean = false,
+                ackValid : Boolean = false,
+                ackReady : Boolean = false,
+                ackHalfRate : Boolean = false,
+                syncValid : Boolean = false,
+                syncReady : Boolean = false,
+                syncHalfRate : Boolean = false
+               ): Bmb = {
+    val ret = Bmb(p)
+    ret.cmd << cmd.pipelined(
+      m2s = cmdValid,
+      s2m = cmdReady,
+      halfRate = cmdHalfRate
+    )
+
+    rsp << ret.rsp.pipelined(
+      m2s = rspValid,
+      s2m = rspReady,
+      halfRate = rspHalfRate
+    )
+
+    if(p.canInvalidate){
+      inv << ret.inv.pipelined(
+        m2s = invValid,
+        s2m = invReady,
+        halfRate = invHalfRate
+      )
+      ret.ack << ack.pipelined(
+        m2s = ackValid,
+        s2m = ackReady,
+        halfRate = ackHalfRate
+      )
+    }
+    
+    if(p.canSync){
+      sync << ret.sync.pipelined(
+        m2s = syncValid,
+        s2m = syncReady,
+        halfRate = syncHalfRate
+      )
+    }    
     ret
   }
 }

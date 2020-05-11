@@ -132,6 +132,10 @@ class PhaseContext(val config: SpinalConfig) {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkExpressionPostorder(func: Expression => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpressionPostorder(func)))
+  }
+
   def walkDeclarations(func: DeclarationStatement => Unit): Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
@@ -1144,7 +1148,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       var somethingChange = false
 
       //Infer width on all expressions
-      walkExpression {
+      //Use post-order traversal so that a parent node can get the widths of its children before inferring width,
+      // which could help reducing the number of iterations
+      walkExpressionPostorder {
         case e: DeclarationStatement =>
         case e: Widthable =>
           val hasChange = e.inferWidth

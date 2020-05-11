@@ -405,6 +405,11 @@ trait Nameable extends OwnableRef with ContextUser{
     }
   }
 
+  def setNameAsWeak(): this.type ={
+    namePriority = 0
+    this
+  }
+
   def isPriorityApplicable(namePriority: Byte): Boolean = namePriority match{
     case USER_WEAK => namePriority >= this.namePriority
     case USER_SET => namePriority >= this.namePriority
