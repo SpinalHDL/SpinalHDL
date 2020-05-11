@@ -2,11 +2,10 @@ package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
-import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 import spinal.lib.bus.bmb.{BmbAligner, BmbLengthFixer, BmbParameter}
 
-class SpinalSimBmbLengthFixerTester extends FunSuite {
+class SpinalSimBmbLengthFixerTester extends SpinalSimFunSuite {
   test("bypass") {
     SimConfig.withWave.compile {
       val c = BmbLengthFixer(
@@ -90,4 +89,5 @@ class SpinalSimBmbLengthFixerTester extends FunSuite {
       )
     }
   }
+
 }

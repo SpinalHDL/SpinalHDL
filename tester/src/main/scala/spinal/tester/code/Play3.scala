@@ -564,16 +564,16 @@ object PlayTypedef{
 }
 
 
-object PlayRamInfer{
-  class TopLevel() extends Component {
-    val a = out(U(8 bits,1 -> True,default -> False))
-  }
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel())
-    SpinalVerilog(new TopLevel())
-  }
-}
+//object PlayRamInfer{
+//  class TopLevel() extends Component {
+//    val a = out(U(8 bits,1 -> True,default -> False))
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel())
+//    SpinalVerilog(new TopLevel())
+//  }
+//}
 
 object PlayRoundRobin{
   class TopLevel() extends Component {

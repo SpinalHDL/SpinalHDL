@@ -39,6 +39,7 @@ object PlayDevMem{
 }
 
 object PlayDevErrorReport{
+
   class TopLevel extends Component {
     val a = in UInt(8 bits)
     val b = in UInt(10 bits)
@@ -1493,6 +1494,52 @@ object PlayDevSpinalSim2 extends App{
   }
 }
 
+object PlayDevSpinalSim3 extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
+  }).doSim { dut =>
+    dut.input #= 0
+    sleep(3)
+    dut.input #= 5
+    println(dut.input.toInt)
+    sleep(0)
+    println(dut.input.toInt)
+  }
+}
+
+import spinal.core._
+import spinal.core.sim._
+
+object OutputBug {
+  def main(args: Array[String]) {
+    var dut = SimConfig
+      .compile(new Component {
+        val io = new Bundle {
+          val cond0 = in Bool
+        }
+        val counter = Reg(UInt(8 bits)) init (0)
+
+        when(io.cond0) {
+          counter := counter + 1
+        }
+      })
+
+    dut.doSim("write") { dut =>
+      SimTimeout(10000 * 10)
+      dut.clockDomain.onActiveEdges({
+        println(f"${simTime()} this is only dummy output, and a bit of it")
+      })
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.waitActiveEdge(10100)
+      assert(false)
+    }
+  }
+}
+
+
 
 object PlayFixPointProperty extends App{
   def check(roundType: RoundType, sym: Boolean): Unit = {
@@ -1559,112 +1606,4 @@ object PlayFixPointProperty2 extends App {
     check(RoundType.ROUNDTOEVEN, true)  //it's ok now
   }
 
-}
-
-object PlayFixWrapper extends App{
-  class Top extends Component{
-    val a = in SInt( 16 bits)
-    val b = out SInt(8 bits)
-    b := a.tag(SQ(16,10)).fixTo(SQ(8,4))
-  }
-  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
-  config.generateVerilog(new Top)
-}
-
-object PlayAnonymousComponent extends App{
-
-  class Top extends Component{
-    val a = in SInt(8 bits)
-    val b,c = out SInt(8 bits)
-    def withWrapper(a: SInt) = {
-      class FixTo extends Component{
-        this.setDefinitionName(s"FixTo${a.getWidth}")
-        val din = in SInt()
-        val dout = out SInt()
-        dout := din
-      }
-      val dut = new FixTo
-      dut.din := a
-      dut.dout
-    }
-
-    b := withWrapper(a)
-    c := withWrapper(a)
-  }
-  val config = SpinalConfig(targetDirectory = "./tmp", fixToWithWrap = true)
-  config.setScopeProperty(FixPointProperty, LowCostFixPointConfig)
-  config.generateVerilog(new Top)
-  config.generateVhdl(new Top)
-}
-
-
-object PlayScopeProperty extends App{
-  object FixedPointProperty extends ScopeProperty[Int]{
-    var _default: Int = 42
-  }
-
-  case class ComplexPropertyValue(x : Int, y : Int) extends ScopePropertyValue(ComplexProperty)
-  object ComplexProperty extends ScopeProperty[ComplexPropertyValue]{
-    var _default = ComplexPropertyValue(1,2)
-  }
-
-  def check(ref : Int): Unit ={
-    println(s"ref:$ref dut:${FixedPointProperty.get}")
-  }
-  class Sub extends Component{
-    check(666)
-  }
-  class Toplevel extends Component{
-    check(42)
-    val logic = FixedPointProperty(666) on new Area{
-      check(666)
-      val x = new Sub
-      check(666)
-      FixedPointProperty(1234){
-        check(1234)
-        x.rework{
-          check(666)
-        }
-        check(1234)
-      }
-      check(666)
-    }
-    check(42)
-
-    println(ComplexProperty.get)
-    ComplexPropertyValue(66,99) on new Area{
-      println(ComplexProperty.get)
-    }
-    println(ComplexProperty.get)
-  }
-
-  val config = SpinalConfig()
-  config.generateVerilog(new Toplevel)
-//  42
-  //  ref:666 dut:666
-  //  ref:666 dut:666
-  //  ref:666 dut:666
-  //  ref:1234 dut:1234
-  //  ref:666 dut:666
-  //  ref:1234 dut:1234
-  //  ref:666 dut:666
-//  42
-//  ComplexPropertyValue(1,2)
-//  ComplexPropertyValue(66,99)
-//  ComplexPropertyValue(1,2)
-  config.setScopeProperty(FixedPointProperty, 76)
-  config.setScopeProperty(ComplexPropertyValue(54,65))
-  config.generateVerilog(new Toplevel)
-//  76
-//  ref:666 dut:666
-//  ref:666 dut:666
-//  ref:666 dut:666
-//  ref:1234 dut:1234
-//  ref:666 dut:666
-//  ref:1234 dut:1234
-//  ref:666 dut:666
-//  76
-//  ComplexPropertyValue(1,2)
-//  ComplexPropertyValue(66,99)
-//  ComplexPropertyValue(1,2)
-}
+}   

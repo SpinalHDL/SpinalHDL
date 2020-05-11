@@ -118,10 +118,10 @@ beforeInstall () {
   travis_finish "fix"
 
   travis_start "ghdl" "GHDL" "build and install"
-  sudo apt install -y gnat-4.9 zlib1g-dev
+  sudo apt install -y gnat-4.9 zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
-  git reset --hard "50da90f509aa6de2961f1795af0be2452bc2c6d9"
-  ./dist/travis/build.sh -b mcode -p ghdl
+  git reset --hard "a4e7fd3e6286b24350d9c4a782cdba15cb081a9c"
+  ./dist/ci-run.sh -bmcode build
   mv install-mcode ../ghdl
   cd ..
   rm -rf ghdl-build
@@ -144,10 +144,10 @@ beforeInstall () {
   sudo apt install -y git make gcc g++ swig python-dev
   git clone https://github.com/potentialventures/cocotb
   cd cocotb
-  git reset --hard a463cee498346cb26fc215ced25c088039490665
+  git reset --hard "a463cee498346cb26fc215ced25c088039490665"
   cd ..
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  export PATH=$(pwd)/ghdl/bin:$PATH
+  export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
   export COCOTB=$(pwd)/cocotb
   cd SpinalHDL/tester/src/test/python/spinal/Dummy
   make TOPLEVEL_LANG=verilog
