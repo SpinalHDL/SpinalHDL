@@ -198,9 +198,17 @@ object GenBlackbox {
   }
 
   def main(args: Array[String]): Unit = {
-    val g = GenBlackbox(
+    val gw1n = GenBlackbox(
       ivlPathStr = "C:\\iverilog\\bin\\iverilog.exe",
-      srcFileStr = "E:\\working\\working\\SpinalAll\\SpinalHDL\\lib\\src\\main\\scala\\spinal\\lib\\blackbox\\gowin\\prim_syn.v"
+      srcFileStr = "E:\\working\\working\\SpinalAll\\SpinalHDL\\lib\\src\\main\\scala\\spinal\\lib\\blackbox\\gowin\\gw1n\\prim_syn.v"
+    )
+    val gw1ns = GenBlackbox(
+      ivlPathStr = "C:\\iverilog\\bin\\iverilog.exe",
+      srcFileStr = "E:\\working\\working\\SpinalAll\\SpinalHDL\\lib\\src\\main\\scala\\spinal\\lib\\blackbox\\gowin\\gw1ns-4\\prim_syn.v"
+    )
+    val gw2a = GenBlackbox(
+      ivlPathStr = "C:\\iverilog\\bin\\iverilog.exe",
+      srcFileStr = "E:\\working\\working\\SpinalAll\\SpinalHDL\\lib\\src\\main\\scala\\spinal\\lib\\blackbox\\gowin\\gw2a\\prim_syn.v"
     )
   }
 }
