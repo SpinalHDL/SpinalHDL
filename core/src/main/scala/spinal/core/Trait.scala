@@ -760,6 +760,20 @@ trait OverridedEqualsHashCode{
   */
 trait Num[T <: Data] {
 
+  private[core] var Qtag: QFormat = null
+
+  def Q: QFormat = Qtag
+
+  def tag(q: QFormat): T
+
+  private[core] def getfixSection(q: QFormat): Range.Inclusive = {
+    require(this.Q != null, "init QFormat first")
+    require(this.Q.fraction >= q.fraction, "fraction part exceed")
+    val lpos = Q.fraction - q.fraction
+    val hpos = lpos + q.width - 1
+    hpos downto lpos
+  }
+
   /** Addition */
   def + (right: T): T
   /** Safe Addition with 1 bit expand */

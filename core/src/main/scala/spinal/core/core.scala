@@ -68,6 +68,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
+  val  DefaultFixPointConfig = FixPointConfig(RoundType.ROUNDTOINF, false)
+  val  LowCostFixPointConfig = FixPointConfig(RoundType.ROUNDUP, true)
   /**
     * Integer Builder
     */

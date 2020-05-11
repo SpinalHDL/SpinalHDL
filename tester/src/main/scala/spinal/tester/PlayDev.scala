@@ -1538,3 +1538,72 @@ object OutputBug {
     }
   }
 }
+
+
+
+object PlayFixPointProperty extends App{
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, $roundType, $sym ")
+  }
+
+  class Topxx extends Component {
+    check(RoundType.ROUNDUP, true)
+    val start = in Bool()
+    val din = in SInt(16 bits)
+
+    val area = FixPointProperty(DefaultFixPointConfig) on new Area{
+      check(RoundType.ROUNDTOINF, false)
+      val broundtoinffalse = din.fixTo(10 downto 3)
+    }
+
+//    FixPointProperty.push(FixPointConfig(RoundType.CEIL, false))
+//    check(RoundType.CEIL, false)
+    val cceilfalse = {
+      FixPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
+        check(RoundType.FLOOR, true)
+      }
+      FixPointConfig(RoundType.ROUNDTOZERO, false){
+        check(RoundType.ROUNDTOZERO, false)
+      }
+      FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+        check(RoundType.ROUNDTOEVEN, true)
+      }
+      din.fixTo(4 downto 1)
+    }
+//    check(RoundType.CEIL, false)
+//    FixPointProperty.pop()
+    val droudnuptrue = din.fixTo(12 downto 9)
+    check(RoundType.ROUNDUP, true)
+  }
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+  }
+  LowCostFixPointConfig{
+    check(RoundType.ROUNDUP, true)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp")
+  config.setScopeProperty(FixPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Topxx)
+  check(RoundType.ROUNDTOINF, true)
+}
+
+object PlayFixPointProperty2 extends App {
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, ${FixPointConfig(roundType, sym)}")
+  }
+
+  class TopXX extends Component{
+    check(RoundType.FLOOR, false)
+  }
+
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+
+    val config = SpinalConfig(targetDirectory = "./tmp")
+    config.setScopeProperty(FixPointProperty, FixPointConfig(RoundType.FLOOR, false))
+    config.generateVerilog(new TopXX)
+
+    check(RoundType.ROUNDTOEVEN, true)  //it's ok now
+  }
+
+}   
