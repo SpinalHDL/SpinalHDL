@@ -14,20 +14,25 @@ object SimError{
 }
 
 object WaveFormat{
+  //Common waveformat options
   object VCD extends WaveFormat("vcd")
-  object VCDGZ extends WaveFormat("vcdgz")
   object FST extends WaveFormat("fst")
+  object DEFAULT extends WaveFormat
+  object NONE extends WaveFormat
+ 
+  //GHDL only
+  object VCDGZ extends WaveFormat("vcdgz")
+  object GHW extends WaveFormat("ghw")
+
+  //Icarus Verilator only
   object FST_SPEED extends WaveFormat("fst-speed")
   object FST_SPACE extends WaveFormat("fst-space")
-  object GHW extends WaveFormat("ghw")
   object LXT extends WaveFormat("lxt")
   object LXT_SPEED extends WaveFormat("lxt-speed")
   object LXT_SPACE extends WaveFormat("lxt-space")
   object LXT2 extends WaveFormat("lxt2")
   object LXT2_SPEED extends WaveFormat("lxt2-speed")
   object LXT2_SPACE extends WaveFormat("lxt2-space")
-  object DEFAULT extends WaveFormat
-  object NONE extends WaveFormat
 }
 
 class WaveFormat(val ext : String = "???")
