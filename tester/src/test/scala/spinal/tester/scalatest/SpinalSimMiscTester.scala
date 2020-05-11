@@ -32,6 +32,7 @@ abstract class SpinalSimTester{
   def durationFactor : Double
   def designFactor : Double
   def prefix : String
+  def language : SpinalMode
 }
 
 object SpinalSimTesterGhdl extends SpinalSimTester{
@@ -39,6 +40,7 @@ object SpinalSimTesterGhdl extends SpinalSimTester{
   override def durationFactor: Double = 0.01
   override def designFactor: Double = 0.1
   override def prefix: String = "ghdl_"
+  override def language: SpinalMode = VHDL
 }
 
 object SpinalSimTesterIVerilog extends SpinalSimTester{
@@ -46,6 +48,7 @@ object SpinalSimTesterIVerilog extends SpinalSimTester{
   override def durationFactor: Double = 0.01
   override def designFactor: Double = 0.1
   override def prefix: String = "iverilog_"
+  override def language: SpinalMode = Verilog
 }
 
 object SpinalSimTesterVerilator extends SpinalSimTester{
@@ -53,6 +56,7 @@ object SpinalSimTesterVerilator extends SpinalSimTester{
   override def durationFactor: Double = 1.0
   override def designFactor: Double = 1.0
   override def prefix: String = "verilator_"
+  override def language: SpinalMode = Verilog
 }
 
 object SpinalSimTester{
