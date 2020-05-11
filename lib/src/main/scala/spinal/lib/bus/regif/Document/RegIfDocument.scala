@@ -39,7 +39,7 @@ object RegIfDocument{
 
     def trs(pre: String = ""): String = {
       reginst.checkLast
-      tr0(pre) + reginst.getFields.reverse.tail.map(_.tr).reduce(_+_)
+      tr0(pre) + reginst.getFields.reverse.tail.map(_.tr).mkString
     }
   }
 }

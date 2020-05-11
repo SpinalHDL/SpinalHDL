@@ -123,7 +123,7 @@ trait BusIf extends BusIfBase {
   private def HTML(docName: String) = {
     val pc = GlobalData.get.phaseContext
     def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
-    val body = RegInsts.map(_.trs(regPre)).reduce(_+_)
+    val body = RegInsts.map(_.trs(regPre)).mkString("\n")
     val html = DocTemplate.getHTML(docName, body)
     import java.io.PrintWriter
     val fp = new PrintWriter(targetPath)
