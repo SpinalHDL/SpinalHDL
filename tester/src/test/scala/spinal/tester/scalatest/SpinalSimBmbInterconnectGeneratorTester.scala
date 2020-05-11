@@ -13,31 +13,28 @@ import spinal.lib.sim.Phase
 import scala.collection.mutable
 import scala.util.Random
 
-
-
-//TODO handle generation when a master has no slave
-class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
+object SpinalSimBmbInterconnectGeneratorTester {
   def f() = {
     new GeneratorComponent(new Generator {
       val interconnect = BmbInterconnectGenerator()
 
 
-      def addMaster(requirements : BmbParameter) = new Generator {
+      def addMaster(requirements: BmbParameter) = new Generator {
         val busHandle = Handle[Bmb]
         interconnect.addMaster(requirements, busHandle)
 
-        val logic = add task new Area{
+        val logic = add task new Area {
           val bus = slave(Bmb(requirements))
           busHandle.load(bus)
         }
       }
 
-      def addSlave(address : BigInt, capabilities : BmbParameter) = new Generator{
+      def addSlave(address: BigInt, capabilities: BmbParameter) = new Generator {
         val requirements = Handle[BmbParameter]
         val busHandle = Handle[Bmb]
         interconnect.addSlaveAt(capabilities, requirements, busHandle, address)
         dependencies += requirements
-        val logic = add task new Area{
+        val logic = add task new Area {
           val bus = master(Bmb(requirements))
           busHandle.load(bus)
         }
@@ -52,7 +49,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -64,7 +61,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.WORD,
+        alignment = BmbParameter.BurstAlignement.WORD,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -76,7 +73,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = 5,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -89,7 +86,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = 3,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -101,7 +98,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -113,7 +110,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -125,7 +122,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -138,7 +135,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = 9,
         canRead = false,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -151,7 +148,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -164,7 +161,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = false,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -176,7 +173,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -193,7 +190,8 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
-      def fullAccess(bus : Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+      def fullAccess(bus: Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+
       fullAccess(mA.busHandle)
       fullAccess(mB.busHandle)
       fullAccess(mC.busHandle)
@@ -202,9 +200,13 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
       //      interconnect.addConnection(mB, List(sA))
     })
   }
+}
+
+//TODO handle generation when a master has no slave
+class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
 
   test("test1") {
-    SimConfig.allOptimisation.compile(f).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
+    SimConfig.allOptimisation.compile(SpinalSimBmbInterconnectGeneratorTester.f).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
       Phase.boot()
       Phase.setup {
         dut.clockDomain.forkStimulus(10)

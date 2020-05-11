@@ -18,7 +18,7 @@ class BmbBridgeTester(master : Bmb,
                       slave : Bmb,
                       slaveCd : ClockDomain,
                       alignmentMinWidth : Int = 0,
-                      cmdRetainerCount : Int = 300) {
+                      rspCountTarget: Int = 300) {
   Phase.boot()
   Phase.setup {
     masterCd.forkStimulus(10)
@@ -79,7 +79,7 @@ class BmbBridgeTester(master : Bmb,
     })
 
     //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-    val retainers = List.fill(1 << master.p.sourceWidth)(Phase.stimulus.retainer(cmdRetainerCount)) //TODO
+    val retainers = List.fill(1 << master.p.sourceWidth)(Phase.stimulus.retainer(rspCountTarget)) //TODO
     agent.rspMonitor.addCallback { _ =>
       if (master.rsp.last.toBoolean) {
         retainers(master.rsp.source.toInt).release()

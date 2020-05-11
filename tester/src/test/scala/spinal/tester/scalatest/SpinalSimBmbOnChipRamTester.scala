@@ -35,7 +35,7 @@ class SpinalSimBmbOnChipRamTester extends SpinalSimFunSuite {
       new BmbMemoryTester(
         bmb = dut.io.bus,
         cd = dut.clockDomain,
-        cmdTestCount = (30000*durationFactor).toInt) {
+        rspCounterTarget = (30000*durationFactor).toInt) {
         for (i <- 0 until memInit.length) memory.setByte(i, memInit(i))
       }
     }

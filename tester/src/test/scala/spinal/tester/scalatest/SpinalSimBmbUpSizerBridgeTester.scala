@@ -36,7 +36,7 @@ class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
         masterCd = dut.clockDomain,
         slave = dut.io.output,
         slaveCd = dut.clockDomain,
-        cmdRetainerCount = (300*durationFactor).toInt
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }
@@ -63,7 +63,7 @@ class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
         masterCd = dut.clockDomain,
         slave = dut.io.output,
         slaveCd = dut.clockDomain,
-        cmdRetainerCount = (300*durationFactor).toInt
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }
@@ -90,7 +90,7 @@ class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
         masterCd = dut.clockDomain,
         slave = dut.io.output,
         slaveCd = dut.clockDomain,
-        cmdRetainerCount = (300*durationFactor).toInt
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }

@@ -73,11 +73,11 @@ report_timing"""
         val intFind = "-?(\\d+\\.?)+".r
         val slack = try {
           (family match {
-            case "Artix 7" =>
+            case "Artix 7" | "Kintex UltraScale" | "Kintex UltraScale+" =>
               intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
           }).toDouble
         }catch{
-          case e : Exception => -1.0
+          case e : Exception => -100000.0
         }
         return 1.0/(targetPeriod.toDouble-slack*1e-9)
       }
@@ -90,6 +90,9 @@ report_timing"""
             case "Artix 7" =>
               intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
               intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+            case "Kintex UltraScale" | "Kintex UltraScale+" =>
+              intFind.findFirstIn("CLB LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
+              intFind.findFirstIn("CLB Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
           }
         }catch{
           case e : Exception => "???"

@@ -20,7 +20,7 @@ object Axi4CrossbarFactory{
 }*/
 
 case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus) => Axi4Bus = Axi4CrossbarFactory.defaultDecoderToArbiterConnection*/){
-  val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
+  val slavesConfigs = mutable.LinkedHashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
   val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
   val sharedBridger = mutable.HashMap[Axi4Shared,(Axi4Shared,Axi4Shared) => Unit]()
   val readOnlyBridger = mutable.HashMap[Axi4ReadOnly,(Axi4ReadOnly,Axi4ReadOnly) => Unit]()

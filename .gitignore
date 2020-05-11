@@ -62,6 +62,7 @@ log.txt
 *_tb
 /tester/**/sim_build/
 /*.tar.gz
+*.lst
 
 simWorkspace/
 tmp/
@@ -70,6 +71,3 @@ command
 
 sim/simulation_plugins/*
 !sim/simulation_plugins/.gitignore
-sim/yolo/*
-!sim/yolo/adder.vhd
-!sim/yolo/adder.v
