@@ -1593,9 +1593,9 @@ object PlayFixPointProperty2 extends App {
   }
 
   class TopXX extends Component{
-    check(RoundType.FLOOR, false)
-    FixPointConfig(RoundType.ROUNDUP, true).setAsDefault()
-    check(RoundType.FLOOR, false)
+    check(RoundType.FLOOR, false) //pass
+    FixPointConfig(RoundType.ROUNDUP, true).setAsDefault() // do nothing bad
+    check(RoundType.FLOOR, false) //pass
   }
 
   FixPointConfig(RoundType.ROUNDTOEVEN, true) on {

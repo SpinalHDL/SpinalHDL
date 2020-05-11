@@ -258,7 +258,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       val ret = new StringBuilder()
 
       (s"function pkg_not (value : $kind) return $kind", {
-        ret ++= s"    variable ret : $kind(value'high downto 0);\n"
+        ret ++= s"    variable ret : $kind(value'length-1 downto 0);\n"
         ret ++= s"  begin\n"
         ret ++= s"    ret := not value;\n"
         ret ++= s"    return ret;\n"
@@ -336,7 +336,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    if size >= that'length then\n"
     ret ++= "      return \"\";\n"
     ret ++= "    else\n"
-    ret ++= "      return shift_right(that,size)(that'high-size downto 0);\n"
+    ret ++= "      return shift_right(that,size)(that'length-1-size downto 0);\n"
     ret ++= "    end if;\n"
     ret ++= "  end pkg_shiftRight;\n"
     ret ++= "\n"
