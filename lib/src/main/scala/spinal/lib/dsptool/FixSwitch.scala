@@ -36,6 +36,10 @@ protected object FixSwitch {
   }
 }
 
+object getFixSwitchState{
+  def apply(): Boolean = FixSwitch.state
+}
+
 /* Another user interface:
 * 'fix on'  is equivalent to FixOn()
 * 'fix off' is equivalent to FixOff()

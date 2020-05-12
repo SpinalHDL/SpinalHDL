@@ -128,6 +128,20 @@ object PlayAxi4AddrIncr{
 //}
 
 
+object Play333 extends App{
+  class Top2 extends Component{
+    val sel = in Bits(3 bits)
+    val b = out Bits(16 bits)
+    switch(sel){
+      is(1){ b := 32}
+      is(2){ b := 32}
+      is(3){ b := 12}
+      is(0){ b := 82}
+      default { b:=0}
+    }
+  }
+  SpinalVerilog(new Top2)
+}
 
 object PlayAxi4StrbConnect{
   class TopLevel extends Component{
