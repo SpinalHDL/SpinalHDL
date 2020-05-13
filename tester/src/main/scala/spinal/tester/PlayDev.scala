@@ -670,28 +670,14 @@ object PlayDevAnalog2{
 
 
 object PlayDevBug3{
-  case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
-    addGeneric("io_width", U(io_width, 32 bits))
-    addGeneric("default_value", U(default_value, io_width bits))
-
-    val io = new Bundle {
-      val clk = in Bool
-      val a   = in Bits(io_width bits)
-      val z   = out Bits(io_width bits)
-    }
-    mapClockDomain(clock=io.clk)
-    noIoPrefix()
-  }
 
   // Instance
   class TopLevel extends Component {
-    val bboxedm_inst = bboxedm (io_width = 256, default_value = BigInt("FFFFFF",16))
+    val x = B"xAB"
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel())
     SpinalConfig().generateVerilog(new TopLevel())
-    print("done")
   }
 }
 
