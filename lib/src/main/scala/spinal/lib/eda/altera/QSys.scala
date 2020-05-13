@@ -3,18 +3,23 @@ package spinal.lib.eda.altera
 import spinal.core._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.avalon.AvalonMM
+import spinal.lib.bus.amba4.axi.Axi4
 
 import scala.collection.mutable
 import scala.collection.mutable.StringBuilder
+import spinal.lib.bus.amba4.axilite.AxiLite4
 
 object QSysify{
   def apply(that : Component) : Unit = {
     val tool = new QSysify
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ApbEmitter()
+    tool.interfaceEmiters += new Axi4Emitter()
+    tool.interfaceEmiters += new AxiLite4Emitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
     tool.interfaceEmiters += new ResetEmitterEmitter()
     tool.interfaceEmiters += new InterruptReceiverEmitter()
+    tool.interfaceEmiters += new InterruptSenderEmitter()
     tool.interfaceEmiters += new ConduitEmitter()
 
     tool.emit(that)
@@ -435,3 +440,235 @@ add_interface_port $name ${e.PREADY.getName()} pready ${slavePinDir} 1
 //add_interface_port streamSinkPort asi_in0_data data Input 32
 //add_interface_port streamSinkPort asi_in0_valid valid Input 1
 //add_interface_port streamSinkPort asi_in0_ready ready Output 1
+
+case class InterruptSenderTag(clockDomain : ClockDomain) extends SpinalTag
+
+class InterruptSenderEmitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
+    val tag = i.getTag(classOf[InterruptSenderTag])
+    if(tag.isEmpty) return false
+    val interfaceName = i.getName()
+    val name = i.getName()
+
+    builder ++=
+      s"""
+|#
+|# connection point $interfaceName
+|#
+|add_interface $interfaceName interrupt end
+|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName()}
+|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName()}
+|set_interface_property $interfaceName ENABLED true
+|
+|add_interface_port $interfaceName $name irq Output ${i.getBitsWidth}
+|""".stripMargin
+    true
+  }
+}
+
+class Axi4Emitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data,builder : StringBuilder): Boolean = i match {
+    case e: Axi4 =>{
+      import e.config._
+      val isMaster = e.isMasterInterface
+      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
+      val name = e.getName()
+      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      val clockName = clockDomainTag.get.clockDomain.clock.getName()
+      val resetName = clockDomainTag.get.clockDomain.reset.getName()
+      builder ++= s"""
+|#
+|# connection point $name
+|#
+|add_interface $name axi4 $startEnd
+|
+|set_interface_property $name associatedClock $clockName
+|set_interface_property $name associatedReset $resetName
+|
+|set_interface_property $name ENABLED true
+|set_interface_property $name EXPORT_OF ""
+|set_interface_property $name PORT_NAME_MAP ""
+|set_interface_property $name SVD_ADDRESS_GROUP ""
+""".stripMargin
+
+      if(isMaster) {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readIssuingCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeIssuingCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}\n"
+      }
+      else {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readAcceptanceCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}\n"
+        if(readDataReorderingDepth > -1)
+          builder ++= s"set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}\n"
+      }
+
+      // emit AR
+      builder ++= s"""
+|add_interface_port $name ${e.ar.valid.getName()} arvalid ${masterPinDir} 1
+|add_interface_port $name ${e.ar.ready.getName()} arready ${slavePinDir} 1
+|add_interface_port $name ${e.ar.payload.addr.getName()} araddr ${masterPinDir} ${addressWidth}
+""".stripMargin
+
+      if(useId) builder ++= s"add_interface_port $name ${e.ar.payload.id.getName()} arid ${masterPinDir} ${idWidth}\n"
+      if(useLen) builder ++= s"add_interface_port $name ${e.ar.payload.len.getName()} arlen ${masterPinDir} 8\n"
+      if(useSize) builder ++= s"add_interface_port $name ${e.ar.payload.size.getName()} arsize ${masterPinDir} 3\n"
+      if(useBurst) builder ++= s"add_interface_port $name ${e.ar.payload.burst.getName()} arburst ${masterPinDir} 2\n"
+      if(useLock) builder ++= s"add_interface_port $name ${e.ar.payload.lock.getName()} arlock ${masterPinDir} 2\n"
+      if(useCache) builder ++= s"add_interface_port $name ${e.ar.payload.cache.getName()} arcache ${masterPinDir} 4\n"
+      if(useProt) builder ++= s"add_interface_port $name ${e.ar.payload.prot.getName()} arprot ${masterPinDir} 3\n"
+      if(useArUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} aruser ${slavePinDir} ${arUserWidth}\n"
+      
+      // emit AW
+      builder ++= s"""
+|add_interface_port $name ${e.aw.valid.getName()} awvalid ${masterPinDir} 1
+|add_interface_port $name ${e.aw.ready.getName()} awready ${slavePinDir} 1
+|add_interface_port $name ${e.aw.payload.addr.getName()} awaddr ${masterPinDir} ${addressWidth}
+""".stripMargin
+
+      if(useId) builder ++= s"add_interface_port $name ${e.aw.payload.id.getName()} awid ${masterPinDir} ${idWidth}\n"
+      if(useLen) builder ++= s"add_interface_port $name ${e.aw.payload.len.getName()} awlen ${masterPinDir} 8\n"
+      if(useSize) builder ++= s"add_interface_port $name ${e.aw.payload.size.getName()} awsize ${masterPinDir} 3\n"
+      if(useBurst) builder ++= s"add_interface_port $name ${e.aw.payload.burst.getName()} awburst ${masterPinDir} 2\n"
+      if(useLock) builder ++= s"add_interface_port $name ${e.aw.payload.lock.getName()} awlock ${masterPinDir} 2\n"
+      if(useCache) builder ++= s"add_interface_port $name ${e.aw.payload.cache.getName()} awcache ${masterPinDir} 4\n"
+      if(useProt) builder ++= s"add_interface_port $name ${e.aw.payload.prot.getName()} awprot ${masterPinDir} 3\n"
+      if(useAwUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} awuser ${slavePinDir} ${awUserWidth}\n"
+      
+      // emit R
+      builder ++= s"""
+|add_interface_port $name ${e.r.valid.getName()} rvalid ${slavePinDir} 1
+|add_interface_port $name ${e.r.ready.getName()} rready ${masterPinDir} 1
+|add_interface_port $name ${e.r.payload.data.getName()} rdata ${slavePinDir} ${dataWidth}
+""".stripMargin
+
+      if(useId) builder ++= s"add_interface_port $name ${e.r.payload.id.getName()} rid ${slavePinDir} ${idWidth}\n"
+      if(useLast) builder ++= s"add_interface_port $name ${e.r.payload.last.getName()} rlast ${slavePinDir} 1\n"
+      if(useResp) builder ++= s"add_interface_port $name ${e.r.payload.resp.getName()} rresp ${slavePinDir} 2\n"
+      if(useRUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} ruser ${slavePinDir} ${rUserWidth}\n"
+
+      // emit W
+      builder ++= s"""
+|add_interface_port $name ${e.w.valid.getName()} wvalid ${masterPinDir} 1
+|add_interface_port $name ${e.w.ready.getName()} wready ${slavePinDir} 1
+|add_interface_port $name ${e.w.payload.data.getName()} wdata ${masterPinDir} ${dataWidth}
+""".stripMargin
+
+      if(useLast) builder ++= s"add_interface_port $name ${e.w.payload.last.getName()} wlast ${masterPinDir} 1\n"
+      if(useStrb) builder ++= s"add_interface_port $name ${e.w.payload.strb.getName()} wstrb ${masterPinDir} ${dataWidth/8}\n"
+      if(useWUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} wuser ${slavePinDir} ${wUserWidth}\n"
+
+      // emit B
+      builder ++= s"""
+|add_interface_port $name ${e.b.valid.getName()} bvalid ${slavePinDir} 1
+|add_interface_port $name ${e.b.ready.getName()} bready ${masterPinDir} 1
+""".stripMargin
+
+      if(useId) builder ++= s"add_interface_port $name ${e.b.payload.id.getName()} bid ${slavePinDir} ${idWidth}\n"
+      if(useResp) builder ++= s"add_interface_port $name ${e.b.payload.resp.getName()} bresp ${slavePinDir} 2\n"
+      if(useBUser) builder ++= s"add_interface_port $name ${e.b.payload.user.getName()} buser ${slavePinDir} ${bUserWidth}\n"
+
+
+      true
+      }
+    case _ => false
+  }
+}
+
+class AxiLite4Emitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data,builder : StringBuilder): Boolean = i match {
+    case e: AxiLite4 =>{
+      import e.config._
+      val isMaster = e.isMasterInterface
+      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
+      val name = e.getName()
+      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      val clockName = clockDomainTag.get.clockDomain.clock.getName()
+      val resetName = clockDomainTag.get.clockDomain.reset.getName()
+      builder ++= s"""
+|#
+|# connection point $name
+|#
+|add_interface $name axi4lite $startEnd
+|
+|set_interface_property $name associatedClock $clockName
+|set_interface_property $name associatedReset $resetName
+|
+|set_interface_property $name ENABLED true
+|set_interface_property $name EXPORT_OF ""
+|set_interface_property $name PORT_NAME_MAP ""
+|set_interface_property $name SVD_ADDRESS_GROUP ""
+""".stripMargin
+
+      if(isMaster) {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readIssuingCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeIssuingCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedIssuingCapability ${combinedIssuingCapability}\n"
+      }
+      else {
+        if(readIssuingCapability > -1)
+          builder ++= s"set_interface_property $name readAcceptanceCapability ${readIssuingCapability}\n"
+        if(writeIssuingCapability > -1)
+          builder ++= s"set_interface_property $name writeAcceptanceCapability ${writeIssuingCapability}\n"
+        if(combinedIssuingCapability > -1)
+          builder ++= s"set_interface_property $name combinedAcceptanceCapability ${combinedIssuingCapability}\n"
+        if(readDataReorderingDepth > -1)
+          builder ++= s"set_interface_property $name readDataReorderingDepth ${readDataReorderingDepth}\n"
+      }
+
+      // emit AR
+      builder ++= s"""
+|add_interface_port $name ${e.ar.valid.getName()} arvalid ${masterPinDir} 1
+|add_interface_port $name ${e.ar.ready.getName()} arready ${slavePinDir} 1
+|add_interface_port $name ${e.ar.payload.addr.getName()} araddr ${masterPinDir} ${addressWidth}
+|add_interface_port $name ${e.ar.payload.prot.getName()} arprot ${masterPinDir} 3
+""".stripMargin
+
+      // emit AW
+      builder ++= s"""
+|add_interface_port $name ${e.aw.valid.getName()} awvalid ${masterPinDir} 1
+|add_interface_port $name ${e.aw.ready.getName()} awready ${slavePinDir} 1
+|add_interface_port $name ${e.aw.payload.addr.getName()} awaddr ${masterPinDir} ${addressWidth}
+|add_interface_port $name ${e.aw.payload.prot.getName()} awprot ${masterPinDir} 3
+""".stripMargin
+
+      // emit R
+      builder ++= s"""
+|add_interface_port $name ${e.r.valid.getName()} rvalid ${slavePinDir} 1
+|add_interface_port $name ${e.r.ready.getName()} rready ${masterPinDir} 1
+|add_interface_port $name ${e.r.payload.data.getName()} rdata ${slavePinDir} ${dataWidth}
+|add_interface_port $name ${e.r.payload.resp.getName()} rresp ${slavePinDir} 2
+""".stripMargin
+
+      // emit W
+      builder ++= s"""
+|add_interface_port $name ${e.w.valid.getName()} wvalid ${masterPinDir} 1
+|add_interface_port $name ${e.w.ready.getName()} wready ${slavePinDir} 1
+|add_interface_port $name ${e.w.payload.data.getName()} wdata ${masterPinDir} ${dataWidth}
+|add_interface_port $name ${e.w.payload.strb.getName()} wstrb ${masterPinDir} ${dataWidth/8}
+""".stripMargin
+
+      // emit B
+      builder ++= s"""
+|add_interface_port $name ${e.b.valid.getName()} bvalid ${slavePinDir} 1
+|add_interface_port $name ${e.b.ready.getName()} bready ${masterPinDir} 1
+|add_interface_port $name ${e.b.payload.resp.getName()} bresp ${slavePinDir} 2
+""".stripMargin
+
+      true
+      }
+    case _ => false
+  }
+}

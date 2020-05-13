@@ -9,9 +9,9 @@ import spinal.lib.graphic.Rgb
 
 import scala.util.Random
 
-class SpinalSimPhaseTester extends FunSuite{
-  test("test1"){
-//    val compiled = SimConfig.withWave.compile(StreamFifo(UInt(8 bits),16))
+class SpinalSimPhaseTester extends SpinalSimFunSuite{
+  test("test1") {
+    //    val compiled = SimConfig.withWave.compile(StreamFifo(UInt(8 bits),16))
     case class Transaction() extends Bundle {
       val flag = Bool
       val data = Bits(8 bits)
@@ -27,13 +27,13 @@ class SpinalSimPhaseTester extends FunSuite{
       )
     )
 
-    compiled.doSim{dut =>
-      SimTimeout(100000*10)
+    compiled.doSim { dut =>
+      SimTimeout(100000 * 10)
       Phase.boot() //Initialise phase. Phases are :  setup -> stimulus -> flush -> check -> end
-      Phase.flush.retainFor(1000*10) //Give 1000 cycle between the end of push stimulus and check phase to flush the hardware
+      Phase.flush.retainFor(1000 * 10) //Give 1000 cycle between the end of push stimulus and check phase to flush the hardware
 
       //When the stimulus phase start
-      Phase.stimulus{
+      Phase.stimulus {
         //Scoreboards
         val popScoreboard = ScoreboardInOrder[SimData]()
 
@@ -42,7 +42,7 @@ class SpinalSimPhaseTester extends FunSuite{
         dut.clockDomain.forkStimulus(10)
         StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
         StreamDriver(dut.io.push, dut.clockDomain) { payload =>
-          if(Phase.stimulus.isActive) {
+          if (Phase.stimulus.isActive) {
             payload.randomize()
             true
           } else {

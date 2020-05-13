@@ -133,6 +133,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   def initBigInt(initialContent: Seq[BigInt]): this.type ={
     assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)
     this.initialContent = initialContent.toArray
+    if(initialContent != null) for(e <- this.initialContent){
+      assert(e.bitLength <= width)
+    }
     this
   }
 
@@ -162,8 +165,13 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
         def walk(that: BaseType): Unit = that.head match {
           case AssignmentStatement(_, literal: Literal) if element.hasOnlyOneStatement =>
             val value = (((literal match {
-              case literal: EnumLiteral[_] => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.enum)
-              case literal: Literal        => literal.getValue()
+              case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.enum)
+              case literal: BitVectorLiteral => {
+                if(literal.minimalValueBitWidth > width)
+                  SpinalError(s"MEM_INIT error, literal at intex $elementId is too big. 0x${literal.getValue().toString(16).toUpperCase()} => ${literal.minimalValueBitWidth} bits (more than $width bits)")
+                literal.getValue()
+              }
+              case literal: Literal          => literal.getValue()
             }) & mask) << offset)
 
             builder += value
@@ -174,6 +182,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
       }
       this.initialContent(wordIndex) = builder
     }
+//    for((e,i) <- this.initialContent.zipWithIndex){
+//      if(e.bitLength > width) SpinalError(s"MEM_INIT error, literal at intex $i is too big (> $width bits). 0x${e.toString(16).toUpperCase()} => ${e.bitLength} bits ")
+//    }
     this
   }
 

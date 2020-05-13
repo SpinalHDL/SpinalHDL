@@ -13,11 +13,11 @@ object JtagTcp {
     var outputStream: OutputStream = null
 
     val server = new Thread  {
-      override def run() = {
-        val socket = new ServerSocket(7894)
+      val socket = new ServerSocket(7894)
+      override def run() : Unit = {
         println("WAITING FOR TCP JTAG CONNECTION")
         while (true) {
-          val connection = socket.accept()
+          val connection = try { socket.accept() } catch { case e : Exception => return }
           connection.setTcpNoDelay(true)
           outputStream = connection.getOutputStream()
           inputStream = connection.getInputStream()
@@ -25,6 +25,7 @@ object JtagTcp {
         }
       }
     }
+    onSimEnd (server.socket.close())
     server.start()
 
     while (true) {

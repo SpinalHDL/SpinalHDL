@@ -13,31 +13,28 @@ import spinal.lib.sim.Phase
 import scala.collection.mutable
 import scala.util.Random
 
-
-
-//TODO handle generation when a master has no slave
-class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
+object SpinalSimBmbInterconnectGeneratorTester {
   def f() = {
     new GeneratorComponent(new Generator {
       val interconnect = BmbInterconnectGenerator()
 
 
-      def addMaster(requirements : BmbParameter) = new Generator {
+      def addMaster(requirements: BmbParameter) = new Generator {
         val busHandle = Handle[Bmb]
         interconnect.addMaster(requirements, busHandle)
 
-        val logic = add task new Area{
+        val logic = add task new Area {
           val bus = slave(Bmb(requirements))
           busHandle.load(bus)
         }
       }
 
-      def addSlave(address : BigInt, capabilities : BmbParameter) = new Generator{
+      def addSlave(address: BigInt, capabilities: BmbParameter) = new Generator {
         val requirements = Handle[BmbParameter]
         val busHandle = Handle[Bmb]
         interconnect.addSlaveAt(capabilities, requirements, busHandle, address)
         dependencies += requirements
-        val logic = add task new Area{
+        val logic = add task new Area {
           val bus = master(Bmb(requirements))
           busHandle.load(bus)
         }
@@ -52,7 +49,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -64,7 +61,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.WORD,
+        alignment = BmbParameter.BurstAlignement.WORD,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -76,7 +73,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = 5,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -89,7 +86,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = 3,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -101,7 +98,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -113,7 +110,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -125,7 +122,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.LENGTH,
+        alignment = BmbParameter.BurstAlignement.LENGTH,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -138,7 +135,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = 9,
         canRead = false,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -151,7 +148,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -164,7 +161,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = false,
         canWrite = true,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -176,7 +173,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment     = BmbParameter.BurstAlignement.BYTE,
+        alignment = BmbParameter.BurstAlignement.BYTE,
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
@@ -193,7 +190,8 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         maximumPendingTransactionPerId = Int.MaxValue
       ))
 
-      def fullAccess(bus : Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+      def fullAccess(bus: Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+
       fullAccess(mA.busHandle)
       fullAccess(mB.busHandle)
       fullAccess(mC.busHandle)
@@ -202,8 +200,13 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
       //      interconnect.addConnection(mB, List(sA))
     })
   }
-  test("test1"){
-    SimConfig.allOptimisation.compile(f).doSimUntilVoid("test1", 42){dut => //TODO remove seed
+}
+
+//TODO handle generation when a master has no slave
+class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
+
+  test("test1") {
+    SimConfig.allOptimisation.compile(SpinalSimBmbInterconnectGeneratorTester.f).doSimUntilVoid("test1", 42) { dut => //TODO remove seed
       Phase.boot()
       Phase.setup {
         dut.clockDomain.forkStimulus(10)
@@ -211,7 +214,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
 
         val memorySize = 0x100000
         val allowedWrites = mutable.HashMap[Long, Byte]()
-        val memory = new BmbMemoryAgent(memorySize){
+        val memory = new BmbMemoryAgent(memorySize) {
           override def setByte(address: Long, value: Byte): Unit = {
             val option = allowedWrites.get(address)
             assert(option.isDefined)
@@ -220,7 +223,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
             allowedWrites.remove(address)
           }
         }
-        for((bus, model) <- dut.generator.interconnect.slaves){
+        for ((bus, model) <- dut.generator.interconnect.slaves) {
           memory.addPort(
             bus = bus,
             busAddress = model.mapping.lowerBound.toLong,
@@ -230,26 +233,29 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
         }
 
         val regions = BmbRegionAllocator()
-        for((bus, model) <- dut.generator.interconnect.masters){
-          val agent = new BmbMasterAgent(bus, dut.clockDomain){
+        for ((bus, model) <- dut.generator.interconnect.masters) {
+          val agent = new BmbMasterAgent(bus, dut.clockDomain) {
             override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
               val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
-              if(ref != data){
+              if (ref != data) {
                 simFailure(s"Read missmatch on $bus\n  REF=$ref\n  DUT=$data")
               }
             }
 
-            override def getCmd(): () => Unit = if(Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
+            override def getCmd(): () => Unit = if (Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
+
             override def onCmdWrite(address: BigInt, data: Byte): Unit = {
               val addressLong = address.toLong
               assert(!allowedWrites.contains(addressLong))
               allowedWrites(addressLong) = data
             }
 
-            override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.p)
+            override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(Random.nextInt(memorySize), sizeMax, bus.p)
+
             override def regionFree(region: SizeMapping): Unit = regions.free(region)
-            override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = {
-              dut.generator.interconnect.slaves.values.exists{model =>
+
+            override def regionIsMapped(region: SizeMapping, opcode: Int): Boolean = {
+              dut.generator.interconnect.slaves.values.exists { model =>
                 val opcodeOk = opcode match {
                   case Bmb.Cmd.Opcode.WRITE => model.requirements.canWrite
                   case Bmb.Cmd.Opcode.READ => model.requirements.canRead
@@ -263,8 +269,8 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
 
           //Retain the flush phase until all Bmb rsp are received
           Phase.flush.retain()
-          Phase.flush(fork{
-            while(agent.rspQueue.exists(_.nonEmpty)) {
+          Phase.flush(fork {
+            while (agent.rspQueue.exists(_.nonEmpty)) {
               dut.clockDomain.waitSampling(1000)
             }
             dut.clockDomain.waitSampling(1000)
@@ -272,9 +278,9 @@ class SpinalSimBmbInterconnectGeneratorTester  extends FunSuite{
           })
 
           //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-          val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer(300)) //TODO
-          agent.rspMonitor.addCallback{_ =>
-            if(bus.rsp.last.toBoolean){
+          val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer((300*durationFactor).toInt)) //TODO
+          agent.rspMonitor.addCallback { _ =>
+            if (bus.rsp.last.toBoolean) {
               retainers(bus.rsp.source.toInt).release()
             }
           }

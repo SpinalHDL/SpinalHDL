@@ -272,7 +272,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     this
   }
 
-  def toComponent(): GeneratorComponent[this.type] = new GeneratorComponent(this)
+  def toComponent(name : String = null): GeneratorComponent[this.type] = new GeneratorComponent(this, name)
 
 
   def foreachGeneratorRec(body : Generator => Unit): Unit ={
@@ -289,6 +289,14 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
   def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
     node.produce(this.tags += new Dts(node, value))
     node
+  }
+}
+
+object GeneratorCompiler{
+  def apply[T <: Generator](g : T): Unit ={
+    val c = new GeneratorCompiler()
+    c.rootGenerators += g
+    c.build()
   }
 }
 
@@ -357,11 +365,12 @@ object GeneratorComponent{
   implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.generator
 }
 
-class GeneratorComponent[T <: Generator](val generator : T) extends Component{
+class GeneratorComponent[T <: Generator](val generator : T, name : String = null) extends Component{
   val c = new GeneratorCompiler()
   c.rootGenerators += generator
   generator.setName("")
   c.build()
   generator.setName("")
-  this.setDefinitionName(classNameOf(generator))
+  this.setDefinitionName(if(name == null) classNameOf(generator) else name)
 }
+

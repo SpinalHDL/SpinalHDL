@@ -19,7 +19,8 @@ case class BmbPortParameter(bmb : BmbParameter,
                             clockDomain : ClockDomain,
                             cmdBufferSize : Int,
                             dataBufferSize : Int,
-                            rspBufferSize : Int)
+                            rspBufferSize : Int){
+}
 
 case class CtrlParameter( core : CoreParameter,
                           ports : Seq[BmbPortParameter])

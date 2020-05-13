@@ -10,7 +10,8 @@ import scala.util.Random
 
 
 class BmbMemoryTester(bmb : Bmb,
-                      cd : ClockDomain) {
+                      cd : ClockDomain,
+                      rspCounterTarget : Int = 30000) {
 
   val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.addressWidth)
   Phase.boot()
@@ -51,7 +52,7 @@ class BmbMemoryTester(bmb : Bmb,
     }
 
     //Retain the stimulus phase until at least 30000 transaction are completed
-    val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(30000))
+    val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(rspCounterTarget))
     masterAgent.rspMonitor.addCallback{payload =>
       if(payload.last.toBoolean){
         retainers(payload.fragment.source.toInt).release()

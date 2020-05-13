@@ -20,9 +20,29 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
     this
   }
 
+  var keepValue = false
+  var payload : SimData = null
+  var keepValueEnable = false
+
   clockDomain.onSamplings{
-    if (stream.valid.toBoolean && stream.ready.toBoolean) {
+    val valid = stream.valid.toBoolean
+    val ready = stream.ready.toBoolean
+
+    if (valid && ready) {
       callbacks.foreach(_ (stream.payload))
+    }
+    if(keepValueEnable) {
+      if (!keepValue) {
+        if (valid) {
+          keepValue = true
+          payload = SimData.copy(stream.payload)
+        }
+      } else {
+        assert(payload.equals(SimData.copy(stream.payload)))
+      }
+      if (ready) {
+        keepValue = false
+      }
     }
   }
 }
@@ -55,6 +75,8 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
   var state = 0
   var delay = transactionDelay()
   stream.valid #= false
+  stream.payload.randomize()
+
   def fsm(): Unit = {
     state match{
       case 0 => {
@@ -135,3 +157,23 @@ case class StreamReadyRandomizer[T <: Data](stream : Stream[T], clockDomain: Clo
 //    }
 //  }
 //}
+
+
+class SimStreamAssert[T <: Data](s : Stream[T], cd : ClockDomain){
+  var valid = false
+  var payload : SimData = null
+  import spinal.core.sim._
+  cd.onSamplings{
+    if(!valid){
+      if(s.valid.toBoolean) {
+        valid = true
+        payload = SimData.copy(s.payload)
+      }
+    }else {
+      assert(payload.equals(SimData.copy(s.payload)))
+    }
+    if(s.ready.toBoolean) {
+      valid = false
+    }
+  }
+}
