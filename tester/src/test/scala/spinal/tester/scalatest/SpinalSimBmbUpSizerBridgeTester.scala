@@ -5,9 +5,9 @@ import spinal.core.sim._
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 import spinal.lib.bus.bmb.{BmbUpSizerBridge, BmbParameter}
 
-class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
-  test("test1"){
-    SimConfig.compile{
+class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
+  test("test1") {
+    SimConfig.compile {
       BmbUpSizerBridge(
         inputParameter = BmbParameter(
           addressWidth = 16,
@@ -15,7 +15,7 @@ class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
           lengthWidth = 5,
           sourceWidth = 4,
           contextWidth = 3,
-          canRead =  true,
+          canRead = true,
           canWrite = true,
           alignment = BmbParameter.BurstAlignement.BYTE
         ),
@@ -24,8 +24,8 @@ class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
           dataWidth = 64,
           lengthWidth = 5,
           sourceWidth = 0,
-          contextWidth = 3+2+4,
-          canRead =  true,
+          contextWidth = 3 + 2 + 4,
+          canRead = true,
           canWrite = true,
           alignment = BmbParameter.BurstAlignement.BYTE
         )
@@ -35,20 +35,21 @@ class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
         master = dut.io.input,
         masterCd = dut.clockDomain,
         slave = dut.io.output,
-        slaveCd = dut.clockDomain
+        slaveCd = dut.clockDomain,
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }
 
-  test("test2"){
-    SimConfig.compile{
+  test("test2") {
+    SimConfig.compile {
       val inputParameter = BmbParameter(
         addressWidth = 16,
         dataWidth = 16,
         lengthWidth = 5,
         sourceWidth = 4,
         contextWidth = 3,
-        canRead =  true,
+        canRead = true,
         canWrite = true,
         alignment = BmbParameter.BurstAlignement.BYTE
       )
@@ -61,20 +62,21 @@ class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
         master = dut.io.input,
         masterCd = dut.clockDomain,
         slave = dut.io.output,
-        slaveCd = dut.clockDomain
+        slaveCd = dut.clockDomain,
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }
 
-  test("test3"){
-    SimConfig.compile{
+  test("test3") {
+    SimConfig.compile {
       val inputParameter = BmbParameter(
         addressWidth = 16,
         dataWidth = 32,
         lengthWidth = 5,
         sourceWidth = 4,
         contextWidth = 3,
-        canRead =  true,
+        canRead = true,
         canWrite = true,
         alignment = BmbParameter.BurstAlignement.BYTE
       )
@@ -87,7 +89,8 @@ class SpinalSimBmbUpSizerBridgeTester extends FunSuite{
         master = dut.io.input,
         masterCd = dut.clockDomain,
         slave = dut.io.output,
-        slaveCd = dut.clockDomain
+        slaveCd = dut.clockDomain,
+        rspCountTarget = (300*durationFactor).toInt
       )
     }
   }

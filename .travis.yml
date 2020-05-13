@@ -30,7 +30,7 @@ jobs:
         - sbt -jvm-opts travis/jvmopts.test test
       before_install:
         - ./travis.sh -i
-        - export PATH=$(pwd)/../ghdl/bin:$PATH
+        - export PATH=$(pwd)/../ghdl/usr/local/bin:$PATH
         - export COCOTB=$(pwd)/../cocotb
       before_cache:
         # Tricks to avoid unnecessary cache updates

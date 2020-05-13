@@ -10,7 +10,7 @@ import spinal.tester
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimStreamFifoCCTester extends FunSuite {
+class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
   def testbench(dut : StreamFifoCC[Bits]): Unit ={
     val queueModel = mutable.Queue[Long]()
@@ -39,8 +39,8 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
       simSuccess()
     }
   }
-
-  test("testAsyncReset"){
+  
+  test("testAsyncReset") {
     //Compile the simulator
     val compiled = SimConfig.allOptimisation.compile(
       rtl = new StreamFifoCC(
@@ -53,7 +53,7 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
 
     //Run the simulation
     compiled.doSimUntilVoid { dut =>
-      fork{
+      fork {
         //Clear clock domains signals, to be sure the simulation capture their first edge.
         dut.pushClock.fallingEdge()
         dut.popClock.fallingEdge()
@@ -70,8 +70,8 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
         sleep(1)
 
         //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
-        while(true){
-          if(Random.nextBoolean()) {
+        while (true) {
+          if (Random.nextBoolean()) {
             dut.pushClock.clockToggle()
           } else {
             dut.popClock.clockToggle()
@@ -83,7 +83,7 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
     }
   }
 
-  test("testSyncReset"){
+  test("testSyncReset") {
     //Compile the simulator
     val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
       rtl = new StreamFifoCC(
@@ -113,11 +113,11 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
         sleep(1)
       }
 
-      fork{
+      fork {
         sleep(1)
         //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
-        while(true){
-          if(Random.nextBoolean()) {
+        while (true) {
+          if (Random.nextBoolean()) {
             dut.pushClock.clockToggle()
           } else {
             dut.popClock.clockToggle()
@@ -129,7 +129,7 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
     }
   }
 
-  test("testBootReset"){
+  test("testBootReset") {
     //Compile the simulator
     val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = BOOT))).allOptimisation.compile(
       rtl = new StreamFifoCC(
@@ -142,13 +142,13 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
 
     //Run the simulation
     compiled.doSimUntilVoid { dut =>
-      fork{
+      fork {
         dut.pushClock.fallingEdge()
         dut.popClock.fallingEdge()
         sleep(1)
         //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
-        while(true){
-          if(Random.nextBoolean()) {
+        while (true) {
+          if (Random.nextBoolean()) {
             dut.pushClock.clockToggle()
           } else {
             dut.popClock.clockToggle()
@@ -159,5 +159,4 @@ class SpinalSimStreamFifoCCTester extends FunSuite {
       testbench(dut)
     }
   }
-
 }

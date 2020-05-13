@@ -45,10 +45,10 @@ class BlackboxTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/BlackBoxTester"
 }
 
-class BlackboxTesterSpinalSim extends FunSuite {
+import spinal.core.sim._
+class SpinalSimBlackboxTester extends SpinalSimFunSuite {
   test("test"){
-    import spinal.core.sim._
-    SimConfig.addRtl("tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.v").doSim(new BlackboxTester.BlackBoxTester) {dut =>
+    SimConfig.addRtl(s"tester/src/test/python/spinal/BlackBoxTester/BlackBoxToTest.${if(tester.language == VHDL) "vhd" else "v"}").doSim(new BlackboxTester.BlackBoxTester) {dut =>
       dut.clockDomain.forkStimulus(10)
       var outA_ref = 0
       var outB_ref = 0
@@ -62,6 +62,5 @@ class BlackboxTesterSpinalSim extends FunSuite {
         outB_ref = ((outB_ref + dut.io.inB.toInt) & dut.io.outB.maxValue).toInt
       }
     }
-
   }
 }

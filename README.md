@@ -13,8 +13,8 @@ SpinalHDL is:
 - Free and can be used in the industry without any license
 
 ## Links
-- Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
-- Presentation of the language   <br> http://spinalhdl.github.io/SpinalDoc/presentation/
+- Documentation                  <br> https://spinalhdl.github.io/SpinalDoc-RTD/
+- Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Getting%20Started/presentation.html
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt
 - Gradle base project            <br> https://github.com/SpinalHDL/SpinalTemplateGradle
 - Workshop                       <br> https://github.com/SpinalHDL/SpinalWorkshop

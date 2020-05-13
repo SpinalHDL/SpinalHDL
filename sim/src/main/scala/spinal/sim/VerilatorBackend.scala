@@ -28,42 +28,29 @@ class VerilatorBackendConfig{
 }
 
 
-object VerilatorBackend{
-  private var uniqueId = 0
-  def allocateUniqueId(): Int = {
-    this.synchronized {
-      uniqueId = uniqueId + 1
-      uniqueId
-    }
-  }
-}
 
 
-class VerilatorBackend(val config: VerilatorBackendConfig) {
+class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
+  import Backend._
 
-  val osName         = System.getProperty("os.name").toLowerCase
-  val isWindows      = osName.contains("windows")
-  val isMac          = osName.contains("mac") || osName.contains("darwin")
-  val uniqueId       = VerilatorBackend.allocateUniqueId()
   val workspaceName  = config.workspaceName
   val workspacePath  = config.workspacePath
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
-  def patchPath(path: String): String = {
-    if(isWindows){
-      var tmp = path
-      if(tmp.substring(1,2) == ":") tmp = "/" + tmp.substring(0,1).toLowerCase + tmp.substring(2)
-      tmp = tmp.replace("//", "////")
-      tmp
-    }else{
-      path
-    }
-  }
-
   def clean(): Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
   }
+
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.FST, 
+                               WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat){
+                config.waveFormat  
+              } else {
+                println("Wave format " + config.waveFormat + " not supported by Verilator")
+                WaveFormat.NONE
+              }
 
   def genWrapperCpp(): Unit = {
     val jniPrefix = "Java_" + s"wrapper_${workspaceName}".replace("_", "_1") + "_VerilatorNative_"
@@ -74,7 +61,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) {
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
-#include "verilated_${config.waveFormat.ext}_c.h"
+#include "verilated_${format.ext}_c.h"
 #endif
 #include "V${config.toplevelName}__Syms.h"
 class ISignalAccess{
@@ -131,8 +118,6 @@ public:
     void setU64(uint64_t value)  {*raw = value; }
 };
 
-
-
 class  WDataSignalAccess : public ISignalAccess{
 public:
     WData *raw;
@@ -186,6 +171,9 @@ public:
     }
 };
 
+class Wrapper_${uniqueId};
+thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
+
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
@@ -193,10 +181,11 @@ public:
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
-	  Verilated${config.waveFormat.ext.capitalize}C tfp;
+	  Verilated${format.ext.capitalize}C tfp;
 	  #endif
 
     Wrapper_${uniqueId}(const char * name){
+      simHandle${uniqueId} = this;
       time = 0;
       waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
@@ -209,7 +198,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
-      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${config.waveFormat.ext}").c_str());
+      tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
     }
 
@@ -225,6 +214,10 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
     }
 
 };
+
+double sc_time_stamp () {
+  return simHandle${uniqueId}->time;
+}
 
 
 #ifdef __cplusplus
@@ -346,7 +339,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200
 
-    val waveArgs = config.waveFormat match {
+    val waveArgs = format match {
       case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"
       case WaveFormat.VCD =>  "-CFLAGS -DTRACE --trace"
       case WaveFormat.NONE => ""
@@ -359,10 +352,12 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
+       | -CFLAGS -std=c++11
+       | -LDFLAGS -std=c++11
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500
-       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST
+       | -Wno-WIDTH -Wno-UNOPTFLAT -Wno-CMPCONST -Wno-UNSIGNED
        | --x-assign unique
        | --trace-depth ${config.waveDepth}
        | -O3
@@ -459,5 +454,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
   val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
 
   def instanciate(name: String, seed: Int) = nativeInstance.newHandle(name, seed)
+
+  override def isBufferedWrite: Boolean = false
 }
 

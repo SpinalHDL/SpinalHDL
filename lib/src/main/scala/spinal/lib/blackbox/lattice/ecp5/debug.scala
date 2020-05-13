@@ -61,7 +61,7 @@ case class JtaggIo() extends Bundle with IMasterSlave{
     }
 }
 
-class JTAGG( gen : JtaggGeneric ) extends BlackBox {
+class JTAGG( gen : JtaggGeneric = JtaggGeneric().copy() ) extends BlackBox {
   val io = master(JtaggIo())
   val generic = gen
 

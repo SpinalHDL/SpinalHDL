@@ -1750,14 +1750,14 @@ object DemoMusc564{
     useSlaveError = false
   )
 
-  val io = new Bundle{
-    val apb = slave(Apb3(apbConfig))
-  }
-
-  io.apb.PREADY := True
-  when(io.apb.PSEL(0) && io.apb.PENABLE){
-    //...
-  }
+//  val io = new Bundle{
+//    val apb = slave(Apb3(apbConfig))
+//  }
+//
+//  io.apb.PREADY := True
+//  when(io.apb.PSEL(0) && io.apb.PENABLE){
+//    //...
+//  }
 }
 
 

@@ -5,6 +5,7 @@ import spinal.core.sim._
 import spinal.sim.SimManagerContext
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 class Phase(var next : Phase){
   var isActive : Boolean = false
@@ -104,7 +105,10 @@ object Phase{
 case class SparseMemory(){
   val content = Array.fill[Array[Byte]](4096)(null)
   def getElseAlocate(idx : Int) = {
-    if(content(idx) == null) content(idx) = new Array[Byte](1024*1024)
+    if(content(idx) == null) {
+      content(idx) = new Array[Byte](1024*1024)
+      Random.nextBytes(content(idx))
+    }
     content(idx)
   }
 
