@@ -68,6 +68,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
+  val  DefaultFixPointConfig = FixPointConfig(RoundType.ROUNDTOINF, false)
+  val  LowCostFixPointConfig = FixPointConfig(RoundType.ROUNDUP, true)
   /**
     * Integer Builder
     */
@@ -420,9 +422,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
   def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
 
-  def report(message: String)   = assert(True, message, NOTE)
-  def report(message: Seq[Any]) = assert(True, message, NOTE)
+  def report(message: String)   = assert(False, message, NOTE)
+  def report(message: Seq[Any]) = assert(False, message, NOTE)
 
-  def report(message: String,   severity: AssertNodeSeverity) = assert(True, message, severity)
-  def report(message: Seq[Any], severity: AssertNodeSeverity) = assert(True, message, severity)
+  def report(message: String,   severity: AssertNodeSeverity) = assert(False, message, severity)
+  def report(message: Seq[Any], severity: AssertNodeSeverity) = assert(False, message, severity)
 }

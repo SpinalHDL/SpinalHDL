@@ -93,6 +93,23 @@ object Play {
   }
 }
 
+object Play2 extends App{
+  class Thing extends Nameable
+
+  SpinalVerilog(new Component {
+    val miaou = new Thing
+    println(miaou.getName()) //Print miaou
+
+    val logic = new Area{
+      val wuff = new Thing
+      println(wuff.getName()) //Print nothing, as the logic area isn't done yet
+    }
+
+    println(logic.wuff.getName()) //Print logic_wuff
+  })
+}
+
+
 //object Play2 extends App{
 //  class Toplevel extends Component{
 //    val io = new Bundle {

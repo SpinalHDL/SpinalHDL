@@ -69,6 +69,14 @@ trait ExpressionContainer {
     })
   }
 
+  // Traverse the subtrees first before accessing the parent node
+  def walkExpressionPostorder(func: (Expression) => Unit): Unit = {
+    foreachExpression(e => {
+      e.walkExpressionPostorder(func)
+      func(e)
+    })
+  }
+
   def walkDrivingExpressions(func: (Expression) => Unit): Unit = {
     foreachDrivingExpression(e => {
       func(e)
@@ -490,8 +498,7 @@ object Operator {
 
     abstract class ShiftRightByInt(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       if(shift < 0) {
-        val trace = ScalaLocated.long
-        PendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at\n${trace}")
+        LocatedPendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at")
       }
       override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
@@ -505,8 +512,7 @@ object Operator {
 
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       if(shift < 0) {
-        val trace = ScalaLocated.long
-        PendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at\n${trace}")
+        LocatedPendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at")
       }
 
       override def calcWidth(): Int = source.getWidth + shift
@@ -2109,7 +2115,7 @@ object BitsLiteral {
     if (value < 0) throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2150,7 +2156,7 @@ object UIntLiteral {
       throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in UInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2188,7 +2194,7 @@ object SIntLiteral {
     var bitCount       = specifiedBitCount
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount ) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount ) throw new Exception(s"literal 0x${value.toString(16)} can't fit in SInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }

@@ -1,7 +1,7 @@
 package spinal.sim
 
 
-abstract class SimRaw(){
+abstract class SimRaw {
   var userData : Any = null
   def getInt(signal : Signal) : Int
   def getLong(signal : Signal) : Long

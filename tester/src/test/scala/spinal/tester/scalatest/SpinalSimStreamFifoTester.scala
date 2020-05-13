@@ -12,8 +12,8 @@ import spinal.tester
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimStreamFifoTester extends FunSuite {
-  test("testBits"){
+class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
+  test("testBits") {
     //Compile the simulator
     val compiled = SimConfig.allOptimisation.compile(
       rtl = new StreamFifo(
@@ -23,18 +23,18 @@ class SpinalSimStreamFifoTester extends FunSuite {
     )
 
     //Run the simulation
-    compiled.doSimUntilVoid{dut =>
+    compiled.doSimUntilVoid { dut =>
       val queueModel = mutable.Queue[Long]()
 
-      SimTimeout(1000000*8)
+      SimTimeout(1000000 * 8)
       dut.clockDomain.forkStimulus(2)
 
       dut.io.flush #= false
 
       //Push data randomly and fill the queueModel with pushed transactions
       dut.io.push.valid #= false
-      dut.clockDomain.onSamplings{
-        if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
+      dut.clockDomain.onSamplings {
+        if (dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean) {
           queueModel.enqueue(dut.io.push.payload.toLong)
         }
         dut.io.push.valid.randomize()
@@ -42,12 +42,12 @@ class SpinalSimStreamFifoTester extends FunSuite {
       }
 
       //Pop data randomly and check that it match with the queueModel
-      val popThread = fork{
+      val popThread = fork {
         dut.io.pop.ready #= true
-        for(repeat <- 0 until 10000){
+        for (repeat <- 0 until 10000) {
           dut.io.pop.ready.randomize()
           dut.clockDomain.waitSampling()
-          if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
+          if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
           }
         }
@@ -57,7 +57,7 @@ class SpinalSimStreamFifoTester extends FunSuite {
   }
 
 
-  test("testOne"){
+  test("testOne") {
     //Compile the simulator
     val compiled = SimConfig.allOptimisation.compile(
       rtl = new StreamFifo(
@@ -67,18 +67,18 @@ class SpinalSimStreamFifoTester extends FunSuite {
     )
 
     //Run the simulation
-    compiled.doSimUntilVoid{dut =>
+    compiled.doSimUntilVoid { dut =>
       val queueModel = mutable.Queue[Long]()
 
-      SimTimeout(1000000*8)
+      SimTimeout(1000000 * 8)
       dut.clockDomain.forkStimulus(2)
 
       dut.io.flush #= false
 
       //Push data randomly and fill the queueModel with pushed transactions
       dut.io.push.valid #= false
-      dut.clockDomain.onSamplings{
-        if(dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean){
+      dut.clockDomain.onSamplings {
+        if (dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean) {
           queueModel.enqueue(dut.io.push.payload.toLong)
         }
         dut.io.push.valid.randomize()
@@ -86,12 +86,12 @@ class SpinalSimStreamFifoTester extends FunSuite {
       }
 
       //Pop data randomly and check that it match with the queueModel
-      val popThread = fork{
+      val popThread = fork {
         dut.io.pop.ready #= true
-        for(repeat <- 0 until 10000){
+        for (repeat <- 0 until 10000) {
           dut.io.pop.ready.randomize()
           dut.clockDomain.waitSampling()
-          if(dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean){
+          if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
             assert(dut.io.pop.payload.toLong == queueModel.dequeue())
           }
         }
