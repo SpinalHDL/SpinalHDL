@@ -12,4 +12,7 @@ case class Field(name: String,
 
   def tailBitPos = section.max
 
+  def accept(vs : BusIfVisitor) = {
+      vs.field(name, hardbit.getWidth)
+  }
 }

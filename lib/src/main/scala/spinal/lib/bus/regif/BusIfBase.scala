@@ -9,6 +9,13 @@ import language.experimental.macros
 
 import scala.collection.mutable.ListBuffer
 
+trait  BusIfVisitor {
+  def begin(busDataWidth : Int) : Unit
+  def reg(name : String, addr : Long) : Unit
+  def field(name : String, width : Int) : Unit
+  def end() : Unit
+}
+
 trait BusIfBase extends Area{
   val askWrite: Bool
   val askRead: Bool
@@ -129,6 +136,16 @@ trait BusIf extends BusIfBase {
     val fp = new PrintWriter(targetPath)
     fp.write(html)
     fp.close
+  }
+
+  def accept(vs : BusIfVisitor) = {
+    vs.begin(busDataWidth)
+
+    for(reg <- RegInsts) {
+      reg.accept(vs)
+    }
+
+    vs.end()
   }
 
   def genCHead(cFileName: String) = {

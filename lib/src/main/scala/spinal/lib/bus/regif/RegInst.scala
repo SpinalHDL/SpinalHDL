@@ -296,4 +296,12 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   protected def NA(bc: BitCount): Bits = {
     Bits(bc).clearAll()
   }
+
+  def accept(vs : BusIfVisitor) = {
+      vs.reg(name, addr)
+
+      for(field <- getFields) {
+        field.accept(vs)
+      }
+  }
 }
