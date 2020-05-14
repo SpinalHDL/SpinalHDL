@@ -231,6 +231,10 @@ class ComponentEmitterVhdl(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    for(child <- component.children){
+      emitAttributes(child.getName(), child.instanceAttributes, "label", declarations, "")
+    }
+
     for (children <- component.children) {
       val isBB             = children.isInstanceOf[BlackBox] && children.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
@@ -717,7 +721,7 @@ class ComponentEmitterVhdl(
   def emitAttributesDef(): Unit = {
     val map = mutable.Map[String, Attribute]()
 
-    component.dslBody.walkStatements{
+    def walk(that : Any) = that match{
       case s: SpinalTagReady =>
         for (attribute <- s.instanceAttributes(Language.VHDL)) {
           val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
@@ -725,6 +729,9 @@ class ComponentEmitterVhdl(
         }
       case s =>
     }
+
+    component.dslBody.walkStatements(walk)
+    component.children.foreach(walk)
 
     for (attribute <- map.values) {
       val typeString = attribute match {
@@ -1018,15 +1025,18 @@ class ComponentEmitterVhdl(
 
     logics ++= tmpBuilder
   }
-
   def emitAttributes(node: DeclarationStatement, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String = ""): Unit = {
+    emitAttributes(emitReference(node, false), attributes,vhdlType,ret,postfix)
+  }
+
+  def emitAttributes(node: String, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
         case attribute: AttributeString => "\"" + attribute.value + "\""
         case attribute: AttributeFlag   => "true"
       }
 
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}$postfix : signal is $value;\n"
+      ret ++= s"  attribute ${attribute.getName} of $node$postfix : $vhdlType is $value;\n"
     }
   }
 

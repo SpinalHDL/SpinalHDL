@@ -82,8 +82,33 @@ class ComplexBundle extends Bundle {
 //  override def clone() : this.type = new ComplexBundle
 }
 
-
 object PlayGeneratorA extends App{
+  import spinal.lib.generator._
+
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b = Handle[Int]
+
+    //Print a + b
+    val calculator = new Generator{
+      dependencies += a
+      dependencies += b
+
+      add task{
+        val sum = a.get + b.get
+        println(s"a + b = $sum")
+      }
+    }
+
+    //load a and b with values, which will then unlock the calculator generator
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
+}
+
+object PlayGeneratorA1 extends App{
   import spinal.lib.generator._
 
   class Root() extends Generator{
@@ -135,6 +160,19 @@ object PlayGeneratorB extends App{
   SpinalVerilog(new Root().toComponent())
 }
 
+object PlayGeneratorC extends App{
+  import spinal.lib.generator._
+
+  class MyGenerator() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b, somebodyElseHandle = Handle[Int]
+    val x = a.derivate(_ + 3)
+    dependencies += somebodyElseHandle
+    val myHandle : Handle[Int] = createDependency[Int]
+  }
+
+
+}
 
 
 
@@ -1168,7 +1206,13 @@ object PlaySymplify {
 
 //addAttribute("ramstyle", "no_rw_check")
 
-object PlayBug {
+object PlayBug extends App{
+  SpinalVerilog(new Component{
+    val x = out(B(BigInt("C7034DD7B", 16), 32 bits))
+  })
+}
+
+object PlayRamInfer {
   class TopLevel extends Component{
     val a = new Area {
       val ram = Mem(Bits(8 bits), 1024)
@@ -1299,8 +1343,8 @@ object PlayFragment{
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(headerWithDate = true, rtlHeader = "miaou\n wuff").generateVerilog(new TopLevel)
-    SpinalConfig(headerWithDate = true, rtlHeader = "miaou\n wuff").generateVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 

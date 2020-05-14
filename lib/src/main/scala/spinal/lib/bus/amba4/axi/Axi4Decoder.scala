@@ -6,6 +6,9 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
+
+  assert(!SizeMapping.verifyOverlapping(decodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4ReadOnly(axiConfig))
     val outputs = Vec(master(Axi4ReadOnly(axiConfig)),decodings.size)
@@ -56,6 +59,8 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
 
 
 case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7,lowLatency : Boolean = false) extends Component{
+  assert(!SizeMapping.verifyOverlapping(decodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4WriteOnly(axiConfig))
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
@@ -128,6 +133,9 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
                              sharedDecodings : Seq[SizeMapping],
                              pendingMax : Int = 7,
                              lowLatency : Boolean = false) extends Component{
+  assert(!SizeMapping.verifyOverlapping(readDecodings++sharedDecodings), "AXI4 address decoding overlapping")
+  assert(!SizeMapping.verifyOverlapping(writeDecodings++sharedDecodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4Shared(axiConfig))
     val readOutputs   = Vec(master(Axi4ReadOnly(axiConfig)),readDecodings.size)

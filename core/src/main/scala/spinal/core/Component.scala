@@ -77,6 +77,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
+  val definition = new SpinalTagReady {
+
+  }
+
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
@@ -106,6 +111,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
 
+  var withoutReservedKeywords = false
+  def withoutKeywords(): Unit ={
+    withoutReservedKeywords = true
+  }
+  def withKeywords(): Unit ={
+    withoutReservedKeywords = false
+  }
 
   // Check if it is a top level component or a children of another component
   if (parent != null) {
@@ -220,14 +232,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   var localNamingScope : NamingScope = null
   private[core] def allocateNames(globalScope: NamingScope): Unit = {
 
-    localNamingScope = globalScope.newChild()
+    localNamingScope = if(withoutReservedKeywords) new NamingScope(globalScope.duplicationPostfix) else globalScope.newChild()
     val anonymPrefix = if(globalData.phaseContext.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + this.definitionName else globalData.anonymSignalPrefix
     localNamingScope.allocateName(anonymPrefix)
 
     for (child <- children) {
       OwnableRef.proposal(child, this)
       if (child.isUnnamed) {
-        var name = child.getClass.getSimpleName
+        var name = classNameOf(child)
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName().setName(name, Nameable.DATAMODEL_WEAK)
       }
@@ -292,14 +304,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
-  val scopeProperties = globalData.scopeProperties.map{case (p, s) => (p, s.head)}
+  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
-    scopeProperties.foreach{ case (p, v) => p.stack.push(v)}
+    scopeProperties.foreach{ case (p, v) => p.push(v)}
     val ret = gen
     prePop()
-    scopeProperties.foreach{ case (p, v) => p.stack.pop}
+    scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
     ClockDomain.pop(this.clockDomain)
     ret

@@ -39,6 +39,7 @@ object PlayDevMem{
 }
 
 object PlayDevErrorReport{
+
   class TopLevel extends Component {
     val a = in UInt(8 bits)
     val b = in UInt(10 bits)
@@ -669,28 +670,14 @@ object PlayDevAnalog2{
 
 
 object PlayDevBug3{
-  case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
-    addGeneric("io_width", U(io_width, 32 bits))
-    addGeneric("default_value", U(default_value, io_width bits))
-
-    val io = new Bundle {
-      val clk = in Bool
-      val a   = in Bits(io_width bits)
-      val z   = out Bits(io_width bits)
-    }
-    mapClockDomain(clock=io.clk)
-    noIoPrefix()
-  }
 
   // Instance
   class TopLevel extends Component {
-    val bboxedm_inst = bboxedm (io_width = 256, default_value = BigInt("FFFFFF",16))
+    val x = B"xAB"
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel())
     SpinalConfig().generateVerilog(new TopLevel())
-    print("done")
   }
 }
 
@@ -1493,74 +1480,119 @@ object PlayDevSpinalSim2 extends App{
   }
 }
 
-
-object PlayScopeProperty extends App{
-  object FixedPointProperty extends ScopeProperty[Int]{
-    override def default: Int = 42
+object PlayDevSpinalSim3 extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
+  }).doSim { dut =>
+    dut.input #= 0
+    sleep(3)
+    dut.input #= 5
+    println(dut.input.toInt)
+    sleep(0)
+    println(dut.input.toInt)
   }
+}
 
+import spinal.core._
+import spinal.core.sim._
 
-  case class ComplexPropertyValue(x : Int, y : Int) extends ScopePropertyValue(ComplexProperty)
-  object ComplexProperty extends ScopeProperty[ComplexPropertyValue]{
-    override def default = ComplexPropertyValue(1,2)
-  }
-
-  def check(ref : Int): Unit ={
-    println(s"ref:$ref dut:${FixedPointProperty.get}")
-  }
-  class Sub extends Component{
-    check(666)
-  }
-  class Toplevel extends Component{
-    check(42)
-    val logic = FixedPointProperty(666) on new Area{
-      check(666)
-      val x = new Sub
-      check(666)
-      FixedPointProperty(1234){
-        check(1234)
-        x.rework{
-          check(666)
+object OutputBug {
+  def main(args: Array[String]) {
+    var dut = SimConfig
+      .compile(new Component {
+        val io = new Bundle {
+          val cond0 = in Bool
         }
-        check(1234)
-      }
-      check(666)
-    }
-    check(42)
+        val counter = Reg(UInt(8 bits)) init (0)
 
-    println(ComplexProperty.get)
-    ComplexPropertyValue(66,99) on new Area{
-      println(ComplexProperty.get)
+        when(io.cond0) {
+          counter := counter + 1
+        }
+      })
+
+    dut.doSim("write") { dut =>
+      SimTimeout(10000 * 10)
+      dut.clockDomain.onActiveEdges({
+        println(f"${simTime()} this is only dummy output, and a bit of it")
+      })
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.waitActiveEdge(10100)
+      assert(false)
     }
-    println(ComplexProperty.get)
+  }
+}
+
+
+
+object PlayFixPointProperty extends App{
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, $roundType, $sym ")
   }
 
-  val config = SpinalConfig()
-  config.generateVerilog(new Toplevel)
-//  42
-  //  ref:666 dut:666
-  //  ref:666 dut:666
-  //  ref:666 dut:666
-  //  ref:1234 dut:1234
-  //  ref:666 dut:666
-  //  ref:1234 dut:1234
-  //  ref:666 dut:666
-//  42
-//  ComplexPropertyValue(1,2)
-//  ComplexPropertyValue(66,99)
-//  ComplexPropertyValue(1,2)
-  config.setScopeProperty(FixedPointProperty, 76)
-  config.generateVerilog(new Toplevel)
-//  76
-//  ref:666 dut:666
-//  ref:666 dut:666
-//  ref:666 dut:666
-//  ref:1234 dut:1234
-//  ref:666 dut:666
-//  ref:1234 dut:1234
-//  ref:666 dut:666
-//  76
-//  ComplexPropertyValue(1,2)
-//  ComplexPropertyValue(66,99)
-//  ComplexPropertyValue(1,2)
+  class Topxx extends Component {
+    check(RoundType.ROUNDUP, true)
+    val start = in Bool()
+    val din = in SInt(16 bits)
+
+    val area = FixPointProperty(DefaultFixPointConfig) on new Area{
+      check(RoundType.ROUNDTOINF, false)
+      val broundtoinffalse = din.fixTo(10 downto 3)
+    }
+
+//    FixPointProperty.push(FixPointConfig(RoundType.CEIL, false))
+//    check(RoundType.CEIL, false)
+    val cceilfalse = {
+      FixPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
+        check(RoundType.FLOOR, true)
+      }
+      FixPointConfig(RoundType.ROUNDTOZERO, false){
+        check(RoundType.ROUNDTOZERO, false)
+      }
+      FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+        check(RoundType.ROUNDTOEVEN, true)
+      }
+      din.fixTo(4 downto 1)
+    }
+//    check(RoundType.CEIL, false)
+//    FixPointProperty.pop()
+    val droudnuptrue = din.fixTo(12 downto 9)
+    check(RoundType.ROUNDUP, true)
+  }
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+  }
+  LowCostFixPointConfig{
+    check(RoundType.ROUNDUP, true)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp")
+  config.setScopeProperty(FixPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Topxx)
+  check(RoundType.ROUNDTOINF, true)
+}
+
+object PlayFixPointProperty2 extends App {
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, ${FixPointConfig(roundType, sym)}")
+  }
+
+  class TopXX extends Component{
+    check(RoundType.FLOOR, false) //pass
+    FixPointConfig(RoundType.ROUNDUP, true).setAsDefault() // do nothing bad
+    check(RoundType.FLOOR, false) //pass
+  }
+
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+
+    val config = SpinalConfig(targetDirectory = "./tmp")
+    config.setScopeProperty(FixPointProperty, FixPointConfig(RoundType.FLOOR, false))
+    config.generateVerilog(new TopXX)
+
+    check(RoundType.ROUNDTOEVEN, true)  //it's ok now
+  }
+
+  check(RoundType.ROUNDUP, true)  //it's ok now
 }

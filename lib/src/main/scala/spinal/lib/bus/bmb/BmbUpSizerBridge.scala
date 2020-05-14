@@ -9,11 +9,17 @@ object BmbUpSizerBridge{
                            outputDataWidth : Int): BmbParameter = {
     val ratio = outputDataWidth / inputParameter.dataWidth
     var contextWidth = inputParameter.contextWidth + inputParameter.sourceWidth
+    import BmbParameter.BurstAlignement._
     if(inputParameter.canRead) contextWidth += 2*log2Up(ratio)
     inputParameter.copy(
       dataWidth = outputDataWidth,
       sourceWidth = 0,
-      contextWidth = contextWidth
+      contextWidth = contextWidth,
+      alignment =  inputParameter.alignment match {
+        case BYTE => BYTE
+        case WORD => BYTE
+        case LENGTH => LENGTH
+      }
     )
   }
 }

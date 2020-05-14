@@ -135,7 +135,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
+                        fixToWithWrap                  : Boolean = true,
                         headerWithDate                 : Boolean = false,
+                        headerWithRepoHash             : Boolean = true,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -143,7 +145,6 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true
 ){
-
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
@@ -158,7 +159,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
     for((p, v) <- scopeProperties){
-      p.stack.asInstanceOf[mutable.Stack[Any]].push(v)
+      p.asInstanceOf[ScopeProperty[Any]].push(v)
     }
   }
 
@@ -190,6 +191,11 @@ case class SpinalConfig(mode                           : SpinalMode = null,
 
   def setScopeProperty[T](scopeProperty: ScopeProperty[T], value : T): this.type ={
     scopeProperties(scopeProperty) = value
+    this
+  }
+
+  def setScopeProperty[T](value: ScopePropertyValue): this.type ={
+    scopeProperties(value.dady) = value
     this
   }
 }
@@ -261,10 +267,12 @@ class SpinalReport[T <: Component]() {
     blackboxesSourcesPaths.foreach{ path =>
       val vhdl_regex    = """.*\.(vhdl|vhd)""".r
       val verilog_regex = """.*\.(v)""".r
+      val systemVerilog_regex = """.*\.(sv)""".r
 
       path.toLowerCase match {
         case vhdl_regex(f)    => bb_vhdl    += path
         case verilog_regex(f) => bb_verilog += path
+        case systemVerilog_regex(f) => bb_verilog += path
         case _                => SpinalWarning(s"Merging blackbox sources : Extension file not supported (${path})")
       }
     }
@@ -307,6 +315,7 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+
     if(config.memBlackBoxers.isEmpty)
       config.addStandardMemBlackboxing(blackboxOnlyIfRequested)
     val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)

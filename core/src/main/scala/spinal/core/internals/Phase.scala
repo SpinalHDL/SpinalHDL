@@ -34,85 +34,65 @@ import scala.io.Source
 
 
 class PhaseContext(val config: SpinalConfig) {
-
   var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
   def privateNamespaceName = config.globalPrefix + (if(config.privateNamespace) topLevel.definitionName + "_" else "")
 
-  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val duplicationPostfix = ""
   val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.LinkedHashMap[SpinalEnum,mutable.LinkedHashSet[SpinalEnumEncoding]]()
 
-  val reservedKeyWords    = mutable.Set[String](
-    //VHDL
-    "abs", "access", "after", "alias", "all",
-    "and", "architecture", "array", "assert",
-    "attribute", "begin", "block", "body",
-    "buffer", "bus", "case", "component",
-    "configuration", "constant", "disconnect", "downto",
-    "else", "elsif", "end", "entity", "exit", "file",
-    "for", "function", "generate", "generic",
-    "group", "guarded", "if", "impure", "in",
-    "inertial", "inout", "is", "label", "library",
-    "linkage", "literal", "loop", "map", "mod",
-    "nand", "new", "next", "nor", "not", "null",
-    "of", "on", "open", "or", "others", "out",
-    "package", "port", "postponed", "procedure",
-    "process", "pure", "range", "record", "register",
-    "reject", "rem", "report", "return", "rol",
-    "ror", "select", "severity", "signal", "shared",
-    "sla", "sll", "sra", "srl", "subtype", "then",
-    "to", "transport", "type", "unaffected", "units",
-    "until", "use", "variable", "wait", "when",
-    "while", "with", "xnor", "xor",
-
-    //Verilog + SystemVerilog
-    "alias", "always", "always_comb", "always_ff",
-    "always_latch", "and", "assert", "assign",
-    "assume", "automatic", "before", "begin", "bind",
-    "bins", "binsof", "bit", "break",
-    "buf", "bufif0", "bufif1", "byte", "case", "casex",
-    "casez", "cell", "chandle", "class", "clocking", "cmos",
-    "config", "const", "constraint", "context", "continue",
-    "cover", "covergroup", "coverpoint", "cross", "deassign",
-    "default", "defparam", "design", "disable", "dist", "do",
-    "edge", "else", "end", "endcase", "endclass", "endclocking",
-    "endconfig", "endfunction", "endgenerate", "endgroup",
-    "endinterface", "endmodule", "endpackage","endprimitive",
-    "endprogram","endproperty","endspecify","endsequence",
-    "endtable","endtask","enum","event","expect","export",
-    "extends","extern","final","first_match","for","force",
-    "foreach","forever","fork","forkjoin","function",
-    "generate","genvar","highz0","highz1","if","iff",
-    "ifnone","ignore_bins","illegal_bins","import","incdir",
-    "include","initial","inout","input","inside",
-    "instance","int","integer","interface","intersect",
-    "join","join_any","join_none","large","liblist",
-    "library","local","localparam","logic","longint",
-    "macromodule","matches","medium","modport","module",
-    "nand","negedge","new","nmos","nor","noshowcancelled","not",
-    "notif0","notif1","null","or","output","package",
-    "packed","parameter","pmos","posedge","primitive",
-    "priority","program","property","protected","pull0",
-    "pull1","pulldown","pullup","pulsestyle_onevent",
-    "pulsestyle_ondetect","pure","rand","randc",
-    "randcase","randsequence","rcmos","real","realtime",
-    "ref","reg","release","repeat","return","rnmos",
-    "rpmos","rtran","rtranif0","rtranif1","scalared",
-    "sequence","shortint","shortreal","showcancelled",
-    "signed","small","solve","specify","specparam",
-    "static","string","strong0","strong1","struct",
-    "super","supply0","supply1","table","tagged","task",
-    "this","throughout","time","timeprecision","timeunit","tran",
-    "tranif0","tranif1","tri","tri0","tri1","triand",
-    "trior","trireg","type","typedef","union","unique",
-    "unsigned","use","uwire","var","vectored","virtual",
-    "void","wait","wait_order","wand","weak0","weak1",
-    "while","wildcard","wire","with","within","wor",
-    "xnor","xor"
+  val vhdlKeywords = Array(
+    "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert",
+    "attribute", "begin", "block", "body", "buffer", "bus", "case", "component",
+    "configuration", "constant", "disconnect", "downto", "else", "elsif", "end", "entity", "exit", "file",
+    "for", "function", "generate", "generic", "group", "guarded", "if", "impure", "in",
+    "inertial", "inout", "is", "label", "library", "linkage", "literal", "loop", "map", "mod",
+    "nand", "new", "next", "nor", "not", "null", "of", "on", "open", "or", "others", "out",
+    "package", "port", "postponed", "procedure", "process", "pure", "range", "record", "register",
+    "reject", "rem", "report", "return", "rol", "ror", "select", "severity", "signal", "shared",
+    "sla", "sll", "sra", "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units",
+    "until", "use", "variable", "wait", "when", "while", "with", "xnor", "xor"
   )
+
+  val verilogKeywords = Array(
+    "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output",
+    "rtran", "tri", "assign", "endmodule", "inout", "parameter", "rtranif0", "tri0", "begin", "endfunction", "input", "pmos",
+    "rtranif1", "tri1", "buf", "endprimitive", "integer", "posedge", "scalared", "triand", "bufif0", "endspecify", "join", "primitive",
+    "small", "trior", "bufif1", "endtable", "large", "pull0", "specify", "trireg", "case", "endtask", "macromodule",
+    "pull1", "specparam", "vectored", "casex", "event", "medium", "pullup", "strong0", "wait", "casez", "for", "module", "pulldown",
+    "strong1", "wand", "cmos", "force", "nand", "rcmos", "supply0", "weak0", "deassign", "forever", "negedge", "real",
+    "supply1", "weak1", "default", "for", "nmos", "realtime", "table", "while", "defparam", "function", "nor", "reg", "task", "wire", "disable", "highz0",
+    "not", "release", "time", "wor", "edge", "highz1", "notif0", "repeat", "tran", "xnor", "else", "if", "notif1", "rnmos", "tranif0", "xor"
+  )
+
+  val systemVerilogKeywords = Array(
+    "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before", "begin", "bind",
+    "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle", "class",
+    "clocking", "cmos", "config", "const", "constraint", "context", "continue", "cover", "covergroup", "coverpoint", "cross",
+    "deassign", "default", "defparam", "design", "disable", "dist", "do", "edge", "else", "end", "endcase", "endclass",
+    "endclocking", "endconfig", "endfunction", "endgenerate", "endgroup", "endinterface", "endmodule", "endpackage", "endprimitive", "endprogram",
+    "endproperty", "endspecify", "endsequence", "endtable", "endtask", "enum", "event", "expect", "export", "extends", "extern", "final",
+    "first_match", "for", "force", "foreach", "forever", "fork", "forkjoin", "function", "generate", "genvar", "highz0", "highz1", "if",
+    "iff", "ifnone", "ignore_bins", "illegal_bins", "import", "incdir", "include", "initial", "inout", "input", "inside", "instance", "int", "integer", "interface",
+    "intersect", "join", "join_any", "join_none", "large", "liblist", "library", "local", "localparam", "logic", "longint",
+    "macromodule", "matches", "medium", "modport", "module", "nand", "negedge", "new", "nmos", "nor", "noshowcancelled",
+    "not", "notif0", "notif1", "null", "or", "output", "package", "packed", "parameter", "pmos", "posedge", "primitive",
+    "priority", "program", "property", "protected", "pull0", "pull1", "pulldown", "pullup", "pulsestyle_onevent", "pulsestyle_ondetect", "pure", "rand", "randc",
+    "randcase", "randsequence", "rcmos", "real", "realtime", "ref", "reg", "release", "repeat", "return", "rnmos", "rpmos", "rtran",
+    "rtranif0", "rtranif1", "scalared", "sequence", "shortint", "shortreal", "showcancelled", "signed", "small", "solve", "specify", "specparam",
+    "static", "string", "strong0", "strong1", "struct", "super", "supply0", "supply1", "table", "tagged", "task", "this", "throughout",
+    "time", "timeprecision", "timeunit", "tran", "tranif0", "tranif1", "tri", "tri0", "tri1", "triand", "trior", "trireg", "type", "typedef", "union",
+    "unique", "unsigned", "use", "uwire", "var", "vectored", "virtual", "void", "wait", "wait_order", "wand", "weak0", "weak1",
+    "while", "wildcard", "wire", "with", "within", "wor", "xnor", "xor"
+  )
+
+  val reservedKeyWords    = mutable.Set[String]()
+  reservedKeyWords ++= vhdlKeywords
+  reservedKeyWords ++= verilogKeywords
+  reservedKeyWords ++= systemVerilogKeywords
 
   reservedKeyWords.foreach(globalScope.allocateName(_))
 
@@ -152,6 +132,10 @@ class PhaseContext(val config: SpinalConfig) {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkExpressionPostorder(func: Expression => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpressionPostorder(func)))
+  }
+
   def walkDeclarations(func: DeclarationStatement => Unit): Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
@@ -189,7 +173,7 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
-  val verboseLog = new java.io.FileWriter("verbose.log")
+  val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
   def doPhase(phase: Phase): Unit ={
     if(config.verbose) verboseLog.write(s"phase: $phase\n")
@@ -822,7 +806,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wordWidth = mem.getWidth,
           wordCount = mem.wordCount,
           technology = mem.technology,
-          readUnderWrite = dontCare,
+          readUnderWrite = port.readUnderWrite,
           maskWidth = if (port.mask != null) port.mask.getWidth else 1,
           maskEnable = port.mask != null
         )
@@ -852,13 +836,13 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wordWidth = mem.getWidth,
           wordCount = mem.wordCount,
           technology = mem.technology,
-          portA_readUnderWrite = dontCare,
+          portA_readUnderWrite = portA.readUnderWrite,
           portA_clock = portA.clockDomain,
           portA_addressWidth = portA.address.getWidth,
           portA_dataWidth = portA.getWidth,
           portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
           portA_maskEnable = portA.mask != null,
-          portB_readUnderWrite = dontCare,
+          portB_readUnderWrite = portB.readUnderWrite,
           portB_clock = portB.clockDomain,
           portB_addressWidth = portB.address.getWidth,
           portB_dataWidth = portB.getWidth,
@@ -1164,7 +1148,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       var somethingChange = false
 
       //Infer width on all expressions
-      walkExpression {
+      //Use post-order traversal so that a parent node can get the widths of its children before inferring width,
+      // which could help reducing the number of iterations
+      walkExpressionPostorder {
         case e: DeclarationStatement =>
         case e: Widthable =>
           val hasChange = e.inferWidth
@@ -1744,7 +1730,11 @@ class PhaseCheckHiearchy extends PhaseCheck{
         if(!error) s.walkExpression {
           case bt: BaseType =>
             if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              if(bt.component == null || bt.getComponents().head != pc.topLevel){
+                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+              } else {
+                PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              }
             }
           case _ =>
         }
@@ -2176,7 +2166,6 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
 
 
 object SpinalVhdlBoot{
-
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     if(config.debugComponents.nonEmpty){
       return singleShot(config)(gen)
@@ -2213,7 +2202,7 @@ object SpinalVhdlBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
 
@@ -2337,7 +2326,7 @@ object SpinalVerilogBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
+  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
 
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc

@@ -383,15 +383,18 @@ object I2cCtrl {
           }
           whenIsActive {
             when(timer.done) {
-              //            val couldBeEnd =  !inAckState && dataCounter === 0 && !txData.valid
               when(stop && !inAckState) {
+                i2cBuffer.scl.write := False
                 txData.forceDisable := True
                 goto(STOP1)
               } elsewhen (start && !inAckState) {
+                i2cBuffer.scl.write := False
                 txData.forceDisable := True
                 goto(RESTART)
-              } elsewhen (internals.sclRead) {
-                goto(HIGH)
+              } otherwise {
+                when (internals.sclRead) {
+                  goto(HIGH)
+                }
               }
             } otherwise {
               i2cBuffer.scl.write := False

@@ -27,9 +27,16 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
 
     def symbolHasTrait(s: Symbol, name: String): Boolean = {
       s.parentSymbols.exists { p =>
-        (p.name.toString == name && p.enclosingPackage.name.toString == "idslplugin") || symbolHasTrait(p, name)
+        (p.fullName == name) || symbolHasTrait(p, name)
       }
     }
+
+    def typeHasTrait(s: Type, name: String): Boolean = {
+      s.parents.exists { p =>
+        p.toString().toString == name  || typeHasTrait(p, name)
+      }
+    }
+
 
     override def transform(tree: global.Tree): global.Tree = {
       val transformedTree = super.transform(tree)
@@ -37,7 +44,19 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
       transformedTree match {
         case cd: ClassDef => {
           var ret: Tree = cd
-          if (symbolHasTrait(cd.symbol, "ValCallback")) {
+
+          //No io bundle without component trait compilation time check
+          val withIoBundle = cd.impl.body.exists{
+            case vd : ValDef if vd.name.toString == "io " && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => true
+            case _ => false
+          }
+          if(withIoBundle && !symbolHasTrait(cd.symbol, "spinal.core.Component") && !symbolHasTrait(cd.symbol, "spinal.core.Area")){
+            global.globalError(cd.symbol.pos, "MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component")
+          }
+
+
+          //ValCallback management
+          if (symbolHasTrait(cd.symbol, "spinal.idslplugin.ValCallback")) {
             val clazz = cd.impl.symbol.owner
             val func = clazz.tpe.members.find(_.name.toString == "valCallback").get
             val body = cd.impl.body.map {
@@ -70,7 +89,7 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
           if (a.fun.symbol.isConstructor) {
             val sym = a.fun.symbol.enclClass
             val tpe = sym.typeOfThis
-            if (symbolHasTrait(sym, "PostInitCallback")) {
+            if (symbolHasTrait(sym, "spinal.idslplugin.PostInitCallback")) {
               val avoidIt = a match {
                 case Apply(Select(Super(_, _), _), _) => true
                 case Apply(Select(This(_), _), _) => true

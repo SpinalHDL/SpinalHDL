@@ -23,6 +23,7 @@ package spinal.core.internals
 import spinal.core._
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
@@ -37,7 +38,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader(commentSymbol, pc.config.rtlHeader, topLevel, config.headerWithDate))
+    outFile.write(VhdlVerilogBase.getHeader(commentSymbol, pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
     if(pc.config.dumpWave != null) {
       outFile.write("`timescale 1ns/1ps ")
@@ -45,11 +46,15 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
     emitEnumPackage(outFile)
 
+    val componentsText = ArrayBuffer[() => String]()
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
-//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-        compile(c)
+        componentsText += compile(c)
       }
+    }
+
+    for(e <- componentsText.reverse){
+      outFile.write(e())
     }
 
     outFile.flush()
@@ -58,7 +63,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
-  def compile(component: Component): Unit = {
+  def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
       systemVerilog               = pc.config.isSystemVerilog,
@@ -89,18 +94,16 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     val trace = componentBuilderVerilog.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
-    val text = if (oldComponent == null) {
+    if (oldComponent == null) {
       emitedComponent += (trace -> component)
-      componentBuilderVerilog.result
+      () => componentBuilderVerilog.result
     } else {
       emitedComponentRef.put(component, oldComponent)
       val comments = "\n" + component.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n") + "\n"
       val str      =  s"$commentSymbol ${component.definitionName} replaced by ${oldComponent.definitionName}\n"
       component.definitionName = oldComponent.definitionName
-      comments + str
+      () => comments + str
     }
-
-    outFile.write(text)
   }
 
   val emitedComponent    = mutable.Map[ComponentEmitterTrace, Component]()

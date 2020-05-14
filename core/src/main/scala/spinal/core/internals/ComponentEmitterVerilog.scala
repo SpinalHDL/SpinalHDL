@@ -50,15 +50,16 @@ class ComponentEmitterVerilog(
   override def component = c
 
   val portMaps     = ArrayBuffer[String]()
+  val definitionAttributes  = new StringBuilder()
   val declarations = new StringBuilder()
   val logics       = new StringBuilder()
-  def getTrace() = new ComponentEmitterTrace(declarations :: logics :: Nil, portMaps)
+  def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
     s"""
       |${c.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n")}
-      |module ${component.definitionName} (
+      |${definitionAttributes}module ${component.definitionName} (
       |${ports}
       |${declarations}
       |${logics}
@@ -72,7 +73,7 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.last) " " else ","
+      val comma      = if(baseType == component.getOrdredNodeIo.last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -94,6 +95,8 @@ class ComponentEmitterVerilog(
   }
 
   def emitArchitecture(): Unit = {
+    definitionAttributes ++= emitSyntaxAttributes(component.definition.instanceAttributes)
+
     for(mem <- mems){
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
@@ -216,14 +219,16 @@ class ComponentEmitterVerilog(
       val isBBUsingULogic  = isBB && child.asInstanceOf[BlackBox].isUsingULogic
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
-      logics ++= s"  $definitionString "
+      val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
+
+      logics ++= s"  $instanceAttributes$definitionString "
 
       if (isBB) {
         val bb = child.asInstanceOf[BlackBox]
         val genericFlat = bb.genericElements
 
         if (genericFlat.nonEmpty) {
-          logics ++= s"#( \n"
+          logics ++= s"#(\n"
           for (e <- genericFlat) {
             e match {
               case (name: String, bt: BaseType) => logics ++= s"    .${name}(${emitExpression(bt.getTag(classOf[GenericValue]).get.e)}),\n"
@@ -263,7 +268,7 @@ class ComponentEmitterVerilog(
 //        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
 //      }
 
-      logics ++= s"${child.getName()} ( \n"
+      logics ++= s"${child.getName()} (\n"
 
       val instports: String = child.getOrdredNodeIo.map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
@@ -649,7 +654,8 @@ class ComponentEmitterVerilog(
 
                 case _ => {
                   def emitIsCond(that: Expression): String = that match {
-                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
+                    case e: BitVectorLiteral => emitBitVectorLiteral(e)
+//                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
                     case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
                     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
                   }
@@ -1115,7 +1121,7 @@ end
     def onEachExpression(e: Expression): Unit = {
       e match {
         case node: SubAccess => applyTo(node.getBitVector)
-        case node: Resize => applyTo(node.input)
+        case node: Resize    => applyTo(node.input)
         case _               =>
       }
     }
@@ -1227,7 +1233,7 @@ end
     if(e.getWidth > 4){
       s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
-      s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
+      s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
     }
   }
 
@@ -1305,16 +1311,16 @@ end
 
     case  e: Operator.UInt.Equal                      => operatorImplAsBinaryOperator("==")(e)
     case  e: Operator.UInt.NotEqual                   => operatorImplAsBinaryOperator("!=")(e)
-    case  e: Operator.UInt.Smaller                    =>  operatorImplAsBinaryOperator("<")(e)
+    case  e: Operator.UInt.Smaller                    => operatorImplAsBinaryOperator("<")(e)
     case  e: Operator.UInt.SmallerOrEqual             => operatorImplAsBinaryOperator("<=")(e)
 
     case  e: Operator.UInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.UInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.UInt.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
     case  e: Operator.UInt.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
-    case  e: Operator.UInt.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
-    case  e: Operator.UInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.UInt.ShiftRightByIntFixedWidth  => shiftRightByIntFixedWidthImpl(e)
+    case  e: Operator.UInt.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.UInt.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperator("<<<")(e)
 
     //signed
     case  e: Operator.SInt.Add                        => operatorImplAsBinaryOperatorSigned("+")(e)
@@ -1337,10 +1343,10 @@ end
     case  e: Operator.SInt.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.SInt.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.SInt.ShiftRightByUInt           => operatorImplAsBinaryOperatorLeftSigned(">>>")(e)
-    case  e: Operator.SInt.ShiftLeftByUInt            =>  shiftLeftByUIntImplSigned(e)
-    case  e: Operator.SInt.ShiftRightByIntFixedWidth  =>  shiftRightSignedByIntFixedWidthImpl(e)
-    case  e: Operator.SInt.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
+    case  e: Operator.SInt.ShiftLeftByUInt            => shiftLeftByUIntImplSigned(e)
+    case  e: Operator.SInt.ShiftRightByIntFixedWidth  => shiftRightSignedByIntFixedWidthImpl(e)
+    case  e: Operator.SInt.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.SInt.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
 
     //bits
     case  e: Operator.Bits.Cat                        => operatorImplAsCat(e)
@@ -1354,10 +1360,10 @@ end
     case  e: Operator.Bits.ShiftRightByInt            => shiftRightByIntImpl(e)
     case  e: Operator.Bits.ShiftLeftByInt             => shiftLeftByIntImpl(e)
     case  e: Operator.Bits.ShiftRightByUInt           => operatorImplAsBinaryOperator(">>>")(e)
-    case  e: Operator.Bits.ShiftLeftByUInt            =>  shiftLeftByUIntImpl(e)
-    case  e: Operator.Bits.ShiftRightByIntFixedWidth  =>  shiftRightByIntFixedWidthImpl(e)
-    case  e: Operator.Bits.ShiftLeftByIntFixedWidth   =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e: Operator.Bits.ShiftLeftByUInt            => shiftLeftByUIntImpl(e)
+    case  e: Operator.Bits.ShiftRightByIntFixedWidth  => shiftRightByIntFixedWidthImpl(e)
+    case  e: Operator.Bits.ShiftLeftByIntFixedWidth   => shiftLeftByIntFixedWidthImpl(e)
+    case  e: Operator.Bits.ShiftLeftByUIntFixedWidth  => operatorImplAsBinaryOperator("<<<")(e)
 
     //bool
     case  e: Operator.Bool.Equal                      => operatorImplAsBinaryOperator("==")(e)

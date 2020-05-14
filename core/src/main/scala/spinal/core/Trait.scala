@@ -208,8 +208,6 @@ class GlobalData(val config : SpinalConfig) {
 
 
   val userDatabase      = mutable.LinkedHashMap[Any, Any]()
-
-  val scopeProperties   = mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]()
 }
 
 
@@ -405,6 +403,11 @@ trait Nameable extends OwnableRef with ContextUser{
       case null =>  throw new Exception("Internal error")
       case name =>  name
     }
+  }
+
+  def setNameAsWeak(): this.type ={
+    namePriority = 0
+    this
   }
 
   def isPriorityApplicable(namePriority: Byte): Boolean = namePriority match{
@@ -756,6 +759,20 @@ trait OverridedEqualsHashCode{
   * @tparam T the type which is associated with the base operation
   */
 trait Num[T <: Data] {
+
+  private[core] var Qtag: QFormat = null
+
+  def Q: QFormat = Qtag
+
+  def tag(q: QFormat): T
+
+  private[core] def getfixSection(q: QFormat): Range.Inclusive = {
+    require(this.Q != null, "init QFormat first")
+    require(this.Q.fraction >= q.fraction, "fraction part exceed")
+    val lpos = Q.fraction - q.fraction
+    val hpos = lpos + q.width - 1
+    hpos downto lpos
+  }
 
   /** Addition */
   def + (right: T): T

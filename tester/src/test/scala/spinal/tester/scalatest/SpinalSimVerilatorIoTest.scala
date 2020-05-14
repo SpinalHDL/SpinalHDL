@@ -58,12 +58,7 @@ object SpinalSimVerilatorIoTest{
     val signeds = List(io.s1, io.s8, io.s16, io.s31, io.s32, io.s63, io.s64, io.s65, io.s127, io.s128)
     val unsigneds = List( io.u1, io.u8, io.u16, io.u31, io.u32, io.u63, io.u64, io.u65, io.u127, io.u128)
     io.sum := signeds.map(_.resize(widthOf(io.sum))).reduce(_ + _) + unsigneds.map(_.resize(widthOf(io.sum)).asSInt).reduce(_ + _)
-    val sub = new Component{
-      val x = False
-      val subsub = new Component{
-        val x = False
-      }
-    }
+
 
     val miaou = out(Reg(Bits(128 bits)))
     miaou := 42
@@ -74,165 +69,169 @@ object SpinalSimVerilatorIoTest{
 }
 
 class SpinalSimVerilatorIoTest extends FunSuite {
-  var compiled : SimCompiled[SpinalSimVerilatorIoTestTop] = null
-  def doTest: Unit ={
-    compiled.doSim{ dut =>
-      def checkBoolean(value : Boolean, that : Bool): Unit ={
-        that #= value
-        sleep(1)
-        assert(that.toBoolean == value, that.getName() + " " + value)
-      }
+  SpinalSimTester { env =>
+    import env._
+    var compiled: SimCompiled[SpinalSimVerilatorIoTestTop] = null
 
-      def checkInt(value : Int, that : BitVector): Unit ={
-        that #= value
-        sleep(1)
-        assert(that.toInt == value, that.getName() + " " + value)
-      }
-
-      def checkLong(value : Long, that : BitVector): Unit ={
-        that #= value
-        sleep(1)
-        assert(that.toLong == value, that.getName() + " " + value)
-      }
-
-      def checkBigInt(value : BigInt, that : BitVector): Unit ={
-        that #= value
-        sleep(1)
-        assert(that.toBigInt == value, that.getName() + " " + value)
-      }
-
-      fork{
-        while(true) {
+    def doTest: Unit = {
+      compiled.doSim { dut =>
+        def checkBoolean(value: Boolean, that: Bool): Unit = {
+          that #= value
           sleep(1)
-          assert(dut.signeds.map(_.toBigInt).reduce(_ + _) + dut.unsigneds.map(_.toBigInt).reduce(_ + _)  == dut.io.sum.toBigInt)
+          assert(that.toBoolean == value, that.getName() + " " + value)
         }
-      }
 
+        def checkInt(value: Int, that: BitVector): Unit = {
+          that #= value
+          sleep(1)
+          assert(that.toInt == value, that.getName() + " " + value)
+        }
 
-      (0 to 19).foreach { e =>
-        List(false, true).foreach(value => checkBoolean(value, dut.io.bool))
+        def checkLong(value: Long, that: BitVector): Unit = {
+          that #= value
+          sleep(1)
+          assert(that.toLong == value, that.getName() + " " + value)
+        }
 
-        //checkInt
-        List(0, 1).foreach(value => checkInt(value, dut.io.u1))
-        List(0, 1, 127, 255).foreach(value => checkInt(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreach(value => checkInt(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreach(value => checkInt(value, dut.io.u31))
+        def checkBigInt(value: BigInt, that: BitVector): Unit = {
+          that #= value
+          sleep(1)
+          assert(that.toBigInt == value, that.getName() + " " + value)
+        }
 
-        List(0, -1).foreach(value => checkInt(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreach(value => checkInt(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkInt(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkInt(value, dut.io.s32))
-
-        //checkLong
-        List(0, 1).foreach(value => checkLong(value, dut.io.u1))
-        List(0, 1, 127, 255).foreach(value => checkLong(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreach(value => checkLong(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreach(value => checkLong(value, dut.io.u32))
-        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreach(value => checkLong(value, dut.io.u63))
-
-        List(0, -1).foreach(value => checkLong(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreach(value => checkLong(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkLong(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkLong(value, dut.io.s32))
-        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreach(value => checkLong(value, dut.io.s64))
-
-        //checkBigInt
-        List(0, 1).foreach(value => checkBigInt(value, dut.io.u1))
-        List(0, 1, 127, 255).foreach(value => checkBigInt(value, dut.io.u8))
-        List(0, 1, 0xFFFF).foreach(value => checkBigInt(value, dut.io.u16))
-        List(0, 1, 0x7FFFFFFF).foreach(value => checkBigInt(value, dut.io.u32))
-        List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreach(value => checkBigInt(value, dut.io.u63))
-
-        List(0, -1).foreach(value => checkBigInt(value, dut.io.s1))
-        List(0, 1, -1, 127, -128).foreach(value => checkBigInt(value, dut.io.s8))
-        List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkBigInt(value, dut.io.s16))
-        List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkBigInt(value, dut.io.s32))
-        List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreach(value => checkBigInt(value, dut.io.s64))
-
-        forkJoin(
-          () => Random.shuffle((0 to 1 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u1)),
-          () => Random.shuffle((0 to 8 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u8)),
-          () => Random.shuffle((0 to 16 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u16)),
-          () => Random.shuffle((0 to 31 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u31)),
-          () => Random.shuffle((0 to 32 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u32)),
-          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u63)),
-          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u64)),
-          () => Random.shuffle((0 to 65)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u65)),
-          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u127)),
-          () => Random.shuffle((0 to 128)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u128)),
-          () => Random.shuffle((0 to 1  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s1)),
-          () => Random.shuffle((0 to 8  - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s8)),
-          () => Random.shuffle((0 to 16 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s16)),
-          () => Random.shuffle((0 to 31 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s31)),
-          () => Random.shuffle((0 to 32 - 1 )).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s32)),
-          () => Random.shuffle((0 to 62)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s63)),
-          () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s64)),
-          () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s65)),
-          () => Random.shuffle((0 to 126)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s127)),
-          () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s128))
-        )
-
-        forkJoin(
-          () => Random.shuffle((0 to 1  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s1 )),
-          () => Random.shuffle((0 to 8  - 1)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s8 )),
-          () => Random.shuffle((0 to 16 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s16)),
-          () => Random.shuffle((0 to 31 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s31)),
-          () => Random.shuffle((0 to 32 - 1 )).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s32)),
-          () => Random.shuffle((0 to 62)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s63)),
-          () => Random.shuffle((0 to 63)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s64)),
-          () => Random.shuffle((0 to 64)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s65)),
-          () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s127)),
-          () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) -1).foreach(value => checkBigInt(value, dut.io.s128))
-        )
-
-
-        import SpinalSimVerilatorIoTest._
-        def newEnumTest(test : newEnumTest) = {
-          for(i <- 0 until 40){
-            val e = State.elements(Random.nextInt(State.elements.length))
-            test.stateInput #= e
+        fork {
+          dut.signeds.foreach(_ #= 0)
+          dut.unsigneds.foreach(_ #= 0)
+          while (true) {
             sleep(1)
-            assert(test.stateOutput.toEnum == e)
-            assert(test.stateDecoded.toInt == (1 << e.position))
-    
+            assert(dut.signeds.map(_.toBigInt).reduce(_ + _) + dut.unsigneds.map(_.toBigInt).reduce(_ + _) == dut.io.sum.toBigInt)
           }
         }
 
-        newEnumTest(dut.nativeEncoding)
-        newEnumTest(dut.binaryOneHotEncoding)
-        newEnumTest(dut.binarySequentialEncoding)
+
+        (0 to 19).foreach { e =>
+          List(false, true).foreach(value => checkBoolean(value, dut.io.bool))
+
+          //checkInt
+          List(0, 1).foreach(value => checkInt(value, dut.io.u1))
+          List(0, 1, 127, 255).foreach(value => checkInt(value, dut.io.u8))
+          List(0, 1, 0xFFFF).foreach(value => checkInt(value, dut.io.u16))
+          List(0, 1, 0x7FFFFFFF).foreach(value => checkInt(value, dut.io.u31))
+
+          List(0, -1).foreach(value => checkInt(value, dut.io.s1))
+          List(0, 1, -1, 127, -128).foreach(value => checkInt(value, dut.io.s8))
+          List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkInt(value, dut.io.s16))
+          List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkInt(value, dut.io.s32))
+
+          //checkLong
+          List(0, 1).foreach(value => checkLong(value, dut.io.u1))
+          List(0, 1, 127, 255).foreach(value => checkLong(value, dut.io.u8))
+          List(0, 1, 0xFFFF).foreach(value => checkLong(value, dut.io.u16))
+          List(0, 1, 0x7FFFFFFF).foreach(value => checkLong(value, dut.io.u32))
+          List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreach(value => checkLong(value, dut.io.u63))
+
+          List(0, -1).foreach(value => checkLong(value, dut.io.s1))
+          List(0, 1, -1, 127, -128).foreach(value => checkLong(value, dut.io.s8))
+          List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkLong(value, dut.io.s16))
+          List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkLong(value, dut.io.s32))
+          List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreach(value => checkLong(value, dut.io.s64))
+
+          //checkBigInt
+          List(0, 1).foreach(value => checkBigInt(value, dut.io.u1))
+          List(0, 1, 127, 255).foreach(value => checkBigInt(value, dut.io.u8))
+          List(0, 1, 0xFFFF).foreach(value => checkBigInt(value, dut.io.u16))
+          List(0, 1, 0x7FFFFFFF).foreach(value => checkBigInt(value, dut.io.u32))
+          List(0l, 1l, 0x7FFFFFFFFFFFFFFFl).foreach(value => checkBigInt(value, dut.io.u63))
+
+          List(0, -1).foreach(value => checkBigInt(value, dut.io.s1))
+          List(0, 1, -1, 127, -128).foreach(value => checkBigInt(value, dut.io.s8))
+          List(0, 1, -1, Short.MaxValue, Short.MinValue).foreach(value => checkBigInt(value, dut.io.s16))
+          List(0, 1, -1, 0xFFFFFFFF, -1, Int.MaxValue, Int.MinValue).foreach(value => checkBigInt(value, dut.io.s32))
+          List(0l, 1l, 0xFFFFFFFFFFFFFFFFl, -1l, Long.MaxValue, Long.MinValue).foreach(value => checkBigInt(value, dut.io.s64))
+
+          forkJoin(
+            () => Random.shuffle((0 to 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u1)),
+            () => Random.shuffle((0 to 8)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u8)),
+            () => Random.shuffle((0 to 16)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u16)),
+            () => Random.shuffle((0 to 31)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u31)),
+            () => Random.shuffle((0 to 32)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u32)),
+            () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u63)),
+            () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u64)),
+            () => Random.shuffle((0 to 65)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u65)),
+            () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u127)),
+            () => Random.shuffle((0 to 128)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.u128)),
+            () => Random.shuffle((0 to 1 - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s1)),
+            () => Random.shuffle((0 to 8 - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s8)),
+            () => Random.shuffle((0 to 16 - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s16)),
+            () => Random.shuffle((0 to 31 - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s31)),
+            () => Random.shuffle((0 to 32 - 1)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s32)),
+            () => Random.shuffle((0 to 62)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s63)),
+            () => Random.shuffle((0 to 63)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s64)),
+            () => Random.shuffle((0 to 64)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s65)),
+            () => Random.shuffle((0 to 126)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s127)),
+            () => Random.shuffle((0 to 127)).map(n => BigInt("0" + "1" * n, 2)).foreach(value => checkBigInt(value, dut.io.s128))
+          )
+
+          forkJoin(
+            () => Random.shuffle((0 to 1 - 1)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s1)),
+            () => Random.shuffle((0 to 8 - 1)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s8)),
+            () => Random.shuffle((0 to 16 - 1)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s16)),
+            () => Random.shuffle((0 to 31 - 1)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s31)),
+            () => Random.shuffle((0 to 32 - 1)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s32)),
+            () => Random.shuffle((0 to 62)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s63)),
+            () => Random.shuffle((0 to 63)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s64)),
+            () => Random.shuffle((0 to 64)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s65)),
+            () => Random.shuffle((0 to 126)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s127)),
+            () => Random.shuffle((0 to 127)).map(n => -BigInt("0" + "1" * n, 2) - 1).foreach(value => checkBigInt(value, dut.io.s128))
+          )
+
+
+          import SpinalSimVerilatorIoTest._
+          def newEnumTest(test: newEnumTest) = {
+            for (i <- 0 until 40) {
+              val e = State.elements(Random.nextInt(State.elements.length))
+              test.stateInput #= e
+              sleep(1)
+              assert(test.stateOutput.toEnum == e)
+              assert(test.stateDecoded.toInt == (1 << e.position))
+
+            }
+          }
+
+          newEnumTest(dut.nativeEncoding)
+          newEnumTest(dut.binaryOneHotEncoding)
+          newEnumTest(dut.binarySequentialEncoding)
+        }
       }
     }
-  }
 
-  test("compile"){
-    compiled = SimConfig.compile(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop)
-  }
-
-  test("test1") {
-    doTest
-  }
-  test("test2") {
-    doTest
-  }
-  test("test3") {
-    doTest
-  }
-
-
-  test("testMulticore") {
-    import scala.concurrent.ExecutionContext.Implicits.global
-
-    val futures = for(i <- 0 to 15) yield {
-      Future{
-        doTest
-      }
+    test(prefix + "compile") {
+      compiled = SimConfig.compile(new SpinalSimVerilatorIoTest.SpinalSimVerilatorIoTestTop)
     }
-    import scala.concurrent.duration._
 
-    futures.foreach(f => Await.result(f,30 seconds))
+    test(prefix + "test1") {
+      doTest
+    }
+    test(prefix + "test2") {
+      doTest
+    }
+    test(prefix + "test3") {
+      doTest
+    }
+
+
+    test(prefix + "testMulticore") {
+      import scala.concurrent.ExecutionContext.Implicits.global
+
+      val futures = for (i <- 0 to 15) yield {
+        Future {
+          doTest
+        }
+      }
+      import scala.concurrent.duration._
+
+      futures.foreach(f => Await.result(f, 30 seconds))
+    }
+
   }
-
-
-
 }
