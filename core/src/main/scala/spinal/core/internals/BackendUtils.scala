@@ -48,4 +48,8 @@ object VhdlVerilogBase{
 }
 
 
-trait VhdlVerilogBase{}
+trait VhdlVerilogBase{
+
+  /** Symbol used to add comments in the rtl file */
+  def commentSymbol: String
+}

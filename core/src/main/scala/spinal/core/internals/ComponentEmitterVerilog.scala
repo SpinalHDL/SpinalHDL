@@ -41,7 +41,8 @@ class ComponentEmitterVerilog(
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
   pc                                 : PhaseContext,
-  spinalConfig                       : SpinalConfig
+  spinalConfig                       : SpinalConfig,
+  commentSymbol                      : String
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -56,6 +57,7 @@ class ComponentEmitterVerilog(
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
     s"""
+      |${c.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n")}
       |module ${component.definitionName} (
       |${ports}
       |${declarations}
@@ -273,7 +275,7 @@ class ComponentEmitterVerilog(
           case spinal.core.inout                         => "~"
           case _  => SpinalError("Not founded IO type")
         }
-        s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
+        s"    .${portAlign}    (${wireAlign}  )${comma} $commentSymbol ${dirtag}\n"
       }.mkString
 
       logics ++= instports

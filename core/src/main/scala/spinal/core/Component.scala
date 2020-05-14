@@ -22,7 +22,7 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashSet}
 import spinal.core.internals._
 import spinal.idslplugin.PostInitCallback
 
@@ -312,4 +312,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
     null
   }
+
+  /**
+    * User can add comment in the rtl file generated on the top of the component
+    */
+  val rtlComments = new LinkedHashSet[String]()
+  def addComment(comment: String) = rtlComments += comment
+
 }

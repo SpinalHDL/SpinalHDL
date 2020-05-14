@@ -28,6 +28,8 @@ import scala.collection.mutable
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
   import pc._
 
+  override def commentSymbol: String = "//"
+
   var outFile: java.io.FileWriter = null
   def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
 
@@ -35,7 +37,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate))
+    outFile.write(VhdlVerilogBase.getHeader(commentSymbol, pc.config.rtlHeader, topLevel, config.headerWithDate))
 
     if(pc.config.dumpWave != null) {
       outFile.write("`timescale 1ns/1ps ")
@@ -70,7 +72,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
-      pc                          = pc
+      pc                          = pc,
+      commentSymbol               = commentSymbol
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {
@@ -91,9 +94,10 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       componentBuilderVerilog.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      val str =  s"//${component.definitionName} replaced by ${oldComponent.definitionName}\n"
+      val comments = "\n" + component.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n") + "\n"
+      val str      =  s"$commentSymbol ${component.definitionName} replaced by ${oldComponent.definitionName}\n"
       component.definitionName = oldComponent.definitionName
-      str
+      comments + str
     }
 
     outFile.write(text)

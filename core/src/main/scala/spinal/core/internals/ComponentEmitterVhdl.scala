@@ -35,7 +35,8 @@ class ComponentEmitterVhdl(
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component],
-  pc                                 : PhaseContext
+  pc                                 : PhaseContext,
+  commentSymbol                      : String
 ) extends ComponentEmitter{
 
   import vhdlBase._
@@ -70,6 +71,7 @@ class ComponentEmitterVhdl(
 
     emitLibrary(ret)
 
+    ret ++= c.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n")
 
     ret ++= s"\nentity ${c.definitionName} is\n"
     ret ++= s"  port("

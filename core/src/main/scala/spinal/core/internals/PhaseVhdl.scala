@@ -29,6 +29,8 @@ import scala.collection.mutable.ArrayBuffer
 class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VhdlBase {
   import pc._
 
+  override def commentSymbol: String = "--"
+
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {
@@ -38,7 +40,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate))
+    outFile.write(VhdlVerilogBase.getHeader(commentSymbol, pc.config.rtlHeader, topLevel, config.headerWithDate))
     emitEnumPackage(outFile)
 
     if(pc.config.genVhdlPkg)
@@ -66,7 +68,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       asyncResetCombSensitivity = config.asyncResetCombSensitivity,
       anonymSignalPrefix        = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       emitedComponentRef        = emitedComponentRef,
-      pc                        = pc
+      pc                        = pc,
+      commentSymbol             = commentSymbol
     )
 
     val trace = componentBuilderVhdl.getTrace()
@@ -77,9 +80,10 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       componentBuilderVhdl.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      val str =  s"\n--${component.definitionName} remplaced by ${oldComponent.definitionName}\n\n"
+      val comments =  component.rtlComments.map(_.split("\n")).flatten.map(comment => f"$commentSymbol $comment").mkString("\n")
+      val str      =  s"\n$commentSymbol ${component.definitionName} remplaced by ${oldComponent.definitionName}\n\n"
       component.definitionName = oldComponent.definitionName
-      str
+      comments + str
     }
 
     outFile.write(text)
@@ -330,7 +334,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= s"package body $packageName is\n"
     ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
     ret ++= "\n"
-    ret ++= "  -- unsigned shifts\n"
+    ret ++= s"  $commentSymbol unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
     ret ++= "  begin\n"
     ret ++= "    if size >= that'length then\n"
@@ -356,7 +360,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
     ret ++= "\n"
-    ret ++= "  -- std_logic_vector shifts\n"
+    ret ++= s"  $commentSymbol std_logic_vector shifts\n"
     ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector is\n"
     ret ++= "  begin\n"
     ret ++= "    return std_logic_vector(pkg_shiftRight(unsigned(that),size));\n"
@@ -377,7 +381,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
-    ret ++= "  -- signed shifts\n"
+    ret ++= s"  $commentSymbol signed shifts\n"
     ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed is\n"
     ret ++= "  begin\n"
     ret ++= "    return signed(pkg_shiftRight(unsigned(that),size));\n"
