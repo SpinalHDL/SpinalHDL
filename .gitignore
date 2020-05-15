@@ -53,6 +53,9 @@ log.txt
 *.vpi
 *.vpl
 
+sim/yolo/adder
+sim/yolo/shmem_name
+
 /tester/**/*.gtkw
 *.do
 

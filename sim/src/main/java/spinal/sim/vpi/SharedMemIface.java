@@ -76,6 +76,34 @@ public class SharedMemIface {
     JNISharedMemIfaceJNI.SharedMemIface_write32(swigCPtr, this, handle, data);
   }
 
+  public VectorInt8 read_mem(long handle, long index) {
+    return new VectorInt8(JNISharedMemIfaceJNI.SharedMemIface_read_mem__SWIG_0(swigCPtr, this, handle, index), true);
+  }
+
+  public void read_mem(long handle, VectorInt8 data, long index) {
+    JNISharedMemIfaceJNI.SharedMemIface_read_mem__SWIG_1(swigCPtr, this, handle, VectorInt8.getCPtr(data), data, index);
+  }
+
+  public long read64_mem(long handle, long index) {
+    return JNISharedMemIfaceJNI.SharedMemIface_read64_mem(swigCPtr, this, handle, index);
+  }
+
+  public int read32_mem(long handle, long index) {
+    return JNISharedMemIfaceJNI.SharedMemIface_read32_mem(swigCPtr, this, handle, index);
+  }
+
+  public void write_mem(long handle, VectorInt8 data, long index) {
+    JNISharedMemIfaceJNI.SharedMemIface_write_mem(swigCPtr, this, handle, VectorInt8.getCPtr(data), data, index);
+  }
+
+  public void write64_mem(long handle, long data, long index) {
+    JNISharedMemIfaceJNI.SharedMemIface_write64_mem(swigCPtr, this, handle, data, index);
+  }
+
+  public void write32_mem(long handle, int data, long index) {
+    JNISharedMemIfaceJNI.SharedMemIface_write32_mem(swigCPtr, this, handle, data, index);
+  }
+
   public void sleep(long sleep_cycles) {
     JNISharedMemIfaceJNI.SharedMemIface_sleep(swigCPtr, this, sleep_cycles);
   }

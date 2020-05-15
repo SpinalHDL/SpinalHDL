@@ -58,6 +58,14 @@ class SimVerilator(backend : VerilatorBackend, handle : Long) extends SimRaw(){
     }
   }
 
+  def getIntMem(signal : Signal, index : Long) : Int = { 0 }
+  def setIntMem(signal : Signal, value : Int, index : Long) {}
+  def getLongMem(signal : Signal, index : Long) : Long = { 0 }
+  def setLongMem(signal : Signal, value : Long, index : Long) {}
+  def getBigIntMem(signal : Signal, index : Long) : BigInt = { 0 }
+  def setBigIntMem(signal : Signal, value : BigInt, index : Long) {}
+
+
   override def eval() : Boolean = backend.nativeInstance.eval(handle)
   override def sleep(cycles : Long) = backend.nativeInstance.sleep(handle, cycles)
   override def end() = backend.nativeInstance.deleteHandle(handle)

@@ -66,8 +66,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   else "linux"))}"
 
   class Logger extends ProcessLogger { 
-    override def err(s: => String): Unit = { if(logSimProcess) println(s) }
-    override def out(s: => String): Unit = { if(logSimProcess) println(s) }
+    override def err(s: => String): Unit = { if(!logSimProcess) println(s) }
+    override def out(s: => String): Unit = { if(!logSimProcess) println(s) }
     override def buffer[T](f: => T) = f
   }
 
