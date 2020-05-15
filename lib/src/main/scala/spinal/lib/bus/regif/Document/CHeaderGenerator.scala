@@ -1,10 +1,9 @@
 package spinal.lib.bus.regif.Document
 
-import spinal.lib.bus.regif.BusIfVisitor
-import java.io.PrintWriter
 import spinal.core.GlobalData
+import spinal.lib.bus.regif._
 import scala.collection.mutable
-import spinal.lib.bus.regif.AccessType
+import java.io.PrintWriter
 
 final case class CHeaderGenerator(
     fileName : String,
@@ -14,23 +13,25 @@ final case class CHeaderGenerator(
         
     case class Reg(name : String, addr : Long)
     case class Field(name : String, width : Long, accessType : AccessType)
-    case class Type(name : String, var fields : List[Field])
+    case class Type(name : String, var fields : List[FieldDescr])
 
     val guardName : String = s"${prefix}_REGIF_H"
-    val regs : mutable.ListBuffer[Reg] = mutable.ListBuffer[Reg]()
+    val regs : mutable.ListBuffer[RegDescr] = mutable.ListBuffer[RegDescr]()
     val types : mutable.ListBuffer[Type] = mutable.ListBuffer[Type]()
-    val fields : mutable.ListBuffer[Field] = mutable.ListBuffer[Field]()
-    var curType : Type = null
     var regLength : Int = 0
     var addrLength : Int = 0
     
     def begin(busDataWidth : Int) : Unit = {
 
     }
-    
-    def reg(name : String, addr : Long) : Unit = {
-        def nameLen = name.length()
-        def len = scala.math.log(addr) / scala.math.log(16) + 1
+
+    def visit(descr : FifoDescr)  : Unit = {
+
+    }
+
+    def visit(descr : RegDescr) : Unit = {
+        def nameLen = descr.getName.length()
+        def len = scala.math.log(descr.getAddr) / scala.math.log(16) + 1
 
         if(nameLen > regLength)
             regLength = nameLen
@@ -38,18 +39,8 @@ final case class CHeaderGenerator(
         if(len > addrLength)
             addrLength = len.toInt
 
-        regs += Reg(name.toUpperCase().replaceAll("\\s", "_"), addr)
-
-        if(curType != null) {
-            curType.fields = fields.toList
-            types += curType
-        }
-        curType = Type(name, null)
-        fields.clear
-    }
-    
-    def field(name : String, width : Int, accessType : AccessType, resetValue : Long, doc : String) : Unit = {
-        fields += Field(name, width, accessType)
+        regs += descr
+        types += Type(descr.getName, descr.getFieldDescrs)
     }
     
     def end() : Unit = {
@@ -68,10 +59,10 @@ final case class CHeaderGenerator(
                 |""".stripMargin)
         
         for(reg <- regs) {
-            pw.write(s"#define ${prefix.toUpperCase()}_${reg.name} ")
-            pw.write(" " * (regLength - reg.name.length))
+            pw.write(s"#define ${prefix.toUpperCase()}_${reg.getName.toUpperCase()} ")
+            pw.write(" " * (regLength - reg.getName.length))
             pw.write("0x")
-            pw.print(reg.addr.formatted(s"%0${addrLength}x"))
+            pw.print(reg.getAddr.formatted(s"%0${addrLength}x"))
             pw.println()
         }
         pw.println()
@@ -79,24 +70,24 @@ final case class CHeaderGenerator(
         for(t <- types) {
             val naName = "reserved_"
             var i = -1
-            val len = math.max(naName.length + 1, t.fields.map(_.name.length()).fold(0)(math.max(_, _)))
+            val len = math.max(naName.length + 1, t.fields.map(_.getName.length()).fold(0)(math.max(_, _)))
 
             pw.println("typedef union {")
 
             pw.println(s"\t$regType val;")
 
             pw.println("\tstruct {")
-            fields.foreach( f => {
-                val name = f.accessType match {
+            t.fields.foreach( f => {
+                val name = f.getAccessType match {
                     case AccessType.NA => {
                         i += 1
                         s"reserved_${i}"
                     }
-                    case default => f.name
+                    case default => f.getName
                 }
                 pw.write(s"\t\t$regType ${name} ")
                 pw.write(" " * (len - name.length))                
-                pw.println(s": ${f.width.formatted("%2d")};")
+                pw.println(s": ${f.getWidth.formatted("%2d")};")
             })
 
             pw.println("\t} reg;")

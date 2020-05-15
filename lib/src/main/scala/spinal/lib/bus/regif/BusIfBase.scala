@@ -9,14 +9,6 @@ import language.experimental.macros
 
 import scala.collection.mutable.ListBuffer
 
-trait  BusIfVisitor {
-  def begin(busDataWidth : Int) : Unit
-  def reg(name : String, addr : Long) : Unit
-  def field(name : String, width : Int, accessType : AccessType,
-            resetValue : Long, doc : String) : Unit
-  def end() : Unit
-}
-
 trait BusIfBase extends Area{
   val askWrite: Bool
   val askRead: Bool

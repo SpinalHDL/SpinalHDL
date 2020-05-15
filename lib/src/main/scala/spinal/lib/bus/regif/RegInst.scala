@@ -21,7 +21,7 @@ object Section{
 }
 
 
-case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) {
+case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends RamDescr {
   private var Rerror: Boolean = false
   def readErrorTag = Rerror
 
@@ -38,13 +38,24 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) {
   val hitDoRead  = hitRead && busif.doRead
   val hitDoWrite = hitWrite && busif.doWrite
 
+  // RamDescr implementation
+  def getName()        : String = name
+  def getDoc()         : String = ""
 }
 
-class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) {
+class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
 
+  // FifoDescr implementation
+  def getName()        : String = name
+  def getAddr()        : Long   = addr
+  def getDoc()         : String = doc
+
+  def accept(vs : BusIfVisitor) = {
+      vs.visit(this)
+  }
 }
 
-case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif){
+case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
     spareNumbers match {
@@ -116,6 +127,16 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
 
   def reserved(bc: BitCount): Bits = {
     field(bc, AccessType.NA)(SymbolName("reserved"))
+  }
+
+  // RegDescr implementation
+  def getName()        : String           = name
+  def getAddr()        : Long             = addr
+  def getDoc()         : String           = doc
+  def getFieldDescrs() : List[FieldDescr] = getFields
+
+  def accept(vs : BusIfVisitor) = {
+      vs.visit(this)
   }
 }
 
@@ -297,11 +318,5 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     Bits(bc).clearAll()
   }
 
-  def accept(vs : BusIfVisitor) = {
-      vs.reg(name, addr)
-
-      for(field <- getFields) {
-        field.accept(vs)
-      }
-  }
+  def accept(vs : BusIfVisitor)
 }

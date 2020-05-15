@@ -8,11 +8,14 @@ case class Field(name: String,
                  accType: AccessType,
                  resetValue: Long,
                  readError: Boolean,
-                 doc: String){
+                 doc: String) extends FieldDescr {
 
   def tailBitPos = section.max
 
-  def accept(vs : BusIfVisitor) = {
-      vs.field(name, hardbit.getWidth, accType, resetValue, doc)
-  }
+  // FieldDescr implementation
+  def getName()       : String     = name
+  def getWidth()      : Long       = hardbit.getWidth
+  def getAccessType() : AccessType = accType
+  def getResetValue() : Long       = resetValue
+  def getDoc()        : String     = doc
 }
