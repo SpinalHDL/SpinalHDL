@@ -11,8 +11,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
 
-
-
 class VerilatorBackendConfig{
   var signals                = ArrayBuffer[Signal]()
   var optimisationLevel: Int = 2
@@ -26,9 +24,6 @@ class VerilatorBackendConfig{
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
 }
-
-
-
 
 class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   import Backend._
@@ -69,105 +64,133 @@ public:
   virtual ~ISignalAccess() {}
 
   virtual void getAU8(JNIEnv *env, jbyteArray value) {}
+  virtual void getAU8_mem(JNIEnv *env, jbyteArray value, size_t index) {}
   virtual void setAU8(JNIEnv *env, jbyteArray value, int length) {}
+  virtual void setAU8_mem(JNIEnv *env, jbyteArray value, int length, size_t index) {}
 
   virtual uint64_t getU64() = 0;
+  virtual uint64_t getU64_mem(size_t index) = 0;
   virtual void setU64(uint64_t value) = 0;
+  virtual void setU64_mem(uint64_t value, size_t index) = 0;
 };
 
 class  CDataSignalAccess : public ISignalAccess{
 public:
     CData *raw;
-    CDataSignalAccess(CData *raw) : raw(raw){
-
-    }
+    CDataSignalAccess(CData *raw) : raw(raw){}
+    CDataSignalAccess(CData **raw) : raw(*raw){}
     uint64_t getU64() {return *raw;}
+    uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
+    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
 };
 
 
 class  SDataSignalAccess : public ISignalAccess{
 public:
     SData *raw;
-    SDataSignalAccess(SData *raw) : raw(raw){
-
-    }
+    SDataSignalAccess(SData *raw) : raw(raw){}
+    SDataSignalAccess(SData **raw) : raw(*raw){}
     uint64_t getU64() {return *raw;}
+    uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
+    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
 };
 
 
 class  IDataSignalAccess : public ISignalAccess{
 public:
     IData *raw;
-    IDataSignalAccess(IData *raw) : raw(raw){
-
-    }
+    IDataSignalAccess(IData *raw) : raw(raw){}
+    IDataSignalAccess(IData **raw) : raw(*raw){}
     uint64_t getU64() {return *raw;}
+    uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
+    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
 };
 
 
 class  QDataSignalAccess : public ISignalAccess{
 public:
     QData *raw;
-    QDataSignalAccess(QData *raw) : raw(raw){
-
-    }
+    QDataSignalAccess(QData *raw) : raw(raw){}
+    QDataSignalAccess(QData **raw) : raw(*raw){}
     uint64_t getU64() {return *raw;}
+    uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
+    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
 };
 
 class  WDataSignalAccess : public ISignalAccess{
 public:
-    WData *raw;
+    WData **raw;
     uint32_t width;
     bool sint;
 
-    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){
+    WDataSignalAccess(WData **raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){}
+    WDataSignalAccess(WData ***raw, uint32_t width, bool sint) : raw(*raw), width(width), sint(sint){}
 
+    uint64_t getU64_mem(size_t index) {
+      WData *mem_el = raw[index];
+      return mem_el[0] + (((uint64_t)mem_el[1]) << 32);
     }
 
-    uint64_t getU64() {return raw[0] + (((uint64_t)raw[1]) << 32);}
-    void setU64(uint64_t value)  {
+    uint64_t getU64() { return getU64_mem(0); }
+
+    void setU64_mem(uint64_t value, size_t index)  {
       uint32_t wordsCount = (width+31)/32;
-      raw[0] = value;
-      raw[1] = value >> 32;
+      WData *mem_el = raw[index];
+      mem_el[0] = value;
+      mem_el[1] = value >> 32;
       uint32_t padding = ((value & 0x8000000000000000l) && sint) ? 0xFFFFFFFF : 0;
       for(uint32_t idx = 2;idx < wordsCount;idx++){
-        raw[idx] = padding;
+        mem_el[idx] = padding;
       }
 
-      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
+      if(width%32 != 0) mem_el[wordsCount-1] &= (1l << width%32)-1;
     }
 
-    void getAU8(JNIEnv *env, jbyteArray value) {
+    void setU64(uint64_t value)  {
+      setU64_mem(value, 0);
+    }
+    
+    void getAU8_mem(JNIEnv *env, jbyteArray value, size_t index) {
+      WData *mem_el = raw[index];
       uint32_t wordsCount = (width+31)/32;
       uint32_t byteCount = wordsCount*4;
       uint32_t shift = 32-(width % 32);
-      uint32_t backup = raw[wordsCount-1];
+      uint32_t backup = mem_el[wordsCount-1];
       uint8_t values[byteCount + !sint];
-      if(sint && shift != 32) raw[wordsCount-1] = (((int32_t)backup) << shift) >> shift;
+      if(sint && shift != 32) mem_el[wordsCount-1] = (((int32_t)backup) << shift) >> shift;
       for(uint32_t idx = 0;idx < byteCount;idx++){
-        values[idx + !sint] = ((uint8_t*)raw)[byteCount-idx-1];
+        values[idx + !sint] = ((uint8_t*)mem_el)[byteCount-idx-1];
       }
       (env)->SetByteArrayRegion ( value, 0, byteCount + !sint, reinterpret_cast<jbyte*>(values));
-      raw[wordsCount-1] = backup;
+      mem_el[wordsCount-1] = backup;
+    }
+  
+    void getAU8(JNIEnv *env, jbyteArray value) {
+      getAU8_mem(env, value, 0);
     }
 
-    void setAU8(JNIEnv *env, jbyteArray jvalue, int length) {
+    void setAU8_mem(JNIEnv *env, jbyteArray jvalue, int length, size_t index) {
+      WData *mem_el = raw[index];
       jbyte value[length];
       (env)->GetByteArrayRegion( jvalue, 0, length, value);
       uint32_t wordsCount = (width+31)/32;
       uint32_t padding = (value[0] & 0x80 && sint) != 0 ? 0xFFFFFFFF : 0;
       for(uint32_t idx = 0;idx < wordsCount;idx++){
-        raw[idx] = padding;
+        mem_el[idx] = padding;
       }
       uint32_t capedLength = length > 4*wordsCount ? 4*wordsCount : length;
       for(uint32_t idx = 0;idx < capedLength;idx++){
-        ((uint8_t*)raw)[idx] = value[length-idx-1];
+        ((uint8_t*)mem_el)[idx] = value[length-idx-1];
       }
-      if(width%32 != 0) raw[wordsCount-1] &= (1l << width%32)-1;
+      if(width%32 != 0) mem_el[wordsCount-1] &= (1l << width%32)-1;
+    }
+
+    void setAU8(JNIEnv *env, jbyteArray jvalue, int length) {
+      setAU8_mem(env, jvalue, length, 0);
     }
 };
 
@@ -193,7 +216,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width <= 64)"&" else ""}(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+      else "WData"}SignalAccess(&(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);
@@ -263,9 +286,19 @@ JNIEXPORT jlong API JNICALL ${jniPrefix}getU64_1${uniqueId}
   return handle->signalAccess[id]->getU64();
 }
 
+JNIEXPORT jlong API JNICALL ${jniPrefix}getU64mem_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t index){
+  return handle->signalAccess[id]->getU64_mem(index);
+}
+
 JNIEXPORT void API JNICALL ${jniPrefix}setU64_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t value){
   handle->signalAccess[id]->setU64(value);
+}
+
+JNIEXPORT void API JNICALL ${jniPrefix}setU64mem_1${uniqueId}
+  (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, int id, uint64_t value, uint64_t index){
+  handle->signalAccess[id]->setU64_mem(value, index);
 }
 
 JNIEXPORT void API JNICALL ${jniPrefix}deleteHandle_1${uniqueId}
@@ -278,11 +311,19 @@ JNIEXPORT void API JNICALL ${jniPrefix}getAU8_1${uniqueId}
   handle->signalAccess[id]->getAU8(env, value);
 }
 
-
+JNIEXPORT void API JNICALL ${jniPrefix}getAU8mem_1${uniqueId}
+  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, uint64_t index){
+  handle->signalAccess[id]->getAU8_mem(env, value, index);
+}
 
 JNIEXPORT void API JNICALL ${jniPrefix}setAU8_1${uniqueId}
   (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, jint length){
   handle->signalAccess[id]->setAU8(env, value, length);
+}
+
+JNIEXPORT void API JNICALL ${jniPrefix}setAU8mem_1${uniqueId}
+  (JNIEnv * env, jobject obj, Wrapper_${uniqueId} * handle, jint id, jbyteArray value, jint length, uint64_t index){
+  handle->signalAccess[id]->setAU8_mem(env, value, length, index);
 }
 
 JNIEXPORT void API JNICALL ${jniPrefix}enableWave_1${uniqueId}
@@ -316,7 +357,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     exportmapFile.close()
   }
 
-  class Logger extends ProcessLogger {override def err(s: => String): Unit = {if(!s.startsWith("ar: creating ")) println(s)}
+  class Logger extends ProcessLogger {
+    override def err(s: => String): Unit = { if(!s.startsWith("ar: creating ")) println(s) }
     override def out(s: => String): Unit = {}
     override def buffer[T](f: => T) = f
   }
@@ -408,9 +450,13 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public boolean eval(long handle) { return eval_${uniqueId}(handle);}
          |    public void sleep(long handle, long cycles) { sleep_${uniqueId}(handle, cycles);}
          |    public long getU64(long handle, int id) { return getU64_${uniqueId}(handle, id);}
+         |    public long getU64_mem(long handle, int id, long index) { return getU64mem_${uniqueId}(handle, id, index);}
          |    public void setU64(long handle, int id, long value) { setU64_${uniqueId}(handle, id, value);}
+         |    public void setU64_mem(long handle, int id, long value, long index) { setU64mem_${uniqueId}(handle, id, value, index);}
          |    public void getAU8(long handle, int id, byte[] value) { getAU8_${uniqueId}(handle, id, value);}
+         |    public void getAU8_mem(long handle, int id, byte[] value, long index) { getAU8mem_${uniqueId}(handle, id, value, index);}
          |    public void setAU8(long handle, int id, byte[] value, int length) { setAU8_${uniqueId}(handle, id, value, length);}
+         |    public void setAU8_mem(long handle, int id, byte[] value, int length, long index) { setAU8mem_${uniqueId}(handle, id, value, length, index);}
          |    public void deleteHandle(long handle) { deleteHandle_${uniqueId}(handle);}
          |    public void enableWave(long handle) { enableWave_${uniqueId}(handle);}
          |    public void disableWave(long handle) { disableWave_${uniqueId}(handle);}
@@ -420,9 +466,13 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
          |    public native boolean eval_${uniqueId}(long handle);
          |    public native void sleep_${uniqueId}(long handle, long cycles);
          |    public native long getU64_${uniqueId}(long handle, int id);
+         |    public native long getU64mem_${uniqueId}(long handle, int id, long index);
          |    public native void setU64_${uniqueId}(long handle, int id, long value);
+         |    public native void setU64mem_${uniqueId}(long handle, int id, long value, long index);
          |    public native void getAU8_${uniqueId}(long handle, int id, byte[] value);
+         |    public native void getAU8mem_${uniqueId}(long handle, int id, byte[] value, long index);
          |    public native void setAU8_${uniqueId}(long handle, int id, byte[] value, int length);
+         |    public native void setAU8mem_${uniqueId}(long handle, int id, byte[] value, int length, long index);
          |    public native void deleteHandle_${uniqueId}(long handle);
          |    public native void enableWave_${uniqueId}(long handle);
          |    public native void disableWave_${uniqueId}(long handle);
