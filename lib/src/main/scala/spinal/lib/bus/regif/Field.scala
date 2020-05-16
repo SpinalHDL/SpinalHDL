@@ -14,7 +14,8 @@ case class Field(name: String,
 
   // FieldDescr implementation
   def getName()       : String     = name
-  def getWidth()      : Long       = hardbit.getWidth
+  def getWidth()      : Int        = hardbit.getWidth
+  def getSection()    : Range      = section
   def getAccessType() : AccessType = accType
   def getResetValue() : Long       = resetValue
   def getDoc()        : String     = doc

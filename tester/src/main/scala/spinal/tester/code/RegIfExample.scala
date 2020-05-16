@@ -7,6 +7,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
 import spinal.lib.bus.regif.Document.CHeaderGenerator
+import spinal.lib.bus.regif.Document.HtmlGenerator
 
 class RegIfExample extends Component {
   val io = new Bundle{
@@ -211,5 +212,6 @@ object getRegIfExample {
       .generate(new RegIfExample)
 
     example.toplevel.busif.accept(CHeaderGenerator("header.h", "AP"))
+    example.toplevel.busif.accept(HtmlGenerator("regif.html"))
   }
 }

@@ -20,7 +20,8 @@ trait RegDescr {
 
 trait FieldDescr {
   def getName()       : String
-  def getWidth()      : Long
+  def getWidth()      : Int
+  def getSection()    : Range
   def getAccessType() : AccessType
   def getResetValue() : Long
   def getDoc()        : String
