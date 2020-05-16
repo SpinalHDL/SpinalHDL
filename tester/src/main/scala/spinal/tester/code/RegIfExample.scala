@@ -212,6 +212,6 @@ object getRegIfExample {
       .generate(new RegIfExample)
 
     example.toplevel.busif.accept(CHeaderGenerator("header.h", "AP"))
-    example.toplevel.busif.accept(HtmlGenerator("regif.html"))
+    example.toplevel.busif.accept(HtmlGenerator("regif.html", "AP"))
   }
 }

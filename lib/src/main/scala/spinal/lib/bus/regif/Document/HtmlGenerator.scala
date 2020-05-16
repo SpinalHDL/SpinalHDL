@@ -4,7 +4,7 @@ import spinal.core.GlobalData
 import spinal.lib.bus.regif._
 import java.io.PrintWriter
 
-final case class HtmlGenerator(fileName : String) extends BusIfVisitor {
+final case class HtmlGenerator(fileName : String, name : String) extends BusIfVisitor {
     val sb : StringBuilder = new StringBuilder("")
     var dataWidth : Int = 32
 
@@ -56,7 +56,7 @@ final case class HtmlGenerator(fileName : String) extends BusIfVisitor {
         val targetPath = s"${pc.config.targetDirectory}/${fileName}"
         val pw = new PrintWriter(targetPath)
 
-        pw.write(DocTemplate.getHTML("Name", sb.toString()))
+        pw.write(DocTemplate.getHTML(name, sb.toString()))
 
         pw.close()
     }
