@@ -20,6 +20,6 @@ object BusInterface {
 //  def apply(bus: Axi4, sizeMap: SizeMapping): BusIf = Axi4BusInterface(bus, sizeMap)
 //  def apply(bus: Axi4, sizeMap: SizeMapping, readSync: Boolean): BusIf = Axi4BusInterface(bus, sizeMap)
 //
-  def apply(bus: AxiLite4, sizeMap: SizeMapping): BusIf = AxiLite4BusInterface(bus, sizeMap)
-  def apply(bus: AxiLite4, sizeMap: SizeMapping, readSync: Boolean): BusIf = AxiLite4BusInterface(bus, sizeMap)
+  def apply(bus: AxiLite4, sizeMap: SizeMapping)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)
+  def apply(bus: AxiLite4, sizeMap: SizeMapping, readSync: Boolean)(implicit moduleName: ClassName): BusIf = AxiLite4BusInterface(bus, sizeMap)
 }
