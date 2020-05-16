@@ -2,8 +2,6 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.amba3.apb._
-import RegIfDocument._
-import CHeads._
 import spinal.lib.bus.misc.SizeMapping
 import language.experimental.macros
 
@@ -39,8 +37,6 @@ trait BusIf extends BusIfBase {
 
   component.addPrePopTask(() => {
     readGenerator()
-    document(getModuleName)
-    genCHead(getModuleName)
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
@@ -70,17 +66,6 @@ trait BusIf extends BusIfBase {
       val rd     = Bool()
       val raddr  = UInt()
       val rdata  = Bits()
-    }
-  }
-
-  def document(docName: String, docType: DocType = DocType.HTML) = {
-    docType match {
-      case DocType.Json =>
-      case DocType.Rst  =>
-      case DocType.MarkDown =>
-      case DocType.HTML => HTML(docName)
-      case DocType.Docx =>
-      case _ =>
     }
   }
 
@@ -120,17 +105,6 @@ trait BusIf extends BusIfBase {
 //    False
 //  }
 
-  private def HTML(docName: String) = {
-    val pc = GlobalData.get.phaseContext
-    def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
-    val body = RegInsts.map(_.trs(regPre)).mkString("\n")
-    val html = DocTemplate.getHTML(docName, body)
-    import java.io.PrintWriter
-    val fp = new PrintWriter(targetPath)
-    fp.write(html)
-    fp.close
-  }
-
   def accept(vs : BusIfVisitor) = {
     vs.begin(busDataWidth)
 
@@ -139,19 +113,6 @@ trait BusIf extends BusIfBase {
     }
 
     vs.end()
-  }
-
-  def genCHead(cFileName: String) = {
-    val pc = GlobalData.get.phaseContext
-    def targetPath = s"${pc.config.targetDirectory}/${cFileName}.h"
-    val maxRegNameWidth = RegInsts.map(_.name.length).max + regPre.size
-    val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth, regPre)).mkString("\n")
-    val structs = RegInsts.map(_.cStruct(regPre)).mkString("\n")
-    import java.io.PrintWriter
-    val fp = new PrintWriter(targetPath)
-    fp.write(heads)
-    fp.write("\n\n" + structs)
-    fp.close
   }
 
   def readGenerator() = {

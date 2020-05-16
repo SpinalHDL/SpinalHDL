@@ -78,7 +78,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
-  busif.document("Example")
+  busif.accept(HtmlGenerator("regif.html", "Example"))
 }
 
 class InterruptRegIf extends Component {
