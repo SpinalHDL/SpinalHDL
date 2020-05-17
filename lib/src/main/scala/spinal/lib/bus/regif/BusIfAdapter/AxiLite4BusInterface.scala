@@ -45,7 +45,7 @@ case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, readSync: B
   val askRead   = axiAr.valid
   val doWrite   = axiAw.valid && axiW.valid 
   val doRead    = axiAr.valid && axiAr.ready
-  val writeData = bus.writeData.payload.data
+  val writeData = axiW.payload.data
 
   axiRValid := doRead
   axiBValid := doWrite
