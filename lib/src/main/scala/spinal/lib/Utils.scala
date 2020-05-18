@@ -761,7 +761,11 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
   def write(index: UInt, data: T): Unit = {
     apply(index) := data
   }
+  def write(index: Int, data: T): Unit = {
+    apply(index) := data
+  }
   def apply(index: UInt): T = Vec(pimped)(index)
+  def apply(index: Int): T = Vec(pimped)(index)
 
   def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExist(_ === value)
