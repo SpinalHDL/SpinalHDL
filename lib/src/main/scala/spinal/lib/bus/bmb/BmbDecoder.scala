@@ -182,7 +182,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     sourceOrderingFifo.io.push.stream.arbitrationFrom(orderingFork.throwWhen(!orderingFork.isFirst))
     sourceOrderingFifo.io.push.stream.outputId := portId
     sourceOrderingFifo.io.push.stream.beatCount := cmdToRspCountMinusOne
-    //  sourceOrderingFifo.io.push.stream.context := io.input.cmd.context
+    //  sourceOrderingFifo.io.push.stream.context := io.input.cmd.context //TODO ?
   }
 
 
