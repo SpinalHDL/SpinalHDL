@@ -129,20 +129,21 @@ class  WDataSignalAccess : public ISignalAccess{
 public:
     WData *raw;
     uint32_t width;
+    uint32_t wordsCount;
     bool sint;
 
-    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){}
+    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : 
+      raw(raw), width(width), sint(sint), wordsCount((width+31)/32) {}
 
     uint64_t getU64_mem(size_t index) {
-      WData *mem_el = &(raw[index*width]);
+      WData *mem_el = &(raw[index*wordsCount]);
       return mem_el[0] + (((uint64_t)mem_el[1]) << 32);
     }
 
     uint64_t getU64() { return getU64_mem(0); }
 
     void setU64_mem(uint64_t value, size_t index)  {
-      uint32_t wordsCount = (width+31)/32;
-      WData *mem_el = &(raw[index*width]);
+      WData *mem_el = &(raw[index*wordsCount]);
       mem_el[0] = value;
       mem_el[1] = value >> 32;
       uint32_t padding = ((value & 0x8000000000000000l) && sint) ? 0xFFFFFFFF : 0;
@@ -158,8 +159,7 @@ public:
     }
     
     void getAU8_mem(JNIEnv *env, jbyteArray value, size_t index) {
-      WData *mem_el = &(raw[index*width]);
-      uint32_t wordsCount = (width+31)/32;
+      WData *mem_el = &(raw[index*wordsCount]);
       uint32_t byteCount = wordsCount*4;
       uint32_t shift = 32-(width % 32);
       uint32_t backup = mem_el[wordsCount-1];
@@ -177,10 +177,9 @@ public:
     }
 
     void setAU8_mem(JNIEnv *env, jbyteArray jvalue, int length, size_t index) {
-      WData *mem_el = &(raw[index*width]);
+      WData *mem_el = &(raw[index*wordsCount]);
       jbyte value[length];
       (env)->GetByteArrayRegion( jvalue, 0, length, value);
-      uint32_t wordsCount = (width+31)/32;
       uint32_t padding = (value[0] & 0x80 && sint) != 0 ? 0xFFFFFFFF : 0;
       for(uint32_t idx = 0;idx < wordsCount;idx++){
         mem_el[idx] = padding;

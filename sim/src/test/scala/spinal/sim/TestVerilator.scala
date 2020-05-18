@@ -177,8 +177,8 @@ object TestVerilator2 extends App{
     simV.eval
     simV.sleep(1)
     simV.eval
-    
     println(i.toString + " -> " + simV.getBigInt(rvalue).toString) // read from index 'i'
+    //println(i.toString + " -> " + simV.getBigIntMem(rvalue, i).toString) // read from index 'i'
   }
 
   simV.end
