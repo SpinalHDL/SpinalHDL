@@ -82,7 +82,7 @@ class SimVpi(backend: VpiBackend) extends SimRaw {
     } else ret
   }
 
-  override def setIntMem(signal : Signal, value: Int, index : Long) {
+  def setIntMem(signal : Signal, value: Int, index : Long) {
     val id = getSignalId(signal)
     if (signal.dataType.width > 32) this.setBigIntMem(signal, BigInt(value), index)
     else nativeIface.write32_mem(id, value, index)

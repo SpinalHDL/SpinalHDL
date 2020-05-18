@@ -4,7 +4,7 @@
 
 
 
-module TestMemIVerilog (
+module TestMemVerilator (
   input      [9:0]    io_addr,
   input      [10:0]    io_wvalue,
   input               io_wenable,

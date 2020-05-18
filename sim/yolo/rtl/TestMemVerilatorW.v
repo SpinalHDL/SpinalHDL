@@ -4,18 +4,18 @@
 
 
 
-module TestMemIVerilog (
+module TestMemVerilatorW (
   input      [9:0]    io_addr,
-  input      [10:0]    io_wvalue,
+  input      [127:0]    io_wvalue,
   input               io_wenable,
-  output     [10:0]    io_rvalue,
+  output     [127:0]    io_rvalue,
   input               clk,
   input               reset 
 );
-  reg        [10:0]    _zz_2_;
+  reg        [127:0]    _zz_2_;
   wire                _zz_3_;
-  wire       [10:0]    _zz_1_;
-  reg [10:0] mem [0:1023] /* verilator public */;
+  wire       [127:0]    _zz_1_;
+  reg [127:0] mem [0:1023] /* verilator public */;
 
   assign _zz_3_ = 1'b1;
   always @ (posedge clk) begin

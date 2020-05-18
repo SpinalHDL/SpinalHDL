@@ -55,6 +55,8 @@ log.txt
 
 sim/yolo/adder
 sim/yolo/shmem_name
+sim/yolo/yolo/*
+sim/yolo/verilatorScript.sh
 
 /tester/**/*.gtkw
 *.do

@@ -52,6 +52,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
     val wrapperString = s"""
 #include <stdint.h>
 #include <string>
+#include <memory>
 #include <jni.h>
 
 #include "V${config.toplevelName}.h"
@@ -59,6 +60,9 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include "verilated_${format.ext}_c.h"
 #endif
 #include "V${config.toplevelName}__Syms.h"
+
+using namespace std;
+
 class ISignalAccess{
 public:
   virtual ~ISignalAccess() {}
@@ -78,11 +82,11 @@ class  CDataSignalAccess : public ISignalAccess{
 public:
     CData *raw;
     CDataSignalAccess(CData *raw) : raw(raw){}
-    CDataSignalAccess(CData **raw) : raw(*raw){}
+    CDataSignalAccess(CData &raw) : raw(addressof(raw)){}
     uint64_t getU64() {return *raw;}
     uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
-    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
+    void setU64_mem(uint64_t value, size_t index){raw[index] = value; }
 };
 
 
@@ -90,11 +94,11 @@ class  SDataSignalAccess : public ISignalAccess{
 public:
     SData *raw;
     SDataSignalAccess(SData *raw) : raw(raw){}
-    SDataSignalAccess(SData **raw) : raw(*raw){}
+    SDataSignalAccess(SData &raw) : raw(addressof(raw)){}
     uint64_t getU64() {return *raw;}
     uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
-    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
+    void setU64_mem(uint64_t value, size_t index){raw[index] = value; }
 };
 
 
@@ -102,11 +106,11 @@ class  IDataSignalAccess : public ISignalAccess{
 public:
     IData *raw;
     IDataSignalAccess(IData *raw) : raw(raw){}
-    IDataSignalAccess(IData **raw) : raw(*raw){}
+    IDataSignalAccess(IData &raw) : raw(addressof(raw)){}
     uint64_t getU64() {return *raw;}
     uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
-    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
+    void setU64_mem(uint64_t value, size_t index){raw[index] = value; }
 };
 
 
@@ -114,24 +118,23 @@ class  QDataSignalAccess : public ISignalAccess{
 public:
     QData *raw;
     QDataSignalAccess(QData *raw) : raw(raw){}
-    QDataSignalAccess(QData **raw) : raw(*raw){}
+    QDataSignalAccess(QData &raw) : raw(addressof(raw)){}
     uint64_t getU64() {return *raw;}
     uint64_t getU64_mem(size_t index) {return raw[index];}
     void setU64(uint64_t value)  {*raw = value; }
-    void setU64_mem(uint64_t value, size_t index)  {raw[index] = value; }
+    void setU64_mem(uint64_t value, size_t index){raw[index] = value; }
 };
 
 class  WDataSignalAccess : public ISignalAccess{
 public:
-    WData **raw;
+    WData *raw;
     uint32_t width;
     bool sint;
 
-    WDataSignalAccess(WData **raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){}
-    WDataSignalAccess(WData ***raw, uint32_t width, bool sint) : raw(*raw), width(width), sint(sint){}
+    WDataSignalAccess(WData *raw, uint32_t width, bool sint) : raw(raw), width(width), sint(sint){}
 
     uint64_t getU64_mem(size_t index) {
-      WData *mem_el = raw[index];
+      WData *mem_el = &(raw[index*width]);
       return mem_el[0] + (((uint64_t)mem_el[1]) << 32);
     }
 
@@ -139,7 +142,7 @@ public:
 
     void setU64_mem(uint64_t value, size_t index)  {
       uint32_t wordsCount = (width+31)/32;
-      WData *mem_el = raw[index];
+      WData *mem_el = &(raw[index*width]);
       mem_el[0] = value;
       mem_el[1] = value >> 32;
       uint32_t padding = ((value & 0x8000000000000000l) && sint) ? 0xFFFFFFFF : 0;
@@ -155,7 +158,7 @@ public:
     }
     
     void getAU8_mem(JNIEnv *env, jbyteArray value, size_t index) {
-      WData *mem_el = raw[index];
+      WData *mem_el = &(raw[index*width]);
       uint32_t wordsCount = (width+31)/32;
       uint32_t byteCount = wordsCount*4;
       uint32_t shift = 32-(width % 32);
@@ -174,7 +177,7 @@ public:
     }
 
     void setAU8_mem(JNIEnv *env, jbyteArray jvalue, int length, size_t index) {
-      WData *mem_el = raw[index];
+      WData *mem_el = &(raw[index*width]);
       jbyte value[length];
       (env)->GetByteArrayRegion( jvalue, 0, length, value);
       uint32_t wordsCount = (width+31)/32;
@@ -216,7 +219,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(&(top.${signal.path.mkString("->")})${if(signal.dataType.width > 64) s", ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+      else "WData"}SignalAccess(${if(signal.dataType.width > 64) "(WData*)" else "" } top.${signal.path.mkString("->")} ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
   signalInits.mkString("")}
       #ifdef TRACE
       Verilated::traceEverOn(true);
