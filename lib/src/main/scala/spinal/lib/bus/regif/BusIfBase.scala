@@ -81,9 +81,9 @@ trait BusIf extends BusIfBase {
       case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
       case _ =>
     }
-    val ENS    = newReg("Interrupt Enable Reigsiter")(SymbolName(s"${regNamePre}_ENABLES"))
-    val MASKS  = newReg("Interrupt Mask   Reigsiter")(SymbolName(s"${regNamePre}_MASK"))
-    val STATUS = newReg("Interrupt status Reigsiter")(SymbolName(s"${regNamePre}_STATUS"))
+    val ENS    = newReg("Interrupt Enable Register")(SymbolName(s"${regNamePre}_ENABLES"))
+    val MASKS  = newReg("Interrupt Mask   Register")(SymbolName(s"${regNamePre}_MASK"))
+    val STATUS = newReg("Interrupt status Register")(SymbolName(s"${regNamePre}_STATUS"))
     val intWithMask = new ListBuffer[Bool]()
     triggers.foreach(trigger => {
       val en   = ENS.field(1 bits, AccessType.RW, doc= "int enable register")(SymbolName(s"_en"))(0)
