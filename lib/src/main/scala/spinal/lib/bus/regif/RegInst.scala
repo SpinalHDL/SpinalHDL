@@ -157,6 +157,18 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
   }
 
+  def eventR() : Bool = {
+    val event = Reg(Bool) init(False)
+    event := hitDoRead
+    event
+  }
+
+  def eventW() : Bool = {
+    val event = Reg(Bool) init(False)
+    event := hitDoWrite
+    event
+  }
+
   protected def RO(bc: BitCount): Bits = Bits(bc)
 
   protected def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={

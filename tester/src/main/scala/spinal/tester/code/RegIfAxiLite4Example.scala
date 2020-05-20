@@ -36,6 +36,8 @@ class Axi4liteRegIfExample extends Component {
   val f_dim_width   = reg_dimension.field(12 bits, AccessType.RW, 0x0l, "Width in pixels")
   val f_dim_rsv_0   = reg_dimension.field( 4 bits, AccessType.NA, 0x0l, "Reserved")
   val f_dim_height  = reg_dimension.field(12 bits, AccessType.RW, 0x0l, "Height in pixels")
+  val triggerW      = reg_dimension.eventW
+  val triggerR      = reg_dimension.eventR
   
   f_device  := 0xd4
   f_maj_ver := 0x01
