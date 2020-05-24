@@ -29,6 +29,7 @@ case class Command(command: String, opt: String*) extends YosysScript {
   */
 case class Input(file: Path, frontend: String, opt: String*)
     extends YosysScript {
+
   override def toString(): String =
     s"""read_${frontend} ${opt.mkString(" ")} ${file.normalize.toString}"""
 }
@@ -70,13 +71,15 @@ case class Yosys( passFile: Option[Path] = None,
                   phony: Option[String] = None,
                   _binaryPath: Path = Paths.get("yosys"),
                   commands: mutable.ListBuffer[YosysScript] = mutable.ListBuffer[YosysScript](),
-                  workDirPath: Path = Paths.get("."),
+                  _outputFolder: Path = Paths.get("."),
+                  _copyPath: Path = Paths.get("source"),
                   prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]())
     extends Makeable
     with MakeableLog with PassFail{
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+    def copySourceTo(path: Path): Yosys = this.copy(_copyPath=path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   // override def runComand = {
   //   assert(
@@ -170,22 +173,11 @@ case class Yosys( passFile: Option[Path] = None,
     this
   }
 
-    /** change the destination directory of all output file
+  /** change the destination directory of all output file
     *
     * @param path the pat of the destination directory
     */
-  override def outputFolder(path: Path): Yosys ={
-    // val newLog = if(logFile.nonEmpty) Some(path.resolve(logFile.get)) else None
-    // val newPass = if(passFile.nonEmpty) Some(path.resolve(passFile.get)) else None
-    val old = super.outputFolder(path).asInstanceOf[this.type]
-    val com = commands.map{ x =>
-      x match{
-       case o: Output => o.outputFolder(path)
-       case _ => x
-      }
-    }
-    old.copy(commands=com)
-  }
+  def outputFolder(path: Path): Yosys =this.copy(_outputFolder=path)
 
   /** @inheritdoc */
   def phony(name: String): Yosys = this.copy(phony=Some(name))
@@ -202,8 +194,8 @@ case class Yosys( passFile: Option[Path] = None,
   override def toString(): String = {
     val ret = scala.collection.mutable.ListBuffer[String]()
     commands foreach {
-    case i: Input => ret += Input(getWorkPath(i.file),i.frontend, i.opt :_*).toString
-    case o: Output => ret += Output(getWorkPath(o.file),o.backend, o.opt :_*).toString
+    case i: Input => ret += Input(_copyPath.resolve(i.file),i.frontend, i.opt :_*).toString //@TODO: resolve harcode sorce
+    case o: Output => ret += Output(_outputFolder.resolve(o.file),o.backend, o.opt :_*).toString
     case a => ret += a.toString
     }
     ret.mkString("yosys -p'", "; ", "'")

@@ -116,13 +116,13 @@ case class NextPNR_ice40(
     passFile: Option[Path] = None,
     logFile: Option[Path] = None,
     phony: Option[String] = None,
-    workDirPath: Path =Paths.get(".").normalize(),
+    _outputFolder: Path =Paths.get(".").normalize(),
     prerequisite: mutable.MutableList[Makeable] = mutable.MutableList[Makeable]()
 ) extends NextPNR
     with Makeable {
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** open next-pnr gui */
   def openGui = this.copy(_gui = true)
@@ -187,10 +187,7 @@ case class NextPNR_ice40(
   }
 
   /** @inheritdoc */
-  override def outputFolder(path: Path): NextPNR_ice40 = {
-    val newAsc  = if (_asc.nonEmpty) Some(workDirPath.resolve(_asc.get)) else None
-    this.copy(_asc = newAsc, workDirPath=path)
-  }
+  def outputFolder(path: Path): NextPNR_ice40 = this.copy(_outputFolder = path)
 
   /** @inheritdoc */
   def phony(name: String): NextPNR_ice40 = this.copy(phony = Some(name))

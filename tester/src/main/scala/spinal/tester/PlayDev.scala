@@ -1433,6 +1433,7 @@ object PlayMakeable extends App{
     }
   }
   val test = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
+  val test2 = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
   // val pw = new PrintWriter(new File("Makefile" ))
   //val form1 = YosysFlow.formalFlow(test).log().solver(Solver.z3).pass().dumpVCD(Paths.get("test.vcd")).outputFolder(Paths.get("test1")).append(100)
   import spinal.lib.eda.common.string2path._
@@ -1446,10 +1447,11 @@ object PlayMakeable extends App{
   val form2 = SymbiFlow.svFormal(test,workDir="pesto").phony("test1").solver(Solver.z3).outputFolder("pesto/test2").phony("test").append(100).log()
   val form3 = SymbiFlow.svFormal(test,workDir="pesto").phony("test2").solver(Solver.z3).outputFolder("pesto/test3/1/2/3/").append(100).log()
   val form4 = SymbiFlow.svFormal(test,workDir="pesto").phony("test3").solver(Solver.z3).outputFolder("pesto/test4").append(100).log()
+  val syntetize = SymbiFlow.syntesize(test,"test.pcf")
   //val make = InputFile(test) |> List(form1,form2,form3,form4)
   // println(make.makefile + "\n" + make.bundleTest() + "\n\n" + make.bundle("test2")({case x: Yosys => x}))
   // pw.close()
-  Makefile(form1,form2,form3,form4).workDir("test2electricbogaloo").run("all")
+  Makefile(form3,form4,syntetize).workDir("test2electricbogaloo/fff").run("all")
 
 }
 

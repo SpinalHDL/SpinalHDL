@@ -38,12 +38,12 @@ case class FormalCommand(_smt2: Option[Path]=None,
                          passFile: Option[Path] = None,
                          logFile: Option[Path] = None,
                          phony: Option[String] = None,
-                         workDirPath: Path =Paths.get(".").normalize(),
+                        _outputFolder: Path =Paths.get(".").normalize(),
                          prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends Makeable with MakeableLog with PassFail{
+    extends MakeableProgram with MakeableLog with PassFail{
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the smt2 input file
     *
@@ -115,14 +115,15 @@ case class FormalCommand(_smt2: Option[Path]=None,
   def live = this.copy(_mode = Mode.live)
 
   /** @inheritdoc */
-  override def outputFolder(path: Path): FormalCommand ={
-    val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
-    val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
-    val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
-    // val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
-    // val newLog = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
-    this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC, workDirPath=path)
-  }
+  def outputFolder(path: Path): FormalCommand = this.copy(_outputFolder=path)
+  //{
+  //   val newVcd  = if(_dumpVCD.nonEmpty)       Some(path.resolve(_dumpVCD.get)) else None
+  //   val newTB   = if(_dumpVerilogTB.nonEmpty) Some(path.resolve(_dumpVerilogTB.get)) else None
+  //   val newSMTC = if(_dumpSmtc.nonEmpty)      Some(path.resolve(_dumpSmtc.get)) else None
+  //   // val newPass = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+  //   // val newLog = if(passFile.nonEmpty)      Some(path.resolve(passFile.get)) else None
+  //   this.copy(_dumpVCD=newVcd,_dumpVerilogTB=newTB,_dumpSmtc=newSMTC)
+  // }
 
 
   /** @inheritdoc */
@@ -148,7 +149,6 @@ case class FormalCommand(_smt2: Option[Path]=None,
     if (_dumpVerilogTB.isDefined) ret.append("--dump-vlogtb ${dumpVerilogTB.get} ")
     if (_opt.nonEmpty) ret.append(s"-S ${_opt} ")
     ret.append(_smt2.get)
-
     ret.toString()
   }
 

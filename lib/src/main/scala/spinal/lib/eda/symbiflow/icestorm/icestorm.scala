@@ -19,12 +19,12 @@ case class IcePack(_asc: Option[Path] = None,
                    _writeBank: Seq[Int] = Seq.empty[Int],
                    _binaryPath: Path = Paths.get("icepack"),
                    phony: Option[String] = None,
-                   workDirPath: Path = Paths.get(".").normalize(),
+                   _outputFolder: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends Makeable{
+    extends MakeableProgram{
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   //override val logFile = "icepack.log"
 
@@ -69,7 +69,7 @@ case class IcePack(_asc: Option[Path] = None,
   override def outputFolder(path: Path): IcePack ={
     val newAsc  = if(_asc.nonEmpty) Some(path.resolve(_asc.get)) else None
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
-    val ret = if(_unpack) this.copy(_bin=newAsc, workDirPath=path) else this.copy(_asc=newAsc, workDirPath=path)
+    val ret = if(_unpack) this.copy(_bin=newAsc) else this.copy(_asc=newAsc)
     ret
   }
 
@@ -124,12 +124,12 @@ case class IceProg(_bin: Option[Path] = None,
                    passFile: Option[Path] = None,
                    logFile: Option[Path] = None,
                    phony: Option[String] = Some("program"),
-                   workDirPath: Path =Paths.get(".").normalize(),
+                   _outputFolder: Path =Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
     extends Makeable with MakeableLog with PassFail with Executable{
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the path of the bin file
     *
@@ -168,7 +168,7 @@ case class IceProg(_bin: Option[Path] = None,
   /** @inheritdoc */
   override def outputFolder(path: Path): IceProg ={
     val newBin  = if(_bin.nonEmpty) Some(path.resolve(_bin.get)) else None
-    this.copy(_bin=newBin, workDirPath=path)
+    this.copy(_bin=newBin)
   }
 
   override def toString(): String = {
@@ -217,12 +217,12 @@ case class IceBram(_hexFrom: Option[Path] = None,
                    _depth: Long = 0,
                    _binaryPath: Path = Paths.get("icebram"),
                    phony: Option[String] = None,
-                   workDirPath: Path = Paths.get(".").normalize(),
+                   _outputFolder: Path = Paths.get(".").normalize(),
                    prerequisite: mutable.MutableList[Makeable]= mutable.MutableList[Makeable]())
-    extends Makeable {
+    extends MakeableProgram {
 
-  /** @inheritdoc */
-  def workDir(path: Path) = this.copy(workDirPath = path)
+  // /** @inheritdoc */
+  // def workDir(path: Path) = this.copy(workDirPath = path)
 
   /** Specify the path where the hex file use for syntesys reside
     * and specify were save the random hex file
@@ -248,7 +248,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
     *
     * @param asc the path of the asc file
     */
-    def ascOut(asc: Path) = this.copy(_ascIn=Some(asc))
+  def ascOut(asc: Path) = this.copy(_ascIn=Some(asc))
 
   /** Specify the seed for the random data
     *
@@ -266,10 +266,7 @@ case class IceBram(_hexFrom: Option[Path] = None,
   def size(width: Long, depth: Long) = this.copy(_width = width, _depth = depth)
 
   /** @inheritdoc */
-  override def outputFolder(path: Path): IceBram ={
-      val newAsc  = if(_ascOut.nonEmpty) Some(path.resolve(_ascOut.get)) else None
-      this.copy(_ascOut=newAsc, workDirPath=path)
-    }
+  def outputFolder(path: Path): IceBram = this.copy(_outputFolder=path)
 
   override def toString: String = {
     val ret = new StringBuilder(s"${_binaryPath} ")
