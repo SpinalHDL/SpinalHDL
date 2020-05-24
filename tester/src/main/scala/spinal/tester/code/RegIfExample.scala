@@ -6,6 +6,9 @@ import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
+import spinal.lib.bus.regif.Document.CHeaderGenerator
+import spinal.lib.bus.regif.Document.HtmlGenerator
+import spinal.lib.bus.regif.Document.JsonGenerator
 
 class RegIfExample extends Component {
   val io = new Bundle{
@@ -76,7 +79,7 @@ class RegIfExample2 extends Component {
   val fd3 = M_REG0.fieldAt(pos=16, 4 bits, RW, doc= "fields 3")
 //  val fd3 = M_REG0.field(4 bits, RW, doc= "fields 3")
   //auto reserved 12 bits
-  busif.document("Example")
+  busif.accept(HtmlGenerator("regif.html", "Example"))
 }
 
 class InterruptRegIf extends Component {
@@ -201,13 +204,16 @@ class ahbregifExample extends Component {
 
 object getRegIfExample {
   def main(args: Array[String]) {
-    SpinalConfig(mode = Verilog,
+    val example = SpinalConfig(mode = Verilog,
       defaultConfigForClockDomains = ClockDomainConfig(resetKind = ASYNC,
         clockEdge = RISING,
         resetActiveLevel = LOW),
     mergeAsyncProcess              = true,
     targetDirectory="tmp/")
-//      .generate(new RegIfExample).printPruned()
       .generate(new RegIfExample)
+
+    example.toplevel.busif.accept(CHeaderGenerator("header.h", "AP"))
+    example.toplevel.busif.accept(HtmlGenerator("regif.html", "AP"))
+    example.toplevel.busif.accept(JsonGenerator("regif.json"))
   }
 }
