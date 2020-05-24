@@ -232,3 +232,30 @@ object PlaySimGhdlBugTodo extends App{
   }
 }
 
+object PlayTracingOff extends App{
+  class Sub extends Component {
+    val a = in SInt (16 bits)
+    val b = out SInt (16 bits)
+    b := a
+  }
+
+  class WaveTop extends Component {
+    val io = new Bundle{
+      val a = in SInt (16 bits)
+      val b = out SInt (16 bits)
+    }
+    val sub0 = new Sub
+    sub0.a := io.a
+    val sub1 = new Sub
+    sub1.a := sub0.b
+    io.b := sub1.b
+  }
+
+  SpinalVerilog(new Sub)
+//  SpinalConfig(targetDirectory = "./tmp").generateVerilog{
+//    val dut = new WaveTop
+//    dut.sub0.tracingOff()
+//    dut
+//  }
+}
+

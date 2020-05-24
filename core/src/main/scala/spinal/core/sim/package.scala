@@ -236,6 +236,9 @@ package object sim {
     def simPublic(): T = bt.addTag(SimPublic)
   }
 
+  implicit class SimpComponentPimper[T <: Component](uut: T) {
+    def tracingOff(): T = uut.addTag(TracingOff)
+  }
 
   /**
     * Add implicit function to Bool
