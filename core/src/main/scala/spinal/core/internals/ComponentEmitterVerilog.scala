@@ -210,12 +210,6 @@ class ComponentEmitterVerilog(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
-    def traceOff(uut: String): String = {
-      s"""// verilator tracing_off
-         |${uut}
-         |// verilator tracing_on""".stripMargin
-    }
-
     //Fixing the spacing
     def netsWithSection(data: BaseType): String = {
       if(openSubIo.contains(data)) ""

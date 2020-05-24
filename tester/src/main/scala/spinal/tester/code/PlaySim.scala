@@ -251,11 +251,10 @@ object PlayTracingOff extends App{
     io.b := sub1.b
   }
 
-  SpinalVerilog(new Sub)
-//  SpinalConfig(targetDirectory = "./tmp").generateVerilog{
-//    val dut = new WaveTop
-//    dut.sub0.tracingOff()
-//    dut
-//  }
+  SpinalConfig(targetDirectory = "./tmp").generateVerilog{
+    val dut = new WaveTop
+    dut.sub0.tracingOff()
+    dut
+  }
 }
 
