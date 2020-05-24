@@ -290,6 +290,7 @@ object SpinalVpiBackend {
 /** Tag SimPublic  */
 object SimPublic extends SpinalTag
 
+object TracingOff extends SpinalTag
 
 /**
   * Swap all oldTag with newTag
