@@ -106,6 +106,16 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
   override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
 }
 
+object blackboxByteEnables extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = {
+    if(topology.writes.exists(_.mask != null)) return true
+    if(topology.readWriteSync.exists(_.mask != null)) return true
+    false
+  }
+
+  override def onUnblackboxable(topology: MemTopology, who: Any, message: String): Unit = generateUnblackboxableError(topology, who, message)
+}
+
 
 /**
  * Spinal configuration for the generation of the RTL 

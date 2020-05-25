@@ -16,7 +16,6 @@ import scala.util.Random
 
 class SpinalSimBmbOnChipRamTester extends SpinalSimFunSuite {
   test("test1") {
-
     val memInit = new Array[Byte](64 * 1024)
     Random.nextBytes(memInit)
 

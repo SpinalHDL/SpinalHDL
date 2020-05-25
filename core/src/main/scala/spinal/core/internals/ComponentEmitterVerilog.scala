@@ -23,6 +23,7 @@ package spinal.core.internals
 import java.io.File
 
 import spinal.core._
+import spinal.core.sim.{SimPublic, TracingOff}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -76,12 +77,10 @@ class ComponentEmitterVerilog(
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
         portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
-//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
       } else {
         val siginit = if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)
         val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
         portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${siginit}${EDAcomment}${comma}"
-//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
       }
     }
   }
@@ -211,6 +210,15 @@ class ComponentEmitterVerilog(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    //Fixing the spacing
+    def netsWithSection(data: BaseType): String = {
+      if(openSubIo.contains(data)) ""
+      else {
+        val wireName = emitReference(data, false)
+        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        wireName + section
+      }
+    }
 
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
@@ -218,6 +226,12 @@ class ComponentEmitterVerilog(
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
+
+      val istracingOff = child.hasTag(TracingOff)
+
+      if(istracingOff){
+        logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_off))} \n"
+      }
 
       logics ++= s"  $instanceAttributes$definitionString "
 
@@ -242,29 +256,9 @@ class ComponentEmitterVerilog(
         }
       }
 
-      //Fixing the spacing
-      def netsWithSection(data: BaseType): String = {
-        if(openSubIo.contains(data)) ""
-        else {
-          val wireName = emitReference(data, false)
-          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
-          wireName + section
-        }
-      }
-
       val maxNameLength: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => emitReferenceNoOverrides(data).length()).max
 
       val maxNameLengthCon: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => netsWithSection(data).length()).max
-
-//      var maxNameLength = 0
-//      for(data <- child.getOrdredNodeIo) {
-//        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
-//      }
-//      var maxNameLengthCon = 0
-//      for(data <- child.getOrdredNodeIo) {
-//        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-//        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
-//      }
 
       logics ++= s"${child.getName()} (\n"
 
@@ -281,9 +275,14 @@ class ComponentEmitterVerilog(
         s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
       }.mkString
 
+
       logics ++= instports
       logics ++= s"  );"
       logics ++= s"\n"
+
+      if(istracingOff){
+        logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_on))} \n"
+      }
     }
   }
 
