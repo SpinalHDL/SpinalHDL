@@ -27,7 +27,8 @@ case class RtlPhyInterface(pl : PhyLayout) extends Bundle with IMasterSlave {
     import spinal.core.sim._
     val bytePerBeat = pl.bytePerBeat
     assert(offset % bytePerBeat == 0)
-    val bin = Files.readAllBytes(Paths.get(path))
+    var bin = Files.readAllBytes(Paths.get(path))
+    bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
     for(beatId <- 0 until bin.size/bytePerBeat){
       var data = BigInt(0)
       for(byteId <- 0 until bytePerBeat){
