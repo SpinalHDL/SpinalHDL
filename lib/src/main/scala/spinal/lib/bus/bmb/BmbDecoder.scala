@@ -18,6 +18,7 @@ case class BmbDecoder(p : BmbParameter,
     val outputs = Vec(master(Bmb(p)), mappings.size)
   }
   val hasDefault = mappings.contains(DefaultMapping)
+  assert(mappings.count(_ == DefaultMapping) < 2, "Multiple interface with DefaultMapping in decoder")
   val logic = if(hasDefault && mappings.size == 1 && !(p.canWrite && !capabilities.head.canWrite) && !(p.canRead && !capabilities.head.canRead)){
     io.outputs(0) << io.input
   } else new Area {
