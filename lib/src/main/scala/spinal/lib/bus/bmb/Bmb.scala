@@ -83,6 +83,23 @@ object BmbParameter{
     }
     object LENGTH extends Kind
   }
+
+  def apply(mr : BmbAccessParameter, sr : BmbInvalidationParameter) : BmbParameter = BmbParameter(
+    addressWidth                   = mr.addressWidth,
+    dataWidth                      = mr.dataWidth,
+    lengthWidth                    = mr.lengthWidth,
+    sourceWidth                    = mr.sourceWidth,
+    contextWidth                   = mr.contextWidth,
+    alignment                      = mr.alignment,
+    alignmentMin                   = mr.alignmentMin,
+    canRead                        = mr.canRead,
+    canWrite                       = mr.canWrite,
+    canExclusive                   = mr.canExclusive,
+    canInvalidate                  = sr.canInvalidate,
+    canSync                        = sr.canSync,
+    invalidateLength               = sr.invalidateLength,
+    invalidateAlignment            = sr.invalidateAlignment
+  )
 }
 
 case class BmbParameter(addressWidth : Int,
@@ -110,7 +127,38 @@ case class BmbParameter(addressWidth : Int,
   def beatCounterWidth = lengthWidth - wordRangeLength + (if(alignment.allowByte) 1 else 0)
   def wordRangeLength = log2Up(byteCount)
   def transferBeatCount = (1 << lengthWidth) / byteCount + (if(alignment.allowByte) 1 else 0)
+
+  def toAccessRequirements = BmbAccessParameter(
+    addressWidth = addressWidth,
+    dataWidth = dataWidth,
+    lengthWidth = lengthWidth,
+    sourceWidth = sourceWidth,
+    contextWidth = contextWidth,
+    alignment = alignment,
+    alignmentMin = alignmentMin,
+    canRead = canRead,
+    canWrite = canWrite,
+    canExclusive = canExclusive
+  )
 }
+
+case class BmbAccessParameter(addressWidth : Int,
+                              dataWidth : Int,
+                              lengthWidth : Int,
+                              sourceWidth : Int,
+                              contextWidth : Int,
+                              alignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD,
+                              alignmentMin : Int = 0,
+                              canRead : Boolean = true,
+                              canWrite : Boolean = true,
+                              canExclusive : Boolean = false)
+
+case class BmbInvalidationParameter(canInvalidate : Boolean = false,
+                                    canSync : Boolean = false,
+                                    invalidateLength : Int = 0,
+                                    invalidateAlignment : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.WORD)
+
+
 
 
 case class BmbCmd(p : BmbParameter) extends Bundle{
