@@ -1774,7 +1774,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
     val regToComb = ArrayBuffer[BaseType]()
 
     walkStatements{
-      case bt: BaseType if bt.isReg =>
+      case bt: BaseType if bt.isReg && !bt.hasTag(AllowPartialyAssignedTag)=>
         var assignedBits = new AssignedBits(bt.getBitsWidth)
 
         bt.foreachStatements{
@@ -1787,12 +1787,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
         }
 
         if(!assignedBits.isFull){
+          var withInit = false
+          bt.foreachStatements{
+            case s : InitAssignmentStatement => withInit = true
+            case _ =>
+          }
           if(assignedBits.isEmpty) {
-            var withInit = false
-            bt.foreachStatements{
-              case s : InitAssignmentStatement => withInit = true
-              case _ =>
-            }
             if(withInit){
               regToComb += bt
               if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
@@ -1802,10 +1802,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
           }else {
-            val unassignedBits = new AssignedBits(bt.getBitsWidth)
-            unassignedBits.add(bt.getBitsWidth - 1, 0)
-            unassignedBits.remove(assignedBits)
-            PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+            if(!withInit) {
+              val unassignedBits = new AssignedBits(bt.getBitsWidth)
+              unassignedBits.add(bt.getBitsWidth - 1, 0)
+              unassignedBits.remove(assignedBits)
+              PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+            }
           }
         }
       case _ =>

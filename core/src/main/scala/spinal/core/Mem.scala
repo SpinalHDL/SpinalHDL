@@ -85,7 +85,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-
+object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
 

@@ -420,6 +420,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     addTag(allowDirectionLessIoTag)
   }
 
+  def allowPartialyAssigned : this.type = {
+    addTag(AllowPartialyAssignedTag)
+  }
+
   def allowUnsetRegToAvoidLatch: this.type = {
     addTag(unsetRegIfNoAssignementTag)
   }
