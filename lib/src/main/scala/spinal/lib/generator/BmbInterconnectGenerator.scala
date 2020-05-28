@@ -321,9 +321,9 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     }
 
     val invalidationRequirementsGen2 = add task new Generator{
-      dependencies ++= connections.map(_.arbiterInvalidationRequirements)
+      dependencies ++= connections.map(_.decoderInvalidationRequirements)
       val gen = add task new Area{
-        val sInvalidationRequirements = connections.map(_.arbiterInvalidationRequirements)
+        val sInvalidationRequirements = connections.map(_.decoderInvalidationRequirements)
         var invalidationAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
         if(sInvalidationRequirements.exists(_.invalidateAlignment.allowWord)) invalidationAlignement = BmbParameter.BurstAlignement.WORD
         if(sInvalidationRequirements.exists(_.invalidateAlignment.allowByte)) invalidationAlignement = BmbParameter.BurstAlignement.BYTE
@@ -462,7 +462,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
         override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbUpSizerBridge.outputParameterFrom(
           inputParameter = BmbParameter(mSide, dummySlaveParameter),
           outputDataWidth = s.accessCapabilities.dataWidth
-        ).toAccessRequirements
+        ).toAccessParameter
 
         override def logic(mSide: Bmb): Bmb = {
           val c = BmbUpSizerBridge(
@@ -479,7 +479,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
         override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbDownSizerBridge.outputParameterFrom(
           inputParameter = BmbParameter(mSide, dummySlaveParameter),
           outputDataWidth = s.accessCapabilities.dataWidth
-        ).toAccessRequirements
+        ).toAccessParameter
 
         override def logic(mSide: Bmb): Bmb = {
           val c = BmbDownSizerBridge(
@@ -497,7 +497,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
           accessBridges += new Bridge {
             override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbUnburstify.outputParameter(
               inputParameter = BmbParameter(mSide, dummySlaveParameter)
-            ).toAccessRequirements
+            ).toAccessParameter
 
             override def logic(mSide: Bmb): Bmb = {
               val c = BmbUnburstify(
@@ -584,10 +584,10 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 //    bus
 //  )
 
-  def addSlave(accessSource : Handle[BmbAccessParameter],
+  def addSlave(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
                accessCapabilities : Handle[BmbAccessParameter],
                accessRequirements : Handle[BmbAccessParameter],
-               invalidationRequirements : Handle[BmbInvalidationParameter],
+               invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
                bus : Handle[Bmb],
                mapping : Handle[AddressMapping]): Unit ={
     val model = getSlave(bus)
@@ -614,7 +614,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
   }
 
   def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : this.type = {
-    val c = ConnectionModel(getMaster(m), getSlave(s), getSlave(s).mapping) //TODO .setCompositeName(m, "connector", true)
+    val c = ConnectionModel(getMaster(m), getSlave(s), getSlave(s).mapping).setCompositeName(m, "connector", true)
     getMaster(m).connections += c
     getSlave(s).connections += c
     this

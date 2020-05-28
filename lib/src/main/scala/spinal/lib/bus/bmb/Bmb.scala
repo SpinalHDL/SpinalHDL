@@ -62,6 +62,8 @@ object Bmb{
     result := (highCat @@ (base + value)).resized
     result
   }
+
+  def apply(access : BmbAccessParameter, invalidation: BmbInvalidationParameter) : Bmb = Bmb(BmbParameter(access,invalidation))
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)
@@ -128,7 +130,7 @@ case class BmbParameter(addressWidth : Int,
   def wordRangeLength = log2Up(byteCount)
   def transferBeatCount = (1 << lengthWidth) / byteCount + (if(alignment.allowByte) 1 else 0)
 
-  def toAccessRequirements = BmbAccessParameter(
+  def toAccessParameter = BmbAccessParameter(
     addressWidth = addressWidth,
     dataWidth = dataWidth,
     lengthWidth = lengthWidth,
@@ -151,7 +153,9 @@ case class BmbAccessParameter(addressWidth : Int,
                               alignmentMin : Int = 0,
                               canRead : Boolean = true,
                               canWrite : Boolean = true,
-                              canExclusive : Boolean = false)
+                              canExclusive : Boolean = false){
+  def toBmbParameter() = BmbParameter(this, BmbInvalidationParameter())
+}
 
 case class BmbInvalidationParameter(canInvalidate : Boolean = false,
                                     canSync : Boolean = false,
