@@ -82,8 +82,14 @@ class SpinalSimFunSuite extends FunSuite{
   var tester : SpinalSimTester = null
   def SimConfig = tester.SimConfig
   var durationFactor = 0.0
+  var ghdlEnabled = true
   def test(testName: String)(testFun: => Unit): Unit = {
-    super.test("ghdl_" + testName) {
+    super.test("verilator_" + testName) {
+      tester = SpinalSimTesterVerilator
+      durationFactor = SpinalSimTesterVerilator.durationFactor
+      testFun
+    }
+    if(ghdlEnabled) super.test("ghdl_" + testName) {
       tester = SpinalSimTesterGhdl
       durationFactor = SpinalSimTesterGhdl.durationFactor
       testFun
@@ -91,11 +97,6 @@ class SpinalSimFunSuite extends FunSuite{
     super.test("iverilog_" + testName) {
       tester = SpinalSimTesterIVerilog
       durationFactor = SpinalSimTesterIVerilog.durationFactor
-      testFun
-    }
-    super.test("verilator_" + testName) {
-      tester = SpinalSimTesterVerilator
-      durationFactor = SpinalSimTesterVerilator.durationFactor
       testFun
     }
   }

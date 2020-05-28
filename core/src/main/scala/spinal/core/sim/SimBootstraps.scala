@@ -23,8 +23,8 @@ package spinal.core.sim
 import java.io.File
 
 import org.apache.commons.io.FileUtils
-import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
+import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -69,13 +69,14 @@ object SpinalVerilatorBackend {
 
     var signalId = 0
 
-    def addSignal(bt: BaseType): Unit ={
+    def addSignal(bt: DeclarationStatement with InComponent): Unit ={
       val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
         case bt: Bool               => new BoolDataType
         case bt: Bits               => new BitsDataType(bt.getBitsWidth)
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+        case mem: Mem[_] => new BitsDataType(mem.width)
       })
 
       bt.algoInt = signalId
@@ -89,6 +90,9 @@ object SpinalVerilatorBackend {
       s match {
         case bt: BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
+        }
+        case mem : Mem[_] if mem.hasTag(Verilator.public) => {
+          addSignal(mem)
         }
         case _ =>{
           s.algoInt = -1
@@ -239,13 +243,14 @@ object SpinalVpiBackend {
 
     val signalsCollector = ArrayBuffer[Signal]()
 
-    def addSignal(bt: BaseType): Unit ={
+    def addSignal(bt: DeclarationStatement with InComponent): Unit ={
       val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
         case bt: Bool               => new BoolDataType
         case bt: Bits               => new BitsDataType(bt.getBitsWidth)
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+        case mem: Mem[_] => new BitsDataType(mem.width)
       })
 
       bt.algoInt = signalId
@@ -259,6 +264,9 @@ object SpinalVpiBackend {
       s match {
         case bt: BaseType if bt.hasTag(SimPublic) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
+        }
+        case mem : Mem[_] if mem.hasTag(SimPublic) => {
+          addSignal(mem)
         }
         case _ =>{
           s.algoInt = -1

@@ -90,8 +90,7 @@ object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
 
 
-class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady {
-
+class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
   if(parentScope != null) parentScope.append(this)
 
   var forceMemToBlackboxTranslation = false
@@ -121,6 +120,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     forceMemToBlackboxTranslation = true
     this
   }
+
+
+  override def getComponent(): Component = parentScope.component
 
   var initialContent: Array[BigInt] = null
 //  private[core] def checkInferedWidth: Unit = {

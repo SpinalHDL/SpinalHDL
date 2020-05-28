@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.BaseNode
 import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
@@ -45,12 +46,25 @@ package object sim {
   }
 
 
-  private def btToSignal(manager: SimManager, bt: BaseType) = {
+  private def btToSignal(manager: SimManager, bt: BaseNode) = {
     if(bt.algoIncrementale != -1){
       SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it durring the elaboration.")
     }
 
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
+  }
+
+
+  def setBigInt[T <: Data](mem : Mem[T], address : Int, data : BigInt): Unit = {
+    val manager = SimManagerContext.current.manager
+    val signal = btToSignal(manager, mem)
+    manager.setBigInt(signal, address, data)
+  }
+
+  def getBigInt[T <: Data](mem : Mem[T], address : Int): BigInt = {
+    val manager = SimManagerContext.current.manager
+    val signal = btToSignal(manager, mem)
+    manager.getBigInt(signal, address)
   }
 
   /** Get a Int value from a BaseType */
@@ -238,6 +252,12 @@ package object sim {
 
   implicit class SimpComponentPimper[T <: Component](uut: T) {
     def tracingOff(): T = uut.addTag(TracingOff)
+  }
+
+  implicit class SimMemPimper[T <: Data](mem: Mem[T]) {
+    def setBigInt(address : Int, data : BigInt): Unit = sim.setBigInt(mem,address,data)
+    def getBigInt(address : Int): BigInt = sim.getBigInt(mem,address)
+    def simPublic(): Mem[T] = mem.addTag(SimPublic)
   }
 
   /**
