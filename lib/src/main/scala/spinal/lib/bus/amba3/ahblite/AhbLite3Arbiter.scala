@@ -75,13 +75,14 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
     val requestIndex    = OHToUInt(maskRouted)
 
     /** Backup address phase */
-    val addressPhaseData  = Vec(Reg(AhbLite3AddrPhase(ahbLite3Config)), io.inputs.length)
-    val addressPhaseValid = Vec(RegInit(False), io.inputs.length)
+    val addressPhaseData  = Vec(Reg(AhbLite3AddrPhase(ahbLite3Config)), inputsCount)
+    val addressPhaseValid = Vec(RegInit(False), inputsCount)
 
-    for((input, index) <- io.inputs.zipWithIndex){
+
+    for((input, data, valid) <- (io.inputs, addressPhaseData, addressPhaseValid).zipped){
       when(input.HSEL & input.HTRANS === 2 & input.HREADYOUT){
-        addressPhaseData(index).assignFromBus(io.inputs(index))
-        addressPhaseValid(index) := True
+        data.assignFromBus(input)
+        valid := True
       }
     }
 

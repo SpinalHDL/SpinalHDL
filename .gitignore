@@ -68,8 +68,6 @@ simWorkspace/
 tmp/
 null/
 
-#mac
-*.DS_Store
 
 command
 
