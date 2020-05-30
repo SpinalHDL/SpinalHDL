@@ -138,6 +138,13 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
     core.subscribers += this
   }
 
+  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = new Generator{
+    dependencies += that
+    products += this
+    add task {
+      Handle.this.load(body(that))
+    }
+  }
   def merge[T2 <: T](that : Handle[T2]): Unit = this.core.merge(that.core)
 
   def apply : T = get.asInstanceOf[T]

@@ -3,14 +3,22 @@ package spinal.lib.misc
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.wishbone.WishboneConfig
 
 object Clint{
   def getWisboneConfig() = WishboneConfig(
-    addressWidth = 14,
+    addressWidth = addressWidth/4,
     dataWidth = 32
   )
+
+  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+    accessSource,
+    addressWidth = addressWidth,
+    dataWidth = 32
+  )
+  def addressWidth = 16
 }
 
 case class Clint(hartCount : Int) extends Area{
@@ -45,6 +53,24 @@ case class Apb3Clint(hartCount : Int) extends Component{
   }
 
   val factory = Apb3SlaveFactory(io.bus)
+  val logic = Clint(hartCount)
+  logic.driveFrom(factory)
+
+  for(hartId <- 0 until hartCount){
+    io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
+    io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
+  }
+}
+
+
+case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Component{
+  val io = new Bundle {
+    val bus = slave(Bmb(bmbParameter))
+    val timerInterrupt = out Bits(hartCount bits)
+    val softwareInterrupt = out Bits(hartCount bits)
+  }
+
+  val factory = BmbSlaveFactory(io.bus)
   val logic = Clint(hartCount)
   logic.driveFrom(factory)
 

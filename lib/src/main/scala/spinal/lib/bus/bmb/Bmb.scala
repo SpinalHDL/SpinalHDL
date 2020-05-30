@@ -64,6 +64,7 @@ object Bmb{
   }
 
   def apply(access : BmbAccessParameter, invalidation: BmbInvalidationParameter) : Bmb = Bmb(BmbParameter(access,invalidation))
+  def apply(access : BmbAccessParameter) : Bmb = Bmb(BmbParameter(access, BmbInvalidationParameter()))
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)

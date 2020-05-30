@@ -1,6 +1,6 @@
 package spinal.lib.generator
 
-import spinal.core.{Area, dontName, log2Up}
+import spinal.core.{Area, Bool, UInt, dontName, log2Up}
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.misc._
@@ -185,8 +185,8 @@ case class BmbInterconnectGenerator() extends Generator{
   @dontName val slaves = mutable.LinkedHashMap[Handle[Bmb], SlaveModel]()
   @dontName val connections = ArrayBuffer[ConnectionModel]()
 
-  def getMaster(key : Handle[Bmb]) = masters.getOrElseUpdate(key, new MasterModel(key, lock))
-  def getSlave(key : Handle[Bmb]) = slaves.getOrElseUpdate(key, new SlaveModel(key, lock))
+  def getMaster(key : Handle[Bmb]) = masters.getOrElseUpdate(key, new MasterModel(key, lock).setCompositeName(key, "masterModel"))
+  def getSlave(key : Handle[Bmb]) = slaves.getOrElseUpdate(key, new SlaveModel(key, lock).setCompositeName(key, "slaveModel"))
 
   def setConnector(bus : Handle[Bmb])( connector : (Bmb,Bmb) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
     case (Some(m), _) =>    m.connector = connector
@@ -249,11 +249,16 @@ case class BmbInterconnectGenerator() extends Generator{
 
 
 
-
+//class PassiveMapping(val base : BigInt) extends AddressMapping{
+//  override def hit(address: UInt): Bool = ???
+//  override def removeOffset(address: UInt): UInt = ???
+//  override def lowerBound: BigInt = ???
+//  override def applyOffset(addressOffset: BigInt): AddressMapping = ???
+//}
 
 case class BmbSmpInterconnectGenerator() extends Generator{
 
-  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock){
+  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Area{
     val connections = ArrayBuffer[ConnectionModel]()
     val accessRequirements = Handle[BmbAccessParameter]
     val invalidationSource = Handle[BmbInvalidationParameter]
@@ -392,13 +397,18 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 
     val gen = add task new Generator{
       dependencies ++= connections.map(_.m.accessRequirements)
+      dependencies ++= connections.map(_.mapping)
       val gen = add task new Area{
         val mAccessRequirements = connections.map(_.m.accessRequirements)
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
         if(mAccessRequirements.exists(_.alignment.allowWord)) inputAlignement = BmbParameter.BurstAlignement.WORD
         if(mAccessRequirements.exists(_.alignment.allowByte)) inputAlignement = BmbParameter.BurstAlignement.BYTE
+        val addressWidths = for(c <- connections) yield c.mapping.get match {
+          case m : SizeMapping => log2Up(m.size)
+          case _ => c.m.accessRequirements.addressWidth
+        }
         val aggregated = BmbAccessParameter(
-          addressWidth = mAccessRequirements.map(_.addressWidth).max,
+          addressWidth = addressWidths.max,
           dataWidth    = mAccessRequirements.map(_.dataWidth).max,
           lengthWidth  = mAccessRequirements.map(_.lengthWidth).max,
           sourceWidth  = mAccessRequirements.map(_.sourceWidth).max,
@@ -492,6 +502,24 @@ case class BmbSmpInterconnectGenerator() extends Generator{
         }
       }
 
+//      if(m.accessRequirements.canExclusive && !s.accessCapabilities.canExclusive){
+//        accessBridges += new Bridge {
+//          override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbExclusiveMonitor.outputParameter(
+//            inputParameter = BmbParameter(mSide, dummySlaveParameter)
+//          ).toAccessParameter
+//
+//          override def logic(mSide: Bmb): Bmb = {
+//            val c =         BmbExclusiveMonitor(
+//              inputParameter = mSide.p,
+//              pendingWriteMax = 64
+//            )
+//            c.setCompositeName(m.bus, "exclusiveMonitor", true)
+//            c.io.input << mSide
+//            c.io.output
+//          }
+//        }
+//      }
+
       if(m.accessRequirements.lengthWidth > s.accessCapabilities.lengthWidth) {
         if(s.accessCapabilities.lengthWidth == log2Up(s.accessCapabilities.dataWidth/8)) {
           accessBridges += new Bridge {
@@ -525,7 +553,25 @@ case class BmbSmpInterconnectGenerator() extends Generator{
       dependencies += m.invalidationCapabilities
 
       add task {
-        val dummySlaveParameter = BmbInvalidationParameter()
+//        val dummyAccessParameter = BmbAccessParameter()
+
+//        if(!s.invalidationRequirements.canInvalidate && m.invalidationRequirements.canInvalidate){
+//          invalidationBridges += new InvalidatoinBridge {
+//            override def accessParameter(sSide: BmbInvalidationParameter): BmbAccessParameter = BmbInvalidateMonitor.outputParameter(
+//              inputParameter = BmbParameter(mSide, dummySlaveParameter)
+//            ).toAccessParameter
+//
+//            override def logic(mSide: Bmb): Bmb = {
+//              val c = BmbInvalidateMonitor(
+//                inputParameter = mSide.p,
+//                pendingInvMax = 16
+//              )
+//              c.setCompositeName(m.bus, "invalidationMonitor", true)
+//              c.io.input << mSide
+//              c.io.output
+//            }
+//          }
+//        }
 
         val invalidationParameter = arbiterInvalidationRequirements.get
 
@@ -548,8 +594,8 @@ case class BmbSmpInterconnectGenerator() extends Generator{
   var defaultArbitration : BmbInterconnectGenerator.ArbitrationKind = BmbInterconnectGenerator.ROUND_ROBIN
 
 
-  def getMaster(key : Handle[Bmb]) = masters.getOrElseUpdate(key, MasterModel(key, lock))
-  def getSlave(key : Handle[Bmb]) = slaves.getOrElseUpdate(key, SlaveModel(key, lock))
+  def getMaster(key : Handle[Bmb]) = masters.getOrElseUpdate(key, MasterModel(key, lock).setCompositeName(key, "masterModel"))
+  def getSlave(key : Handle[Bmb]) = slaves.getOrElseUpdate(key, SlaveModel(key, lock).setCompositeName(key, "slaveModel"))
 
 
 //  def setConnector(bus : Handle[Bmb])( connector : (Bmb,Bmb) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
@@ -563,16 +609,18 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 //    case _ => ???
 //  }
 
-  def addMaster(accessRequirements : Handle[BmbAccessParameter],
-                invalidationSource : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
-                invalidationCapabilities : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
-                invalidationRequirements : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
-                bus : Handle[Bmb]): Unit ={
-    val model = getMaster(bus)
+  def addSlave(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
+               accessCapabilities : Handle[BmbAccessParameter],
+               accessRequirements : Handle[BmbAccessParameter],
+               invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
+               bus : Handle[Bmb],
+               mapping : Handle[AddressMapping]): Unit ={
+    val model = getSlave(bus)
+    model.accessSource.merge(accessSource)
+    model.accessCapabilities.merge(accessCapabilities)
     model.accessRequirements.merge(accessRequirements)
-    model.invalidationSource.merge(invalidationSource)
-    model.invalidationCapabilities.merge(invalidationCapabilities)
     model.invalidationRequirements.merge(invalidationRequirements)
+    model.mapping.merge(mapping)
   }
 
 //  def addMaster(accessRequirements : Handle[BmbMasterRequirements],
@@ -584,34 +632,32 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 //    bus
 //  )
 
-  def addSlave(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
-               accessCapabilities : Handle[BmbAccessParameter],
-               accessRequirements : Handle[BmbAccessParameter],
-               invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
-               bus : Handle[Bmb],
-               mapping : Handle[AddressMapping]): Unit ={
-    val model = getSlave(bus)
-    model.accessSource.merge(accessSource)
+  def addMaster(accessRequirements : Handle[BmbAccessParameter],
+                invalidationSource : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
+                invalidationCapabilities : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
+                invalidationRequirements : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
+                bus : Handle[Bmb]): Unit ={
+    val model = getMaster(bus)
     model.accessRequirements.merge(accessRequirements)
-    model.accessCapabilities.merge(accessCapabilities)
+    model.invalidationSource.merge(invalidationSource)
+    model.invalidationCapabilities.merge(invalidationCapabilities)
     model.invalidationRequirements.merge(invalidationRequirements)
-    model.mapping.merge(mapping)
   }
-  def addSlaveAt(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
-                 accessCapabilities : Handle[BmbAccessParameter],
-                 accessRequirements : Handle[BmbAccessParameter],
-                 invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
-                 bus : Handle[Bmb],
-                 address: Handle[BigInt]) : Unit = {
-    addSlave(
-      accessSource = accessSource,
-      accessCapabilities = accessCapabilities,
-      accessRequirements = accessRequirements,
-      invalidationRequirements = invalidationRequirements,
-      bus = bus,
-      mapping = List(accessCapabilities, address).produce(SizeMapping(address, BigInt(1) << accessCapabilities.addressWidth))
-    )
-  }
+//  def addSlaveAt(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
+//                 accessCapabilities : Handle[BmbAccessParameter],
+//                 accessRequirements : Handle[BmbAccessParameter],
+//                 invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
+//                 bus : Handle[Bmb],
+//                 address: Handle[BigInt]) : Unit = {
+//    addSlave(
+//      accessSource = accessSource,
+//      accessCapabilities = accessCapabilities,
+//      accessRequirements = accessRequirements,
+//      invalidationRequirements = invalidationRequirements,
+//      bus = bus,
+//      mapping = List(address).produce(new PassiveMapping(address))
+//    )
+//  }
 
   def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : this.type = {
     val c = ConnectionModel(getMaster(m), getSlave(s), getSlave(s).mapping).setCompositeName(m, "connector", true)

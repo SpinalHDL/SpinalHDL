@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
-import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.memory.sdram.{SdramGeneration, SdramLayout}
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
@@ -91,6 +91,39 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyLayout) extends Component{
   core.io.config.driveFrom(mapper.withOffset(0x000))
   core.io.soft.driveFrom(mapper.withOffset(0x100))
 }
+
+object CtrlWithoutPhyBmb{
+  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+    accessSource,
+    addressWidth = addressWidth,
+    dataWidth = 32
+  )
+  def addressWidth = 12
+}
+
+class CtrlWithoutPhyBmb(val p : CtrlParameter, pl : PhyLayout, ctrlParameter : BmbParameter) extends Component{
+  val io = new Bundle {
+    val bmb = Vec(p.ports.map(p => slave(Bmb(p.bmb))))
+    val ctrl = slave(Bmb(ctrlParameter))
+    val phy = master(SdramXdrPhyCtrl(pl))
+  }
+
+  val cpa = CoreParameterAggregate(p.core, pl, p.ports.map(port => BmbAdapter.corePortParameter(port, pl)))
+
+  val bmbAdapter = for(port <- p.ports) yield BmbAdapter(port, cpa)
+  (bmbAdapter, io.bmb).zipped.foreach(_.io.input <> _)
+
+  val core = Core(cpa)
+  core.io.ports <> Vec(bmbAdapter.map(_.io.output))
+  bmbAdapter.foreach(_.io.refresh := core.io.refresh)
+
+  io.phy <> core.io.phy
+
+  val mapper = BmbSlaveFactory(io.ctrl)
+  core.io.config.driveFrom(mapper.withOffset(0x000))
+  core.io.soft.driveFrom(mapper.withOffset(0x100))
+}
+
 
 
 case class mt48lc16m16a2_model() extends BlackBox{

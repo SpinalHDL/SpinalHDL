@@ -32,11 +32,11 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
       def addSlave(address: BigInt, capabilities: BmbParameter) = new Generator {
         val requirements = Handle[BmbAccessParameter]
         val busHandle = Handle[Bmb]
-        interconnect.addSlaveAt(
+        interconnect.addSlave(
           accessCapabilities = capabilities.toAccessParameter,
           accessRequirements = requirements,
           bus = busHandle,
-          address = address
+          mapping = SizeMapping(address, 1 << capabilities.addressWidth)
         )
         dependencies += requirements
         val logic = add task new Area {
