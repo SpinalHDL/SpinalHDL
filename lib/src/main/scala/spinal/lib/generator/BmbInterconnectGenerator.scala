@@ -1,6 +1,6 @@
 package spinal.lib.generator
 
-import spinal.core.{Area, Bool, UInt, dontName, log2Up}
+import spinal.core.{Area, Bool, ClockDomain, UInt, dontName, log2Up}
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.misc._
@@ -31,6 +31,7 @@ case class BmbInterconnectGenerator() extends Generator{
 
     dependencies += bus
     dependencies += lock
+
     val logic = add task new Area{
       val busConnections = connections.filter(_.m == bus)
       val busSlaves = busConnections.map(c => slaves(c.s))
@@ -258,13 +259,18 @@ case class BmbInterconnectGenerator() extends Generator{
 
 case class BmbSmpInterconnectGenerator() extends Generator{
 
-  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Area{
+  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
     val connections = ArrayBuffer[ConnectionModel]()
     val accessRequirements = Handle[BmbAccessParameter]
     val invalidationSource = Handle[BmbInvalidationParameter]
     val invalidationCapabilities = Handle[BmbInvalidationParameter]
     val invalidationRequirements = Handle[BmbInvalidationParameter]
     var priority = 0
+
+    def addConnection(c : ConnectionModel): Unit ={
+      connections += c
+      decoderGen.products += c.decoderAccessRequirements
+    }
 
     dependencies += lock
 
@@ -309,6 +315,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 
     val invalidationRequirementsGen = add task new Generator{
       dependencies ++= connections.map(_.s.invalidationRequirements)
+      products += invalidationSource
       val gen = add task new Area{
         val sInvalidationRequirements = connections.map(_.s.invalidationRequirements)
         var invalidationAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -327,6 +334,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 
     val invalidationRequirementsGen2 = add task new Generator{
       dependencies ++= connections.map(_.decoderInvalidationRequirements)
+      products += invalidationRequirements
       val gen = add task new Area{
         val sInvalidationRequirements = connections.map(_.decoderInvalidationRequirements)
         var invalidationAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -354,6 +362,10 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val accessRequirements = Handle[BmbAccessParameter]()
     val invalidationRequirements = Handle[BmbInvalidationParameter]()
     val mapping = Handle[AddressMapping]
+
+    def addConnection(c : ConnectionModel): Unit ={
+      connections += c
+    }
 
     dependencies += lock
 
@@ -398,6 +410,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val gen = add task new Generator{
       dependencies ++= connections.map(_.m.accessRequirements)
       dependencies ++= connections.map(_.mapping)
+      products += accessSource
       val gen = add task new Area{
         val mAccessRequirements = connections.map(_.m.accessRequirements)
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -425,7 +438,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 
     val accessRequirementsGen = add task new Generator{
       dependencies ++= connections.map(_.arbiterAccessRequirements)
-
+      products += accessRequirements
       val gen = add task new Area{
         val mAccessRequirements = connections.map(_.arbiterAccessRequirements)
         var inputAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
@@ -460,6 +473,16 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val arbiterAccessRequirements = Handle[BmbAccessParameter]
     val decoderInvalidationRequirements = Handle[BmbInvalidationParameter]
 
+
+    Dependable(mapping){
+      val address = mapping.get match {
+        case `DefaultMapping` => BigInt(0)
+        case m => m.lowerBound
+      }
+      tags += new MemoryConnection(m.bus, s.bus, address)
+    }
+
+
     abstract class Bridge{
       def logic(mSide : Bmb) : Bmb
       def accessParameter(mSide : BmbAccessParameter) : BmbAccessParameter
@@ -474,7 +497,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
           outputDataWidth = s.accessCapabilities.dataWidth
         ).toAccessParameter
 
-        override def logic(mSide: Bmb): Bmb = {
+        override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
           val c = BmbUpSizerBridge(
             inputParameter = mSide.p,
             outputParameter = BmbUpSizerBridge.outputParameterFrom(mSide.p, s.accessCapabilities.dataWidth)
@@ -491,7 +514,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
           outputDataWidth = s.accessCapabilities.dataWidth
         ).toAccessParameter
 
-        override def logic(mSide: Bmb): Bmb = {
+        override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
           val c = BmbDownSizerBridge(
             inputParameter = mSide.p,
             outputParameter = BmbDownSizerBridge.outputParameterFrom(mSide.p, s.accessCapabilities.dataWidth)
@@ -527,7 +550,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
               inputParameter = BmbParameter(mSide, dummySlaveParameter)
             ).toAccessParameter
 
-            override def logic(mSide: Bmb): Bmb = {
+            override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
               val c = BmbUnburstify(
                 inputParameter = mSide.p
               )
@@ -541,6 +564,25 @@ case class BmbSmpInterconnectGenerator() extends Generator{
         }
       }
 
+      if(m.generatorClockDomain.get != s.generatorClockDomain.get) { //TODO better sync check
+        accessBridges += new Bridge {
+          override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide
+
+          override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
+            val c = BmbCcFifo(
+              p = mSide.p,
+              cmdDepth = 16,
+              rspDepth = 16,
+              inputCd = m.generatorClockDomain,
+              outputCd = s.generatorClockDomain
+            )
+            c.setCompositeName(m.bus, "crossClock", true)
+            c.io.input << mSide
+            c.io.output
+          }
+        }
+      }
+
       var accessParameter = decoderAccessRequirements.get
       for(bridge <- accessBridges){
         accessParameter = bridge.accessParameter(accessParameter)
@@ -551,6 +593,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val adapterGen2 = new Generator {
       dependencies += arbiterInvalidationRequirements
       dependencies += m.invalidationCapabilities
+      products += decoderInvalidationRequirements
 
       add task {
 //        val dummyAccessParameter = BmbAccessParameter()
@@ -661,8 +704,8 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 
   def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : this.type = {
     val c = ConnectionModel(getMaster(m), getSlave(s), getSlave(s).mapping).setCompositeName(m, "connector", true)
-    getMaster(m).connections += c
-    getSlave(s).connections += c
+    getMaster(m).addConnection(c)
+    getSlave(s).addConnection(c)
     this
   }
   def addConnection(m : Handle[Bmb], s : Seq[Handle[Bmb]]) : this.type = {
