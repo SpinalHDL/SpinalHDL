@@ -265,6 +265,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val invalidationSource = Handle[BmbInvalidationParameter]
     val invalidationCapabilities = Handle[BmbInvalidationParameter]
     val invalidationRequirements = Handle[BmbInvalidationParameter]
+    var connector: (Bmb, Bmb) => Unit = defaultConnector
     var priority = 0
 
     def addConnection(c : ConnectionModel): Unit ={
@@ -302,7 +303,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
               add task new Area {
                 val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
                 decoder.setCompositeName(bus, "decoder")
-                decoder.io.input << bus
+                connector(bus, decoder.io.input)
                 for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
                   connection.decoder.load(decoderOutput)
                 }
@@ -362,6 +363,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val accessRequirements = Handle[BmbAccessParameter]()
     val invalidationRequirements = Handle[BmbInvalidationParameter]()
     val mapping = Handle[AddressMapping]
+    var connector: (Bmb, Bmb) => Unit = defaultConnector
 
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
@@ -399,7 +401,7 @@ case class BmbSmpInterconnectGenerator() extends Generator{
                 for((connection, arbiterInput) <- (connectionsSorted, arbiter.io.inputs).zipped) {
                   connection.arbiter.load(arbiterInput)
                 }
-                arbiter.io.output >> bus
+                connector(arbiter.io.output, bus)
               }
             }
           }
@@ -641,16 +643,16 @@ case class BmbSmpInterconnectGenerator() extends Generator{
   def getSlave(key : Handle[Bmb]) = slaves.getOrElseUpdate(key, SlaveModel(key, lock).setCompositeName(key, "slaveModel"))
 
 
-//  def setConnector(bus : Handle[Bmb])( connector : (Bmb,Bmb) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
-//    case (Some(m), _) =>    m.connector = connector
-//    case (None, Some(s)) => s.connector = connector
-//    case _ => ???
-//  }
-//
-//  def setConnector(m : Handle[Bmb], s : Handle[Bmb])(connector : (Bmb,Bmb) => Unit): Unit = connections.find(e => e.m == m && e.s == s) match {
-//    case Some(c) => c.connector = connector
-//    case _ => ???
-//  }
+  def setConnector(bus : Handle[Bmb])( connector : (Bmb,Bmb) => Unit): Unit = (masters.get(bus), slaves.get(bus)) match {
+    case (Some(m), _) =>    m.connector = connector
+    case (None, Some(s)) => s.connector = connector
+    case _ => ???
+  }
+
+  def setConnector(m : Handle[Bmb], s : Handle[Bmb])(connector : (Bmb,Bmb) => Unit): Unit = getMaster(m).connections.find(_.s == s) match {
+    case Some(c) => c.connector = connector
+    case _ => ???
+  }
 
   def addSlave(accessSource : Handle[BmbAccessParameter] = Handle[BmbAccessParameter],
                accessCapabilities : Handle[BmbAccessParameter],
