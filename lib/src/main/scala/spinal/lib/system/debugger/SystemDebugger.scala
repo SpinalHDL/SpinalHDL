@@ -6,6 +6,7 @@ import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
 import spinal.lib._
+import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.eda.altera.QSysify
 
 /**
@@ -21,6 +22,14 @@ case class SystemDebuggerConfig(memAddressWidth : Int = 32,
     dataWidth = memDataWidth
   ).copy(
     useByteEnable = true
+  )
+
+  def getBmbParameter = BmbParameter(
+    addressWidth = memAddressWidth,
+    dataWidth = memDataWidth,
+    lengthWidth = log2Up(memDataWidth/8),
+    sourceWidth = 0,
+    contextWidth = 0
   )
 
   def getMemAxi4SharedConfig = Axi4Config(
