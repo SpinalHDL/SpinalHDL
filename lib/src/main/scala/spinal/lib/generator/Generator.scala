@@ -230,18 +230,18 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     generatorClockDomainSet = true
     generatorClockDomain.load(null)
   }
-  def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
-    generatorClockDomainSet = true
-    this.generatorClockDomain.merge(clockDomain)
-    dependencies += clockDomain
-    this
-  }
-
   def apply[T](body : => T): T = {
     Generator.stack.push(this)
     val b = body
     Generator.stack.pop()
     b
+  }
+
+  def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
+    generatorClockDomainSet = true
+    this.generatorClockDomain.merge(clockDomain)
+    dependencies += clockDomain
+    this
   }
   //  {
   //    val stack = Composable.stack
