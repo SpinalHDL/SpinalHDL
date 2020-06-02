@@ -108,8 +108,8 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
 
 object blackboxByteEnables extends MemBlackboxingPolicy{
   override def translationInterest(topology: MemTopology): Boolean = {
-    if(topology.writes.exists(_.mask != null)) return true
-    if(topology.readWriteSync.exists(_.mask != null)) return true
+    if(topology.writes.exists(_.mask != null) && topology.mem.initialContent == null) return true
+    if(topology.readWriteSync.exists(_.mask != null) && topology.mem.initialContent == null) return true
     false
   }
 
