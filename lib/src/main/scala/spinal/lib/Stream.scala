@@ -190,6 +190,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.io.pop
   }
 
+  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
   /**
    * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
    * @return A tuple with the resulting stream that duplicates the items and the counter, indicating how many
@@ -1167,10 +1173,10 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val output = master Stream (dataType)
+    val input = slave Stream (dataType())
+    val output = master Stream (dataType())
   }
 
   val outHitSignal = Bool
