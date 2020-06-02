@@ -46,6 +46,7 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     io.output.cmd.address := io.input.cmd.address
     io.output.cmd.length := io.input.cmd.length
     io.output.cmd.context := B(context)
+    if(inputParameter.canExclusive) io.output.cmd.exclusive := io.input.cmd.exclusive
 
     if (!inputParameter.canWrite) {
       io.output.cmd.last := io.input.cmd.last
@@ -76,6 +77,8 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     io.input.rsp.source := context.source
     io.input.rsp.context := context.context
     io.output.rsp.ready := io.input.rsp.ready
+
+    if(inputParameter.canExclusive) io.input.rsp.exclusive := io.output.rsp.exclusive
 
     if (!inputParameter.canRead) {
       io.input.rsp.valid := io.output.rsp.valid
@@ -109,5 +112,14 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
       io.input.rsp.valid := io.output.rsp.valid && (io.output.rsp.last || sel === sel.maxValue)
       io.input.rsp.data := B(words)
     }
+  }
+
+  if(inputParameter.canInvalidate){
+    io.input.inv << io.output.inv
+    io.input.ack >> io.output.ack
+  }
+
+  if(inputParameter.canSync){
+    io.input.sync << io.output.sync
   }
 }

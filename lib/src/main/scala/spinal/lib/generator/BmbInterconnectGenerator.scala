@@ -475,6 +475,12 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val arbiterAccessRequirements = Handle[BmbAccessParameter]
     val decoderInvalidationRequirements = Handle[BmbInvalidationParameter]
 
+    val CC_FIFO = 0
+    val CC_TOGGLE = 1
+    var ccKind = CC_FIFO
+    def ccByToggle(): Unit ={
+      ccKind = CC_TOGGLE
+    }
 
     Dependable(mapping){
       val address = mapping.get match {
@@ -567,22 +573,41 @@ case class BmbSmpInterconnectGenerator() extends Generator{
       }
 
       if(m.generatorClockDomain.get != s.generatorClockDomain.get) { //TODO better sync check
-        accessBridges += new Bridge {
-          override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide
+        ccKind match {
+          case CC_FIFO =>
+            accessBridges += new Bridge {
+              override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide
 
-          override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
-            val c = BmbCcFifo(
-              p = mSide.p,
-              cmdDepth = 16,
-              rspDepth = 16,
-              inputCd = m.generatorClockDomain,
-              outputCd = s.generatorClockDomain
-            )
-            c.setCompositeName(m.bus, "crossClock", true)
-            c.io.input << mSide
-            c.io.output
-          }
+              override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
+                val c = BmbCcFifo(
+                  p = mSide.p,
+                  cmdDepth = 16,
+                  rspDepth = 16,
+                  inputCd = m.generatorClockDomain,
+                  outputCd = s.generatorClockDomain
+                )
+                c.setCompositeName(m.bus, "crossClock", true)
+                c.io.input << mSide
+                c.io.output
+              }
+            }
+          case CC_TOGGLE =>
+            accessBridges += new Bridge {
+              override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide
+
+              override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
+                val c = BmbCcToggle(
+                  p = mSide.p,
+                  inputCd = m.generatorClockDomain,
+                  outputCd = s.generatorClockDomain
+                )
+                c.setCompositeName(m.bus, "crossClock", true)
+                c.io.input << mSide
+                c.io.output
+              }
+            }
         }
+
       }
 
       var accessParameter = decoderAccessRequirements.get
@@ -659,13 +684,14 @@ case class BmbSmpInterconnectGenerator() extends Generator{
                accessRequirements : Handle[BmbAccessParameter],
                invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
                bus : Handle[Bmb],
-               mapping : Handle[AddressMapping]): Unit ={
+               mapping : Handle[AddressMapping]) ={
     val model = getSlave(bus)
     model.accessSource.merge(accessSource)
     model.accessCapabilities.merge(accessCapabilities)
     model.accessRequirements.merge(accessRequirements)
     model.invalidationRequirements.merge(invalidationRequirements)
     model.mapping.merge(mapping)
+    model
   }
 
 //  def addMaster(accessRequirements : Handle[BmbMasterRequirements],
@@ -704,11 +730,11 @@ case class BmbSmpInterconnectGenerator() extends Generator{
 //    )
 //  }
 
-  def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : this.type = {
+  def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : ConnectionModel = {
     val c = ConnectionModel(getMaster(m), getSlave(s), getSlave(s).mapping).setCompositeName(m, "connector", true)
     getMaster(m).addConnection(c)
     getSlave(s).addConnection(c)
-    this
+    c
   }
   def addConnection(m : Handle[Bmb], s : Seq[Handle[Bmb]]) : this.type = {
     for(e <- s) addConnection(m, e)
