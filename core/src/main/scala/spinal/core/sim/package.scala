@@ -55,13 +55,13 @@ package object sim {
   }
 
 
-  def setBigInt[T <: Data](mem : Mem[T], address : Int, data : BigInt): Unit = {
+  def setBigInt[T <: Data](mem : Mem[T], address : Long, data : BigInt): Unit = {
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, mem)
     manager.setBigInt(signal, address, data)
   }
 
-  def getBigInt[T <: Data](mem : Mem[T], address : Int): BigInt = {
+  def getBigInt[T <: Data](mem : Mem[T], address : Long): BigInt = {
     val manager = SimManagerContext.current.manager
     val signal = btToSignal(manager, mem)
     manager.getBigInt(signal, address)
@@ -255,8 +255,8 @@ package object sim {
   }
 
   implicit class SimMemPimper[T <: Data](mem: Mem[T]) {
-    def setBigInt(address : Int, data : BigInt): Unit = sim.setBigInt(mem,address,data)
-    def getBigInt(address : Int): BigInt = sim.getBigInt(mem,address)
+    def setBigInt(address : Long, data : BigInt): Unit = sim.setBigInt(mem,address,data)
+    def getBigInt(address : Long): BigInt = sim.getBigInt(mem,address)
     def simPublic(): Mem[T] = mem.addTag(SimPublic)
   }
 

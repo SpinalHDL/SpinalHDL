@@ -152,7 +152,7 @@ class SimManager(val raw : SimRaw) {
     }
   }
 
-  def getBigInt(bt : Signal, address : Int) : BigInt =  {
+  def getBigInt(bt : Signal, address : Long) : BigInt =  {
     raw.getBigIntMem(bt, address)
   }
 
@@ -164,7 +164,7 @@ class SimManager(val raw : SimRaw) {
     bt.dataType.checkBigIntRange(value, bt)
     commandBuffer += {() => raw.setBigInt(bt, value); if(readBypass != null) readBypass += (bt -> value)}
   }
-  def setBigInt(mem : Signal,address : Int, value : BigInt): Unit = {
+  def setBigInt(mem : Signal,address : Long, value : BigInt): Unit = {
     mem.dataType.checkBigIntRange(value, mem)
     commandBuffer += {() => raw.setBigIntMem(mem, value, address) /*;if(readBypass != null) readBypass += (bt -> value)*/}
   }
