@@ -35,13 +35,15 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
+  def checkLastNA: Unit = RegInsts.foreach(_.checkLast)
+
   component.addPrePopTask(() => {
     readGenerator()
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc:${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address:${regPtr}")
+    require(address % wordAddressInc == 0, s"located Position not align by wordAddressInc:${wordAddressInc}")
+    require(address >= regPtr, s"located Position conflict to Pre allocated Address:${regPtr}")
     regPtr = address + wordAddressInc
     creatReg(symbol.name, address, doc)
   }
@@ -106,6 +108,8 @@ trait BusIf extends BusIfBase {
 //  }
 
   def accept(vs : BusIfVisitor) = {
+    checkLastNA
+
     vs.begin(busDataWidth)
 
     for(reg <- RegInsts) {
