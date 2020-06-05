@@ -17,7 +17,7 @@ import scala.util.Random
 
 
 class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
-  def doIt(outputCount : Int, sourceCount : Int): Unit ={
+  def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
     val p = BmbParameter(
       addressWidth = 20,
       dataWidth    = 32,
@@ -27,8 +27,8 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
     )
     SimConfig.compile(new BmbDecoderOutOfOrder(
       p             = p,
-      mappings      = Seq(DefaultMapping) ++ Seq.tabulate(outputCount)(e => SizeMapping(0x40000*e, 0x40000)),
-      capabilities  = Seq.fill(outputCount + 1)(p),
+      mappings      = Seq.tabulate(outputCount)(e => if(e == 0 && withDefault) DefaultMapping else SizeMapping(0x40000*e, 0x40000)),
+      capabilities  = Seq.fill(outputCount)(p),
       pendingRspTransactionMax = 64
     )).doSimUntilVoid(seed = 42) { dut =>
       SimTimeout(10000000)
@@ -45,10 +45,14 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       )
     }
   }
-  test("2p_4s") {doIt(1, 4)}
-  test("4p_4s") {doIt(3, 4)}
-  test("2p_8s") {doIt(1, 8)}
-  test("4p_8s") {doIt(3, 8)}
+  test("2p_4s") {doIt(2, 4, false)}
+  test("4p_4s") {doIt(4, 4, false)}
+  test("2p_8s") {doIt(2, 8, false)}
+  test("4p_8s") {doIt(4, 8, false)}
+  test("2p_4s_wd") {doIt(2, 4, true)}
+  test("4p_4s_wd") {doIt(4, 4, true)}
+  test("2p_8s_wd") {doIt(2, 8, true)}
+  test("4p_8s_wd") {doIt(4, 8, true)}
 }
 
 
