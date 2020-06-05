@@ -88,6 +88,9 @@ case class BmbDecoder(p : BmbParameter,
   }
 }
 
+object BmbDecoderOutOfOrder{
+  def getOutputParameter(inputParameter : BmbParameter) = inputParameter.copy(contextWidth = 0)
+}
 
 case class BmbDecoderOutOfOrder(p : BmbParameter,
                                 mappings : Seq[AddressMapping],
@@ -96,17 +99,20 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
   assert(!AddressMapping.verifyOverlapping(mappings), "BMB address decoding overlapping")
   assert(isPow2(pendingRspTransactionMax))
 
+  val outputParameter = BmbDecoderOutOfOrder.getOutputParameter(p)
+
   val io = new Bundle {
     val input = slave(Bmb(p))
-    val outputs = Vec(master(Bmb(p)), mappings.size)
+    val outputs = Vec(master(Bmb(outputParameter)), mappings.size)
   }
   val sourceCount = 1 << p.sourceWidth
   val portCount = mappings.size
+  val withDefault = mappings.contains(DefaultMapping)
 
   case class SourceHistory() extends Bundle {
-    val outputId = UInt(log2Up(mappings.size) bits)
+    val hits = Bits(mappings.size bits)
     val beatCount = UInt(p.beatCounterWidth bits)
-    //    val context = Bits(p.contextWidth bits)
+    val context = Bits(p.contextWidth bits)
   }
 
   val sourceOrderingFifo = StreamFifoMultiChannel(SourceHistory(), channelCount = sourceCount, depth = pendingRspTransactionMax)
@@ -116,14 +122,14 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
   val cmdToRspCountMinusOne = io.input.cmd.isRead ? io.input.cmd.transferBeatCountMinusOne | 0
 
   val portsLogic = for ((port, portId) <- io.outputs.zipWithIndex) yield new Area {
-    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(p)), channelCount = sourceCount, depth = pendingRspTransactionMax)
+    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(outputParameter)), channelCount = sourceCount, depth = pendingRspTransactionMax)
     rspFifo.io.push.stream.valid := port.rsp.valid
     rspFifo.io.push.stream.payload := port.rsp.payload
     rspFifo.io.push.channel := port.rsp.source
     port.rsp.ready := True
     assert(!(rspFifo.io.push.stream.isStall))
 
-    val sourceHits = B(for (sourceId <- 0 until sourceCount) yield !rspFifo.io.pop.empty(sourceId) && sourceOrdering(sourceId).valid && sourceOrdering(sourceId).outputId === portId)
+    val sourceHits = B(for (sourceId <- 0 until sourceCount) yield !rspFifo.io.pop.empty(sourceId) && sourceOrdering(sourceId).valid && sourceOrdering(sourceId).hits(portId))
     val sourceHit = sourceHits.orR
     val sourceArbiter = B(OHMasking.first(sourceHits)) //TODO
     val lockValid = RegInit(False)
@@ -150,7 +156,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
 
 
   val cmdLogic = new Area {
-    assert(mappings.contains(DefaultMapping))
+    assert(mappings.count(_ == DefaultMapping) <= 1)
     val rspCount = io.input.cmd.transferBeatCountMinusOne + 1
 
     val (orderingFork, cmdFork) = StreamFork2(io.input.cmd)
@@ -172,18 +178,17 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
       halt.setWhen(hit && portsLogic(portId).rspFifoFull)
       slaveBus.cmd.valid   := cmdFork.valid && hit && (!portsLogic(portId).rspFifoFull || lock)
       slaveBus.cmd.payload := cmdFork.payload.resized
+      slaveBus.cmd.context.removeAssignments()
     }
 
     halt clearWhen(lock)
-    cmdFork.ready := (hits, io.outputs).zipped.map(_ && _.cmd.ready).orR && !halt
-
-    val portId = OHToUInt(hits)
+    cmdFork.ready := ((hits, io.outputs).zipped.map(_ && _.cmd.ready).orR || B(hits) === 0) && !halt
 
     sourceOrderingFifo.io.push.channel := io.input.cmd.source
     sourceOrderingFifo.io.push.stream.arbitrationFrom(orderingFork.throwWhen(!orderingFork.isFirst))
-    sourceOrderingFifo.io.push.stream.outputId := portId
+    sourceOrderingFifo.io.push.stream.hits := B(hits)
     sourceOrderingFifo.io.push.stream.beatCount := cmdToRspCountMinusOne
-    //  sourceOrderingFifo.io.push.stream.context := io.input.cmd.context //TODO ?
+    sourceOrderingFifo.io.push.stream.context := io.input.cmd.context
   }
 
 
@@ -193,6 +198,24 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     val lockSel = Reg(Bits(portCount bits))
     val arbiterSel = B(OHMasking.first(portsLogic.map(_.sourceHit))) //TODO
     val portSel = lockValid ? lockSel | arbiterSel
+
+    val error = !withDefault generate new Area{
+      val hits = B(sourceOrdering.map(s => s.valid && s.hits === 0))
+      val valid = RegInit(False)
+      val sourceSel = Reg(Bits(sourceCount bits))
+
+      when(!valid) {
+        when(hits.orR) {
+          valid := True
+          sourceSel := OHMasking.first(hits)
+        }
+      } otherwise {
+        arbiterSel := 0
+        when(io.input.rsp.lastFire && portSel === 0){
+          valid := False
+        }
+      }
+    }
 
     val beatCounter = Reg(UInt(p.beatCounterWidth bits)) init(0)
 
@@ -219,7 +242,15 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     io.input.rsp.valid := (B(portsLogic.map(_.rspFifo.io.pop.stream.valid)) & portSel).orR
     io.input.rsp.payload := MuxOH(portSel, portsLogic.map(_.rspFifo.io.pop.stream.payload))
     io.input.rsp.last.removeAssignments() := last
+    io.input.rsp.context.removeAssignments() := MuxOH(sourceSel, sourceOrdering.map(_.context))
 
+    if(!withDefault) when(portSel === 0 && error.valid){
+      io.input.rsp.valid := True
+      io.input.rsp.setError()
+      sourceSel := error.sourceSel
+    }
+
+    io.input.rsp.source.removeAssignments() := OHToUInt(sourceSel)
     for(sourceId <- 0 until sourceCount) {
       sourceOrdering(sourceId).ready := sourceSel(sourceId) && io.input.rsp.fire && io.input.rsp.last
     }
