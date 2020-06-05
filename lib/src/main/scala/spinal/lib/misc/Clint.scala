@@ -9,7 +9,7 @@ import spinal.lib.bus.wishbone.WishboneConfig
 
 object Clint{
   def getWisboneConfig() = WishboneConfig(
-    addressWidth = addressWidth/4,
+    addressWidth = addressWidth-2,
     dataWidth = 32
   )
 
