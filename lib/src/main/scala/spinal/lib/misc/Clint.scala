@@ -50,6 +50,7 @@ case class Apb3Clint(hartCount : Int) extends Component{
     val bus = slave(Apb3(16, 32))
     val timerInterrupt = out Bits(hartCount bits)
     val softwareInterrupt = out Bits(hartCount bits)
+    val time = out UInt(64 bits)
   }
 
   val factory = Apb3SlaveFactory(io.bus)
@@ -60,6 +61,8 @@ case class Apb3Clint(hartCount : Int) extends Component{
     io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
     io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
   }
+
+  io.time := logic.time
 }
 
 
@@ -68,6 +71,7 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
     val bus = slave(Bmb(bmbParameter))
     val timerInterrupt = out Bits(hartCount bits)
     val softwareInterrupt = out Bits(hartCount bits)
+    val time = out UInt(64 bits)
   }
 
   val factory = BmbSlaveFactory(io.bus)
@@ -78,4 +82,6 @@ case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Compon
     io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
     io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
   }
+
+  io.time := logic.time
 }
