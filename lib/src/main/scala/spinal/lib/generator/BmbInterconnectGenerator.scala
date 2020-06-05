@@ -266,7 +266,16 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val invalidationCapabilities = Handle[BmbInvalidationParameter]
     val invalidationRequirements = Handle[BmbInvalidationParameter]
     var connector: (Bmb, Bmb) => Unit = defaultConnector
+
     var priority = 0
+
+    val DECODER_SMALL = 0
+    val DECODER_OUT_OF_ORDER = 1
+    var decoderKind = DECODER_SMALL
+
+    def withOutOfOrderDecoder(): Unit ={
+      decoderKind = DECODER_OUT_OF_ORDER
+    }
 
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
@@ -284,7 +293,11 @@ case class BmbSmpInterconnectGenerator() extends Generator{
       add task {
         slaves match {
           case _ if connections.size == 1 && connections.head.mapping.get == DefaultMapping && accessRequirements.canRead == connections.head.s.accessCapabilities.canRead  && accessRequirements.canWrite == connections.head.s.accessCapabilities.canWrite => {
-            connections.head.decoder.merge(bus)
+            connections.head.decoder.derivatedFrom(bus){_ =>
+              val decoder = Bmb(bus.p)
+              connector(bus, decoder)
+              decoder
+            }
             connections.head.decoderAccessRequirements.merge(accessRequirements)
           }
           case _ => {
@@ -292,7 +305,11 @@ case class BmbSmpInterconnectGenerator() extends Generator{
               c.decoderAccessRequirements.merge(accessRequirements.produce(accessRequirements.copy(
                 addressWidth = c.s.accessCapabilities.addressWidth,
                 canRead = c.s.accessCapabilities.canRead,
-                canWrite = c.s.accessCapabilities.canWrite
+                canWrite = c.s.accessCapabilities.canWrite,
+                contextWidth = decoderKind match {
+                  case DECODER_SMALL => accessRequirements.contextWidth
+                  case DECODER_OUT_OF_ORDER => 0
+                }
               )))
             }
             new Generator{
@@ -300,14 +317,29 @@ case class BmbSmpInterconnectGenerator() extends Generator{
               dependencies += invalidationRequirements
               dependencies ++= connections.map(_.decoderAccessRequirements)
 
-              add task new Area {
-                val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
-                decoder.setCompositeName(bus, "decoder")
-                connector(bus, decoder.io.input)
-                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
-                  connection.decoder.load(decoderOutput)
+              add task (decoderKind match {
+                case DECODER_SMALL => new Area {
+                  val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
+                  decoder.setCompositeName(bus, "decoder")
+                  connector(bus, decoder.io.input)
+                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                    connection.decoder.load(decoderOutput)
+                  }
                 }
-              }
+                case DECODER_OUT_OF_ORDER => new Area {
+                  val decoder = BmbDecoderOutOfOrder(
+                    bus.p,
+                    connections.map(_.mapping.get),
+                    connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)),
+                    pendingRspTransactionMax = 32
+                  )
+                  decoder.setCompositeName(bus, "decoder")
+                  connector(bus, decoder.io.input)
+                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                    connection.decoder.load(decoderOutput)
+                  }
+                }
+              })
             }
           }
         }
@@ -380,7 +412,11 @@ case class BmbSmpInterconnectGenerator() extends Generator{
         slaves match {
           case _ if connections.size == 1 => {
             connections.head.arbiterInvalidationRequirements.merge(invalidationRequirements)
-            connections.head.arbiter.merge(bus)
+            connections.head.arbiter.derivatedFrom(bus){_ =>
+              val arbiter = Bmb(bus.p)
+              connector(arbiter, bus)
+              arbiter
+            }
           }
           case _ => {
             connections.foreach(_.arbiterInvalidationRequirements.merge(invalidationRequirements))
