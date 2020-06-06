@@ -16,7 +16,7 @@ import spinal.lib.eda.altera.QSysify
 
 case class SystemDebuggerConfig(memAddressWidth : Int = 32,
                                 memDataWidth : Int = 32,
-                                remoteCmdWidth : Int){
+                                remoteCmdWidth : Int = 1){
   def getMemAvalonConfig = AvalonMMConfig.pipelined(
     addressWidth = memAddressWidth,
     dataWidth = memDataWidth
