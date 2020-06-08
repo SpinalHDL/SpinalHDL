@@ -15,7 +15,7 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
   }
 
   val bscane2 = BSCANE2(1)
-  val jtagClockDomain = ClockDomain(bscane2.DRCK)
+  val jtagClockDomain = ClockDomain(bscane2.TCK)
 
   val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain)
   jtagBridge.io.ctrl << bscane2.toJtagTapInstructionCtrl()
