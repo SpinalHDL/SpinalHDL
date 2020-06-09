@@ -792,3 +792,9 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
+
+case class MemSymbolesMapping(name : String, range: Range){
+  val width = range.size
+  val mask = BigInt(1 << width) - 1
+}
+case class MemSymbolesTag(mapping : Seq[MemSymbolesMapping]) extends SpinalTag

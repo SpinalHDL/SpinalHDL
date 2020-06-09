@@ -878,8 +878,6 @@ class ComponentEmitterVerilog(
 
   def emitMem(mem: Mem[_]): Unit ={
 
-    def emitDataType(mem: Mem[_], constrained: Boolean = true) =  s"${emitReference(mem, constrained)}_type"
-
     //ret ++= emitSignal(mem, mem);
     val symbolWidth = mem.getMemSymbolWidth()
     val symbolCount = mem.getMemSymbolCount()
@@ -917,10 +915,14 @@ class ComponentEmitterVerilog(
     }
 
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+      val mappings = ArrayBuffer[MemSymbolesMapping]()
       for(i <- 0 until symbolCount) {
           val postfix = "_symbol" + i
-        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] ${emitReference(mem,false)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        val symboleName = s"${emitReference(mem,false)}$postfix"
+        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        mappings += MemSymbolesMapping(symboleName, i*symbolWidth until (i+1)*symbolWidth)
       }
+      mem.addTag(MemSymbolesTag(mappings))
     }else{
       declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
     }

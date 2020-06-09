@@ -24,7 +24,7 @@ import java.io.File
 
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -92,7 +92,20 @@ object SpinalVerilatorBackend {
           addSignal(bt)
         }
         case mem : Mem[_] if mem.hasTag(Verilator.public) => {
-          addSignal(mem)
+          val tag = mem.getTag(classOf[MemSymbolesTag])
+          mem.algoInt = signalId
+          mem.algoIncrementale = -1
+          tag match {
+            case None => addSignal(mem)
+            case Some(tag) => {
+              for(mapping <- tag.mapping){
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                signal.id = signalId
+                vconfig.signals += signal
+                signalId += 1
+              }
+            }
+          }
         }
         case _ =>{
           s.algoInt = -1
@@ -266,7 +279,20 @@ object SpinalVpiBackend {
           addSignal(bt)
         }
         case mem : Mem[_] if mem.hasTag(SimPublic) => {
-          addSignal(mem)
+          val tag = mem.getTag(classOf[MemSymbolesTag])
+          mem.algoInt = signalId
+          mem.algoIncrementale = -1
+          tag match {
+            case None => addSignal(mem)
+            case Some(tag) => {
+              for(mapping <- tag.mapping){
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                signal.id = signalId
+                signalsCollector += signal
+                signalId += 1
+              }
+            }
+          }
         }
         case _ =>{
           s.algoInt = -1
