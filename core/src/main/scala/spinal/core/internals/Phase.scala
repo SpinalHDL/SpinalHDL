@@ -2136,10 +2136,17 @@ class PhaseInitReg() extends PhaseNetlist {
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
+    SpinalProgress("Initialize all registers not initialized")
+
+
     walkComponents{ comp =>
       comp.rework{
         comp.dslBody.walkStatements{
-          case bt:BaseType if bt.isReg =>
+
+          case bt: BaseType if bt.isReg =>
+
+            SpinalInfo(s"Init register ${bt.toString}")
+
             if(!bt.hasInit){
               bt match{
                 case d: SInt                        => d.init(0)
@@ -2150,6 +2157,7 @@ class PhaseInitReg() extends PhaseNetlist {
                 case _                              => 
               }
             }
+
           case _ =>
         }
       }
