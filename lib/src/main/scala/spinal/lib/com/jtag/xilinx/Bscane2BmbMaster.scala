@@ -14,7 +14,7 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
     val bmb = master(Bmb(jtagConfig.getBmbParameter))
   }
 
-  val bscane2 = BSCANE2(1)
+  val bscane2 = BSCANE2(usedId)
   val jtagClockDomain = ClockDomain(bscane2.TCK)
 
   val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain)
