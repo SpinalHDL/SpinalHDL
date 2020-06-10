@@ -217,7 +217,8 @@ case class BmbLengthFixer(ip : BmbParameter, fixedWidth : Int) extends Component
 object BmbAlignedSpliter{
   def outputParameter(ip : BmbParameter, lengthMax : Int) = ip.copy(
     lengthWidth = log2Up(lengthMax),
-    contextWidth = ip.contextWidth + 2 + ip.sourceWidth
+    contextWidth = ip.contextWidth + 2 + ip.sourceWidth,
+    sourceWidth = 0
   )
 }
 
