@@ -55,7 +55,10 @@ case class RtlPhy(pl : PhyLayout) extends Component{
   }
 
   val columnPerBeatLog2Up = log2Up(pl.phaseCount*pl.dataRate)
-  val ram = Mem(Bits(pl.beatWidth bits), (1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))/(pl.phaseCount*pl.dataRate))
+
+  import spinal.core.sim._
+  val ram = Mem(Bits(pl.beatWidth bits), (1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))/(pl.phaseCount*pl.dataRate)).simPublic()
+
   ClockDomain(io.write.clk){
     ram.write(
       address = io.write.cmd.address,
