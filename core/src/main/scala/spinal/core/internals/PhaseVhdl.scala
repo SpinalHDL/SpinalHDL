@@ -108,7 +108,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
 
     for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
-      ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
+      ret ++= s"  function pkg_mux (sel : std_logic; one : $enumName; zero : $enumName) return $enumName;\n"
 
 
       for (encoding <- encodings if !encoding.isNative) {
@@ -151,7 +151,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       ret ++= s"package body $enumPackageName is\n"
       for ((enumDef, encodings) <- enums) {
         val enumName = enumDef.getName()
-        ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
+        ret ++= s"  function pkg_mux (sel : std_logic; one : $enumName; zero : $enumName) return $enumName is\n"
         ret ++= "  begin\n"
         ret ++= "    if sel = '1' then\n"
         ret ++= "      return one;\n"
@@ -279,7 +279,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     })
 
     val ret = new StringBuilder()
-    ret ++= s"library IEEE;\n"
+    ret ++= "library IEEE;\n"
     ret ++= "use ieee.std_logic_1164.all;\n"
     ret ++= "use ieee.numeric_std.all;\n"
     ret ++= "use ieee.math_real.all;\n"
@@ -287,15 +287,14 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= s"package $packageName is\n"
     ret ++= s"${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}\n"
     ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;\n"
-    ret ++= s"\n"
-    ret ++= s"\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : std_logic; zero : std_logic) return std_logic;\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : std_logic_vector; zero : std_logic_vector) return std_logic_vector;\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : unsigned; zero : unsigned) return unsigned;\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : signed; zero : signed) return signed;\n"
+    ret ++= "\n"
     ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic;\n"
     ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;\n"
-    ret ++= "  function pkg_toUnsigned(value : std_logic) return unsigned;\n"
+    ret ++= "  function pkg_toUnsigned (value : std_logic) return unsigned;\n"
     ret ++= "  function pkg_toSigned (value : std_logic) return signed;\n"
     ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector;\n"
     ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned;\n"
@@ -354,7 +353,6 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  begin\n"
     ret ++= "    return shift_left(resize(that,that'length + 2**size'length - 1),to_integer(size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
     ret ++= "\n"
     ret ++= "  -- std_logic_vector shifts\n"
     ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector is\n"
@@ -424,7 +422,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    return temp;\n"
     ret ++= "  end pkg_extract;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic is\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : std_logic; zero : std_logic) return std_logic is\n"
     ret ++= "  begin\n"
     ret ++= "    if sel = '1' then\n"
     ret ++= "      return one;\n"
@@ -433,7 +431,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    end if;\n"
     ret ++= "  end pkg_mux;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector is\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : std_logic_vector; zero : std_logic_vector) return std_logic_vector is\n"
     ret ++= "    variable ret : std_logic_vector(zero'range);"
     ret ++= "  begin\n"
     ret ++= "    if sel = '1' then\n"
@@ -444,7 +442,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    return ret;"
     ret ++= "  end pkg_mux;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned is\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : unsigned; zero : unsigned) return unsigned is\n"
     ret ++= "    variable ret : unsigned(zero'range);"
     ret ++= "  begin\n"
     ret ++= "    if sel = '1' then\n"
@@ -455,7 +453,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "    return ret;"
     ret ++= "  end pkg_mux;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed is\n"
+    ret ++= "  function pkg_mux (sel : std_logic; one : signed; zero : signed) return signed is\n"
     ret ++= "    variable ret : signed(zero'range);"
     ret ++= "  begin\n"
     ret ++= "    if sel = '1' then\n"
@@ -499,21 +497,21 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector is\n"
     ret ++= "    variable ret : std_logic_vector(lit'length-1 downto 0);\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
+    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_stdLogicVector;\n"
     ret ++= "\n"
     ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned is\n"
     ret ++= "    variable ret : unsigned(lit'length-1 downto 0);\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
+    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_unsigned;\n"
     ret ++= "\n"
     ret ++= "  function pkg_signed (lit : signed) return signed is\n"
     ret ++= "    variable ret : signed(lit'length-1 downto 0);\n"
     ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
+    ret ++= "    ret := lit;\n"
     ret ++= "    return ret;\n"
     ret ++= "  end pkg_signed;\n"
     ret ++= "\n"
@@ -523,24 +521,22 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "  end pkg_resize;\n"
     ret ++= "\n"
     ret ++=
-      """
-        |  function pkg_resize (that : unsigned; width : integer) return unsigned is
-        |	  variable ret : unsigned(width-1 downto 0);
+     """|  function pkg_resize (that : unsigned; width : integer) return unsigned is
+        |    variable ret : unsigned(width-1 downto 0);
         |  begin
         |    if that'length = 0 then
         |       ret := (others => '0');
         |    else
         |       ret := resize(that,width);
         |    end if;
-        |		return ret;
+        |    return ret;
         |  end pkg_resize;
-        | """.stripMargin
+        |""".stripMargin
 
 
     ret ++=
-      """
-        |  function pkg_resize (that : signed; width : integer) return signed is
-        |	  variable ret : signed(width-1 downto 0);
+     """|  function pkg_resize (that : signed; width : integer) return signed is
+        |    variable ret : signed(width-1 downto 0);
         |  begin
         |    if that'length = 0 then
         |       ret := (others => '0');
@@ -549,9 +545,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         |    else
         |       ret := resize(that,width);
         |    end if;
-        |		return ret;
+        |    return ret;
         |  end pkg_resize;
-        | """.stripMargin
+        |""".stripMargin
     ret ++= s"end $packageName;\n"
     ret ++= "\n"
     ret ++= "\n"
