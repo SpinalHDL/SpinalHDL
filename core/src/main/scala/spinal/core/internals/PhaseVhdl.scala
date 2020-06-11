@@ -100,7 +100,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                                     |""".stripMargin
 
     for (enumDef <- enums.keys) {
-      ret ++= s"  type ${enumDef.getName()} is (${enumDef.elements.map(_.getName()).reduce(_ + "," + _)});\n"
+      ret ++= s"  type ${enumDef.getName()} is (${enumDef.elements.map(_.getName()).mkString(",")});\n"
       //ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.elements.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
     }
 
@@ -170,7 +170,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                                                                                                                                                               |${
                 {
                   for (e <- enumDef.elements) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
-                }.reduce(_ + "\n" + _)
+                }.mkString("\n")
               }
                   |      when others => return ${enumDef.elements.head.getName()};
                                                                                  |    end case;
@@ -184,7 +184,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                                                                                             |${
                 {
                   for (e <- enumDef.elements) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
-                }.reduce(_ + "\n" + _)
+                }.mkstring("\n")
               }
                   |      when others => return ${idToBits(enumDef.elements.head, encoding)};
                                                                                            |    end case;
@@ -285,7 +285,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= "use ieee.math_real.all;\n"
     ret ++= "\n"
     ret ++= s"package $packageName is\n"
-    ret ++= s"${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}\n"
+    ret ++= funcs.map("  " + _._1 + ";\n").mkString
     ret ++= "\n"
     ret ++= "  function pkg_mux (sel : std_logic; one : std_logic; zero : std_logic) return std_logic;\n"
     ret ++= "  function pkg_mux (sel : std_logic; one : std_logic_vector; zero : std_logic_vector) return std_logic_vector;\n"
@@ -327,7 +327,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     ret ++= s"end  $packageName;\n"
     ret ++= "\n"
     ret ++= s"package body $packageName is\n"
-    ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
+    ret ++= funcs.map(f => "  " + f._1 + " is\n" + f._2).mkString
     ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
