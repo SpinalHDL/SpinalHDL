@@ -49,16 +49,26 @@ class Stage0 extends Bundle with BundleA with BundleB with BundleC
 
 class Stage1 extends Bundle with BundleA with BundleB with BundleD
 
-class Play1 extends Component {
-  val io = new Bundle {
-    val output = out(Reg(Bool))
-  }
-  io.output := !io.output
-}
+
 
 object Play1 {
+  case class Sub() extends Component {
+    val io = inout(Analog(Bool))
+
+    io := True
+  }
+
+  case class TopLevel() extends Component {
+    val io = inout(Analog(Bits(2 bits)))
+
+    val s0, s1 = Sub()
+
+    io(0) := s0.io
+    io(1) := s1.io
+  }
+
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new Play1)
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -72,89 +82,251 @@ class ComplexBundle extends Bundle {
 //  override def clone() : this.type = new ComplexBundle
 }
 
+object PlayGeneratorA extends App{
+  import spinal.lib.generator._
 
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b = Handle[Int]
+
+    //Print a + b
+    val calculator = new Generator{
+      dependencies += a
+      dependencies += b
+
+      add task{
+        val sum = a.get + b.get
+        println(s"a + b = $sum")
+      }
+    }
+
+    //load a and b with values, which will then unlock the calculator generator
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
+}
+
+object PlayGeneratorA1 extends App{
+  import spinal.lib.generator._
+
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b,signalWidth = Handle[Int]
+
+    //Load signalWidth as the result of a + b
+    val calculator = new Generator{
+      dependencies += a
+      dependencies += b
+
+      add task{
+        signalWidth.load(a.get + b.get)
+      }
+    }
+
+    //Generate a signal of signalWidth bits
+    val rtl = new Generator{
+      dependencies += signalWidth
+
+      val signal = Handle[UInt]
+      add task{
+        println(s"rtlSignal will have ${signalWidth.get} bits")
+        signal.load(UInt(signalWidth.get bits))
+      }
+    }
+
+    //load a and b with values, which will then unlock the calculator generator, which will then unlock the rtl generator
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
+}
+
+
+object PlayGeneratorB extends App{
+  import spinal.lib.generator._
+
+  class Root() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b = Handle[Int]
+    val signalWidth = List(a,b).produce(a.get + b.get)
+    val signal = signalWidth.produce(UInt(signalWidth.get bits))
+    a.load(3)
+    b.load(4)
+  }
+
+  SpinalVerilog(new Root().toComponent())
+}
+
+object PlayGeneratorC extends App{
+  import spinal.lib.generator._
+
+  class MyGenerator() extends Generator{
+    //Define some Handle which will be later loaded with real values
+    val a,b, somebodyElseHandle = Handle[Int]
+    val x = a.derivate(_ + 3)
+    dependencies += somebodyElseHandle
+    val myHandle : Handle[Int] = createDependency[Int]
+  }
+
+
+}
 
 
 
 object play {
 
 
-  trait HandleCoreSubscriber[+T]{
-    def changeCore[T2 >: T](core : HandleCore[T2]) : Unit
-    def lazyDefault (): T
-    def lazyDefaultAvailable : Boolean
-  }
+//  trait HandleCoreSubscriber[+T]{
+//    def changeCore[T2 >: T](core : HandleCore[T2]) : Unit
+//    def lazyDefault (): T
+//    def lazyDefaultAvailable : Boolean
+//  }
+//
+//  class HandleCore[+T]{
+//    private var loaded = false
+//    private var value : Any = null.asInstanceOf[T]
+//
+//    val subscribers = mutable.HashSet[HandleCoreSubscriber[Any]]()
+//
+//    def get : T = {
+//      if(!loaded){
+//        subscribers.count(_.lazyDefaultAvailable) match {
+//          case 0 =>
+//          case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
+//          case _ => SpinalError("Multiple handle default values")
+//        }
+//      }
+//      value.asInstanceOf[T]
+//    }
+//    def load(value : Any): T = {
+//      this.value = value
+//      loaded = true
+//      value.asInstanceOf[T]
+//    }
+//
+//    def merge(that : HandleCore[Any]): Unit ={
+//      (this.loaded, that.loaded) match {
+//        case (false, _) => this.subscribers.foreach(_.changeCore(that))
+//        case (true, false) => that.subscribers.foreach(_.changeCore(this))
+//        case _ => ???
+//      }
+//    }
+//
+//    def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
+//  }
 
-  class HandleCore[+T]{
-    private var loaded = false
-    private var value : Any = null.asInstanceOf[T]
+//  class Handle[+T] extends HandleCoreSubscriber[T]{
+//
+//
+//    override def changeCore[T2 >: T](core: HandleCore[T2]): Unit = ???
+//
+//
+//    override def lazyDefault(): T = ???
+//
+//    override def lazyDefaultAvailable: Boolean = ???
+//  }
 
-    val subscribers = mutable.HashSet[HandleCoreSubscriber[Any]]()
 
-    def get : T = {
-      if(!loaded){
-        subscribers.count(_.lazyDefaultAvailable) match {
-          case 0 =>
-          case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
-          case _ => SpinalError("Multiple handle default values")
-        }
-      }
-      value.asInstanceOf[T]
+//  class Handle[-T] {
+////    var value : T = null.asInstanceOf[T]
+//
+//    def load[T2 <: T](x : Handle[T2]) : T2 = {
+//      null.asInstanceOf[T2]
+//    }
+//
+//
+//    def load2(x : T) : Unit = {
+//    }
+//
+////    def get: T = ???
+//
+//  }
+//
+////  val x = new Handle[String]
+////  def miaou[T2 <: A](a : Handle[T2]) = {
+////
+////  }
+////
+////  miaou(new Handle[String])
+//
+//
+//
+//  class A
+//  class B extends A
+//  val a = new Handle[A]
+//  val b = new Handle[B]
+////  miaou[A](b)
+//  a.load(b)
+//  a.load(a)
+////  a.load(c)
+
+
+
+//
+//  class Handle[T] {
+//    //    var value : T = null.asInstanceOf[T]
+//
+//    def load[T2 <: T](x : Handle[T2]) : T2 = {
+//      null.asInstanceOf[T2]
+//    }
+//
+//
+//    def load2(x : T) : Unit = {
+//    }
+//
+//    //    def get: T = ???
+//
+//  }
+
+
+
+  class Handle[T] {
+    //    var value : T = null.asInstanceOf[T]
+
+
+
+    def load[T2 <: T](x : Handle[T2]) : T2 = {
+      null.asInstanceOf[T2]
     }
-    def load(value : Any): T = {
-      this.value = value
-      loaded = true
-      value.asInstanceOf[T]
+
+
+    def load2(x : T) : Unit = {
     }
 
-    def merge(that : HandleCore[Any]): Unit ={
-      (this.loaded, that.loaded) match {
-        case (false, _) => this.subscribers.foreach(_.changeCore(that))
-        case (true, false) => that.subscribers.foreach(_.changeCore(this))
-        case _ => ???
-      }
-    }
-
-    def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
-  }
-
-  class Handle[T] extends HandleCoreSubscriber[T]{
-
-
-    override def changeCore[T2 >: T](core: HandleCore[T2]): Unit = ???
-
-
-    override def lazyDefault(): T = ???
-
-    override def lazyDefaultAvailable: Boolean = ???
-  }
-
-  val x = new Handle[String]
-  def miaou[T](a : Handle[T]) = {
+    //    def get: T = ???
 
   }
 
-  miaou(new Handle[String])
+
+  //  val x = new Handle[String]
+
+  //
+  //  miaou(new Handle[String])
 
 
-  import scala.tools.nsc.interpreter.IMain
-  import scala.tools.nsc.Settings
-
-  private def genClass[T](): T = {
-    val settings = new Settings()
-    settings.embeddedDefaults(this.getClass.getClassLoader())
-    val interpreter = new IMain(settings)
-
-    interpreter.compileString("class A{" +
-      "val a = 2" +
-      "}")
-    val clazz = interpreter.classLoader.loadClass("A")
-    clazz.newInstance().asInstanceOf[T]
-  }
 
   def main(args: Array[String]) {
-    val a = genClass()
-    print(a)
+    class A  extends Nameable
+    class B extends A
+    def miaou[T2 <: A](a : Handle[T2]) = {
+
+    }
+    val a = new Handle[A]
+    val b = new Handle[B]
+      miaou(b)
+    a.load(b)
+    a.load(a)
+    //  a.load(c)
+
+    implicit def trtr[T, T2 <: T](h : Handle[T2]) : Handle[T] = h.asInstanceOf[ Handle[T]]
+
+    def miaou2() : Handle[A] = a
+    def miaou3() : Handle[A] = b
+  miaou3
+
   }
 }
 
@@ -1004,26 +1176,130 @@ object PlaySymplify {
 //  }
 //}
 
-object PlayBug {
-  case class TopLevel() extends Component {
-    val a = in Bool()
-    val x = out Bool()
+//object PlayBug {
+//  class TopLevel extends Component{
+//    val ram = Mem(Bits(32 bits), 256)
+//    val port1 = ram.writePort
+//    val port2 = ram.writePort
+//
+//    val write1, write2 = in Bool()
+//    val addrCounter = CounterFreeRun(256)
+//
+//    port1.address := addrCounter
+//    port1.data := 0x33333333
+//    port1.valid := write1
+//
+//    port2.address := addrCounter.valueNext
+//    port2.data := 0x77777777
+//    port2.valid := write2
+//
+//    val rport = ram.readSyncPort
+//    rport.cmd.payload := port1.address
+//    rport.cmd.valid := True
+//  }
+//
+//  def main(args: Array[String]): Unit = {
+//    SpinalConfig().generateVerilog(new TopLevel())
+//    SpinalConfig().generateVhdl(new TopLevel())
+//  }
+//}
 
-    val tmp = Bool()
+//addAttribute("ramstyle", "no_rw_check")
 
-    x := False
-    tmp := False
-    when(a | tmp){
-      x := True
+object PlayBug extends App{
+  SpinalVerilog(new Component{
+    val x = out(B(BigInt("C7034DD7B", 16), 32 bits))
+  })
+}
+
+object PlayRamInfer {
+  class TopLevel extends Component{
+    val a = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val write = slave(ram.writePort)
+      val read = slave(ram.readSyncPort)
     }
-    when(a){
-      x := True
-      tmp := True
+
+    val b = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val write = slave(ram.writePort)
+      val read_1 = slave(ram.readSyncPort)
+      val read_2 = slave(ram.readSyncPort)
+      val read_3 = slave(ram.readSyncPort)
+    }
+
+    val c = new Area {
+      val ram = Mem(Bits(8 bits), 64)
+
+      val write = slave(ram.writePort)
+      val readAddress = in UInt(6 bits)
+      val readData = out(ram.readAsync(readAddress))
+    }
+
+    val c2 = new Area {
+      val ram = Mem(Bits(8 bits), 64)
+
+      val write = slave(ram.writePort)
+      val readAddress_1 = in UInt(6 bits)
+      val readData_1 = out(ram.readAsync(readAddress_1))
+      val readAddress_2 = in UInt(6 bits)
+      val readData_2 = out(ram.readAsync(readAddress_2))
+    }
+
+    val d = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address = in UInt(10 bits)
+      val writeData = in Bits(8 bits)
+      val readData = out Bits(8 bits)
+      val enable = in Bool()
+      val write = in Bool()
+      readData := ram.readWriteSync(address, writeData, enable, write)
+    }
+
+    val e = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address_1 = in UInt(10 bits)
+      val writeData_1 = in Bits(8 bits)
+      val readData_1 = out Bits(8 bits)
+      val enable_1 = in Bool()
+      val write_1 = in Bool()
+      readData_1 := ram.readWriteSync(address_1, writeData_1, enable_1, write_1,readUnderWrite = writeFirst)
+
+      val address_2 = in UInt(10 bits)
+      val writeData_2 = in Bits(8 bits)
+      val readData_2 = out Bits(8 bits)
+      val enable_2 = in Bool()
+      val write_2 = in Bool()
+      readData_2 := ram.readWriteSync(address_2, writeData_2, enable_2, write_2)
+    }
+
+    val f = new Area {
+      val ram = Mem(Bits(8 bits), 1024)
+
+      val address_1 = in UInt(10 bits)
+      val write_1 = in Bool()
+      val dataWrite_1 = in Bits(8 bits)
+      val dataRead_1 = out Bits(8 bits)
+      ram.write(address_1, dataWrite_1, write_1)
+      dataRead_1 := ram.readSync(address_1)
+
+
+      val address_2 = in UInt(10 bits)
+      val write_2 = in Bool()
+      val dataWrite_2 = in Bits(8 bits)
+      val dataRead_2 = out Bits(8 bits)
+      ram.write(address_2, dataWrite_2, write_2)
+      dataRead_2 := ram.readSync(address_2)
     }
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(mergeAsyncProcess = true).generateVerilog(TopLevel())
+    SpinalConfig(device = Device.ALTERA).generateVerilog(new TopLevel())
+    SpinalConfig(device = Device.ALTERA).generateVhdl(new TopLevel())
   }
 }
 

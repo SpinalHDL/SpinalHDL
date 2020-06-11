@@ -6,6 +6,9 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
+
+  assert(!SizeMapping.verifyOverlapping(decodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4ReadOnly(axiConfig))
     val outputs = Vec(master(Axi4ReadOnly(axiConfig)),decodings.size)
@@ -27,9 +30,11 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
   val errorSlave = if(decodingErrorPossible) Axi4ReadOnlyErrorSlave(axiConfig) else null
 
   //Wire readCmd
-  io.input.readCmd.ready := ((decodedCmdSels & io.outputs.map(_.readCmd.ready).asBits).orR || (decodedCmdError && errorSlave.io.axi.readCmd.ready))  && allowCmd
-  errorSlave.io.axi.readCmd.valid := io.input.readCmd.valid && decodedCmdError && allowCmd
-  errorSlave.io.axi.readCmd.payload := io.input.readCmd.payload
+  io.input.readCmd.ready := ((decodedCmdSels & io.outputs.map(_.readCmd.ready).asBits).orR || (if(decodingErrorPossible) (decodedCmdError && errorSlave.io.axi.readCmd.ready) else False))  && allowCmd
+  if(decodingErrorPossible) {
+    errorSlave.io.axi.readCmd.valid := io.input.readCmd.valid && decodedCmdError && allowCmd
+    errorSlave.io.axi.readCmd.payload := io.input.readCmd.payload
+  }
   for((output,sel) <- (io.outputs,decodedCmdSels.asBools).zipped){
     output.readCmd.valid := io.input.readCmd.valid && sel && allowCmd
     output.readCmd.payload := io.input.readCmd.payload
@@ -38,19 +43,24 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
   //Wire ReadRsp
   val readRspIndex = OHToUInt(pendingSels)
 
-  io.input.readRsp.valid := io.outputs.map(_.readRsp.valid).asBits.orR || errorSlave.io.axi.readRsp.valid
+  io.input.readRsp.valid := io.outputs.map(_.readRsp.valid).asBits.orR
   io.input.readRsp.payload := MuxOH(pendingSels,io.outputs.map(_.readRsp.payload))
-  when(pendingError){
-    if(axiConfig.useId)   io.input.readRsp.id := errorSlave.io.axi.readRsp.id
-    if(axiConfig.useResp) io.input.readRsp.resp := errorSlave.io.axi.readRsp.resp
-    if(axiConfig.useLast) io.input.readRsp.last := errorSlave.io.axi.readRsp.last
+  if(decodingErrorPossible) {
+    io.input.readRsp.valid setWhen(errorSlave.io.axi.readRsp.valid)
+    when(pendingError){
+      if(axiConfig.useId)   io.input.readRsp.id := errorSlave.io.axi.readRsp.id
+      if(axiConfig.useResp) io.input.readRsp.resp := errorSlave.io.axi.readRsp.resp
+      if(axiConfig.useLast) io.input.readRsp.last := errorSlave.io.axi.readRsp.last
+    }
+    errorSlave.io.axi.readRsp.ready := io.input.readRsp.ready
   }
-  errorSlave.io.axi.readRsp.ready := io.input.readRsp.ready
   io.outputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
 }
 
 
 case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7,lowLatency : Boolean = false) extends Component{
+  assert(!SizeMapping.verifyOverlapping(decodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4WriteOnly(axiConfig))
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
@@ -123,6 +133,9 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
                              sharedDecodings : Seq[SizeMapping],
                              pendingMax : Int = 7,
                              lowLatency : Boolean = false) extends Component{
+  assert(!SizeMapping.verifyOverlapping(readDecodings++sharedDecodings), "AXI4 address decoding overlapping")
+  assert(!SizeMapping.verifyOverlapping(writeDecodings++sharedDecodings), "AXI4 address decoding overlapping")
+
   val io = new Bundle{
     val input = slave(Axi4Shared(axiConfig))
     val readOutputs   = Vec(master(Axi4ReadOnly(axiConfig)),readDecodings.size)

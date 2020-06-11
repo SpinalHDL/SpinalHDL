@@ -23,6 +23,8 @@ package spinal.core
 import spinal.core.sim.{SimBaseTypePimper, SpinalSimConfig}
 import spinal.sim._
 
+import scala.collection.generic.Shrinkable
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -30,8 +32,6 @@ import scala.util.Random
   * Simulation package
   */
 package object sim {
-  type suspendable = spinal.sim.suspendable
-
   def SimConfig: SpinalSimConfig = new SpinalSimConfig()
 
   @deprecated("Use SimConfig.???.compile(new Dut) instead", "???")
@@ -105,8 +105,9 @@ package object sim {
   def simDeltaCycle(): Long = SimManagerContext.current.manager.deltaCycle
 
   /** Success/Failure simulation */
-  def simSuccess(): Unit = throw new SimSuccess()
-  def simFailure(message: String = ""): Unit = throw new SimFailure(message)
+  def simSuccess(): Nothing = throw new SimSuccess()
+  def simFailure(message: String = ""): Nothing = throw new SimFailure(message)
+  def onSimEnd(body : => Unit): Unit = SimManagerContext.current.manager.onEnd(body)
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
@@ -138,8 +139,36 @@ package object sim {
     }
   }
 
+  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+    def value(data: Data) = data.flatten.map(_.toBigInt)
+    def currentTriggerValue = triggers.flatMap(value)
+
+    forkSensitive(currentTriggerValue)(block)
+  }
+
+  def forkSensitive(trigger: => Any)(block: => Unit): Unit = {
+    var lastValue = trigger
+
+    forkSensitive {
+      val newValue = trigger
+
+      if (newValue != lastValue) {
+        block
+      }
+
+      lastValue = newValue
+    }
+  }
+
   def delayed(delay : Long)(body : => Unit) = {
     SimManagerContext.current.manager.schedule(delay)(body)
+  }
+
+  def periodicaly(delay : Long)(body : => Unit) : Unit = {
+    SimManagerContext.current.manager.schedule(delay){
+      body
+      periodicaly(delay)(body)
+    }
   }
 
   /**
@@ -174,7 +203,31 @@ package object sim {
   }
 
 
-  /**
+  implicit class SimSeqPimper[T](pimped: Seq[T]){
+    def randomPick(): T = pimped(Random.nextInt(pimped.length))
+    def randomPickWithIndex(): (T, Int) = {
+      val index = Random.nextInt(pimped.length)
+      (pimped(index), index)
+    }
+  }
+
+  implicit class SimArrayBufferPimper[T](pimped: ArrayBuffer[T]){
+    def randomPop() : T = {
+      val index = Random.nextInt(pimped.length)
+      val ret = pimped(index)
+      pimped(index) = pimped.last
+      pimped.reduceToSize(pimped.length-1)
+      ret
+    }
+    def pop() : T = {
+      val index = 0
+      val ret = pimped(index)
+      pimped(index) = pimped.last
+      pimped.reduceToSize(pimped.length-1)
+      ret
+    }
+  }
+    /**
     * Add implicit function to Data
     */
   implicit class SimDataPimper[T <: Data](bt: T) {
@@ -311,7 +364,7 @@ package object sim {
 
     private def getBool(manager: SimManager, who: Bool): Bool = {
       val component = who.component
-      if(who.isInput && component != null && component.parent == null){
+      if((who.isInput || who.isOutput) && component != null && component.parent == null){
         who
       }else {
         manager.userData.asInstanceOf[Component].pulledDataCache(who).asInstanceOf[Bool]
@@ -493,7 +546,7 @@ package object sim {
         case FALLING => risingEdge()
       }
 
-      val dummy = if(cd.config.resetKind == ASYNC){
+      if(cd.config.resetKind == ASYNC){
           val dummy = if(cd.hasResetSignal){
             cd.resetSim #= (cd.config.resetActiveLevel match{
               case HIGH => false
@@ -505,7 +558,7 @@ package object sim {
           sleep(period)
           DoClock(clockSim, period)
       } else if(cd.config.resetKind == SYNC){
-        val dummy = if(cd.hasResetSignal){
+        if(cd.hasResetSignal){
           cd.assertReset()
           val clk = clockSim
           var value = clk.toBoolean
@@ -521,12 +574,22 @@ package object sim {
         sleep(period)
         DoClock(clockSim, period)
       } else {
-        val dummy = throw new Exception("???")
+        throw new Exception("???")
       }
 
     }
 
-    def forkStimulus(period: Long) : Unit = fork(doStimulus(period))
+    def forkStimulus(period: Long) : Unit = {
+      cd.config.clockEdge match {
+        case RISING  => fallingEdge()
+        case FALLING => risingEdge()
+      }
+      if(cd.hasResetSignal) cd.deassertReset()
+      if(cd.hasSoftResetSignal) cd.deassertSoftReset()
+      if(cd.hasClockEnableSignal) cd.deassertClockEnable()
+      fork(doStimulus(period))
+    }
+
     def forkSimSpeedPrinter(printPeriod: Double = 1.0) : Unit = SimSpeedPrinter(cd, printPeriod)
 
     def onRisingEdges(block : => Unit): Unit ={

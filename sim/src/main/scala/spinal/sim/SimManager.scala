@@ -62,6 +62,7 @@ abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffini
 }
 
 class SimSuccess extends Exception
+class SimFailureBackend() extends Exception ()
 class SimFailure(message : String) extends Exception (message)
 
 object SimManager{
@@ -116,18 +117,47 @@ class SimManager(val raw : SimRaw) {
     jvmThread
   }
 
+  val readBypass = if(raw.isBufferedWrite) mutable.HashMap[Signal, BigInt]() else null
   def setupJvmThread(thread: Thread){}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
-  def getInt(bt : Signal) : Int = raw.getInt(bt)
-  def getLong(bt : Signal) : Long = raw.getLong(bt)
-  def getBigInt(bt : Signal) : BigInt = raw.getBigInt(bt)
+  def getInt(bt : Signal) : Int = {
+    if(readBypass == null) return raw.getInt(bt)
+
+
+    readBypass.get(bt) match {
+      case Some(x) =>
+        val v = x.toInt
+        bt.dataType.checkIntRange(v, bt)
+        v
+      case _ => raw.getInt(bt)
+    }
+  }
+  def getLong(bt : Signal) : Long =   {
+    if(readBypass == null) return raw.getLong(bt)
+    readBypass.get(bt) match {
+      case Some(x) =>
+        val v = x.toLong
+        bt.dataType.checkLongRange(v, bt)
+        v
+      case _ => raw.getLong(bt)
+    }
+  }
+  def getBigInt(bt : Signal) : BigInt =  {
+    if(readBypass == null) return raw.getBigInt(bt)
+    readBypass.get(bt) match {
+      case Some(x) =>
+        bt.dataType.checkBigIntRange(x, bt)
+        x
+      case _ => raw.getBigInt(bt)
+    }
+  }
   def setLong(bt : Signal, value : Long): Unit = {
     bt.dataType.checkLongRange(value, bt)
-    commandBuffer += (() => raw.setLong(bt, value))
+    commandBuffer += {() => raw.setLong(bt, value); if(readBypass != null)(readBypass += (bt -> BigInt(value)))}
   }
   def setBigInt(bt : Signal, value : BigInt): Unit = {
     bt.dataType.checkBigIntRange(value, bt)
-    commandBuffer += (() => raw.setBigInt(bt, value))
+    commandBuffer += {() => raw.setBigInt(bt, value); if(readBypass != null) readBypass += (bt -> value)}
   }
 
   def schedule(thread : SimCallSchedule): Unit = {
@@ -199,6 +229,12 @@ class SimManager(val raw : SimRaw) {
       var evalNanoTime = 0l
       var evalNanoTimeRef = System.nanoTime()
       deltaCycle = 0
+
+      //TODO
+
+      if(raw.eval()){
+        throw new SimFailure("RTL assertion failure")
+      }
       while (((continueWhile || retains != 0) && threads != null/* && simContinue*/) || forceDeltaCycle) {
         //Sleep until the next activity
         val nextTime = if(forceDeltaCycle) time else threads.time
@@ -221,10 +257,11 @@ class SimManager(val raw : SimRaw) {
           tPtr2 = tPtr2.next
         }
 
-
         //Evaluate the hardware outputs
         if(forceDeltaCycle){
-          raw.eval()
+          if(raw.eval()){
+            throw new SimFailure("Verilog assertion failure")
+          }
         }
 
         //Execute the threads commands

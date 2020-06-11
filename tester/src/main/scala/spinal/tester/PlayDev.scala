@@ -13,7 +13,6 @@ import spinal.lib.eda.bench._
 import spinal.lib.graphic.Rgb
 import spinal.lib.io.{InOutWrapper, TriState, TriStateArray}
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
-import sun.nio.cs.ext.MS949
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -30,7 +29,7 @@ object PlayDevRamZero{
 object PlayDevMem{
   class TopLevel extends Component {
     val output = out UInt(9 bits)
-    output := null
+//    output := null
     println("Miaou")
   }
 
@@ -40,6 +39,7 @@ object PlayDevMem{
 }
 
 object PlayDevErrorReport{
+
   class TopLevel extends Component {
     val a = in UInt(8 bits)
     val b = in UInt(10 bits)
@@ -299,6 +299,24 @@ object PlayCondActive{
     SpinalVerilog(new TopLevel())
   }
 }
+
+
+object PlayReflectSignal{
+  class TopLevel extends Component {
+    val logic = new Area {
+      val a, b, c = Bool()
+    }
+    var result = Bool()
+
+    result := List("logic_a", "logic_b", "logic_c").map(name => reflectBaseType(name).asInstanceOf[Bool]).orR
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}
+
 
 object PlayDevSwitchEnum{
 
@@ -652,28 +670,14 @@ object PlayDevAnalog2{
 
 
 object PlayDevBug3{
-  case class bboxedm (io_width : Int, default_value : BigInt) extends BlackBox {
-    addGeneric("io_width", U(io_width, 32 bits))
-    addGeneric("default_value", U(default_value, io_width bits))
-
-    val io = new Bundle {
-      val clk = in Bool
-      val a   = in Bits(io_width bits)
-      val z   = out Bits(io_width bits)
-    }
-    mapClockDomain(clock=io.clk)
-    noIoPrefix()
-  }
 
   // Instance
   class TopLevel extends Component {
-    val bboxedm_inst = bboxedm (io_width = 256, default_value = BigInt("FFFFFF",16))
+    val x = B"xAB"
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel())
     SpinalConfig().generateVerilog(new TopLevel())
-    print("done")
   }
 }
 
@@ -1427,33 +1431,168 @@ object PlayOneHotSynthesisBench extends App{
 
 object PlayDevSpinalSim extends App{
   import spinal.core.sim._
-  SimConfig.allOptimisation.compile(new Component {
-    val io = new Bundle {
-      val a, b, c = in UInt (8 bits)
-      val result = out UInt (8 bits)
-    }
-
-    io.result := RegNext(io.a + io.b - io.c) init (0)
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
   }).doSim { dut =>
     dut.clockDomain.forkStimulus(period = 10)
-    dut.clockDomain.forkSimSpeedPrinter(0.2)
+    dut.input #= 0
 
-    var model = -1
-    var times = 0
-    var a,b,c = 0;
     dut.clockDomain.onSamplings{
-      assert(dut.io.result.toInt == model || model == -1)
-      model = ((dut.io.a.toInt + dut.io.b.toInt - dut.io.c.toInt) & 0xFF)
-      dut.io.a #= a
-      dut.io.b #= b
-      dut.io.c #= c
-      a = (a + 1) & 0xFF
-      b = (b + 2) & 0xFF
-      c = (c + 3) & 0xFF
-      times += 1
+      dut.input #= (dut.output.toInt + 1) & 0xFF
     }
 
-    sleep(1000000000)
-
+    dut.clockDomain.waitSampling(40)
   }
+}
+
+object PlayDevSpinalSim2 extends App{
+  import spinal.core.sim._
+
+  def forkSensitiveTrigger(trigger : BaseType)(block : => Unit): Unit = {
+    var valueLast = trigger.toBigInt
+    forkSensitive{
+      val valueNew = trigger.toBigInt
+      if(valueNew != valueLast) { block }
+      valueLast = valueNew
+    }
+  }
+
+  SimConfig.withWave.compile(new Component {
+    val a = in UInt(8 bits)
+    val b = out UInt(8 bits)
+    val c = in UInt(8 bits)
+    val d = out UInt(8 bits)
+    b := RegNext(a) init(0)
+    d := c
+  }).doSim { dut =>
+    dut.clockDomain.forkStimulus(period = 10)
+
+    forkSensitive(dut.b.toInt){
+      dut.c #= dut.b.toInt
+    }
+    forkSensitive(dut.d){
+      dut.a #= (dut.d.toInt + 2) & 0xFF
+    }
+
+    dut.clockDomain.waitSampling(40)
+  }
+}
+
+object PlayDevSpinalSim3 extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile(new Component {
+    val input = in UInt(8 bits)
+    val output = out UInt(8 bits)
+    output := RegNext(input) init(0)
+  }).doSim { dut =>
+    dut.input #= 0
+    sleep(3)
+    dut.input #= 5
+    println(dut.input.toInt)
+    sleep(0)
+    println(dut.input.toInt)
+  }
+}
+
+import spinal.core._
+import spinal.core.sim._
+
+object OutputBug {
+  def main(args: Array[String]) {
+    var dut = SimConfig
+      .compile(new Component {
+        val io = new Bundle {
+          val cond0 = in Bool
+        }
+        val counter = Reg(UInt(8 bits)) init (0)
+
+        when(io.cond0) {
+          counter := counter + 1
+        }
+      })
+
+    dut.doSim("write") { dut =>
+      SimTimeout(10000 * 10)
+      dut.clockDomain.onActiveEdges({
+        println(f"${simTime()} this is only dummy output, and a bit of it")
+      })
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.waitActiveEdge(10100)
+      assert(false)
+    }
+  }
+}
+
+
+
+object PlayFixPointProperty extends App{
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, $roundType, $sym ")
+  }
+
+  class Topxx extends Component {
+    check(RoundType.ROUNDUP, true)
+    val start = in Bool()
+    val din = in SInt(16 bits)
+
+    val area = FixPointProperty(DefaultFixPointConfig) on new Area{
+      check(RoundType.ROUNDTOINF, false)
+      val broundtoinffalse = din.fixTo(10 downto 3)
+    }
+
+//    FixPointProperty.push(FixPointConfig(RoundType.CEIL, false))
+//    check(RoundType.CEIL, false)
+    val cceilfalse = {
+      FixPointProperty(FixPointConfig(RoundType.FLOOR, true)) on {
+        check(RoundType.FLOOR, true)
+      }
+      FixPointConfig(RoundType.ROUNDTOZERO, false){
+        check(RoundType.ROUNDTOZERO, false)
+      }
+      FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+        check(RoundType.ROUNDTOEVEN, true)
+      }
+      din.fixTo(4 downto 1)
+    }
+//    check(RoundType.CEIL, false)
+//    FixPointProperty.pop()
+    val droudnuptrue = din.fixTo(12 downto 9)
+    check(RoundType.ROUNDUP, true)
+  }
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+  }
+  LowCostFixPointConfig{
+    check(RoundType.ROUNDUP, true)
+  }
+  val config = SpinalConfig(targetDirectory = "./tmp")
+  config.setScopeProperty(FixPointProperty, LowCostFixPointConfig)
+  config.generateVerilog(new Topxx)
+  check(RoundType.ROUNDTOINF, true)
+}
+
+object PlayFixPointProperty2 extends App {
+  def check(roundType: RoundType, sym: Boolean): Unit = {
+    println(s"${FixPointProperty.get}, ${FixPointConfig(roundType, sym)}")
+  }
+
+  class TopXX extends Component{
+    check(RoundType.FLOOR, false) //pass
+    FixPointConfig(RoundType.ROUNDUP, true).setAsDefault() // do nothing bad
+    check(RoundType.FLOOR, false) //pass
+  }
+
+  FixPointConfig(RoundType.ROUNDTOEVEN, true) on {
+    check(RoundType.ROUNDTOEVEN, true)
+
+    val config = SpinalConfig(targetDirectory = "./tmp")
+    config.setScopeProperty(FixPointProperty, FixPointConfig(RoundType.FLOOR, false))
+    config.generateVerilog(new TopXX)
+
+    check(RoundType.ROUNDTOEVEN, true)  //it's ok now
+  }
+
+  check(RoundType.ROUNDUP, true)  //it's ok now
 }

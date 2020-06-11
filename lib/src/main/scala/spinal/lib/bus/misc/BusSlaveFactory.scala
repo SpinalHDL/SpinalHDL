@@ -64,6 +64,9 @@ trait BusSlaveFactory extends Area{
   /** Set the endianness during write/read multiword */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
+  def withOffset(offset : Int) = new BusSlaveFactoryAddressWrapper(this, offset)
+
+
   /**
     * Return true if the configuration if set to little-endian
     */
@@ -410,6 +413,11 @@ trait BusSlaveFactory extends Area{
     reg
   }
 
+  def drive[T <: Data](address    : BigInt,
+                       bitMapping : (Int, Data)*): Unit = {
+    bitMapping.foreach{ case (bitId, that) => drive(that, address, bitId) }
+  }
+
   /**
     * Drive that with a register writable and readable at address placed at bitOffset in the word
     */
@@ -454,7 +462,7 @@ trait BusSlaveFactory extends Area{
                            address   : BigInt,
                            bitOffset : Int = 0): Unit = {
 
-    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val wordCount = (bitOffset + widthOf(that.payload) - 1 ) / busDataWidth + 1
 
     if (wordCount == 1){
       that.valid := False
@@ -464,7 +472,7 @@ trait BusSlaveFactory extends Area{
 
       assert(bitOffset == 0, "BusSlaveFactory ERROR [driveFlow] : BitOffset must be equal to 0 if the payload of the Flow is bigger than the data bus width")
 
-      val regValid = Reg(that.valid) init(False)
+      val regValid = RegNext(False) init(False)
       onWrite(address + ((wordCount - 1) * wordAddressInc)){ regValid := True }
       driveMultiWord(that.payload, address)
       that.valid := regValid
@@ -481,11 +489,22 @@ trait BusSlaveFactory extends Area{
     */
   def readStreamNonBlocking[T <: Data](that: Stream[T], address: BigInt): Unit = {
 
-    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val wordCount = (1 + widthOf(that.payload) - 1 ) / busDataWidth + 1
+    val addressHigh = address + (wordCount - 1) * wordAddressInc
 
-    that.ready := False
-    onRead(address + ((wordCount - 1) * wordAddressInc)){
-      that.ready := True
+    if (wordCount == 1) {
+      // we set that.ready irrespective of that.valid.
+      that.ready := isReading(addressHigh)
+    } else {
+      // we set that.ready to the value of that.valid that it had when reading the base address
+      val payloadIsValid = RegInit(False)
+      onRead(address) { payloadIsValid := that.valid }
+
+      that.ready := False
+      onRead(addressHigh) {
+        that.ready := payloadIsValid
+        payloadIsValid := False
+      }
     }
 
     if(isLittleWordEndianness){
@@ -526,7 +545,7 @@ trait BusSlaveFactory extends Area{
                                        address   : BigInt,
                                        bitOffset : Int = 0): Unit = {
 
-    assert(that.getWidth <= busDataWidth, "BusSlaveFactory ERROR [doBitsAccumulationAndClearOnRead] : the width of the parameter that is bigger than the data bus width")
+    assert(bitOffset + that.getWidth <= busDataWidth, "BusSlaveFactory ERROR [doBitsAccumulationAndClearOnRead] : the width of the parameter that is bigger than the data bus width")
 
     val reg = Reg(that)
     reg := reg | that

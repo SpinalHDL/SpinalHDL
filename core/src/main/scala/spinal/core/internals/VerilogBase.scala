@@ -22,15 +22,40 @@ package spinal.core.internals
 
 import spinal.core._
 
+trait VerilogTheme{
+  def tab      = "  "
+  def porttab  = ""
+  def maintab  = ""
+}
+
+class Tab2 extends VerilogTheme {
+  override def tab      = "  "
+  override def porttab  = "  "
+  override def maintab  = "  "
+}
+
+class Tab4 extends VerilogTheme {
+  override def tab      = "    "
+  override def porttab  = ""
+  override def maintab  = ""
+}
+
 
 trait VerilogBase extends VhdlVerilogBase{
+  val theme = new Tab2 //TODO add into SpinalConfig
+
+  def expressionAlign(net: String, section: String, name: String) = {
+    f"$net%-10s $section%-8s $name"
+  }
 
   def emitExpressionWrap(e: Expression, name: String): String = {
-    s"  wire ${emitType(e)} ${name};\n"
+//    s"  wire ${emitType(e)} ${name};\n"
+    theme.maintab + expressionAlign("wire", emitType(e), name) + ";\n"
   }
 
   def emitExpressionWrap(e: Expression, name: String, nature: String): String = {
-    s"  $nature ${emitType(e)} ${name};\n"
+//    s"  $nature ${emitType(e)} ${name};\n"
+    theme.maintab + expressionAlign(nature, emitType(e), name) + ";\n"
   }
 
   def emitClockEdge(clock: String, edgeKind: EdgeKind): String = {

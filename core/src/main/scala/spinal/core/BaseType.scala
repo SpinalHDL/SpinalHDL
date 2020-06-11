@@ -237,7 +237,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   /** Create a multiplexer */
   final private[core] def newMultiplexer[T <: Expression](select: Expression with WidthProvider, inputs : ArrayBuffer[T], mux: Multiplexer): Multiplexer = {
-    mux.select    = select
+    assert(inputs != null)
+    mux.select  = select
     mux.inputs  = inputs.asInstanceOf[ArrayBuffer[mux.T]]
     mux
   }
@@ -248,6 +249,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   /** Create a multiplexer */
   final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: BinaryMultiplexer): BinaryMultiplexer = {
+    assert(cond != null)
+    assert(whenTrue != null)
+    assert(whenFalse != null)
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]
@@ -293,12 +297,14 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
 
   private[core] def wrapBinaryOperator(right: BaseType, op: BinaryOperator): this.type = {
+    assert(right != null)
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
 
   private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  Bool = {
+    assert(right != null)
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
     wrapWithBool(op)

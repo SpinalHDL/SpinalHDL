@@ -217,7 +217,7 @@ object Utils{
             }
           }otherwise{
             when(instruction === M"0-00000-------------------------"){
-              when(instruction(30) === False || instruction(14 downto 12) === B"000" || instruction(14 downto 12) === "101"){
+              when(instruction(30) === False || instruction(14 downto 12) === B"000" || instruction(14 downto 12) === B"101"){
                 ctrl.instVal := True
                 ctrl.op0 := OP0.RS
                 ctrl.op1 := OP1.RS

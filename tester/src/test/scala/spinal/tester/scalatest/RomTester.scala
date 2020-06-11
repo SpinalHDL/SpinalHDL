@@ -22,7 +22,7 @@ package spinal.tester.scalatest
 
 import org.scalatest.{FlatSpec, FunSuite}
 import spinal.core._
-import spinal.tester.scalatest.RomTester.RomTesterSymbols
+import spinal.tester.scalatest.RomTester.{RomTesterSymbols, RomTesterSymbolsSInt}
 object RomTester {
 
   object MyEnum extends SpinalEnum{
@@ -75,6 +75,22 @@ object RomTester {
       BigInt(0x17833aa6l)
     ))
     rom.write(U"000",B(0, 32 bits),False,B"0000")
+    val address = in UInt(3 bits)
+    val data = out(rom(address))
+  }
+  class RomTesterSymbolsSInt extends Component {
+
+    val rom = Mem(SInt(32 bits),8) init(Seq(
+      S(0x01234567, 32 bits),
+      S(0x12345670, 32 bits),
+      S(0x10293857, 32 bits),
+      S(0x0abcfe23, 32 bits),
+      S(0x02938571, 32 bits),
+      S(0xabcfe230, 32 bits),
+      S(0x717833aa, 32 bits),
+      S(0x17833aa6, 32 bits)
+    ))
+    rom.write(U"000",S(0, 32 bits),False,B"0000")
     val address = in UInt(3 bits)
     val data = out(rom(address))
   }
@@ -146,7 +162,29 @@ class SpinalSimRomTester extends FunSuite {
         dut.address.randomize()
         sleep(1)
         assert(dut.data.toBigInt == rom(dut.address.toInt))
-        ()
+      }
+
+    }
+  }
+  test("testSInt"){
+    import spinal.core.sim._
+    import spinal.sim._
+    SimConfig.compile(new RomTesterSymbolsSInt()).doSim{ dut =>
+      val rom = Seq(
+        BigInt(0x01234567),
+        BigInt(0x12345670),
+        BigInt(0x10293857),
+        BigInt(0x0abcfe23),
+        BigInt(0x02938571),
+        BigInt(0xabcfe230),
+        BigInt(0x717833aa),
+        BigInt(0x17833aa6)
+      )
+
+      for(repeat <- 0 until 100){
+        dut.address.randomize()
+        sleep(1)
+        assert(dut.data.toBigInt == rom(dut.address.toInt))
       }
 
     }

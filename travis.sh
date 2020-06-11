@@ -76,10 +76,10 @@ getDockerCredentialPass () {
     | tr -d \" \
     | cut -c2- )"
 
-  [ "$(echo "$PASS_URL" | cut -c1-5)" != "https" ] && PASS_URL="https://github.com/docker/docker-credential-helpers/releases/download/v0.6.0/docker-credential-pass-v0.6.0-amd64.tar.gz"
+  [ "$(echo "$PASS_URL" | cut -c1-5)" != "https" ] && PASS_URL="https://github.com/docker/docker-credential-helpers/releases/download/v0.6.3/docker-credential-pass-v0.6.3-amd64.tar.gz"
 
   echo "PASS_URL: $PASS_URL"
-  curl -fsSL "$PASS_URL" | tar xv
+  curl -fsSL "$PASS_URL" | tar -xvz
   chmod + $(pwd)/docker-credential-pass
 }
 
@@ -118,10 +118,10 @@ beforeInstall () {
   travis_finish "fix"
 
   travis_start "ghdl" "GHDL" "build and install"
-  sudo apt install -y gnat-4.9 zlib1g-dev
+  sudo apt install -y gnat-4.9 zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
-  git reset --hard "50da90f509aa6de2961f1795af0be2452bc2c6d9"
-  ./dist/travis/build.sh -b mcode -p ghdl
+  git reset --hard "a4e7fd3e6286b24350d9c4a782cdba15cb081a9c"
+  ./dist/ci-run.sh -bmcode build
   mv install-mcode ../ghdl
   cd ..
   rm -rf ghdl-build
@@ -144,10 +144,10 @@ beforeInstall () {
   sudo apt install -y git make gcc g++ swig python-dev
   git clone https://github.com/potentialventures/cocotb
   cd cocotb
-  git reset --hard a463cee498346cb26fc215ced25c088039490665
+  git reset --hard "a463cee498346cb26fc215ced25c088039490665"
   cd ..
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  export PATH=$(pwd)/ghdl/bin:$PATH
+  export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
   export COCOTB=$(pwd)/cocotb
   cd SpinalHDL/tester/src/test/python/spinal/Dummy
   make TOPLEVEL_LANG=verilog
@@ -161,7 +161,7 @@ beforeInstall () {
   unset VERILATOR_ROOT  # For bash
   cd verilator
   git pull        # Make sure we're up-to-date
-  git checkout verilator_4_008
+  git checkout v4.008
   autoconf        # Create ./configure script
   ./configure
   make -j$(nproc)
@@ -176,7 +176,7 @@ beforeInstall () {
 
 compileTest () {
   travis_start "compile" "SBT" "compile"
-  sbt -J-Xss2m compile
+  sbt -Dsbt.supershell=false -J-Xss2m compile
   travis_finish "compile"
 
   travis_start "cocotb" "SBT" "cocotb VPI"
@@ -188,7 +188,7 @@ compileTest () {
   travis_finish "cocotb"
 
   travis_start "test" "SBT" "test"
-  sbt -J-Xss2m test
+  sbt -Dsbt.supershell=false -J-Xss2m test
   travis_finish "test"
 }
 

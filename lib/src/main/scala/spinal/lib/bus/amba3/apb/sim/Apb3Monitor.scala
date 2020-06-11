@@ -65,3 +65,18 @@ abstract case class Apb3Monitor(apb : Apb3, clockDomain : ClockDomain) {
   def onRead(address : BigInt) : Byte
   def onWrite(address : BigInt, value : Byte) : Unit
 }
+
+
+abstract case class Apb3Listener(apb : Apb3, clockDomain : ClockDomain) {
+  clockDomain.onSamplings {
+    if(apb.PENABLE.toBoolean && apb.PSEL.toBigInt != 0){
+      if(apb.PWRITE.toBoolean){
+        onWrite(apb.PADDR.toBigInt, apb.PWDATA.toBigInt)
+      } else {
+        onRead(apb.PADDR.toBigInt)
+      }
+    }
+  }
+  def onRead(address : BigInt) : Unit
+  def onWrite(address : BigInt, value : BigInt) : Unit
+}

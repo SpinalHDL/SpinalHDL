@@ -25,6 +25,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 import scala.collection.mutable.ListBuffer
 import spinal.core._
 
+import scala.collection.immutable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -33,85 +34,65 @@ import scala.io.Source
 
 
 class PhaseContext(val config: SpinalConfig) {
-
   var globalData = GlobalData.reset(config)
   config.applyToGlobalData(globalData)
 
   def privateNamespaceName = config.globalPrefix + (if(config.privateNamespace) topLevel.definitionName + "_" else "")
 
-  val duplicationPostfix = if(config.mode == VHDL) "" else "_"
+  val duplicationPostfix = ""
   val globalScope         = new NamingScope(duplicationPostfix)
   var topLevel: Component = null
   val enums               = mutable.LinkedHashMap[SpinalEnum,mutable.LinkedHashSet[SpinalEnumEncoding]]()
 
-  val reservedKeyWords    = mutable.Set[String](
-    //VHDL
-    "abs", "access", "after", "alias", "all",
-    "and", "architecture", "array", "assert",
-    "attribute", "begin", "block", "body",
-    "buffer", "bus", "case", "component",
-    "configuration", "constant", "disconnect", "downto",
-    "else", "elsif", "end", "entity", "exit", "file",
-    "for", "function", "generate", "generic",
-    "group", "guarded", "if", "impure", "in",
-    "inertial", "inout", "is", "label", "library",
-    "linkage", "literal", "loop", "map", "mod",
-    "nand", "new", "next", "nor", "not", "null",
-    "of", "on", "open", "or", "others", "out",
-    "package", "port", "postponed", "procedure",
-    "process", "pure", "range", "record", "register",
-    "reject", "rem", "report", "return", "rol",
-    "ror", "select", "severity", "signal", "shared",
-    "sla", "sll", "sra", "srl", "subtype", "then",
-    "to", "transport", "type", "unaffected", "units",
-    "until", "use", "variable", "wait", "when",
-    "while", "with", "xnor", "xor",
-
-    //Verilog + SystemVerilog
-    "alias", "always", "always_comb", "always_ff",
-    "always_latch", "and", "assert", "assign",
-    "assume", "automatic", "before", "begin", "bind",
-    "bins", "binsof", "bit", "break",
-    "buf", "bufif0", "bufif1", "byte", "case", "casex",
-    "casez", "cell", "chandle", "class", "clocking", "cmos",
-    "config", "const", "constraint", "context", "continue",
-    "cover", "covergroup", "coverpoint", "cross", "deassign",
-    "default", "defparam", "design", "disable", "dist", "do",
-    "edge", "else", "end", "endcase", "endclass", "endclocking",
-    "endconfig", "endfunction", "endgenerate", "endgroup",
-    "endinterface", "endmodule", "endpackage","endprimitive",
-    "endprogram","endproperty","endspecify","endsequence",
-    "endtable","endtask","enum","event","expect","export",
-    "extends","extern","final","first_match","for","force",
-    "foreach","forever","fork","forkjoin","function",
-    "generate","genvar","highz0","highz1","if","iff",
-    "ifnone","ignore_bins","illegal_bins","import","incdir",
-    "include","initial","inout","input","inside",
-    "instance","int","integer","interface","intersect",
-    "join","join_any","join_none","large","liblist",
-    "library","local","localparam","logic","longint",
-    "macromodule","matches","medium","modport","module",
-    "nand","negedge","new","nmos","nor","noshowcancelled","not",
-    "notif0","notif1","null","or","output","package",
-    "packed","parameter","pmos","posedge","primitive",
-    "priority","program","property","protected","pull0",
-    "pull1","pulldown","pullup","pulsestyle_onevent",
-    "pulsestyle_ondetect","pure","rand","randc",
-    "randcase","randsequence","rcmos","real","realtime",
-    "ref","reg","release","repeat","return","rnmos",
-    "rpmos","rtran","rtranif0","rtranif1","scalared",
-    "sequence","shortint","shortreal","showcancelled",
-    "signed","small","solve","specify","specparam",
-    "static","string","strong0","strong1","struct",
-    "super","supply0","supply1","table","tagged","task",
-    "this","throughout","time","timeprecision","timeunit","tran",
-    "tranif0","tranif1","tri","tri0","tri1","triand",
-    "trior","trireg","type","typedef","union","unique",
-    "unsigned","use","uwire","var","vectored","virtual",
-    "void","wait","wait_order","wand","weak0","weak1",
-    "while","wildcard","wire","with","within","wor",
-    "xnor","xor"
+  val vhdlKeywords = Array(
+    "abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert",
+    "attribute", "begin", "block", "body", "buffer", "bus", "case", "component",
+    "configuration", "constant", "disconnect", "downto", "else", "elsif", "end", "entity", "exit", "file",
+    "for", "function", "generate", "generic", "group", "guarded", "if", "impure", "in",
+    "inertial", "inout", "is", "label", "library", "linkage", "literal", "loop", "map", "mod",
+    "nand", "new", "next", "nor", "not", "null", "of", "on", "open", "or", "others", "out",
+    "package", "port", "postponed", "procedure", "process", "pure", "range", "record", "register",
+    "reject", "rem", "report", "return", "rol", "ror", "select", "severity", "signal", "shared",
+    "sla", "sll", "sra", "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units",
+    "until", "use", "variable", "wait", "when", "while", "with", "xnor", "xor"
   )
+
+  val verilogKeywords = Array(
+    "always", "end", "ifnone", "or", "rpmos", "tranif1", "and", "endcase", "initial", "output",
+    "rtran", "tri", "assign", "endmodule", "inout", "parameter", "rtranif0", "tri0", "begin", "endfunction", "input", "pmos",
+    "rtranif1", "tri1", "buf", "endprimitive", "integer", "posedge", "scalared", "triand", "bufif0", "endspecify", "join", "primitive",
+    "small", "trior", "bufif1", "endtable", "large", "pull0", "specify", "trireg", "case", "endtask", "macromodule",
+    "pull1", "specparam", "vectored", "casex", "event", "medium", "pullup", "strong0", "wait", "casez", "for", "module", "pulldown",
+    "strong1", "wand", "cmos", "force", "nand", "rcmos", "supply0", "weak0", "deassign", "forever", "negedge", "real",
+    "supply1", "weak1", "default", "for", "nmos", "realtime", "table", "while", "defparam", "function", "nor", "reg", "task", "wire", "disable", "highz0",
+    "not", "release", "time", "wor", "edge", "highz1", "notif0", "repeat", "tran", "xnor", "else", "if", "notif1", "rnmos", "tranif0", "xor"
+  )
+
+  val systemVerilogKeywords = Array(
+    "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before", "begin", "bind",
+    "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle", "class",
+    "clocking", "cmos", "config", "const", "constraint", "context", "continue", "cover", "covergroup", "coverpoint", "cross",
+    "deassign", "default", "defparam", "design", "disable", "dist", "do", "edge", "else", "end", "endcase", "endclass",
+    "endclocking", "endconfig", "endfunction", "endgenerate", "endgroup", "endinterface", "endmodule", "endpackage", "endprimitive", "endprogram",
+    "endproperty", "endspecify", "endsequence", "endtable", "endtask", "enum", "event", "expect", "export", "extends", "extern", "final",
+    "first_match", "for", "force", "foreach", "forever", "fork", "forkjoin", "function", "generate", "genvar", "highz0", "highz1", "if",
+    "iff", "ifnone", "ignore_bins", "illegal_bins", "import", "incdir", "include", "initial", "inout", "input", "inside", "instance", "int", "integer", "interface",
+    "intersect", "join", "join_any", "join_none", "large", "liblist", "library", "local", "localparam", "logic", "longint",
+    "macromodule", "matches", "medium", "modport", "module", "nand", "negedge", "new", "nmos", "nor", "noshowcancelled",
+    "not", "notif0", "notif1", "null", "or", "output", "package", "packed", "parameter", "pmos", "posedge", "primitive",
+    "priority", "program", "property", "protected", "pull0", "pull1", "pulldown", "pullup", "pulsestyle_onevent", "pulsestyle_ondetect", "pure", "rand", "randc",
+    "randcase", "randsequence", "rcmos", "real", "realtime", "ref", "reg", "release", "repeat", "return", "rnmos", "rpmos", "rtran",
+    "rtranif0", "rtranif1", "scalared", "sequence", "shortint", "shortreal", "showcancelled", "signed", "small", "solve", "specify", "specparam",
+    "static", "string", "strong0", "strong1", "struct", "super", "supply0", "supply1", "table", "tagged", "task", "this", "throughout",
+    "time", "timeprecision", "timeunit", "tran", "tranif0", "tranif1", "tri", "tri0", "tri1", "triand", "trior", "trireg", "type", "typedef", "union",
+    "unique", "unsigned", "use", "uwire", "var", "vectored", "virtual", "void", "wait", "wait_order", "wand", "weak0", "weak1",
+    "while", "wildcard", "wire", "with", "within", "wor", "xnor", "xor"
+  )
+
+  val reservedKeyWords    = mutable.Set[String]()
+  reservedKeyWords ++= vhdlKeywords
+  reservedKeyWords ++= verilogKeywords
+  reservedKeyWords ++= systemVerilogKeywords
 
   reservedKeyWords.foreach(globalScope.allocateName(_))
 
@@ -151,6 +132,10 @@ class PhaseContext(val config: SpinalConfig) {
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkExpressionPostorder(func: Expression => Unit): Unit = {
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpressionPostorder(func)))
+  }
+
   def walkDeclarations(func: DeclarationStatement => Unit): Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
@@ -168,7 +153,7 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def walkComponentsExceptBlackbox(func: Component => Unit): Unit ={
-    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox]) func(c))
+    GraphUtils.walkAllComponents(topLevel, c => if(!c.isInstanceOf[BlackBox] || !c.asInstanceOf[BlackBox].isBlackBox) func(c))
   }
 
   def walkBaseNodes(func: BaseNode => Unit): Unit ={
@@ -188,7 +173,7 @@ class PhaseContext(val config: SpinalConfig) {
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
     SpinalError()
 
-  val verboseLog = new java.io.FileWriter("verbose.log")
+  val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
   def doPhase(phase: Phase): Unit ={
     if(config.verbose) verboseLog.write(s"phase: $phase\n")
@@ -414,6 +399,144 @@ class PhaseAnalog extends PhaseNetlist{
 }
 
 
+
+
+
+
+//class PhaseAnalog extends PhaseNetlist{
+//
+//  override def impl(pc: PhaseContext): Unit = {
+//    import pc._
+//
+//    //Be sure that sub io assign parent component stuff
+//    walkComponents(c => c.ioSet.withFilter(_.isInOut).foreach(io => {
+//      io.foreachStatements {
+//        case s@AssignmentStatement(_: BaseType, x: BaseType) if x.isAnalog && x.component == c.parent =>
+//          s.dlcRemove()
+//          x.dlcAppend(s)
+//          s.target = x
+//          s.source = io
+//        case _ =>
+//      }
+//    }))
+//
+//    val islands        = mutable.LinkedHashSet[mutable.LinkedHashSet[(BaseType, Int)]]()
+//    val analogToIsland = mutable.HashMap[(BaseType, Int),mutable.LinkedHashSet[(BaseType, Int)]]()
+//
+//    def addToIsland(that: BaseType, bit : Int, island: mutable.LinkedHashSet[(BaseType, Int)]): Unit = {
+//      island += that -> bit
+//      analogToIsland(that -> bit) = island
+//    }
+//
+//    walkStatements{
+//      case bt: BaseType if bt.isAnalog =>
+//
+//        //Manage islands
+//        bt.foreachStatements {
+//          case s@AssignmentStatement(x, y: BaseType) if y.isAnalog =>
+//            if (s.finalTarget.component == y.component) {
+//              var width = 0
+//              val sourceOffset = 0
+//              var targetOffset = 0
+//              s.target match {
+//                case bt : BaseType => width = s.finalTarget.getBitsWidth
+//                case baf : BitAssignmentFixed => width = 1; targetOffset = baf.bitId
+//              }
+//              for(i <- 0 until width) (analogToIsland.get(bt, targetOffset+i), analogToIsland.get(y, sourceOffset+i)) match {
+//                case (None, None) =>
+//                  val island = mutable.LinkedHashSet[(BaseType, Int)]()
+//                  addToIsland(bt, targetOffset+i, island)
+//                  addToIsland(y, sourceOffset+i, island)
+//                  islands += island
+//                case (None, Some(island)) =>
+//                  addToIsland(bt, targetOffset+i, island)
+//                case (Some(island), None) =>
+//                  addToIsland(y, sourceOffset+i, island)
+//                case (Some(islandBt), Some(islandY)) =>
+//                  islandY.foreach(e => addToIsland(e._1, e._2, islandBt))
+//                  islands.remove(islandY)
+//              }
+//            }
+//          case AssignmentStatement(x, y: BaseType) if !y.isAnalog =>
+//        }
+//
+//        for(bit <- 0 until widthOf(bt)) {
+//          if (!analogToIsland.contains(bt, bit)) {
+//            val island = mutable.LinkedHashSet[(BaseType, Int)]()
+//            addToIsland(bt, bit, island)
+//            islands += island
+//          }
+//        }
+//      case _ =>
+//    }
+//    /*
+//        islands.foreach(island => {
+//          //      if(island.size > 1){ //Need to reduce island because of VHDL/Verilog capabilities
+//          val target = island.count(_.isInOut) match {
+//            case 0 => island.head
+//            case 1 => island.find(_.isInOut).get
+//            case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
+//          }
+//
+//          //Remove target analog assignements
+//          target.foreachStatements {
+//            case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
+//            case _ =>
+//          }
+//
+//          //redirect island assignements to target
+//          //drive isllands analogs from target as comb signal
+//          for(bt <- island if bt != target){
+//            val btStatements = ArrayBuffer[AssignmentStatement]()
+//            bt.foreachStatements(btStatements += _)
+//            btStatements.foreach {
+//              case s@AssignmentStatement(_, x: BaseType) if !x.isAnalog => //analog driver
+//                s.dlcRemove()
+//                target.dlcAppend(s)
+//                s.walkRemapExpressions(e => if (e == bt) target else e)
+//              case s@AssignmentStatement(_, x: BaseType) if x.isAnalog && x.component.parent == bt.component => //analog connection
+//                s.dlcRemove()
+//                target.dlcAppend(s)
+//                s.walkRemapExpressions(e => if (e == bt) target else e)
+//              case _ =>
+//            }
+//
+//            bt.removeAssignments()
+//            bt.setAsComb()
+//            bt.rootScopeStatement.push()
+//            bt := target
+//            bt.rootScopeStatement.pop()
+//          }
+//
+//          //Convert target comb assignement into AnalogDriver nods
+//          target.foreachStatements(s => {
+//            s.source match {
+//              case btSource: BaseType if btSource.isAnalog =>
+//              case btSource =>
+//                s.parentScope.push()
+//                val enable = ConditionalContext.isTrue(target.rootScopeStatement)
+//                s.parentScope.pop()
+//                s.removeStatementFromScope()
+//                target.rootScopeStatement.append(s)
+//                val driver = btSource.getTypeObject match {
+//                  case `TypeBool` => new AnalogDriverBool
+//                  case `TypeBits` => new AnalogDriverBits
+//                  case `TypeUInt` => new AnalogDriverUInt
+//                  case `TypeSInt` => new AnalogDriverSInt
+//                  case `TypeEnum` => new AnalogDriverEnum(btSource.asInstanceOf[EnumEncoded].getDefinition)
+//                }
+//                driver.data   = s.source.asInstanceOf[driver.T]
+//                driver.enable = enable
+//                s.source      = driver
+//            }
+//          })
+//          //      }
+//        })
+//     */
+//  }
+//}
+
+
 class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
   val writes                   = ArrayBuffer[MemWrite]()
   val readsAsync               = ArrayBuffer[MemReadAsync]()
@@ -631,7 +754,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
-            ram.io.wr.mask := "1"
+            ram.io.wr.mask := B"1"
 
           ram.io.rd.addr.assignFrom(rd.address)
           wrapConsumers(rd, ram.io.rd.data)
@@ -663,7 +786,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           if (wr.mask != null)
             ram.io.wr.mask.assignFrom(wr.mask)
           else
-            ram.io.wr.mask := "1"
+            ram.io.wr.mask := B"1"
 
           ram.io.rd.en := wrapBool(rd.readEnable) && rd.clockDomain.isClockEnableActive
           ram.io.rd.addr.assignFrom(rd.address)
@@ -679,12 +802,24 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
       mem.component.rework {
         val port = topo.readWriteSync.head
 
-        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, mem.technology, dontCare)
+        val ram = new Ram_1wrs(
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
+          readUnderWrite = port.readUnderWrite,
+          maskWidth = if (port.mask != null) port.mask.getWidth else 1,
+          maskEnable = port.mask != null
+        )
 
         ram.io.addr.assignFrom(port.address)
         ram.io.en.assignFrom(wrapBool(port.chipSelect) && port.clockDomain.isClockEnableActive)
         ram.io.wr.assignFrom(port.writeEnable)
         ram.io.wrData.assignFrom(port.data)
+
+        if (port.mask != null)
+          ram.io.mask.assignFrom(port.mask)
+        else
+          ram.io.mask := B"1"
 
         wrapConsumers(port, ram.io.rdData)
 
@@ -701,13 +836,13 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wordWidth = mem.getWidth,
           wordCount = mem.wordCount,
           technology = mem.technology,
-          portA_readUnderWrite = dontCare,
+          portA_readUnderWrite = portA.readUnderWrite,
           portA_clock = portA.clockDomain,
           portA_addressWidth = portA.address.getWidth,
           portA_dataWidth = portA.getWidth,
           portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
           portA_maskEnable = portA.mask != null,
-          portB_readUnderWrite = dontCare,
+          portB_readUnderWrite = portB.readUnderWrite,
           portB_clock = portB.clockDomain,
           portB_addressWidth = portB.address.getWidth,
           portB_dataWidth = portB.getWidth,
@@ -754,17 +889,16 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
       topLevel.definitionName = pc.config.globalPrefix + classNameOf(topLevel)
     }
     for (c <- sortedComponents) {
-      c.nameElements()
       if(c != topLevel) {
         if (c.definitionName == null) {
           c.definitionName = privateNamespaceName + classNameOf(c)
         }
       }
       if (c.definitionName == "") {
-        c.definitionName = "unamed"
+        c.definitionName = "unnamed"
       }
       c match {
-        case bb: BlackBox => {
+        case bb: BlackBox if bb.isBlackBox => {
           val generic = bb.getGeneric
           if(generic != null) {
             Misc.reflect(generic, (name, obj) => {
@@ -954,13 +1088,13 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
     })
 
     //Feed enums with encodings
-    enums.keySet.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
+    enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
     nodes.foreach(enum => {
       enums(enum.getDefinition) += enum.getEncoding
     })
 
-    //give a name to unamed encodingss
-    val unamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
+    //give a name to unnamed encodingss
+    val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
     for((enum,encodings) <- enums){
@@ -982,6 +1116,25 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
   }
 }
 
+class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
+  override def impl(pc: PhaseContext): Unit = {
+    if(pc.config.device.vendor == Device.ALTERA.vendor){
+      pc.walkDeclarations {
+        case mem : Mem[_] => {
+          var onlyDontCare = true
+          mem.dlcForeach(e => e match {
+            case port: MemWrite      =>
+            case port: MemReadWrite  => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadSync   => onlyDontCare &= port.readUnderWrite == dontCare
+            case port: MemReadAsync  => onlyDontCare &= port.readUnderWrite == dontCare
+          })
+          if(onlyDontCare) mem.addAttribute("ramstyle", "no_rw_check")
+        }
+        case _ =>
+      }
+    }
+  }
+}
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
@@ -995,7 +1148,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       var somethingChange = false
 
       //Infer width on all expressions
-      walkExpression {
+      //Use post-order traversal so that a parent node can get the widths of its children before inferring width,
+      // which could help reducing the number of iterations
+      walkExpressionPostorder {
         case e: DeclarationStatement =>
         case e: Widthable =>
           val hasChange = e.inferWidth
@@ -1190,6 +1345,70 @@ class PhaseCheckCrossClock() extends PhaseCheck{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
+    val solved = mutable.HashMap[Bool, immutable.Set[Bool]]()
+    def getSyncronous(that : Bool) : immutable.Set[Bool] = {
+      solved.get(that) match {
+        case Some(sync) => sync
+        case None => {
+          var sync = scala.collection.immutable.Set[Bool]()
+
+          //Collect all the directly syncronous Bool
+          sync += that
+          that.foreachTag {
+            case tag : ClockSyncTag => sync += tag.a; sync += tag.b
+            case tag : ClockDrivedTag => sync ++= getSyncronous(tag.driver)
+            case _ =>
+          }
+
+          //Lock for driver inferation
+          if (that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb) {
+            sync ++= getSyncronous(that.head.source.asInstanceOf[Bool])
+          }
+
+          //Cache result
+          solved(that) = sync
+
+          sync
+        }
+      }
+    }
+    def areSynchronousBool(a : Bool, b : Bool): Boolean = getSyncronous(a).contains(b) || getSyncronous(b).contains(a) || getSyncronous(a).intersect(getSyncronous(b)).nonEmpty
+
+    def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
+      a == b || a.clock == b.clock || areSynchronousBool(a.clock, b.clock)
+      //          if(a.isSynchronousWith(b)){
+      //            true
+      //          }else{
+      //            def getDriver(that : Bool): Bool ={
+      //              if(that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb){
+      //                getDriver(that.head.source.asInstanceOf[Bool])
+      //              }else{
+      //                that
+      //              }
+      //            }
+      //            if(getDriver(a.clock) == getDriver(b.clock)){
+      //              a.setSynchronousWith(b)
+      //              true
+      //            }else{
+      //              false
+      //            }
+      //          }
+    }
+
+    //        class SyncGroup{
+    //          val clocks = mutable.HashSet[Bool]()
+    //        }
+    //
+    //        val clockToGroup = mutable.HashMap[Bool, SyncGroup]()
+    //
+    //        def getClockGroup(clock : Bool) : SyncGroup = {
+    //          if(!clockToGroup.contains(clock)){
+    //
+    //          }
+    //          clockToGroup.contains(clock)
+    //        }
+
+
     walkStatements(s => {
       var walked = 0
 
@@ -1225,25 +1444,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
              """.stripMargin
           )
         }
-        def areSynchronous(a : ClockDomain, b : ClockDomain): Boolean ={
-          if(a.isSynchronousWith(b)){
-            true
-          }else{
-            def getDriver(that : Bool): Bool ={
-              if(that.hasOnlyOneStatement && that.head.parentScope == that.rootScopeStatement && that.head.source.isInstanceOf[Bool] && that.head.source.asInstanceOf[Bool].isComb){
-                getDriver(that.head.source.asInstanceOf[Bool])
-              }else{
-                that
-              }
-            }
-            if(getDriver(a.clock) == getDriver(b.clock)){
-              a.setSynchronousWith(b)
-              true
-            }else{
-              false
-            }
-          }
-        }
+
         node match {
           case node: SpinalTagReady if node.hasTag(crossClockDomain) =>
           case node: SpinalTagReady if node.hasTag(classOf[ClockDomainTag]) =>
@@ -1387,7 +1588,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
     topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
     walkComponents{
-      case c: BlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
+      case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
@@ -1411,7 +1612,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 }
 
 
-class PhaseRemoveIntermediateUnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
+class PhaseRemoveIntermediateUnnameds(onlyTypeNode: Boolean) extends PhaseNetlist{
 
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1529,7 +1730,11 @@ class PhaseCheckHiearchy extends PhaseCheck{
         if(!error) s.walkExpression {
           case bt: BaseType =>
             if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
-              PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              if(bt.component == null || bt.getComponents().head != pc.topLevel){
+                PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+              } else {
+                PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+              }
             }
           case _ =>
         }
@@ -1782,7 +1987,7 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
     }
 
     walkComponents{
-      case bb: BlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
+      case bb: BlackBox if bb.isBlackBox => bb.listRTLPath.foreach(path => blackboxesSourcesPaths += path)
       case _            =>
     }
 
@@ -1831,7 +2036,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
     for (c <- sortedComponents) {
-      if (c.isInstanceOf[BlackBox])
+      if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
@@ -1932,7 +2137,6 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc {
 
 
 object SpinalVhdlBoot{
-
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     if(config.debugComponents.nonEmpty){
       return singleShot(config)(gen)
@@ -1969,7 +2173,7 @@ object SpinalVhdlBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+  def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
 
@@ -2000,7 +2204,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2011,7 +2215,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()
@@ -2019,6 +2223,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
@@ -2092,7 +2297,7 @@ object SpinalVerilogBoot{
     }
   }
 
-  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] ={
+  def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
 
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
@@ -2120,7 +2325,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true)
+    phases += new PhaseRemoveIntermediateUnnameds(true)
 
     phases += new PhasePullClockDomains(pc)
 
@@ -2131,7 +2336,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseCompletSwitchCases()
     phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnameds(false)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
     phases += new PhaseCheck_noRegisterAsLatch()
@@ -2139,6 +2344,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
+    phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 

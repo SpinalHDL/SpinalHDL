@@ -1,7 +1,7 @@
 package spinal.sim
 
 
-abstract class SimRaw(){
+abstract class SimRaw {
   var userData : Any = null
   def getInt(signal : Signal) : Int
   def getLong(signal : Signal) : Long
@@ -11,7 +11,7 @@ abstract class SimRaw(){
   def sleep(cycles : Long)
   def enableWave()
   def disableWave()
-  def eval()
+  def eval() : Boolean
   def end()
   def isBufferedWrite : Boolean
 }

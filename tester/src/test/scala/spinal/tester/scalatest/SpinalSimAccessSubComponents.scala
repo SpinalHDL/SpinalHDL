@@ -44,32 +44,35 @@ object SpinalSimAccessSubComponents {
 
 }
 
-class SpinalSimAccessSubComponents extends FunSuite{
-  var compiled : SimCompiled[SpinalSimAccessSubComponents.Dut] = null
-  test("compile"){
-    compiled = SimConfig.withWave.compile{
-      val dut = new SpinalSimAccessSubComponents.Dut
-      dut.subInst.subSubInst.miaouVec.simPublic()
-      dut.subInst.subSubInst.io.a.simPublic()
-      dut.subInst.subSubInst.miaou.simPublic()
-      dut
-    }
-  }
+class SpinalSimAccessSubComponents extends FunSuite {
+  SpinalSimTester { env =>
+    import env._
 
-  test("simulate"){
-    compiled.doSim{ dut =>
-      for(repeat <- 0 until 1000) {
-        dut.io.a.randomize()
-        dut.io.b.randomize()
-        sleep(1)
-        assert(dut.io.result.toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
-        assert(dut.subInst.subSubInst.miaou.toInt == (dut.io.a.toInt & dut.io.b.toInt))
-        assert(dut.subInst.subSubInst.io.a.toInt == (dut.io.a.toInt))
-        assert(dut.subInst.subSubInst.miaouVec(0).toInt == (dut.io.a.toInt))
-        assert(dut.subInst.subSubInst.miaouVec(1).toInt == (dut.io.b.toInt))
-        assert(dut.subInst.subSubInst.miaouVec(2).toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
-        assert(dut.subInst.subSubInst.miaouVec(3).toInt == (dut.io.a.toInt & dut.io.b.toInt))
-        ()
+    var compiled: SimCompiled[SpinalSimAccessSubComponents.Dut] = null
+    test(prefix + "compile") {
+      compiled = SimConfig.withWave.compile {
+        val dut = new SpinalSimAccessSubComponents.Dut
+        dut.subInst.subSubInst.miaouVec.simPublic()
+        dut.subInst.subSubInst.io.a.simPublic()
+        dut.subInst.subSubInst.miaou.simPublic()
+        dut
+      }
+    }
+
+    test(prefix + "simulate") {
+      compiled.doSim { dut =>
+        for (repeat <- 0 until 1000) {
+          dut.io.a.randomize()
+          dut.io.b.randomize()
+          sleep(1)
+          assert(dut.io.result.toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+          assert(dut.subInst.subSubInst.miaou.toInt == (dut.io.a.toInt & dut.io.b.toInt))
+          assert(dut.subInst.subSubInst.io.a.toInt == (dut.io.a.toInt))
+          assert(dut.subInst.subSubInst.miaouVec(0).toInt == (dut.io.a.toInt))
+          assert(dut.subInst.subSubInst.miaouVec(1).toInt == (dut.io.b.toInt))
+          assert(dut.subInst.subSubInst.miaouVec(2).toInt == (dut.io.a.toInt ^ dut.io.b.toInt))
+          assert(dut.subInst.subSubInst.miaouVec(3).toInt == (dut.io.a.toInt & dut.io.b.toInt))
+        }
       }
     }
   }

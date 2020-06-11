@@ -56,7 +56,7 @@ class ComponentEmitterVhdl(
     val libs = mutable.HashSet[String]()
 
     for(child <- c.children)child match {
-      case bb : BlackBox => libs ++= bb.librariesUsages
+      case bb : BlackBox if bb.isBlackBox => libs ++= bb.librariesUsages
       case _ =>
     }
     for(lib <- libs){
@@ -180,8 +180,8 @@ class ComponentEmitterVhdl(
     //Wrap inout
     analogs.foreach(io => {
       io.foreachStatements{
-        case AssignmentStatement(_, source: BaseType) =>
-          referencesOverrides(source) = emitExpression(io)
+        case AssignmentStatement(target, source: BaseType) =>
+          referencesOverrides(source) = emitAssignedExpression(target)
         case _ =>
       }
     })
@@ -229,8 +229,12 @@ class ComponentEmitterVhdl(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    for(child <- component.children){
+      emitAttributes(child.getName(), child.instanceAttributes, "label", declarations, "")
+    }
+
     for (children <- component.children) {
-      val isBB = children.isInstanceOf[BlackBox]
+      val isBB             = children.isInstanceOf[BlackBox] && children.asInstanceOf[BlackBox].isBlackBox
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
@@ -269,7 +273,7 @@ class ComponentEmitterVhdl(
         }
       }
 
-      if (children.isInstanceOf[BlackBox]) {
+      if (isBB) {
         val bb = children.asInstanceOf[BlackBox]
         val genericFlat = bb.genericElements
 
@@ -278,7 +282,7 @@ class ComponentEmitterVhdl(
 
           for (e <- genericFlat) {
             e match {
-              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.head.source), in)
+              case (name: String, bt: BaseType)     => logics ++= addCasting(bt, name, emitExpression(bt.getTag(classOf[GenericValue]).get.e), in)
               case (name: String, s: String)        => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case (name: String, i: Int)           => logics ++= s"      ${name} => $i,\n"
               case (name: String, d: Double)        => logics ++= s"      ${name} => $d,\n"
@@ -715,7 +719,7 @@ class ComponentEmitterVhdl(
   def emitAttributesDef(): Unit = {
     val map = mutable.Map[String, Attribute]()
 
-    component.dslBody.walkStatements{
+    def walk(that : Any) = that match{
       case s: SpinalTagReady =>
         for (attribute <- s.instanceAttributes(Language.VHDL)) {
           val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
@@ -723,6 +727,9 @@ class ComponentEmitterVhdl(
         }
       case s =>
     }
+
+    component.dslBody.walkStatements(walk)
+    component.children.foreach(walk)
 
     for (attribute <- map.values) {
       val typeString = attribute match {
@@ -955,39 +962,46 @@ class ComponentEmitterVhdl(
 
     val cdTasks = mutable.LinkedHashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
 
-    mem.foreachStatements{
-      case port: MemWrite     =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadSync  =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadWrite =>
-        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
-      case port: MemReadAsync =>
-    }
 
     val tmpBuilder = new StringBuilder()
 
-    for((cd, ports) <- cdTasks){
-      def syncLogic(tab: String, b: StringBuilder): Unit ={
-        ports.foreach{
-          case port: MemWrite     => emitPort(port, tab, b)
-          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
-          case port: MemReadWrite => emitPort(port, tab, b)
-        }
-      }
-
-      emitClockedProcess(syncLogic,null,tmpBuilder, cd, false)
-    }
-
     mem.foreachStatements{
-      case port: MemWrite     =>
-      case port: MemReadWrite =>
-      case port: MemReadSync  =>
-        if(port.readUnderWrite == dontCare)
-          emitClockedProcess(emitPort(port,_,_),null,tmpBuilder, port.clockDomain, false)
-      case port: MemReadAsync =>
+      case memWrite: MemWrite      =>
+        emitClockedProcess((tab, b) => {
+          if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.mem} because of its mixed width ports")
+          emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) + " = '1'" else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
+        }, null, tmpBuilder, memWrite.clockDomain, false)
+      case memReadWrite: MemReadWrite  =>
+        if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into VHDL $memReadWrite")
+        if(memReadWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadWrite.mem} because of its mixed width ports")
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadWrite.mem.getMemSymbolCount()
+          b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
+          emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+          b ++= s"${tab}end if;\n"
+        }, null, tmpBuilder, memReadWrite.clockDomain, false)
+
+        emitClockedProcess((tab, b) => {
+          val symbolCount = memReadWrite.mem.getMemSymbolCount()
+          emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} = '1' and ${emitExpression(memReadWrite.writeEnable)} = '1'", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab)
+        }, null, tmpBuilder, memReadWrite.clockDomain, false)
+
+      case memReadSync: MemReadSync   =>
+        if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
+        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"memReadSync with writeFirst is as dontCare into VHDL $memReadSync")
+        if(memReadSync.readUnderWrite == readFirst) SpinalError(s"memReadSync with readFirst is as dontCare into VHDL $memReadSync")
+        emitClockedProcess((tab, b) => {
+          if(memReadSync.readEnable != null) {
+            b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
+            b ++= s"${tab}end if;\n"
+          } else {
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
+          }
+        }, null, tmpBuilder, memReadSync.clockDomain, false)
+      case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
-        if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+        if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into VHDL")
         val symbolCount = port.mem.getMemSymbolCount
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
           tmpBuilder ++= s"  ${emitExpression(port)} <= ${emitReference(port.mem, false)}(to_integer(${emitExpression(port.address)}));\n"
@@ -995,17 +1009,32 @@ class ComponentEmitterVhdl(
           (0 until symbolCount).foreach(i => tmpBuilder  ++= s"  ${emitExpression(port)}(${(i + 1) * symbolWidth - 1} downto ${i * symbolWidth}) <= ${emitReference(port.mem, false)}_symbol$i(to_integer(${emitExpression(port.address)}));\n")
     }
 
+
+    for((cd, ports) <- cdTasks){
+      for(port <- ports){
+        def syncLogic(tab: String, b: StringBuilder): Unit = port match{
+          case port: MemWrite     => emitPort(port, tab, b)
+          case port: MemReadSync  => if(port.readUnderWrite != dontCare) emitPort(port, tab, b)
+          case port: MemReadWrite => emitPort(port, tab, b)
+        }
+        emitClockedProcess(syncLogic, null, tmpBuilder, cd, false)
+      }
+    }
+
     logics ++= tmpBuilder
   }
-
   def emitAttributes(node: DeclarationStatement, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String = ""): Unit = {
+    emitAttributes(emitReference(node, false), attributes,vhdlType,ret,postfix)
+  }
+
+  def emitAttributes(node: String, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
         case attribute: AttributeString => "\"" + attribute.value + "\""
         case attribute: AttributeFlag   => "true"
       }
 
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}$postfix : signal is $value;\n"
+      ret ++= s"  attribute ${attribute.getName} of $node$postfix : $vhdlType is $value;\n"
     }
   }
 
@@ -1013,7 +1042,7 @@ class ComponentEmitterVhdl(
     val emited = mutable.Set[String]()
 
     for (c <- component.children) c match {
-      case blackBox: BlackBox =>
+      case blackBox: BlackBox if blackBox.isBlackBox =>
         if (!emited.contains(blackBox.definitionName)) {
           emited += blackBox.definitionName
           emitBlackBoxComponent(blackBox)

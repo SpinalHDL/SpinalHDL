@@ -346,14 +346,22 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
   willOverflow.allowPruning
 
   override def implicitValue: UInt = this.value
+
+  /**
+   * Convert this stream to a flow. It will send each value only once. It is "start inclusive, end exclusive". 
+   * This means that the current value will only be sent if the counter increments.
+   */
+  def toFlow(): Flow[UInt] = {
+    val flow = Flow(value)
+    flow.payload := value
+    flow.valid := willIncrement
+    flow
+  }
 }
-
-
-
 
 object Timeout {
   def apply(cycles: BigInt) : Timeout = new Timeout(cycles)
-  def apply(time: TimeNumber) : Timeout = new Timeout((time*ClockDomain.current.frequency.getValue).toBigInt())
+  def apply(time: TimeNumber) : Timeout = new Timeout((time*ClockDomain.current.frequency.getValue).toBigInt)
   def apply(frequency: HertzNumber) : Timeout = Timeout(frequency.toTime)
 }
 
@@ -751,7 +759,7 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
-    read(index) := data
+    apply(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
 
@@ -772,7 +780,7 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T]): T = {
+  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T],onEachReg : T => Unit = null.asInstanceOf[T => Unit]): T = {
     require(cycleCount >= 0,"Negative cycleCount is not allowed in Delay")
     var ptr = that
     for(i <- 0 until cycleCount) {
@@ -780,22 +788,19 @@ object Delay {
         ptr = RegNext(ptr, init)
       else
         ptr = RegNextWhen(ptr, when, init)
+
       ptr.unsetName().setCompositeName(that, "delay_" + (i + 1), true)
+      if(onEachReg != null) {
+        onEachReg(ptr)
+      }
     }
     ptr
   }
 }
 
 object DelayWithInit {
-  def apply[T <: Data](that: T, cycleCount: Int)(onEachReg : (T) => Unit = null): T = {
-    cycleCount match {
-      case 0 => that
-      case _ => {
-        val reg = RegNext(that)
-        if(onEachReg != null) onEachReg(reg)
-        DelayWithInit(reg, cycleCount - 1)(onEachReg)
-      }
-    }
+  def apply[T <: Data](that: T, cycleCount: Int)(onEachReg: (T) => Unit = null): T = {
+    Delay[T](that, cycleCount, onEachReg = onEachReg)
   }
 }
 
@@ -876,7 +881,6 @@ object PriorityMux{
 
 object WrapWithReg{
   def on(c : Component): Unit = {
-    c.nameElements()
     for(e <- c.getOrdredNodeIo){
       if(e.isInput){
         e := RegNext(RegNext(in(cloneOf(e).setName(e.getName))))

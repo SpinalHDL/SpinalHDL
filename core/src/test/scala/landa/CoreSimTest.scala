@@ -40,6 +40,7 @@ object CoreSimTest {
           dut.io.b #= b
           dut.io.c #= c
           cd.waitActiveEdge()
+          sleep(0)
           if(cd.isResetDeasserted) assert(dut.io.result.toInt == ((a+b -c) & 0xFF))
         }
       }

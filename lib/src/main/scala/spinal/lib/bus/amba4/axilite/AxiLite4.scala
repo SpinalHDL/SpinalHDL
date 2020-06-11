@@ -82,10 +82,17 @@ object AxiLite4 {
   * @param dataWidth    Width of the data bus
   */
 case class AxiLite4Config(addressWidth : Int,
-                          dataWidth    : Int){
+                          dataWidth    : Int,
+                          
+                          readIssuingCapability     : Int = -1,
+                          writeIssuingCapability    : Int = -1,
+                          combinedIssuingCapability : Int = -1,
+                          readDataReorderingDepth   : Int = -1){
   def bytePerWord = dataWidth/8
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
+
+  require(dataWidth == 32 || dataWidth == 64, "Data width must be 32 or 64")
 }
 
 
@@ -136,6 +143,14 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def isEXOKAY() : Unit = resp === EXOKAY
   def isSLVERR() : Unit = resp === SLVERR
   def isDECERR() : Unit = resp === DECERR
+}
+
+/** Companion object to create hard-wired AXI responses. */
+object AxiLite4B {
+  def okay(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setOKAY(); resp }
+  def exclusiveOkay(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setEXOKAY(); resp }
+  def slaveError(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setSLVERR(); resp }
+  def decodeError(config: AxiLite4Config) = { val resp = new AxiLite4B(config); resp.setDECERR(); resp }
 }
 
 

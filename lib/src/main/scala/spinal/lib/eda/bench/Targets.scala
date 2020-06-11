@@ -1,5 +1,6 @@
 package spinal.lib.eda.bench
 
+import spinal.core._
 import spinal.lib.eda.altera.QuartusFlow
 import spinal.lib.eda.xilinx.VivadoFlow
 import spinal.lib.eda.microsemi.LiberoFlow
@@ -13,7 +14,7 @@ trait Target {
 }
 
 object AlteraStdTargets {
-  def apply(quartusCycloneIIPath : String = null, quartusCycloneIVPath : String = null, quartusCycloneVPath : String = null): Seq[Target] = {
+  def apply(quartusCycloneIIPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_II_BIN", null), quartusCycloneIVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_IV_BIN", null), quartusCycloneVPath : String = sys.env.getOrElse("QUARTUS_CYCLONE_V_BIN", null)): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(quartusCycloneVPath != null) {
@@ -26,6 +27,7 @@ object AlteraStdTargets {
             toplevelPath = rtl.getRtlPath(),
             family = getFamilyName(),
             device = "5CSEMA5F31C6"
+//            device = "5CEFA7F31C6"
           )
         }
       }
@@ -66,7 +68,7 @@ object AlteraStdTargets {
 
 
 object XilinxStdTargets {
-  def apply(vivadoArtix7Path : String = null): Seq[Target] = {
+  def apply(vivadoArtix7Path : String = sys.env.getOrElse("VIVADO_ARTIX_7_BIN", null)): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
     if(vivadoArtix7Path != null) {
@@ -74,11 +76,27 @@ object XilinxStdTargets {
         override def getFamilyName(): String = "Artix 7"
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           VivadoFlow(
+            frequencyTarget = 50 MHz,
             vivadoPath=vivadoArtix7Path,
-            workspacePath=workspace,
+            workspacePath=workspace + "_area",
             toplevelPath=rtl.getRtlPath(),
             family=getFamilyName(),
-            device="xc7k70t-fbg676-3"
+            device="xc7a200tfbg676-3"
+            //            device="xc7k70t-fbg676-3"
+          )
+        }
+      }
+      targets += new Target {
+        override def getFamilyName(): String = "Artix 7"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          VivadoFlow(
+            frequencyTarget = 400 MHz,
+            vivadoPath=vivadoArtix7Path,
+            workspacePath=workspace + "_fmax",
+            toplevelPath=rtl.getRtlPath(),
+            family=getFamilyName(),
+            device="xc7a200tfbg676-3"
+            //            device="xc7k70t-fbg676-3"
           )
         }
       }

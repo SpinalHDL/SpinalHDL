@@ -45,6 +45,17 @@ trait ExpressionContainer {
 
   def normalizeInputs: Unit = {}
 
+  //Used by remapExpressions to propagate the remap if changes append
+  def stabilized(func: (Expression) => Expression, seed : Expression): Expression = {
+    var e = seed
+    while(true) {
+      val old = e
+      e = func(e)
+      if(old == e) return e
+    }
+    return e
+  }
+
   def remapExpressions(func: (Expression) => Expression): Unit
   def remapDrivingExpressions(func: (Expression) => Expression): Unit = remapExpressions(func)
 
@@ -55,6 +66,14 @@ trait ExpressionContainer {
     foreachExpression(e => {
       func(e)
       e.walkExpression(func)
+    })
+  }
+
+  // Traverse the subtrees first before accessing the parent node
+  def walkExpressionPostorder(func: (Expression) => Unit): Unit = {
+    foreachExpression(e => {
+      e.walkExpressionPostorder(func)
+      func(e)
     })
   }
 
@@ -93,8 +112,8 @@ abstract class AnalogDriver extends Expression {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    data   = func(data).asInstanceOf[T]
-    enable = func(enable)
+    data   = stabilized(func, data).asInstanceOf[T]
+    enable = stabilized(func, enable)
   }
 
   override def toStringMultiLine() = {
@@ -123,7 +142,7 @@ abstract class Resize extends Expression with WidthProvider {
   def getLiteralFactory: (BigInt, Int) => Expression
 
   override def foreachExpression(func: (Expression) => Unit): Unit = func(input)
-  override def remapExpressions(func: (Expression) => Expression): Unit = input = func(input).asInstanceOf[Expression with WidthProvider]
+  override def remapExpressions(func: (Expression) => Expression): Unit = input = stabilized(func, input).asInstanceOf[Expression with WidthProvider]
 }
 
 
@@ -161,7 +180,7 @@ abstract class UnaryOperator extends Operator {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[T]
+    source = stabilized(func, source).asInstanceOf[T]
   }
 }
 
@@ -181,7 +200,7 @@ abstract class ConstantOperator extends Operator {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[T]
+    source = stabilized(func, source).asInstanceOf[T]
   }
 }
 
@@ -200,8 +219,8 @@ abstract class BinaryOperator extends Operator {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    left = func(left).asInstanceOf[T]
-    right = func(right).asInstanceOf[T]
+    left = stabilized(func, left).asInstanceOf[T]
+    right = stabilized(func, right).asInstanceOf[T]
   }
 
   override def toStringMultiLine() = {
@@ -479,8 +498,7 @@ object Operator {
 
     abstract class ShiftRightByInt(val shift: Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       if(shift < 0) {
-        val trace = ScalaLocated.long
-        PendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at\n${trace}")
+        LocatedPendingError(s"NEGATIVE SHIFT RIGHT of $shift on $source at")
       }
       override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
       override def toString() = s"(${super.toString()})[$getWidth bits]"
@@ -494,8 +512,7 @@ object Operator {
 
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator {
       if(shift < 0) {
-        val trace = ScalaLocated.long
-        PendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at\n${trace}")
+        LocatedPendingError(s"NEGATIVE SHIFT LEFT of $shift on $source at")
       }
 
       override def calcWidth(): Int = source.getWidth + shift
@@ -703,6 +720,7 @@ object Operator {
     class Smaller extends BinaryOperatorWidthableInputs {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt < UInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -713,6 +731,7 @@ object Operator {
     class SmallerOrEqual extends BinaryOperatorWidthableInputs {
       override def getTypeObject  = TypeBool
       override def opName: String = "UInt <= UInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
@@ -843,6 +862,7 @@ object Operator {
     class Smaller extends BinaryOperatorWidthableInputs {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt < SInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -853,6 +873,7 @@ object Operator {
     class SmallerOrEqual extends BinaryOperatorWidthableInputs {
       override def getTypeObject = TypeBool
       override def opName: String = "SInt <= SInt"
+      override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
@@ -959,7 +980,7 @@ abstract class Cast extends Modifier {
   type T <: Expression
   var input: T = null.asInstanceOf[T]
 
-  override def remapExpressions (func: (Expression) => Expression): Unit = input = func(input).asInstanceOf[T]
+  override def remapExpressions (func: (Expression) => Expression): Unit = input = stabilized(func, input).asInstanceOf[T]
   override def foreachExpression(func: (Expression) => Unit): Unit = func(input)
 }
 
@@ -1057,12 +1078,12 @@ abstract class Multiplexer extends Modifier {
   var inputs: ArrayBuffer[T] = null.asInstanceOf[ArrayBuffer[T]]
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    select = func(select).asInstanceOf[Expression  with WidthProvider]
+    select = stabilized(func, select).asInstanceOf[Expression  with WidthProvider]
     var idx = inputs.length
     while(idx != 0){
       idx -= 1
       val old = inputs(idx)
-      val next = func(old)
+      val next = stabilized(func, old)
       if(old != next)
         inputs(idx) = next.asInstanceOf[T]
     }
@@ -1170,9 +1191,9 @@ abstract class BinaryMultiplexer extends Modifier {
   var whenFalse : T = null.asInstanceOf[T]
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    cond      = func(cond)
-    whenTrue  = func(whenTrue).asInstanceOf[T]
-    whenFalse = func(whenFalse).asInstanceOf[T]
+    cond      = stabilized(func, cond)
+    whenTrue  = stabilized(func, whenTrue).asInstanceOf[T]
+    whenFalse = stabilized(func, whenFalse).asInstanceOf[T]
   }
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)
@@ -1300,7 +1321,7 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[Expression with WidthProvider]
+    source = stabilized(func, source).asInstanceOf[Expression with WidthProvider]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1382,8 +1403,8 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[Expression with WidthProvider]
-    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
+    source = stabilized(func, source).asInstanceOf[Expression with WidthProvider]
+    bitId = stabilized(func, bitId).asInstanceOf[Expression with WidthProvider]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1450,14 +1471,19 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
     }
   }
 
-  def checkHiLo: Unit = if (hi - lo < -1) {
-    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+  def checkHiLo: Unit = {
+    if (lo < 0) {
+      SpinalError(s"Static bits extraction out of bound ($hi downto $lo)")
+    }
+    if (hi - lo < -1) {
+      SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+    }
   }
 
   override def getWidth: Int = hi - lo + 1
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[Expression with Widthable]
+    source = stabilized(func, source).asInstanceOf[Expression with Widthable]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1522,8 +1548,8 @@ abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvide
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source).asInstanceOf[Expression with WidthProvider]
-    offset = func(offset).asInstanceOf[Expression with WidthProvider]
+    source = stabilized(func, source).asInstanceOf[Expression with WidthProvider]
+    offset = stabilized(func, offset).asInstanceOf[Expression with WidthProvider]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1830,7 +1856,7 @@ class BitAssignmentFixed() extends BitVectorAssignmentExpression with ScalaLocat
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = func(out)
-  override def remapExpressions(func: (Expression) => Expression): Unit = {out = func(out).asInstanceOf[BitVector]}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {out = stabilized(func, out).asInstanceOf[BitVector]}
   override def foreachDrivingExpression(func: (Expression) => Unit): Unit = {}
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
   override def toString(): String = s"${out.toString()}[$bitId]"
@@ -1889,7 +1915,7 @@ class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthPr
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = func(out)
-  override def remapExpressions(func: (Expression) => Expression): Unit = {out = func(out).asInstanceOf[BitVector]}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {out = stabilized(func, out).asInstanceOf[BitVector]}
   override def foreachDrivingExpression(func : (Expression) => Unit): Unit = {}
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
   override def toString(): String = s"${out.toString()}[$hi downto $lo]"
@@ -1927,8 +1953,8 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLo
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    out = func(out).asInstanceOf[BitVector]
-    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
+    out = stabilized(func, out).asInstanceOf[BitVector]
+    bitId = stabilized(func, bitId).asInstanceOf[Expression with WidthProvider]
 
   }
 
@@ -1937,7 +1963,7 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLo
   }
 
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
-    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
+    bitId = stabilized(func, bitId).asInstanceOf[Expression with WidthProvider]
   }
 
   override def toString(): String = s"${out.toString()}[$bitId]"
@@ -2005,8 +2031,8 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    out = func(out).asInstanceOf[BitVector]
-    offset = func(offset).asInstanceOf[Expression with WidthProvider]
+    out = stabilized(func, out).asInstanceOf[BitVector]
+    offset = stabilized(func, offset).asInstanceOf[Expression with WidthProvider]
 
   }
 
@@ -2015,7 +2041,7 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
   }
 
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
-    offset = func(offset).asInstanceOf[Expression with WidthProvider]
+    offset = stabilized(func, offset).asInstanceOf[Expression with WidthProvider]
   }
 
   override def toString(): String = s"${out.toString()}[$offset over $bitCount bits]"
@@ -2047,7 +2073,7 @@ class SwitchStatementKeyBool extends Expression {
 
   override def opName: String = "is(b)"
   override def getTypeObject: Any = TypeBool
-  override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
+  override def remapExpressions(func: (Expression) => Expression): Unit = cond = stabilized(func, cond)
   override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
 }
 
@@ -2089,7 +2115,7 @@ object BitsLiteral {
     if (value < 0) throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2130,7 +2156,7 @@ object UIntLiteral {
       throw new Exception("literal value is negative and can be represented")
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in UInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2168,7 +2194,7 @@ object SIntLiteral {
     var bitCount       = specifiedBitCount
 
     if (bitCount != -1) {
-      if (minimalWidth > bitCount ) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount ) throw new Exception(s"literal 0x${value.toString(16)} can't fit in SInt($specifiedBitCount bits)")
     } else {
       bitCount = minimalWidth
     }
@@ -2235,6 +2261,13 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
     }
 
     makeIt(isSignedKind && value < 0)
+  }
+
+  def hexString(bitCount: Int, aligin: Boolean = false):String = {
+    val hexCount = scala.math.ceil(bitCount/4.0).toInt
+    val alignCount = if (aligin) (hexCount * 4) else bitCount
+    val unsignedValue = if(value >= 0) value else ((BigInt(1) << alignCount) + value)
+    if(value == 0) "0" else s"%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
   }
 
 

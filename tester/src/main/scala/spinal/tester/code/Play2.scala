@@ -145,19 +145,12 @@ object PlayFixedPoint {
 
 
 object PlayBug75 {
-  implicit class StreamPimped(pimped : Stream[UInt]){
-    def asStreamSInt() : Stream[SInt] = pimped.translateWith(pimped.payload.asSInt)
+  class Top extends Component{
+    val a = in SInt(8 bits)
+    val b = out(a(10))
   }
-
-  class TopLevel extends Component {
-    val src = slave Stream(UInt(4 bits))
-    val sink = master Stream(SInt(4 bits))
-
-    sink << src.asStreamSInt()
-  }
-
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new Top)
   }
 }
 
@@ -568,90 +561,62 @@ object PlayPerf {
 
 
 object PlayBug43{
+  import spinal.core.sim._
+  import spinal.core._
+  import spinal.sim._
+  import spinal.lib._
+  import spinal.lib.fsm._
+  import scala.util.Random
 
-  /* Bus configuration  */
-  case class PipelinedMemoryBusConfig(val dataWidth:Int=32, val addrWidth:Int=32)
-
-  /* Bus definition */
-  case class PipelinedMemoryBus(val config:PipelinedMemoryBusConfig) extends Bundle with IMasterSlave {
-    val cs   = Bool
-    val rwn  = Bool
-    val dIn  = Bits(config.dataWidth bits)
-    val addr = Bits(config.addrWidth bits)
-    val dOut = Bits(config.dataWidth bits)
-
-    override def asMaster(): Unit = {
-      out(cs)
-      out(rwn)
-      out(dIn)
-      out(addr)
-      in(dOut)
+  class BootFail extends Component {
+    val io = new Bundle {
+      val trig = in Bool
+      val sig = out Bool
     }
-  }
 
-
-  /* Factory */
-  trait PipelinedMemoryBusSlaveFactoryElement
-
-  case class PipelinedMemoryBusSlaveFactoryRead(that : Data, address : BigInt) extends PipelinedMemoryBusSlaveFactoryElement
-  case class PipelinedMemoryBusSlaveFactoryWrite(that : Data, address : BigInt) extends PipelinedMemoryBusSlaveFactoryElement
-
-  class PipelinedMemoryBusSlaveFactory(bus : PipelinedMemoryBus) extends Area {
-
-    val elements = ArrayBuffer[PipelinedMemoryBusSlaveFactoryElement]()
-
-    def read(that : Data, address : BigInt ): Unit = elements += PipelinedMemoryBusSlaveFactoryRead(that, address)
-    def write(that: Data, address : BigInt ): Unit = elements += PipelinedMemoryBusSlaveFactoryWrite(that, address)
-
-    component.addPrePopTask(() =>{
-
-      bus.dOut := 0
-      when(bus.cs){
-        when(bus.rwn){
-
-          for (e <- elements ; if e.isInstanceOf[PipelinedMemoryBusSlaveFactoryWrite]){
-            val w = e.asInstanceOf[PipelinedMemoryBusSlaveFactoryWrite]
-            when(w.address === bus.addr){
-              w.that := bus.dIn
-            }
+    io.sig := False
+    val sm = new StateMachine {
+      val idle: State = new State with EntryPoint {
+        whenIsActive {
+          when (io.trig) {
+            goto(c1)
           }
-
-        } otherwise {
-
-          for (e <- elements ; if e.isInstanceOf[PipelinedMemoryBusSlaveFactoryRead]){
-            val w = e.asInstanceOf[PipelinedMemoryBusSlaveFactoryRead]
-            when(w.address === bus.addr){
-              bus.dOut := w.that.asBits
-            }
-          }
-
         }
       }
-    })
-
-  }
-
-  /* Top Level */
-  class PlayPipelinedMemoryBus(dataWidth : Int, addrWidth:Int ) extends Component{
-
-    val io = new Bundle{
-      val bus    = slave(PipelinedMemoryBus(PipelinedMemoryBusConfig(dataWidth,addrWidth)))
-      val reg1   = out Bits(dataWidth bits)
+      val c1: State = new State {
+        whenIsActive {
+          io.sig := True
+          goto(idle)
+        }
+      }
+      val unreachableState: State = new State {
+        whenIsActive {
+          assert(False, "wound up in unreachableState", FAILURE)
+          io.sig := False
+          goto(idle)
+        }
+      }
     }
-
-    val factory = new PipelinedMemoryBusSlaveFactory(io.bus)
-    val reg1 = Reg(Bits( dataWidth bits )) init(0)
-
-    factory.read(reg1, 0x00112233l)
-    factory.write(reg1, 0xdeadbeefl)
-    io.reg1 := reg1
-
   }
+
   def main(args: Array[String]) {
-    SpinalVhdl(new PlayPipelinedMemoryBus(32,32))
+    val compiledSim = SimConfig.withWave.compile(new BootFail)
+
+    for (i <- 0 to 1000000) {
+      print("running case %d\n".format(i))
+      // examples of seeds that lead to failure:
+      // 814316022, 1851891454, 533866718, 1197810070
+      compiledSim.doSimUntilVoid("case") { dut =>
+        dut.clockDomain.forkStimulus(period=10)
+
+        val trigval = i % 2 == 0
+        dut.io.trig #= trigval
+
+        dut.clockDomain.waitSampling(10)
+        simSuccess()
+      }
+    }
   }
-
-
 }
 
 
@@ -2427,9 +2392,9 @@ object PlayMasterSlave{
   }
 
 
-  class MyBundle extends Bundle{
+  class MyBundleBroken extends Bundle{
     val publicElement = Bool
-    private val privateElement = Bool
+    val privateElement = Bool
 
     def getPrivateElement() : Bool = {
       return privateElement

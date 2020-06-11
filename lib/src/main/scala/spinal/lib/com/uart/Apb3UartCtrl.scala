@@ -7,7 +7,7 @@ import spinal.lib.eda.altera.QSysify
 
 object Apb3UartCtrl{
   def getApb3Config = Apb3Config(
-    addressWidth = 4,
+    addressWidth = 5,
     dataWidth = 32,
     selWidth = 1,
     useSlaveError = false

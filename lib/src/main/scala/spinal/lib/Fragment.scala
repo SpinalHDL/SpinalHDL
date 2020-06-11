@@ -56,6 +56,36 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
 
   def toStreamOfFragment : Stream[T] = pimped.translateWith(pimped.fragment)
 
+/**
+ * Stepwise reduction of all fragments into a single value. With this, you can calculate
+ * the (check)sum of every n elements or parity bits.
+ * @param accumulator A combinatorial function that accumulates the current (param 3) and the previous
+ * 	(param 2) value into the next one (param 1)
+ * @example {{{ outStream = inStream.reduce[SInt]((a, b, c) => { a := b + c }) }}}
+ */
+  def reduce[U <: Data](identity: U, accumulator: (U, U, T) => Unit): Stream[U] = {
+    val next = new Stream(identity).setCompositeName(pimped, "reduced", true)
+    val acc = Reg(identity)
+    
+    accumulator(next.payload, acc, pimped.fragment)
+    
+    when(pimped.fire) {
+      acc := Mux(pimped.last, identity, next.payload)
+    }
+    when(pimped.last) {
+      pimped.ready := next.ready
+      next.valid := pimped.valid
+    } otherwise {
+      pimped.ready := True
+      next.valid := False
+    }
+    next
+  }
+
+  /** 
+   * Insert a given header value at the begin of each new packet. This may stall
+   * upstream during the insertion.
+   */
   def insertHeader(header: T): Stream[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
@@ -82,7 +112,11 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
     ret
   }
 
-  //not tested
+  //TODOTEST not tested
+  /** 
+   * Insert a given header value at the begin of each new packet. This may stall
+   * upstream during the insertion.
+   */
   def insertHeader(header: Vec[T]): Stream[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val packetWait = RegInit(True)
@@ -131,11 +165,11 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
 
 
 class FlowBitsPimped(pimped: Flow[Bits]) {
-  def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Flow[Fragment[Bits]] = {
+  def toFlowFragmentBits(cMagic: Bits = B"x74", cLast: Bits = B"x53"): Flow[Fragment[Bits]] = {
     toFlowFragmentBitsAndReset(cMagic, cLast)._1
   }
 
-  def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]], Bool) = {
+  def toFlowFragmentBitsAndReset(cMagic: Bits = B"x74", cLast: Bits = B"x53", cResetSet: Bits = B"x54", cResetClear: Bits = B"x55"): (Flow[Fragment[Bits]], Bool) = {
     val ret = Flow Fragment (pimped.payloadType)
     val softReset = RegInit(True)
     val inMagic = RegInit(False)
@@ -344,7 +378,7 @@ class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bit
 
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
+  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True).setCompositeName(pimped, "first", true))
   def tail: Bool = !first
   def isFirst: Bool = pimped.valid && first
   def isTail : Bool = pimped.valid && tail

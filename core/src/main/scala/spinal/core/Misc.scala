@@ -188,6 +188,10 @@ object SpinalMap {
   def list[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
     val result: T = weakCloneOf(mappings.head._2)
 
+//    if(!mappings.contains(default) && addr.isInstanceOf[BitVector] && BigInt(1) << addr.getBitsWidth == mappings.size){
+//      Vec(mappings.map(_._2)).read(addr.asBits.asUInt)
+//    }
+
     switch(addr){
       for ((cond, value) <- mappings) {
         cond match {
@@ -298,7 +302,7 @@ object cloneable {
 }
 
 
-class NamingScope(duplicationPostfix : String, parent: NamingScope = null) {
+class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
   val map  = mutable.Map[String, Int]()
 
@@ -430,7 +434,7 @@ object PendingError {
 
 
 object LocatedPendingError {
-  def apply(error:  String) = {
+  def apply(error: => String) = {
     val location = ScalaLocated.long
     GlobalData.get.pendingErrors += (() => error + "\n" + location)
   }

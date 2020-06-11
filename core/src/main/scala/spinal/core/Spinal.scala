@@ -21,15 +21,14 @@
 package spinal.core
 
 
-import java.io.{File, FileWriter, BufferedWriter}
+import java.io.{BufferedWriter, File, FileWriter}
 
 import spinal.core.internals._
-
 import java.text.SimpleDateFormat
 import java.util.Date
 
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
 import scala.util.matching.Regex
 
@@ -51,6 +50,12 @@ case class DumpWaveConfig(depth: Int = 0, vcdPath: String = "wave.vcd")
  * target device
  */
 case class Device(vendor: String = "?", family: String = "?", name: String = "?")
+object Device{
+  val ALTERA = Device(vendor = "altera")
+  val XILINX = Device(vendor = "xilinx")
+  val LATTICE = Device(vendor = "lattice")
+  val ACTEL = Device(vendor = "actel")
+}
 
 
 trait MemBlackboxingPolicy {
@@ -130,13 +135,16 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         noRandBoot                     : Boolean = false,
                         randBootFixValue               : Boolean = true,
                         noAssert                       : Boolean = false,
+                        fixToWithWrap                  : Boolean = true,
+                        headerWithDate                 : Boolean = false,
+                        headerWithRepoHash             : Boolean = true,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
+                        scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true
 ){
-
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
@@ -150,6 +158,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     globalData.scalaLocatedEnable = debugComponents.nonEmpty
     globalData.scalaLocatedComponents ++= debugComponents
     globalData.commonClockConfig  = defaultConfigForClockDomains
+    for((p, v) <- scopeProperties){
+      p.asInstanceOf[ScopeProperty[Any]].push(v)
+    }
   }
 
   def dumpWave(depth: Int = 0, vcdPath: String = "wave.vcd"): SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
@@ -176,6 +187,17 @@ case class SpinalConfig(mode                           : SpinalMode = null,
   def includeSynthesis : this.type = {flags += GenerationFlags.synthesis; this}
   def includeFormal : this.type = {flags += GenerationFlags.formal; formalAsserts = true; this}
   def includeSimulation : this.type = {flags += GenerationFlags.simulation; this}
+
+
+  def setScopeProperty[T](scopeProperty: ScopeProperty[T], value : T): this.type ={
+    scopeProperties(scopeProperty) = value
+    this
+  }
+
+  def setScopeProperty[T](value: ScopePropertyValue): this.type ={
+    scopeProperties(value.dady) = value
+    this
+  }
 }
 class GenerationFlags {
   def isEnabled = GlobalData.get.config.flags.contains(this)
@@ -245,10 +267,12 @@ class SpinalReport[T <: Component]() {
     blackboxesSourcesPaths.foreach{ path =>
       val vhdl_regex    = """.*\.(vhdl|vhd)""".r
       val verilog_regex = """.*\.(v)""".r
+      val systemVerilog_regex = """.*\.(sv)""".r
 
       path.toLowerCase match {
         case vhdl_regex(f)    => bb_vhdl    += path
         case verilog_regex(f) => bb_verilog += path
+        case systemVerilog_regex(f) => bb_verilog += path
         case _                => SpinalWarning(s"Merging blackbox sources : Extension file not supported (${path})")
       }
     }
@@ -265,7 +289,7 @@ class SpinalReport[T <: Component]() {
           buffer.getLines.foreach{ line => bw.write(line + "\n") }
           buffer.close()
         }else{
-          SpinalWarning(s"Merging blackbox sources : Path (${path}) not found ")
+          SpinalWarning(s"Merging blackbox sources : Path (${new File(path).getAbsolutePath}) not found ")
         }
       }
 
@@ -279,6 +303,11 @@ class SpinalReport[T <: Component]() {
     if(bb_verilog.size > 0){ mergeFile(bb_verilog, s"${nameFile}.v") }
 
   }
+
+  def getRtlString(): String = {
+    assert(generatedSourcesPaths.size == 1)
+    scala.io.Source.fromFile(generatedSourcesPaths.head).mkString
+  }
 }
 
 
@@ -286,6 +315,7 @@ object Spinal{
   def version = spinal.core.Info.version
 
   def apply[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = {
+
     if(config.memBlackBoxers.isEmpty)
       config.addStandardMemBlackboxing(blackboxOnlyIfRequested)
     val configPatched = config.copy(targetDirectory = if(config.targetDirectory.startsWith("~")) System.getProperty( "user.home" ) + config.targetDirectory.drop(1) else config.targetDirectory)

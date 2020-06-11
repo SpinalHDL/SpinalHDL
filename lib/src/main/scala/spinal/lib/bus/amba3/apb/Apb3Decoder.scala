@@ -58,6 +58,10 @@ class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends 
   assert(inputConfig.selWidth == 1, "Apb3Decoder: input sel width must be equal to 1")
   assert(!SizeMapping.verifyOverlapping(decodings), "Apb3Decoder: overlapping found")
 
+  for(mapping <- decodings) {
+    assert(mapping.base % mapping.size == 0, f"Mapping at 0x${mapping.base}%x is not aligned to its size (0x${mapping.size}%x bytes)")
+  }
+
   val io = new Bundle {
     val input  = slave(Apb3(inputConfig))
     val output = master(Apb3(Apb3Decoder.getOutputConfig(inputConfig,decodings)))
@@ -68,7 +72,7 @@ class Apb3Decoder(inputConfig: Apb3Config, decodings: Seq[SizeMapping]) extends 
   io.output.PWRITE  := io.input.PWRITE
   io.output.PWDATA  := io.input.PWDATA
 
-  for((decoding,psel) <- (decodings,io.output.PSEL.asBools).zipped){
+  for((decoding,psel) <- (decodings, io.output.PSEL.asBools).zipped){
     psel := decoding.hit(io.input.PADDR) && io.input.PSEL.lsb
   }
 

@@ -23,6 +23,13 @@ package spinal.lib.bus.misc
 import spinal.core._
 
 
+object AddressMapping{
+  def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
+    val sizeMapped = mapping.filter(_.isInstanceOf[SizeMapping]).map(_.asInstanceOf[SizeMapping])
+    SizeMapping.verifyOverlapping(sizeMapped)
+  }
+}
+
 trait AddressMapping{
   def hit(address: UInt): Bool
   def removeOffset(address: UInt): UInt
@@ -60,14 +67,11 @@ object SizeMapping{
     *
     *  @return : true = overlapping found, false = no overlapping
     */
-  def verifyOverlapping(mapping: Seq[SizeMapping]): Boolean = {
-
-    val mappingSorted = mapping.sortWith(_.base < _.base)
-
-    val hasOverlaps = if(mapping.size == 1) false else (0 until mapping.length - 1).map(i => mappingSorted(i).end >= mappingSorted(i + 1).base).reduce(_ | _)
-
-    return hasOverlaps
-
+  def verifyOverlapping(mappings: Seq[SizeMapping]): Boolean = {
+    for(m1 <- mappings; m2 <- mappings if m1 != m2){
+      if(m1.overlap(m2)) return true
+    }
+    return false
   }
 }
 
@@ -82,10 +86,16 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   val end = base + size - 1
 
-  override def hit(address: UInt): Bool = if (isPow2(size) && base % size == 0)
-    (address & ~U(size-1, address.getWidth bits)) === (base)
-  else
-    address >= base && address < base + size
+  override def hit(address: UInt): Bool = {
+    if (isPow2(size) && base % size == 0){
+      (address & ~U(size - 1, address.getWidth bits)) === (base)
+    }else {
+      if(base == 0)
+        address < base + size
+      else
+        address >= base && address < base + size
+    }
+  }
 
   override def removeOffset(address: UInt): UInt = {
     if (isPow2(size) && base % size == 0)
@@ -96,4 +106,5 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
 
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
+  def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
 }

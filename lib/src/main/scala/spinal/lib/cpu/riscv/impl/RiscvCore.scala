@@ -56,11 +56,11 @@ case class RiscvCoreConfig(val pcWidth : Int = 32,
   def needExecute0PcPlus4 = true //branchPrediction != disable
 }
 
-case class CoreInstructionCmd(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreInstructionCmd()(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
 
-case class CoreInstructionRsp(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreInstructionRsp()(implicit p : RiscvCoreConfig) extends Bundle{
   val instruction = Bits(32 bit)
   val pc = UInt(p.addrWidth bit)
   val branchCacheLine = if(p.branchPrediction == dynamic) BranchPredictorLine() else null
@@ -94,7 +94,7 @@ object CoreInstructionBus{
   )
 }
 
-case class CoreInstructionBus(implicit val p : RiscvCoreConfig) extends Bundle with IMasterSlave{
+case class CoreInstructionBus()(implicit val p : RiscvCoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreInstructionCmd())
   val branchCachePort = if(p.branchPrediction == dynamic) MemReadPort(BranchPredictorLine(),p.dynamicBranchPredictorCacheSizeLog2) else null
   val rsp = Stream (CoreInstructionRsp())
@@ -245,7 +245,7 @@ object CoreDataBus{
   )
 }
 
-case class CoreDataBus(implicit p : RiscvCoreConfig) extends Bundle with IMasterSlave{
+case class CoreDataBus()(implicit val p : RiscvCoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreDataCmd())
   val rsp = Stream (Bits(32 bit))
 
@@ -405,25 +405,25 @@ case class CoreDataBus(implicit p : RiscvCoreConfig) extends Bundle with IMaster
   }
 }
 
-case class CoreDataCmd(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreDataCmd()(implicit val p : RiscvCoreConfig) extends Bundle{
   val wr = Bool
   val address = UInt(p.addrWidth bit)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
 }
 
-case class BranchPredictorLine(implicit p : RiscvCoreConfig)  extends Bundle{
+case class BranchPredictorLine()(implicit val p : RiscvCoreConfig)  extends Bundle{
   val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
   val history = SInt(p.branchPredictorHistoryWidth bit)
 }
 
-case class CoreFetchOutput(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreFetchOutput()(implicit val p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val branchCacheLine = BranchPredictorLine()
 }
 
-case class CoreDecodeOutput(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreDecodeOutput()(implicit val p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -436,7 +436,7 @@ case class CoreDecodeOutput(implicit p : RiscvCoreConfig) extends Bundle{
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
 }
 
-case class CoreExecute0Output(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreExecute0Output()(implicit val p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -455,7 +455,7 @@ case class CoreExecute0Output(implicit p : RiscvCoreConfig) extends Bundle{
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
-case class CoreExecute1Output(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreExecute1Output()(implicit val p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -467,7 +467,7 @@ case class CoreExecute1Output(implicit p : RiscvCoreConfig) extends Bundle{
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
-case class CoreWriteBack0Output(implicit p : RiscvCoreConfig) extends Bundle{
+case class CoreWriteBack0Output()(implicit val p : RiscvCoreConfig) extends Bundle{
   val addr = UInt(5 bit)
   val data = Bits(32 bit)
 }

@@ -25,6 +25,7 @@ import spinal.core.internals._
 
 object DataAssign
 object InitAssign
+class VarAssignementTag(var from : ArrayBuffer[Data]) extends SpinalTag
 
 trait DataPrimitives[T <: Data]{
 
@@ -54,6 +55,24 @@ trait DataPrimitives[T <: Data]{
 
     ret.allowOverride
     ret := that
+
+    (this, ret) match {
+      case (from: Data with Nameable, to: Data with Nameable) => {
+        val t = from.getTag(classOf[VarAssignementTag]) match {
+          case Some(t) => t
+          case None => new VarAssignementTag(ArrayBuffer[Data]())
+        }
+        for((s,i) <- t.from.zipWithIndex){
+          s.setCompositeName(to,i.toString)
+        }
+
+        t.from += ret
+        from.removeTag(t)
+        ret.addTag(t)
+      }
+      case _ =>
+    }
+
     ret
   }
 
@@ -234,7 +253,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as input */
   def asInput(): this.type = {
     if(this.component != Component.current) {
-      PendingError(s"You should not set $this as input outside it's own component.\n${ScalaLocated.long}" )
+      LocatedPendingError(s"You should not set $this as input outside it's own component." )
     }else {
       dir = in
     }
@@ -244,7 +263,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as output */
   def asOutput(): this.type = {
     if(this.component != Component.current) {
-      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
+      LocatedPendingError(s"You should not set $this as output outside it's own component." )
     }else {
       dir = out
     }
@@ -254,7 +273,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** set a data as inout */
   def asInOut(): this.type = {
     if(this.component != Component.current) {
-      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
+      LocatedPendingError(s"You should not set $this as output outside it's own component." )
     }else {
       dir = inout
     }
@@ -263,7 +282,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def copyDirectionOfImpl(that : Data): this.type ={
     if(this.component != Component.current) {
-      PendingError(s"You should not set $this as output outside it's own component.\n${ScalaLocated.long}" )
+      LocatedPendingError(s"You should not set $this as output outside it's own component." )
     }else {
       dir = that.dir
     }
@@ -300,6 +319,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def isOutput: Boolean = dir == out
   def isInput:  Boolean = dir == in
   def isInOut:  Boolean = dir == inout
+  def getDirection = dir
 
   def isOutputOrInOut: Boolean = dir == out || dir == inout
   def isInputOrInOut:  Boolean = dir ==  in || dir == inout
@@ -311,7 +331,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       case `in`    => dir = out
       case `out`   => dir = in
       case `inout` =>
-      case _       => PendingError(s"Can't flip a data that is direction less $this")
+      case _       => LocatedPendingError(s"Can't flip a data that is direction less $this")
     }
     this
   }
@@ -415,9 +435,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     val c = Component.current
 
     if(thisTrue.component != c && thisTrue.component.parent != c){
-      PendingError(s"HIERARCHY VIOLATION, $thisTrue can't be used in $c at\n${ScalaLocated.long}")
+      LocatedPendingError(s"HIERARCHY VIOLATION, $thisTrue can't be used in $c at")
     }else if(thatTrue.component != c && thatTrue.component.parent != c){
-      PendingError(s"HIERARCHY VIOLATION, $thatTrue can't be used in $c at\n${ScalaLocated.long}")
+      LocatedPendingError(s"HIERARCHY VIOLATION, $thatTrue can't be used in $c at")
     } else {
       def dirSolve(that: Data): IODirection = {
         if(that.component == c)
@@ -442,7 +462,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         case (null,`in`)                          => this := that
         case (null,`out`)                         => that := this
         case _ if this.isAnalog && that.isAnalog  => this := that
-        case _                                    => PendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that \n${ScalaLocated.long}")
+        case _                                    => LocatedPendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that ")
       }
     }
   }

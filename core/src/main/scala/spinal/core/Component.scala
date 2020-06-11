@@ -24,6 +24,7 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import spinal.idslplugin.PostInitCallback
 
 
 object Component {
@@ -68,13 +69,18 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode{
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
   dslBody.component = this
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+  val definition = new SpinalTagReady {
+
+  }
+
 
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
@@ -105,6 +111,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
 
+  var withoutReservedKeywords = false
+  def withoutKeywords(): Unit ={
+    withoutReservedKeywords = true
+  }
+  def withKeywords(): Unit ={
+    withoutReservedKeywords = false
+  }
 
   // Check if it is a top level component or a children of another component
   if (parent != null) {
@@ -126,23 +139,15 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
   }
 
-  /** Initialization class delay */
-  override def delayedInit(body: => Unit) = {
-    body // evaluate the initialization code of body
-
-    // prePopTasks are executed after the creation of the inherited component
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-
-      this.nameElements()
-
-      prePop()
-
-      Component.pop(this)
-    }
+  def postInitCallback(): this.type = {
+    prePop()
+    Component.pop(this)
+    this
   }
 
   /** Add a new prePopTask */
   def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
@@ -182,49 +187,43 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
   }
 
-  /** Name all Nameable object */
-  def nameElements(): Unit = {
 
-    val io = reflectIo
-
-    if(io != null) {
-      if(io.isUnnamed || io.isPriorityApplicable(Nameable.DATAMODEL_WEAK)) {
-        io.unsetName()
-        if (ioPrefixEnable)
-          io.setName("io", Nameable.DATAMODEL_WEAK)
-        else
-          io.setName("", Nameable.DATAMODEL_WEAK)
-        OwnableRef.proposal(io,this)
+  override def valCallbackRec(ref: Any, name: String): Unit = {
+    if(name == "io"){
+      ref match {
+        case io: Nameable =>
+          if (ioPrefixEnable)
+            io.setName("io", Nameable.DATAMODEL_WEAK)
+          else
+            io.setName("", Nameable.DATAMODEL_WEAK)
+          OwnableRef.proposal(io,this)
+        case _ =>
       }
-    }
+    } else {
+      ref match {
+        case component: Component if component.parent == this =>
+          OwnableRef.proposal(ref, this)
+          component.setName(name, Nameable.DATAMODEL_WEAK)
 
-    Misc.reflect(this, (name, obj) => {
-      if(obj != io) {
-        obj match {
-          case component: Component if component.parent == this =>
-              OwnableRef.proposal(obj, this)
-              component.setName(name, Nameable.DATAMODEL_WEAK)
-
-          case nameable: Nameable =>
-            if (!nameable.isInstanceOf[ContextUser]) {
-              nameable.setName(name, Nameable.DATAMODEL_WEAK)
-              OwnableRef.proposal(obj, this)
-            } else if (nameable.asInstanceOf[ContextUser].component == this) {
-              nameable.setName(name, Nameable.DATAMODEL_WEAK)
-              OwnableRef.proposal(obj, this)
-            } else {
-              for (kind <- children) {
-                //Allow to name a component by his io reference into the parent component
-                if (kind.reflectIo == nameable) {
-                  kind.setName(name, Nameable.DATAMODEL_WEAK)
-                  OwnableRef.proposal(kind, this)
-                }
+        case nameable: Nameable =>
+          if (!nameable.isInstanceOf[ContextUser]) {
+            nameable.setName(name, Nameable.DATAMODEL_WEAK)
+            OwnableRef.proposal(ref, this)
+          } else if (nameable.asInstanceOf[ContextUser].component == this) {
+            nameable.setName(name, Nameable.DATAMODEL_WEAK)
+            OwnableRef.proposal(ref, this)
+          } else {
+            for (kind <- children) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == nameable) {
+                kind.setName(name, Nameable.DATAMODEL_WEAK)
+                OwnableRef.proposal(kind, this)
               }
             }
-          case _ =>
-        }
+          }
+        case _ =>
       }
-    })
+    }
   }
 
   /**
@@ -233,14 +232,14 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   var localNamingScope : NamingScope = null
   private[core] def allocateNames(globalScope: NamingScope): Unit = {
 
-    localNamingScope = globalScope.newChild()
+    localNamingScope = if(withoutReservedKeywords) new NamingScope(globalScope.duplicationPostfix) else globalScope.newChild()
     val anonymPrefix = if(globalData.phaseContext.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + this.definitionName else globalData.anonymSignalPrefix
     localNamingScope.allocateName(anonymPrefix)
 
     for (child <- children) {
       OwnableRef.proposal(child, this)
       if (child.isUnnamed) {
-        var name = child.getClass.getSimpleName
+        var name = classNameOf(child)
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName().setName(name, Nameable.DATAMODEL_WEAK)
       }
@@ -305,13 +304,24 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
+  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
     ClockDomain.push(this.clockDomain)
     Component.push(this)
+    scopeProperties.foreach{ case (p, v) => p.push(v)}
     val ret = gen
     prePop()
+    scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
     ClockDomain.pop(this.clockDomain)
     ret
+  }
+
+  def reflectBaseType(name : String): BaseType = {
+    this.dslBody.walkStatements{
+      case bt : BaseType if bt.getName() == name => return bt
+      case _ =>
+    }
+    null
   }
 }

@@ -8,10 +8,10 @@ import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.misc._
 import spinal.lib.bus.simple._
 import spinal.lib.io.TriState
-import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.tester.code.t8_a.UartCtrl
 import spinal.lib.fsm._
+import spinal.lib.memory.sdram.sdr.W9825G6JH6
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -128,6 +128,20 @@ object PlayAxi4AddrIncr{
 //}
 
 
+object Play333 extends App{
+  class Top2 extends Component{
+    val sel = in Bits(3 bits)
+    val b = out Bits(16 bits)
+    switch(sel){
+      is(1){ b := 32}
+      is(2){ b := 32}
+      is(3){ b := 12}
+      is(0){ b := 82}
+      default { b:=0}
+    }
+  }
+  SpinalVerilog(new Top2)
+}
 
 object PlayAxi4StrbConnect{
   class TopLevel extends Component{
@@ -564,16 +578,16 @@ object PlayTypedef{
 }
 
 
-object PlayRamInfer{
-  class TopLevel() extends Component {
-    val a = out(U(8 bits,1 -> True,default -> False))
-  }
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel())
-    SpinalVerilog(new TopLevel())
-  }
-}
+//object PlayRamInfer{
+//  class TopLevel() extends Component {
+//    val a = out(U(8 bits,1 -> True,default -> False))
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel())
+//    SpinalVerilog(new TopLevel())
+//  }
+//}
 
 object PlayRoundRobin{
   class TopLevel() extends Component {
@@ -1017,10 +1031,10 @@ object PlayPatch{
     }
   }
 
-  val io = new Bundle{
-    val input  = slave(HandShake(8))
-    val output = master(HandShake(8))
-  }
+//  val io = new Bundle{
+//    val input  = slave(HandShake(8))
+//    val output = master(HandShake(8))
+//  }
 
 
 
