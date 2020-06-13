@@ -184,7 +184,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
                                                                                             |${
                 {
                   for (e <- enumDef.elements) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
-                }.mkstring("\n")
+                }.mkString("\n")
               }
                   |      when others => return ${idToBits(enumDef.elements.head, encoding)};
                                                                                            |    end case;
