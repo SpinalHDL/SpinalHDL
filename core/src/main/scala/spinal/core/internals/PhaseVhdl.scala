@@ -263,7 +263,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     })
 
     def declarationMarginized(func: (String, String)) = s"${func._1};\n"
-    def bodyMarginized(func: (String, String)) = s"${func._1} is\n${func._2}|\n"
+    def bodyMarginized(func: (String, String)) = s"${func._1} is\n${func._2}\n"
     val allFuncsDeclarationsMarginized = funcs.map(declarationMarginized).mkString
     val allFuncsBodiesMarginized = funcs.map(bodyMarginized).mkString
 
