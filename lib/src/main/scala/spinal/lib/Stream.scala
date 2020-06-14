@@ -55,6 +55,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
+  def toFlowFire: Flow[T] = {
+    val ret = Flow(payloadType)
+    ret.valid := this.fire
+    ret.payload := this.payload
+    ret
+  }
+
   def asFlow: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.valid
