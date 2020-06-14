@@ -245,16 +245,16 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-    walkDeclarations{
-      case mem : Mem[_] =>
-        var hit = false
-        mem.foreachStatements{
-          case port : MemReadAsync => hit = true
-          case _ =>
-        }
-        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
-      case _ =>
-    }
+//    walkDeclarations{
+//      case mem : Mem[_] =>
+//        var hit = false
+//        mem.foreachStatements{
+//          case port : MemReadAsync => hit = true
+//          case _ =>
+//        }
+//        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
+//      case _ =>
+//    }
   }
 }
 
@@ -1135,6 +1135,17 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
 class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
   override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations {
+      case mem: Mem[_] => {
+        var hit = false
+        mem.foreachStatements {
+          case port: MemReadAsync => hit = true
+          case _ =>
+        }
+        if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+      }
+      case _ =>
+    }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
       pc.walkDeclarations {
         case mem : Mem[_] => {
