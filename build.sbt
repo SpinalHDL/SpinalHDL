@@ -150,7 +150,7 @@ lazy val debugger = (project in file("debugger"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL Debugger",
     version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
+    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
     libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
     libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
     publishArtifact := false,
