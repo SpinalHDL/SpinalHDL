@@ -118,7 +118,7 @@ beforeInstall () {
   travis_finish "fix"
 
   travis_start "ghdl" "GHDL" "build and install"
-  sudo apt install -y gnat-4.9 zlib1g-dev libboost-dev
+  sudo apt install -y gnat zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
   git reset --hard "0316f95368837dc163173e7ca52f37ecd8d3591d"
   ./dist/ci-run.sh -bmcode build
