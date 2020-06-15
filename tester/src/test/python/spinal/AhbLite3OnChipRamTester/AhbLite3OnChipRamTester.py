@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.triggers import RisingEdge
@@ -24,7 +24,7 @@ class AhbLite3TraficGeneratorWithMemory(AhbLite3TraficGenerator):
                         # cocotb.log.info("WRITE %x %x" % (address  + idx, (trans.HWDATA >> (8*(addressOffset + idx))) & 0xFF))
                 else:
                     data = 0
-                    for idx in xrange(size):
+                    for idx in range(size):
                         data |= self.ram[address + idx] << (8*(addressOffset + idx))
                     self.readBuffer.put(data)
                     # cocotb.log.info("READ %x %x" % (trans.HADDR,data))

@@ -8,7 +8,7 @@ from Verilog_VCD.Verilog_VCD import parse_vcd
 @cocotb.coroutine
 def stim(wave, componentName, netName, apply, delay = 0):
     yield Timer(delay)
-    for netinfo in wave.values():
+    for netinfo in list(wave.values()):
         for net in netinfo['nets']:
             if net["hier"] == componentName:
                 if net["name"].startswith(netName):
@@ -20,7 +20,7 @@ def stim(wave, componentName, netName, apply, delay = 0):
 
 @cocotb.coroutine
 def stimPulse(wave, componentName, netName, apply):
-    for netinfo in wave.values():
+    for netinfo in list(wave.values()):
         for net in netinfo['nets']:
             if net["hier"] == componentName:
                 if net["name"].startswith(netName):
@@ -37,7 +37,7 @@ def stimPulse(wave, componentName, netName, apply):
                         previousV = current
 
 def getClockPeriod(wave, componentName, netName):
-    for netinfo in wave.values():
+    for netinfo in list(wave.values()):
         for net in netinfo['nets']:
             if net["hier"] == componentName:
                 if net["name"].startswith(netName):
@@ -45,7 +45,7 @@ def getClockPeriod(wave, componentName, netName):
 
 def countSignal(wave, componentName, prefix, postfix):
     count = 0
-    for netinfo in wave.values():
+    for netinfo in list(wave.values()):
         for net in netinfo['nets']:
             if net["hier"] == componentName:
                 if net["name"].startswith(prefix) and net["name"].endswith(postfix):
@@ -53,7 +53,7 @@ def countSignal(wave, componentName, prefix, postfix):
     return count
 
 def getLastValue(wave, componentName, netName):
-    for netinfo in wave.values():
+    for netinfo in list(wave.values()):
         for net in netinfo['nets']:
             if net["hier"] == componentName:
                 if net["name"].startswith(netName):

@@ -19,7 +19,7 @@ def test1(dut):
 
     @cocotb.coroutine
     def stim(drivers):
-        for i in xrange(100):
+        for i in range(100):
             for toidle in drivers:
                 randSignal(toidle.write)
                 toidle.writeenable <= 0

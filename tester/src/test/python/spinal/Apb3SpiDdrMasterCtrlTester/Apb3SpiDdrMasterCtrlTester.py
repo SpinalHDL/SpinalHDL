@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.triggers import Edge, RisingEdge, FallingEdge, Timer
@@ -86,14 +86,14 @@ def test1(dut):
 
     @cocotb.coroutine
     def readPush(length):
-        for i in xrange(length):
+        for i in range(length):
             yield waitNotFull()
             yield apb.write(0, 0x200)
 
     @cocotb.coroutine
     def read(result):
         readSent = 0
-        for i in xrange(len(result)):
+        for i in range(len(result)):
             while True:
                 if readSent != len(result):
                     readThread = apb.read(4)
@@ -196,7 +196,7 @@ def test1(dut):
         yield stop()
 
     dut.vcc <= 0
-    for i in xrange(300):
+    for i in range(300):
         yield Timer(10000)
         dut.vcc <= i*10
     # bus.drive(config.kind, baseAddress + 8, bitOffset=0)
@@ -234,8 +234,8 @@ def test1(dut):
 
 
 
-    yield programPage(0x1100, range(256))
-    yield programPage(0x1200, range(0x10,0x20))
+    yield programPage(0x1100, list(range(256)))
+    yield programPage(0x1200, list(range(0x10,0x20)))
 
 
     tab = [0]*5

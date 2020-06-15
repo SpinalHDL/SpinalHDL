@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb import fork, log
@@ -145,7 +145,7 @@ def spiSlaveAgent(spi, queue, clk):
         sclkLast = str(spi.sclk)
         mosiLast = str(spi.mosi)
         ssLast = str(spi.ss)
-        for i in xrange(cycles):
+        for i in range(cycles):
             yield RisingEdge(clk)
             sclkNew = str(spi.sclk)
             mosiNew = str(spi.mosi)
@@ -180,7 +180,7 @@ def spiSlaveAgent(spi, queue, clk):
         else:
             head = queue.get()
             if isinstance(head, SlaveCmdData):
-                for i in xrange(8):
+                for i in range(8):
                     if spiConfig.cpha == False:
                         spi.miso <= testBit(head.slaveData, 7-i) if head.slaveData != None else randBool()
                         while True:
@@ -219,15 +219,15 @@ def spiSlaveAgent(spi, queue, clk):
                         break
                 if head.enable:
                     yield wait(spiConfig.ssSetup-1)
-                    print str(ssStable) + " " + str(sclkStable)
+                    print(str(ssStable) + " " + str(sclkStable))
                     assert ssStable >= spiConfig.ssSetup-1
                     assert sclkStable >= spiConfig.ssSetup-1
                 else:
-                    print str(ssStableLast) + " " + str(sclkStable)
+                    print(str(ssStableLast) + " " + str(sclkStable))
                     assert ssStableLast >= spiConfig.ssHold
                     assert sclkStable >= spiConfig.ssHold
                     yield wait(spiConfig.ssDisable-1)
-                    print str(ssStable) + " " + str(sclkStable)
+                    print(str(ssStable) + " " + str(sclkStable))
                     assert ssStable >= spiConfig.ssDisable-1
                     assert sclkStable >= spiConfig.ssDisable-1
 

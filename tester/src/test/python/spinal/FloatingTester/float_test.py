@@ -88,7 +88,7 @@ def checkOther(dut):
 
 @cocotb.coroutine
 def checkUIntToFloat(dut):
-    for i in xrange(100):
+    for i in range(100):
         dut.io_in_uint = randint(0, 1 << 24 - 1)
         yield Timer(1)
         if dut.io_in_uint != bitsToFloat(dut.io_out_uint_bits):
@@ -99,7 +99,7 @@ def checkUIntToFloat(dut):
 
 @cocotb.coroutine
 def checkSIntToFloat(dut):
-    for i in xrange(100):
+    for i in range(100):
         inputValue = randint(0, 1 << 24 - 1)
         dut.io_in_sint = inputValue
         yield Timer(1)
@@ -108,7 +108,7 @@ def checkSIntToFloat(dut):
         if inputValue != dut.io_out_to_SInt:
             raise TestFailure ("float to SInt conversion failed with positive values "+str(dut.io_out_to_SInt)+" "+str(bitsToFloat(dut.io_out_uint_bits)))
 
-    for i in xrange(100):
+    for i in range(100):
         inputValue = -randint(0, 1 << 24 - 1)
         dut.io_in_sint = inputValue
         yield Timer(1)
