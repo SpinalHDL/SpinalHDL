@@ -120,7 +120,7 @@ beforeInstall () {
   travis_start "ghdl" "GHDL" "build and install"
   sudo apt install -y gnat-4.9 zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
-  git reset --hard "a4e7fd3e6286b24350d9c4a782cdba15cb081a9c"
+  git reset --hard "0316f95368837dc163173e7ca52f37ecd8d3591d"
   ./dist/ci-run.sh -bmcode build
   mv install-mcode ../ghdl
   cd ..
@@ -141,7 +141,7 @@ beforeInstall () {
   travis_finish "iverilog"
 
   travis_start "cocotb" "cocotb" "install and compile VPI"
-  sudo apt install -y git make gcc g++ swig python-dev
+  sudo apt install -y git make gcc g++ swig python3-dev
   git clone https://github.com/potentialventures/cocotb
   cd cocotb
   git reset --hard "a463cee498346cb26fc215ced25c088039490665"
