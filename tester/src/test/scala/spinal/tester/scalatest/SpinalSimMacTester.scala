@@ -150,158 +150,167 @@ class SpinalSimMacTester extends FunSuite{
   }
 
 
-
-  test("MacMii") {
-    val header = Seq(0x55, 0x55, 0xD5)
-    SimConfig.compile(MacEth(
-      p = MacEthParameter(
-        phy = PhyParameter(
-          txDataWidth = 4,
-          rxDataWidth = 4
+  def testMacEth(aligned : Boolean): Unit = {
+    test(s"MacMii_aligned=$aligned") {
+      val header = Seq(0x55, 0x55, 0xD5)
+      SimConfig.compile(MacEth(
+        p = MacEthParameter(
+          phy = PhyParameter(
+            txDataWidth = 4,
+            rxDataWidth = 4
+          ),
+          rxDataWidth = 32,
+          rxBufferByteSize = 512,
+          txDataWidth = 32,
+          txBufferByteSize = 512
         ),
-        rxDataWidth = 32,
-        rxBufferByteSize = 512,
-        txDataWidth = 32,
-        txBufferByteSize = 512
-     ),
-      txCd = ClockDomain.external("txCd", withReset = false),
-      rxCd = ClockDomain.external("rxCd", withReset = false)
-    )).doSim(seed = 42) { dut =>
-      dut.clockDomain.forkStimulus(10)
-      dut.rxCd.forkStimulus(40)
-      dut.txCd.forkStimulus(40)
+        txCd = ClockDomain.external("txCd", withReset = false),
+        rxCd = ClockDomain.external("rxCd", withReset = false)
+      )).doSim(seed = 42) { dut =>
+        dut.clockDomain.forkStimulus(10)
+        dut.rxCd.forkStimulus(40)
+        dut.txCd.forkStimulus(40)
+
+        dut.io.ctrl.tx.alignerEnable #= aligned
+        dut.io.ctrl.rx.alignerEnable #= aligned
 
 
+        val refs = mutable.Queue[Seq[Int]]()
+        var started = false
 
-      val refs = mutable.Queue[Seq[Int]]()
-      var started = false
-
-      val phyRxQueue = mutable.Queue[() =>  Unit]()
-      StreamDriver(dut.io.phy.rx, dut.rxCd){p =>
-        if(phyRxQueue.nonEmpty){
-          phyRxQueue.dequeue().apply()
-          true
-        }else{
-          false
-        }
-      }
-
-      def drive(frame : Seq[Int], shouldPass : Boolean): Unit ={
-        started = true
-        if(shouldPass) refs += frame
-        val realFrame = header ++ frame
-        def getBit(id : Int) = (realFrame(id/8) >> ((id % 8))) & 1
-        val transferCount = (realFrame.size*8)/dut.p.phy.rxDataWidth
-
-        for(transferId <- 0 until transferCount){
-          var data = 0
-          for(i <- 0 until dut.p.phy.rxDataWidth){
-            data |= getBit(transferId*dut.p.phy.rxDataWidth + i) << i
-          }
-          phyRxQueue += {() =>
-            dut.io.phy.rx.data #= data
-            dut.io.phy.rx.error #= false
-            dut.io.phy.rx.last #= transferId == transferCount-1
+        val phyRxQueue = mutable.Queue[() => Unit]()
+        StreamDriver(dut.io.phy.rx, dut.rxCd) { p =>
+          if (phyRxQueue.nonEmpty) {
+            phyRxQueue.dequeue().apply()
+            true
+          } else {
+            false
           }
         }
-      }
 
-
-      StreamReadyRandomizer(dut.io.ctrl.rx.stream, dut.clockDomain)
-      val pushQueue = mutable.Queue[Long]()
-      val popQueue = mutable.Queue[Int]()
-      StreamDriver(dut.io.ctrl.tx.stream, dut.clockDomain){p =>
-        if(pushQueue.nonEmpty){
-          p #= pushQueue.dequeue()
-          true
-        }else{
-          false
-        }
-      }
-
-
-
-      def doTx(that : Seq[Int]) : Unit = {
-        val trueThat = that ++ List.fill(3-(that.size-1) % 4)(0)
-        pushQueue += that.size*8
-        for(i <- 0 until trueThat.size/4){
-          var build = 0l
-          for(byteId <- 0 until 4){
-            build |= trueThat(i*4+byteId).toLong << 8*byteId
+        def drive(frame: Seq[Int], shouldPass: Boolean): Unit = {
+          started = true
+          if (shouldPass) {
+            refs += ((if(aligned) List(-1,-1) else List[Int]()) ++ frame)
           }
-          pushQueue += build
-        }
+          val realFrame = header ++ frame
 
-        val padded = that ++ List.fill(Math.max(60-that.size, 0))(0)
-//        println(padded.map(v => f"$v%02X").mkString(""))
-        val crc = calcCrc32(padded)
-        for(byte <- (List.fill(7)(0x55) :+ 0xD5) ++ padded ++ List.tabulate(4)(i => (crc >> i*8) & 0xFF)){
-          popQueue += byte & 0xF
-          popQueue += (byte >> 4) & 0xF
-        }
-      }
+          def getBit(id: Int) = (realFrame(id / 8) >> ((id % 8))) & 1
 
+          val transferCount = (realFrame.size * 8) / dut.p.phy.rxDataWidth
 
-      var task : Seq[Int] = Nil
-
-
-      dut.io.ctrl.tx.flush #= true
-      dut.io.ctrl.rx.flush #= true
-      dut.io.ctrl.rx.stream.ready #= false
-      dut.rxCd.waitSampling(100)
-      dut.io.ctrl.tx.flush #= false
-      dut.io.ctrl.rx.flush #= false
-      dut.rxCd.waitSampling(100)
-
-      StreamMonitor(dut.io.ctrl.rx.stream, dut.clockDomain){p =>
-        if(task.isEmpty){
-          task = refs.dequeue()
-          assert(p.toLong == task.length*8)
-        } else {
-          val data = p.toLong
-          for(i <- 0 until Math.min(task.size, 4)){
-            assert(((data >> i*8) & 0xFF) == task.head)
-            task = task.tail
+          for (transferId <- 0 until transferCount) {
+            var data = 0
+            for (i <- 0 until dut.p.phy.rxDataWidth) {
+              data |= getBit(transferId * dut.p.phy.rxDataWidth + i) << i
+            }
+            phyRxQueue += { () =>
+              dut.io.phy.rx.data #= data
+              dut.io.phy.rx.error #= false
+              dut.io.phy.rx.last #= transferId == transferCount - 1
+            }
           }
         }
-      }
 
-      StreamMonitor(dut.io.phy.tx, dut.txCd){p =>
-        assert(popQueue.dequeue() === dut.io.phy.tx.data.toInt)
-      }
 
-      dut.rxCd.waitSampling(100)
-
-      val txThread = fork{
-        doTx(0 to 15)
-        doTx(0 to 0)
-        doTx(0 to 1)
-        doTx(0 to 2)
-        doTx(0 to 3)
-        for(i <- 0 until 500){
-          doTx(List.fill(Random.nextInt(128+1)+1)(Random.nextInt(256)))
-          if(Random.nextFloat() < 0.1) dut.clockDomain.waitSamplingWhere(popQueue.isEmpty)
+        StreamReadyRandomizer(dut.io.ctrl.rx.stream, dut.clockDomain)
+        val pushQueue = mutable.Queue[Long]()
+        val popQueue = mutable.Queue[Int]()
+        StreamDriver(dut.io.ctrl.tx.stream, dut.clockDomain) { p =>
+          if (pushQueue.nonEmpty) {
+            p #= pushQueue.dequeue()
+            true
+          } else {
+            false
+          }
         }
-      }
 
-      drive(frameCorrectA, true)
-      drive(frameCorrectB, true)
-      drive(frameCorrectA, true)
-      drive(frameCorrectB, true)
-      for(i <- 0 until 1000){
-        Random.nextInt(5) match {
-          case 0 => drive(frameCorrectA, true)
-          case 1 => drive(frameCorrectB, true)
-          case _ => drive(Seq.fill(Random.nextInt(16+1) + 1)(Random.nextInt(256)), false)
+
+        def doTx(that: Seq[Int]): Unit = {
+          val headed = (if(aligned) List(0,0) else List[Int]()) ++ that
+          val trueThat = headed ++ List.fill(3 - (headed.size - 1) % 4)(0)
+          pushQueue += that.size * 8 + (if(aligned) 16 else 0)
+          for (i <- 0 until trueThat.size / 4) {
+            var build = 0l
+            for (byteId <- 0 until 4) {
+              build |= trueThat(i * 4 + byteId).toLong << 8 * byteId
+            }
+            pushQueue += build
+          }
+
+          val padded = that ++ List.fill(Math.max(60 - that.size, 0))(0)
+          //        println(padded.map(v => f"$v%02X").mkString(""))
+          val crc = calcCrc32(padded)
+          for (byte <- (List.fill(7)(0x55) :+ 0xD5) ++ padded ++ List.tabulate(4)(i => (crc >> i * 8) & 0xFF)) {
+            popQueue += byte & 0xF
+            popQueue += (byte >> 4) & 0xF
+          }
         }
+
+
+        var task: Seq[Int] = Nil
+
+
+        dut.io.ctrl.tx.flush #= true
+        dut.io.ctrl.rx.flush #= true
+        dut.io.ctrl.rx.stream.ready #= false
+        dut.rxCd.waitSampling(100)
+        dut.io.ctrl.tx.flush #= false
+        dut.io.ctrl.rx.flush #= false
+        dut.rxCd.waitSampling(100)
+
+        StreamMonitor(dut.io.ctrl.rx.stream, dut.clockDomain) { p =>
+          if (task.isEmpty) {
+            task = refs.dequeue()
+            assert(p.toLong == task.length * 8)
+          } else {
+            val data = p.toLong
+            for (i <- 0 until Math.min(task.size, 4)) {
+              assert(task.head == -1 || ((data >> i * 8) & 0xFF) == task.head)
+              task = task.tail
+            }
+          }
+        }
+
+        StreamMonitor(dut.io.phy.tx, dut.txCd) { p =>
+          assert(popQueue.dequeue() === dut.io.phy.tx.data.toInt)
+        }
+
+        dut.rxCd.waitSampling(100)
+
+        val txThread = fork {
+          doTx(0 to 15)
+          doTx(0 to 0)
+          doTx(0 to 1)
+          doTx(0 to 2)
+          doTx(0 to 3)
+          for (i <- 0 until 500) {
+            doTx(List.fill(Random.nextInt(128 + 1) + 1)(Random.nextInt(256)))
+            if (Random.nextFloat() < 0.1) dut.clockDomain.waitSamplingWhere(popQueue.isEmpty)
+          }
+        }
+
+        drive(frameCorrectA, true)
+        drive(frameCorrectB, true)
+        drive(frameCorrectA, true)
+        drive(frameCorrectB, true)
+        for (i <- 0 until 1000) {
+          Random.nextInt(5) match {
+            case 0 => drive(frameCorrectA, true)
+            case 1 => drive(frameCorrectB, true)
+            case _ => drive(Seq.fill(Random.nextInt(16 + 1) + 1)(Random.nextInt(256)), false)
+          }
+        }
+        waitUntil(phyRxQueue.isEmpty)
+        dut.rxCd.waitSampling(10000)
+        assert(task.isEmpty && refs.isEmpty)
+        txThread.join()
       }
-      waitUntil(phyRxQueue.isEmpty)
-      dut.rxCd.waitSampling(10000)
-      assert(task.isEmpty && refs.isEmpty)
-      txThread.join()
     }
   }
 
+  testMacEth(false)
+  testMacEth(true)
 
   test("MacTxBuffer") {
     SimConfig.compile(MacTxBuffer(
@@ -309,8 +318,7 @@ class SpinalSimMacTester extends FunSuite{
       popCd     = ClockDomain.external("popCd"),
       pushWidth = 32,
       popWidth  = 8,
-      byteSize  = 16*4,
-      lengthMax = 8*32
+      byteSize  = 16*4
     )).doSim(seed = 42) { dut =>
       dut.pushCd.forkStimulus(10)
       dut.popCd.forkStimulus(40)
@@ -384,12 +392,12 @@ class SpinalSimMacTester extends FunSuite{
       sync()
 
       for(i <- 0 until 100){
-        push(Seq.fill(Random.nextInt(dut.lengthMax/8)+1)(Random.nextInt(256)))
+        push(Seq.fill(Random.nextInt(dut.byteSize-4) + 1)(Random.nextInt(256)))
         sync()
       }
 
       for(i <- 0 until 1000){
-        push(Seq.fill(Random.nextInt(dut.lengthMax/8)+1)(Random.nextInt(256)))
+        push(Seq.fill(Random.nextInt(dut.byteSize-4) + 1)(Random.nextInt(256)))
         if(Random.nextFloat() < 0.1) sync()
       }
 

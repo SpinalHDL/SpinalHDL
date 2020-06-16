@@ -86,8 +86,7 @@ case class MacTxBuffer(pushCd : ClockDomain,
                        popCd : ClockDomain,
                        pushWidth : Int,
                        popWidth : Int,
-                       byteSize : Int,
-                       lengthMax : Int) extends Component {
+                       byteSize : Int) extends Component {
   assert(isPow2(byteSize))
   assert(isPow2(pushWidth / popWidth))
   assert(popWidth <= pushWidth)
@@ -115,7 +114,8 @@ case class MacTxBuffer(pushCd : ClockDomain,
     popCd = popCd
   )
 
-  val wordCountMax = (lengthMax+pushWidth-1)/pushWidth
+  val wordCountWidth = log2Up(fifo.depth)
+  val lengthWidth = log2Up(fifo.depth*pushWidth)
 
   io.push.availability := fifo.io.push.availability
 
@@ -130,9 +130,9 @@ case class MacTxBuffer(pushCd : ClockDomain,
       val LENGTH, DATA = newElement()
     }
     val state = RegInit(State.LENGTH)
-    val length = Reg(UInt(log2Up(lengthMax+1) bits))
+    val length = Reg(UInt(lengthWidth bits))
     val wordCountMinusOne = length-1 >> log2Up(pushWidth)
-    val wordCounter = Reg(UInt(log2Up(wordCountMax) bits))
+    val wordCounter = Reg(UInt(wordCountWidth bits))
     switch(state){
       is(State.LENGTH){
         wordCounter := 0
@@ -158,9 +158,9 @@ case class MacTxBuffer(pushCd : ClockDomain,
       val LENGTH, DATA, WAIT = newElement()
     }
     val state = RegInit(State.LENGTH())
-    val length = Reg(UInt(log2Up(lengthMax+1) bits))
+    val length = Reg(UInt(lengthWidth bits))
     val lengthMinusOne = length-1
-    val wordCounter = Reg(UInt(log2Up(wordCountMax) bits))
+    val wordCounter = Reg(UInt(wordCountWidth bits))
     val wordCountEndAt = lengthMinusOne >> log2Up(pushWidth)
     val spliterEndAt = lengthMinusOne(log2Up(pushWidth)-1 downto log2Up(popWidth))
     val ratio = pushWidth/popWidth
@@ -247,6 +247,34 @@ case class MacTxCrc(dataWidth : Int) extends Component{
     }
   }
 }
+
+case class MacTxAligner(dataWidth : Int) extends Component{
+  val io = new Bundle{
+    val enable = in Bool()
+    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth))))
+  }
+
+  val alignWidth = 16
+  assert(dataWidth <= alignWidth)
+
+  val stateCount = alignWidth/dataWidth
+  val state = Reg(UInt(log2Up(stateCount + 1) bits)) init(0)
+
+  io.output << io.input
+  when(io.enable && state =/= stateCount){
+    io.output.valid := False
+    io.input.ready := True
+    when(io.input.valid){
+      state := state + 1
+    }
+  }
+
+  when(io.input.lastFire){
+    state := 0
+  }
+}
+
 
 case class MacTxHeader(dataWidth : Int) extends Component{
   val io = new Bundle{

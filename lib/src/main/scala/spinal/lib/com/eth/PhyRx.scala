@@ -114,13 +114,40 @@ case class MacRxChecker(dataWidth : Int) extends Component {
 }
 
 
+case class MacRxAligner(dataWidth : Int) extends Component{
+  val io = new Bundle{
+    val enable = in Bool()
+    val input = slave(Stream(Fragment(PhyRx(dataWidth))))
+    val output = master(Stream(Fragment(PhyRx(dataWidth))))
+  }
+  val alignWidth = 16
+  assert(dataWidth <= alignWidth)
+
+  val stateCount = alignWidth/dataWidth
+  val state = Reg(UInt(log2Up(stateCount + 1) bits)) init(0)
+
+  io.output << io.input
+  when(io.enable && state =/= stateCount){
+    io.output.valid := True
+    io.output.last := False
+    io.output.error := False
+    io.input.ready := False
+    when(io.output.ready){
+      state := state + 1
+    }
+  }
+
+  when(io.input.lastFire){
+    state := 0
+  }
+}
+
 
 case class MacRxBuffer(pushCd : ClockDomain,
                        popCd : ClockDomain,
                        pushWidth : Int,
                        popWidth : Int,
-                       byteSize : Int,
-                       lengthMax : Int) extends Component {
+                       byteSize : Int) extends Component {
   assert(isPow2(byteSize))
   assert(isPow2(popWidth/pushWidth))
   assert(popWidth >= pushWidth)
@@ -145,6 +172,8 @@ case class MacRxBuffer(pushCd : ClockDomain,
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
+  val lengthWidth = log2Up(byteSize*8)
+
   val push = pushCd on new Area{
     val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
     val currentPtrPlusOne = currentPtr + 1
@@ -154,7 +183,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     val ratio = popWidth/pushWidth
     val buffer = Reg(Bits(popWidth-pushWidth bits))
     val state = Reg(UInt(log2Up(ratio) bits)) init(0)
-    val length = Reg(UInt(log2Up(lengthMax*8 + 1) bits)) init(0)
+    val length = Reg(UInt(lengthWidth bits)) init(0)
 
 
     val port = ram.writePort
