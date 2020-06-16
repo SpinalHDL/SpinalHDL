@@ -75,25 +75,26 @@ class SpinalSimMacTester extends FunSuite{
 
         refs ++= ref
         val transferCount = (frame.size*8 - shift)/dut.dataWidth
-        dut.io.phy.valid #= true
+        dut.io.input.valid #= true
         for(transferId <- 0 until transferCount){
           var data = 0
           for(i <- 0 until dut.dataWidth){
             data |= getBit(shift + transferId*dut.dataWidth + i) << i
           }
-          dut.io.phy.data #= data
-          dut.io.phy.error #= false
+          dut.io.input.data #= data
+          dut.io.input.error #= false
+          dut.io.input.last #= transferId == transferCount-1
           dut.clockDomain.waitSampling()
         }
-        dut.io.phy.valid #= false
+        dut.io.input.valid #= false
         dut.clockDomain.waitSampling(10)
       }
 
-      FlowMonitor(dut.io.data, dut.clockDomain){ p =>
+      StreamMonitor(dut.io.output, dut.clockDomain){ p =>
         assert(p.data.toInt == refs.dequeue())
       }
 
-      dut.io.phy.valid #= false
+      dut.io.input.valid #= false
       dut.clockDomain.waitSampling(10)
       drive(frameA, frameARef , 0)
       drive(frameA, frameARef , 0)
@@ -112,7 +113,6 @@ class SpinalSimMacTester extends FunSuite{
     val frameOk = hexStringToFrame("33330000 0002000A CD2C1594 86DD600B DD410008 3AFFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00028500 CC860000 00005901 A328")
     SimConfig.compile(MacRxChecker(dataWidth = 4)).doSim(seed = 42) { dut =>
       dut.clockDomain.forkStimulus(10)
-      dut.io.clear #= false
 
       def drive(frame : Seq[Int]): Unit ={
         def getBit(id : Int) = (frame(id/8) >> ((7-id % 8))) & 1
@@ -133,6 +133,7 @@ class SpinalSimMacTester extends FunSuite{
           }
           dut.io.input.data #= data
           dut.io.input.error #= false
+          dut.io.input.last #= transferId == transferCount-1
           dut.clockDomain.waitSampling()
         }
         dut.io.input.valid #= false
@@ -152,49 +153,57 @@ class SpinalSimMacTester extends FunSuite{
 
   test("MacMii") {
     val header = Seq(0x55, 0x55, 0xD5)
-    SimConfig.compile(MacMii(MacMiiParameter(
-      mii = MiiParameter(
-        tx = MiiTxParameter(
-          dataWidth = 4,
-          withEr = false
+    SimConfig.compile(MacEth(
+      p = MacEthParameter(
+        phy = PhyParameter(
+          txDataWidth = 4,
+          rxDataWidth = 4
         ),
-        rx = MiiRxParameter(
-          dataWidth = 4
-        )
-      ),
-      rxDataWidth = 32,
-      rxBufferByteSize = 512,
-      txDataWidth = 32,
-      txBufferByteSize = 512
-    ))).doSim(seed = 42) { dut =>
+        rxDataWidth = 32,
+        rxBufferByteSize = 512,
+        txDataWidth = 32,
+        txBufferByteSize = 512
+     ),
+      txCd = ClockDomain.external("txCd", withReset = false),
+      rxCd = ClockDomain.external("rxCd", withReset = false)
+    )).doSim(seed = 42) { dut =>
       dut.clockDomain.forkStimulus(10)
-      val rxCd = ClockDomain(dut.io.mii.RX.CLK)
-      rxCd.forkStimulus(40)
-      val txCd = ClockDomain(dut.io.mii.TX.CLK)
-      txCd.forkStimulus(45)
+      dut.rxCd.forkStimulus(40)
+      dut.txCd.forkStimulus(40)
 
 
 
       val refs = mutable.Queue[Seq[Int]]()
       var started = false
+
+      val phyRxQueue = mutable.Queue[() =>  Unit]()
+      StreamDriver(dut.io.phy.rx, dut.rxCd){p =>
+        if(phyRxQueue.nonEmpty){
+          phyRxQueue.dequeue().apply()
+          true
+        }else{
+          false
+        }
+      }
+
       def drive(frame : Seq[Int], shouldPass : Boolean): Unit ={
         started = true
         if(shouldPass) refs += frame
         val realFrame = header ++ frame
         def getBit(id : Int) = (realFrame(id/8) >> ((id % 8))) & 1
-        val transferCount = (realFrame.size*8)/dut.p.mii.rx.dataWidth
-        dut.io.mii.RX.DV #= true
+        val transferCount = (realFrame.size*8)/dut.p.phy.rxDataWidth
+
         for(transferId <- 0 until transferCount){
           var data = 0
-          for(i <- 0 until dut.p.mii.rx.dataWidth){
-            data |= getBit(transferId*dut.p.mii.rx.dataWidth + i) << i
+          for(i <- 0 until dut.p.phy.rxDataWidth){
+            data |= getBit(transferId*dut.p.phy.rxDataWidth + i) << i
           }
-          dut.io.mii.RX.D #= data
-          dut.io.mii.RX.ER #= false
-          rxCd.waitSampling()
+          phyRxQueue += {() =>
+            dut.io.phy.rx.data #= data
+            dut.io.phy.rx.error #= false
+            dut.io.phy.rx.last #= transferId == transferCount-1
+          }
         }
-        dut.io.mii.RX.DV #= false
-        rxCd.waitSampling(10)
       }
 
 
@@ -224,7 +233,7 @@ class SpinalSimMacTester extends FunSuite{
         }
 
         val padded = that ++ List.fill(Math.max(60-that.size, 0))(0)
-        println(padded.map(v => f"$v%02X").mkString(""))
+//        println(padded.map(v => f"$v%02X").mkString(""))
         val crc = calcCrc32(padded)
         for(byte <- (List.fill(7)(0x55) :+ 0xD5) ++ padded ++ List.tabulate(4)(i => (crc >> i*8) & 0xFF)){
           popQueue += byte & 0xF
@@ -236,12 +245,13 @@ class SpinalSimMacTester extends FunSuite{
       var task : Seq[Int] = Nil
 
 
-      dut.io.ctrl.clear #= true
-      dut.io.mii.RX.DV #= false
+      dut.io.ctrl.tx.flush #= true
+      dut.io.ctrl.rx.flush #= true
       dut.io.ctrl.rx.stream.ready #= false
-      rxCd.waitSampling(100)
-      dut.io.ctrl.clear #= false
-      rxCd.waitSampling(100)
+      dut.rxCd.waitSampling(100)
+      dut.io.ctrl.tx.flush #= false
+      dut.io.ctrl.rx.flush #= false
+      dut.rxCd.waitSampling(100)
 
       StreamMonitor(dut.io.ctrl.rx.stream, dut.clockDomain){p =>
         if(task.isEmpty){
@@ -255,11 +265,12 @@ class SpinalSimMacTester extends FunSuite{
           }
         }
       }
-      txCd.onSamplings{
-        if(dut.io.mii.TX.EN.toBoolean) assert(popQueue.dequeue() === dut.io.mii.TX.D.toInt)
+
+      StreamMonitor(dut.io.phy.tx, dut.txCd){p =>
+        assert(popQueue.dequeue() === dut.io.phy.tx.data.toInt)
       }
 
-      rxCd.waitSampling(100)
+      dut.rxCd.waitSampling(100)
 
       val txThread = fork{
         doTx(0 to 15)
@@ -284,7 +295,8 @@ class SpinalSimMacTester extends FunSuite{
           case _ => drive(Seq.fill(Random.nextInt(16+1) + 1)(Random.nextInt(256)), false)
         }
       }
-      rxCd.waitSampling(10000)
+      waitUntil(phyRxQueue.isEmpty)
+      dut.rxCd.waitSampling(10000)
       assert(task.isEmpty && refs.isEmpty)
       txThread.join()
     }
@@ -316,7 +328,7 @@ class SpinalSimMacTester extends FunSuite{
 
       StreamReadyRandomizer(dut.io.pop.stream, dut.popCd)
       StreamMonitor(dut.io.pop.stream, dut.popCd){ p =>
-        assert(popQueue.dequeue() == p.fragment.toInt)
+        assert(popQueue.dequeue() == p.data.toInt)
       }
 
       def push(that : Seq[Int]): Unit ={
@@ -333,14 +345,10 @@ class SpinalSimMacTester extends FunSuite{
       }
 
 
-      dut.io.push.clear #= true
-      dut.io.pop.clear #= true
       dut.io.pop.commit #= false
       dut.io.pop.redo #= false
       dut.popCd.waitSampling(10)
       dut.pushCd.waitSampling(10)
-      dut.io.push.clear #= false
-      dut.io.pop.clear #= false
       dut.popCd.waitSampling(10)
       dut.pushCd.waitSampling(10)
 

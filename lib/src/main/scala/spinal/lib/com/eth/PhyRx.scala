@@ -5,72 +5,43 @@ import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 
 
-case class RxPayload(dataWidth : Int) extends Bundle {
+case class PhyRx(dataWidth : Int) extends Bundle {
   val error = Bool()
   val data = Bits(dataWidth bits)
 }
 
-//case class MacRxPreamble(dataWidth : Int) extends Component{
-//  val io = new Bundle {
-//    val phy = slave(Flow(RxPayload(dataWidth)))
-//    val data = master(Flow(RxPayload(dataWidth)))
-//  }
-//
-//  val startDelimiter = 0xAB
-//  val startDelimiterWidth = 8
-//  val history = History(io.phy, 0 to startDelimiterWidth/dataWidth)
-//  val historyDataCat = B(Cat(history.map(_.data).reverse)).asBools.reverse.asBits()
-//  val alignement = Reg(UInt(log2Up(dataWidth) bits))
-//
-//  io.data.valid := False
-//  io.data.data  := (historyDataCat >> alignement).resize(4 bits).asBools.reverse.asBits
-//  io.data.error := io.phy.error
-//
-//  val inFrame = RegInit(False)
-//  when(!inFrame){
-//    when(history.map(_.valid).andR){
-//      for(shift <- 0 until dataWidth){
-//        when(historyDataCat(shift, startDelimiterWidth bits) === startDelimiter){
-//          alignement := shift
-//          inFrame := True
-//        }
-//      }
-//    }
-//  } otherwise {
-//    when(history(0).valid) {
-//      io.data.valid := True
-//    } otherwise {
-//      inFrame := False
-//    }
-//  }
-//}
+
+case class PhyTx(dataWidth : Int) extends Bundle {
+  val data = Bits(dataWidth bits)
+}
 
 case class MacRxPreamble(dataWidth : Int) extends Component{
   val io = new Bundle {
-    val phy = slave(Flow(RxPayload(dataWidth)))
-    val data = master(Flow(RxPayload(dataWidth)))
+    val input = slave(Stream(Fragment(PhyRx(dataWidth))))
+    val output = master(Stream(Fragment(PhyRx(dataWidth))))
   }
 
   val startDelimiter = 0xD5
   val startDelimiterWidth = 8
-  val history = History(io.phy, 0 until startDelimiterWidth/dataWidth)
+  val history = History(io.input, 0 until startDelimiterWidth/dataWidth, when = io.input.fire)
   val historyDataCat = B(Cat(history.map(_.data).reverse))
   val hit = history.map(_.valid).andR && historyDataCat === startDelimiter
-
-  io.data.valid := False
-  io.data.data  := io.phy.data
-  io.data.error := io.phy.error
-
   val inFrame = RegInit(False)
+
+  io.output.valid := False
+  io.output.payload  := io.input.payload
+  io.input.ready := !inFrame || io.output.ready
+
   when(!inFrame){
     when(hit){
       inFrame := True
     }
   } otherwise {
-    when(history(0).valid) {
-      io.data.valid := True
-    } otherwise {
-      inFrame := False
+    when(io.input.valid) {
+      io.output.valid := True
+      when(io.output.ready && io.input.last){
+        inFrame := False
+      }
     }
   }
 }
@@ -99,6 +70,7 @@ case class Crc(kind : CrcKind, dataWidth : Int) extends Component{
     val flush = in Bool()
     val input = slave Flow(Bits(dataWidth bits))
     val result = out Bits(kind.polynomialWidth bits)
+    val resultNext = out Bits(kind.polynomialWidth bits)
   }
 
   val state = Reg(Bits(kind.polynomialWidth bits)) init(kind.initValue)
@@ -116,34 +88,29 @@ case class Crc(kind : CrcKind, dataWidth : Int) extends Component{
   }
 
   val stateXor = state ^ kind.finalXor
+  val accXor = acc ^ kind.finalXor
   io.result := (if(kind.inputReflected) stateXor.asBools.reverse.asBits() else stateXor)
+  io.resultNext := (if(kind.inputReflected) accXor.asBools.reverse.asBits() else accXor)
 }
 
 case class MacRxChecker(dataWidth : Int) extends Component {
   val io = new Bundle {
-    val input = slave(Flow(RxPayload(dataWidth)))
-    val discard = out Bool()
-    val validate = out Bool()
-    val clear = in Bool()
+    val input = slave(Stream(Fragment(PhyRx(dataWidth))))
+    val output = master(Stream(Fragment(PhyRx(dataWidth))))
   }
 
   val crc = Crc(CrcKind.Crc32, dataWidth)
   crc.io.input.valid := io.input.valid
   crc.io.input.payload := io.input.data
-  crc.io.flush := False
+  crc.io.flush := io.output.lastFire
 
-  val crcHit = crc.io.result === 0x2144DF1C
-  io.discard := False
-  io.validate := False
+  val crcHit = crc.io.resultNext === 0x2144DF1C
 
-  when(io.input.fire.fall(False)){
-    crc.io.flush := True
-    when(crcHit){
-      io.validate := True
-    } otherwise {
-      io.discard := True
-    }
-  }
+  io.output.valid := io.input.valid
+  io.output.last := io.input.last
+  io.output.data := io.input.data
+  io.output.error := io.input.error | io.input.last && !crcHit
+  io.input.ready := io.output.ready
 }
 
 
@@ -161,15 +128,11 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
   val io = new Bundle {
     val push = new Bundle{
-      val stream = slave(Flow(Bits(pushWidth bits)))
-      val discard = in Bool()
-      val validate = in Bool()
-      val clear = in Bool()
+      val stream = slave(Stream(Fragment(PhyRx(pushWidth))))
     }
 
     val pop = new Bundle{
       val stream = master(Stream(Bits(popWidth bits)))
-      val clear = in Bool()
     }
   }
 
@@ -183,84 +146,79 @@ case class MacRxBuffer(pushCd : ClockDomain,
   def isEmpty(a: Bits, b: Bits) = a === b
 
   val push = pushCd on new Area{
-    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits))
+    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
     val currentPtrPlusOne = currentPtr + 1
-    val popPtrGray  = BufferCC(popToPushGray)
-    pushToPopGray := RegNext(toGray(oldPtr))
+    val popPtrGray  = BufferCC(popToPushGray, init = B(0, ptrWidth bits))
+    pushToPopGray := RegNext(toGray(oldPtr)) init(0)
 
     val ratio = popWidth/pushWidth
     val buffer = Reg(Bits(popWidth-pushWidth bits))
-    val state = Reg(UInt(log2Up(ratio) bits))
-    val length = Reg(UInt(log2Up(lengthMax*8 + 1) bits))
+    val state = Reg(UInt(log2Up(ratio) bits)) init(0)
+    val length = Reg(UInt(log2Up(lengthMax*8 + 1) bits)) init(0)
 
 
     val port = ram.writePort
     port.valid := False
     port.payload.assignDontCare()
 
-    val overflow = RegInit(False)
+    val error = RegInit(False)
+    when(io.push.stream.fire && io.push.stream.error){
+      error := True
+    }
 
     val doWrite = False
-    when(io.push.stream.valid){
+    when(io.push.stream.fire){
       state := state + 1
       length := length + pushWidth
       for(i <- 0 to ratio-2) when(state === i){
-        buffer(i*pushWidth, pushWidth bits) := io.push.stream.payload
+        buffer(i*pushWidth, pushWidth bits) := io.push.stream.data
       }
       when(state === ratio-1){
         doWrite := True
       }
-    } otherwise {
-      when(state =/= 0){
-        doWrite := True
-        state := 0
-      }
     }
+
 
     when(doWrite){
       when(isFull(toGray(currentPtrPlusOne), popPtrGray)){
-        overflow := True
+        error := True
       } otherwise {
         port.valid := True
         port.address := currentPtrPlusOne.resized
-        port.data := io.push.stream.payload ## buffer
+        port.data := io.push.stream.data ## buffer
         currentPtr := currentPtrPlusOne
       }
     }
 
-    val cleanup = False
+    val cleanup =  RegNext(io.push.stream.lastFire) init(False)
+    val commit = RegNext(cleanup) init(False)
+    io.push.stream.ready := !cleanup && !commit
 
-    when(cleanup){
-      overflow := False
+    when(cleanup && state =/= 0){
+      doWrite := True
+    }
+
+    when(commit){
+      when(error) {
+        currentPtr := oldPtr
+      } otherwise {
+        oldPtr := currentPtrPlusOne
+        currentPtr := currentPtrPlusOne
+        port.valid := True
+        port.address := oldPtr.resized
+        port.data := B(length).resized
+      }
+      error := False
       state := 0
       length := 0
-    }
-
-    when(io.push.discard || io.push.validate && overflow){
-      currentPtr := oldPtr
-      cleanup := True
-    }
-    when(io.push.validate && !overflow){
-      oldPtr := currentPtrPlusOne
-      currentPtr := currentPtrPlusOne
-      cleanup := True
-      port.valid := True
-      port.address := oldPtr.resized
-      port.data := B(length).resized
-    }
-
-    when(io.push.clear){
-      cleanup := True
-      oldPtr := 0
-      currentPtr := 0
     }
   }
 
   val pop = popCd on new Area{
-    val currentPtr = Reg(UInt(ptrWidth bits))
-    val pushPtrGray  = BufferCC(pushToPopGray)
+    val currentPtr = Reg(UInt(ptrWidth bits)) init(0)
+    val pushPtrGray  = BufferCC(pushToPopGray, init = B(0, ptrWidth bits))
     val popPtrGray = toGray(currentPtr)
-    popToPushGray := RegNext(popPtrGray)
+    popToPushGray := RegNext(popPtrGray) init(0)
 
     val cmd = Stream(ram.addressType())
     cmd.valid := !isEmpty(popPtrGray, pushPtrGray)
@@ -270,9 +228,6 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
     when(cmd.fire){
       currentPtr := currentPtr + 1
-    }
-    when(io.pop.clear){
-      currentPtr := 0
     }
   }
 }

@@ -18,14 +18,12 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
   val io = new Bundle {
     val push = new Bundle {
       val stream = slave(Stream(payloadType))
-      val clear = in Bool()
       val commit = in Bool()
       val availability = out UInt (ptrWidth bits)
     }
 
     val pop = new Bundle {
       val stream = master(Stream(payloadType))
-      val clear = in Bool()
       val redo = in Bool()
       val commit = in Bool()
     }
@@ -39,9 +37,9 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
   def isEmpty(a: Bits, b: Bits) = a === b
 
   val push = pushCd on new Area {
-    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits))
-    val popPtrGray = BufferCC(popToPushGray)
-    pushToPopGray := RegNext(toGray(oldPtr))
+    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
+    val popPtrGray = BufferCC(popToPushGray, init = B(0, ptrWidth bits))
+    pushToPopGray := RegNext(toGray(oldPtr)) init(0)
 
     io.push.stream.ready := !isFull(toGray(currentPtr), popPtrGray)
     when(io.push.stream.fire) {
@@ -54,18 +52,13 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
     when(io.push.commit) {
       oldPtr := currentPtr
     }
-
-    when(io.push.clear){
-      currentPtr := 0
-      oldPtr := 0
-    }
   }
 
   val pop = popCd on new Area {
-    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits))
-    val pushPtrGray = BufferCC(pushToPopGray)
+    val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
+    val pushPtrGray = BufferCC(pushToPopGray, init = B(0, ptrWidth bits))
     val popPtrGray = toGray(oldPtr)
-    popToPushGray := RegNext(popPtrGray)
+    popToPushGray := RegNext(popPtrGray)init(0)
 
 
     val cmd = Stream(ram.addressType())
@@ -86,10 +79,6 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
     when(io.pop.commit){
       oldPtr := commitPtr
     }
-    when(io.pop.clear){
-      currentPtr := 0
-      oldPtr := 0
-    }
   }
 }
 
@@ -108,13 +97,11 @@ case class MacTxBuffer(pushCd : ClockDomain,
   val io = new Bundle {
     val push = new Bundle {
       val stream = slave(Stream(Bits(pushWidth bits)))
-      val clear = in Bool()
       val availability = out UInt (ptrWidth bits)
     }
 
     val pop = new Bundle {
-      val stream = master(Stream(Fragment(Bits(popWidth bits))))
-      val clear = in Bool()
+      val stream = master(Stream(Fragment(PhyTx(popWidth))))
       val redo = in Bool()
       val commit = in Bool()
     }
@@ -127,9 +114,6 @@ case class MacTxBuffer(pushCd : ClockDomain,
     pushCd = pushCd,
     popCd = popCd
   )
-
-  fifo.io.push.clear := io.push.clear
-  fifo.io.pop.clear := io.pop.clear
 
   val wordCountMax = (lengthMax+pushWidth-1)/pushWidth
 
@@ -145,7 +129,7 @@ case class MacTxBuffer(pushCd : ClockDomain,
     val State = new SpinalEnum{
       val LENGTH, DATA = newElement()
     }
-    val state = Reg(State())
+    val state = RegInit(State.LENGTH)
     val length = Reg(UInt(log2Up(lengthMax+1) bits))
     val wordCountMinusOne = length-1 >> log2Up(pushWidth)
     val wordCounter = Reg(UInt(log2Up(wordCountMax) bits))
@@ -166,10 +150,6 @@ case class MacTxBuffer(pushCd : ClockDomain,
           }
         }
       }
-    }
-
-    when(io.push.clear){
-      state := State.LENGTH
     }
   }
 
@@ -193,7 +173,7 @@ case class MacTxBuffer(pushCd : ClockDomain,
 
     io.pop.stream.valid := False
     io.pop.stream.last := False
-    io.pop.stream.payload := fifo.io.pop.stream.payload.subdivideIn(popWidth bits).read(spliter)
+    io.pop.stream.data := fifo.io.pop.stream.payload.subdivideIn(popWidth bits).read(spliter)
 
     switch(state){
       is(State.LENGTH){
@@ -227,7 +207,7 @@ case class MacTxBuffer(pushCd : ClockDomain,
       }
     }
 
-    when(io.pop.redo || io.pop.clear){
+    when(io.pop.redo){
       state := State.LENGTH
     }
   }
@@ -235,27 +215,27 @@ case class MacTxBuffer(pushCd : ClockDomain,
 
 case class MacTxCrc(dataWidth : Int) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(Bits(dataWidth bits))))
-    val output = master(Stream(Fragment(Bits(dataWidth bits))))
-    val clear = in Bool()
+    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth))))
   }
 
-  val emitCrc = Reg(Bool()) setWhen(io.input.lastFire) clearWhen(io.output.lastFire)
-  val counter = Reg(UInt(log2Up(32/dataWidth) bits))
-
+  val emitCrc = RegInit(False) setWhen(io.input.lastFire) clearWhen(io.output.lastFire)
+  val counter = Reg(UInt(log2Up(32/dataWidth) bits)) init(0)
   val crc = Crc(CrcKind.Crc32, dataWidth)
-  crc.io.input << io.input.toFlowFire.toFlowOfFragment
+  crc.io.input << io.input.toFlowFire.translateWith(io.input.data)
   crc.io.flush := io.output.lastFire
+
+
 
   io.output.last := False
   when(!emitCrc) {
     io.output.valid := io.input.valid
-    io.output.payload := io.input.payload
+    io.output.fragment := io.input.fragment
     io.input.ready := io.output.ready
   } otherwise {
     io.input.ready := False
     io.output.valid := True
-    io.output.payload := crc.io.result.subdivideIn(dataWidth bits).read(counter)
+    io.output.data := crc.io.result.subdivideIn(dataWidth bits).read(counter)
     when(counter === counter.maxValue) {
       io.output.last := True
       when(io.output.ready) {
@@ -266,53 +246,45 @@ case class MacTxCrc(dataWidth : Int) extends Component{
       counter := counter + 1
     }
   }
-
-  when(io.clear){
-    emitCrc := False
-    counter := 0
-  }
 }
 
 case class MacTxHeader(dataWidth : Int) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(Bits(dataWidth bits))))
-    val output = master(Stream(Fragment(Bits(dataWidth bits))))
-    val clear = in Bool()
+    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth))))
   }
 
   val header = B"x555555555555555D"
   val headerWords = widthOf(header)/dataWidth
-  val state = Reg(UInt(log2Up(headerWords + 1) bits))
+  val state = Reg(UInt(log2Up(headerWords + 1) bits)) init(0)
   io.output.valid := io.input.valid
   io.output.last := False
   io.input.ready := False
   when(state === headerWords){
     io.input.ready := io.output.ready
     io.output.payload := io.input.payload
-    io.output.last := io.input.last
   } otherwise {
-    io.output.payload := header.subdivideIn(dataWidth bits).reverse.read(state.resized)
+    io.output.data := header.subdivideIn(dataWidth bits).reverse.read(state.resized)
     when(io.output.fire) {
       state := state + 1
     }
   }
-  when(io.clear || io.input.lastFire){
+  when(io.input.lastFire){
     state := 0
   }
 }
 
 case class MacTxPadder(dataWidth : Int) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(Bits(dataWidth bits))))
-    val output = master(Stream(Fragment(Bits(dataWidth bits))))
-    val clear = in Bool()
+    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Stream(Fragment(PhyTx(dataWidth))))
   }
 
   val byteCount = 64-4
   val cycles = (byteCount*8 + dataWidth-1)/dataWidth
-  val counter = Reg(UInt(log2Up(cycles) bits))
+  val counter = Reg(UInt(log2Up(cycles) bits)) init(0)
   val ok = counter === cycles-1
-  val fill = counter =/= 0 && (io.input.first || !io.input.valid)
+  val fill = counter =/= 0 && io.input.first
 
   when(!ok && (counter =/= 0 || io.output.fire)){
     counter := counter + 1
@@ -320,36 +292,28 @@ case class MacTxPadder(dataWidth : Int) extends Component{
   when(io.output.lastFire){
     counter := 0
   }
-  val first =  RegNextWhen(io.input.last, io.input.fire)
-  io.output << io.input.haltWhen(counter =/= 0 && first)
+  io.output << io.input.haltWhen(fill)
   when(!ok){
     io.output.last := False
   }
   when(fill){
     io.output.valid := True
-    io.output.payload := 0
+    io.output.data := 0
     io.output.last := ok
   }
-
-  when(io.clear){
-    first := True
-    counter := 0
-  }
-
 }
 
 case class MacTxInterFrame(dataWidth : Int) extends Component{
   val io = new Bundle{
-    val input = slave(Stream(Fragment(Bits(dataWidth bits))))
-    val output = master(Stream(Fragment(Bits(dataWidth bits))))
-    val clear = in Bool()
+    val input = slave(Stream(Fragment(PhyTx(dataWidth))))
+    val output = master(Flow(Fragment(PhyTx(dataWidth))))
   }
 
   val byteCount = 12
   val cycles = (byteCount*8 + dataWidth-1)/dataWidth
-  val counter = Counter(cycles)
-  when(counter =/= 0 || io.input.valid.fall(False)){
+  val counter = Counter(cycles + 1)
+  when(counter =/= 0 || io.input.lastFire){
     counter.increment()
   }
-  io.output << io.input.haltWhen(counter =/= 0)
+  io.output << io.input.haltWhen(counter =/= 0).toFlow
 }

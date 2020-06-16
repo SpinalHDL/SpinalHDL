@@ -35,11 +35,18 @@ case class MiiRx(p : MiiRxParameter) extends Bundle with IMasterSlave {
     out(CLK, D, DV, ER, CRS, COL)
   }
 
-  def toRxFlow() ={
-    val ret = Flow(RxPayload(p.dataWidth))
-    ret.valid := RegNext(DV)
-    ret.data := RegNext(D)
-    ret.error := RegNext(ER)
+  def toRxFlow() = {
+    val s1 = Flow(PhyRx(p.dataWidth))
+    s1.valid := RegNext(DV)
+    s1.data := RegNext(D)
+    s1.error := RegNext(ER)
+
+    val s2 = RegNext(s1)
+
+    val ret = Flow(Fragment(PhyRx(p.dataWidth)))
+    ret.valid := s2.valid
+    ret.fragment := s2.payload
+    ret.last := !s1.valid && s2.valid
     ret
   }
 
