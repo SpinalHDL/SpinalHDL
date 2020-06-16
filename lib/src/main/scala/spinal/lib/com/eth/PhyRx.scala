@@ -89,8 +89,8 @@ case class Crc(kind : CrcKind, dataWidth : Int) extends Component{
 
   val stateXor = state ^ kind.finalXor
   val accXor = acc ^ kind.finalXor
-  io.result := (if(kind.inputReflected) stateXor.asBools.reverse.asBits() else stateXor)
-  io.resultNext := (if(kind.inputReflected) accXor.asBools.reverse.asBits() else accXor)
+  io.result := (if(kind.outputReflected) stateXor.asBools.reverse.asBits() else stateXor)
+  io.resultNext := (if(kind.outputReflected) accXor.asBools.reverse.asBits() else accXor)
 }
 
 case class MacRxChecker(dataWidth : Int) extends Component {
