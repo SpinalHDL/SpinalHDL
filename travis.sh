@@ -130,25 +130,21 @@ beforeInstall () {
   # Debian package 9.7 contain bugs
   travis_start "iverilog" "iverilog" "build and install"
   sudo apt install -y gperf readline-common bison flex
-  curl -fsSL https://github.com/steveicarus/iverilog/archive/v10_2.tar.gz | tar -xvz
-  cd iverilog-10_2
+  curl -fsSL https://github.com/steveicarus/iverilog/archive/v10_3.tar.gz | tar -xvz
+  cd iverilog-10_3
   autoconf
   ./configure
   make -j$(nproc)
   sudo make install
   cd ..
-  rm -rf iverilog-10_2
+  rm -rf iverilog-10_3
   travis_finish "iverilog"
 
   travis_start "cocotb" "cocotb" "install and compile VPI"
+  pip3 install --user cocotb
   sudo apt install -y git make gcc g++ swig python3-dev
-  git clone https://github.com/potentialventures/cocotb
-  cd cocotb
-  git reset --hard "a463cee498346cb26fc215ced25c088039490665"
-  cd ..
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
   export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
-  export COCOTB=$(pwd)/cocotb
   cd SpinalHDL/tester/src/test/python/spinal/Dummy
   make TOPLEVEL_LANG=verilog
   make TOPLEVEL_LANG=vhdl
