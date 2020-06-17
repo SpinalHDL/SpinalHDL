@@ -160,6 +160,10 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
     val pop = new Bundle{
       val stream = master(Stream(Bits(popWidth bits)))
+      val stats = new Bundle {
+        val clear = in Bool()
+        val drops, errors = out UInt (8 bits)
+      }
     }
   }
 
@@ -191,6 +195,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     port.payload.assignDontCare()
 
     val error = RegInit(False)
+    val drop = RegInit(False)
     when(io.push.stream.fire && io.push.stream.error){
       error := True
     }
@@ -210,7 +215,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
     when(doWrite){
       when(isFull(toGray(currentPtrPlusOne), popPtrGray)){
-        error := True
+        drop := True
       } otherwise {
         port.valid := True
         port.address := currentPtrPlusOne.resized
@@ -228,7 +233,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     }
 
     when(commit){
-      when(error) {
+      when(error || drop) {
         currentPtr := oldPtr
       } otherwise {
         oldPtr := currentPtrPlusOne
@@ -238,6 +243,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
         port.data := B(length).resized
       }
       error := False
+      drop := False
       state := 0
       length := 0
     }
@@ -257,6 +263,30 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
     when(cmd.fire){
       currentPtr := currentPtr + 1
+    }
+
+    val stats = new Area{
+      val drop = PulseCCByToggle(
+        input = push.commit && push.drop,
+        clockIn = pushCd,
+        clockOut = popCd
+      )
+      val error = PulseCCByToggle(
+        input = push.commit && push.error,
+        clockIn = pushCd,
+        clockOut = popCd
+      )
+
+      val drops, errors = Reg(UInt(8 bits)) init(0)
+      drops := drops + U(drop && drops =/= drops.maxValue)
+      errors := errors + U(error && errors =/= errors.maxValue)
+      when(io.pop.stats.clear){
+        drops := 0
+        errors := 0
+      }
+
+      io.pop.stats.drops := drops
+      io.pop.stats.errors := errors
     }
   }
 }

@@ -19,6 +19,10 @@ case class MacMiiCtrl(p : MacEthParameter) extends Bundle{
     val stream = master(Stream(Bits(p.rxDataWidth bits)))
     val flush = in Bool()
     val alignerEnable = in Bool()
+    val stats = new Bundle {
+      val clear = in Bool()
+      val drops, errors = out UInt (8 bits)
+    }
   }
   val tx = new Bundle {
     val stream = slave(Stream(Bits(p.txDataWidth bits)))
@@ -26,8 +30,6 @@ case class MacMiiCtrl(p : MacEthParameter) extends Bundle{
     val flush = in Bool()
     val alignerEnable = in Bool()
   }
-
-  val interrupt = out Bool()
 
   def driveFrom(bus: BusSlaveFactory) = new Area{
     bus.driveAndRead(tx.flush,   0x00, 0) init(True)
@@ -45,8 +47,13 @@ case class MacMiiCtrl(p : MacEthParameter) extends Bundle{
     bus.onRead(0x20){rx.stream.ready := True}
     bus.read(rx.stream.payload, 0x20)
 
+    rx.stats.clear := False
+    bus.onRead(0x2C){rx.stats.clear := True}
+    bus.read(rx.stats.errors, 0x2C, 0)
+    bus.read(rx.stats.drops, 0x2C, 8)
+
     val interruptCtrl = new Area{
-      val pending = RegNext(interrupt) init(False)
+      val pending = RegNext(rx.stream.valid) init(False)
     }
   }
 }
@@ -75,9 +82,6 @@ case class MacEth(p : MacEthParameter,
     val phy = master(PhyIo(p.phy))
     val ctrl = MacMiiCtrl(p)
   }
-
-
-  io.ctrl.interrupt := False
 
   val ctrlClockDomain = this.clockDomain
 
@@ -117,6 +121,9 @@ case class MacEth(p : MacEthParameter,
 
   val rxBackend = new Area{
     rxFrontend.buffer.io.pop.stream >> io.ctrl.rx.stream
+    io.ctrl.rx.stats.clear <> rxFrontend.buffer.io.pop.stats.clear
+    io.ctrl.rx.stats.errors <> rxFrontend.buffer.io.pop.stats.errors
+    io.ctrl.rx.stats.drops <> rxFrontend.buffer.io.pop.stats.drops
   }
 
 
