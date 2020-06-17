@@ -12,5 +12,4 @@ endif
 
 MODULE=Dummy
 
-include ../common/Makefile.sim
-
+include $(shell cocotb-config --makefiles)/Makefile.sim
