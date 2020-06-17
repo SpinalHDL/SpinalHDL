@@ -30,7 +30,7 @@ class SlaveCmdSs:
 
 class SpiConfig:
     def __init__(self):
-        self.sclkToogle = None
+        self.sclkToggle = None
         self.ssSetup = None
         self.ssHold = None
         self.ssDisable = None
@@ -64,15 +64,15 @@ def apbAgent(apb, slaveQueue):
 
 
     @coroutine
-    def setConfig(cpol, cpha, sclkToogle, ssSetup, ssHold, ssDisable):
+    def setConfig(cpol, cpha, sclkToggle, ssSetup, ssHold, ssDisable):
         yield apb.write(8, cpol + cpha*2)
-        yield apb.write(12, sclkToogle)
+        yield apb.write(12, sclkToggle)
         yield apb.write(16, ssSetup)
         yield apb.write(20, ssHold)
         yield apb.write(24, ssDisable)
         global spiConfig
 
-        spiConfig.clockDivider = sclkToogle+1
+        spiConfig.sclkToggle = sclkToggle+1
         spiConfig.ssSetup = ssSetup + 1
         spiConfig.ssHold = ssHold + 1
         spiConfig.ssDisable = ssDisable + 1
@@ -108,13 +108,13 @@ def apbAgent(apb, slaveQueue):
         yield TimerClk(apb.clk, 50)
 
 
-    yield setConfig(cpol=0, cpha=0, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield setConfig(cpol=0, cpha=0, sclkToggle=9, ssSetup=23, ssHold=27, ssDisable=31)
     yield testIt()
-    yield setConfig(cpol=0, cpha=1, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield setConfig(cpol=0, cpha=1, sclkToggle=9, ssSetup=23, ssHold=27, ssDisable=31)
     yield testIt()
-    yield setConfig(cpol=1, cpha=0, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield setConfig(cpol=1, cpha=0, sclkToggle=9, ssSetup=23, ssHold=27, ssDisable=31)
     yield testIt()
-    yield setConfig(cpol=1, cpha=1, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield setConfig(cpol=1, cpha=1, sclkToggle=9, ssSetup=23, ssHold=27, ssDisable=31)
     yield testIt()
 
 sclkStable = 0
@@ -187,27 +187,27 @@ def spiSlaveAgent(spi, queue, clk):
                             yield wait(1)
                             if spi.sclk == (not spiConfig.cpol):
                                 break
-                        assert sclkStableLast >= spiConfig.sclkToogle
-                        assert mosiStable >= spiConfig.sclkToogle
+                        assert sclkStableLast >= spiConfig.sclkToggle
+                        assert mosiStable >= spiConfig.sclkToggle
                         assertEquals(spi.mosi, testBit(head.masterData, 7-i),"MOSI missmatch")
                         while True:
                             yield wait(1)
                             if spi.sclk == (spiConfig.cpol):
                                 break
-                        assert sclkStableLast >= spiConfig.sclkToogle
+                        assert sclkStableLast >= spiConfig.sclkToggle
                     else:
                         while True:
                             yield wait(1)
                             if spi.sclk == (not spiConfig.cpol):
                                 break
                         spi.miso <= testBit(head.slaveData, 7 - i) if head.slaveData != None else randBool()
-                        assert sclkStableLast >= spiConfig.sclkToogle
+                        assert sclkStableLast >= spiConfig.sclkToggle
                         while True:
                             yield wait(1)
                             if spi.sclk == (spiConfig.cpol):
                                 break
-                        assert mosiStable >= spiConfig.sclkToogle
-                        assert sclkStableLast >= spiConfig.sclkToogle
+                        assert mosiStable >= spiConfig.sclkToggle
+                        assert sclkStableLast >= spiConfig.sclkToggle
                         assertEquals(spi.mosi, testBit(head.masterData, 7 - i), "MOSI missmatch")
 
 
@@ -257,4 +257,3 @@ def test1(dut):
     spiThread = fork(spiSlaveAgent(spi,slaveQueue, dut.clk))
 
     yield apbThread.join()
-

@@ -22,7 +22,7 @@ class AhbLite3TraficGeneratorWithMemory(AhbLite3TraficGenerator):
                 write = trans.HWRITE
                 size = 1 << trans.HSIZE
                 address = trans.HADDR
-                addressOffset = address % (self.dataWidth / 8)
+                addressOffset = address % (self.dataWidth // 8)
 
                 if write == 1:
                     for idx in range(size):
