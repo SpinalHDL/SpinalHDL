@@ -8,6 +8,7 @@ endif
 ifeq ($(TOPLEVEL_LANG),vhdl)
 	VHDL_SOURCES += ${CURDIR}/Dummy.vhd
 	TOPLEVEL=dummy
+	SIM=ghdl
 endif
 
 MODULE=Dummy
