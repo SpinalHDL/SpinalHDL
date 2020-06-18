@@ -81,6 +81,12 @@ case class MacEth(p : MacEthParameter,
   val io = new Bundle {
     val phy = master(PhyIo(p.phy))
     val ctrl = MacMiiCtrl(p)
+
+    val sim = new Bundle {
+      val drop = out Bool()
+      val error = out Bool()
+      val commit = out Bool()
+    }
   }
 
   val ctrlClockDomain = this.clockDomain
@@ -117,6 +123,9 @@ case class MacEth(p : MacEthParameter,
       byteSize = p.rxBufferByteSize
     )
     buffer.io.push.stream << aligner.io.output
+    buffer.io.push.drop <> io.sim.drop
+    buffer.io.push.commit <> io.sim.commit
+    buffer.io.push.error <> io.sim.error
   }
 
   val rxBackend = new Area{

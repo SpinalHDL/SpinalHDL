@@ -30,7 +30,7 @@ class SpinalSimMacTester extends FunSuite{
   }
 
   test("Crc32"){
-    println(frameCorrectA.map(v => f"0x$v%02X").mkString(","))
+//    println(frameCorrectA.map(v => f"0x$v%02X").mkString(","))
     SimConfig.compile(Crc(kind = CrcKind.Crc32, dataWidth = 4)).doSim(seed = 42) { dut =>
       dut.clockDomain.forkStimulus(10)
 
@@ -167,14 +167,32 @@ class SpinalSimMacTester extends FunSuite{
         txCd = ClockDomain.external("txCd", withReset = false),
         rxCd = ClockDomain.external("rxCd", withReset = false)
       )).doSim(seed = 42) { dut =>
-        dut.clockDomain.forkStimulus(10)
-        dut.rxCd.forkStimulus(40)
+        dut.clockDomain.forkStimulus(40)
+//        dut.rxCd.forkStimulus(40)
         dut.txCd.forkStimulus(40)
+
+        {
+          val clk = dut.rxCd.clockSim
+          var value = clk.toBoolean
+          var period = 40
+          var counter = 0
+          def t : Unit = {
+            value = !value
+            clk  #= value
+            delayed(period >> 1)(t)
+            counter += 1
+            if(counter == 10000){
+              counter = 0
+              period = 2 + Random.nextInt(20)
+            }
+          }
+          t
+        }
 
         dut.io.ctrl.tx.alignerEnable #= aligned
         dut.io.ctrl.rx.alignerEnable #= aligned
 
-
+        val refsUncomited = mutable.Queue[Seq[Int]]()
         val refs = mutable.Queue[Seq[Int]]()
         var started = false
 
@@ -188,11 +206,10 @@ class SpinalSimMacTester extends FunSuite{
           }
         }
 
-        def drive(frame: Seq[Int], shouldPass: Boolean): Unit = {
+        def drive(frame: Seq[Int]): Unit = {
           started = true
-          if (shouldPass) {
-            refs += ((if(aligned) List(-1,-1) else List[Int]()) ++ frame)
-          }
+          refsUncomited += ((if(aligned) List(-1,-1) else List[Int]()) ++ frame)
+
           val realFrame = header ++ frame
 
           def getBit(id: Int) = (realFrame(id / 8) >> ((id % 8))) & 1
@@ -213,7 +230,7 @@ class SpinalSimMacTester extends FunSuite{
         }
 
 
-        StreamReadyRandomizer(dut.io.ctrl.rx.stream, dut.clockDomain)
+        StreamReadyRandomizer(dut.io.ctrl.rx.stream, dut.clockDomain).factor = 0.1f
         val pushQueue = mutable.Queue[Long]()
         val popQueue = mutable.Queue[Int]()
         StreamDriver(dut.io.ctrl.tx.stream, dut.clockDomain) { p =>
@@ -259,10 +276,24 @@ class SpinalSimMacTester extends FunSuite{
         dut.io.ctrl.rx.flush #= false
         dut.rxCd.waitSampling(100)
 
+        dut.rxCd.onSamplings{
+          if(dut.io.sim.commit.toBoolean){
+            val r = refsUncomited.dequeue()
+            if(dut.io.sim.drop.toBoolean) {
+//              println("Drop " + r.size * 8 + " at " + simTime())
+            }else if(dut.io.sim.error.toBoolean) {
+//              println("CrcE " + r.size * 8 + " at " + simTime())
+            } else {
+              refs += r
+//              println("Keep " + r.size*8 + " at " + simTime())
+            }
+          }
+        }
         StreamMonitor(dut.io.ctrl.rx.stream, dut.clockDomain) { p =>
           if (task.isEmpty) {
             task = refs.dequeue()
             assert(p.toLong == task.length * 8)
+//            println(task.map(e => f"$e%02x").mkString(" "))
           } else {
             val data = p.toLong
             for (i <- 0 until Math.min(task.size, 4)) {
@@ -290,16 +321,14 @@ class SpinalSimMacTester extends FunSuite{
           }
         }
 
-        drive(frameCorrectA, true)
-        drive(frameCorrectB, true)
-        drive(frameCorrectA, true)
-        drive(frameCorrectB, true)
+        drive(frameCorrectA)
+        drive(frameCorrectB)
+        drive(frameCorrectA)
+        drive(frameCorrectB)
         for (i <- 0 until 1000) {
-          Random.nextInt(5) match {
-            case 0 => drive(frameCorrectA, true)
-            case 1 => drive(frameCorrectB, true)
-            case _ => drive(Seq.fill(Random.nextInt(16 + 1) + 1)(Random.nextInt(256)), false)
-          }
+          val frame = Seq.fill(Random.nextInt(256 + 1) + 1)(Random.nextInt(256))
+          val crc = calcCrc32(frame) ^ (if(Random.nextFloat() < 0.8) 0x0 else Random.nextInt())
+          drive(frame ++ List.tabulate(4)(i => (crc >> i * 8) & 0xFF))
         }
         waitUntil(phyRxQueue.isEmpty)
         dut.rxCd.waitSampling(10000)
@@ -309,8 +338,8 @@ class SpinalSimMacTester extends FunSuite{
     }
   }
 
-  testMacEth(false)
   testMacEth(true)
+  testMacEth(false)
 
   test("MacTxBuffer") {
     SimConfig.compile(MacTxBuffer(

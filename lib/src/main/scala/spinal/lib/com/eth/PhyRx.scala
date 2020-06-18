@@ -156,6 +156,9 @@ case class MacRxBuffer(pushCd : ClockDomain,
   val io = new Bundle {
     val push = new Bundle{
       val stream = slave(Stream(Fragment(PhyRx(pushWidth))))
+      val drop = out Bool()
+      val commit = out Bool()
+      val error = out Bool()
     }
 
     val pop = new Bundle{
@@ -213,8 +216,9 @@ case class MacRxBuffer(pushCd : ClockDomain,
     }
 
 
+    val full = isFull(toGray(currentPtrPlusOne), popPtrGray)
     when(doWrite){
-      when(isFull(toGray(currentPtrPlusOne), popPtrGray)){
+      when(full){
         drop := True
       } otherwise {
         port.valid := True
@@ -233,7 +237,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     }
 
     when(commit){
-      when(error || drop) {
+      when(error || drop || full) {
         currentPtr := oldPtr
       } otherwise {
         oldPtr := currentPtrPlusOne
@@ -247,6 +251,10 @@ case class MacRxBuffer(pushCd : ClockDomain,
       state := 0
       length := 0
     }
+
+    io.push.drop := drop || commit && full
+    io.push.commit := commit
+    io.push.error := error
   }
 
   val pop = popCd on new Area{
