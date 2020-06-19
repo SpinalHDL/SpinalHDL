@@ -138,7 +138,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
   //return true when the current transaction is the last one of the current burst
   def last(): Bool = {
     val beatCounter        = Reg(UInt(4 bits)) init(0)
-    val isLast             = Vec(U"0000", U"0011", U"0111", U"1111")(U(HBURST >> 1)) === beatCounter || (HREADY && ERROR)
+    val isLast             = Vec(U"0000", U"0011", U"0111", U"1111")(U(HBURST >> 1)) === beatCounter || ERROR
 
     when(HSEL && HREADY && HTRANS(1)){
       beatCounter := beatCounter + 1

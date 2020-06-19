@@ -103,7 +103,7 @@ abstract class BlackBox extends Component{
   val listRTLPath = new LinkedHashSet[String]()
 
   /** Add the path of the rtl file */
-  def addRTLPath(path: String) = listRTLPath += path
+  def addRTLPath(path: String) : Unit = listRTLPath += path
 
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {

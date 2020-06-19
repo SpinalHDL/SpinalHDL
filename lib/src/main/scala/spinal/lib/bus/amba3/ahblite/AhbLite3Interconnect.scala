@@ -75,10 +75,12 @@ case class AhbLite3CrossbarSlaveConfig(mapping: SizeMapping, index: Int){
   *          }}}
   */
 case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
+
   var roundRobinArbiter = true
   def noRoundRobinArbiter(): Unit ={
     roundRobinArbiter = false
   }
+
   val slavesConfigs = mutable.LinkedHashMap[AhbLite3, AhbLite3CrossbarSlaveConfig]()
 
   private def getNextSlaveIndex = if(slavesConfigs.isEmpty) 0 else (slavesConfigs.values.map(_.index).max + 1)
@@ -128,6 +130,11 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
   /** Get a list of all masters */
   def masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSeq.distinct
 
+  /** Get a list of all slaves of a given master*/
+  def slavesFromMaster(master: AhbLite3) = slavesConfigs.filter {
+        case (_, config) => config.masters.exists(connection => connection.master == master)
+  }.toSeq.sortBy{s => s._2.index}
+
 
   /** Build the crossbar */
   def build() = new Area {
@@ -139,9 +146,7 @@ case class AhbLite3CrossbarFactory(ahbLite3Config: AhbLite3Config){
       */
     val decoders = for(master <- masters) yield new Area {
 
-      val slaves = slavesConfigs.filter {
-        case (_, config) => config.masters.exists(connection => connection.master == master)
-      }.toSeq.sortBy{s => s._2.index}
+      val slaves = slavesFromMaster(master)
 
       val hasDefaultSlave = slaves.map(s => s._2.mapping == null).reduce(_ || _)
 
