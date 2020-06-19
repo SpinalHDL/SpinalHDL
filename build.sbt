@@ -13,13 +13,13 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   fork := true,
 
   //Enable parallel tests
-  Test / testForkedParallel := true,
-  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+//  Test / testForkedParallel := true,
+//  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
 //    for(i <- 0 until 4) yield {
 //      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
 //    }
-    Seq(Group("g",  group.tests, SubProcess(ForkOptions())))
-  },
+//    Seq(Group("g",  group.tests, SubProcess(ForkOptions())))
+//  },
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
   libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
