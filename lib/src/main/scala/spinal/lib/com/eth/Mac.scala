@@ -14,7 +14,7 @@ case class MacEthParameter(phy: PhyParameter,
   val txAvailabilityWidth = log2Up((txBufferByteSize * 8 / 32) + 1)
 }
 
-case class MacMiiCtrl(p : MacEthParameter) extends Bundle{
+case class MacEthCtrl(p : MacEthParameter) extends Bundle{
   val rx = new Bundle {
     val stream = master(Stream(Bits(p.rxDataWidth bits)))
     val flush = in Bool()
@@ -80,7 +80,7 @@ case class MacEth(p : MacEthParameter,
                   rxCd : ClockDomain) extends Component{
   val io = new Bundle {
     val phy = master(PhyIo(p.phy))
-    val ctrl = MacMiiCtrl(p)
+    val ctrl = MacEthCtrl(p)
 
     val sim = new Bundle {
       val drop = out Bool()
