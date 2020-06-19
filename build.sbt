@@ -1,5 +1,6 @@
 import sbt.Keys._
 import sbt._
+import sbt.Tests._
 
 
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
