@@ -5,16 +5,6 @@ import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
 
 
-case class PhyRx(dataWidth : Int) extends Bundle {
-  val error = Bool()
-  val data = Bits(dataWidth bits)
-}
-
-
-case class PhyTx(dataWidth : Int) extends Bundle {
-  val data = Bits(dataWidth bits)
-}
-
 case class MacRxPreamble(dataWidth : Int) extends Component{
   val io = new Bundle {
     val input = slave(Stream(Fragment(PhyRx(dataWidth))))
