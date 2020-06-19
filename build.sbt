@@ -11,6 +11,13 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   baseDirectory in test := file("/out/"),
   fork := true,
 
+  //Enable parallel tests
+  Test / testForkedParallel := true,
+  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+    group.tests map (test => Group(test.name, Seq(test), SubProcess(ForkOptions())))
+  },
+  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
+
   libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
