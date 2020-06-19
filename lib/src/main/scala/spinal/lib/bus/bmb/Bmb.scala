@@ -241,6 +241,15 @@ case class BmbInv(p: BmbParameter) extends Bundle{
     WeakConnector(m, s, m.length , s.length , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.all    , s.all    , defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
   }
+
+  def transferBeatCountMinusOne(alignSize : Int) : UInt = {
+    val wordRange = log2Up(alignSize)-1 downto 0
+    if(!p.invalidateAlignment.allowByte){
+      length(length.high downto log2Up(alignSize))
+    } else {
+      ((U"0" @@ length) + address(wordRange))(length.high + 1 downto log2Up(alignSize))
+    }
+  }
 }
 
 case class BmbAck(p: BmbParameter) extends Bundle{
