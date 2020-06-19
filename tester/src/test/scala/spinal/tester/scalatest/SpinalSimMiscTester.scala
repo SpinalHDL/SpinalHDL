@@ -130,7 +130,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "compile") {
-      compiled = SimConfig.withWave.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
+      compiled = SimConfig.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
     }
 
     def doStdtest(name: String): Unit = {
@@ -275,7 +275,7 @@ class SpinalSimMiscTester extends FunSuite {
     }
 
     test(prefix + "testRecompile1") {
-      SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
+      SimConfig.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
@@ -294,7 +294,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "testRecompile2") {
-      SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
+      SimConfig.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
@@ -386,7 +386,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "intLongBigInt") {
-      SimConfig.withWave.doSim(new Component {
+      SimConfig.doSim(new Component {
         val x = out Bits (31 bits)
         val y = out Bits (63 bits)
         val z = out Bits (128 bits)

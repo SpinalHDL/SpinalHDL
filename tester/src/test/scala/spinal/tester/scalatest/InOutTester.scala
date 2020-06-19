@@ -206,5 +206,5 @@ class InOutTester3CocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "InOutTester3"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/InOutTester3"
   override def createToplevel: Component = new InOutTester3.InOutTester3
-  withWaveform = true
+  withWaveform = false
 }

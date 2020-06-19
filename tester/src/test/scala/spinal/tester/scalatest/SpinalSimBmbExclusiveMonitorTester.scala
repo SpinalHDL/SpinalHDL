@@ -24,7 +24,7 @@ private object WRITE_RSP
 
 class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
 
-  SimConfig.withWave.compile(
+  SimConfig.compile(
     new BmbExclusiveMonitor(
       inputParameter = BmbParameter(
         addressWidth                    = 32,
