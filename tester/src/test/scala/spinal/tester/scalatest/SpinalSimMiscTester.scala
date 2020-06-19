@@ -37,24 +37,24 @@ abstract class SpinalSimTester{
 
 object SpinalSimTesterGhdl extends SpinalSimTester{
   override def SimConfig: SpinalSimConfig = spinal.core.sim.SimConfig.withGhdl
-  override def durationFactor: Double = 0.01
-  override def designFactor: Double = 0.1
+  override def durationFactor: Double = 0.005
+  override def designFactor: Double = 0.05
   override def prefix: String = "ghdl_"
   override def language: SpinalMode = VHDL
 }
 
 object SpinalSimTesterIVerilog extends SpinalSimTester{
   override def SimConfig: SpinalSimConfig = spinal.core.sim.SimConfig.withIVerilog
-  override def durationFactor: Double = 0.01
-  override def designFactor: Double = 0.1
+  override def durationFactor: Double = 0.005
+  override def designFactor: Double = 0.05
   override def prefix: String = "iverilog_"
   override def language: SpinalMode = Verilog
 }
 
 object SpinalSimTesterVerilator extends SpinalSimTester{
   override def SimConfig: SpinalSimConfig = spinal.core.sim.SimConfig.withVerilator
-  override def durationFactor: Double = 1.0
-  override def designFactor: Double = 1.0
+  override def durationFactor: Double = 0.5
+  override def designFactor: Double = 0.5
   override def prefix: String = "verilator_"
   override def language: SpinalMode = Verilog
 }
@@ -130,7 +130,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "compile") {
-      compiled = SimConfig.withWave.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
+      compiled = SimConfig.compile(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)
     }
 
     def doStdtest(name: String): Unit = {
@@ -275,7 +275,7 @@ class SpinalSimMiscTester extends FunSuite {
     }
 
     test(prefix + "testRecompile1") {
-      SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
+      SimConfig.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
@@ -294,7 +294,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "testRecompile2") {
-      SimConfig.withWave.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
+      SimConfig.doSim(new tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter)(dut => {
         dut.clockDomain.forkStimulus(10)
 
         var counterModel = 0
@@ -386,7 +386,7 @@ class SpinalSimMiscTester extends FunSuite {
 
 
     test(prefix + "intLongBigInt") {
-      SimConfig.withWave.doSim(new Component {
+      SimConfig.doSim(new Component {
         val x = out Bits (31 bits)
         val y = out Bits (63 bits)
         val z = out Bits (128 bits)

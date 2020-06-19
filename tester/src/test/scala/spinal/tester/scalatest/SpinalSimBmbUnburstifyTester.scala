@@ -7,7 +7,7 @@ import spinal.lib.bus.bmb.{BmbLengthFixer, BmbParameter, BmbUnburstify}
 
 class SpinalSimBmbUnburstifyTester extends FunSuite {
   test("miaou") {
-    SimConfig.withWave.compile {
+    SimConfig.compile {
       val c = BmbUnburstify(
         inputParameter = BmbParameter(
           addressWidth = 16,

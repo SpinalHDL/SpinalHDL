@@ -122,7 +122,7 @@ def test1(dut):
         check(dut.uintSbSub, 8, uint4 - uint8)
         check(dut.uintSbMul, 12, uint4 * uint8)
         if uint8NotZero != 0:
-            check(dut.uintSbDiv, 4, uint4 / uint8NotZero)
+            check(dut.uintSbDiv, 4, uint4 // uint8NotZero)
             check(dut.uintSbRem, 4, uint4 % uint8NotZero)
         check(dut.uintSbAnd, 8, uint4 & uint8)
         check(dut.uintSbOr , 8, uint4 | uint8)
@@ -179,7 +179,7 @@ def test1(dut):
         check(dut.uintBsSub, 8, uint8 - uint4)
         check(dut.uintBsMul, 12, uint8 * uint4)
         if uint4NotZero != 0:
-            check(dut.uintBsDiv, 8, uint8 / uint4NotZero)
+            check(dut.uintBsDiv, 8, uint8 // uint4NotZero)
             check(dut.uintBsRem, 8, uint8 % uint4NotZero)
         check(dut.uintBsAnd, 8, uint8 & uint4)
         check(dut.uintBsOr , 8, uint8 | uint4)

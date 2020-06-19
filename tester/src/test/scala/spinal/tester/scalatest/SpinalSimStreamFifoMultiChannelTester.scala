@@ -13,7 +13,7 @@ import scala.util.Random
 
 class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
   test("t1") {
-    SimConfig.withWave.compile(new StreamFifoMultiChannel(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
+    SimConfig.compile(new StreamFifoMultiChannel(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
       val queueModel = ArrayBuffer.fill(4)(mutable.Queue[Long]())
 
       SimTimeout(1000000)

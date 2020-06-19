@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 from cocotblib.Phase import Infrastructure, PHASE_WAIT_TASKS_END
 from cocotblib.misc import randBits, BoolRandomizer
@@ -50,7 +50,7 @@ class WriteOnlyMasterDriver(Infrastructure):
         writeCmd.prot = randBits(3)
         self.writeCmdQueue.put(writeCmd)
 
-        for i in xrange(writeCmd.len + 1):
+        for i in range(writeCmd.len + 1):
             writeData = Transaction()
             writeData.data = writeCmd.addr + i
             writeData.strb = (writeCmd.addr + i) & 0xF

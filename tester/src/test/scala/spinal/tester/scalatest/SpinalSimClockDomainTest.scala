@@ -137,7 +137,7 @@ class SpinalSimClockDomainTest extends SpinalSimFunSuite {
   test("Test3") {
     for (resetKind <- resetKinds) {
       SimConfig
-        .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind))).withWave
+        .withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = resetKind)))
         .compile((new scalatest.SpinalSimClockDomainTest.SpinalSimClockDomainTest3().setDefinitionName("SpinalSimClockDomainTest3" + resetKind.getClass.getSimpleName.toString.take(4))))
         .doSim(resetKind.toString) { dut =>
           dut.clockDomain.forkStimulus(period = 10)
@@ -159,7 +159,6 @@ class SpinalSimClockDomainTest extends SpinalSimFunSuite {
 
   test("Test4") {
     SimConfig
-      .withWave
       .doSim(new SpinalSimClockDomainTest.SpinalSimClockDomainTest4) { dut =>
         dut.clockDomain.forkStimulus(period = 10)
         var model = 42

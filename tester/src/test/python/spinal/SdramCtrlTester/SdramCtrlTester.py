@@ -60,10 +60,10 @@ class SdramTester(Infrastructure):
             if rsp.data != 0:
                 self.nonZeroRspCounter += 1
                 if self.nonZeroRspCounter % 50 == 0:
-                    print("self.nonZeroRspCounter=" + str(self.nonZeroRspCounter))
+                    print(("self.nonZeroRspCounter=" + str(self.nonZeroRspCounter)))
 
         else:
-            for i in xrange(2):
+            for i in range(2):
                 if (trans.mask >> i) & 1 == 1:
                     self.ram[trans.address * 2 + i] = (trans.data >> (i*8)) & 0xFF
 

@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 from cocotb.result import TestFailure
 from cocotblib.misc import BoolRandomizer
@@ -14,7 +14,7 @@ class ReadOnlySlaveDriver:
         self.base = base
         self.dut = dut
         self.readRspRand = BoolRandomizer()
-        self.readRspQueues = [Queue() for i in xrange(256)]
+        self.readRspQueues = [Queue() for i in range(256)]
         self.nonEmptyReadRspQueues = []
         axi.r.payload.hid <= 0
 
@@ -27,7 +27,7 @@ class ReadOnlySlaveDriver:
     def onReadCmd(self,trans):
         if trans.addr < self.base or trans.addr >= self.base + self.size:
             raise TestFailure("WRONG ADDRESS addr=%d base=%d size=%d" %(trans.addr,self.base,self.size))
-        for i in xrange(trans.len+1):
+        for i in range(trans.len+1):
             rsp = Transaction()
             rsp.data = trans.addr + i
             rsp.resp = 0
@@ -62,7 +62,7 @@ class WriteOnlySlaveDriver:
         self.writeRspRand = BoolRandomizer()
         self.writeCmds = []
         self.writeDatas = []
-        self.writeRspQueues = [Queue() for i in xrange(256)]
+        self.writeRspQueues = [Queue() for i in range(256)]
         self.nonEmptyWriteRspQueues = []
         axi.b.payload.hid <= 0
 

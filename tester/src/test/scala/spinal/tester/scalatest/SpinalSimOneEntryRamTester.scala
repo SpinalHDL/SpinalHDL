@@ -7,7 +7,7 @@ import spinal.lib._
 
 class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   test("general") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) randBoot()
       val writePort = slave(mem.writePort)
       val readSyncPort = slave(mem.readSyncPort)
@@ -48,7 +48,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   }
 
   test("rwPort") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) randBoot()
       val readWrite = new Area {
         val address = U""
@@ -101,7 +101,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   }
 
   test("rom") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) init (Seq(B"xAA"))
       val readSyncPort = slave(mem.readSyncPort)
       val readAsyncPort = new Area {

@@ -12,7 +12,7 @@ class JtagMaster:
 
     @cocotb.coroutine
     def goToIdle(self):
-        for i in xrange(5):
+        for i in range(5):
             yield self.tmsMove(1)
         yield self.tmsMove(0)
 
@@ -23,7 +23,7 @@ class JtagMaster:
         yield self.tmsMove(1)
         yield self.tmsMove(0)
         yield self.tmsMove(0)
-        for i in xrange(self.instructionWidth):
+        for i in range(self.instructionWidth):
             self.jtag.tms <= 1 if i == self.instructionWidth-1 else 0
             yield self.tdiMove((value >> i) & 1)
         yield self.tmsMove(0)
@@ -36,7 +36,7 @@ class JtagMaster:
         yield self.tmsMove(1)
         yield self.tmsMove(0)
         yield self.tmsMove(0)
-        for i in xrange(width):
+        for i in range(width):
             self.jtag.tms <= 1 if i == width-1 else 0
             yield self.tdiMove((value >> i) & 1)
         yield self.tmsMove(0)
@@ -49,7 +49,7 @@ class JtagMaster:
         yield self.tmsMove(1)
         yield self.tmsMove(0)
         yield self.tmsMove(0)
-        for i in xrange(width):
+        for i in range(width):
             yield self.tmsMove(1 if i == width-1 else 0)
             value[0] |= (self.lastTdo << i)
         yield self.tmsMove(0)
