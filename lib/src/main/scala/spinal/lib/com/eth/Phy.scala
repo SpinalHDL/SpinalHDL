@@ -62,7 +62,7 @@ case class MiiRx(p : MiiRxParameter) extends Bundle with IMasterSlave {
 
   def simReceive(frame : Seq[Int], cd : ClockDomain): Unit ={
     import spinal.core.sim._
-    def niple(value : Int): Unit ={
+    def nibble(value : Int): Unit ={
       D   #= value
       DV  #= true
       ER  #= false
@@ -72,8 +72,8 @@ case class MiiRx(p : MiiRxParameter) extends Bundle with IMasterSlave {
       DV  #= false
     }
     for(byte <- frame){
-      niple(byte & 0xF)
-      niple((byte >> 4) & 0xF)
+      nibble(byte & 0xF)
+      nibble((byte >> 4) & 0xF)
     }
     cd.waitSampling(6)
   }
