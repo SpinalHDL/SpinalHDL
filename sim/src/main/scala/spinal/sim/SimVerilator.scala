@@ -41,7 +41,7 @@ class SimVerilator(backend : VerilatorBackend,
   override def getBigIntMem(signal: Signal,
                          index : Long) = {
     if(signal.dataType.width < 64 || (signal.dataType.width == 64 && signal.dataType.isInstanceOf[SIntDataType])) {
-      getLong(signal)
+      getLongMem(signal, index)
     } else if(signal.dataType.width == 64){
       val rawValue = backend.nativeInstance.getU64_mem(handle, 
                                                        signal.id,

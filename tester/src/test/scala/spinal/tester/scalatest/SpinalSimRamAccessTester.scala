@@ -26,10 +26,12 @@ class SpinalSimRamAccessTester extends SpinalSimFunSuite {
         val data = Random.nextInt(1024*64)
         dut.mem.setBigInt(address, data)
         model(address) = data
+        sleep(1)
       }
       def simCheck() = {
         val address = Random.nextInt(32)
-        dut.mem.getBigInt(address) == model(address)
+        val readed = dut.mem.getBigInt(address)
+        assert(readed == model(address))
       }
 
       dut.write.valid #= false
@@ -89,10 +91,11 @@ class SpinalSimRamAccessTester extends SpinalSimFunSuite {
         val data = Random.nextInt(1024*64)
         dut.mem.setBigInt(address, data)
         model(address) = data
+        sleep(1)
       }
       def simCheck() = {
         val address = Random.nextInt(32)
-        dut.mem.getBigInt(address) == model(address)
+        assert(dut.mem.getBigInt(address) == model(address))
       }
 
       dut.write.valid #= false
