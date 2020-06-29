@@ -259,6 +259,11 @@ object BmbInterconnectGenerator{
 
 case class BmbSmpInterconnectGenerator() extends Generator{
 
+  def setDefaultArbitration(kind : BmbInterconnectGenerator.ArbitrationKind): Unit ={
+    defaultArbitration = kind
+  }
+  def setPriority(m : Handle[Bmb], priority : Int) = getMaster(m).priority = priority
+
   case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
     val connections = ArrayBuffer[ConnectionModel]()
     val accessRequirements = Handle[BmbAccessParameter]
