@@ -10,17 +10,17 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 case class PipelinedMemoryBusConfig(addressWidth : Int, dataWidth : Int){
-  def toBmbConfig() = BmbParameter(
-    addressWidth = addressWidth,
-    dataWidth = dataWidth,
-    lengthWidth = log2Up(dataWidth/8),
-    sourceWidth = 0,
-    contextWidth = 0,
-    canRead = true,
-    canWrite = true,
-    alignment     = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
-  )
+//  def toBmbConfig() = BmbParameter(
+//    addressWidth = addressWidth,
+//    dataWidth = dataWidth,
+//    lengthWidth = log2Up(dataWidth/8),
+//    sourceWidth = 0,
+//    contextWidth = 0,
+//    canRead = true,
+//    canWrite = true,
+//    alignment     = BmbParameter.BurstAlignement.LENGTH,
+//    maximumPendingTransactionPerId = Int.MaxValue
+//  )
 }
 
 case class PipelinedMemoryBusCmd(config : PipelinedMemoryBusConfig) extends Bundle{

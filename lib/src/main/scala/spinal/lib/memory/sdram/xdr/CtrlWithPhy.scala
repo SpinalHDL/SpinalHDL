@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.bmb.sim.{BmbMemoryMultiPort, BmbMemoryMultiPortTester}
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.memory.sdram.{SdramGeneration, SdramLayout}
 import spinal.lib.memory.sdram.sdr.MT48LC16M16A2
 import spinal.lib.memory.sdram.sdr.sim.SdramModel
@@ -27,16 +27,10 @@ case class CtrlParameter( core : CoreParameter,
 
 
 object CtrlWithPhy{
-  def bmbCapabilities(pp : PhyLayout) = BmbParameter(
+  def bmbCapabilities(pp : PhyLayout) = BmbAccessCapabilities(
     addressWidth  = pp.sdram.byteAddressWidth,
     dataWidth     = pp.sdram.dataWidth * pp.phaseCount * pp.dataRate,
-    lengthWidth   = Int.MaxValue,
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
-    canRead       = true,
-    canWrite      = true,
-    alignment = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
+    alignment = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -93,7 +87,7 @@ class CtrlWithoutPhy(val p : CtrlParameter, pl : PhyLayout) extends Component{
 }
 
 object CtrlWithoutPhyBmb{
-  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = addressWidth,
     dataWidth = 32

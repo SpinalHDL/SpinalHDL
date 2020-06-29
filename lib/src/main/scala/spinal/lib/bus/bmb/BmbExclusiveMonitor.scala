@@ -4,7 +4,10 @@ import spinal.core._
 import spinal.lib._
 
 object BmbExclusiveMonitor{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(canExclusive = false, contextWidth = inputParameter.contextWidth + 1)
+  def outputParameter(inputParameter : BmbAccessParameter) = inputParameter.sourcesTransform(s => s.copy(
+    canExclusive = false,
+    contextWidth = s.contextWidth + 1
+  ))
 }
 
 object BmbExclusiveMonitorState extends SpinalEnum{
@@ -16,14 +19,12 @@ object BmbExclusiveMonitorState extends SpinalEnum{
 case class BmbExclusiveMonitor(inputParameter : BmbParameter,
                                pendingWriteMax : Int) extends Component{
   import BmbExclusiveMonitorState._
-  assert(inputParameter.alignment == BmbParameter.BurstAlignement.LENGTH)
-  val outputParameter = BmbExclusiveMonitor.outputParameter(inputParameter)
+  assert(inputParameter.access.aggregated.alignment == BmbParameter.BurstAlignement.LENGTH)
+  val outputParameter = BmbExclusiveMonitor.outputParameter(inputParameter.access)
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
-    val output = master(Bmb(outputParameter))
+    val output = master(Bmb(outputParameter, inputParameter.invalidation))
   }
-
-  val sourceCount = 1 << inputParameter.sourceWidth
 
   //Before we create a reservation for a exclusive read, we have to ensure that no pending write could conflict that
   //future reservation (due to potential reordering), so we implement a fence logic to track pending transaction
@@ -33,15 +34,17 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     val busy = RegInit(False) clearWhen(done) setWhen(start)
   }
 
+  val exclusiveReadParameter = BmbParameter(inputParameter.access.sourcesTransform(_.copy(canWrite = false)))
   val exclusiveWriteCancel = False
-  val sources = for(sourceId <- 0 until sourceCount) yield new Area{
+  val sources = for(sourceId <- inputParameter.access.sources.keys) yield new Area{
+    val sourceParameter = inputParameter.access.sources(sourceId)
     val valid = RegInit(False) //Validity of the reservation for the given source
     val exclusiveWritePending = RegInit(False)  //While a exclusive write is ongoing, this is used to block all conflicting writes to ensure atomicity
     val state = RegInit(IDLE)
-    val address = Reg(UInt(inputParameter.addressWidth bits))
-    val length = Reg(UInt(inputParameter.lengthWidth bits))
-    val context = Reg(Bits(inputParameter.contextWidth bits))
-    val addressHit = address >> inputParameter.lengthWidth === io.input.cmd.address >> inputParameter.lengthWidth
+    val address = Reg(UInt(inputParameter.access.addressWidth bits))
+    val length = Reg(UInt(sourceParameter.lengthWidth bits))
+    val context = Reg(Bits(sourceParameter.contextWidth bits))
+    val addressHit = address >> inputParameter.access.aggregated.lengthWidth === io.input.cmd.address >> inputParameter.access.aggregated.lengthWidth
     val sourceHit = io.input.cmd.source === sourceId
     val haltSource = state =/= IDLE
 
@@ -69,7 +72,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     }
 
 
-    val exclusiveReadCmd = Stream(Fragment(BmbCmd(inputParameter.copy(canWrite = false))))
+    val exclusiveReadCmd = Stream(Fragment(BmbCmd(exclusiveReadParameter)))
     exclusiveReadCmd.valid := False
     exclusiveReadCmd.opcode := Bmb.Cmd.Opcode.READ
     exclusiveReadCmd.exclusive := True
@@ -122,18 +125,18 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   }
 
   //output cmd arbitrations
-  val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), sourceCount)
+  val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(exclusiveReadParameter)), inputParameter.access.sources.size)
   exclusiveReadArbiter.io.inputs <> Vec(sources.map(_.exclusiveReadCmd))
 
-  val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(inputParameter.copy(canWrite = false))), 2)
+  val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(exclusiveReadParameter)), 2)
   cmdArbiter.io.inputs(0) << exclusiveReadArbiter.io.output
 
-  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).read(io.input.cmd.source)).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
+  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).toSeq.read(io.input.cmd.source)).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
   cmdArbiter.io.inputs(1).arbitrationFrom(inputCmdHalted)
   cmdArbiter.io.inputs(1).payload.assignSomeByName(inputCmdHalted.payload)
 
-  val exclusiveSuccess = sources.map(s => s.valid && s.addressHit).read(io.input.cmd.source)
-  io.output.cmd.arbitrationFrom(cmdArbiter.io.output.haltWhen(sources.map(_.tracker.full).orR))
+  val exclusiveSuccess = sources.map(s => s.valid && s.addressHit).toSeq.read(io.input.cmd.source)
+  io.output.cmd.arbitrationFrom(cmdArbiter.io.output.haltWhen(sources.map(_.tracker.full).toSeq.orR))
   io.output.cmd.payload.assignSomeByName(cmdArbiter.io.output.payload)
   io.output.cmd.context.removeAssignments() := (io.input.cmd.exclusive && exclusiveSuccess) ## cmdArbiter.io.output.context
 
@@ -152,11 +155,11 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
   io.input.rsp.exclusive := io.output.rsp.context.msb
 
   //misc
-  if(inputParameter.canInvalidate) {
+  if(inputParameter.invalidation.canInvalidate) {
     io.input.inv <> io.output.inv
     io.input.ack <> io.output.ack
   }
-  if(inputParameter.canSync) {
+  if(inputParameter.invalidation.canSync) {
     io.input.sync <> io.output.sync
   }
 }

@@ -18,10 +18,10 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
       var address = align(addressGen)
       val boundaryMax = Bmb.boundarySize - (address & (Bmb.boundarySize-1))
       var size = Math.max(sizeMinAligned, align(Math.min(boundaryMax, Random.nextInt(sizeMax) + 1)))
-      if(!p.alignment.allowByte) {
-        address &= ~p.wordMask
-        if(size > p.byteCount){
-          size = (size + p.byteCount - 1) & ~p.wordMask
+      if(!p.access.aggregated.alignment.allowByte) {
+        address &= ~p.access.wordMask
+        if(size > p.access.byteCount){
+          size = (size + p.access.byteCount - 1) & ~p.access.wordMask
         }
       }
       val region = SizeMapping(address, size)

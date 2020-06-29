@@ -1316,7 +1316,7 @@ object StreamFragmentWidthAdapter {
 }
 
 case class StreamFifoMultiChannelPush[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
-  val channel = UInt(log2Up(channelCount) bits)
+  val channel = Bits(channelCount bits)
   val full = Bool()
   val stream = Stream(payloadType)
 
@@ -1394,7 +1394,7 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
       headPtr := pushNextEntry
     }
 
-    when(io.push.stream.fire && io.push.channel === channelId) {
+    when(io.push.stream.fire && io.push.channel(channelId)) {
       lastPtr := pushNextEntry
       valid := True
     }
@@ -1402,10 +1402,10 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   }
 
   val pushLogic = new Area{
-    val previousAddress = channels.map(_.lastPtr).read(io.push.channel)
+    val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when(channels.map(_.valid).read(io.push.channel)) {
+      when((channels.map(_.valid).asBits & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }

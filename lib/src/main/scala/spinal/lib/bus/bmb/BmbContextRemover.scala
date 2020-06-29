@@ -5,7 +5,9 @@ import spinal.lib._
 
 
 object BmbContextRemover{
-  def getOutputParameter(inputParameter : BmbParameter) = inputParameter.copy(contextWidth = 0)
+  def getOutputParameter(inputParameter : BmbParameter) = {
+    inputParameter.copy(access = inputParameter.access.sourcesTransform(_.copy(contextWidth = 0)))
+  }
 }
 
 case class BmbContextRemover(p: BmbParameter,

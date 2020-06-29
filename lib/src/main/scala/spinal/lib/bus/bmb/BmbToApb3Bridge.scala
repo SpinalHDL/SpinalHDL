@@ -8,16 +8,11 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
 object BmbToApb3Bridge{
   def busCapabilities(addressWidth : Int,
-                      dataWidth : Int) = BmbParameter(
-    addressWidth  = addressWidth,
-    dataWidth     = dataWidth,
-    lengthWidth   = log2Up(dataWidth/8),
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
-    canRead       = true,
-    canWrite      = true,
-    alignment     = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
+                      dataWidth : Int) = BmbAccessCapabilities(
+    addressWidth    = addressWidth,
+    dataWidth       = dataWidth,
+    lengthWidthMax  = log2Up(dataWidth/8),
+    alignment       = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -25,8 +20,8 @@ object BmbToApb3Bridge{
 case class BmbToApb3Bridge(apb3Config: Apb3Config,
                            bmbParameter : BmbParameter,
                            pipelineBridge : Boolean) extends Component{
-  assert(apb3Config.dataWidth == bmbParameter.dataWidth)
-  assert(bmbParameter.lengthWidth == log2Up(bmbParameter.dataWidth/8))
+  assert(apb3Config.dataWidth == bmbParameter.access.dataWidth)
+  assert(bmbParameter.access.lengthWidth == log2Up(bmbParameter.access.dataWidth/8))
 
   val io = new Bundle {
     val input = slave(Bmb(bmbParameter))

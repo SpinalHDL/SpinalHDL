@@ -30,7 +30,7 @@ case class Bscane2BmbMasterGenerator(userId : Int)(implicit interconnect : BmbSm
   val bmb = produce(logic.io.bmb)
   val logic = add task Bscane2BmbMaster(userId)
   interconnect.addMaster(
-    accessRequirements = SystemDebuggerConfig().getBmbParameter.toAccessParameter,
+    accessRequirements = SystemDebuggerConfig().getBmbParameter,
     bus = bmb
   )
 }

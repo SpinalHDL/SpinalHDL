@@ -6,17 +6,17 @@ import spinal.lib.bus.bmb._
 import spinal.lib.memory.sdram.SdramLayout
 
 object BmbSdramCtrl{
-  def bmbCapabilities(layout : SdramLayout) = BmbParameter(
-    addressWidth  = layout.byteAddressWidth,
-    dataWidth     = layout.dataWidth,
-    lengthWidth   = log2Up(layout.dataWidth/8),
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
-    canRead       = true,
-    canWrite      = true,
-    alignment = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
-  )
+//  def bmbCapabilities(layout : SdramLayout) = BmbParameter(
+//    addressWidth  = layout.byteAddressWidth,
+//    dataWidth     = layout.dataWidth,
+//    lengthWidth   = log2Up(layout.dataWidth/8),
+//    sourceWidth   = Int.MaxValue,
+//    contextWidth  = Int.MaxValue,
+//    canRead       = true,
+//    canWrite      = true,
+//    alignment = BmbParameter.BurstAlignement.LENGTH,
+//    maximumPendingTransactionPerId = Int.MaxValue
+//  )
 }
 
 
@@ -31,8 +31,8 @@ case class BmbSdramCtrl(bmbParameter : BmbParameter,
   }
 
   case class Context() extends Bundle{
-    val source = UInt(bmbParameter.sourceWidth bits)
-    val context = Bits(bmbParameter.contextWidth bits)
+    val source = UInt(bmbParameter.access.sourceWidth bits)
+    val context = Bits(bmbParameter.access.contextWidth bits)
   }
 
   val ctrl = SdramCtrl(layout,timing,CAS,Context(), produceRspOnWrite = true)
