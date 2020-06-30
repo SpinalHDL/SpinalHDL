@@ -2,7 +2,7 @@ package spinal.lib.com.jtag.xilinx
 
 import spinal.core._
 import spinal.lib.blackbox.xilinx.s7.BSCANE2
-import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.bmb.{Bmb, BmbSmpInterconnectGenerator}
 import spinal.lib.generator._
 import spinal.lib.master
 import spinal.lib.system.debugger.{JtagBridgeNoTap, SystemDebugger, SystemDebuggerConfig}

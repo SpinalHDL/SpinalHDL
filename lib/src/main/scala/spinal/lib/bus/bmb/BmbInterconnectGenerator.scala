@@ -1,9 +1,8 @@
-package spinal.lib.generator
+package spinal.lib.bus.bmb
 
-import spinal.core.{Area, Bool, ClockDomain, UInt, dontName, log2Up}
-import spinal.lib._
-import spinal.lib.bus.bmb._
+import spinal.core.{Area, dontName, log2Up}
 import spinal.lib.bus.misc._
+import spinal.lib.generator.{Dependable, Generator, Handle, Lock, MemoryConnection}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -257,6 +256,10 @@ object BmbInterconnectGenerator{
 //  override def applyOffset(addressOffset: BigInt): AddressMapping = ???
 //}
 
+
+case class BmbImplicitPeripheralDecoder(bus : Handle[Bmb])
+case class BmbImplicitDebugDecoder(bus : Handle[Bmb])
+
 case class BmbSmpInterconnectGenerator() extends Generator{
 
   def setDefaultArbitration(kind : BmbInterconnectGenerator.ArbitrationKind): Unit ={
@@ -403,6 +406,9 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     val mapping = Handle[AddressMapping]
     var connector: (Bmb, Bmb) => Unit = defaultConnector
 
+    val accessSourceModifiers = ArrayBuffer[BmbAccessCapabilities => BmbAccessCapabilities]()
+    def forceAccessSourceDataWidth(dataWidth : Int) = accessSourceModifiers += (c => c.copy(dataWidth = dataWidth))
+
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
     }
@@ -476,7 +482,9 @@ case class BmbSmpInterconnectGenerator() extends Generator{
           dataWidth    = mAccessRequirements.map(_.dataWidth).max,
           sources      = sourcesRemaped
         )
-        accessSource.load(aggregated.toAccessCapabilities().copy(contextWidthMax = Int.MaxValue, sourceWidthMax = Int.MaxValue))
+
+        val modified = accessSourceModifiers.foldLeft(aggregated.toAccessCapabilities)((c, f) => f(c))
+        accessSource.load(modified.copy(contextWidthMax = Int.MaxValue, sourceWidthMax = Int.MaxValue))
       }
     }
 
@@ -696,6 +704,60 @@ case class BmbSmpInterconnectGenerator() extends Generator{
     case Some(c) => c.connector = connector
     case _ => ???
   }
+
+  val scalaWorkAround = Handle[Bmb]
+  def setPipelining(m : Handle[Bmb], s : Handle[Bmb] = scalaWorkAround)(cmdValid : Boolean = false,
+                                       cmdReady : Boolean = false,
+                                       cmdHalfRate : Boolean = false,
+                                       rspValid : Boolean = false,
+                                       rspReady : Boolean = false,
+                                       rspHalfRate : Boolean = false,
+                                       invValid : Boolean = false,
+                                       invReady : Boolean = false,
+                                       invHalfRate : Boolean = false,
+                                       ackValid : Boolean = false,
+                                       ackReady : Boolean = false,
+                                       ackHalfRate : Boolean = false,
+                                       syncValid : Boolean = false,
+                                       syncReady : Boolean = false,
+                                       syncHalfRate : Boolean = false): Unit = {
+    if (s == scalaWorkAround) {
+      setConnector(m)(_.pipelined(
+        cmdValid     = cmdValid,
+        cmdReady     = cmdReady,
+        cmdHalfRate  = cmdHalfRate,
+        rspValid     = rspValid,
+        rspReady     = rspReady,
+        rspHalfRate  = rspHalfRate,
+        invValid     = invValid,
+        invReady     = invReady,
+        invHalfRate  = invHalfRate,
+        ackValid     = ackValid,
+        ackReady     = ackReady,
+        ackHalfRate  = ackHalfRate,
+        syncValid    = syncValid,
+        syncReady    = syncReady,
+        syncHalfRate = syncHalfRate) >> _)
+    } else {
+      setConnector(m, s)(_.pipelined(
+        cmdValid = cmdValid,
+        cmdReady = cmdReady,
+        cmdHalfRate = cmdHalfRate,
+        rspValid = rspValid,
+        rspReady = rspReady,
+        rspHalfRate = rspHalfRate,
+        invValid = invValid,
+        invReady = invReady,
+        invHalfRate = invHalfRate,
+        ackValid = ackValid,
+        ackReady = ackReady,
+        ackHalfRate = ackHalfRate,
+        syncValid = syncValid,
+        syncReady = syncReady,
+        syncHalfRate = syncHalfRate) >> _)
+    }
+  }
+
 
   def addSlave(accessSource : Handle[BmbAccessCapabilities] = Handle[BmbAccessCapabilities],
                accessCapabilities : Handle[BmbAccessCapabilities],
