@@ -67,7 +67,7 @@ case class AhbLite3Arbiter(ahbLite3Config: AhbLite3Config, inputsCount: Int, rou
 
   }else new Area{
 
-    val dataPhaseActive = RegNextWhen(io.output.HTRANS(1), io.output.HREADY) init(False)
+    val dataPhaseActive = RegNextWhen(io.output.HTRANS(1) & io.output.HSEL, io.output.HREADY) init(False)
     val locked          = RegInit(False)
     val maskProposal    = Bits(inputsCount bits)
     val maskLocked      = Reg(Bits(inputsCount bits)) init(BigInt(1) << (inputsCount - 1))
