@@ -1708,7 +1708,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
     walkComponents(c => {
       try{
         val io = c.reflectIo
-        for(bt <- io.flatten){
+        if(io != null) for(bt <- io.flatten){
           if(bt.isDirectionLess && !bt.hasTag(allowDirectionLessIoTag)){
             PendingError(s"IO BUNDLE ERROR : A direction less $bt signal was defined into $c component's io bundle\n${bt.getScalaLocationLong}")
           }
