@@ -9,8 +9,6 @@ import spinal.lib._
 case class BmbArbiter(inputsParameter : Seq[BmbParameter],
                       outputParameter : BmbParameter,
                       lowerFirstPriority : Boolean,
-                      inputsWithInv : Seq[Boolean] = null,
-                      inputsWithSync : Seq[Boolean] = null,
                       pendingInvMax : Int = 0) extends Component{
   val portCount = inputsParameter.size
   val sourceRouteWidth = log2Up(portCount)
@@ -55,13 +53,12 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
       input.rsp.weakAssignFrom(io.output.rsp.payload)
       input.rsp.source.removeAssignments() := (io.output.rsp.source >> sourceRouteWidth).resized
     }
-    io.output.rsp.ready := io.inputs(rspSel).rsp.ready
+    io.output.rsp.ready := io.inputs.map(_.rsp.ready).read(rspSel)
   }
 
   val invalidate = (portCount > 1 && outputParameter.invalidation.canInvalidate) generate new Area {
-    assert(inputsWithInv != null)
     assert(pendingInvMax != 0)
-    val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsWithInv(inputId)) yield (io.inputs(inputId), inputId)).unzip
+    val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsParameter(inputId).invalidation.canInvalidate) yield (io.inputs(inputId), inputId)).unzip
 
     val invCounter = CounterUpDown(
       stateCount = log2Up(pendingInvMax) << 1,
@@ -71,16 +68,16 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
 
     val haltInv = invCounter.msb
     val forks = StreamFork(io.output.inv.haltWhen(haltInv), inputs.size)
-    val logics = for((input, inputId) <- (inputs, inputsIndex).zipped) yield new Area{
+    val logics = for(((input, inputId), forkId) <- (inputs, inputsIndex).zipped.toSeq.zipWithIndex) yield new Area{
       val ackCounter = CounterUpDown(
         stateCount = log2Up(pendingInvMax) << 1,
         incWhen    = input.ack.fire,
         decWhen    = io.output.ack.fire
       )
-      input.inv.arbitrationFrom(forks(inputId))
-      input.inv.address := forks(inputId).address
-      input.inv.length := forks(inputId).length
-      input.inv.source := (forks(inputId).source >> sourceRouteWidth).resized
+      input.inv.arbitrationFrom(forks(forkId))
+      input.inv.address := forks(forkId).address
+      input.inv.length := forks(forkId).length
+      input.inv.source := (forks(forkId).source >> sourceRouteWidth).resized
       input.inv.all := io.output.inv.all || io.output.inv.source(sourceRouteRange) =/= inputId
 
       input.ack.ready := True
@@ -90,14 +87,12 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
   }
 
   val sync = (portCount > 1 && outputParameter.invalidation.canSync) generate new Area{
-    assert(inputsWithSync != null)
-
     val syncSel = io.output.sync.source(sourceRouteRange)
     for((input, index) <- io.inputs.zipWithIndex){
       input.sync.valid := io.output.sync.valid && syncSel === index
       input.sync.source := io.output.sync.source.resized
     }
-    io.output.sync.ready := io.inputs(syncSel).sync.ready
+    io.output.sync.ready := io.inputs.map(_.sync.ready).read(syncSel)
   }
 }
 

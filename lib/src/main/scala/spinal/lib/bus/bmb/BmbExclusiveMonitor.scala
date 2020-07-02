@@ -36,25 +36,26 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
 
   val exclusiveReadParameter = BmbParameter(inputParameter.access.sourcesTransform(_.copy(canWrite = false)))
   val exclusiveWriteCancel = False
-  val sources = for(sourceId <- inputParameter.access.sources.keys) yield new Area{
-    val sourceParameter = inputParameter.access.sources(sourceId)
+  val sources = for(sourceId <- inputParameter.access.sources.keys;
+                    sourceParameter = inputParameter.access.sources(sourceId);
+                    if sourceParameter.canExclusive) yield new Area {
     val valid = RegInit(False) //Validity of the reservation for the given source
-    val exclusiveWritePending = RegInit(False)  //While a exclusive write is ongoing, this is used to block all conflicting writes to ensure atomicity
+    val exclusiveWritePending = RegInit(False) //While a exclusive write is ongoing, this is used to block all conflicting writes to ensure atomicity
     val state = RegInit(IDLE)
     val address = Reg(UInt(inputParameter.access.addressWidth bits))
     val length = Reg(UInt(sourceParameter.lengthWidth bits))
     val context = Reg(Bits(sourceParameter.contextWidth bits))
     val addressHit = address >> inputParameter.access.aggregated.lengthWidth === io.input.cmd.address >> inputParameter.access.aggregated.lengthWidth
-    val sourceHit = io.input.cmd.source === sourceId
+    val inputSourceHit = io.input.cmd.source === sourceId
     val haltSource = state =/= IDLE
 
 
-    when(io.output.rsp.fire && io.output.rsp.source === sourceId && io.output.rsp.context.msb){
+    when(io.output.rsp.fire && io.output.rsp.source === sourceId && io.output.rsp.context.msb) {
       exclusiveWritePending := False
     }
 
-    when(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive){
-      when(sourceHit && !haltSource) {
+    when(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive) {
+      when(inputSourceHit && !haltSource) {
         valid := True
         address := io.input.cmd.address
         length := io.input.cmd.length
@@ -62,11 +63,11 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
         state := FENCE_START
       }
     }
-    when(addressHit && io.input.cmd.lastFire && io.input.cmd.isWrite){
-      when(!exclusiveWriteCancel){
+    when(addressHit && io.input.cmd.lastFire && io.input.cmd.isWrite) {
+      when(!exclusiveWriteCancel) {
         valid := False
       }
-      when(sourceHit){
+      when(inputSourceHit) {
         exclusiveWritePending := True
       }
     }
@@ -82,61 +83,60 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     exclusiveReadCmd.source := sourceId
     exclusiveReadCmd.last := True
 
-    switch(state){
-      is(FENCE_START){
-        when(!fence.busy){
+    switch(state) {
+      is(FENCE_START) {
+        when(!fence.busy) {
           fence.start := True
           state := FENCE_BUSY
         }
       }
-      is(FENCE_BUSY){
-        when(fence.done){
+      is(FENCE_BUSY) {
+        when(fence.done) {
           state := EMIT
         }
       }
-      is(EMIT){
+      is(EMIT) {
         exclusiveReadCmd.valid := True
-        when(exclusiveReadCmd.ready){
+        when(exclusiveReadCmd.ready) {
           state := IDLE
         }
       }
     }
+  }
 
-    val tracker = new Area{
-      val cmdCounter, rspCounter = Reg(UInt(log2Up(pendingWriteMax) + 1 bits)) init(0)
-      val full = cmdCounter.msb =/= rspCounter.msb && cmdCounter.trim(1) === rspCounter.trim(1)
-      when(io.output.cmd.firstFire &&  io.output.cmd.source === sourceId){ cmdCounter := cmdCounter + 1 }
-      when(io.output.rsp.firstFire &&  io.output.rsp.source === sourceId){ rspCounter := rspCounter + 1 }
+  val trackers = for(sourceId <- inputParameter.access.sources.keys) yield new Area{
+    val cmdCounter, rspCounter = Reg(UInt(log2Up(pendingWriteMax) + 1 bits)) init(0)
+    val full = cmdCounter.msb =/= rspCounter.msb && cmdCounter.trim(1) === rspCounter.trim(1)
+    when(io.output.cmd.firstFire &&  io.output.cmd.source === sourceId){ cmdCounter := cmdCounter + 1 }
+    when(io.output.rsp.firstFire &&  io.output.rsp.source === sourceId){ rspCounter := rspCounter + 1 }
 
-
-      val target = Reg(UInt(log2Up(pendingWriteMax) + 1 bits))
-      val hit = target === rspCounter
-      val done = Reg(Bool())
-      when(hit){
-        done := True
-      }
-      when(fence.start){
-        target := cmdCounter
-        done := False
-      }
-
-      fence.done clearWhen(!done)
+    val target = Reg(UInt(log2Up(pendingWriteMax) + 1 bits))
+    val hit = target === rspCounter
+    val done = Reg(Bool())
+    when(hit){
+      done := True
     }
+    when(fence.start){
+      target := cmdCounter
+      done := False
+    }
+
+    fence.done clearWhen(!done)
   }
 
   //output cmd arbitrations
-  val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(exclusiveReadParameter)), inputParameter.access.sources.size)
+  val exclusiveReadArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(Fragment(BmbCmd(exclusiveReadParameter)), sources.size)
   exclusiveReadArbiter.io.inputs <> Vec(sources.map(_.exclusiveReadCmd))
 
   val cmdArbiter = StreamArbiterFactory.lowerFirst.fragmentLock.build(Fragment(BmbCmd(exclusiveReadParameter)), 2)
   cmdArbiter.io.inputs(0) << exclusiveReadArbiter.io.output
 
-  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(_.haltSource).toSeq.read(io.input.cmd.source)).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
+  val inputCmdHalted = io.input.cmd.haltWhen(sources.map(s => s.inputSourceHit && s.haltSource).toSeq.orR).throwWhen(io.input.cmd.valid && io.input.cmd.isRead && io.input.cmd.exclusive)
   cmdArbiter.io.inputs(1).arbitrationFrom(inputCmdHalted)
   cmdArbiter.io.inputs(1).payload.assignSomeByName(inputCmdHalted.payload)
 
-  val exclusiveSuccess = sources.map(s => s.valid && s.addressHit).toSeq.read(io.input.cmd.source)
-  io.output.cmd.arbitrationFrom(cmdArbiter.io.output.haltWhen(sources.map(_.tracker.full).toSeq.orR))
+  val exclusiveSuccess = sources.map(s => s.valid && s.addressHit && s.inputSourceHit).toSeq.orR
+  io.output.cmd.arbitrationFrom(cmdArbiter.io.output.haltWhen(trackers.map(_.full).toSeq.orR))
   io.output.cmd.payload.assignSomeByName(cmdArbiter.io.output.payload)
   io.output.cmd.context.removeAssignments() := (io.input.cmd.exclusive && exclusiveSuccess) ## cmdArbiter.io.output.context
 

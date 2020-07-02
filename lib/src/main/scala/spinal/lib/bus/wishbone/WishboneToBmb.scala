@@ -3,7 +3,7 @@ package spinal.lib.bus.wishbone
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbSourceParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSourceParameter}
 import spinal.lib.bus.wishbone._
 
 object WishboneToBmb{
@@ -12,7 +12,8 @@ object WishboneToBmb{
     dataWidth = c.dataWidth
   ).addSources(1, BmbSourceParameter(
     contextWidth = 0,
-    lengthWidth = log2Up(c.dataWidth/8)
+    lengthWidth = log2Up(c.dataWidth/8),
+    alignment = BmbParameter.BurstAlignement.LENGTH
   ))
 }
 

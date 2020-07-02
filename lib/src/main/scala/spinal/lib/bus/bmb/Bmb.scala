@@ -253,6 +253,7 @@ object BmbSourceParameter{
     var canWrite = false
     var canExclusive = false
     var maximumPendingTransaction : Int = 0
+    var withCachedRead = false
 
     for(s <- l){
       contextWidth = contextWidth.max(s.contextWidth)
@@ -264,6 +265,7 @@ object BmbSourceParameter{
       canRead |= s.canRead
       canWrite |= s.canWrite
       canExclusive |= s.canExclusive
+      withCachedRead |= s.withCachedRead
       maximumPendingTransaction = maximumPendingTransaction.max(s.maximumPendingTransaction)
     }
 
@@ -276,6 +278,7 @@ object BmbSourceParameter{
       canRead = canRead,
       canWrite = canWrite,
       canExclusive = canExclusive,
+      withCachedRead = withCachedRead,
       maximumPendingTransaction = maximumPendingTransaction
     )
   }
@@ -288,6 +291,7 @@ case class BmbSourceParameter(contextWidth : Int,
                               canRead : Boolean = true,
                               canWrite : Boolean = true,
                               canExclusive : Boolean = false,
+                              withCachedRead : Boolean = false,
                               maximumPendingTransaction : Int = Int.MaxValue)
 
 
@@ -373,7 +377,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.access.dataWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.mask,    s.mask,    defaultValue = () => Bits(m.p.access.maskWidth bits).assignDontCare() , allowUpSize = false, allowDownSize = false, allowDrop = true)
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = true,  allowDownSize = false, allowDrop = false)
-    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = () => False, allowUpSize = false,  allowDownSize = false, allowDrop = false)
   }
 
   def transferBeatCountMinusOne : UInt = {
@@ -404,7 +408,7 @@ case class BmbRsp(p : BmbParameter) extends Bundle{
     WeakConnector(m, s, m.opcode,  s.opcode,  defaultValue = null, allowUpSize = false, allowDownSize = false, allowDrop = false)
     WeakConnector(m, s, m.data,    s.data,    defaultValue = () => Bits(m.p.access.dataWidth bits).assignDontCare(), allowUpSize = false, allowDownSize = false, allowDrop = true )
     WeakConnector(m, s, m.context, s.context, defaultValue = null, allowUpSize = false,  allowDownSize = true, allowDrop = false)
-    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = false)
+    WeakConnector(m, s, m.exclusive, s.exclusive, defaultValue = null, allowUpSize = false,  allowDownSize = false, allowDrop = true)
   }
 }
 
