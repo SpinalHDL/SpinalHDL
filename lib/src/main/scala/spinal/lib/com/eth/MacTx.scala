@@ -282,8 +282,8 @@ case class MacTxHeader(dataWidth : Int) extends Component{
     val output = master(Stream(Fragment(PhyTx(dataWidth))))
   }
 
-  val header = B"x555555555555555D"
-  val headerWords = widthOf(header)/dataWidth
+//  val header = B"x555555555555555D"
+  val headerWords = 64/dataWidth
   val state = Reg(UInt(log2Up(headerWords + 1) bits)) init(0)
   io.output.valid := io.input.valid
   io.output.last := False
@@ -292,7 +292,10 @@ case class MacTxHeader(dataWidth : Int) extends Component{
     io.input.ready := io.output.ready
     io.output.payload := io.input.payload
   } otherwise {
-    io.output.data := header.subdivideIn(dataWidth bits).reverse.read(state.resized)
+//    io.output.data := header.subdivideIn(dataWidth bits).reverse.read(state.resized)
+    io.output.data := 0
+    for(i <- 0 until dataWidth by 2) io.output.data(i) := True
+    when(state === headerWords-1) {io.output.data.msb := True}
     when(io.output.fire) {
       state := state + 1
     }
