@@ -117,6 +117,13 @@ case class RmiiTx(p : RmiiTxParameter) extends Bundle with IMasterSlave {
   override def asMaster(): Unit = {
     out(D, EN)
   }
+
+  def fromTxStream() = {
+    val ret = MacTxInterFrame(p.dataWidth)
+    D := ClockDomain.current.withRevertedClockEdge()(RegNext(ret.io.output.data))
+    EN := ClockDomain.current.withRevertedClockEdge()(RegNext(ret.io.output.valid))
+    ret.io.input
+  }
 }
 
 case class RmiiRx(p : RmiiRxParameter) extends Bundle with IMasterSlave {
@@ -137,7 +144,11 @@ case class RmiiRx(p : RmiiRxParameter) extends Bundle with IMasterSlave {
 
     s1.data := RegNext(D)
     s1.valid := RegNext(CRS_DV)
-    s1.error := RegNext(ER)//TODO: Bool(false) if !withEr
+    if (p.withEr) {
+      s1.error := RegNext(ER)
+    } else {
+      s1.error := Bool(false)
+    }
 
     ret.fragment := s3.payload
     ret.valid := s2.valid || s3.valid
