@@ -48,7 +48,7 @@ case class XilinxS7Phy(sl : SdramLayout,
   val clk270 = clk90.withRevertedClockEdge().copy(reset = clk270Rst)
 
   val clk90Rst = ResetCtrl.asyncAssertSyncDeassert(
-    input = ClockDomain.current.isResetActive,
+    input = clk270Rst,
     clockDomain = clk90,
     inputPolarity  = HIGH,
     outputPolarity = HIGH
