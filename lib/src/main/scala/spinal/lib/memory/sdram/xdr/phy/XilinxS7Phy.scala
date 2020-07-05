@@ -166,7 +166,7 @@ case class XilinxS7Phy(sl : SdramLayout,
       IDELAY_TYPE = "VAR_LOAD",
       IDELAY_VALUE = 0,
       PIPE_SEL = false,
-      REFCLK_FREQUENCY = 300.0,
+      REFCLK_FREQUENCY = ClockDomain.current.frequency.getValue.toDouble*clkRatio / 1e6,
       SIGNAL_PATTERN = "DATA"
     )
 
