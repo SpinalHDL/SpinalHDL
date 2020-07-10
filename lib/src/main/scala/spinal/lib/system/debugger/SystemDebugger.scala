@@ -6,8 +6,10 @@ import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
 import spinal.lib._
-import spinal.lib.bus.bmb.BmbParameter
+import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter}
 import spinal.lib.eda.altera.QSysify
+
+import scala.collection.mutable
 
 /**
  * Created by PIC32F_USER on 09/04/2016.
@@ -24,12 +26,13 @@ case class SystemDebuggerConfig(memAddressWidth : Int = 32,
     useByteEnable = true
   )
 
-  def getBmbParameter = BmbParameter(
+  def getBmbParameter = BmbAccessParameter(
     addressWidth = memAddressWidth,
     dataWidth = memDataWidth,
-    lengthWidth = log2Up(memDataWidth/8),
-    sourceWidth = 0,
-    contextWidth = 0
+    sources = mutable.LinkedHashMap(0 -> BmbSourceParameter(
+      contextWidth = 0,
+      lengthWidth = log2Up(memDataWidth/8)
+    ))
   )
 
   def getMemAxi4SharedConfig = Axi4Config(

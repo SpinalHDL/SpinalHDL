@@ -30,6 +30,25 @@ import scala.collection.mutable.ListBuffer
 
 
 
+object UIntToOh {
+  def apply(value: UInt, width : Int): Bits = {
+    val ret = Bits(width bits)
+    for(i <- 0 until width){
+      ret(i) := value === i
+    }
+    ret
+  }
+
+  def apply(value: UInt, mapping : Seq[Int]): Bits = {
+    val ret = Bits(mapping.size bits)
+    for((m, i) <- mapping.zipWithIndex){
+      ret(i) := value === m
+    }
+    ret
+  }
+}
+
+
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
   def apply(bools: Seq[Bool]): UInt = {
@@ -51,6 +70,24 @@ object OHToUInt {
     }
 
     ret.asBits.asUInt
+  }
+
+  def apply(bitVector: BitVector, mapping : Seq[Int]): UInt = apply(bitVector.asBools, mapping)
+  def apply(oh: Seq[Bool], mapping : Seq[Int]): UInt = {
+    assert(oh.size == mapping.size)
+    val ret = UInt(log2Up(mapping.max + 1) bits)
+
+    if (mapping.size == 1) {
+      ret := mapping.head
+    } else {
+      for (bitId <- ret.range) {
+        val triggersId = mapping.zipWithIndex.filter(e => ((e._1 >> bitId) & 1) != 0).map(_._2)
+        val triggers = triggersId.map(oh(_))
+        ret(bitId) := triggers.orR
+      }
+    }
+
+    ret
   }
 }
 

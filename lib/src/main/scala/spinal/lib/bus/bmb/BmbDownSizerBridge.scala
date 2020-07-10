@@ -6,14 +6,14 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
 
 object BmbDownSizerBridge{
-  def outputParameterFrom( inputParameter : BmbParameter,
-                           outputDataWidth : Int): BmbParameter = {
-    val ratio = inputParameter.dataWidth/outputDataWidth
-    inputParameter.copy(
-      dataWidth = outputDataWidth,
-      sourceWidth = 0,
-      contextWidth = inputParameter.contextWidth + inputParameter.sourceWidth + log2Up(ratio)
-    )
+  def outputParameterFrom( inputAccessParameter : BmbAccessParameter,
+                           outputDataWidth : Int): BmbAccessParameter = {
+    val ratio = inputAccessParameter.dataWidth/outputDataWidth
+    inputAccessParameter.copy(
+      dataWidth = outputDataWidth
+    ).sourcesTransform(s => s.copy(
+      contextWidth = s.contextWidth + log2Up(ratio)
+    ))
   }
 }
 
@@ -25,35 +25,35 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     val output = master(Bmb(outputParameter))
   }
 
-  val ratio = inputParameter.dataWidth / outputParameter.dataWidth
-  val selRange = (inputParameter.wordRangeLength - 1 downto outputParameter.wordRangeLength)
+  val ratio = inputParameter.access.dataWidth / outputParameter.access.dataWidth
+  val selRange = (inputParameter.access.wordRangeLength - 1 downto outputParameter.access.wordRangeLength)
   assert(ratio > 1)
 
   case class OutputContext() extends Bundle {
-    val context = Bits(inputParameter.contextWidth bits)
-    val source = UInt(inputParameter.sourceWidth bits)
+//    val source = UInt(inputParameter.sourceWidth bits)
     val sel = UInt(log2Up(ratio) bits)
+    val context = Bits(inputParameter.access.contextWidth bits)
   }
 
   val cmdArea = new Area {
     val context = OutputContext()
     context.context := io.input.cmd.context
-    context.source := io.input.cmd.source
     context.sel := io.input.cmd.address(selRange)
 
     io.output.cmd.valid := io.input.cmd.valid
     io.output.cmd.opcode := io.input.cmd.opcode
     io.output.cmd.address := io.input.cmd.address
     io.output.cmd.length := io.input.cmd.length
+    io.output.cmd.source := io.input.cmd.source
     io.output.cmd.context := B(context)
-    if(inputParameter.canExclusive) io.output.cmd.exclusive := io.input.cmd.exclusive
+    if(inputParameter.access.canExclusive) io.output.cmd.exclusive := io.input.cmd.exclusive
 
-    if (!inputParameter.canWrite) {
+    if (!inputParameter.access.canWrite) {
       io.output.cmd.last := io.input.cmd.last
       io.input.cmd.ready := io.output.cmd.ready
     }
 
-    val writeLogic = inputParameter.canWrite generate new Area {
+    val writeLogic = inputParameter.access.canWrite generate new Area {
       val locked = RegNextWhen(!io.output.cmd.last, io.output.cmd.fire) init (False)
       val counter = Reg(UInt(log2Up(ratio) bits))
       val sel = locked ? counter | io.input.cmd.address(selRange)
@@ -74,22 +74,22 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     val context = io.output.rsp.context.as(OutputContext())
     io.input.rsp.last := io.output.rsp.last
     io.input.rsp.opcode := io.output.rsp.opcode
-    io.input.rsp.source := context.source
+    io.input.rsp.source := io.output.rsp.source
     io.input.rsp.context := context.context
     io.output.rsp.ready := io.input.rsp.ready
 
-    if(inputParameter.canExclusive) io.input.rsp.exclusive := io.output.rsp.exclusive
+    if(inputParameter.access.canExclusive) io.input.rsp.exclusive := io.output.rsp.exclusive
 
-    if (!inputParameter.canRead) {
+    if (!inputParameter.access.canRead) {
       io.input.rsp.valid := io.output.rsp.valid
     }
 
-    val readLogic = inputParameter.canRead generate new Area {
+    val readLogic = inputParameter.access.canRead generate new Area {
       val locked = RegNextWhen(!io.output.rsp.last, io.output.rsp.fire) init (False)
       val counter = Reg(UInt(log2Up(ratio) bits))
       val sel = locked ? counter | context.sel
-      val buffers = Vec(Reg(Bits(outputParameter.dataWidth bits)), ratio - 1)
-      val words = Vec(Bits(outputParameter.dataWidth bits), ratio)
+      val buffers = Vec(Reg(Bits(outputParameter.access.dataWidth bits)), ratio - 1)
+      val words = Vec(Bits(outputParameter.access.dataWidth bits), ratio)
 
       when(io.output.rsp.fire) {
         counter := sel + 1
@@ -114,12 +114,12 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     }
   }
 
-  if(inputParameter.canInvalidate){
+  if(inputParameter.invalidation.canInvalidate){
     io.input.inv << io.output.inv
     io.input.ack >> io.output.ack
   }
 
-  if(inputParameter.canSync){
+  if(inputParameter.invalidation.canSync){
     io.input.sync << io.output.sync
   }
 }

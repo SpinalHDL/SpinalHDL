@@ -35,7 +35,7 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
       if(withStall)StreamReadyRandomizer(bus.cmd, clockDomain)
     }
 
-    val rspQueue =  Array.fill(1 << bus.p.sourceWidth)(mutable.Queue[mutable.Queue[() => Unit]]())
+    val rspQueue =  Array.fill(1 << bus.p.access.sourceWidth)(mutable.Queue[mutable.Queue[() => Unit]]())
     var rspActive =  mutable.Queue[() => Unit]()
 
     def addRsp(source : Int,rsps : mutable.Queue[() => Unit]) = if(withDriver) {
@@ -70,22 +70,22 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
         val context = bus.cmd.context.toLong
         opcode match {
           case Bmb.Cmd.Opcode.READ => {
-            assert(bus.p.canRead)
+            assert(bus.p.access.sources(source).canRead)
             val length = bus.cmd.length.toLong
             val address = bus.cmd.address.toLong + busAddress
-            val startByte = (address & (bus.p.byteCount - 1))
+            val startByte = (address & (bus.p.access.byteCount - 1))
             val endByte = startByte + length + 1
-            val rspBeatCount = ((endByte + bus.p.byteCount - 1) / bus.p.byteCount).toInt
+            val rspBeatCount = ((endByte + bus.p.access.byteCount - 1) / bus.p.access.byteCount).toInt
             val rsps = mutable.Queue[() => Unit]()
             for (rspBeat <- 0 until rspBeatCount) {
               rsps.enqueue{ () =>
-                val beatAddress = (address & ~(bus.p.byteCount - 1)) + rspBeat * bus.p.byteCount
+                val beatAddress = (address & ~(bus.p.access.byteCount - 1)) + rspBeat * bus.p.access.byteCount
                 bus.rsp.last #= rspBeat == rspBeatCount - 1
                 bus.rsp.opcode #= Bmb.Rsp.Opcode.SUCCESS
                 bus.rsp.source  #= source
                 bus.rsp.context #= context
                 var data = BigInt(0)
-                for (byteId <- 0 until bus.p.byteCount) {
+                for (byteId <- 0 until bus.p.access.byteCount) {
                   val byteAddress = beatAddress + byteId
                   val byte = getByteAsInt(byteAddress)
                   data |= (BigInt(byte) << byteId * 8)
@@ -96,13 +96,13 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
             addRsp(source, rsps)
           }
           case Bmb.Cmd.Opcode.WRITE => {
-            assert(bus.p.canWrite)
+            assert(bus.p.access.sources(source).canWrite)
             val mask = bus.cmd.mask.toLong
             val address = bus.cmd.address.toLong + busAddress
             val data = bus.cmd.data.toBigInt
-            val beatAddress = (address & ~(bus.p.byteCount - 1)) + cmdBeat * bus.p.byteCount
+            val beatAddress = (address & ~(bus.p.access.byteCount - 1)) + cmdBeat * bus.p.access.byteCount
             writeFragments += {() =>
-              for (byteId <- 0 until bus.p.byteCount) if ((mask & (1l << byteId)) != 0) {
+              for (byteId <- 0 until bus.p.access.byteCount) if ((mask & (1l << byteId)) != 0) {
                 setByte(beatAddress + byteId, (data >> byteId * 8).toByte)
               }
             }

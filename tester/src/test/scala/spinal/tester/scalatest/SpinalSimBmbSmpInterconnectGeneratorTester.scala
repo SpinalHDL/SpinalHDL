@@ -21,7 +21,7 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
 
       def addMaster(requirements: BmbParameter) = new Generator {
         val busHandle = Handle[Bmb]
-        interconnect.addMaster(requirements.toAccessParameter, bus = busHandle)
+        interconnect.addMaster(requirements.access, bus = busHandle)
 
         val logic = add task new Area {
           val bus = slave(Bmb(requirements))
@@ -29,11 +29,11 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
         }
       }
 
-      def addSlave(address: BigInt, capabilities: BmbParameter) = new Generator {
+      def addSlave(address: BigInt, capabilities: BmbAccessCapabilities) = new Generator {
         val requirements = Handle[BmbAccessParameter]
         val busHandle = Handle[Bmb]
         interconnect.addSlave(
-          accessCapabilities = capabilities.toAccessParameter,
+          accessCapabilities = capabilities,
           accessRequirements = requirements,
           bus = busHandle,
           mapping = SizeMapping(address, 1 << capabilities.addressWidth)
@@ -54,8 +54,7 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
       val mB = addMaster(BmbParameter(
@@ -66,8 +65,7 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
         contextWidth = 4,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.WORD,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.WORD
       ))
 
       val mC = addMaster(BmbParameter(
@@ -78,8 +76,7 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
         contextWidth = 5,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.LENGTH,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
 
@@ -91,108 +88,79 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
         contextWidth = 3,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.LENGTH,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
-      val sA = addSlave(0x00000, BmbParameter(
+      val sA = addSlave(0x00000, BmbAccessCapabilities(
         addressWidth = 18,
         dataWidth = 32,
-        lengthWidth = 10,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
+        lengthWidthMax = 10,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      val sB = addSlave(0x40000, BmbParameter(
+      val sB = addSlave(0x40000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = 8,
-        contextWidth = Int.MaxValue,
+        sourceWidthMax = 8,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      val sB2 = addSlave(0x60000, BmbParameter(
+      val sB2 = addSlave(0x60000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,
-        lengthWidth = 2,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
+        lengthWidthMax = 2,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.LENGTH,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
       // write only
-      val sC = addSlave(0x80000, BmbParameter(
+      val sC = addSlave(0x80000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = Int.MaxValue,
-        contextWidth = 9,
+        contextWidthMax = 9,
         canRead = false,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
       //read only
-      val sD = addSlave(0x90000, BmbParameter(
+      val sD = addSlave(0x90000, BmbAccessCapabilities(
         addressWidth = 16,
         dataWidth = 32,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
       //Read only and write only mapped at the same address
-      val sE = addSlave(0xA0000, BmbParameter(
+      val sE = addSlave(0xA0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
         canRead = false,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
-      val sE2 = addSlave(0xA0000, BmbParameter(
+      val sE2 = addSlave(0xA0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 32,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = false,
-        alignment = BmbParameter.BurstAlignement.BYTE,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.BYTE
       ))
 
       // down sizer
-      val sF = addSlave(0xC0000, BmbParameter(
+      val sF = addSlave(0xC0000, BmbAccessCapabilities(
         addressWidth = 17,
         dataWidth = 16,
-        lengthWidth = Int.MaxValue,
-        sourceWidth = Int.MaxValue,
-        contextWidth = Int.MaxValue,
         canRead = true,
         canWrite = true,
-        alignment = BmbParameter.BurstAlignement.LENGTH,
-        maximumPendingTransactionPerId = Int.MaxValue
+        alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
       def fullAccess(bus: Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
@@ -201,10 +169,6 @@ object SpinalSimBmbSmpInterconnectGeneratorTester {
       fullAccess(mB.busHandle)
       fullAccess(mC.busHandle)
       fullAccess(mD.busHandle)
-
-
-      //      interconnect.addConnection(mA.busHandle, List(sA.busHandle))
-      //      interconnect.addConnection(mB, List(sA))
     })
   }
 }
@@ -285,7 +249,7 @@ class SpinalSimBmbSmpInterconnectGeneratorTester  extends SpinalSimFunSuite{
           })
 
           //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-          val retainers = List.fill(1 << bus.p.sourceWidth)(Phase.stimulus.retainer((300*durationFactor).toInt)) //TODO
+          val retainers = List.tabulate(1 << bus.p.access.sourceWidth)(source => Phase.stimulus.retainer(if(bus.p.access.sources.contains(source)) (300*durationFactor).toInt else 0))
           agent.rspMonitor.addCallback { _ =>
             if (bus.rsp.last.toBoolean) {
               retainers(bus.rsp.source.toInt).release()

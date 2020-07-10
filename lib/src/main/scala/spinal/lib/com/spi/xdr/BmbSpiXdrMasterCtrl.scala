@@ -1,14 +1,14 @@
 package spinal.lib.com.spi.ddr
 
 import spinal.core._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.com.spi.ddr.SpiXdrMasterCtrl.{Cmd, Config, Rsp}
 import spinal.lib.{Flow, Stream, master, slave}
 
 
 
 object BmbSpiXdrMasterCtrl{
-  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = addressWidth,
     dataWidth = 32

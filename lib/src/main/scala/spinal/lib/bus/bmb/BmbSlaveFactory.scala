@@ -2,18 +2,16 @@ package spinal.lib.bus.bmb
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, SingleMapping}
 
 object BmbSlaveFactory{
-  def getBmbCapabilities(accessSource : BmbAccessParameter,
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities,
                          addressWidth : Int,
                          dataWidth : Int) = accessSource.copy(
     addressWidth = addressWidth,
     dataWidth = dataWidth,
-    lengthWidth = log2Up(dataWidth/8),
-    alignment = BmbParameter.BurstAlignement.LENGTH,
-    canExclusive = false
+    lengthWidthMax = log2Up(dataWidth/8),
+    alignment = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -69,5 +67,5 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
     }
   }
 
-  override def busDataWidth: Int = bus.p.dataWidth
+  override def busDataWidth: Int = bus.p.access.dataWidth
 }

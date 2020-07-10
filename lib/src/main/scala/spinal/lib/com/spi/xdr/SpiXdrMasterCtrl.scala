@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
-import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.eth.Mdio
@@ -295,16 +295,12 @@ object SpiXdrMasterCtrl {
   case class XipBusParameters(addressWidth : Int,
                               lengthWidth : Int)
 
-  def getXipBmbCapabilities() = BmbParameter(
+  def getXipBmbCapabilities() = BmbAccessCapabilities(
     addressWidth  = 24,
     dataWidth     = 8,
-    lengthWidth   = Int.MaxValue,
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
     canRead       = true,
     canWrite      = false,
-    alignment     = BmbParameter.BurstAlignement.BYTE,
-    maximumPendingTransactionPerId = Int.MaxValue
+    alignment     = BmbParameter.BurstAlignement.BYTE
   )
 
   case class XipCmd(p : XipBusParameters) extends Bundle {

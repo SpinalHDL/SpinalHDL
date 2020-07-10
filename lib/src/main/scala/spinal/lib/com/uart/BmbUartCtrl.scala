@@ -3,10 +3,10 @@ package spinal.lib.com.uart
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 
 object BmbUartCtrl{
-  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = addressWidth,
     dataWidth = 32

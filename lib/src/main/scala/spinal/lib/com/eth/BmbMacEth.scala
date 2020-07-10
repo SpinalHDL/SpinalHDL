@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.bmb._
 
 object BmbMacEth{
-  def getBmbCapabilities(accessSource : BmbAccessParameter) = BmbSlaveFactory.getBmbCapabilities(
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = addressWidth,
     dataWidth = 32
