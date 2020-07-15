@@ -51,6 +51,7 @@ class SpinalSimRamAccessTester extends SpinalSimFunSuite {
         sleep(1)
         val address = Random.nextInt(32)
         dut.read.address #= address
+        sleep(1)
         if(Random.nextBoolean()) sleep(1) else dut.clockDomain.waitSampling()
         assert(dut.read.data.toInt == model(address))
       }
@@ -122,6 +123,7 @@ class SpinalSimRamAccessTester extends SpinalSimFunSuite {
         sleep(1)
         val address = Random.nextInt(32)
         dut.read.address #= address
+        sleep(1)
         if(Random.nextBoolean()) sleep(1) else dut.clockDomain.waitSampling()
         assert(dut.read.data.toInt == model(address))
       }
