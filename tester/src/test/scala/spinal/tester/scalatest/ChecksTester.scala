@@ -505,7 +505,7 @@ class RepeatabilityTester extends FunSuite{
   }
 
   test("BmbInterconnectVerilog"){
-    checkOutputHash(SpinalSimBmbSmpInterconnectGeneratorTester.f())
+    checkOutputHash(SpinalSimBmbInterconnectGeneratorTester.f())
   }
 }
 

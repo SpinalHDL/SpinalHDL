@@ -1,9 +1,9 @@
 package spinal.lib.bus.wishbone
 
-import spinal.lib.bus.bmb.BmbSmpInterconnectGenerator
+import spinal.lib.bus.bmb.BmbInterconnectGenerator
 import spinal.lib.generator._
 
-case class WishboneToBmbGenerator()(implicit interconnect : BmbSmpInterconnectGenerator = null) extends Generator{
+case class WishboneToBmbGenerator()(implicit interconnect : BmbInterconnectGenerator = null) extends Generator{
   val config = createDependency[WishboneConfig]
   val wishbone = produce(logic.io.input)
   val bmb = produce(logic.io.output)

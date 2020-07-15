@@ -13,7 +13,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 case class BmbExclusiveMonitorGenerator()
-                                       (implicit interconnect: BmbSmpInterconnectGenerator) extends Generator {
+                                       (implicit interconnect: BmbInterconnectGenerator) extends Generator {
   val input = produce(logic.io.input)
   val output = produce(logic.io.output)
 
@@ -49,7 +49,7 @@ case class BmbExclusiveMonitorGenerator()
 }
 
 case class BmbInvalidateMonitorGenerator()
-                                        (implicit interconnect: BmbSmpInterconnectGenerator) extends Generator {
+                                        (implicit interconnect: BmbInterconnectGenerator) extends Generator {
   val input = produce(logic.io.input)
   val output = produce(logic.io.output)
 
@@ -87,7 +87,7 @@ case class BmbInvalidateMonitorGenerator()
 }
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
-                            (implicit interconnect: BmbSmpInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
+                            (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
   val bus = produce(logic.io.bus)
   val cpuCount = createDependency[Int]
 
@@ -111,7 +111,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
 
 
 
-case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbSmpInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator with InterruptCtrlGeneratorI{
+case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator with InterruptCtrlGeneratorI{
   @dontName val gateways = ArrayBuffer[Handle[PlicGateway]]()
   val bus = produce(logic.bmb)
 
@@ -193,13 +193,13 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
 
 
 object BmbSmpBridgeGenerator{
-  def apply(mapping : Handle[AddressMapping] = DefaultMapping)(implicit interconnect: BmbSmpInterconnectGenerator) : BmbSmpBridgeGenerator = new BmbSmpBridgeGenerator(mapping = mapping)
+  def apply(mapping : Handle[AddressMapping] = DefaultMapping)(implicit interconnect: BmbInterconnectGenerator) : BmbSmpBridgeGenerator = new BmbSmpBridgeGenerator(mapping = mapping)
 }
 
 
 
 class BmbSmpBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
-                           (implicit interconnect: BmbSmpInterconnectGenerator) extends Generator {
+                           (implicit interconnect: BmbInterconnectGenerator) extends Generator {
   val accessSource = Handle[BmbAccessCapabilities]
   val invalidationSource = Handle[BmbInvalidationParameter]
 

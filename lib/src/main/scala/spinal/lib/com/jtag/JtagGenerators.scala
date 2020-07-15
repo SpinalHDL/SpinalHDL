@@ -1,11 +1,11 @@
 package spinal.lib.com.jtag
 
 import spinal.core._
-import spinal.lib.bus.bmb.BmbSmpInterconnectGenerator
+import spinal.lib.bus.bmb.BmbInterconnectGenerator
 import spinal.lib.generator.Generator
 import spinal.lib.system.debugger._
 
-case class JtagInstructionDebuggerGenerator()(implicit val interconnect : BmbSmpInterconnectGenerator) extends Generator{
+case class JtagInstructionDebuggerGenerator()(implicit val interconnect : BmbInterconnectGenerator) extends Generator{
   val jtagClockDomain = createDependency[ClockDomain]
   val jtagInstruction = produce(logic.jtagBridge.io.ctrl)
   val bmb = produce(logic.mmMaster)
@@ -30,7 +30,7 @@ case class JtagInstructionDebuggerGenerator()(implicit val interconnect : BmbSmp
 }
 
 
-case class JtagTapDebuggerGenerator()(implicit val interconnect : BmbSmpInterconnectGenerator) extends Generator{
+case class JtagTapDebuggerGenerator()(implicit val interconnect : BmbInterconnectGenerator) extends Generator{
   val jtag = produceIo(logic.jtagBridge.io.jtag)
   val bmb = produce(logic.mmMaster)
   val jtagConfig = SystemDebuggerConfig(
