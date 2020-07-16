@@ -89,7 +89,7 @@ case class BmbInvalidateMonitorGenerator()
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
                             (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
-  val bus = produce(logic.io.bus)
+  val ctrl = produce(logic.io.bus)
   val cpuCount = createDependency[Int]
 
   val accessSource = Handle[BmbAccessCapabilities]
@@ -102,19 +102,19 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
     accessRequirements = accessRequirements,
-    bus = bus,
+    bus = ctrl,
     mapping = apbOffset.derivate(SizeMapping(_, 1 << Clint.addressWidth))
   )
 
   val hz = export(produce(ClockDomain.current.frequency))
-  if(decoder != null) interconnect.addConnection(decoder.bus, bus)
+  if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }
 
 
 
 case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator with InterruptCtrlGeneratorI{
   @dontName val gateways = ArrayBuffer[Handle[PlicGateway]]()
-  val bus = produce(logic.bmb)
+  val ctrl = produce(logic.bmb)
 
   val accessSource = Handle[BmbAccessCapabilities]
   val accessRequirements = createDependency[BmbAccessParameter]
@@ -148,7 +148,7 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     }
   }
 
-  override def getBus(): Handle[Nameable] = bus
+  override def getBus(): Handle[Nameable] = ctrl
 
   val logic = add task new Area{
     val bmb = Bmb(accessRequirements.toBmbParameter())
@@ -184,11 +184,11 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
       dataWidth = 32
     )),
     accessRequirements = accessRequirements,
-    bus = bus,
+    bus = ctrl,
     mapping = apbOffset.derivate(SizeMapping(_, 1 << 22))
   )
 
-  if(decoder != null) interconnect.addConnection(decoder.bus, bus)
+  if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }
 
 
