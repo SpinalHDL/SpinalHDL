@@ -4,6 +4,7 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.generator._
 import spinal.lib._
 import spinal.core._
+import spinal.lib.bus.amba3.apb.Apb3Config
 import spinal.lib.misc.{BmbClint, Clint}
 import spinal.lib.misc.plic.{PlicGateway, PlicGatewayActiveHigh, PlicMapper, PlicMapping, PlicTarget}
 
@@ -263,3 +264,27 @@ class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypa
 }
 
 
+case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
+                             (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
+  val input = produce(logic.io.input)
+  val output = produce(logic.io.output)
+
+  val apb3Config = createDependency[Apb3Config]
+  val accessSource = createDependency[BmbAccessCapabilities]
+  val accessRequirements = createDependency[BmbAccessParameter]
+  val logic = add task BmbToApb3Bridge(
+    apb3Config = apb3Config,
+    bmbParameter = accessRequirements.toBmbParameter(),
+    pipelineBridge = false
+  )
+
+  interconnect.addSlave(
+    accessSource = accessSource,
+    accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
+    accessRequirements = accessRequirements,
+    bus = input,
+    mapping = mapping
+  )
+
+  if(decoder != null) interconnect.addConnection(decoder.bus, input)
+}
