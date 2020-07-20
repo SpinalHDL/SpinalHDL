@@ -35,6 +35,7 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
+
   def checkLastNA: Unit = RegInsts.foreach(_.checkLast)
 
   component.addPrePopTask(() => {
@@ -119,7 +120,7 @@ trait BusIf extends BusIfBase {
     vs.end()
   }
 
-  def readGenerator() = {
+  private def readGenerator() = {
     when(doRead){
       switch (readAddress()) {
         RegInsts.foreach{(reg: RegInst) =>
