@@ -65,18 +65,18 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
         if (!moduleContent.contains("replaced by")) {
           val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
-          outFile = new java.io.FileWriter(targetFilePath)
-          outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
-          if(pc.config.dumpWave != null) {
-            outFile.write("`timescale 1ns/1ps ")
-          }
-          emitEnumPackage(outFile)
 
           if (!c.isInBlackBoxTree) {
+            outFile = new java.io.FileWriter(targetFilePath)
+            outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
+            if(pc.config.dumpWave != null) {
+              outFile.write("`timescale 1ns/1ps ")
+            }
+            emitEnumPackage(outFile)
             outFile.write(moduleContent)
+            outFile.flush()
+            outFile.close()
           }
-          outFile.flush()
-          outFile.close()
         }
 
       }
