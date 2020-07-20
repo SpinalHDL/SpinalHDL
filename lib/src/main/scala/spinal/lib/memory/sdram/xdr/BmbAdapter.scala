@@ -7,13 +7,13 @@ import spinal.lib.bus.bmb.{Bmb, BmbAlignedSpliter, BmbAligner, BmbCmd, BmbLength
 object BmbAdapter{
   def corePortParameter(pp : BmbPortParameter, pl : PhyLayout) = CorePortParameter(
     contextWidth = {
-      val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb, log2Up(pl.burstWidth/8)), log2Up(pl.burstWidth/8))
+      val converterBmb = BmbLengthFixer.outputParameter(BmbAligner.outputParameter(pp.bmb.access, log2Up(pl.burstWidth/8)), log2Up(pl.burstWidth/8))
       converterBmb.contextWidth + converterBmb.sourceWidth
     },
     writeTockenInterfaceWidth = 1,
     writeTockenBufferSize = pp.dataBufferSize + 4,
-    canRead = pp.bmb.canRead,
-    canWrite = pp.bmb.canWrite
+    canRead = pp.bmb.access.canRead,
+    canWrite = pp.bmb.access.canWrite
   )
 }
 
@@ -37,7 +37,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     aligner.io.input << io.input
 
 
-    val splitLength = Math.min(cpa.cp.bytePerTaskMax, 1 << pp.bmb.lengthWidth)
+    val splitLength = Math.min(cpa.cp.bytePerTaskMax, 1 << pp.bmb.access.lengthWidth)
     assert(pp.rspBufferSize*cpa.pl.bytePerBeat >= splitLength)
 
     val spliter = BmbAlignedSpliter(aligner.io.output.p, splitLength)
@@ -53,7 +53,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     cmdAddress << inputLogic.converter.io.output.cmd.queueLowLatency(pp.cmdBufferSize, 1)
     inputLogic.converter.io.output.rsp << io.output.rsp.queueLowLatency(pp.rspBufferSize, 1)
 
-    if(pp.bmb.canWrite) {
+    if(pp.bmb.access.canWrite) {
       io.output.writeData << inputLogic.converter.io.output.writeData.queueLowLatency(pp.dataBufferSize, 1)
       io.output.writeDataTocken := RegNext(U(inputLogic.converter.io.output.writeData.fire)) init (0)
     }
@@ -62,7 +62,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     cmdAddress << inputLogic.converter.io.output.cmd.queue(pp.cmdBufferSize, pp.clockDomain, ClockDomain.current)
     inputLogic.converter.io.output.rsp << io.output.rsp.queue(pp.rspBufferSize, ClockDomain.current, pp.clockDomain)
 
-    val writeData = if (pp.bmb.canWrite) new Area {
+    val writeData = if (pp.bmb.access.canWrite) new Area {
       val fifo = new StreamFifoCC(inputLogic.converter.io.output.writeData.payloadType, pp.dataBufferSize, pp.clockDomain, ClockDomain.current)
       fifo.io.push << inputLogic.converter.io.output.writeData
       io.output.writeData << fifo.io.pop

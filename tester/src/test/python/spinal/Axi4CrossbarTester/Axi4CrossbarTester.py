@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
@@ -15,7 +15,7 @@ class MasterHandle:
         self.readCounter = 0
         self.writeCounter = 0
         self.doFinish = False
-        self.readMonitorQueues = [Queue() for i in xrange(4)] # One queue for each transaction id
+        self.readMonitorQueues = [Queue() for i in range(4)] # One queue for each transaction id
         self.writeCmdQueue = Queue()
         self.writeDataQueue = Queue()
         self.idToWrites = idToWrites
@@ -53,7 +53,7 @@ class MasterHandle:
         self.writeCmdQueue.put(writeCmd)
 
         writeCmd.linkedDatas = []
-        for i in xrange(writeCmd.len + 1):
+        for i in range(writeCmd.len + 1):
             writeData = Transaction()
             writeData.data = randBits(32)
             writeData.strb = randBits(4)
@@ -239,7 +239,7 @@ def test1(dut):
     axiSlaves = [Axi4(dut, "axiSlaves_" + str(i)) for i in range(4)]
 
     masterHandles = []
-    idToWrites = [[] for i in xrange(16)]
+    idToWrites = [[] for i in range(16)]
 
     # Instanciate master side
     for idx,axiMaster in enumerate(axiMasters):

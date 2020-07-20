@@ -1,6 +1,7 @@
 package spinal.lib.blackbox.xilinx.s7
 
 import spinal.core._
+import spinal.lib.com.jtag.JtagTapInstructionCtrl
 
 object STARTUPE2{
   def driveSpiClk(clk : Bool): STARTUPE2 ={
@@ -53,4 +54,19 @@ case class BSCANE2(userId : Int) extends BlackBox{
   val TMS  = out Bool()
   val UPDATE  = out Bool()
   val TDO  = in Bool()
+
+  def toJtagTapInstructionCtrl() = {
+    val i = JtagTapInstructionCtrl()
+
+    i.tdi     <> TDI
+    i.enable  <> SEL
+    i.capture <> CAPTURE
+    i.shift   <> SHIFT
+    i.update  <> UPDATE
+    i.reset   <> RESET
+    i.tdo     <> TDO
+
+    i
+  }
 }
+

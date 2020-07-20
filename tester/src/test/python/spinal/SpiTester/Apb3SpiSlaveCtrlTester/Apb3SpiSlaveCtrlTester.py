@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb import fork, log
@@ -75,7 +75,7 @@ def testIt(apb,interrupt,spiCtrl, cpol, cpha):
     yield rxFifo(0x55)
 
     # Check interrupts
-    for i in xrange(2):
+    for i in range(2):
         yield apb.writeMasked(4, 0x0000, 0x8000)
         assert(interrupt == False)
         yield apb.readAssertMasked(4, 0x000,0x100)

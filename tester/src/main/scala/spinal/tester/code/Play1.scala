@@ -1208,7 +1208,10 @@ object PlaySymplify {
 
 object PlayBug extends App{
   SpinalVerilog(new Component{
-    val x = out(B(BigInt("C7034DD7B", 16), 32 bits))
+    val x = out(Reg(UInt(16 bits)))
+
+    x(1 downto 0) := 0
+    x.allowPartialyAssigned
   })
 }
 

@@ -5,9 +5,10 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
-import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
+import spinal.lib.com.eth.Mdio
 import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
@@ -122,6 +123,23 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     spi
   }
 
+  def toMdio(): Mdio ={
+    val ctrl = Mdio()
+
+    p.ioRate match {
+      case 1 => {
+        ctrl.C := RegNext(sclk.write(0) && !ss.lsb)
+        ctrl.IO.write := RegNext(data(0).write(0))
+        ctrl.IO.writeEnable := RegNext(data(0).writeEnable && !ss.lsb)
+        for(i <- 0 until dataWidth){
+          data(i).read(0) := (if(i == 0) RegNext(ctrl.IO.read) else False)
+        }
+      }
+    }
+
+    ctrl
+  }
+
   case class SpiIce40(p : SpiXdrParameter) extends Bundle {
     val sclk = Analog(Bool)
     val ss = Vec.fill(p.ssWidth)(Analog(Bool))
@@ -185,7 +203,7 @@ object SpiXdrMasterCtrl {
 
   case class WriteMapping(pin : Int, phase : Int, source : Int)
   case class ReadMapping(pin : Int, phase : Int, target : Int)
-  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping], ouputHighWhenIdle : Boolean){
+  case class Mod(id : Int, clkRate : Int, slowDdr : Boolean, dataWidth : Int, writeMapping : Seq[WriteMapping], readMapping : Seq[ReadMapping], ouputHighWhenIdle : Boolean, lateSampling : Boolean){
     def bitrate = readMapping.length
   }
   case class Parameters(dataWidth : Int,
@@ -196,7 +214,7 @@ object SpiXdrMasterCtrl {
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
     def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
-    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false): this.type = {
+    def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false, lateSampling : Boolean = true): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
         val writeMapping = for (pinId <- (0 until spiWidth);
@@ -204,7 +222,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth)) yield ReadMapping(pinId + readPinOffset, 0, pinId)
 
-        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
+        mods += Mod(id, rate, ddr, dataWidth, writeMapping, readMapping, ouputHighWhenIdle, lateSampling)
       } else {
         val pinRate = rate / (if(ddr) 1 else 2)
         val pinDuration =  spi.ioRate / pinRate
@@ -214,7 +232,7 @@ object SpiXdrMasterCtrl {
 
         val readMapping = for (pinId <- (0 until spiWidth);
                                phaseId <- (0 until pinRate)) yield ReadMapping(pinId + readPinOffset, (phaseId*pinDuration-1) & (spi.ioRate-1), (pinRate - phaseId - 1)*spiWidth + pinId)
-        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping, ouputHighWhenIdle)
+        mods += Mod(id, rate, false, dataWidth, writeMapping, readMapping, ouputHighWhenIdle, lateSampling)
       }
       this
     }
@@ -277,16 +295,12 @@ object SpiXdrMasterCtrl {
   case class XipBusParameters(addressWidth : Int,
                               lengthWidth : Int)
 
-  def getXipBmbCapabilities() = BmbParameter(
+  def getXipBmbCapabilities() = BmbAccessCapabilities(
     addressWidth  = 24,
     dataWidth     = 8,
-    lengthWidth   = Int.MaxValue,
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
     canRead       = true,
     canWrite      = false,
-    alignment     = BmbParameter.BurstAlignement.BYTE,
-    maximumPendingTransactionPerId = Int.MaxValue
+    alignment     = BmbParameter.BurstAlignement.BYTE
   )
 
   case class XipCmd(p : XipBusParameters) extends Bundle {
@@ -619,23 +633,28 @@ object SpiXdrMasterCtrl {
       val counterPlus = counter + io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
+      val lateSampling = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.lateSampling)))
       val readFill, readDone = False
       val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
       p.ssGen generate (io.spi.ss := ~(ss ^ io.config.ss.activeHigh))
+
 
       io.cmd.ready := False
       when(io.cmd.valid) {
         when(io.cmd.isData) {
           timer.reset := timer.sclkToogleHit
+
+          when(timer.sclkToogleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
+            readFill := True
+            readDone := io.cmd.read && counterPlus === 0
+          }
           when(timer.sclkToogleHit){
             state := !state
           }
           when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
-            readFill := True
             when(counterPlus === 0){
               io.cmd.ready := True
-              readDone := io.cmd.read
               state := False
             }
           }

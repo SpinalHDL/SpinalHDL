@@ -521,6 +521,30 @@ trait Nameable extends OwnableRef with ContextUser{
 }
 
 
+trait ScalaLocated extends GlobalDataUser {
+
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
+    null
+  } else {
+    new Throwable()
+  }
+
+  def setScalaLocated(source: ScalaLocated): this.type = {
+    scalaTrace = source.scalaTrace
+    this
+  }
+
+  def getScalaTrace(): Throwable = {
+    globalData.scalaLocateds += this
+    scalaTrace
+  }
+
+
+  def getScalaLocationLong: String = ScalaLocated.long(getScalaTrace())
+  def getScalaLocationShort: String = ScalaLocated.short(getScalaTrace())
+}
+
+
 object ScalaLocated {
 
   var unfiltredFiles = mutable.Set[String](/*"SpinalUtils.scala"*/)
@@ -556,37 +580,13 @@ object ScalaLocated {
 }
 
 
-trait ScalaLocated extends GlobalDataUser {
-
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
-    null
-  } else {
-    new Throwable()
-  }
-
-  def setScalaLocated(source: ScalaLocated): this.type = {
-    scalaTrace = source.scalaTrace
-    this
-  }
-
-  def getScalaTrace(): Throwable = {
-    globalData.scalaLocateds += this
-    scalaTrace
-  }
-
-
-  def getScalaLocationLong: String = ScalaLocated.long(getScalaTrace())
-  def getScalaLocationShort: String = ScalaLocated.short(getScalaTrace())
-}
-
-
 trait SpinalTagReady {
 
-  var _spinalTags: mutable.Set[SpinalTag] =  null
+  var _spinalTags: mutable.LinkedHashSet[SpinalTag] =  null
 
-  def spinalTags: mutable.Set[SpinalTag] = {
+  def spinalTags: mutable.LinkedHashSet[SpinalTag] = {
     if(_spinalTags == null)
-      _spinalTags = new mutable.HashSet[SpinalTag]{
+      _spinalTags = new mutable.LinkedHashSet[SpinalTag]{
         override def initialSize: Int = 4
       }
     _spinalTags
@@ -640,9 +640,9 @@ trait SpinalTagReady {
     None
   }
 
-  def getTags() : mutable.Set[SpinalTag] = {
+  def getTags() : mutable.LinkedHashSet[SpinalTag] = {
     if(_spinalTags == null)
-      mutable.Set[SpinalTag]()
+      mutable.LinkedHashSet[SpinalTag]()
     else
       _spinalTags
   }

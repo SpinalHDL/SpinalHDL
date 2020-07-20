@@ -55,6 +55,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
+  def toFlowFire: Flow[T] = {
+    val ret = Flow(payloadType)
+    ret.valid := this.fire
+    ret.payload := this.payload
+    ret
+  }
+
   def asFlow: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.valid
@@ -188,6 +195,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
     fifo.io.pop
+  }
+
+  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
   }
 
   /**
@@ -1167,10 +1180,10 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val output = master Stream (dataType)
+    val input = slave Stream (dataType())
+    val output = master Stream (dataType())
   }
 
   val outHitSignal = Bool
@@ -1303,7 +1316,7 @@ object StreamFragmentWidthAdapter {
 }
 
 case class StreamFifoMultiChannelPush[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
-  val channel = UInt(log2Up(channelCount) bits)
+  val channel = Bits(channelCount bits)
   val full = Bool()
   val stream = Stream(payloadType)
 
@@ -1381,7 +1394,7 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
       headPtr := pushNextEntry
     }
 
-    when(io.push.stream.fire && io.push.channel === channelId) {
+    when(io.push.stream.fire && io.push.channel(channelId)) {
       lastPtr := pushNextEntry
       valid := True
     }
@@ -1389,10 +1402,10 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   }
 
   val pushLogic = new Area{
-    val previousAddress = channels.map(_.lastPtr).read(io.push.channel)
+    val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when(channels.map(_.valid).read(io.push.channel)) {
+      when((channels.map(_.valid).asBits & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }

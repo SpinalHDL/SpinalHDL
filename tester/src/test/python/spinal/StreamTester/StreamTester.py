@@ -1,11 +1,12 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.result import TestFailure
 from cocotb.triggers import RisingEdge, FallingEdge
 
 from cocotblib.misc import randSignal, assertEquals, ClockDomainAsyncReset, BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
+from functools import reduce
 
 
 class FifoPacket:
@@ -75,7 +76,7 @@ class Fork:
         for idx in range(0,3):
             cocotb.fork(StreamReader("forkOutputs_" + str(idx), self.onOutput, idx, self.dut, self.dut.clk))
 
-        while not reduce(lambda x,y: x and y, map(lambda x: x > 1000, self.counters)):
+        while not reduce(lambda x,y: x and y, [x > 1000 for x in self.counters]):
             yield RisingEdge(self.dut.clk)
 
 

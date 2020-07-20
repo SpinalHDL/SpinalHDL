@@ -16,7 +16,7 @@ class WriteDataMonitor(Infrastructure):
         StreamMonitor(self.axi.w, self.onWriteData, self.dut.clk, self.dut.reset)
 
     def onWriteCmd(self,cmd):
-        for i in xrange(cmd.len + 1):
+        for i in range(cmd.len + 1):
             writeData = Transaction()
             writeData.data = cmd.addr + i
             writeData.strb = (cmd.addr + i) & 0xF

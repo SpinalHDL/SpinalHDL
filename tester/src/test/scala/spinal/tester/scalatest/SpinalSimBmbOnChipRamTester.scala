@@ -22,9 +22,9 @@ class SpinalSimBmbOnChipRamTester extends SpinalSimFunSuite {
     SimConfig.compile {
       val dut = BmbOnChipRam(
         p = BmbOnChipRam.busCapabilities(size = 64 KiB, dataWidth = 32).copy(
-          sourceWidth = 4,
-          contextWidth = 4
-        ),
+          sourceWidthMax = 4,
+          contextWidthMax = 4
+        ).toBmbParameter,
         size = 64 KiB
       )
       //Initialize the ram with memInit

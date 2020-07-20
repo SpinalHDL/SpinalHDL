@@ -245,16 +245,16 @@ class PhaseDeviceSpecifics(pc : PhaseContext) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
-    walkDeclarations{
-      case mem : Mem[_] =>
-        var hit = false
-        mem.foreachStatements{
-          case port : MemReadAsync => hit = true
-          case _ =>
-        }
-        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
-      case _ =>
-    }
+//    walkDeclarations{
+//      case mem : Mem[_] =>
+//        var hit = false
+//        mem.foreachStatements{
+//          case port : MemReadAsync => hit = true
+//          case _ =>
+//        }
+//        if(hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid ganbling workaround Synth 8-6430
+//      case _ =>
+//    }
   }
 }
 
@@ -1135,6 +1135,17 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
 class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
   override def impl(pc: PhaseContext): Unit = {
+    pc.walkDeclarations {
+      case mem: Mem[_] => {
+        var hit = false
+        mem.foreachStatements {
+          case port: MemReadAsync => hit = true
+          case _ =>
+        }
+        if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+      }
+      case _ =>
+    }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
       pc.walkDeclarations {
         case mem : Mem[_] => {
@@ -1697,7 +1708,7 @@ class PhaseCheckIoBundle extends PhaseCheck{
     walkComponents(c => {
       try{
         val io = c.reflectIo
-        for(bt <- io.flatten){
+        if(io != null) for(bt <- io.flatten){
           if(bt.isDirectionLess && !bt.hasTag(allowDirectionLessIoTag)){
             PendingError(s"IO BUNDLE ERROR : A direction less $bt signal was defined into $c component's io bundle\n${bt.getScalaLocationLong}")
           }
@@ -1774,7 +1785,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
     val regToComb = ArrayBuffer[BaseType]()
 
     walkStatements{
-      case bt: BaseType if bt.isReg =>
+      case bt: BaseType if bt.isReg && !bt.hasTag(AllowPartialyAssignedTag)=>
         var assignedBits = new AssignedBits(bt.getBitsWidth)
 
         bt.foreachStatements{
@@ -1787,12 +1798,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
         }
 
         if(!assignedBits.isFull){
+          var withInit = false
+          bt.foreachStatements{
+            case s : InitAssignmentStatement => withInit = true
+            case _ =>
+          }
           if(assignedBits.isEmpty) {
-            var withInit = false
-            bt.foreachStatements{
-              case s : InitAssignmentStatement => withInit = true
-              case _ =>
-            }
             if(withInit){
               regToComb += bt
               if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
@@ -1802,10 +1813,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")
             }
           }else {
-            val unassignedBits = new AssignedBits(bt.getBitsWidth)
-            unassignedBits.add(bt.getBitsWidth - 1, 0)
-            unassignedBits.remove(assignedBits)
-            PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+            if(!withInit) {
+              val unassignedBits = new AssignedBits(bt.getBitsWidth)
+              unassignedBits.add(bt.getBitsWidth - 1, 0)
+              unassignedBits.remove(assignedBits)
+              PendingError(s"PARTIALLY ASSIGNED REGISTER $bt, unassigned bit mask is ${unassignedBits.toBinaryString}, defined at\n${bt.getScalaLocationLong}")
+            }
           }
         }
       case _ =>

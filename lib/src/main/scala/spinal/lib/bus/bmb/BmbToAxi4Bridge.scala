@@ -6,8 +6,8 @@ import spinal.lib.bus.amba4.axi._
 
 case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 7) extends Component{
   val axiConfig = Axi4Config(
-    addressWidth = bmbConfig.addressWidth,
-    dataWidth    = bmbConfig.dataWidth,
+    addressWidth = bmbConfig.access.addressWidth,
+    dataWidth    = bmbConfig.access.dataWidth,
     idWidth      = 0,
     useId        = true,
     useSize      = true,
@@ -56,7 +56,7 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 7)
   io.output.arw.write  := io.input.cmd.isWrite
   io.output.arw.addr   := io.input.cmd.address
   io.output.arw.len    := io.input.cmd.transferBeatCountMinusOne.resized
-  io.output.arw.size   := log2Up(bmbConfig.byteCount)
+  io.output.arw.size   := log2Up(bmbConfig.access.byteCount)
   io.output.arw.prot := "010"
   io.output.arw.cache := "1111"
 

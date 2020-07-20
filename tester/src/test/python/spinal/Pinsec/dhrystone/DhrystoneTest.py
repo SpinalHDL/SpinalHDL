@@ -15,7 +15,7 @@ def uartTxBypass(uart,clk,log):
     while True:
         yield RisingEdge(clk)
         if int(uart.io_write_valid) == 1 and int(uart.io_write_ready) == 1:
-            log.write(str(unichr(int(uart.io_write_payload))))
+            log.write(str(chr(int(uart.io_write_payload))))
         yield FallingEdge(clk)
         uart.io_write_ready <= 1
 

@@ -8,9 +8,10 @@ endif
 ifeq ($(TOPLEVEL_LANG),vhdl)
 	VHDL_SOURCES += ${CURDIR}/Dummy.vhd
 	TOPLEVEL=dummy
+	SIM=ghdl
 endif
 
 MODULE=Dummy
 
-include ../common/Makefile.sim
-
+include $(shell cocotb-config --makefiles)/Makefile.inc
+include $(shell cocotb-config --makefiles)/Makefile.sim

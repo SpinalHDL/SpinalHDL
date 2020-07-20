@@ -25,7 +25,7 @@ class BmbBridgeTester(master : Bmb,
     assert(masterCd == slaveCd)
     //        dut.clockDomain.forkSimSpeedPrinter()
 
-    val memorySize = 1 << master.p.addressWidth
+    val memorySize = 1 << master.p.access.addressWidth
     val allowedWrites = mutable.HashMap[Long, Byte]()
     val memory = new BmbMemoryAgent(memorySize) {
       override def setByte(address: Long, value: Byte): Unit = {
@@ -78,8 +78,8 @@ class BmbBridgeTester(master : Bmb,
       Phase.flush.release()
     })
 
-    //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-    val retainers = List.fill(1 << master.p.sourceWidth)(Phase.stimulus.retainer(rspCountTarget)) //TODO
+    //Retain the stimulus phase until at least rspCountTarget transaction completed on each Bmb source id
+    val retainers = List.tabulate(1 << master.p.access.sourceWidth)(source => Phase.stimulus.retainer(if(master.p.access.sources.contains(source)) rspCountTarget else 0))
     agent.rspMonitor.addCallback { _ =>
       if (master.rsp.last.toBoolean) {
         retainers(master.rsp.source.toInt).release()
