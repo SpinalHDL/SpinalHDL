@@ -121,7 +121,7 @@ trait BusIf extends BusIfBase {
   }
 
   private def readGenerator() = {
-    when(doRead){
+    when(askRead){
       switch (readAddress()) {
         RegInsts.foreach{(reg: RegInst) =>
           is(reg.addr){

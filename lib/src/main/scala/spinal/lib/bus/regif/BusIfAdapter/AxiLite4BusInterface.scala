@@ -5,19 +5,14 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4B, AxiLite4R}
 import spinal.lib.bus.misc.SizeMapping
 
-case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, readSync: Boolean = true, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
+case class AxiLite4BusInterface(bus: AxiLite4, sizeMap: SizeMapping, regPre: String = "")(implicit moduleName: ClassName) extends BusIf {
   override def getModuleName = moduleName.name
 
   val readError = Bool()
   val readData  = Bits(bus.config.dataWidth bits)
 
-  if(readSync) {
-    readError.setAsReg() init False
-    readData.setAsReg()  init 0
-  } else {
-    readError := False
-    readData := 0
-  }
+  readError.setAsReg() init False
+  readData.setAsReg()  init 0
 
   val axiAr = bus.readCmd.stage()
   val axiR  = Stream(AxiLite4R(bus.config))
