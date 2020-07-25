@@ -64,6 +64,7 @@ class RegIfExample2 extends Component {
   val M_REG0  = busif.newReg(doc="Word 0")
   val M_REG1  = busif.newReg(doc="Word 1")
   val M_REG2  = busif.newReg(doc="Word 2")
+  val M_REG3  = busif.newReg(doc="中文测试")
 
   val M_REGn  = busif.newRegAt(address= 0x40, doc="Word n")
   val M_REGn1 = busif.newReg(doc="Word n+1")
