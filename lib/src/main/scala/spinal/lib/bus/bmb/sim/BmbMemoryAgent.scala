@@ -14,7 +14,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class BmbMemoryAgent(val memorySize : BigInt = 0) {
-//  val memory = new Array[Byte](memorySize.toInt)
   val memory = SparseMemory()
 
 
