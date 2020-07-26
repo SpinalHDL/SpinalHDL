@@ -168,14 +168,30 @@ object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
   def apply(thats : Seq[Bool]) : UInt = {
-    var ret = UInt(log2Up(thats.length+1) bit)
-    ret := 0
-    for(e <- thats){
-      when(e){
-        ret \= ret + 1
-      }
-    }
-    ret
+    if(thats.isEmpty) return U(0, 0 bits)
+    val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(3)
+    val seeds = groups.map(l => lut.read(U(l.asBits()).resized)).toSeq
+    seeds.reduceBalancedTree(_+_)
+  }
+}
+
+object CountOneOnEach{
+  def args(thats : Bool*) : Seq[UInt] = apply(thats)
+  def apply(thats : BitVector) : Seq[UInt] = apply(thats.asBools)
+  def apply(thats : Seq[Bool]) : Seq[UInt] = {
+    for(bitCount <- 1 to thats.size) yield CountOne(thats.take(bitCount))
+
+    //TODO
+    /*val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(3)
+    val seeds = groups.map(l => lut.read(U(l.asBits()))).toSeq
+    var offset = U(0)
+    for(bitId <- 0 until thats.size) yield {
+      val ret = offset + U(resize(log2Up(bitId + 1) bits)
+      if(bitId % 3 == 2) offset = offset + seeds(bitId/3)
+      ret
+    }*/
   }
 }
 
@@ -945,5 +961,21 @@ object Callable{
     when(isCalled){doIt}
 
     def call() = isCalled := True
+  }
+}
+
+case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
+  val value = dataType()
+  val values = ArrayBuffer[T]()
+  Component.current.afterElaboration{
+    values.size match {
+      case 0 => value := value.getZero
+      case _ => value.assignFromBits(values.map(_.asBits).reduceBalancedTree(_ | _))
+    }
+  }
+  def newPort(): T ={
+    val port = dataType()
+    values += port
+    port
   }
 }
