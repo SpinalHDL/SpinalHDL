@@ -34,7 +34,7 @@ object DmaSg{
     addressWidth = p.writeAddressWidth,
     dataWidth    = p.writeDataWidth
   ).addSources(1, BmbSourceParameter(
-    contextWidth = 0,
+    contextWidth = widthOf(p.WriteContext()),
     lengthWidth = p.writeLengthWidth,
     canRead = false
   ))
@@ -56,6 +56,7 @@ object DmaSg{
     val inputsSinkWidth    = inputs.map(_.sinkWidth).fold(0)(Math.max)
     val readWriteMinDataWidth = Math.min(readDataWidth, writeDataWidth)
     val readWriteMaxDataWidth = Math.max(readDataWidth, writeDataWidth)
+    val writeByteCount = writeDataWidth/8
     assert(outputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(inputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(readWriteMaxDataWidth <= memory.bankCount*memory.bankWidth)
@@ -63,6 +64,11 @@ object DmaSg{
     case class FetchContext() extends Bundle{
       val channel = UInt(log2Up(channels.size) bits)
       val start, stop = UInt(log2Up(readDataWidth/8) bits)
+      val last = Bool()
+    }
+
+    case class WriteContext() extends Bundle{
+      val channel = UInt(log2Up(channels.size) bits)
       val last = Bool()
     }
   }
@@ -88,12 +94,14 @@ object DmaSg{
 
     val ctrl = BmbSlaveFactory(io.ctrl)
 
+    val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
+    val ptrType = HardType(UInt(ptrWidth bits))
 
     val memory = new Area{
       val core = DmaMemoryCore(DmaMemoryCoreParameter(
         layout = p.memory,
         writes = p.inputs.map(p => DmaMemoryCoreWriteParameter(p.byteCount, 0))   :+ DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, 1),
-        reads  = p.outputs.map(p => DmaMemoryCoreReadParameter(p.byteCount, Core.this.p.channels.size + 1))  :+ DmaMemoryCoreReadParameter(io.write.p.access.byteCount,0)
+        reads  = p.outputs.map(p => DmaMemoryCoreReadParameter(p.byteCount, Core.this.p.channels.size + 1))  :+ DmaMemoryCoreReadParameter(io.write.p.access.byteCount, ptrWidth + 1)
       ))
       val ports = new Area{
         val m2b = core.io.writes.last
@@ -103,8 +111,7 @@ object DmaSg{
       }
     }
 
-    val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
-    def ptrType = UInt(ptrWidth bits)
+
 
     class ChannelLogic(val id : Int) extends Area{
       val start = False
@@ -195,8 +202,8 @@ object DmaSg{
 
       val pop = new Area{
         val memory  = Reg(Bool)
-        val address = Reg(UInt(io.read.p.access.addressWidth bits))
-        val bytePerBurst = Reg(UInt(io.read.p.access.lengthWidth bits))
+        val address = Reg(UInt(io.write.p.access.addressWidth bits))
+        val bytePerBurst = Reg(UInt(io.write.p.access.lengthWidth bits))
         val pushDone = Reg(Bool) clearWhen(start)
         val popDone = Reg(Bool) clearWhen(start)
         val veryLastTrigger = False
@@ -214,23 +221,42 @@ object DmaSg{
         val portId = Reg(UInt(log2Up(p.outputs.size) bits))
         val sourceId = Reg(UInt(p.outputsSourceWidth bits))
         val sinkId = Reg(UInt(p.outputsSinkWidth bits))
+//        val commitValid = RegInit(False)
+//        val commitBytes = Reg(UInt(io.write.p.access.lengthWidth bits)) // minus one
+//        when(valid) {
+//          when(bytes >= bytePerBurst) {
+//            commitBytes := bytePerBurst
+//          }
+//        }
+
 
         val arbiter = new Area{
+
           val first = Reg(Bool)
           val busy = RegInit(False)
           val fire = False
           val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
-          val last = bytesLeft <= bytePerBurst
-//          val bytes = first ? (address & bytePerBurst) | (last ? bytesLeft | bytePerBurst) //minus one
-          val request = memory && (fifo.pop.bytes >= bytePerBurst || last)
-//          when(fire){
-//            bytesLeft := bytesLeft - bytes - 1
-//            when(last) {
-//              busy := False
-//            }
-//          }
+          val commitFromBytePerBurst = fifo.pop.bytes > bytePerBurst
+          val byteToCommit = commitFromBytePerBurst ? bytePerBurst | U(0)
+          val last = bytesLeft === byteToCommit
+          def bytesInBurst = byteToCommit //minus one
+          val bytesInBurstP1 = byteToCommit + 1
+//          val bytesInBurst = first ? (address & bytePerBurst) | (last ? bytesLeft | bytePerBurst) //minus one
+          val request = valid && memory && commitFromBytePerBurst && busy
+
+          val decrBytes = fifo.pop.bytesDecr.newPort()
+
+          decrBytes := 0
+          when(fire){
+            bytesLeft := bytesLeft - bytesInBurstP1
+            decrBytes := bytesInBurstP1.resized
+            when(last) {
+              busy := False
+            }
+          }
 
           when(start){
+            busy := True
             bytesLeft := bytes
           }
         }
@@ -304,7 +330,7 @@ object DmaSg{
         val veryLast = Bool()
       }
       val cmd = new Area{
-        val channelsOh = B(channels.map(c => c.valid && c.push.portId === portId))
+        val channelsOh = B(channels.map(c => c.valid &&  !c.pop.memory && c.push.portId === portId))
         val channelsNotEmpty = B(channels.map(c => !c.fifo.pop.empty))
         val context = Context()
         context.channel := channelsOh
@@ -428,100 +454,166 @@ object DmaSg{
     }
 
 
-//    val b2m = new Area {
-//      val arbiter = new Area{
-//        val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, p.channels.size)
-//        (core.io.inputs, channels.map(_.pop.arbiter.request)).zipped.foreach(_.valid := _)
-//
-//        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.payload)
-//        val sel = core.io.output.translateWith(core.io.chosen)
-//        when(sel.fire){
-//          channel(_.pop.arbiter.fire) := True
-//        }
-//      }
-//
-//
-//      val fsm = new Area {
-//        val sel = arbiter.sel.stage()
-//        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.payload)
-//
-//        val fetch = new Area {
-//
-//
-//          val address = Reg(ptrType) init (0)
-//          sel.ready := False
-//
-//          case class FetchContext() extends Bundle {
-//            val last = Bool()
-//          }
-//
-//          val context = FetchContext()
-//          context.last := ???
-//          memory.ports.b2m.cmd.valid := sel.valid
-//          memory.ports.b2m.cmd.address := address
-//          memory.ports.b2m.cmd.context := B(context)
-//
-//          when(memory.ports.b2m.cmd.ready) {
-//            address := address + io.read.p.access.dataWidth / p.memory.bankWidth
-//          }
-//        }
-//
-//          //        for(channelId <- 0 until p.channels.size){
-//          //          channels(channelId).fifo.pop.ptrIncr.newPort() := ((memory.ports.b2m.cmd.fire && sel.payload === channelId) ? U(io.read.p.access.dataWidth/p.memory.bankWidth) | U(0))
-//          //        }
-//
-//        val aggregate = new Area {
-//          val usedBytes = Reg(Bits(p.write.dataWidth bits))
-//          val feedValids = memory.ports.b2m.rsp.mask & ~usedBytes
-//          val feedData = memory.ports.b2m.rsp.data.subdivideIn(8 bits)
-//          val first = Reg(Bool)
-//          val last = Reg(Bool)
-//          val valids = Reg(Bits(p.write.byteCount bits)) init (0)
-//          val buffer = Reg(Vec(Bits(p.write.byteCount bits), p.write.byteCount))
-//          val byteAddress = channel(_.pop.address).resize(log2Up(p.write.byteCount) bits)
-//          //          val bufferFeed = Bits(p.write.byteCount bits)
-//          //          for(byteId <- bufferFeed.range){
-//          //            val toLow = first && byteId < byteAddress
-//          //            val toHigh = last && byteId > (byteAddress + channel(_.bytes).resized)
-//          //            bufferFeed(byteId) := !toLow && !toHigh
-//          //          }
-//
-//          val dataInIndex = U(0) +: CountOneOnEach(valids.dropHigh(1))
-//          val dataInOffset = first ? byteAddress | U(0)
-//          val dataInIndexWithOffset = dataInIndex.map(_ + dataInOffset)
-//          for (byteId <- 0 until p.write.byteCount) {
+    val b2m = new Area {
+      case class FsmCmd() extends Bundle{
+        val channel = UInt(log2Up(p.channels.size) bits)
+        val bytesInBurst = UInt(io.write.p.access.lengthWidth bits)
+        val last = Bool()
+      }
+      val arbiter = new Area{
+        val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, p.channels.size)
+        (core.io.inputs, channels.map(_.pop.arbiter.request)).zipped.foreach(_.valid := _)
+
+        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
+
+        val payload = FsmCmd()
+        payload.channel := core.io.chosen
+        payload.last := channel(_.pop.arbiter.last)
+        payload.bytesInBurst := channel(_.pop.arbiter.bytesInBurst)
+
+        val sel = core.io.output.translateWith(payload)
+        when(sel.fire){
+          channel(_.pop.arbiter.fire) := True
+        }
+      }
+
+
+      val fsm = new Area {
+        val sel = arbiter.sel.stage()
+        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
+
+        val toggle = RegInit(False)
+        toggle := toggle ^ sel.fire
+
+
+        val address = RegNext(channel(_.pop.address))
+        val addressNext = address + sel.bytesInBurst + 1
+
+        case class FetchContext() extends Bundle {
+          val ptr = ptrType()
+          val toggle = Bool()
+        }
+        val fetch = new Area {
+          sel.ready := False
+
+
+
+          val context = FetchContext()
+          context.ptr := channel(_.fifo.pop.ptr)
+          context.toggle := toggle
+
+          memory.ports.b2m.cmd.valid := sel.valid
+          memory.ports.b2m.cmd.address := channel(_.fifo.pop.ptrWithBase).resized
+          memory.ports.b2m.cmd.context := B(context)
+          memory.ports.b2m.cmd.priority := channel(_.priority)
+
+
+
+          for (channelId <- 0 until channels.size) {
+            channels(channelId).fifo.pop.ptrIncr.newPort() := ((sel.valid && sel.channel === channelId && memory.ports.b2m.cmd.ready) ? U(io.read.p.access.dataWidth / p.memory.bankWidth) | U(0)).resized
+          }
+        }
+
+          //        for(channelId <- 0 until p.channels.size){
+          //          channels(channelId).fifo.pop.ptrIncr.newPort() := ((memory.ports.b2m.cmd.fire && sel.payload === channelId) ? U(io.read.p.access.dataWidth/p.memory.bankWidth) | U(0))
+          //        }
+
+        val aggregate = new Area {
+          val context = memory.ports.b2m.rsp.context.as(FetchContext())
+          val memoryPort = memory.ports.b2m.rsp.throwWhen(context.toggle =/= toggle)
+          val usedBytes = Reg(Bits(p.writeDataWidth bits))
+          val feedValids = memoryPort.mask //& ~usedBytes
+          val feedData = memoryPort.data.subdivideIn(8 bits)
+          val first = Reg(Bool)
+          val last = Reg(Bool)
+          val valids = Reg(Bits(p.writeByteCount bits)) init (0)
+          val buffer = Reg(Vec(Bits(8 bits), p.writeByteCount))
+          val byteAddress = address.resize(log2Up(p.writeByteCount) bits)
+          //          val bufferFeed = Bits(p.write.byteCount bits)
+          //          for(byteId <- bufferFeed.range){
+          //            val toLow = first && byteId < byteAddress
+          //            val toHigh = last && byteId > (byteAddress + channel(_.bytes).resized)
+          //            bufferFeed(byteId) := !toLow && !toHigh
+          //          }
+
+          val dataInIndex = U(0) +: CountOneOnEach(valids.dropHigh(1))
+          val dataInOffset = first ? byteAddress | U(0)
+          val dataInIndexWithOffset = dataInIndex.map(_ + dataInOffset)
+//          for (byteId <- 0 until p.writeByteCount) {
 //            when(!valids(byteId)) {
 //              val indexMatch = dataInIndexWithOffset.map(_ === byteId).asBits()
-//              buffer(byteId) := MuxOH(memory.ports.b2m.rsp.mask & indexMatch, feedData)
+//              buffer(byteId) := MuxOH(memoryPort.mask & indexMatch, feedData)
 //            }
 //          }
-//          when(memory.ports.b2m.rsp.valid){
+//          when(memoryPort.valid){
 //
 //            usedBytes := usedBytes |
 //          }
-//
-//
+
+
+          val bufferWillBeCompleted = False
+          val bufferStream = memoryPort.translateWith(NoData).throwWhen(!bufferWillBeCompleted).m2sPipe(flush = sel.ready)
+          val bufferPtr = Reg(ptrType)
+          bufferWillBeCompleted setWhen(memoryPort.valid)
+          when(memoryPort.valid && !bufferStream.isStall){
+            valids := feedValids
+            buffer := feedData
+            bufferPtr := context.ptr
+          }
+
+
 //          first := ???
 //          when(sel.fire) {
 //            //            first := True
 //          }
-//        }
-//
-//        when(arbiter.sel.ready) {
-//          fetch.address := arbiter.channel(_.fifo.pop.address)
+        }
+
+//        when(arbiter.sel.fire) {
 //          aggregate.usedBytes := arbiter.channel(_.fifo.pop.usedBytes)
 //        }
-//      }
-//
-//      val cmd = new Area {
-//
-//        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel)
-//
-//
-//        io.write.cmd.valid := False
-//
-//      }
-//    }
+        val cmd = new Area {
+
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
+
+          val beatCounter = Reg(UInt(io.read.p.access.beatCounterWidth bits))
+          io.write.cmd.arbitrationFrom(aggregate.bufferStream)
+          io.write.cmd.last := beatCounter === io.write.cmd.length >> log2Up(io.read.p.access.byteCount)
+          io.write.cmd.address := address
+          io.write.cmd.opcode := Bmb.Cmd.Opcode.WRITE
+          io.write.cmd.data := B(aggregate.buffer)
+          io.write.cmd.mask := aggregate.valids
+          io.write.cmd.length := sel.bytesInBurst
+
+          val context = p.WriteContext()
+          context.channel := sel.channel
+          context.last := sel.last
+          io.write.cmd.context := B(context)
+
+          when(io.write.cmd.fire){
+            beatCounter := beatCounter + 1
+          }
+          when(io.write.cmd.lastFire || !io.write.cmd.valid){
+            beatCounter := 0
+          }
+
+          when(io.write.cmd.lastFire){
+            sel.ready := True
+            channel(_.pop.address) := addressNext
+            channel(_.fifo.pop.ptr) := aggregate.bufferPtr + 1
+          }
+        }
+      }
+
+
+
+      val rsp = new Area{
+        io.write.rsp.ready := True
+        val context = io.write.rsp.context.as(p.WriteContext())
+        when(io.write.rsp.fire && context.last){
+          channels.map(_.done := True)
+        }
+      }
+    }
 
 
     val mapping = new Area{
@@ -554,13 +646,7 @@ object DmaSg{
     }
 
 
-    memory.ports.b2m.rsp.ready := False
-    memory.ports.b2m.cmd.valid := False
-    memory.ports.b2m.cmd.payload.assignDontCare()
     io.interrupts := 0
-    io.write.cmd.valid := False
-    io.write.cmd.payload.assignDontCare()
-    io.write.rsp.ready := False
   }
 }
 
@@ -611,7 +697,13 @@ object DmaSgGen extends App{
   SimConfig.withWave.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
     dut.clockDomain.forkStimulus(10)
 
-    val memory = new BmbMemoryAgent
+    val writesAllowed = mutable.HashMap[Long, Byte]()
+    val memory = new BmbMemoryAgent{
+      override def writeNotification(address: Long, value: Byte): Unit = {
+        assert(writesAllowed.remove(address).get == value)
+        super.setByte(address, value)
+      }
+    }
     memory.addPort(dut.io.read, 0, dut.clockDomain, true)
     memory.addPort(dut.io.write, 0, dut.clockDomain, true)
 
@@ -634,6 +726,11 @@ object DmaSgGen extends App{
       val channelAddress = channelToAddress(channel)
       ctrl.write(address, channelAddress + 0x00)
       ctrl.write(bytePerBurst-1 | 1 << 12, channelAddress + 0x0C)
+    }
+    def channelPopMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
+      val channelAddress = channelToAddress(channel)
+      ctrl.write(address, channelAddress + 0x10)
+      ctrl.write(bytePerBurst-1 | 1 << 12, channelAddress + 0x1C)
     }
     def channelPopStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int): Unit ={
       val channelAddress = channelToAddress(channel)
@@ -662,22 +759,40 @@ object DmaSgGen extends App{
 
     val channelAgent = for((channel, channelId) <- dut.p.channels.zipWithIndex) yield fork {
       val cp = dut.p.channels(channelId)
-      for (_ <- 0 until 1000) {
-        val base = Random.nextInt(0x100)
-        val bytes = Random.nextInt(0x100) + 1
-        val outputId = Random.nextInt(dut.p.outputs.size)
-        val op = dut.p.outputs(outputId)
-        val source = Random.nextInt(1 << op.sourceWidth)
-        val sink = Random.nextInt(1 << op.sinkWidth)
+      val M2M, M2S = new Object
+      for (r <- 0 until 100) {
+        List(M2M, M2S).randomPick() match {
+          case M2M => {
+            val from = Random.nextInt(0x1000) & ~0x3
+            val to = 0x1000 + Random.nextInt(0x1000) & ~0x3
+            val bytes = (Random.nextInt(0x100) + 0x10) / 16 * 16
+            for (byteId <- 0 until bytes) {
+              writesAllowed(to + byteId) = memory.memory.read(from + byteId)
+            }
+            channelPushMemory(channelId, from, 16)
+            channelPopMemory(channelId, to, 16)
+            channelConfig(channelId, 0x100, 0x40, 2)
+            channelStart(channelId, bytes = bytes)
+            channelWaitDone(channelId)
+          }
+          case M2S => {
+            val from = Random.nextInt(0x100)
+            val bytes = Random.nextInt(0x100) + 1
+            val outputId = Random.nextInt(dut.p.outputs.size)
+            val op = dut.p.outputs(outputId)
+            val source = Random.nextInt(1 << op.sourceWidth)
+            val sink = Random.nextInt(1 << op.sinkWidth)
 
-        for (byteId <- 0 until bytes) {
-          outputs(outputId).ref.enqueue((memory.memory.read(base + byteId), source, sink))
+            for (byteId <- 0 until bytes) {
+              outputs(outputId).ref.enqueue((memory.memory.read(from + byteId), source, sink))
+            }
+            channelPushMemory(channelId, from, 16)
+            channelPopStream(channelId, outputId, source, sink)
+            channelConfig(channelId, 0x100, 0x40, 2)
+            channelStart(channelId, bytes = bytes)
+            channelWaitDone(channelId)
+          }
         }
-        channelPushMemory(channelId, base, 16)
-        channelPopStream(channelId, outputId, source, sink)
-        channelConfig(channelId, 0x100, 0x40, 2)
-        channelStart(channelId, bytes = bytes)
-        channelWaitDone(channelId)
       }
     }
 

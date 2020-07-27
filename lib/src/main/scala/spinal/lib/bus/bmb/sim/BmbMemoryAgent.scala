@@ -20,6 +20,7 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
   def getByteAsInt(address : Long) = getByte(address).toInt & 0xFF
   def getByte(address : Long) = memory.read(address)
   def setByte(address : Long, value : Byte) = memory.write(address, value)
+  def writeNotification(address : Long, value : Byte) = memory.write(address, value)
 
   def addPort(bus : Bmb,
               busAddress : Long,
@@ -100,6 +101,9 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
             val address = bus.cmd.address.toLong + busAddress
             val data = bus.cmd.data.toBigInt
             val beatAddress = (address & ~(bus.p.access.byteCount - 1)) + cmdBeat * bus.p.access.byteCount
+            for (byteId <- 0 until bus.p.access.byteCount) if ((mask & (1l << byteId)) != 0) {
+              writeNotification(beatAddress + byteId, (data >> byteId * 8).toByte)
+            }
             writeFragments += {() =>
               for (byteId <- 0 until bus.p.access.byteCount) if ((mask & (1l << byteId)) != 0) {
                 setByte(beatAddress + byteId, (data >> byteId * 8).toByte)

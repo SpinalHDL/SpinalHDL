@@ -154,7 +154,7 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
         val bufferOut = bufferIn.s2mPipe()
         io.reads(i).rsp << bufferOut
 
-        val full = bufferOut.isStall || !bufferIn.ready
+        val full = bufferOut.isStall
       }
 
       val priority = Reg(UInt(p.layout.priorityWidth << log2Up(p.reads.size) bits)) randBoot()
