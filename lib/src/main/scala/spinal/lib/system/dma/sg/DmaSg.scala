@@ -6,10 +6,11 @@ import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bsb._
 import spinal.lib.bus.bsb.sim.BsbMonitor
-import spinal.lib.sim.{SparseMemory, StreamReadyRandomizer}
+import spinal.lib.sim.{SparseMemory, StreamDriver, StreamReadyRandomizer}
 import spinal.lib.system.dma.sg.DmaSg.Parameter
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
@@ -97,10 +98,17 @@ object DmaSg{
     val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
     val ptrType = HardType(UInt(ptrWidth bits))
 
+    case class InputContext(ip : BsbParameter) extends Bundle {
+      val channel = Bits(p.channels.size bits)
+      val bytes = UInt(log2Up(ip.byteCount + 1) bits)
+      val flush = Bool()
+    }
+
+
     val memory = new Area{
       val core = DmaMemoryCore(DmaMemoryCoreParameter(
         layout = p.memory,
-        writes = p.inputs.map(p => DmaMemoryCoreWriteParameter(p.byteCount, 0))   :+ DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, 1),
+        writes = p.inputs.map(p => DmaMemoryCoreWriteParameter(p.byteCount, widthOf(InputContext(p))))   :+ DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, 1),
         reads  = p.outputs.map(p => DmaMemoryCoreReadParameter(p.byteCount, Core.this.p.channels.size + 1))  :+ DmaMemoryCoreReadParameter(io.write.p.access.byteCount, ptrWidth + 1)
       ))
       val ports = new Area{
@@ -268,58 +276,58 @@ object DmaSg{
 
 
 
-//    val s2b = for(portId <- 0 until p.inputs.size) {
-//      val ps = p.inputs(portId)
-//      case class Context() extends Bundle {
-//        val channel = Bits(p.channels.size bits)
-//        val bytes = UInt(log2Up(ps.byteCount) bits)
-//        val flush = Bool()
-//      }
-//
-//      def memoryPort = memory.ports.s2b(portId)
-//
-//      def sink = io.inputs(portId)
-//      val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
-//
-//      val cmd = new Area {
-//        //todo drop
-//        val channelsOh = B(channels.map(c => c.valid && c.push.portId === portId && c.push.sinkId === sink.sink))
-//        val channelsFull = B(channels.map(c => c.fifo.push.wordAvailable >= bankPerBeat))
-//        val sinkHalted = sink.haltWhen((channelsOh & channelsFull).orR)
-//        val used = Reg(Bits(ps.byteCount bits)) init(0)
-//        val maskNoSat = sinkHalted.mask & ~used
-//        val byteValidId = U(0) +: CountOneOnEach(maskNoSat.dropHigh(1))
-//        val byteLeft = MuxOH(channelsOh, channels.map(_.push.bytesLeft))
-//        val mask = B((0 until ps.byteCount).map(byteId => maskNoSat(byteId) && byteValidId(byteId) <= byteLeft))
-//        val context = Context()
-//        context.channel := channelsOh
-//        context.bytes := CountOne(mask)
-//        sinkHalted.ready     := sinkHalted.ready && mask === maskNoSat // Do not consume transactions when they are partialy used
-//        memoryPort.cmd.valid := sinkHalted.valid
-//        memoryPort.cmd.address := MuxOH(channelsOh, channels.map(_.fifo.push.address))
-//        memoryPort.cmd.data := sinkHalted.data
-//        memoryPort.cmd.mask := used
-//        memoryPort.cmd.context := B(context)
-//        for (channelId <- 0 until channels.size) {
-//          channels(channelId).fifo.push.ptrIncr.newPort() := ((channelsOh(channelId) && sinkHalted.fire) ? U(bankPerBeat) | U(0))
-//        }
-//        when(memoryPort.cmd.fire){
-//          used := used | memoryPort.cmd.mask
-//        }
-//        when(sink.ready){
-//          used := 0
-//        }
-//      }
-//
-//      val rsp = new Area{
-//        val context = memoryPort.rsp.context.as(Context())
-//        for (channelId <- 0 until channels.size) {
-//          val hit = memoryPort.rsp.fire && context.channel === channelId
-//          channels(channelId).fifo.pop.bytesIncr.newPort := (hit ? context.bytes | U(0))
-//          channels(channelId).fifo.pop.flush.newPort := RegNext(hit && context.flush).init(False)
-//        }
-//      }
-//    }
+    val s2b = for(portId <- 0 until p.inputs.size) yield new Area{
+      val ps = p.inputs(portId)
+
+      def memoryPort = memory.ports.s2b(portId)
+
+      def sink = io.inputs(portId)
+      val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
+
+      val cmd = new Area {
+        //todo drop
+        val channelsOh = B(channels.map(c => c.valid && c.push.portId === portId && c.push.sinkId === sink.sink))
+        val channelsFull = B(channels.map(c => c.fifo.push.available < bankPerBeat))
+        val sinkHalted = sink.haltWhen((channelsOh & channelsFull).orR)
+        val used = Reg(Bits(ps.byteCount bits)) init(0)
+        val maskNoSat = sinkHalted.mask & ~used
+        val byteValidId = U(0) +: CountOneOnEach(maskNoSat.dropHigh(1))
+        val byteLeft = MuxOH(channelsOh, channels.map(_.push.bytesLeft))
+        val mask = B((0 until ps.byteCount).map(byteId => maskNoSat(byteId) && byteValidId(byteId) <= byteLeft))
+        val byteInUse = CountOne(maskNoSat).min(byteLeft)
+        val context = InputContext(ps)
+        context.channel := channelsOh
+        context.bytes := CountOne(mask)
+        context.flush := False //TODO
+        sinkHalted.ready     := memoryPort.cmd.ready && mask === maskNoSat // Do not consume transactions when they are partialy used
+        memoryPort.cmd.valid := sinkHalted.valid
+        memoryPort.cmd.address := MuxOH(channelsOh, channels.map(_.fifo.push.ptrWithBase)).resized
+        memoryPort.cmd.data := sinkHalted.data
+        memoryPort.cmd.mask := mask
+        memoryPort.cmd.priority := MuxOH(channelsOh, channels.map(_.priority))
+        memoryPort.cmd.context := B(context)
+        for (channelId <- 0 until channels.size) {
+          val hit = channelsOh(channelId) && sinkHalted.fire
+          channels(channelId).fifo.push.ptrIncr.newPort() := (hit ? U(bankPerBeat) | U(0)).resized
+          channels(channelId).fifo.pop.bytesIncr.newPort() := (hit ? byteInUse | U(0)).resized
+        }
+        when(memoryPort.cmd.fire){
+          used := used | memoryPort.cmd.mask
+        }
+        when(sink.ready){
+          used := 0
+        }
+      }
+
+      val rsp = new Area{
+        val context = memoryPort.rsp.context.as(InputContext(ps))
+        for (channelId <- 0 until channels.size) {
+          val hit = memoryPort.rsp.fire && context.channel === channelId
+          channels(channelId).fifo.pop.bytesIncr.newPort := (hit ? context.bytes | U(0)).resized
+          channels(channelId).fifo.pop.flush.newPort := RegNext(hit && context.flush).init(False)
+        }
+      }
+    }
 
     val b2s = for(portId <- 0 until p.outputs.size) yield new Area{
       def source = io.outputs(portId)
@@ -674,11 +682,11 @@ object DmaSgGen extends App{
       )
     ),
     inputs = Seq(
-     /* BsbParameter(
+      BsbParameter(
         byteCount   = 4,
         sourceWidth = 4,
         sinkWidth   = 4
-      )*/
+      )
     ),
     channels = Seq(
       DmaSg.Channel(
@@ -717,7 +725,36 @@ object DmaSgGen extends App{
         assert(sink == e._3)
       }
     }
+    case class Packet(source : Int, sink : Int){
+      val data = mutable.Queue[Int]()
+    }
+    val inputs = for(inputId <- 0 until p.inputs.size) yield new {
+      val ip = p.inputs(inputId)
+      val readyDriver = StreamReadyRandomizer(dut.io.outputs(inputId), dut.clockDomain)
 
+      val packets = ArrayBuffer[Packet]()
+      val driver = StreamDriver(dut.io.inputs(inputId), dut.clockDomain) { p =>
+        if (packets.isEmpty) {
+          false
+        } else {
+          val packet = packets.randomPick()
+          var data = BigInt(0)
+          var mask = BigInt(0)
+          for (byteId <- 0 until ip.byteCount) {
+            data |= BigInt(packet.data.dequeue()) << byteId * 8
+            mask |= 1 << byteId
+          }
+          p.data #= data
+          p.mask #= mask
+          p.source #= packet.source
+          p.sink #= packet.sink
+          p.last #= false //TODO
+
+          if(packet.data.isEmpty) packets.remove(packets.indexOf(packet))
+          true
+        }
+      }
+    }
 
     val ctrl = BmbDriver(dut.io.ctrl, dut.clockDomain)
 
@@ -731,6 +768,11 @@ object DmaSgGen extends App{
       val channelAddress = channelToAddress(channel)
       ctrl.write(address, channelAddress + 0x10)
       ctrl.write(bytePerBurst-1 | 1 << 12, channelAddress + 0x1C)
+    }
+    def channelPushStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int): Unit ={
+      val channelAddress = channelToAddress(channel)
+      ctrl.write(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x08)
+      ctrl.write(0, channelAddress + 0x0C)
     }
     def channelPopStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int): Unit ={
       val channelAddress = channelToAddress(channel)
@@ -759,9 +801,31 @@ object DmaSgGen extends App{
 
     val channelAgent = for((channel, channelId) <- dut.p.channels.zipWithIndex) yield fork {
       val cp = dut.p.channels(channelId)
-      val M2M, M2S = new Object
+      val M2M, M2S, S2M = new Object
       for (r <- 0 until 100) {
-        List(M2M, M2S).randomPick() match {
+        List(M2M, M2S, S2M).randomPick() match {
+          case S2M => {
+            val to = 0x100
+            val bytes = 0x40
+            val inputId = Random.nextInt(dut.p.outputs.size)
+            val ip = dut.p.inputs(inputId)
+            val source = Random.nextInt(1 << ip.sourceWidth)
+            val sink = Random.nextInt(1 << ip.sinkWidth)
+
+            val packet = Packet(source = source, sink = sink)
+            for (byteId <- 0 until bytes) {
+              val value = Random.nextInt & 0xFF
+              writesAllowed(to + byteId) = value.toByte
+              packet.data.enqueue(value)
+            }
+
+            channelPushStream(channelId, inputId, source, sink)
+            channelPopMemory(channelId, to, 16)
+            channelConfig(channelId, 0x100, 0x40, 2)
+            channelStart(channelId, bytes = bytes)
+            inputs(inputId).packets += packet
+            channelWaitDone(channelId)
+          }
           case M2M => {
             val from = Random.nextInt(0x1000) & ~0x3
             val to = 0x1000 + Random.nextInt(0x1000) & ~0x3
