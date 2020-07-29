@@ -27,6 +27,7 @@ final case class JsonGenerator(fileName : String) extends MMSlaveFactoryVisitor 
             s"""|{
                 |   "addr"   : ${descr.getAddr()},
                 |   "name"   : "${descr.getName()}",
+                |   "access" : "${descr.getAccess()}",
                 |   "doc"    : "${clean(descr.getDoc())}",
                 |   "fields" :[\n""".stripMargin
 
@@ -35,7 +36,6 @@ final case class JsonGenerator(fileName : String) extends MMSlaveFactoryVisitor 
             sb ++= fieldPrefix
             sb ++=
                 s"""|       {
-                    |           "accType" : "${f.getAccessType()}",
                     |           "name"    : "${f.getName()}",
                     |           "width"   : ${f.getWidth()},
                     |           "reset"   : ${f.getResetValue()},

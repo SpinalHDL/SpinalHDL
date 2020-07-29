@@ -78,20 +78,14 @@ final case class CHeaderGenerator(
 
             pw.println("\tstruct {")
             t.fields.foreach( f => {
-                val name = f.getAccessType match {
-                    case AccessType.NA => {
-                        i += 1
-                        s"reserved_${i}"
-                    }
-                    case default => f.getName
-                }
+                val name = f.getName
                 pw.write(s"\t\t$regType ${name} ")
                 pw.write(" " * (len - name.length))                
                 pw.println(s": ${f.getWidth.formatted("%2d")};")
             })
 
             pw.println("\t} reg;")
-            pw.println(s"} ${prefix.toLowerCase}_${t.name.toLowerCase()}_t;\n")
+            pw.println(s"} ${prefix.toLowerCase}_${t.name.toLowerCase().replace(" ", "_")}_t;\n")
         }
         
         pw.write(s"#endif /* ${guardName} */")

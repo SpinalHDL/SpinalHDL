@@ -22,18 +22,18 @@ final case class HtmlGenerator(fileName : String, name : String) extends MMSlave
         if(value == 0) s"${bitCount}'b0" else s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
     }
 
-    def genTds(field : FieldDescr) : String = {
-        val reserved = if (field.getAccessType == AccessType.NA) "reserved" else ""
+    def genTds(field : FieldDescr, access : String) : String = {
+        val reserved = if (field.isReserved) "reserved" else ""
         s"""            <td class="${reserved}">${Section(field.getSection)}</td>
            |            <td class="${reserved}">${field.getName}</td>
-           |            <td class="${reserved}" align="center">${field.getAccessType}</td>
+           |            <td class="${reserved}" align="center">${access}</td>
            |            <td class="${reserved}" align="right">${formatResetValue(field.getResetValue, field.getWidth)}</td>
            |            <td class="${reserved} fixWidth2">${field.getDoc}</td>""".stripMargin
     }
 
-    def genTr(field : FieldDescr): String = {
+    def genTr(field : FieldDescr, access : String): String = {
         s"""          <tr align="left">
-           |${genTds(field)}
+           |${genTds(field, access)}
                       </tr>""".stripMargin
     }
 
@@ -45,10 +45,10 @@ final case class HtmlGenerator(fileName : String, name : String) extends MMSlave
            |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
            |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
            |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
-           |${genTds(descr.getFieldDescrs.last)}
+           |${genTds(descr.getFieldDescrs.last, descr.getAccess)}
            |          </tr>""".stripMargin
 
-        descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_))
+        descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_,descr.getAccess))
     }
 
     def end() : Unit = {

@@ -14,15 +14,17 @@ class Field(name: String,
 
   // FieldDescr implementation
   def getName()       : String     = name
-  def getWidth()      : Int        = hardbit.getWidth
+  def getWidth()      : Int        = section.length
   def getSection()    : Range      = section
-  def getAccessType() : AccessType = AccessType.NA
   def getResetValue() : Long       = resetValue
   def getDoc()        : String     = doc
+  def isReserved()    : Boolean    = false;
 }
 
 class Reserved(name: String,
                hardbit: Bits,
                section: Range,
                doc: String) extends Field(name, hardbit, section, 0, false, doc) with FieldDescr {
+  
+  override def isReserved() : Boolean = true;
 }

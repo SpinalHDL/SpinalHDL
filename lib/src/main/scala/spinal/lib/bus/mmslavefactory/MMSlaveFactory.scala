@@ -25,7 +25,7 @@ trait MMSlaveFactoryBase extends Area {
 }
 
 trait MMSlaveFactory extends MMSlaveFactoryBase {
-  private val entries = ListBuffer[CombEntry]()
+  private val entries = ListBuffer[Entry]()
 
   component.addPrePopTask(() => {
     readGenerator()
@@ -43,10 +43,20 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
     ret
   }
 
+  def createWriteOnlyReg(name: String, addr: Long, doc: String) = {
+    val ret = new WriteOnlyRegEntry(name, addr, doc, this)
+    entries += ret
+    ret
+  }
+
   def createClearReg(name: String, addr: Long, doc: String) = {
     val ret = new ClearRegEntry(name, addr, doc, this)
     entries += ret
     ret
+  }
+
+  def assignWriteData(that : Data) = {
+    that.assignFromBits(writeData)
   }
 
   def accept(vs : MMSlaveFactoryVisitor) = {
@@ -62,12 +72,11 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   def readGenerator() = {
     when(doRead){
       switch (readAddress()) {
-        entries.foreach{(reg: CombEntry) =>
+        entries.foreach{(reg: Entry) =>
+          reg.finish
           is(reg.getAddress){
-            if(!reg.allIsNA){
-              readData  := reg.readBits
-              readError := Bool(reg.readErrorTag)
-            }
+            readData  := reg.readBits
+            readError := Bool(reg.readErrorTag)
           }
         }
         default{
