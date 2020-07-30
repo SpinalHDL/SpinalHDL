@@ -2,8 +2,10 @@ package spinal.lib.sim
 import java.nio.file.{Files, Paths}
 
 import spinal.core.sim._
+import spinal.lib.bus.misc.SizeMapping
 import spinal.sim.SimManagerContext
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -127,3 +129,37 @@ case class SparseMemory(){
     }
   }
 }
+
+
+case class MemoryRegionAllocator(base : Long, size : Long){
+  val allocations = mutable.HashSet[SizeMapping]()
+  def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
+  def free(region : SizeMapping) = allocations.remove(region)
+  def allocate(sizeMax : Long, sizeMin : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+  def allocate(size : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base, size)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+}
+
