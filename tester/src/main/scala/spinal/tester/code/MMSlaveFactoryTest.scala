@@ -31,8 +31,8 @@ class MMSlaveFactoryExample extends Component {
   val secret2 = regSecret.newField(8 bits, 0x0, "Secret 2")
 
   val regValue = slavFac.createReadOnlyReg("value", 0x10, "Values")
-  val value1 = regValue.field(secret1, 0x0, "Value 1")
-  val value2 = regValue.field(secret2, 0x0, "Value 2")
+  val value1 = regValue.addField(secret1, 0x0, "Value 1")
+  val value2 = regValue.addField(secret2, 0x0, "Value 2")
 }
 
 object MMSlaveFactory {

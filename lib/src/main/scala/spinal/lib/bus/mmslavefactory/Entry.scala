@@ -67,7 +67,7 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
     ret
   }
 
-  def field[T <: Data](that: T, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Unit = {
+  def addField[T <: Data](that: T, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Unit = {
     val section : Range = fieldPtr + that.getBitsWidth-1 downto fieldPtr
     val ret : Bits = genDataHandler(that, section, resetValue)
     fields   += new Field(symbol.name, ret, section, resetValue, rerror, doc)
@@ -77,7 +77,7 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   def newField(bc : BitCount, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val data : Bits = Bits(bc)
     data := B(resetValue)
-    field(data, resetValue, doc)
+    addField(data, resetValue, doc)
     data
   }
 
@@ -118,7 +118,7 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
 
   override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val data : Bits = Reg(Bits(bc)) init(resetValue)
-    field(data, resetValue, doc)(symbol)
+    addField(data, resetValue, doc)(symbol)
     data
   }
 
