@@ -13,7 +13,7 @@ class SimThread(body: => Unit) {
     val thread = SimManagerContext.current.thread
     assert(thread != this)
     if (!this.isDone) {
-      waitingThreads += thread.resume
+      waitingThreads += thread.managerResume
       thread.suspend()
     }
   }
@@ -49,8 +49,12 @@ class SimThread(body: => Unit) {
     manager.context.thread = SimThread.this
   }
 
+  def resume(): Unit = {
+    SimManagerContext.current.manager.schedule(0)(this.managerResume())
+  }
 
-  def resume() = {
+  //Should only be used from the sim manager itself, not from a simulation thread
+  def managerResume() = {
     jvmThread.unpark()
     jvmThread.barrier.await()
     if (isDone) {

@@ -217,6 +217,8 @@ package object sim {
     }
   }
 
+  def simThread = SimManagerContext.current.thread
+
   /**
     * Add implicit function to BaseType for simulation
     */
@@ -750,4 +752,26 @@ package object sim {
 
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
+
+  case class SimMutex(){
+    val queue = mutable.Queue[SimThread]()
+    var locked = false
+    def lock(){
+      val t = simThread
+      if(locked) {
+        queue.enqueue(t)
+        t.suspend()
+      } else {
+        locked = true
+      }
+    }
+    def unlock(){
+      assert(locked)
+      if(queue.nonEmpty) {
+        queue.dequeue().resume()
+      } else {
+        locked = false
+      }
+    }
+  }
 }

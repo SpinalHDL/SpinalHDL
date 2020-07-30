@@ -190,7 +190,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   def schedule(delay : Long, thread : SimThread): Unit = {
-    val s = new SimCallSchedule(time + delay, thread.resume)
+    val s = new SimCallSchedule(time + delay, thread.managerResume)
     schedule(s)
   }
 
