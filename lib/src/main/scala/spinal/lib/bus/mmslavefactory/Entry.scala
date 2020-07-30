@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer
+import spinal.lib.Flow
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -146,6 +147,13 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
     val read : Bits = Bits(bus.busDataWidth bits)
     read.clearAll()
     read
+  }
+
+  def newFlowField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Flow[Bits] = {
+    val data : Flow[Bits] = Reg(Flow(Bits(bc)))
+    addField(data.payload, resetValue, doc)(symbol)
+    data.valid := eventW()
+    data
   }
 
   override def getAccess() : String = "WO"
