@@ -6,9 +6,9 @@ import spinal.lib.sim.StreamMonitor
 import spinal.core.sim._
 
 object BsbMonitor{
-  def apply(bsb : Bsb, cd : ClockDomain)(body : (Byte, Int,Int) => Unit) = new BsbMonitor(bsb, cd) {
-    override def onByte(value: Byte, source : Int, sink : Int): Unit = body(value, source, sink)
-  }
+//  def apply(bsb : Bsb, cd : ClockDomain)(body : (Byte, Int,Int) => Unit) = new BsbMonitor(bsb, cd) {
+//    override def onByte(value: Byte, source : Int, sink : Int): Unit = body(value, source, sink)
+//  }
 }
 
 abstract class BsbMonitor(bsb : Bsb, cd : ClockDomain) extends StreamMonitor(bsb, cd){
@@ -17,10 +17,13 @@ abstract class BsbMonitor(bsb : Bsb, cd : ClockDomain) extends StreamMonitor(bsb
     val data = p.data.toBigInt
     val source = p.source.toInt
     val sink = p.sink.toInt
+    val withLast = bsb.last.toBoolean
     for(i <- 0 until bsb.p.byteCount){
       if(mask.testBit(i)) onByte((data >> i*8).toByte, source, sink)
     }
+    if(withLast) onLast(source,sink)
   }
 
   def onByte(value : Byte, source : Int, sink : Int): Unit
+  def onLast(source : Int, sink : Int): Unit
 }
