@@ -108,6 +108,7 @@ object DmaSg{
     case class M2sWriteContext() extends Bundle{
       val last = Bool()
       val channel = UInt(log2Up(p.channels.size) bits)
+      val loadByteInNextBeat = UInt(log2Up(p.readDataWidth/8 + 1) bits)
     }
 
     val memory = new Area{
@@ -269,7 +270,7 @@ object DmaSg{
             }
           }
 
-          when(valid && pushDone && memPending === 0 && fifo.pop.bytes === 0){
+          when(valid && memory && pushDone && memPending === 0 && fifo.pop.bytes === 0){
             popDone := True
           }
 
@@ -468,15 +469,6 @@ object DmaSg{
           channel(_.pop.veryLastTrigger) := True
         }
 
-        val writeContext = M2sWriteContext()
-        writeContext.last := veryLast
-        writeContext.channel := context.channel
-        memory.ports.m2b.cmd.address := channel(_.fifo.push.ptrWithBase).resized
-        memory.ports.m2b.cmd.arbitrationFrom(io.read.rsp)
-        memory.ports.m2b.cmd.data := io.read.rsp.data
-        memory.ports.m2b.cmd.priority := channel(_.priority)
-        memory.ports.m2b.cmd.context := B(writeContext)
-
         val first = io.read.rsp.first
         val last = io.read.rsp.last
         for (byteId <- memory.ports.m2b.cmd.mask.range) {
@@ -485,11 +477,20 @@ object DmaSg{
           memory.ports.m2b.cmd.mask(byteId) := !toLow && !toHigh
         }
 
-        val loadByteInNextBeat = ((last ? context.stop | context.stop.maxValue) -^ (first ? context.start | 0)) + 1
+        val writeContext = M2sWriteContext()
+        writeContext.last := veryLast
+        writeContext.channel := context.channel
+        writeContext.loadByteInNextBeat := ((last ? context.stop | context.stop.maxValue) -^ (first ? context.start | 0))
+        memory.ports.m2b.cmd.address := channel(_.fifo.push.ptrWithBase).resized
+        memory.ports.m2b.cmd.arbitrationFrom(io.read.rsp)
+        memory.ports.m2b.cmd.data := io.read.rsp.data
+        memory.ports.m2b.cmd.priority := channel(_.priority)
+        memory.ports.m2b.cmd.context := B(writeContext)
+
+
         for (channelId <- 0 until p.channels.size) {
           val fire = memory.ports.m2b.cmd.fire && context.channel === channelId
           channels(channelId).fifo.push.ptrIncr.newPort := (fire ? U(io.read.p.access.dataWidth / p.memory.bankWidth) | U(0)).resized
-          channels(channelId).fifo.pop.bytesIncr.newPort := (fire ? loadByteInNextBeat | U(0)).resized
         }
 
       }
@@ -497,9 +498,13 @@ object DmaSg{
       val writeRsp = new Area{
         val context = memory.ports.m2b.rsp.context.as(M2sWriteContext())
         def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(context.channel)
-        when(memory.ports.m2b.rsp.fire && memory.ports.m2b.rsp.context(0)){
+        when(memory.ports.m2b.rsp.fire && context.last){
           channel(_.pop.pushDone) := True
           channel(_.pop.flush) := True
+        }
+        for (channelId <- 0 until p.channels.size) {
+          val fire = memory.ports.m2b.rsp.fire && context.channel === channelId
+          channels(channelId).fifo.pop.bytesIncr.newPort := (fire ? (context.loadByteInNextBeat + 1) | U(0)).resized
         }
       }
     }
@@ -799,7 +804,7 @@ object DmaSgGen extends App{
     contextWidth = 4,
     lengthWidth  = 2
   )
-  SimConfig.allOptimisation.withWave.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
+  SimConfig.allOptimisation.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.forkSimSpeedPrinter(2.0)
 
@@ -937,9 +942,9 @@ object DmaSgGen extends App{
       val cp = dut.p.channels(channelId)
       val M2M, M2S, S2M = new Object
       var tests = ArrayBuffer[Object]()
-//      tests += M2M
+      tests += M2M
       tests += M2S
-//      tests += S2M
+      tests += S2M
       for (r <- 0 until 1000) {
         dut.clockDomain.waitSampling(Random.nextInt(100))
         tests.randomPick() match {
@@ -967,7 +972,9 @@ object DmaSgGen extends App{
             channelPopMemory(channelId, to.base.toInt, 16)
             channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
             fork{
-              waitUntil(channelStarted(channelId))
+              while(!channelStarted(channelId)){
+                dut.clockDomain.waitSampling(Random.nextInt(5))
+              }
               inputs(inputId).packets += packet
             }
             channelStartAndWait(channelId, bytes)
