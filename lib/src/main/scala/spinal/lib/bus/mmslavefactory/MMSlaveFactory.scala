@@ -59,6 +59,26 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
     that.assignFromBits(writeData)
   }
 
+  def createIrqRegs(name : String, addr : Long, triggers : Bool*): Bool = {
+    triggers.size match {
+      case 0 => SpinalError("There are no trigger signals.")
+      case x if x > busDataWidth => SpinalError(s"Trigger signal number exceed bus width ${busDataWidth}")
+      case _ =>
+    }
+    val ENS    = createReg("irq enable", addr, "Interrupt Enable Register")
+    val MASKS  = createReg("irq mask", addr + 0x4, "Interrupt Mask   Register")
+    val STATUS = createClearReg("irq status", addr + 0x8, "Interrupt status Register")
+    val intWithMask = new ListBuffer[Bool]()
+    triggers.foreach(trigger => {
+      val en   = ENS.newField(1 bits, doc= "irq enable")(SymbolName(s"${name}_en"))(0)
+      val mask = MASKS.newField(1 bits, doc= "irq mask")(SymbolName(s"${name}_mask"))(0)
+      val stat = STATUS.newField(1 bits, doc= "irq status")(SymbolName(s"${name}_stat"))(0)
+      when(trigger && en) {stat.set()}
+      intWithMask +=  mask && stat
+    })
+    intWithMask.foldLeft(False)(_||_)
+  }
+
   def accept(vs : MMSlaveFactoryVisitor) = {
     vs.begin(busDataWidth)
 

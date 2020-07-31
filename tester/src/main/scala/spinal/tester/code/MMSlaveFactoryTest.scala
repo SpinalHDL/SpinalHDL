@@ -13,24 +13,27 @@ class MMSlaveFactoryExample extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16,32)))
   }
-
+  
   val slavFac = Apb3MMSlaveFactory(io.apb,(0x000,1 KiB), 0)
+  
+  val dummy = Reg(Bool) init(false)
+  val irq = slavFac.createIrqRegs("irq", 0x0, dummy)
 
-  val regVersion = slavFac.createReadOnlyReg("version", 0x0, "Version number")
+  val regVersion = slavFac.createReadOnlyReg("version", 0x4, "Version number")
   val versionMajor = regVersion.newField(4 bits, 0x1, "Major version")
   val versionMinor = regVersion.newField(8 bits, 0x23, "Minor version")
 
-  val regAddr = slavFac.createReg("address", 0x4, "Destination address")
+  val regAddr = slavFac.createReg("address", 0x8, "Destination address")
   val address = regAddr.newField(32 bits, 0, "Address")
 
-  val irqStatus = slavFac.createClearReg("IRQ status", 0x8, "IRQ status and clear")
+  val irqStatus = slavFac.createClearReg("IRQ status", 0xc, "IRQ status and clear")
   val status = irqStatus.newField(4 bits, 0x3, "IRQ status")
 
-  val regSecret = slavFac.createWriteOnlyReg("Secret", 0xc, "Secret data")
+  val regSecret = slavFac.createWriteOnlyReg("Secret", 0x10, "Secret data")
   val secret1 = regSecret.newField(16 bits, 0x0, "Secret 1")
   val secretFlow = regSecret.newFlowField(8 bits, 0x0, "Secret Flow")
 
-  val regValue = slavFac.createReadOnlyReg("value", 0x10, "Values")
+  val regValue = slavFac.createReadOnlyReg("value", 0x14, "Values")
   val value1 = regValue.addField(secret1, 0x0, "Value 1")
   val value2 = regValue.addField(secretFlow.payload, 0x0, "Value 2")
 }
@@ -54,26 +57,26 @@ object MMSlaveFactory {
 
       dut.clockDomain.waitSampling(10)
       
-      apb.read(0x0)
-
-      dut.clockDomain.waitSampling(10)
-
-      apb.write(0x4, 0xdeadbeefl)
       apb.read(0x4)
 
       dut.clockDomain.waitSampling(10)
 
+      apb.write(0x8, 0xdeadbeefl)
       apb.read(0x8)
-      apb.write(0x8, 0x5l)
 
       dut.clockDomain.waitSampling(10)
 
-      apb.read(0x8)
+      apb.read(0xc)
+      apb.write(0xc, 0x5l)
+
+      dut.clockDomain.waitSampling(10)
+
+      apb.read(0xc)
 
       dut.clockDomain.waitSampling(10)
       
-      apb.write(0xc, 0xal)
-      apb.read(0x10)
+      apb.write(0x10, 0xal)
+      apb.read(0x14)
 
       dut.clockDomain.waitSampling(10)
     }
