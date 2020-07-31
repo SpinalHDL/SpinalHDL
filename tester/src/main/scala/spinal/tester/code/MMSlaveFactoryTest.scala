@@ -17,23 +17,20 @@ class MMSlaveFactoryExample extends Component {
   val slavFac = Apb3MMSlaveFactory(io.apb,(0x000,1 KiB), 0)
   
   val dummy = Reg(Bool) init(false)
-  val irq = slavFac.createIrqRegs("irq", 0x0, dummy)
+  val irq = slavFac.createIrqRegs("irq", dummy)
 
-  val regVersion = slavFac.createReadOnlyReg("version", 0x4, "Version number")
+  val regVersion = slavFac.createReadOnlyReg("version", "Version number")
   val versionMajor = regVersion.newField(4 bits, 0x1, "Major version")
   val versionMinor = regVersion.newField(8 bits, 0x23, "Minor version")
 
-  val regAddr = slavFac.createReg("address", 0x8, "Destination address")
+  val regAddr = slavFac.createReg("address", "Destination address")
   val address = regAddr.newField(32 bits, 0, "Address")
 
-  val irqStatus = slavFac.createClearReg("IRQ status", 0xc, "IRQ status and clear")
-  val status = irqStatus.newField(4 bits, 0x3, "IRQ status")
-
-  val regSecret = slavFac.createWriteOnlyReg("Secret", 0x10, "Secret data")
+  val regSecret = slavFac.createWriteOnlyReg("Secret", "Secret data")
   val secret1 = regSecret.newField(16 bits, 0x0, "Secret 1")
   val secretFlow = regSecret.newFlowField(8 bits, 0x0, "Secret Flow")
 
-  val regValue = slavFac.createReadOnlyReg("value", 0x14, "Values")
+  val regValue = slavFac.createReadOnlyReg("value", "Values")
   val value1 = regValue.addField(secret1, 0x0, "Value 1")
   val value2 = regValue.addField(secretFlow.payload, 0x0, "Value 2")
 }
