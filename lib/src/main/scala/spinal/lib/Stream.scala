@@ -377,7 +377,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
   def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "halfPipe")
+    val ret = Stream(payloadType).setCompositeName(this, "halfPipe", weak = true)
 
     val regs = new Area {
       val valid = RegInit(False)
