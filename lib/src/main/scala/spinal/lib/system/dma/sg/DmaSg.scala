@@ -273,6 +273,10 @@ object DmaSg{
         }
       }
 
+      val s2b = new Area{
+        val full = fifo.push.available < p.memory.bankCount || push.loadDone
+      }
+
       fifo.push.available := fifo.push.available - Mux(push.memory, fifo.push.availableDecr, fifo.push.ptrIncr.value) + fifo.pop.ptrIncr.value
 
 
@@ -304,7 +308,7 @@ object DmaSg{
 
       val cmd = new Area {
         val channelsOh = B(channels.map(c => c.valid && !c.push.memory && c.push.portId === portId && c.push.sinkId === sink.sink))
-        val channelsFull = B(channels.map(c => c.fifo.push.available < bankPerBeat || c.push.loadDone))
+        val channelsFull = B(channels.map(_.s2b.full))
         val sinkHalted = sink.throwWhen(!channelsOh.orR).haltWhen((channelsOh & channelsFull).orR)
         val used = Reg(Bits(ps.byteCount bits)) init(0)
         val maskNoSat = sinkHalted.mask & ~used
@@ -313,10 +317,10 @@ object DmaSg{
         val mask = B((0 until ps.byteCount).map(byteId => maskNoSat(byteId) && byteValidId(byteId) <= byteLeft))
         val byteInUse = CountOne(maskNoSat).min(byteLeft)
         val context = InputContext(ps)
-        val byteCount = CountOne(memoryPort.cmd.mask)
+        val byteCount = CountOne(mask)
         val veryLast = byteLeft < byteCount
         context.channel := channelsOh
-        context.bytes := CountOne(mask)
+        context.bytes := byteCount
         context.flush := sink.last || veryLast
         context.veryLast := veryLast
         sinkHalted.ready     := memoryPort.cmd.ready && mask === maskNoSat // Do not consume transactions when they are partialy used
