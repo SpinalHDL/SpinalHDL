@@ -9,7 +9,6 @@ import spinal.lib.bus.bsb.sim.BsbMonitor
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim.{MemoryRegionAllocator, SparseMemory, StreamDriver, StreamReadyRandomizer}
 import spinal.lib.system.dma.sg.DmaSg.Parameter
-import spinal.lib.system.dma.sg.DmaSgGen.{Aggregator, AggregatorParameter}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -688,10 +687,119 @@ object DmaSg{
 
 
   }
+
+
+  case class AggregatorParameter[T <: Data](byteCount : Int, burstLength : Int, context : HardType[T])
+  case class AggregatorCmd[T <: Data](p : AggregatorParameter[T]) extends Bundle{
+    val data = Bits(p.byteCount*8 bits)
+    val mask = Bits(p.byteCount bits)
+    val context = p.context()
+  }
+  case class AggregatorRsp[T <: Data](p : AggregatorParameter[T]) extends Bundle{
+    val data = out Bits(p.byteCount*8 bits)
+    val mask = out Bits(p.byteCount bits)
+    val enough = in Bool()
+    val consume = in Bool()
+    val context = out (p.context())
+    val consumed = out Bool()
+    val lastByteUsed = in UInt(log2Up(p.byteCount) bits)
+    val usedUntil = out UInt(log2Up(p.byteCount) bits)
+  }
+  case class Aggregator[T <: Data](p : AggregatorParameter[T]) extends Component {
+    val io = new Bundle {
+      val input = slave Stream(AggregatorCmd(p))
+      val output = AggregatorRsp(p)
+      val flush = in Bool()
+      val offset = in UInt(log2Up(p.byteCount) bits)
+      val burstLength = in UInt(p.burstLength bits)
+    }
+
+
+    val s0 = new Area{
+      val countOnes = CountOneOnEach(io.input.mask)
+
+      val offset = Reg(UInt(log2Up(p.byteCount) bits))
+      val offsetNext = offset + countOnes.last
+      when(io.input.fire){
+        offset := offsetNext.resized
+      }
+      when(io.flush){
+        offset := io.offset
+      }
+
+      val byteCounter = Reg(UInt(p.burstLength + 1 bits))
+      when(io.input.fire){
+        byteCounter := byteCounter + countOnes.last
+      }
+      when(io.flush){
+        byteCounter := 0
+      }
+
+      val inputIndexes = Vec((U(0) +: countOnes.dropRight(1)).map(_ + offset))
+      case class S0Output() extends Bundle{
+        val cmd = AggregatorCmd(p)
+        val index = cloneOf(inputIndexes)
+        val last = Bool()
+      }
+      val outputPayload = S0Output()
+      outputPayload.cmd := io.input.payload
+      outputPayload.index := inputIndexes
+      outputPayload.last := offsetNext.msb
+      val output = io.input.translateWith(outputPayload)
+    }
+
+    val s1 = new Area{
+      val input = s0.output.m2sPipe(flush = io.flush)
+      input.ready := !io.output.enough || io.output.consume
+      when(s0.byteCounter > io.burstLength){
+        input.ready := False
+      }
+
+      io.output.consumed := input.fire
+      io.output.context := input.cmd.context
+
+      val inputDataBytes = input.cmd.data.subdivideIn(8 bits)
+      val byteLogic = for(byteId <- 0 until p.byteCount) yield new Area{
+        val buffer = new Area{
+          val valid = Reg(Bool)
+          val data = Reg(Bits(8 bits))
+        }
+        val selOh = (0 until p.byteCount).map(inputId => input.cmd.mask(inputId) && input.index(inputId) === byteId)
+        val sel = OHToUInt(selOh)
+        val lastUsed = byteId === io.output.lastByteUsed
+        val inputMask = (B(selOh) & input.cmd.mask).orR
+        val inputData = MuxOH(selOh, inputDataBytes)
+        val outputMask = buffer.valid || (input.valid && inputMask)
+        val outputData = buffer.valid ? buffer.data | inputData
+
+        io.output.mask(byteId) := outputMask
+        io.output.data(byteId*8, 8 bits) := outputData
+        when(io.output.consume){
+          buffer.valid := False
+        }
+        when(input.fire){
+          when(input.last){
+            buffer.valid := False
+          }
+          when(inputMask && (!io.output.consume || buffer.valid)) {
+            buffer.valid := True
+            buffer.data := inputData
+          }
+        }
+        when(io.flush){
+          buffer.valid := byteId < io.offset //might be not necessary
+        }
+      }
+
+      io.output.usedUntil := MuxOH(byteLogic.map(_.lastUsed), byteLogic.map(_.sel))
+    }
+  }
 }
 
 
-object DmaSgGen extends App{
+
+
+object SpinalSimDmaSgTester extends App{
   import spinal.core.sim._
   val p = Parameter(
     readAddressWidth  = 30,
@@ -776,7 +884,7 @@ object DmaSgGen extends App{
     contextWidth = 4,
     lengthWidth  = 2
   )
-  SimConfig.allOptimisation.withWave.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
+  SimConfig.allOptimisation.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.forkSimSpeedPrinter(2.0)
 
@@ -1064,110 +1172,94 @@ object DmaSgGen extends App{
     channelAgent.foreach(_.join())
     dut.clockDomain.waitSampling(1000)
   }
-
-  case class AggregatorParameter[T <: Data](byteCount : Int, burstLength : Int, context : HardType[T])
-  case class AggregatorCmd[T <: Data](p : AggregatorParameter[T]) extends Bundle{
-    val data = Bits(p.byteCount*8 bits)
-    val mask = Bits(p.byteCount bits)
-    val context = p.context()
-  }
-  case class AggregatorRsp[T <: Data](p : AggregatorParameter[T]) extends Bundle{
-    val data = out Bits(p.byteCount*8 bits)
-    val mask = out Bits(p.byteCount bits)
-    val enough = in Bool()
-    val consume = in Bool()
-    val context = out (p.context())
-    val consumed = out Bool()
-    val lastByteUsed = in UInt(log2Up(p.byteCount) bits)
-    val usedUntil = out UInt(log2Up(p.byteCount) bits)
-  }
-  case class Aggregator[T <: Data](p : AggregatorParameter[T]) extends Component {
-    val io = new Bundle {
-      val input = slave Stream(AggregatorCmd(p))
-      val output = AggregatorRsp(p)
-      val flush = in Bool()
-      val offset = in UInt(log2Up(p.byteCount) bits)
-      val burstLength = in UInt(p.burstLength bits)
-    }
-
-
-    val s0 = new Area{
-      val countOnes = CountOneOnEach(io.input.mask)
-
-      val offset = Reg(UInt(log2Up(p.byteCount) bits))
-      val offsetNext = offset + countOnes.last
-      when(io.input.fire){
-        offset := offsetNext.resized
-      }
-      when(io.flush){
-        offset := io.offset
-      }
-
-      val byteCounter = Reg(UInt(p.burstLength + 1 bits))
-      when(io.input.fire){
-        byteCounter := byteCounter + countOnes.last
-      }
-      when(io.flush){
-        byteCounter := 0
-      }
-
-      val inputIndexes = Vec((U(0) +: countOnes.dropRight(1)).map(_ + offset))
-      case class S0Output() extends Bundle{
-        val cmd = AggregatorCmd(p)
-        val index = cloneOf(inputIndexes)
-        val last = Bool()
-      }
-      val outputPayload = S0Output()
-      outputPayload.cmd := io.input.payload
-      outputPayload.index := inputIndexes
-      outputPayload.last := offsetNext.msb
-      val output = io.input.translateWith(outputPayload)
-    }
-
-    val s1 = new Area{
-      val input = s0.output.m2sPipe(flush = io.flush)
-      input.ready := !io.output.enough || io.output.consume
-      when(s0.byteCounter > io.burstLength){
-        input.ready := False
-      }
-
-      io.output.consumed := input.fire
-      io.output.context := input.cmd.context
-
-      val inputDataBytes = input.cmd.data.subdivideIn(8 bits)
-      val byteLogic = for(byteId <- 0 until p.byteCount) yield new Area{
-        val buffer = new Area{
-          val valid = Reg(Bool)
-          val data = Reg(Bits(8 bits))
-        }
-        val selOh = (0 until p.byteCount).map(inputId => input.cmd.mask(inputId) && input.index(inputId) === byteId)
-        val sel = OHToUInt(selOh)
-        val lastUsed = byteId === io.output.lastByteUsed
-        val inputMask = (B(selOh) & input.cmd.mask).orR
-        val inputData = MuxOH(selOh, inputDataBytes)
-        val outputMask = buffer.valid || (input.valid && inputMask)
-        val outputData = buffer.valid ? buffer.data | inputData
-
-        io.output.mask(byteId) := outputMask
-        io.output.data(byteId*8, 8 bits) := outputData
-        when(io.output.consume){
-          buffer.valid := False
-        }
-        when(input.fire){
-          when(input.last){
-            buffer.valid := False
-          }
-          when(inputMask && (!io.output.consume || buffer.valid)) {
-            buffer.valid := True
-            buffer.data := inputData
-          }
-        }
-        when(io.flush){
-          buffer.valid := byteId < io.offset //might be not necessary
-        }
-      }
-
-      io.output.usedUntil := MuxOH(byteLogic.map(_.lastUsed), byteLogic.map(_.sel))
-    }
-  }
 }
+
+
+object SgDmaSynt extends App{
+  val p = Parameter(
+    readAddressWidth  = 30,
+    readDataWidth     = 32,
+    readLengthWidth   = 6,
+    writeAddressWidth = 30,
+    writeDataWidth    = 32,
+    writeLengthWidth  = 6,
+    memory = DmaMemoryLayout(
+      //      bankCount            = 1,
+      //      bankWidth            = 32,
+      bankCount            = 1,
+      bankWidth            = 32,
+      //      bankCount            = 4,
+      //      bankWidth            = 8,
+      //      bankCount            = 2,
+      //      bankWidth            = 32,
+      bankWords            = 256,
+      priorityWidth        = 2
+    ),
+    outputs = Seq(
+      BsbParameter(
+        byteCount   = 4,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      )/*,
+      BsbParameter(
+        byteCount   = 4,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      ),
+      BsbParameter(
+        byteCount   = 2,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      ),
+      BsbParameter(
+        byteCount   = 2,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      )*/
+    ),
+    inputs = Seq(
+      BsbParameter(
+        byteCount   = 4,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      )/*,
+      BsbParameter(
+        byteCount   = 4,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      ),
+      BsbParameter(
+        byteCount   = 2,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      ),
+      BsbParameter(
+        byteCount   = 2,
+        sourceWidth = 0,
+        sinkWidth   = 4
+      )*/
+    ),
+    channels = Seq(
+      DmaSg.Channel(
+
+      )/*,
+      DmaSg.Channel(
+
+      ),
+      DmaSg.Channel(
+
+      )*/
+    ),
+    bytePerTransferWidth = 24
+  )
+  val pCtrl = BmbParameter(
+    addressWidth = 12,
+    dataWidth    = 32,
+    sourceWidth  = 0,
+    contextWidth = 4,
+    lengthWidth  = 2
+  )
+ SpinalVerilog(new DmaSg.Core(p, pCtrl))
+}
+
+
