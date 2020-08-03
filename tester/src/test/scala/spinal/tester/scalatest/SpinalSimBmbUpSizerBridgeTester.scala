@@ -3,32 +3,27 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core.sim._
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
-import spinal.lib.bus.bmb.{BmbUpSizerBridge, BmbParameter}
+import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter, BmbUpSizerBridge}
+
+import scala.collection.mutable
 
 class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
   test("test1") {
     SimConfig.compile {
+      val inputParameter =  BmbAccessParameter(
+        addressWidth = 16,
+        dataWidth = 32
+      ).addSources(16, BmbSourceParameter(
+        lengthWidth = 5,
+        contextWidth = 3,
+        canRead = true,
+        canWrite = true,
+        alignment = BmbParameter.BurstAlignement.BYTE
+      )).toBmbParameter()
+
       BmbUpSizerBridge(
-        inputParameter = BmbParameter(
-          addressWidth = 16,
-          dataWidth = 32,
-          lengthWidth = 5,
-          sourceWidth = 4,
-          contextWidth = 3,
-          canRead = true,
-          canWrite = true,
-          alignment = BmbParameter.BurstAlignement.BYTE
-        ),
-        outputParameter = BmbParameter(
-          addressWidth = 16,
-          dataWidth = 64,
-          lengthWidth = 5,
-          sourceWidth = 0,
-          contextWidth = 3 + 2 + 4,
-          canRead = true,
-          canWrite = true,
-          alignment = BmbParameter.BurstAlignement.BYTE
-        )
+        inputParameter = inputParameter,
+        outputParameter = BmbUpSizerBridge.outputParameterFrom(inputParameter.access, 64).toBmbParameter()
       )
     }.doSimUntilVoid("test", 42) { dut =>
       new BmbBridgeTester(
@@ -43,19 +38,19 @@ class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
 
   test("test2") {
     SimConfig.compile {
-      val inputParameter = BmbParameter(
+      val inputParameter = BmbAccessParameter(
         addressWidth = 16,
-        dataWidth = 16,
+        dataWidth = 16
+      ).addSources(16, BmbSourceParameter(
         lengthWidth = 5,
-        sourceWidth = 4,
         contextWidth = 3,
         canRead = true,
         canWrite = true,
         alignment = BmbParameter.BurstAlignement.BYTE
-      )
+      )).toBmbParameter()
       BmbUpSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbUpSizerBridge.outputParameterFrom(inputParameter, 64)
+        outputParameter = BmbUpSizerBridge.outputParameterFrom(inputParameter.access, 64).toBmbParameter()
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(
@@ -70,19 +65,19 @@ class SpinalSimBmbUpSizerBridgeTester extends SpinalSimFunSuite{
 
   test("test3") {
     SimConfig.compile {
-      val inputParameter = BmbParameter(
+      val inputParameter = BmbAccessParameter(
         addressWidth = 16,
-        dataWidth = 32,
+        dataWidth = 32
+      ).addSources(16, BmbSourceParameter(
         lengthWidth = 5,
-        sourceWidth = 4,
         contextWidth = 3,
         canRead = true,
         canWrite = true,
         alignment = BmbParameter.BurstAlignement.BYTE
-      )
+      )).toBmbParameter()
       BmbUpSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbUpSizerBridge.outputParameterFrom(inputParameter, 256)
+        outputParameter = BmbUpSizerBridge.outputParameterFrom(inputParameter.access, 256).toBmbParameter()
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(

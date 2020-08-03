@@ -60,13 +60,13 @@ class BmbInterconnectTester {
           allowedWrites(addressLong) = data
         }
 
-        override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << m.bus.p.addressWidth), sizeMax, m.bus.p)
+        override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << m.bus.p.access.addressWidth), sizeMax, m.bus.p)
         override def regionFree(region: SizeMapping): Unit = regions.free(region)
         override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = {
           slaves.exists{model =>
             val opcodeOk = opcode match {
-              case Bmb.Cmd.Opcode.WRITE => model.bus.p.canWrite
-              case Bmb.Cmd.Opcode.READ => model.bus.p.canRead
+              case Bmb.Cmd.Opcode.WRITE => model.bus.p.access.canWrite
+              case Bmb.Cmd.Opcode.READ => model.bus.p.access.canRead
             }
             val addressOk = model.mapping == DefaultMapping || model.mapping.lowerBound <= region.end && model.mapping.asInstanceOf[SizeMapping].end >= region.base
 
@@ -83,8 +83,8 @@ class BmbInterconnectTester {
         Phase.flush.release()
       })
 
-      //Retain the stimulus phase until at least 300 transaction completed on each Bmb source id
-      val retainers = List.fill(1 << m.bus.p.sourceWidth)(Phase.stimulus.retainer(perSourceRspCountTarget)) //TODO
+      //Retain the stimulus phase until at least perSourceRspCountTarget transaction completed on each Bmb source id
+      val retainers = List.tabulate(1 << m.bus.p.access.sourceWidth)(source => Phase.stimulus.retainer(if(m.bus.p.access.sources.contains(source)) perSourceRspCountTarget else 0))
       agent.rspMonitor.addCallback{_ =>
         if(m.bus.rsp.last.toBoolean){
           retainers(m.bus.rsp.source.toInt).release()

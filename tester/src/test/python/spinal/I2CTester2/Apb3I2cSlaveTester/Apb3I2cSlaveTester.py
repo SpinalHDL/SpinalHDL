@@ -244,7 +244,7 @@ def test1(dut):
     yield idle()
     yield addressFilter(index = 2, enable = True, is10Bits = False, value = 0x63)
     yield addressFilter(index = 1, enable = True, is10Bits = True, value = 0x123)
-    for i in xrange(2):
+    for i in range(2):
         #7bits
         yield softMaster.wait(2)
         yield softMaster.sendStart()

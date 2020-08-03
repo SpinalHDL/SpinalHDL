@@ -22,7 +22,7 @@ object Dependable{
       p.add task {h.load(body)}
       p.products += h
       p
-    }
+    }.setCompositeName(h, "generator", true)
     h
   }
 }
@@ -72,7 +72,7 @@ object Handle{
   implicit def handleToHandle[T, T2 <: T](h : Handle[T2]) : Handle[T] = h.asInstanceOf[ Handle[T]]
   implicit def keyImplicit[T](key : Handle[T]): T = key.get
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
-  implicit def initImplicit[T](value : T) : Handle[T] = Handle(value)
+  implicit def initImplicit[T](value : T) : Handle[T] = Handle(value) //TODO might need to remove that dangerous one ?
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
   implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
@@ -102,7 +102,7 @@ class HandleCore{
   def get : Any = {
     if(!loaded){
       subscribers.count(_.lazyDefaultAvailable) match {
-        case 0 => SpinalError("Can't get that Handle")
+        case 0 => SpinalError(s"Can't get that Handle ($this)")
         case 1 => load(subscribers.find(_.lazyDefaultAvailable).get.lazyDefault())
         case _ => SpinalError("Multiple handle default values")
       }
@@ -124,6 +124,8 @@ class HandleCore{
   }
 
   def isLoaded = loaded || subscribers.exists(_.lazyDefaultAvailable)
+
+  override def toString: String = s"[${subscribers.map(_.toString()).mkString(", ")}]"
 }
 
 class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
@@ -136,6 +138,13 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
     core.subscribers += this
   }
 
+  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = new Generator{
+    dependencies += that
+    products += this
+    add task {
+      Handle.this.load(body(that))
+    }
+  }
   def merge[T2 <: T](that : Handle[T2]): Unit = this.core.merge(that.core)
 
   def apply : T = get.asInstanceOf[T]
@@ -160,7 +169,7 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
   override def lazyDefault() : T = lazyDefaultGen().asInstanceOf[T]
   override def lazyDefaultAvailable: Boolean = lazyDefaultGen != null
 
-  override def toString: String = (if(generator != null) generator.toString + "/" else "") + super.toString
+  override def toString: String = getName() // (if(generator != null) generator.toString + "/" else "") + super.toString
 }
 
 
@@ -175,6 +184,14 @@ object Generator{
 
 case class Product[T](src :() => T, handle : Handle[T])
 
+object GeneratorCompiler{
+  def apply[T <: Generator](g : T): Unit ={
+    val c = new GeneratorCompiler()
+    c.rootGenerators += g
+    c.build()
+  }
+}
+
 class Generator() extends Area with Dependable with PostInitCallback with TagContainer with OverridedEqualsHashCode{
   @dontName var parent : Generator = null
   if(Generator.stack.nonEmpty && Generator.stack.head != null){
@@ -185,7 +202,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
   Generator.stack.push(this)
   var elaborated = false
   @dontName implicit var c : GeneratorCompiler = null
-//  @dontName implicit val p : Plugin = this
+  //  @dontName implicit val p : Plugin = this
   @dontName val dependencies = ArrayBuffer[Dependable]()
   @dontName val tasks = ArrayBuffer[Task[_]]()
   @dontName val generators = ArrayBuffer[Generator]()
@@ -213,26 +230,26 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     generatorClockDomainSet = true
     generatorClockDomain.load(null)
   }
-  def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
-    generatorClockDomainSet = true
-    this.generatorClockDomain.merge(clockDomain)
-    dependencies += clockDomain
-    this
-  }
-
   def apply[T](body : => T): T = {
     Generator.stack.push(this)
     val b = body
     Generator.stack.pop()
     b
   }
-//  {
-//    val stack = Composable.stack
-//    if(stack.nonEmpty) stack.head.generators += this
-//  }
+
+  def onClockDomain(clockDomain : Handle[ClockDomain]): this.type ={
+    generatorClockDomainSet = true
+    this.generatorClockDomain.merge(clockDomain)
+    dependencies += clockDomain
+    this
+  }
+  //  {
+  //    val stack = Composable.stack
+  //    if(stack.nonEmpty) stack.head.generators += this
+  //  }
 
   //User API
-//  implicit def lambdaToGenerator[T](lambda : => T) = new Task(() => lambda)
+  //  implicit def lambdaToGenerator[T](lambda : => T) = new Task(() => lambda)
   def add = new {
     def task[T](gen : => T) : Handle[T] = {
       val handle = Handle[T]
@@ -242,7 +259,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     }
   }
   def add[T <: Generator](generator : => T) : T = {
-//    generators += generator
+    //    generators += generator
     apply(generator)
   }
 
@@ -252,12 +269,12 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     apply {
       for (task <- tasks) {
         task.build()
-//        task.handle.get match {
-//          case n: Nameable => {
-//            n.setCompositeName(this, true)
-//          }
-//          case _ =>
-//        }
+        //        task.handle.get match {
+        //          case n: Nameable => {
+        //            n.setCompositeName(this, true)
+        //          }
+        //          case _ =>
+        //        }
       }
     }
     if(generatorClockDomain.get != null) generatorClockDomain.pop()
@@ -289,14 +306,6 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
   def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
     node.produce(this.tags += new Dts(node, value))
     node
-  }
-}
-
-object GeneratorCompiler{
-  def apply[T <: Generator](g : T): Unit ={
-    val c = new GeneratorCompiler()
-    c.rootGenerators += g
-    c.build()
   }
 }
 
@@ -345,13 +354,14 @@ class GeneratorCompiler {
         val missingDepedancies = unelaborateds.flatMap(_.dependencies).toSet.filter(!_.isDone)
         val missingHandle = missingDepedancies.filter(_.isInstanceOf[Handle[_]]).map(_.asInstanceOf[Handle[Any]])
         val producatable = unelaborateds.flatMap(_.products).map(_.core).toSet
+        val withoutSources = missingHandle.filter(e => !producatable.contains(e.core))
         SpinalError(
           s"Composable hang, remaings generators are :\n" +
           s"${unelaborateds.map(p => s"- ${p} depend on ${p.dependencies.filter(d => !d.isDone).mkString(", ")}\n").mkString}" +
           s"\nDependable not completed :\n" +
           s"${missingDepedancies.map(d => "- " + d + "\n").mkString}" +
           s"\nHandles without potential sources :\n" +
-          s"${missingHandle.filter(e => !producatable.contains(e.core)).map(d => "- " + d + "\n").mkString}"
+          s"${withoutSources.map(d => "- " + d + "\n").mkString}"
         )
       }
       step += 1

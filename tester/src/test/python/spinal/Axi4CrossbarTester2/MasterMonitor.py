@@ -17,7 +17,7 @@ class ReadOnlyMasterMonitor(Infrastructure):
         StreamMonitor(self.axi.r, self.onReadRsp, self.dut.clk, self.dut.reset)
 
     def onReadCmd(self,cmd):
-        for i in xrange(cmd.len + 1):
+        for i in range(cmd.len + 1):
             rsp = Transaction()
             rsp.hid = cmd.hid
             if cmd.addr < (1 << 14):

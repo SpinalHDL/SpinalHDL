@@ -7,16 +7,11 @@ import spinal.lib.blackbox.lattice.ice40.SB_SPRAM256KA
 
 
 object BmbIce40Spram{
-  def busCapabilities(size : BigInt) = BmbParameter(
-    addressWidth  = log2Up(size),
-    dataWidth     = 32,
-    lengthWidth   = 2,
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
-    canRead       = true,
-    canWrite      = true,
-    alignment     = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
+  def busCapabilities(size : BigInt) = BmbAccessCapabilities(
+    addressWidth   = log2Up(size),
+    dataWidth      = 32,
+    lengthWidthMax = 2,
+    alignment      = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -27,9 +22,9 @@ case class BmbIce40Spram(p: BmbParameter) extends Component{
     val bus = slave(Bmb(p))
   }
 
-  assert(p.addressWidth >= 16)
+  assert(p.access.addressWidth >= 16)
   val bankSel = io.bus.cmd.address >> 16
-  val bankCount = 1 << (p.addressWidth - 16)
+  val bankCount = 1 << (p.access.addressWidth - 16)
   val banks = for(bankId <- 0 until bankCount) yield new Area {
     val mems = List.fill(2)(SB_SPRAM256KA())
     mems(0).DATAIN := io.bus.cmd.data(15 downto 0)

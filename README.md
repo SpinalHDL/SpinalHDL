@@ -17,6 +17,7 @@ SpinalHDL is:
 - Presentation of the language   <br> https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Getting%20Started/presentation.html
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalTemplateSbt
 - Gradle base project            <br> https://github.com/SpinalHDL/SpinalTemplateGradle
+- jupyter bootcamp               <br> https://github.com/SpinalHDL/Spinal-bootcamp
 - Workshop                       <br> https://github.com/SpinalHDL/SpinalWorkshop
 - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
 

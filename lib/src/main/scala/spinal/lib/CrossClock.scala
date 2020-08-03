@@ -40,7 +40,9 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
 
 
 object PulseCCByToggle {
-  def apply(input: Bool, clockIn: ClockDomain, clockOut: ClockDomain): Bool = {
+  def apply(input: Bool,
+            clockIn: ClockDomain,
+            clockOut: ClockDomain): Bool = {
     val c = new PulseCCByToggle(clockIn,clockOut)
     c.io.pulseIn := input
     return c.io.pulseOut

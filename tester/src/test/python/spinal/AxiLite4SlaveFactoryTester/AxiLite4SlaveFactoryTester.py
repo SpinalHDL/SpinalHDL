@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.result import TestFailure

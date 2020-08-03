@@ -4,31 +4,34 @@ import spinal.core._
 import spinal.lib._
 
 object BmbUnburstify{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(
-    lengthWidth = log2Up(inputParameter.byteCount),
-    contextWidth = inputParameter.contextWidth + 2 + inputParameter.sourceWidth
-  )
+  def outputAccessParameter(inputParameter : BmbAccessParameter) = {
+    val aggregated = inputParameter.aggregated
+    inputParameter.withSingleSource(aggregated.copy(
+      lengthWidth = log2Up(inputParameter.byteCount),
+      contextWidth = aggregated.contextWidth + 2 + inputParameter.sourceWidth
+    ))
+  }
 }
 
 //TODO check inputParameter requirements
 case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
-  val outputParameter = BmbUnburstify.outputParameter(inputParameter)
+  val outputAccessParameter = BmbUnburstify.outputAccessParameter(inputParameter.access)
 
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
-    val output = master(Bmb(outputParameter))
+    val output = master(Bmb(outputAccessParameter, inputParameter.invalidation))
   }
 
   val doResult = Bool
-  val addrIncrRange = (Math.min(Bmb.boundaryWidth-1, inputParameter.addressWidth - 1) downto 0)
+  val addrIncrRange = (Math.min(Bmb.boundaryWidth-1, inputParameter.access.addressWidth - 1) downto 0)
 
   val buffer = new Area{
     val valid       = RegInit(False)
     val opcode      = Reg(Bits(1 bits))
-    val source      = Reg(UInt(inputParameter.sourceWidth bits))
-    val address     = Reg(UInt(inputParameter.addressWidth bits))
-    val context     = Reg(Bits(inputParameter.contextWidth bits))
-    val beat        = Reg(UInt(inputParameter.beatCounterWidth bits))
+    val source      = Reg(UInt(inputParameter.access.sourceWidth bits))
+    val address     = Reg(UInt(inputParameter.access.addressWidth bits))
+    val context     = Reg(Bits(inputParameter.access.contextWidth bits))
+    val beat        = Reg(UInt(inputParameter.access.beatCounterWidth bits))
     val last        = beat === 1
     val addressIncr = Bmb.incr(address = address, p = inputParameter)
     val isWrite = Bmb.Cmd.Opcode.isWrite(opcode)
@@ -45,34 +48,33 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
   val cmdTransferBeatCount = io.input.cmd.transferBeatCountMinusOne
   val requireBuffer = cmdTransferBeatCount =/= 0
 
-  if(outputParameter.canWrite) {
+  if(outputAccessParameter.canWrite) {
     io.output.cmd.data := io.input.cmd.data
     io.output.cmd.mask := io.input.cmd.mask
   }
   io.output.cmd.last := True
 
   case class Context() extends Bundle {
-    val context = Bits(inputParameter.contextWidth bits)
     val drop, last = Bool()
-    val source = UInt(inputParameter.sourceWidth bits)
+    val source = UInt(inputParameter.access.sourceWidth bits)
+    val context = Bits(inputParameter.access.contextWidth bits)
   }
   val cmdContext = Context()
   io.output.cmd.context := B(cmdContext)
-  io.output.cmd.source := 0
 
   //payload muxes
   when(buffer.valid) {
     io.output.cmd.address := buffer.addressIncr
     io.output.cmd.opcode := buffer.opcode
-    io.output.cmd.length := inputParameter.byteCount-1
+    io.output.cmd.length := inputParameter.access.byteCount-1
     cmdContext.context := buffer.context
     cmdContext.source := buffer.source
   } otherwise {
     io.output.cmd.address := io.input.cmd.address
     io.output.cmd.opcode := io.input.cmd.opcode
     when(requireBuffer) {
-      io.output.cmd.address(inputParameter.wordRange) := 0
-      io.output.cmd.length := inputParameter.byteCount-1 // (inputParameter.byteCount - io.input.cmd.length(inputParameter.wordRange)).resized
+      io.output.cmd.address(inputParameter.access.wordRange) := 0
+      io.output.cmd.length := inputParameter.access.byteCount-1 // (inputParameter.byteCount - io.input.cmd.length(inputParameter.wordRange)).resized
     } otherwise {
       io.output.cmd.length := io.input.cmd.length.resized
     }

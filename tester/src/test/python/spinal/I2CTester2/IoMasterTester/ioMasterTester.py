@@ -1,5 +1,5 @@
 import random
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb import fork, log
@@ -12,7 +12,7 @@ from cocotblib.misc import assertEquals, randInt, ClockDomainAsyncReset, simulat
 from spinal.I2CTester2.lib.misc import OpenDrainInterconnect, I2cSoftMaster
 
 
-cmdToData = [randBits(8) for x in xrange(256)]
+cmdToData = [randBits(8) for x in range(256)]
 
 crapyConflictCounter = 0
 normalConflictCounter = 0

@@ -13,7 +13,7 @@ import scala.util.Random
 
 class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
   test("t1") {
-    SimConfig.withWave.compile(new StreamFifoMultiChannel(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
+    SimConfig.compile(new StreamFifoMultiChannel(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
       val queueModel = ArrayBuffer.fill(4)(mutable.Queue[Long]())
 
       SimTimeout(1000000)
@@ -27,7 +27,7 @@ class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
         assert(!(dut.io.push.full.toBoolean && (dut.io.availability.toInt > 1)))
 
         if (dut.io.push.stream.valid.toBoolean && dut.io.push.stream.ready.toBoolean) {
-          queueModel(dut.io.push.channel.toInt).enqueue(dut.io.push.stream.payload.toLong)
+          queueModel(log2Up(dut.io.push.channel.toInt)).enqueue(dut.io.push.stream.payload.toLong)
         }
         if (dut.io.pop.stream.valid.toBoolean && dut.io.pop.stream.ready.toBoolean) {
           val channel = log2Up(dut.io.pop.channel.toInt)
@@ -37,7 +37,7 @@ class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
         }
         dut.io.push.stream.valid.randomize()
         dut.io.push.stream.payload.randomize()
-        dut.io.push.channel.randomize()
+        dut.io.push.channel #= (1 << Random.nextInt(dut.channelCount))
         dut.io.pop.stream.ready.randomize()
         dut.io.pop.channel #= (1 << Random.nextInt(dut.channelCount))
       }

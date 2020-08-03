@@ -408,8 +408,8 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   }
 
   case class Context() extends Bundle{
-    val input = Bits(ip.contextWidth bits)
-    val source = UInt(ip.sourceWidth bits)
+    val source = UInt(ip.access.sourceWidth bits)
+    val input = Bits(ip.access.contextWidth bits)
   }
 
   val cmdToRspCount = io.output.cmd.write ? U(1) | (io.output.cmd.length +^ 1) << log2Up(cpa.pl.beatCount)
@@ -420,7 +420,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   val toManyRsp = (U"0" @@ rspPendingCounter) + cmdToRspCount > pp.rspBufferSize //pp.rspBufferSize - pp.beatPerBurst*cpa.pl.beatCount //Pessimistic
 
   io.input.cmd.ready := io.output.cmd.ready && !toManyRsp
-  if(ip.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
+  if(ip.access.canWrite) io.input.cmd.ready clearWhen(!io.output.writeData.ready)
 
   val cmdContext = Context()
   cmdContext.input := io.input.cmd.context
@@ -434,7 +434,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.output.cmd.context := B(cmdContext)
   io.output.cmd.burstLast := io.inputBurstLast
 
-  if(ip.canWrite) {
+  if(ip.access.canWrite) {
     io.output.writeData.valid := io.input.cmd.fire && io.input.cmd.isWrite
     io.output.writeData.data := io.input.cmd.data
     io.output.writeData.mask := io.input.cmd.mask
@@ -444,7 +444,7 @@ case class BmbToCorePort(ip : BmbParameter, cpp : CorePortParameter, cpa : CoreP
   io.input.rsp.arbitrationFrom(io.output.rsp)
   io.input.rsp.setSuccess()
   io.input.rsp.last := io.output.rsp.last
-  if(ip.canRead) io.input.rsp.data := io.output.rsp.data
+  if(ip.access.canRead) io.input.rsp.data := io.output.rsp.data
   io.input.rsp.context := rspContext.input
   io.input.rsp.source := rspContext.source
 }

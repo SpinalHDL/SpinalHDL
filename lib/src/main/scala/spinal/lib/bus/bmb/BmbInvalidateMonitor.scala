@@ -4,12 +4,15 @@ import spinal.core._
 import spinal.lib._
 
 object BmbInvalidateMonitor{
-  def outputParameter(inputParameter : BmbParameter) = inputParameter.copy(canInvalidate = false, canSync = false, contextWidth = 1 + inputParameter.contextWidth + inputParameter.addressWidth + inputParameter.lengthWidth)
+  def outputAccessParameter(inputParameter : BmbAccessParameter) = inputParameter.sourcesTransform(s => s.copy(
+    contextWidth = 1 + s.contextWidth + inputParameter.addressWidth + s.lengthWidth
+  ))
+  def outputInvalidationParameter() = BmbInvalidationParameter()
 }
 
 case class BmbInvalidateMonitor(inputParameter : BmbParameter,
                                 pendingInvMax : Int) extends Component{
-  val outputParameter = BmbInvalidateMonitor.outputParameter(inputParameter)
+  val outputParameter = BmbInvalidateMonitor.outputAccessParameter(inputParameter.access)
 
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
@@ -17,9 +20,9 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter,
   }
 
   case class Context() extends Bundle{
-    val context = Bits(inputParameter.contextWidth bits)
-    val address = UInt(inputParameter.addressWidth bits)
-    val length  = UInt(inputParameter.lengthWidth bits)
+    val context = Bits(inputParameter.access.contextWidth bits)
+    val address = UInt(inputParameter.access.addressWidth bits)
+    val length  = UInt(inputParameter.access.lengthWidth bits)
     val write = Bool()
   }
 
