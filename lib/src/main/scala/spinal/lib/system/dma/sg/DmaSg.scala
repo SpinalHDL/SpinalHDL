@@ -6,7 +6,7 @@ import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bsb.{BsbParameter, _}
 import spinal.lib.bus.bsb.sim.BsbMonitor
-import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.sim.{MemoryRegionAllocator, SparseMemory, StreamDriver, StreamReadyRandomizer}
 import spinal.lib.system.dma.sg.DmaSg.Parameter
 
@@ -83,7 +83,7 @@ object DmaSg{
     val interrupt = out Bool()
   }
 
-  case class Core(p : Parameter, ctrlParameter : BmbParameter) extends Component{
+  case class Core[CTRL <: Data with IMasterSlave](p : Parameter, ctrlType : HardType[CTRL], slaveFactory : CTRL => BusSlaveFactory) extends Component{
     val io = new Bundle {
       val read = master(Bmb(getReadRequirements(p)))
       val write = master(Bmb(getWriteRequirements(p)))
@@ -91,10 +91,10 @@ object DmaSg{
       val inputs = Vec(p.inputs.map(s => slave(Bsb(s))))
       val interrupts = out Bits(p.channels.size bits)
 
-      val ctrl = slave(Bmb(ctrlParameter))
+      val ctrl = slave(ctrlType())
     }
 
-    val ctrl = BmbSlaveFactory(io.ctrl)
+    val ctrl = slaveFactory(io.ctrl)
 
     val ptrWidth = log2Up(p.memory.bankWords*p.memory.bankCount) + 1
     val ptrType = HardType(UInt(ptrWidth bits))
@@ -888,7 +888,7 @@ object SpinalSimDmaSgTester extends App{
     contextWidth = 4,
     lengthWidth  = 2
   )
-  SimConfig.allOptimisation.compile(new DmaSg.Core(p, pCtrl)).doSim(seed=42){ dut =>
+  SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.forkSimSpeedPrinter(2.0)
 
@@ -1263,7 +1263,7 @@ object SgDmaSynt extends App{
     contextWidth = 4,
     lengthWidth  = 2
   )
- SpinalVerilog(new DmaSg.Core(p, pCtrl))
+ SpinalVerilog(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_)))
 }
 
 
