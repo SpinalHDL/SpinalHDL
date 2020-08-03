@@ -307,9 +307,11 @@ object DmaSg{
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
 
       val cmd = new Area {
+        val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
         val channelsOh = B(channels.map(c => c.valid && !c.push.memory && c.push.portId === portId && c.push.sinkId === sink.sink))
+        val noHit = !channelsOh.orR
         val channelsFull = B(channels.map(_.s2b.full))
-        val sinkHalted = sink.throwWhen(!channelsOh.orR).haltWhen((channelsOh & channelsFull).orR)
+        val sinkHalted = sink.throwWhen(noHit || throwUntilFirst(sink.sink)).haltWhen((channelsOh & channelsFull).orR)
         val used = Reg(Bits(ps.byteCount bits)) init(0)
         val maskNoSat = sinkHalted.mask & ~used
         val byteValidId = U(0) +: CountOneOnEach(maskNoSat.dropHigh(1))
@@ -343,6 +345,15 @@ object DmaSg{
         }
         when(sink.ready){
           used := 0
+        }
+
+        when(sink.fire){
+          when(noHit){
+            throwUntilFirst(sink.sink) := True
+          }
+          when(sink.last) {
+            throwUntilFirst(sink.sink) := False
+          }
         }
       }
 
@@ -926,6 +937,7 @@ object SpinalSimDmaSgTester extends App{
     }
     case class Packet(source : Int, sink : Int, last : Boolean){
       val data = mutable.Queue[Int]()
+      var done = false
     }
     val inputs = for(inputId <- 0 until p.inputs.size) yield new {
       val ip = p.inputs(inputId)
@@ -946,11 +958,13 @@ object SpinalSimDmaSgTester extends App{
           p.mask #= mask
           p.source #= packet.source
           p.sink #= packet.sink
-          p.last #= false //TODO
-
-//          if(packet.data.isEmpty) {
-//            packets.remove(packets.indexOf(packet))
-//          }
+          if(packet.data.isEmpty && Random.nextBoolean()) {
+            p.last #= packet.last
+            packet.done = true
+            packets.remove(packets.indexOf(packet))
+          } else {
+            p.last #= false
+          }
           true
         }
       }
@@ -1050,7 +1064,7 @@ object SpinalSimDmaSgTester extends App{
       
       while(inputs(inputId).reservedSink.contains(sink)) dut.clockDomain.waitSampling(Random.nextInt(100))
       inputs(inputId).reservedSink.add(sink)
-      val packet = Packet(source = source, sink = sink, last = false)
+      val packet = Packet(source = source, sink = sink, last = true)
       val datas = ArrayBuffer[Int]()
       for (byteId <- 0 until Random.nextInt(100)) {
         val value = Random.nextInt & 0xFF
@@ -1058,9 +1072,8 @@ object SpinalSimDmaSgTester extends App{
       }
       inputs(inputId).packets += packet
 
-      waitUntil(packet.data.isEmpty)
+      waitUntil(packet.done)
       inputs(inputId).reservedSink.remove(sink)
-      inputs(inputId).packets.remove(inputs(inputId).packets.indexOf(packet))
     }
     val channelAgent = for((channel, channelId) <- dut.p.channels.zipWithIndex) yield fork {
       val cp = dut.p.channels(channelId)
@@ -1110,9 +1123,16 @@ object SpinalSimDmaSgTester extends App{
             for (byteId <- 0 until bytes) {
               assert(writesAllowed.remove(to.base.toInt + byteId).get._2 >= doCount)
             }
-            inputs(inputId).reservedSink.remove(sink)
-            inputs(inputId).packets.remove(inputs(inputId).packets.indexOf(packet))
+            if(!packet.done) inputs(inputId).packets.remove(inputs(inputId).packets.indexOf(packet))
 
+            val packetFlush = Packet(source = source, sink = sink, last = true)
+            for (byteId <- 0 until Random.nextInt(10)) {
+              packetFlush.data += Random.nextInt & 0xFF
+            }
+            inputs(inputId).packets += packetFlush
+
+            waitUntil(packetFlush.done)
+            inputs(inputId).reservedSink.remove(sink)
           }
           case M2M => {
             val bytes = (Random.nextInt(0x100) + 1)
