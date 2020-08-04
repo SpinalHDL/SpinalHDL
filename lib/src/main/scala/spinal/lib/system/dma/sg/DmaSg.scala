@@ -114,8 +114,8 @@ object DmaSg{
     val memory = new Area{
       val core = DmaMemoryCore(DmaMemoryCoreParameter(
         layout = p.memory,
-        writes = p.inputs.map(p => DmaMemoryCoreWriteParameter(p.byteCount, widthOf(InputContext(p))))   :+ DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, widthOf(M2sWriteContext())),
-        reads  = p.outputs.map(p => DmaMemoryCoreReadParameter(p.byteCount, Core.this.p.channels.size + 1))  :+ DmaMemoryCoreReadParameter(io.write.p.access.byteCount, ptrWidth + 1)
+        writes = p.inputs.map(p => DmaMemoryCoreWriteParameter(p.byteCount, widthOf(InputContext(p)), false))   :+ DmaMemoryCoreWriteParameter(io.read.p.access.byteCount, widthOf(M2sWriteContext()), true),
+        reads  = p.outputs.map(p => DmaMemoryCoreReadParameter(p.byteCount, Core.this.p.channels.size + 1, false))  :+ DmaMemoryCoreReadParameter(io.write.p.access.byteCount, ptrWidth + 1, true)
       ))
       val ports = new Area{
         val m2b = core.io.writes.last
@@ -490,7 +490,6 @@ object DmaSg{
         memory.ports.m2b.cmd.address := channel(_.fifo.push.ptrWithBase).resized
         memory.ports.m2b.cmd.arbitrationFrom(io.read.rsp)
         memory.ports.m2b.cmd.data := io.read.rsp.data
-        memory.ports.m2b.cmd.priority := channel(_.priority)
         memory.ports.m2b.cmd.context := B(writeContext)
 
 
@@ -569,7 +568,6 @@ object DmaSg{
           memory.ports.b2m.cmd.valid := sel.valid
           memory.ports.b2m.cmd.address := sel.ptr.resized
           memory.ports.b2m.cmd.context := B(context)
-          memory.ports.b2m.cmd.priority := channel(_.priority)
 
           for (channelId <- 0 until channels.size) {
             when(sel.valid && sel.channel === channelId && memory.ports.b2m.cmd.ready) {
@@ -577,7 +575,6 @@ object DmaSg{
             }
           }
         }
-
 
 
         val aggregate = new Area {
