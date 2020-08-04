@@ -122,9 +122,9 @@ case class BmbToAxi4ReadOnlyBridge(p : BmbParameter) extends Component{
   contextRemover.io.output.rsp.data    := io.output.r.data
   contextRemover.io.output.rsp.source  := io.output.r.id
   when(io.output.r.isOKAY()){
-    io.input.rsp.setSuccess()
+    contextRemover.io.output.rsp.setSuccess()
   } otherwise {
-    io.input.rsp.setError()
+    contextRemover.io.output.rsp.setError()
   }
 }
 
@@ -176,8 +176,8 @@ case class BmbToAxi4WriteOnlyBridge(p : BmbParameter) extends Component{
   contextRemover.io.output.rsp.last    := True
   contextRemover.io.output.rsp.source  := io.output.b.id
   when(io.output.b.isOKAY()){
-    io.input.rsp.setSuccess()
+    contextRemover.io.output.rsp.setSuccess()
   } otherwise {
-    io.input.rsp.setError()
+    contextRemover.io.output.rsp.setError()
   }
 }
