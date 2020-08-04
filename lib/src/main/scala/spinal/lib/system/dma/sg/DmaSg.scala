@@ -233,16 +233,15 @@ object DmaSg{
 
         val flush = Reg(Bool) setWhen(pushDone.rise())
 
-        val arbiter = new Area{
+        val b2m = new Area{
           val fire = False
           val memRsp = False
           val memPending = Reg(UInt(log2Up(p.pendingWritePerChannel) bits)) init(0)
 
           val addressBurstOffset = (address.resized & bytePerBurst)
           val commitFromBytePerBurst = addressBurstOffset + fifo.pop.bytes > bytePerBurst
-          val byteToCommit = commitFromBytePerBurst ? (bytePerBurst-addressBurstOffset) | (fifo.pop.bytes-1).resized
-          def bytesInBurst = byteToCommit //minus one
-          val bytesInBurstP1 = byteToCommit + 1
+          val bytesInBurst = commitFromBytePerBurst ? (bytePerBurst-addressBurstOffset) | (fifo.pop.bytes-1).resized // minus one
+//          val bytesInBurstP1 = bytesInBurst + 1
           val request = valid && memory && (commitFromBytePerBurst || flush && fifo.pop.bytes =/= 0 ) && memPending =/= p.pendingWritePerChannel
           val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
 
@@ -252,14 +251,7 @@ object DmaSg{
           memPending := memPending + U(fire) - U(memRsp)
 
           decrBytes := 0
-          when(fire){
-            decrBytes := bytesInBurstP1.resized
 
-            address := address + bytesInBurstP1
-            when(!commitFromBytePerBurst){
-              flush := False
-            }
-          }
 
           when(valid && memory && pushDone && memPending === 0 && fifo.pop.bytes === 0){
             popDone := True
@@ -516,36 +508,83 @@ object DmaSg{
 
 
     val b2m = new Area {
-      case class FsmCmd() extends Bundle{
-        val channel = UInt(log2Up(p.channels.size) bits)
-        val bytesInBurst = UInt(io.write.p.access.lengthWidth bits)
-        val address = UInt(p.writeAddressWidth bits)
-        val ptr = ptrType()
-        val ptrMask = ptrType()
-      }
-      val arbiter = new Area{
-        val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, p.channels.size)
-        (core.io.inputs, channels.map(_.pop.arbiter.request)).zipped.foreach(_.valid := _)
-
-        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
-
-        val payload = FsmCmd()
-        payload.channel := core.io.chosen
-        payload.bytesInBurst := channel(_.pop.arbiter.bytesInBurst)
-        payload.address := channel(_.pop.address)
-        payload.ptr     := channel(_.fifo.pop.ptrWithBase)
-        payload.ptrMask := channel(_.fifo.words)
-
-        val sel = core.io.output.translateWith(payload)
-        when(sel.fire){
-          channel(_.pop.arbiter.fire) := True
-        }
-      }
+//      case class FsmCmd() extends Bundle{
+//        val channel = UInt(log2Up(p.channels.size) bits)
+//        val bytesInBurst = UInt(io.write.p.access.lengthWidth bits)
+//        val address = UInt(p.writeAddressWidth bits)
+//        val ptr = ptrType()
+//        val ptrMask = ptrType()
+//      }
+//      val arbiter = new Area{
+//        val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, p.channels.size)
+//        (core.io.inputs, channels.map(_.pop.b2m.request)).zipped.foreach(_.valid := _)
+//
+//        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
+//
+//        val payload = FsmCmd()
+//        payload.channel := core.io.chosen
+//        payload.bytesInBurst := channel(_.pop.b2m.bytesInBurst)
+//        payload.address := channel(_.pop.address)
+//        payload.ptr     := channel(_.fifo.pop.ptrWithBase)
+//        payload.ptrMask := channel(_.fifo.words)
+//
+//        val sel = core.io.output.translateWith(payload)
+//        when(sel.fire){
+//          channel(_.pop.b2m.fire) := True
+//        }
+//      }
 
 
       val fsm = new Area {
-        val sel = arbiter.sel.halfPipe()
+        val sel = new Area {
+          val valid = RegInit(False)
+          val ready = Bool()
+          val channel = Reg(UInt(log2Up(p.channels.size) bits))
+          val bytesInBurst = Reg(UInt(io.write.p.access.lengthWidth bits))
+          val address = Reg(UInt(p.writeAddressWidth bits))
+          val ptr = Reg(ptrType())
+          val ptrMask = Reg(ptrType())
+          val commitFromBytePerBurst = Reg(Bool)
+          def fire = valid && ready
+          def isStall = valid && !ready
+        }
+
+        val arbiter = new Area {
+          val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, p.channels.size)
+          (core.io.inputs, channels.map(_.pop.b2m.request)).zipped.foreach(_.valid := _)
+          core.io.output.ready := False
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
+          when(sel.ready){
+            sel.valid := False
+          }
+          when(!sel.valid && core.io.output.valid) {
+            sel.valid := True
+            sel.channel := core.io.chosen
+            sel.bytesInBurst := channel(_.pop.b2m.bytesInBurst)
+            sel.address := channel(_.pop.address)
+            sel.ptr := channel(_.fifo.pop.ptrWithBase)
+            sel.ptrMask := channel(_.fifo.words)
+            sel.commitFromBytePerBurst := channel(_.pop.b2m.commitFromBytePerBurst)
+            channel(_.pop.b2m.fire) := True
+          }
+        }
+
+//        val sel = arbiter.sel.halfPipe()
         def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
+
+        val bytesInBurstP1 = sel.bytesInBurst + 1
+        val addressNext = sel.address + bytesInBurstP1
+        when(sel.valid.rise(False)){
+          for(channel <- channels) when(channel.id === sel.channel){
+            channel.pop.b2m.decrBytes := bytesInBurstP1.resized
+
+            channel.pop.address := addressNext
+            when(!sel.commitFromBytePerBurst) {
+              channel.pop.flush := False
+            }
+          }
+        }
+
 
         val toggle = RegInit(False)
         toggle := toggle ^ sel.fire
@@ -589,7 +628,7 @@ object DmaSg{
           ))
 
           val first = Reg(Bool) clearWhen(memoryPort.fire) setWhen(!sel.isStall)
-          val bytesToSkip = channel(_.pop.arbiter.bytesToSkip)
+          val bytesToSkip = channel(_.pop.b2m.bytesToSkip)
           val bytesToSkipMask = B((0 until p.writeByteCount).map(byteId => !first || byteId >= bytesToSkip))
           engine.io.input.arbitrationFrom(memoryPort)
           engine.io.input.data := memoryPort.data
@@ -641,7 +680,7 @@ object DmaSg{
 
           when(io.write.cmd.lastFire){
             sel.ready := True
-            channel(_.pop.arbiter.bytesToSkip) := aggregate.engine.io.output.usedUntil + 1
+            channel(_.pop.b2m.bytesToSkip) := aggregate.engine.io.output.usedUntil + 1
           }
         }
       }
@@ -652,7 +691,7 @@ object DmaSg{
         io.write.rsp.ready := True
         val context = io.write.rsp.context.as(p.WriteContext())
         when(io.write.rsp.fire){
-          channels.map(_.pop.arbiter.memRsp).write(context.channel, True)
+          channels.map(_.pop.b2m.memRsp).write(context.channel, True)
         }
       }
     }
@@ -896,7 +935,7 @@ object SpinalSimDmaSgTester extends App{
     contextWidth = 4,
     lengthWidth  = 2
   )
-  SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
+  SimConfig.allOptimisation.withWave.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.forkSimSpeedPrinter(2.0)
 
@@ -1140,8 +1179,9 @@ object SpinalSimDmaSgTester extends App{
 //            val to = 0x400 + Random.nextInt(4)
 //            val bytes = 0x40 + Random.nextInt(4)
 //            val bytes = 0x40
-//            val from = SizeMapping(0x1001 + 0x100*channelId, bytes)
-//            val to = SizeMapping(0x2002 + 0x100*channelId, bytes)
+//            val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
+//            val to = SizeMapping(0x2000 + 0x100*channelId, bytes)
+//            val doCount = 1
 //            println(s"$from $to $bytes")
             for (byteId <- 0 until bytes) {
               writesAllowed(to.base.toInt + byteId) = Tuple2(memory.memory.read(from.base.toInt + byteId),0)

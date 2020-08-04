@@ -70,7 +70,7 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
     val mask = Bits(p.layout.bankWidth/8 bits)
   }
   val banks = for(bankId <- 0 until p.layout.bankCount) yield new Area{
-    val ram = Mem(BankWord(), p.layout.bankWords)
+    val ram = Mem(BankWord(), p.layout.bankWords) addAttribute("ram_style", "block")
     val write = ram.writePort
     val read = ram.readSyncPort
 
