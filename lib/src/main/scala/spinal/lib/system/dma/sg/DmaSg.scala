@@ -341,7 +341,7 @@ object DmaSg{
         val byteValidId = U(0) +: CountOneOnEach(maskNoSat.dropHigh(1))
         val byteLeft = MuxOH(channelsOh, channels.map(_.push.bytesLeft))
         val mask = B((0 until ps.byteCount).map(byteId => maskNoSat(byteId) && byteValidId(byteId) <= byteLeft))
-        val byteInUse = CountOne(maskNoSat).min(byteLeft)
+        val byteInUse = CountOne(maskNoSat).min(byteLeft).resized(log2Up(ps.byteCount + 1))
         val context = InputContext(ps, portId)
         val byteCount = CountOne(mask)
         val veryLast = byteLeft < byteCount
@@ -1075,9 +1075,9 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           val doCount = Random.nextInt(3) + 1
           val bytes = (Random.nextInt(0x100) + 1)
           val to = memoryReserved.allocate(size = bytes)
-          //            val doCount = 1
-          //            val bytes = 0x10
-          //            val to = SizeMapping(0x1000, bytes)
+//          val doCount = 1
+//          val bytes = 0x40
+//          val to = SizeMapping(0x1000, bytes)
           val inputId = cp.inputsPorts.randomPick()
           val ip = p.inputs(inputId)
           val source = Random.nextInt(1 << ip.sourceWidth)
@@ -1194,14 +1194,18 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
 
 object SgDmaTestsParameter{
-  def apply() : Seq[DmaSg.Parameter] = {
-    val parameters = ArrayBuffer[DmaSg.Parameter]()
+  def apply() : Seq[(String, DmaSg.Parameter)] = {
+    val parameters = ArrayBuffer[(String, DmaSg.Parameter)]()
 
     for(withMemoryToMemory <- List(true, false);
         withOutputs <- List(true, false);
         withInputs <- List(true, false);
         if withMemoryToMemory || withOutputs || withInputs){
 
+      var name = ""
+      if(withMemoryToMemory) name = name + "M2m"
+      if(withOutputs) name = name + "M2s"
+      if(withInputs) name = name + "S2m"
 
       val outputs = if(!withOutputs) Nil else Seq(
         BsbParameter(
@@ -1276,7 +1280,7 @@ object SgDmaTestsParameter{
         outputsPorts   = outputs.zipWithIndex.map(_._2)
       )
 
-      parameters += Parameter(
+      parameters += name -> Parameter(
         readAddressWidth  = 30,
         readDataWidth     = 32,
         readLengthWidth   = 6,
@@ -1305,53 +1309,6 @@ object SgDmaTestsParameter{
   }
 }
 
-object SpinalSimDmaSgTester extends App{
-  import spinal.core.sim._
-
-
-  val p = SgDmaTestsParameter().head
-
-  val pCtrl = BmbParameter(
-    addressWidth = 12,
-    dataWidth    = 32,
-    sourceWidth  = 0,
-    contextWidth = 4,
-    lengthWidth  = 2
-  )
-
-  SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
-    dut.clockDomain.forkStimulus(10)
-    dut.clockDomain.forkSimSpeedPrinter(2.0)
-
-    var writeNotificationHandle : (Long, Byte) => Unit = null
-
-    val memory = new BmbMemoryAgent{
-      override def writeNotification(address: Long, value: Byte): Unit = {
-        writeNotificationHandle(address,value)
-        super.setByte(address, value)
-      }
-    }
-    if(p.canRead) memory.addPort(dut.io.read, 0, dut.clockDomain, true)
-    if(p.canWrite) memory.addPort(dut.io.write, 0, dut.clockDomain, true)
-
-    val ctrl = BmbDriver(dut.io.ctrl, dut.clockDomain)
-
-    val tester = new DmaSgTester(
-      p            = p,
-      clockDomain  = dut.clockDomain,
-      inputsIo     = dut.io.inputs,
-      outputsIo    = dut.io.outputs,
-      interruptsIo = dut.io.interrupts,
-      memory       = memory.memory
-    ) {
-      override def ctrlWriteHal(data: BigInt, address: BigInt): Unit = ctrl.write(data, address)
-      override def ctrlReadHal(address: BigInt): BigInt = ctrl.read(address)
-      writeNotificationHandle = writeNotification
-    }
-
-    tester.waitCompletion()
-  }
-}
 
 
 //
