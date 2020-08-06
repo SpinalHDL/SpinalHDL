@@ -42,7 +42,8 @@ class SpinalSimDmaSgTester extends FunSuite{
         inputsIo     = dut.io.inputs,
         outputsIo    = dut.io.outputs,
         interruptsIo = dut.io.interrupts,
-        memory       = memory.memory
+        memory       = memory.memory,
+        dut
       ) {
         override def ctrlWriteHal(data: BigInt, address: BigInt): Unit = ctrl.write(data, address)
         override def ctrlReadHal(address: BigInt): BigInt = ctrl.read(address)

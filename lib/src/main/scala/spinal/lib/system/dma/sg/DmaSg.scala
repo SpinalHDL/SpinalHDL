@@ -1,6 +1,7 @@
 package spinal.lib.system.dma.sg
 
 import spinal.core._
+import spinal.core.sim.SimDataPimper
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
@@ -72,11 +73,13 @@ object DmaSg{
     case class FetchContext() extends Bundle{
       val channel = UInt(log2Up(channels.count(_.canRead)) bits)
       val start, stop = UInt(log2Up(readDataWidth/8) bits)
+      val length = UInt(readLengthWidth bits)
       val last = Bool()
     }
 
     case class WriteContext() extends Bundle{
       val channel = UInt(log2Up(channels.count(_.canWrite)) bits)
+      val length = UInt(writeLengthWidth bits)
     }
   }
 
@@ -84,7 +87,8 @@ object DmaSg{
 
   case class Channel(memoryToMemory : Boolean,
                      inputsPorts : Seq[Int],
-                     outputsPorts : Seq[Int]){
+                     outputsPorts : Seq[Int],
+                     progressProbes : Boolean){
     def canRead = memoryToMemory || outputsPorts.nonEmpty
     def canWrite = memoryToMemory || inputsPorts.nonEmpty
     def canInput = inputsPorts.nonEmpty
@@ -168,6 +172,17 @@ object DmaSg{
       val selfRestart = Reg(Bool)
 
 
+      val bytesProbe = cp.progressProbes generate new Area{
+        val value = Reg(UInt(p.bytePerTransferWidth bits)) simPublic()
+        val incr = Flow(UInt(Math.max(p.writeLengthWidth, p.readLengthWidth) bits))
+        incr.valid := False
+        incr.payload.assignDontCare()
+        when(incr.valid){
+          value := value + incr.payload + 1
+        }
+      }
+
+
       val fifo = new Area{
 
         val base = Reg(ptrType)
@@ -218,10 +233,6 @@ object DmaSg{
         val loadDone = RegInit(True)
         val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
 
-        when(start){
-          bytesLeft := bytes
-          loadDone := False
-        }
 
         val m2b = cp.canRead generate new Area {
           val address = Reg(UInt(io.read.p.access.addressWidth bits))
@@ -232,6 +243,11 @@ object DmaSg{
         val s2b = cp.inputsPorts.nonEmpty generate new Area {
           val portId = Reg(UInt(log2Up(p.inputs.size) bits))
           val sinkId = Reg(UInt(p.inputsSinkWidth bits))
+        }
+
+        when(start){
+          bytesLeft := bytes
+          loadDone := False
         }
       }
 
@@ -252,7 +268,7 @@ object DmaSg{
 
 
         val pushDone = Reg(Bool) clearWhen(start)
-        val popDone = Reg(Bool) clearWhen(start)
+        val popDone = Reg(Bool)
 
         val b2m = cp.canWrite generate new Area{
           val bytePerBurst = Reg(UInt(io.write.p.access.lengthWidth bits))
@@ -263,7 +279,9 @@ object DmaSg{
           val memPending = Reg(UInt(log2Up(p.pendingWritePerChannel) bits)) init(0)
           val address = Reg(UInt(io.write.p.access.addressWidth bits))
 
-          val request = valid && memory && (fifo.pop.bytes > bytePerBurst || flush && fifo.pop.bytes =/= 0 ) && memPending =/= p.pendingWritePerChannel
+          // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
+//          val request = valid && memory && (fifo.pop.bytes > bytePerBurst || flush && fifo.pop.bytes =/= 0 ) && memPending =/= p.pendingWritePerChannel
+          val request = valid && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available >> 1) < fifo.words || flush) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
           val bytesToSkip = Reg(UInt(log2Up(p.writeByteCount) bits))
 
           val decrBytes = fifo.pop.bytesDecr.newPort()
@@ -279,14 +297,16 @@ object DmaSg{
           }
 
           when(start){
-            popDone := False
             bytesToSkip := 0
             flush := False
           }
         }
+        when(start) {
+          popDone := False
+        }
       }
 
-      when(valid && pop.popDone/* && !RegNext(start)*/){
+      when(valid && pop.popDone){
         when(selfRestart && !stop){
           start := True
           if(cp.canWrite) pop.b2m.address := pop.b2m.address - bytes - 1
@@ -305,6 +325,10 @@ object DmaSg{
 
       val interrupts = new Area{
         val completion = new Interrupt(valid && pop.popDone)
+        val progressProbe = cp.progressProbes generate new Area{
+          val trigger = bytesProbe.value > (bytes >> 1)
+          val interrupt = new Interrupt(valid && trigger)
+        }
       }
 
 
@@ -313,6 +337,7 @@ object DmaSg{
         fifo.push.available := fifo.words + 1
         fifo.pop.ptr := 0
         fifo.pop.bytes := 0
+        if(cp.progressProbes) bytesProbe.value := 0
       }
     }
 
@@ -468,6 +493,7 @@ object DmaSg{
         context.start := address.resized
         context.stop := (address + length).resized
         context.last := lastBurst
+        context.length := length
 
         io.read.cmd.valid := False
         io.read.cmd.last := True
@@ -520,12 +546,14 @@ object DmaSg{
         memory.ports.m2b.cmd.data := io.read.rsp.data
         memory.ports.m2b.cmd.context := B(writeContext)
 
-
         for ((channel, ohId) <- channels.zipWithIndex) {
           val fire = memory.ports.m2b.cmd.fire && context.channel === ohId
           channel.fifo.push.ptrIncr.newPort := (fire ? U(io.read.p.access.dataWidth / p.memory.bankWidth) | U(0)).resized
+          if(channel.cp.progressProbes) when(fire && io.read.rsp.last){
+            channel.bytesProbe.incr.valid := (if(channel.cp.canWrite) !channel.pop.memory else True)
+            channel.bytesProbe.incr.payload := context.length
+          }
         }
-
       }
 
       val writeRsp = new Area{
@@ -695,6 +723,7 @@ object DmaSg{
 
           val context = p.WriteContext()
           context.channel := sel.channel
+          context.length := sel.bytesInBurst
           io.write.cmd.context := B(context)
 
           when(io.write.cmd.fire){
@@ -718,6 +747,10 @@ object DmaSg{
         val context = io.write.rsp.context.as(p.WriteContext())
         when(io.write.rsp.fire){
           channels.map(_.pop.b2m.memRsp).write(context.channel, True)
+          for((channel, ohId) <- channels.zipWithIndex) if(channel.cp.progressProbes) when(context.channel === ohId){
+            channel.bytesProbe.incr.valid := True
+            channel.bytesProbe.incr.payload := context.length
+          }
         }
       }
     }
@@ -725,7 +758,7 @@ object DmaSg{
     io.interrupts := 0
     val mapping = new Area{
       for(channel <- channels){
-        val a = 0x800+channel.id*0x40
+        val a = 0x000+channel.id*0x80
 
         if(channel.cp.canRead)  ctrl.writeMultiWord(channel.push.m2b.address, a+0x00)
         if(channel.cp.canInput) ctrl.write(channel.push.s2b.portId,           a+0x08, 0)
@@ -749,7 +782,6 @@ object DmaSg{
         ctrl.write(channel.fifo.base, a+0x30, log2Up(p.memory.bankWidth/8))
         ctrl.write(channel.fifo.words, a+0x30, 16 + log2Up(p.memory.bankWidth/8))
         ctrl.write(channel.priority, a+0x34, 0)
-//        ctrl.write(channel.priority, a+0x3C, 0)
 
         def map(interrupt : Interrupt, id : Int): Unit ={
           ctrl.write(interrupt.enable, a+0x38, id)
@@ -758,11 +790,12 @@ object DmaSg{
         }
 
         map(channel.interrupts.completion, 0)
+
+        if(channel.cp.progressProbes) {
+          map(channel.interrupts.progressProbe.interrupt, 1)
+        }
       }
     }
-
-
-
   }
 
 
@@ -879,7 +912,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                            inputsIo : Seq[Bsb],
                            outputsIo : Seq[Bsb],
                            interruptsIo : Bits,
-                           memory : SparseMemory) {
+                           memory : SparseMemory,
+                           dut : DmaSg.Core[_]) {
 
   import spinal.core.sim._
 
@@ -971,7 +1005,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   }
 
 
-  def channelToAddress(channel : Int) = 0x800 + channel*0x40
+  def channelToAddress(channel : Int) = 0x000 + channel*0x80
   def channelPushMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(address, channelAddress + 0x00)
@@ -1043,6 +1077,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         }
       }
     }
+    if(p.channels(channel).progressProbes) assert(dut.channels(channel).bytesProbe.value.toLong == bytes)
   }
   def channelStarted(channel : Int) ={
     val channelAddress = channelToAddress(channel)
@@ -1128,6 +1163,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           waitUntil(packetFlush.done)
           inputs(inputId).reservedSink.remove(sink)
         }
+
         case M2M => {
           val bytes = (Random.nextInt(0x100) + 1)
           val from = memoryReserved.allocate(size = bytes)
@@ -1153,6 +1189,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
             assert(writesAllowed.remove(to.base.toInt + byteId).get._2 >= doCount)
           }
         }
+
         case M2S => if (p.outputs.nonEmpty) {
           val doCount = Random.nextInt(3) + 1
           val bytes = (Random.nextInt(0x100) + 1)
@@ -1264,27 +1301,32 @@ object SgDmaTestsParameter{
       channels += DmaSg.Channel(
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = outputs.zipWithIndex.map(_._2)
+        outputsPorts   = outputs.zipWithIndex.map(_._2),
+        progressProbes = true
       )
       if(withOutputs) channels += DmaSg.Channel(
         memoryToMemory = false,
         inputsPorts    = Nil,
-        outputsPorts   = outputs.zipWithIndex.map(_._2)
+        outputsPorts   = outputs.zipWithIndex.map(_._2),
+        progressProbes = false
       )
       if(withInputs) channels += DmaSg.Channel(
         memoryToMemory = false,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = Nil
+        outputsPorts   = Nil,
+        progressProbes = false
       )
       if(withMemoryToMemory) channels += DmaSg.Channel(
         memoryToMemory = true,
         inputsPorts    = Nil,
-        outputsPorts   = Nil
+        outputsPorts   = Nil,
+        progressProbes = false
       )
       channels += DmaSg.Channel(
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
-        outputsPorts   = outputs.zipWithIndex.map(_._2)
+        outputsPorts   = outputs.zipWithIndex.map(_._2),
+        progressProbes = true
       )
 
       parameters += name -> Parameter(
