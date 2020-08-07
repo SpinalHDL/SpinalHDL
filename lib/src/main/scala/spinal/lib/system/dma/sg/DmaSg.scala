@@ -271,6 +271,7 @@ object DmaSg{
         val b2s = cp.canOutput generate new Area{
           val last  = Reg(Bool)
           val portId = Reg(UInt(log2Up(p.outputs.size) bits))
+          val sourceId = Reg(UInt(p.outputsSourceWidth bits))
           val sinkId = Reg(UInt(p.outputsSinkWidth bits))
 
           val veryLastTrigger = False
@@ -469,6 +470,7 @@ object DmaSg{
         source.data   := memoryPort.rsp.data
         source.mask   := memoryPort.rsp.mask
         source.sink   := MuxOH(context.channel, channels.map(_.pop.b2s.sinkId))
+        source.source   := MuxOH(context.channel, channels.map(_.pop.b2s.sourceId)).resized
         source.last   := context.veryLast && MuxOH(context.channel, channels.map(_.pop.b2s.last))
 
         when(source.fire) {
@@ -780,12 +782,14 @@ object DmaSg{
 
         if(channel.cp.canRead)  ctrl.writeMultiWord(channel.push.m2b.address, a+0x00)
         if(channel.cp.canInput) ctrl.write(channel.push.s2b.portId,           a+0x08, 0)
+//        if(channel.cp.canInput) ctrl.write(channel.push.s2b.sourceId,       a+0x08, 16)
         if(channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId,           a+0x08, 16)
         if(channel.cp.canRead && channel.cp.bytePerBurst.isEmpty)  ctrl.write(channel.push.m2b.bytePerBurst,     a+0x0C, 0)
         ctrl.write(channel.push.memory, a+0x0C, 12)
 
         if(channel.cp.canWrite)  ctrl.writeMultiWord(channel.pop.b2m.address, a+0x10)
         if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.portId,           a+0x18, 0)
+        if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.sourceId,         a+0x18, 8)
         if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.sinkId,           a+0x18, 16)
         if(channel.cp.canWrite && channel.cp.bytePerBurst.isEmpty)  ctrl.write(channel.pop.b2m.bytePerBurst,     a+0x1C, 0)
         ctrl.write(channel.pop.memory, a+0x1C, 12)
@@ -1277,7 +1281,7 @@ object SgDmaTestsParameter{
         outputs ++= Seq(
           BsbParameter(
             byteCount   = 4,
-            sourceWidth = 0,
+            sourceWidth = 3,
             sinkWidth   = 4
           ),
           BsbParameter(
@@ -1287,12 +1291,12 @@ object SgDmaTestsParameter{
           ),
           BsbParameter(
             byteCount   = 2,
-            sourceWidth = 0,
+            sourceWidth = 2,
             sinkWidth   = 4
           ),
           BsbParameter(
             byteCount   = 2,
-            sourceWidth = 0,
+            sourceWidth = 5,
             sinkWidth   = 4
           )
         )
@@ -1308,7 +1312,7 @@ object SgDmaTestsParameter{
         inputs ++= Seq(
           BsbParameter(
             byteCount   = 4,
-            sourceWidth = 0,
+            sourceWidth = 1,
             sinkWidth   = 4
           ),
           BsbParameter(
@@ -1318,12 +1322,12 @@ object SgDmaTestsParameter{
           ),
           BsbParameter(
             byteCount   = 2,
-            sourceWidth = 0,
+            sourceWidth = 4,
             sinkWidth   = 4
           ),
           BsbParameter(
             byteCount   = 2,
-            sourceWidth = 0,
+            sourceWidth = 2,
             sinkWidth   = 4
           )
         )

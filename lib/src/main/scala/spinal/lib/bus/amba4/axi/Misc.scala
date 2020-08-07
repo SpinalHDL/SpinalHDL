@@ -51,7 +51,7 @@ object  Axi4SpecRenamer{
   def apply(that : Bsb): Bsb ={
     def doIt = {
       that.data.overrideLocalName("tdata")
-      that.mask.overrideLocalName("tstrb")
+      that.mask.overrideLocalName("tkeep")
       that.source.overrideLocalName("tid")
       that.sink.overrideLocalName("tdest")
       that.last.overrideLocalName("tlast")
