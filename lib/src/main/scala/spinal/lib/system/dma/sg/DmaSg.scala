@@ -806,6 +806,7 @@ object DmaSg{
         def map(interrupt : Interrupt, id : Int): Unit ={
           ctrl.write(interrupt.enable, a+0x50, id)
           ctrl.clearOnSet(interrupt.valid, a+0x54, id)
+          ctrl.read(interrupt.valid, a+0x54, id)
           io.interrupts(channel.id) setWhen(interrupt.valid)
         }
 
