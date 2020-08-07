@@ -9,7 +9,7 @@ import spinal.core.sim._
 
 class SpinalSimDmaSgTester extends FunSuite{
 
-  for((name, p) <- SgDmaTestsParameter()) test(name){
+  for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
 
     val pCtrl = BmbParameter(
       addressWidth = 12,

@@ -1259,7 +1259,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
 
 object SgDmaTestsParameter{
-  def apply() : Seq[(String, DmaSg.Parameter)] = {
+  def apply(allowSmallerStreams : Boolean) : Seq[(String, DmaSg.Parameter)] = {
     val parameters = ArrayBuffer[(String, DmaSg.Parameter)]()
 
     for(withMemoryToMemory <- List(true, false);
@@ -1272,51 +1272,68 @@ object SgDmaTestsParameter{
       if(withOutputs) name = name + "M2s"
       if(withInputs) name = name + "S2m"
 
-      val outputs = if(!withOutputs) Nil else Seq(
-        BsbParameter(
-          byteCount   = 4,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 4,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 2,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 2,
+      val outputs = ArrayBuffer[BsbParameter]()
+      if(withOutputs) {
+        outputs ++= Seq(
+          BsbParameter(
+            byteCount   = 4,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 4,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 2,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 2,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          )
+        )
+        if(allowSmallerStreams) outputs += BsbParameter(
+          byteCount   = 1,
           sourceWidth = 0,
           sinkWidth   = 4
         )
-      )
+      }
 
-      val inputs = if(!withInputs) Nil else Seq(
-        BsbParameter(
-          byteCount   = 4,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 4,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 2,
-          sourceWidth = 0,
-          sinkWidth   = 4
-        ),
-        BsbParameter(
-          byteCount   = 2,
+      val inputs = ArrayBuffer[BsbParameter]()
+      if(withInputs) {
+        inputs ++= Seq(
+          BsbParameter(
+            byteCount   = 4,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 4,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 2,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          ),
+          BsbParameter(
+            byteCount   = 2,
+            sourceWidth = 0,
+            sinkWidth   = 4
+          )
+        )
+        if(allowSmallerStreams) inputs += BsbParameter(
+          byteCount   = 1,
           sourceWidth = 0,
           sinkWidth   = 4
         )
-      )
+      }
+
 
       val channels = ArrayBuffer[Channel]()
       channels += DmaSg.Channel(
