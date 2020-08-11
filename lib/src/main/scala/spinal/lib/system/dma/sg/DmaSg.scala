@@ -369,7 +369,7 @@ object DmaSg{
         val full = fifo.push.available < p.memory.bankCount || push.loadDone
       }
 
-      fifo.push.available := fifo.push.available - Mux(push.memory, fifo.push.availableDecr, fifo.push.ptrIncr.value) + fifo.pop.ptrIncr.value
+      fifo.push.available := fifo.push.available + RegNext(fifo.pop.ptrIncr.value) - Mux(push.memory, fifo.push.availableDecr, fifo.push.ptrIncr.value)
 
 
       val interrupts = new Area{
@@ -526,55 +526,77 @@ object DmaSg{
         (arbiter.io.inputs, channels.map(_.push.m2b.loadRequest)).zipped.foreach(_.valid := _)
         arbiter.io.output.ready := False
 
-        val valid = RegInit(False)
-        val chosen = Reg(UInt(log2Up(channels.size) bits))
 
-        when(!valid){
-          chosen := arbiter.io.chosen
-          arbiter.io.output.ready := True
-          when(arbiter.io.inputs.map(_.valid).orR) {
-            valid := True
-            channels.map(_.push.m2b.memPendingIncr).write(arbiter.io.chosen, True)
+        val s0 = new Area {
+          val valid = RegInit(False)
+          val chosen = Reg(UInt(log2Up(channels.size) bits))
+
+          when(!valid) {
+            chosen := arbiter.io.chosen
+            arbiter.io.output.ready := True
+            when(arbiter.io.inputs.map(_.valid).orR) {
+              valid := True
+              channels.map(_.push.m2b.memPendingIncr).write(arbiter.io.chosen, True)
+            }
           }
+
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(chosen)
+          val address = channel(_.push.m2b.address)
+          val bytesLeft = channel(_.push.bytesLeft)
+          val readAddressBurstRange = address(io.read.p.access.lengthWidth-1 downto 0) //address(log2Up(io.read.p.access.byteCount) downto log2Up(io.read.p.access.byteCount))
+          val lengthHead = ~readAddressBurstRange & channel(_.push.m2b.bytePerBurst)
+          val length = lengthHead.min(bytesLeft).resize(io.read.p.access.lengthWidth)
+          val lastBurst = bytesLeft === length
         }
 
-        def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(chosen)
+        val s1 = new Area{
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(s0.chosen)
+          val valid = RegInit(False) setWhen(s0.valid)
+
+          val address = RegNext(s0.address)
+          val length = RegNext(s0.length)
+          val lastBurst = RegNext(s0.lastBurst)
+          val bytesLeft = RegNext(s0.bytesLeft)
+          val context = p.FetchContext()
+          context.channel := s0.chosen
+          context.start := address.resized
+          context.stop := (address + length).resized
+          context.last := lastBurst
+          context.length := length
+
+          io.read.cmd.valid := False
+          io.read.cmd.last := True
+          io.read.cmd.source := s0.chosen
+          io.read.cmd.opcode := Bmb.Cmd.Opcode.READ
+          io.read.cmd.address := address
+          io.read.cmd.length  := length
+          io.read.cmd.context := B(context)
 
 
-        val address = channel(_.push.m2b.address)
-        val bytesLeft = channel(_.push.bytesLeft)
-        val readAddressBurstRange = address(io.read.p.access.lengthWidth-1 downto 0) //address(log2Up(io.read.p.access.byteCount) downto log2Up(io.read.p.access.byteCount))
-        val lengthHead = ~readAddressBurstRange & channel(_.push.m2b.bytePerBurst)
-        val length = lengthHead.min(bytesLeft).resize(io.read.p.access.lengthWidth)
-        val lastBurst = bytesLeft === length
+          val addressNext = address + length + 1
+          val byteLeftNext = bytesLeft - length - 1
+          val fifoPushDecr = ((address(log2Up(io.read.p.access.byteCount)-1 downto 0) + io.read.cmd.length | (io.read.p.access.byteCount-1))+1 >> log2Up(p.memory.bankWidth/8)).resized
 
-        val context = p.FetchContext()
-        context.channel := chosen
-        context.start := address.resized
-        context.stop := (address + length).resized
-        context.last := lastBurst
-        context.length := length
-
-        io.read.cmd.valid := False
-        io.read.cmd.last := True
-        io.read.cmd.source := chosen
-        io.read.cmd.opcode := Bmb.Cmd.Opcode.READ
-        io.read.cmd.address := address
-        io.read.cmd.length  := length
-        io.read.cmd.context := B(context)
-
-        when(valid) {
-          io.read.cmd.valid := True
-          when(io.read.cmd.ready) {
-            valid := False
-            address := address + length + 1
-            bytesLeft := bytesLeft - length - 1
-            channel(_.fifo.push.availableDecr) := ((address(log2Up(io.read.p.access.byteCount)-1 downto 0) + io.read.cmd.length | (io.read.p.access.byteCount-1))+1 >> log2Up(p.memory.bankWidth/8)).resized
-            when(lastBurst) {
-              channel(_.push.loadDone) := True
+          when(valid) {
+            io.read.cmd.valid := True
+            when(io.read.cmd.ready) {
+              s0.valid := False
+              valid := False
+              for((channel, ohId) <- channels.zipWithIndex) when(ohId === s0.chosen){
+                channel.push.m2b.address := addressNext
+                channel.push.bytesLeft :=   byteLeftNext
+                channel.fifo.push.availableDecr := fifoPushDecr
+                when(lastBurst) {
+                  channel.push.loadDone := True
+                }
+              }
             }
           }
         }
+
+
+
+
       }
 
       val rsp = new Area {
