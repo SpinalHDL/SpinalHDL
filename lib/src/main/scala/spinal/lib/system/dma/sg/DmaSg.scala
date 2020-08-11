@@ -767,7 +767,7 @@ object DmaSg{
 
         val aggregate = new Area {
           val context = memory.ports.b2m.rsp.context.as(FetchContext())
-          val memoryPort = memory.ports.b2m.rsp.throwWhen(context.toggle =/= toggle)
+          val memoryPort = memory.ports.b2m.rsp.s2mPipe().throwWhen(context.toggle =/= toggle)
 
 
           val engine = Aggregator(AggregatorParameter(
