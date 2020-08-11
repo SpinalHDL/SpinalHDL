@@ -90,6 +90,7 @@ object DmaSg{
   case class Channel(memoryToMemory : Boolean,
                      inputsPorts : Seq[Int],
                      outputsPorts : Seq[Int],
+                     selfRestartCapable : Boolean,
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
                      bytePerBurst : Option[Int] = None,
@@ -187,7 +188,7 @@ object DmaSg{
       val valid = RegInit(False) setWhen(start) clearWhen(done)
       val bytes = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
       val priority = Reg(UInt(p.memory.priorityWidth bits))
-      val selfRestart = Reg(Bool)
+      val selfRestart = cp.selfRestartCapable generate Reg(Bool)
 
 
       val bytesProbe = (cp.withProgressCounter) generate new Area{
@@ -354,11 +355,15 @@ object DmaSg{
           }
         } otherwise {
           when(pop.popDone) {
-            when(selfRestart) {
-              start := True
-              if (cp.canWrite) pop.b2m.address := pop.b2m.address - bytes - 1
-              if (cp.canRead) push.m2b.address := push.m2b.address - bytes - 1
-            } otherwise {
+            if(cp.selfRestartCapable) {
+              when(selfRestart) {
+                start := True
+                if (cp.canWrite) pop.b2m.address := pop.b2m.address - bytes - 1
+                if (cp.canRead) push.m2b.address := push.m2b.address - bytes - 1
+              } otherwise {
+                done := True
+              }
+            } else {
               done := True
             }
           }
@@ -881,7 +886,7 @@ object DmaSg{
         ctrl.write(channel.bytes, a+0x20, 0)
         ctrl.setOnSet(channel.start, a+0x2C, 0)
         ctrl.read(channel.valid, a+0x2C, 0)
-        ctrl.write(channel.selfRestart, a + 0x2C, 1)
+        if(channel.cp.selfRestartCapable) ctrl.write(channel.selfRestart, a + 0x2C, 1)
         ctrl.write(channel.stop, a + 0x2C, 2)
 
         if(channel.cp.fifoMapping.isEmpty) {
@@ -1240,7 +1245,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           test += PACKETS
           test.randomPick() match {
             case TRANSFER => {
-              val doCount = Random.nextInt(3) + 1
+              val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
               val bytes = (Random.nextInt(0x100) + 1)
               val to = memoryReserved.allocate(size = bytes)
               //          val doCount = 1
@@ -1289,7 +1294,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               inputs(inputId).reservedSink.remove(sink)
             }
             case PACKETS => {
-              val packetCount = Random.nextInt(3) + 1
+              val packetCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
               val to = memoryReserved.allocate(size = 0x40)
 
 //              val packetCount = 10
@@ -1348,7 +1353,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           val bytes = (Random.nextInt(0x100) + 1)
           val from = memoryReserved.allocate(size = bytes)
           val to = memoryReserved.allocate(size = bytes)
-          val doCount = Random.nextInt(3) + 1
+          val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
 //          val from = 0x100 + Random.nextInt(4)
 //          val to = 0x400 + Random.nextInt(4)
 //          val bytes = 0x40 + Random.nextInt(4)
@@ -1371,7 +1376,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         }
 
         case M2S => if (p.outputs.nonEmpty) {
-          val doCount = Random.nextInt(3) + 1
+          val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
           val bytes = (Random.nextInt(0x100) + 1)
           val from = memoryReserved.allocate(size = bytes)
           val outputId = cp.outputsPorts.randomPick()
@@ -1499,6 +1504,7 @@ object SgDmaTestsParameter{
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
         outputsPorts   = outputs.zipWithIndex.map(_._2),
+        selfRestartCapable = true,
         progressProbes = true,
         halfCompletionInterrupt = true
       )
@@ -1506,6 +1512,7 @@ object SgDmaTestsParameter{
         memoryToMemory = false,
         inputsPorts    = Nil,
         outputsPorts   = outputs.zipWithIndex.map(_._2),
+        selfRestartCapable = true,
         progressProbes = false,
         halfCompletionInterrupt = true
       )
@@ -1513,6 +1520,7 @@ object SgDmaTestsParameter{
         memoryToMemory = false,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
         outputsPorts   = Nil,
+        selfRestartCapable = true,
         progressProbes = true,
         halfCompletionInterrupt = false
       )
@@ -1520,6 +1528,7 @@ object SgDmaTestsParameter{
         memoryToMemory = true,
         inputsPorts    = Nil,
         outputsPorts   = Nil,
+        selfRestartCapable = true,
         progressProbes = false,
         halfCompletionInterrupt = false
       )
@@ -1527,6 +1536,7 @@ object SgDmaTestsParameter{
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
         outputsPorts   = outputs.zipWithIndex.map(_._2),
+        selfRestartCapable = false,
         progressProbes = true,
         halfCompletionInterrupt = true,
         bytePerBurst = Some(0x20),
