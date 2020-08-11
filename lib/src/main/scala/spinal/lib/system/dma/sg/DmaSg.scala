@@ -759,10 +759,8 @@ object DmaSg{
           memory.ports.b2m.cmd.address := sel.ptr.resized
           memory.ports.b2m.cmd.context := B(context)
 
-          for ((channel, ohId) <- channels.zipWithIndex) {
-            when(sel.valid && sel.channel === ohId && memory.ports.b2m.cmd.ready) {
-              sel.ptr.getDrivingReg := (sel.ptr & ~sel.ptrMask) | ((sel.ptr + U(io.write.p.access.dataWidth / p.memory.bankWidth) & sel.ptrMask))
-            }
+          when(sel.valid && memory.ports.b2m.cmd.ready) {
+            sel.ptr.getDrivingReg := (sel.ptr & ~sel.ptrMask) | ((sel.ptr + U(io.write.p.access.dataWidth / p.memory.bankWidth) & sel.ptrMask))
           }
         }
 
@@ -815,8 +813,9 @@ object DmaSg{
           io.write.cmd.length := sel.bytesInBurst
           io.write.cmd.source := sel.channel
 
+          val doPtrIncr = sel.valid && (aggregate.engine.io.output.consumed || io.write.cmd.lastFire && aggregate.engine.io.output.usedUntil === aggregate.engine.io.output.usedUntil.maxValue)
           for((channel, ohId) <- channels.zipWithIndex){
-            channel.fifo.pop.ptrIncr.newPort() := ((sel.valid  && sel.channel === ohId && (aggregate.engine.io.output.consumed || io.write.cmd.lastFire && aggregate.engine.io.output.usedUntil === aggregate.engine.io.output.usedUntil.maxValue)) ? U(io.write.p.access.dataWidth/p.memory.bankWidth) | U(0)).resized
+            channel.fifo.pop.ptrIncr.newPort() := ((doPtrIncr && sel.channel === ohId) ? U(io.write.p.access.dataWidth/p.memory.bankWidth) | U(0)).resized
           }
 
           val context = p.WriteContext()
