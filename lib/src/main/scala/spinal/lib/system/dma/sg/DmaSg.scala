@@ -407,13 +407,14 @@ object DmaSg{
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
 
       val cmd = new Area {
-        val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
         val channelsOh = B(channels.map(c => c.valid && !c.push.memory && c.push.s2b.portId === portId && c.push.s2b.sinkId === sink.sink))
         val noHit = !channelsOh.orR
         val channelsFull = B(channels.map(_.s2b.full))
+        val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
         val sinkHalted = sink.throwWhen(noHit || throwUntilFirst(sink.sink)).haltWhen((channelsOh & channelsFull).orR)
         val used = Reg(Bits(ps.byteCount bits)) init(0)
         val maskNoSat = sinkHalted.mask & ~used
+        val byteCountNoSat = CountOne(maskNoSat)
         val byteValidId = U(0) +: CountOneOnEach(maskNoSat.dropHigh(1))
         val byteLeft = MuxOH(channelsOh, channels.map(_.push.bytesLeft))
         val mask = B((0 until ps.byteCount).map(byteId => maskNoSat(byteId) && byteValidId(byteId) <= byteLeft))
@@ -438,7 +439,7 @@ object DmaSg{
           val hit = channelsOh(ohId) && memoryPort.cmd.fire
           channel.fifo.push.ptrIncr.newPort() := ((hit && memoryPort.cmd.mask.orR) ? U(bankPerBeat) | U(0)).resized
           when(hit) {
-            channel.push.bytesLeft := byteLeft - byteCount
+            channel.push.bytesLeft := byteLeft - byteCountNoSat
             channel.push.loadDone setWhen(veryLast)
           }
         }
@@ -930,7 +931,6 @@ object DmaSg{
       val offset = in UInt(log2Up(p.byteCount) bits)
       val burstLength = in UInt(p.burstLength bits)
     }
-
 
     val s0 = new Area{
       val countOnes = CountOneOnEach(io.input.mask)
