@@ -18,6 +18,7 @@ import scala.util.Random
 
 object DmaSg{
 
+  val descriptorSize = 32
   def getCtrlCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = 12,
@@ -28,7 +29,7 @@ object DmaSg{
     addressWidth = p.readAddressWidth,
     dataWidth    = p.readDataWidth
   ).addSources(p.channels.count(_.canRead), BmbSourceParameter(
-    contextWidth = widthOf(p.FetchContext()),
+    contextWidth = widthOf(p.ReadContext()),
     lengthWidth = p.readLengthWidth,
     canWrite = false,
     alignment = BmbParameter.BurstAlignement.BYTE
@@ -44,12 +45,24 @@ object DmaSg{
     alignment = BmbParameter.BurstAlignement.BYTE
   ))
 
+  def getSgReadRequirements(p : Parameter) = BmbAccessParameter(
+    addressWidth = p.sgReadAddressWidth,
+    dataWidth    = p.sgReadDataWidth
+  ).addSources(1, BmbSourceParameter(
+    contextWidth = widthOf(p.SgReadContext()),
+    lengthWidth = log2Up(descriptorSize),
+    canWrite = false,
+    alignment = BmbParameter.BurstAlignement.LENGTH
+  ))
+
   case class Parameter(readAddressWidth : Int,
                        readDataWidth : Int,
                        readLengthWidth : Int,
                        writeAddressWidth : Int,
                        writeDataWidth : Int,
                        writeLengthWidth : Int,
+                       sgReadAddressWidth : Int,
+                       sgReadDataWidth : Int,
                        memory : DmaMemoryLayout,
                        outputs : Seq[BsbParameter],
                        inputs : Seq[BsbParameter],
@@ -65,13 +78,15 @@ object DmaSg{
     val readWriteMinDataWidth = Math.min(readDataWidth, writeDataWidth)
     val readWriteMaxDataWidth = Math.max(readDataWidth, writeDataWidth)
     val writeByteCount = writeDataWidth/8
+    val addressWidth = Math.min(readAddressWidth, writeAddressWidth)
     assert(outputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(inputs.map(_.byteCount*8).fold(0)(Math.max) <= readWriteMinDataWidth)
     assert(readWriteMaxDataWidth <= memory.bankCount*memory.bankWidth)
 
     def canRead = channels.exists(_.canRead)
     def canWrite = channels.exists(_.canWrite)
-    case class FetchContext() extends Bundle{
+    def canSgRead = channels.exists(_.linkedListCapable)
+    case class ReadContext() extends Bundle{
       val channel = UInt(log2Up(channels.count(_.canRead)) bits)
       val start, stop = UInt(log2Up(readDataWidth/8) bits)
       val length = UInt(readLengthWidth bits)
@@ -83,6 +98,10 @@ object DmaSg{
       val length = UInt(writeLengthWidth bits)
       val doPacketSync = Bool()
     }
+
+    case class SgReadContext() extends Bundle{
+      val channel =  UInt(log2Up(channels.count(_.linkedListCapable)) bits)
+    }
   }
 
 
@@ -90,6 +109,8 @@ object DmaSg{
   case class Channel(memoryToMemory : Boolean,
                      inputsPorts : Seq[Int],
                      outputsPorts : Seq[Int],
+                     linkedListCapable : Boolean,
+                     directCtrlCapable : Boolean,
                      selfRestartCapable : Boolean,
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
@@ -100,6 +121,7 @@ object DmaSg{
     def canInput = inputsPorts.nonEmpty
     def canOutput = outputsPorts.nonEmpty
 
+    assert(linkedListCapable || directCtrlCapable, "A DMA channel should be at least controllable via a linked list or direct access")
     val withProgressCounter = progressProbes || halfCompletionInterrupt
 
     bytePerBurst match {
@@ -118,6 +140,7 @@ object DmaSg{
 
   case class Core[CTRL <: Data with IMasterSlave](p : Parameter, ctrlType : HardType[CTRL], slaveFactory : CTRL => BusSlaveFactory) extends Component{
     val io = new Bundle {
+      val sgRead = p.canSgRead generate master(Bmb(getSgReadRequirements(p)))
       val read = p.canRead generate master(Bmb(getReadRequirements(p)))
       val write = p.canWrite generate master(Bmb(getWriteRequirements(p)))
       val outputs = Vec(p.outputs.map(s => master(Bsb(s))))
@@ -201,6 +224,20 @@ object DmaSg{
         }
       }
 
+      val ll = cp.linkedListCapable generate new Area{
+        val sgStart = False
+        val valid = RegInit(False)
+        val sgReadCmdDone = Reg(Bool)
+        val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
+        when(sgStart){
+          valid := True
+          sgReadCmdDone := False
+        }
+        when(start){
+          sgReadCmdDone := False
+        }
+      }
+
 
       val fifo = new Area{
         val (base, words) = cp.fifoMapping match {
@@ -266,7 +303,6 @@ object DmaSg{
           memPending := memPending + U(memPendingIncr) - U(memPendingDecr)
 
           val loadRequest = valid && !stop && !done && !loadDone && memory && fifo.push.available > (bytePerBurst >> log2Up(p.memory.bankWidth/8)) && memPending =/= p.pendingReadPerChannel
-
         }
 
         val s2b = cp.inputsPorts.nonEmpty generate new Area {
@@ -414,7 +450,7 @@ object DmaSg{
       val cmd = new Area {
         val channelsOh = B(channels.map(c => c.valid && !c.push.memory && c.push.s2b.portId === portId && c.push.s2b.sinkId === sink.sink))
         val noHit = !channelsOh.orR
-        val channelsFull = B(channels.map(_.s2b.full))
+        val channelsFull = B(channels.map(c => c.s2b.full || c.push.loadDone))
         val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
         val sinkHalted = sink.throwWhen(noHit || throwUntilFirst(sink.sink)).haltWhen((channelsOh & channelsFull).orR)
         val used = Reg(Bits(ps.byteCount bits)) init(0)
@@ -563,7 +599,7 @@ object DmaSg{
           val length = RegNext(s0.length)
           val lastBurst = RegNext(s0.lastBurst)
           val bytesLeft = RegNext(s0.bytesLeft)
-          val context = p.FetchContext()
+          val context = p.ReadContext()
           context.channel := s0.chosen
           context.start := address.resized
           context.stop := (address + length).resized
@@ -599,14 +635,10 @@ object DmaSg{
             }
           }
         }
-
-
-
-
       }
 
       val rsp = new Area {
-        val context = io.read.rsp.context.as(p.FetchContext())
+        val context = io.read.rsp.context.as(p.ReadContext())
 
         def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(context.channel)
 
@@ -863,31 +895,144 @@ object DmaSg{
       }
     }
 
+
+    val ll = p.canSgRead generate new Area{
+      val channels = Core.this.channels.filter(_.cp.linkedListCapable)
+      val arbiter = new Area{
+        val requests = channels.map(c => !c.valid && c.ll.valid && !c.ll.sgReadCmdDone)
+        val oh = OHMasking.first(requests)
+        val sel = OHMasking.first(requests)
+        def channel[T <: Data](f: ChannelLogic => T) = MuxOH(oh, channels.map(f))
+        val address = channel(_.ll.ptrNext)
+      }
+
+      val cmd = new Area{
+        val valid = RegInit(False)
+        val oh = Reg(arbiter.oh)
+        val address = Reg(arbiter.address)
+        when(!valid){
+          valid setWhen(arbiter.oh.orR)
+          oh := arbiter.oh
+          address := arbiter.address
+          for((channel, e) <- (channels, arbiter.oh).zipped) when(e){ channel.ll.sgReadCmdDone := True}
+        } otherwise{
+          valid.clearWhen(io.sgRead.cmd.fire)
+        }
+
+        val context = p.SgReadContext()
+        context.channel := OHToUInt(oh)
+
+        io.sgRead.cmd.valid := valid
+        io.sgRead.cmd.last := True
+        io.sgRead.cmd.address := address
+        io.sgRead.cmd.length := descriptorSize-1
+        io.sgRead.cmd.opcode := Bmb.Cmd.Opcode.READ
+        io.sgRead.cmd.context := B(context)
+      }
+
+      val rsp = new Area{
+        val context = io.sgRead.rsp.context.as(p.SgReadContext())
+        val oh = UIntToOh(context.channel, width = channels.size).asBools
+
+        val beatBytes = io.sgRead.p.access.byteCount
+        val beatCount = descriptorSize/beatBytes
+        val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
+
+
+
+        val pushOffset = 0
+        val popOffset  = 8
+        val nextOffset  = 16
+        val controlOffset  = 24
+        val statusOffset  = 28
+
+        val completed = Reg(Bool)
+        io.sgRead.rsp.ready := True
+        when(io.sgRead.rsp.fire){
+          beatCounter := beatCounter + 1
+
+          def beatHit(offset : Int) = offset/beatBytes === beatCounter
+          def mapChannel[T <: Data](f : ChannelLogic => T, gen : Channel => Boolean, byte : Int, bit : Int){
+            val bitOffset = byte % beatBytes + bit
+            when(beatHit(byte)){
+              for((channel, e) <- (channels, oh).zipped) if(gen(channel.cp)) when(e){
+                val target = f(channel)
+                target.assignFromBits(io.sgRead.rsp.data(bitOffset, widthOf(target) bits))
+              }
+            }
+          }
+
+          def map[T <: Data](that : T, byte : Int, bit : Int){
+            val bitOffset = byte % beatBytes + bit
+            when(beatHit(byte)){
+              that.assignFromBits(io.sgRead.rsp.data(bitOffset, widthOf(that) bits))
+            }
+          }
+
+          mapChannel(_.push.m2b.address, _.canRead, pushOffset, 0)
+          mapChannel(_.pop.b2m.address, _.canWrite, popOffset, 0)
+          mapChannel(_.ll.ptrNext, _ => true, nextOffset, 0)
+          mapChannel(_.bytes, _ => true, controlOffset, 0)
+          map(completed, statusOffset, 31)
+        }
+
+      }
+
+      val engage = new Area{
+        val valid = RegNext(io.sgRead.rsp.lastFire) init(False)
+        val oh = RegNext(rsp.oh)
+
+        when(valid){
+          when(!rsp.completed) {
+            for ((channel, e) <- (channels, oh).zipped) when(e) {
+              channel.start := True
+              channel.ll.ptr := channel.ll.ptrNext
+            }
+          } otherwise {
+            for ((channel, e) <- (channels, oh).zipped) when(e) {
+              channel.ll.valid := False
+            }
+          }
+        }
+      }
+    }
+
     io.interrupts := 0
     val mapping = new Area{
       for(channel <- channels){
         val a = 0x000+channel.id*0x80
 
-        if(channel.cp.canRead)  ctrl.writeMultiWord(channel.push.m2b.address, a+0x00)
-        if(channel.cp.canInput) ctrl.write(channel.push.s2b.portId,           a+0x08, 0)
-//        if(channel.cp.canInput) ctrl.write(channel.push.s2b.sourceId,       a+0x08, 16)
-        if(channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId,           a+0x08, 16)
-        if(channel.cp.canRead && channel.cp.bytePerBurst.isEmpty)  ctrl.write(channel.push.m2b.bytePerBurst,     a+0x0C, 0)
-        ctrl.write(channel.push.memory, a+0x0C, 12)
 
-        if(channel.cp.canWrite)  ctrl.writeMultiWord(channel.pop.b2m.address, a+0x10)
-        if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.portId,           a+0x18, 0)
-        if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.sourceId,         a+0x18, 8)
-        if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.sinkId,           a+0x18, 16)
-        if(channel.cp.canWrite && channel.cp.bytePerBurst.isEmpty)  ctrl.write(channel.pop.b2m.bytePerBurst,     a+0x1C, 0)
-        ctrl.write(channel.pop.memory, a+0x1C, 12)
-        if(channel.cp.canOutput) ctrl.write(channel.pop.b2s.last,             a+0x1C, 13)
+        if (channel.cp.canRead && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.push.m2b.address, a + 0x00)
+        if (channel.cp.canInput) ctrl.write(channel.push.s2b.portId, a + 0x08, 0)
+        //        if(channel.cp.canInput) ctrl.write(channel.push.s2b.sourceId,       a+0x08, 16)
+        if (channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId, a + 0x08, 16)
+        if (channel.cp.canRead && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.push.m2b.bytePerBurst, a + 0x0C, 0)
+        ctrl.write(channel.push.memory, a + 0x0C, 12)
 
-        ctrl.write(channel.bytes, a+0x20, 0)
-        ctrl.setOnSet(channel.start, a+0x2C, 0)
-        ctrl.read(channel.valid, a+0x2C, 0)
-        if(channel.cp.selfRestartCapable) ctrl.write(channel.selfRestart, a + 0x2C, 1)
-        ctrl.write(channel.stop, a + 0x2C, 2)
+        if (channel.cp.canWrite && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.pop.b2m.address, a + 0x10)
+        if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.portId, a + 0x18, 0)
+        if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.sourceId, a + 0x18, 8)
+        if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.sinkId, a + 0x18, 16)
+        if (channel.cp.canWrite && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.pop.b2m.bytePerBurst, a + 0x1C, 0)
+        ctrl.write(channel.pop.memory, a + 0x1C, 12)
+        if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.last, a + 0x1C, 13)
+
+        if(channel.cp.directCtrlCapable) {
+          ctrl.write(channel.bytes, a + 0x20, 0)
+          ctrl.setOnSet(channel.start, a + 0x2C, 0)
+          ctrl.read(channel.valid, a + 0x2C, 0)
+          if (channel.cp.selfRestartCapable) ctrl.write(channel.selfRestart, a + 0x2C, 1)
+          ctrl.write(channel.stop, a + 0x2C, 2)
+        }
+
+        if(channel.cp.linkedListCapable){
+          ctrl.setOnSet(channel.ll.sgStart, a + 0x2C, 4)
+          ctrl.read(channel.ll.valid, a + 0x2C, 4)
+
+          ctrl.write(channel.ll.ptrNext, a + 0x70)
+          ctrl.read(channel.ll.ptr, a + 0x70)
+        }
 
         if(channel.cp.fifoMapping.isEmpty) {
           ctrl.write(channel.fifo.base, a + 0x40, log2Up(p.memory.bankWidth / 8))
@@ -1142,6 +1287,11 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     ctrlWrite(bytes-1, channelAddress + 0x20)
     ctrlWrite(1 + (if(selfRestart) 2 else 0), channelAddress+0x2C)
   }
+  def channelStartSg(channel : Int, head : Long): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(head, channelAddress+0x70)
+    ctrlWrite(0x10, channelAddress+0x2C)
+  }
   def channelProgress(channel : Int): Int ={
     val channelAddress = channelToAddress(channel)
     ctrlRead(channelAddress + 0x60).toInt
@@ -1208,6 +1358,18 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     (ctrlRead(channelAddress + 0x2C) & 1) != 0
   }
 
+  def channelSgBusy(channel : Int) ={
+    val channelAddress = channelToAddress(channel)
+    (ctrlRead(channelAddress + 0x2C) & 0x10) != 0
+  }
+  def channelWaitSgDone(channel : Int) ={
+    val channelAddress = channelToAddress(channel)
+    while (channelSgBusy(channel)) {
+      clockDomain.waitSampling(Random.nextInt(50))
+    }
+  }
+
+
   val inputsTrasher = if(inputsIo.nonEmpty) for(_ <- 0 until 3) yield fork{
     clockDomain.waitSampling(Random.nextInt(4000))
     val inputId = Random.nextInt(p.inputs.size)
@@ -1228,6 +1390,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     waitUntil(packet.done)
     inputs(inputId).reservedSink.remove(sink)
   }
+
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
@@ -1350,28 +1513,92 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         }
 
         case M2M => {
-          val bytes = (Random.nextInt(0x100) + 1)
-          val from = memoryReserved.allocate(size = bytes)
-          val to = memoryReserved.allocate(size = bytes)
-          val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
-//          val from = 0x100 + Random.nextInt(4)
-//          val to = 0x400 + Random.nextInt(4)
-//          val bytes = 0x40 + Random.nextInt(4)
-//          val bytes = 0x40 + 2
-//          val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
-//          val to = SizeMapping(0x2000 + 0x100*channelId + 2, bytes)
-//          val doCount = 1
-          for (byteId <- 0 until bytes) {
-            writesAllowed(to.base.toInt + byteId) = Tuple2(memory.read(from.base.toInt + byteId),0)
-          }
+          val TRANSFER, LINKED_LIST = new Object
+          val test = ArrayBuffer[Object]()
+          test += TRANSFER
+          test += LINKED_LIST
+          test.randomPick() match {
+            case TRANSFER => {
+              val bytes = (Random.nextInt (0x100) + 1)
+              val from = memoryReserved.allocate (size = bytes)
+              val to = memoryReserved.allocate (size = bytes)
+              val doCount = if (cp.selfRestartCapable) Random.nextInt (3) + 1 else 1
+                //          val from = 0x100 + Random.nextInt(4)
+                //          val to = 0x400 + Random.nextInt(4)
+                //          val bytes = 0x40 + Random.nextInt(4)
+                //          val bytes = 0x40 + 2
+                //          val from = SizeMapping(0x1000 + 0x100*channelId, bytes)
+                //          val to = SizeMapping(0x2000 + 0x100*channelId + 2, bytes)
+                //          val doCount = 1
+              for (byteId <- 0 until bytes) {
+                writesAllowed (to.base.toInt + byteId) = Tuple2 (memory.read (from.base.toInt + byteId), 0)
+              }
 
-          channelPushMemory(channelId, from.base.toInt, 16)
-          channelPopMemory(channelId, to.base.toInt, 16)
-          channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
-          channelStartAndWait(channelId, bytes, doCount)
+              channelPushMemory (channelId, from.base.toInt, 16)
+              channelPopMemory (channelId, to.base.toInt, 16)
+              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelStartAndWait (channelId, bytes, doCount)
 
-          for (byteId <- 0 until bytes) {
-            assert(writesAllowed.remove(to.base.toInt + byteId).get._2 >= doCount)
+              for (byteId <- 0 until bytes) {
+                assert (writesAllowed.remove (to.base.toInt + byteId).get._2 >= doCount)
+              }
+            }
+            case LINKED_LIST => {
+              val descriptorCount = 4
+
+              def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean) = {
+                memory.write(address+0, push)
+                memory.write(address+8, pop)
+                memory.write(address+16, next)
+                memory.write(address+24, size-1)
+                memory.write(address+28, 0)
+              }
+              def writeTail(address : Long) = {
+                memory.write(address+28, 0x80000000)
+              }
+
+              val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+              val descriptors = List.fill(descriptorCount)( new {
+                val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+                val bytes = (Random.nextInt(0x100) + 1)
+                val from = memoryReserved.allocate(size = bytes)
+                val to = memoryReserved.allocate(size = bytes)
+                for (byteId <- 0 until bytes) {
+                  writesAllowed (to.base.toInt + byteId) = Tuple2 (memory.read (from.base.toInt + byteId), 0)
+                }
+                def free(): Unit ={
+                  for (byteId <- 0 until bytes) {
+                    assert (writesAllowed.remove (to.base.toInt + byteId).get._2 == 1)
+                  }
+                  memoryReserved.free(address)
+                  memoryReserved.free(from)
+                  memoryReserved.free(to)
+                }
+
+//                println(f"${address.base}%x ${from.base}%x ${to.base}%x")
+              })
+
+              for(i <- 0 until descriptorCount) {
+                val d = descriptors(i)
+                writeDescriptor(
+                  address = d.address.base.toLong,
+                  push = d.from.base.toLong,
+                  pop = d.to.base.toLong,
+                  size = d.bytes,
+                  next = if(i == descriptorCount-1) tail.base.toLong else descriptors(i+1).address.base.toLong,
+                  completed = false
+                )
+              }
+              writeTail(tail.base.toInt)
+
+
+              channelPushMemory (channelId, 0, 16)
+              channelPopMemory (channelId, 0, 16)
+              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelStartSg(channelId, descriptors.head.address.base.toLong)
+              channelWaitSgDone(channelId)
+              descriptors.foreach(_.free())
+            }
           }
         }
 
@@ -1506,7 +1733,9 @@ object SgDmaTestsParameter{
         outputsPorts   = outputs.zipWithIndex.map(_._2),
         selfRestartCapable = true,
         progressProbes = true,
-        halfCompletionInterrupt = true
+        halfCompletionInterrupt = true,
+        linkedListCapable = true,
+        directCtrlCapable = true
       )
       if(withOutputs) channels += DmaSg.Channel(
         memoryToMemory = false,
@@ -1514,7 +1743,9 @@ object SgDmaTestsParameter{
         outputsPorts   = outputs.zipWithIndex.map(_._2),
         selfRestartCapable = true,
         progressProbes = false,
-        halfCompletionInterrupt = true
+        halfCompletionInterrupt = true,
+        linkedListCapable = true,
+        directCtrlCapable = true
       )
       if(withInputs) channels += DmaSg.Channel(
         memoryToMemory = false,
@@ -1522,7 +1753,9 @@ object SgDmaTestsParameter{
         outputsPorts   = Nil,
         selfRestartCapable = true,
         progressProbes = true,
-        halfCompletionInterrupt = false
+        halfCompletionInterrupt = false,
+        linkedListCapable = true,
+        directCtrlCapable = true
       )
       if(withMemoryToMemory) channels += DmaSg.Channel(
         memoryToMemory = true,
@@ -1530,7 +1763,9 @@ object SgDmaTestsParameter{
         outputsPorts   = Nil,
         selfRestartCapable = true,
         progressProbes = false,
-        halfCompletionInterrupt = false
+        halfCompletionInterrupt = false,
+        linkedListCapable = true,
+        directCtrlCapable = true
       )
       channels += DmaSg.Channel(
         memoryToMemory = withMemoryToMemory,
@@ -1539,6 +1774,8 @@ object SgDmaTestsParameter{
         selfRestartCapable = false,
         progressProbes = true,
         halfCompletionInterrupt = true,
+        linkedListCapable = true,
+        directCtrlCapable = true,
         bytePerBurst = Some(0x20),
         fifoMapping = Some(0x600, 0x200)
       )
@@ -1550,6 +1787,8 @@ object SgDmaTestsParameter{
         writeAddressWidth = 30,
         writeDataWidth    = 32,
         writeLengthWidth  = 6,
+        sgReadAddressWidth = 30,
+        sgReadDataWidth = 32,
         memory = DmaMemoryLayout(
           //      bankCount            = 1,
           //      bankWidth            = 32,
