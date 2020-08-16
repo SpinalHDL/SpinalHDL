@@ -71,10 +71,6 @@ object DmaSg{
                        pendingWritePerChannel : Int = 15,
                        pendingReadPerChannel : Int = 15){
 
-    val outputsSourceWidth = outputs.map(_.sourceWidth).fold(0)(Math.max)
-    val outputsSinkWidth   = outputs.map(_.sinkWidth).fold(0)(Math.max)
-    val inputsSourceWidth  = inputs.map(_.sourceWidth).fold(0)(Math.max)
-    val inputsSinkWidth    = inputs.map(_.sinkWidth).fold(0)(Math.max)
     val readWriteMinDataWidth = Math.min(readDataWidth, writeDataWidth)
     val readWriteMaxDataWidth = Math.max(readDataWidth, writeDataWidth)
     val writeByteCount = writeDataWidth/8
@@ -367,8 +363,8 @@ object DmaSg{
         val b2s = cp.canOutput generate new Area{
           val last  = Reg(Bool)
           val portId = Reg(UInt(log2Up(p.outputs.size) bits))
-          val sourceId = Reg(UInt(p.outputsSourceWidth bits))
-          val sinkId = Reg(UInt(p.outputsSinkWidth bits))
+          val sourceId = Reg(UInt(cp.outputsPorts.map(p.outputs(_).sourceWidth).max bits))
+          val sinkId = Reg(UInt(cp.outputsPorts.map(p.outputs(_).sinkWidth).max bits))
 
           val veryLastTrigger = False
           val veryLastValid = Reg(Bool) setWhen(veryLastTrigger)
