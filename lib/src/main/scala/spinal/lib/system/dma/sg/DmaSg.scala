@@ -350,8 +350,7 @@ object DmaSg{
         }
 
         val s2b = cp.inputsPorts.nonEmpty generate new Area {
-          val portId = Reg(UInt(log2Up(p.inputs.size) bits))
-          val sinkId = Reg(UInt(p.inputsSinkWidth bits))
+          val portId = Reg(UInt(log2Up(cp.inputsPorts.size) bits))
           val completionOnLast = Reg(Bool)
           val packetEvent = False
           val packetLock = Reg(Bool)
@@ -534,7 +533,7 @@ object DmaSg{
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
 
       val cmd = new Area {
-        val channelsOh = B(channels.map(c => c.channelValid && !c.push.memory && c.push.s2b.portId === portId && c.push.s2b.sinkId === sink.sink))
+        val channelsOh = B(channels.map(c => c.channelValid && !c.push.memory && c.push.s2b.portId === c.cp.inputsPorts.indexOf(portId) && sink.sink === channels.indexOf(c)))
         val noHit = !channelsOh.orR
         val channelsFull = B(channels.map(c => c.s2b.full || c.push.s2b.packetLock && sink.last))
         val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
@@ -1076,7 +1075,7 @@ object DmaSg{
         if (channel.cp.canRead && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.push.m2b.address, a + 0x00)
         if (channel.cp.canInput) ctrl.write(channel.push.s2b.portId, a + 0x08, 0)
         //        if(channel.cp.canInput) ctrl.write(channel.push.s2b.sourceId,       a+0x08, 16)
-        if (channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId, a + 0x08, 16)
+//        if (channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId, a + 0x08, 16)
         if (channel.cp.canRead && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.push.m2b.bytePerBurst, a + 0x0C, 0)
         ctrl.write(channel.push.memory, a + 0x0C, 12)
         if(channel.cp.canInput) ctrl.write(channel.push.s2b.completionOnLast, a + 0x0C, 13)
@@ -1279,17 +1278,21 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   case class Packet(source : Int, sink : Int, last : Boolean){
     val data = mutable.Queue[Int]()
     var done = false
-    var next : Packet = null
   }
   val inputs = for(inputId <- 0 until p.inputs.size) yield new {
     val ip = p.inputs(inputId)
 
-    val packets = ArrayBuffer[Packet]()
+
+    val sinkToPackets = ArrayBuffer.fill(1 << ip.sinkWidth)(mutable.Queue[Packet]())
+    def enqueue(p : Packet) = sinkToPackets(p.sink).enqueue(p)
+
     val driver = StreamDriver(inputsIo(inputId), clockDomain) { p =>
-      if (packets.isEmpty) {
+      val nonEmptySinks = sinkToPackets.filter(_.nonEmpty)
+      if (nonEmptySinks.isEmpty) {
         false
       } else {
-        val packet = packets.randomPick()
+        val packets = nonEmptySinks.randomPick()
+        val packet = packets.head
         var data = BigInt(0)
         var mask = BigInt(0)
         for (byteId <- 0 until ip.byteCount) if(packet.data.nonEmpty && Random.nextBoolean()){
@@ -1303,8 +1306,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         if(packet.data.isEmpty && Random.nextBoolean()) {
           p.last #= packet.last
           packet.done = true
-          packets.remove(packets.indexOf(packet))
-          if(packet.next != null) packets += packet.next
+          packets.dequeue()
         } else {
           p.last #= false
         }
@@ -1463,7 +1465,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
       val value = Random.nextInt & 0xFF
       packet.data += value
     }
-    inputs(inputId).packets += packet
+    inputs(inputId).enqueue(packet)
 
     waitUntil(packet.done)
     inputs(inputId).reservedSink.remove(sink)
@@ -1500,7 +1502,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 //              val packetCount = 1
 
               val ip = p.inputs(inputId)
-              val sink = Random.nextInt(1 << ip.sinkWidth)
+              val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
+              val sink = connectedChannels.indexOf(cp)
               val source = Random.nextInt(1 << ip.sourceWidth)
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
@@ -1509,7 +1512,6 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               for(_ <- 0 until packetCount){
                 val bytes = rBytes
                 val packet = Packet(source = source, sink = sink, last = true)
-                var lastPacket = packet
                 for (byteId <- 0 until bytes) {
                   val value = Random.nextInt & 0xFF
                   writesAllowed(to.base.toInt + byteId) = ((value.toByte, 0))
@@ -1523,14 +1525,13 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 channelStart(channelId, bufferSize, selfRestart = false)
                 dut.clockDomain.waitSampling(2)
 
-                inputs(inputId).packets += packet
+                inputs(inputId).enqueue(packet)
                 if(Random.nextBoolean()){ //Send trash afterward
                   val trash = Packet(source = source, sink = sink, last = true)
                   for(i <- 0 until Random.nextInt(20)){
                     trash.data += Random.nextInt(256)
                   }
-                  packet.next = trash
-                  lastPacket = trash
+                  inputs(inputId).enqueue(trash)
                 }
                 waitUntil((interruptsIo.toInt & 0x1 << channelId) != 0)
 
@@ -1538,7 +1539,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   assert(writesAllowed.remove(to.base.toInt + byteId).get._2 == 1)
                 }
                 assert(!channelBusy(channelId))
-                waitUntil(lastPacket.done)
+                waitUntil(inputs(inputId).sinkToPackets(sink).isEmpty)
               }
               inputs(inputId).reservedSink.remove(sink)
             }
@@ -1554,7 +1555,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               val ip = p.inputs(inputId)
               val source = Random.nextInt(1 << ip.sourceWidth)
-              val sink = Random.nextInt(1 << ip.sinkWidth)
+              val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
+              val sink = connectedChannels.indexOf(cp)
 
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
@@ -1576,19 +1578,19 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 for(_ <- 0 until doCount + 20) {
                   packet.data ++= datas
                 }
-                inputs(inputId).packets += packet
+                inputs(inputId).enqueue(packet)
               }
               channelStartAndWait(channelId, bytes, doCount)
               for (byteId <- 0 until bytes) {
                 assert(writesAllowed.remove(to.base.toInt + byteId).get._2 >= doCount)
               }
-              if(!packet.done) inputs(inputId).packets.remove(inputs(inputId).packets.indexOf(packet))
+              if(!packet.done) inputs(inputId).sinkToPackets(sink).clear()
 
               val packetFlush = Packet(source = source, sink = sink, last = true)
               for (byteId <- 0 until Random.nextInt(10)) {
                 packetFlush.data += Random.nextInt & 0xFF
               }
-              inputs(inputId).packets += packetFlush
+              inputs(inputId).enqueue(packetFlush)
 
               waitUntil(packetFlush.done)
               inputs(inputId).reservedSink.remove(sink)
@@ -1606,7 +1608,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 //              val inputId = 0
 
               val ip = p.inputs(inputId)
-              val sink = Random.nextInt(1 << ip.sinkWidth)
+              val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
+              val sink = connectedChannels.indexOf(cp)
               val source = Random.nextInt(1 << ip.sourceWidth)
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
@@ -1631,7 +1634,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   refIdx &= bufferSize-1
                 }
 
-                inputs(inputId).packets += packet
+                inputs(inputId).enqueue(packet)
                 waitUntil((interruptsIo.toInt & 0x1 << channelId) != 0)
 
                 for (byteId <- 0 until bytes) {
@@ -1869,7 +1872,7 @@ object SgDmaTestsParameter{
       }
 
 
-      val channels = ArrayBuffer[Channel]()
+      val channels = ArrayBuffer[Channel]() //TODO add sparse configs
       channels += DmaSg.Channel(
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
