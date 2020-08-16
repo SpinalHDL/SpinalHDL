@@ -479,6 +479,9 @@ object DmaSg{
                 noMoreDescriptor := False
               }
             }
+            if(cp.linkedListCapable) when(ll.valid){
+              noMoreDescriptor := False
+            }
             when(noMoreDescriptor && readyForChannelCompletion){
               channelStop := True
             }
@@ -1086,18 +1089,19 @@ object DmaSg{
         ctrl.write(channel.pop.memory, a + 0x1C, 12)
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.last, a + 0x1C, 13)
 
+        ctrl.read(channel.channelValid, a + 0x2C, 0)
+
         if(channel.cp.directCtrlCapable) {
-          ctrl.write(channel.bytes, a + 0x20, 0)
           ctrl.setOnSet(channel.channelStart, a + 0x2C, 0)
           ctrl.setOnSet(channel.ctrl.kick, a + 0x2C, 0)
-          ctrl.read(channel.channelValid, a + 0x2C, 0)
+          ctrl.write(channel.bytes, a + 0x20, 0)
           if (channel.cp.selfRestartCapable) ctrl.write(channel.selfRestart, a + 0x2C, 1)
           ctrl.write(channel.channelStop, a + 0x2C, 2)
         }
 
         if(channel.cp.linkedListCapable){
+          ctrl.setOnSet(channel.channelStart, a + 0x2C, 4)
           ctrl.setOnSet(channel.ll.sgStart, a + 0x2C, 4)
-          ctrl.read(channel.ll.valid, a + 0x2C, 4)
 
           ctrl.write(channel.ll.ptrNext, a + 0x70)
           ctrl.read(channel.ll.ptr, a + 0x70)
@@ -1653,7 +1657,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           val TRANSFER, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
           test += TRANSFER
-//          test += LINKED_LIST
+          test += LINKED_LIST
           test.randomPick() match {
             case TRANSFER => {
               val bytes = (Random.nextInt (0x100) + 1)
@@ -1733,7 +1737,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               channelPopMemory (channelId, 0, 16)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
-              channelWaitSgDone(channelId)
+              channelWaitCompletion(channelId)
               descriptors.foreach(_.free())
             }
           }
