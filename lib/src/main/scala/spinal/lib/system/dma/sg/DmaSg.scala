@@ -307,7 +307,7 @@ object DmaSg{
             exposed := (!valid ? backupNext | (exposed - bytesDecr.value))
 
             bytes := exposed
-            when(channelStart || unload){
+            when(channelStart){
               backup := 0
               valid := False
             }
@@ -349,8 +349,9 @@ object DmaSg{
           val portId = Reg(UInt(log2Up(cp.inputsPorts.size) bits))
           val completionOnLast = Reg(Bool)
           val packetEvent = False
-          val packetLock = Reg(Bool)
-          fifo.pop.withOverride.load setWhen( packetEvent )
+          val packetLock = Reg(Bool) //Maybe this should be disable if not necessary
+          val waitFirst = Reg(Bool)
+          fifo.pop.withOverride.load setWhen( packetEvent && completionOnLast)
 
           when(channelStart){
             packetLock := False
@@ -517,8 +518,6 @@ object DmaSg{
     val channels = for((ep, id) <- p.channels.zipWithIndex) yield new ChannelLogic(id)
 
 
-
-    //Todo drop packet which were partialy push into the fifo, but not used by the channel, use first instead of last ?
     val s2b = for(portId <- 0 until p.inputs.size) yield new Area{
       val ps = p.inputs(portId)
       val channels = Core.this.channels.filter(_.cp.inputsPorts.contains(portId))
@@ -529,11 +528,12 @@ object DmaSg{
       val bankPerBeat = sink.p.byteCount * 8 / p.memory.bankWidth
 
       val cmd = new Area {
-        val channelsOh = B(channels.map(c => c.channelValid && !c.push.memory && c.push.s2b.portId === c.cp.inputsPorts.indexOf(portId) && sink.sink === channels.indexOf(c)))
+        val firsts = sink.firstSink
+        val first = firsts(sink.sink)
+        val channelsOh = B(channels.map(c => c.channelValid && (first || !c.push.s2b.waitFirst) && !c.push.memory && c.push.s2b.portId === c.cp.inputsPorts.indexOf(portId) && sink.sink === channels.indexOf(c)))
         val noHit = !channelsOh.orR
         val channelsFull = B(channels.map(c => c.s2b.full || c.push.s2b.packetLock && sink.last))
-        val throwUntilFirst = Reg(Bits(1 << ps.sinkWidth bits)) init(0)
-        val sinkHalted = sink.throwWhen(noHit || throwUntilFirst(sink.sink)).haltWhen((channelsOh & channelsFull).orR)
+        val sinkHalted = sink.throwWhen(noHit).haltWhen((channelsOh & channelsFull).orR)
         val byteCount = CountOne(sinkHalted.mask)
         val context = InputContext(ps, portId)
         context.channel := channelsOh
@@ -550,14 +550,11 @@ object DmaSg{
         for ((channel, ohId) <- channels.zipWithIndex) {
           val hit = channelsOh(ohId) && memoryPort.cmd.fire
           channel.fifo.push.ptrIncr.newPort() := ((hit && memoryPort.cmd.mask.orR) ? U(bankPerBeat) | U(0)).resized
-          channel.push.s2b.packetLock setWhen(hit && sink.last)
-        }
-        when(sink.fire){
-          when(noHit){
-            throwUntilFirst(sink.sink) := True
-          }
-          when(sink.last) {
-            throwUntilFirst(sink.sink) := False
+          when(hit){
+            channel.push.s2b.waitFirst := False
+            when(sink.last) {
+              channel.push.s2b.packetLock := True
+            }
           }
         }
       }
@@ -1085,6 +1082,7 @@ object DmaSg{
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.last, a + 0x1C, 13)
 
         ctrl.read(channel.channelValid, a + 0x2C, 0)
+        if (channel.cp.canInput) ctrl.write(channel.push.s2b.waitFirst, a + 0x2C, 8)
 
         if(channel.cp.directCtrlCapable) {
           ctrl.setOnSet(channel.channelStart, a + 0x2C, 0)
@@ -1356,15 +1354,16 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x18)
     ctrlWrite(if(withLast) 1 << 13 else 0, channelAddress + 0x1C)
   }
+  def WAIT_FIRST = 0x100
   def channelStart(channel : Int, bytes : BigInt, selfRestart : Boolean): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(bytes-1, channelAddress + 0x20)
-    ctrlWrite(1 + (if(selfRestart) 2 else 0), channelAddress+0x2C)
+    ctrlWrite(1 + (if(selfRestart) 2 else 0) | WAIT_FIRST, channelAddress+0x2C)
   }
   def channelStartSg(channel : Int, head : Long): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(head, channelAddress+0x70)
-    ctrlWrite(0x10, channelAddress+0x2C)
+    ctrlWrite(0x10 | WAIT_FIRST, channelAddress+0x2C)
   }
   def channelProgress(channel : Int): Int ={
     val channelAddress = channelToAddress(channel)
@@ -1446,6 +1445,17 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     } while(channelBusy(channel))
   }
 
+  def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean) = {
+    memory.write(address+0, push)
+    memory.write(address+8, pop)
+    memory.write(address+16, next)
+    memory.write(address+24, size-1)
+    memory.write(address+28, 0)
+  }
+  def writeTail(address : Long) = {
+    memory.write(address+28, 0x80000000)
+  }
+
   val inputsTrasher = if(inputsIo.nonEmpty) for(_ <- 0 until 3) yield fork{
     clockDomain.waitSampling(Random.nextInt(4000))
     val inputId = Random.nextInt(p.inputs.size)
@@ -1478,12 +1488,100 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {
         case S2M => if (p.inputs.nonEmpty) {
-          val TRANSFER, PACKETS_SELF, PACKETS_STOP = new Object
+          val TRANSFER, PACKETS_SELF, PACKETS_STOP, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
           test += TRANSFER
           test += PACKETS_SELF
           test += PACKETS_STOP
+          test += LINKED_LIST
           test.randomPick() match {
+            case LINKED_LIST => {
+              val descriptorCount = Random.nextInt(5) + 1
+              val inputId = cp.inputsPorts.randomPick()
+
+//              val inputId = 0
+
+              val ip = p.inputs(inputId)
+              val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
+              val sink = connectedChannels.indexOf(cp)
+              val source = Random.nextInt(1 << ip.sourceWidth)
+              while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
+              inputs(inputId).reservedSink.add(sink)
+
+
+              val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+              val descriptors = List.fill(descriptorCount)( new {
+                val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+                val bytes = (Random.nextInt(0x100) + 1)
+                val to = memoryReserved.allocate(size = bytes)
+
+//                val packet = Packet(source = source, sink = sink, last = true)
+//                for (byteId <- 0 until bytes) {
+//                  val value = Random.nextInt & 0xFF
+//                  writesAllowed(to.base.toInt + byteId) = ((value.toByte, 0))
+//                  packet.data += value
+//                }
+
+                def free(): Unit ={
+                  for (byteId <- 0 until bytes) {
+                    assert (writesAllowed.remove (to.base.toInt + byteId).get._2 == 1)
+                  }
+                  memoryReserved.free(address)
+                  memoryReserved.free(to)
+                }
+
+//                println(f"${address.base}%x ${to.base}%x")
+              })
+
+
+              for(i <- 0 until descriptorCount) {
+                val d = descriptors(i)
+                writeDescriptor(
+                  address = d.address.base.toLong,
+                  push = 0,
+                  pop = d.to.base.toLong,
+                  size = d.bytes,
+                  next = if(i == descriptorCount-1) tail.base.toLong else descriptors(i+1).address.base.toLong,
+                  completed = false
+                )
+              }
+              writeTail(tail.base.toInt)
+
+              channelPushStream(channelId, inputId, source, sink, completionOnPacket = false)
+              channelPopMemory (channelId, 0, 16)
+              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelStartSg(channelId, descriptors.head.address.base.toLong)
+              dut.clockDomain.waitSampling(2)
+
+              var descriptorPtr = descriptors.head
+              var descriptorByteId = 0
+              while(descriptorPtr != null){
+                val packet = Packet(source = source, sink = sink, last = true)
+                val bytes = Random.nextInt(0x100)+1
+//                println(bytes)
+                for (byteId <- 0 until bytes) {
+                  val value = Random.nextInt & 0xFF
+                  packet.data += value
+
+                  if(descriptorPtr != null){
+                    writesAllowed(descriptorPtr.to.base.toInt + descriptorByteId) = ((value.toByte, 0))
+//                    println(f"$value%02x")
+                    descriptorByteId += 1
+                    if(descriptorByteId == descriptorPtr.bytes) {
+                      descriptorByteId = 0
+                      val descriptorId = descriptors.indexOf(descriptorPtr)
+                      descriptorPtr = if (descriptorId == descriptorCount - 1) null else descriptors(descriptorId + 1)
+                    }
+                  }
+                }
+                inputs(inputId).enqueue(packet)
+              }
+
+              channelWaitCompletion(channelId)
+              descriptors.foreach(_.free())
+              memoryReserved.free(tail)
+              inputs(inputId).reservedSink.remove(sink)
+            }
             case PACKETS_STOP => {
               val bufferSize = 0x100
 
@@ -1684,18 +1782,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }
             }
             case LINKED_LIST => {
-              val descriptorCount = 4
-
-              def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean) = {
-                memory.write(address+0, push)
-                memory.write(address+8, pop)
-                memory.write(address+16, next)
-                memory.write(address+24, size-1)
-                memory.write(address+28, 0)
-              }
-              def writeTail(address : Long) = {
-                memory.write(address+28, 0x80000000)
-              }
+              val descriptorCount = Random.nextInt(5) + 1
 
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
               val descriptors = List.fill(descriptorCount)( new {
@@ -1737,48 +1824,116 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               channelWaitCompletion(channelId)
+              memoryReserved.free(tail)
               descriptors.foreach(_.free())
             }
           }
         }
 
         case M2S => if (p.outputs.nonEmpty) {
-          val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
-          val bytes = (Random.nextInt(0x100) + 1)
-          val from = memoryReserved.allocate(size = bytes)
-          val outputId = cp.outputsPorts.randomPick()
+          val TRANSFER, LINKED_LIST = new Object
+          val test = ArrayBuffer[Object]()
+          test += TRANSFER
+          test += LINKED_LIST
+          test.randomPick() match {
+            case LINKED_LIST => {
+              val descriptorCount = Random.nextInt(5) + 1
+              val outputId = cp.outputsPorts.randomPick()
 
-//          val doCount = 3
-//          val bytes = 0x40
-//          val from =  SizeMapping(0x1000, bytes)
-//          val outputId = 0
+//              val outputId = 0
 
-          val op = p.outputs(outputId)
-          val source = Random.nextInt(1 << op.sourceWidth)
-          val sink = Random.nextInt(1 << op.sinkWidth)
-          val withLast = Random.nextBoolean()
+              val op = p.outputs(outputId)
+              val source = Random.nextInt(1 << op.sourceWidth)
+              val sink = Random.nextInt(1 << op.sinkWidth)
+              val withLast = Random.nextBoolean()
 
-          while(outputs(outputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
-          outputs(outputId).reservedSink.add(sink)
+              while(outputs(outputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
+              outputs(outputId).reservedSink.add(sink)
 
-          for(_ <- 0 until doCount + 4) {
-            for (byteId <- 0 until bytes) {
-              outputs(outputId).ref(sink).enqueue((memory.read(from.base.toInt + byteId), source, false))
+              val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+              val descriptors = List.fill(descriptorCount)( new {
+                val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
+                val bytes = (Random.nextInt(0x100) + 1)
+                val from = memoryReserved.allocate(size = bytes)
+
+//                val bytes = 0x40
+//                val from =  SizeMapping(0x1000, bytes)
+
+                for (byteId <- 0 until bytes) {
+                  outputs(outputId).ref(sink).enqueue((memory.read(from.base.toInt + byteId), source, false))
+                }
+                if (withLast) outputs(outputId).ref(sink).enqueue((0, source, true))
+
+                def free(): Unit ={
+                  memoryReserved.free(address)
+                  memoryReserved.free(from)
+                }
+              })
+
+              for(i <- 0 until descriptorCount) {
+                val d = descriptors(i)
+                writeDescriptor(
+                  address = d.address.base.toLong,
+                  push = d.from.base.toLong,
+                  pop = 0,
+                  size = d.bytes,
+                  next = if(i == descriptorCount-1) tail.base.toLong else descriptors(i+1).address.base.toLong,
+                  completed = false
+                )
+              }
+              writeTail(tail.base.toInt)
+
+
+              channelPushMemory (channelId, 0, 16)
+              channelPopStream(channelId, outputId, source, sink, withLast)
+              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelStartSg(channelId, descriptors.head.address.base.toLong)
+              channelWaitCompletion(channelId)
+              waitUntil(!outputsIo(outputId).valid.toBoolean)
+              dut.clockDomain.waitSampling(2)
+              descriptors.foreach(_.free())
+              memoryReserved.free(tail)
+              outputs(outputId).reservedSink.remove(sink)
             }
-            if (withLast) outputs(outputId).ref(sink).enqueue((0, source, true))
-          }
+            case TRANSFER => {
+              val doCount = if(cp.selfRestartCapable) Random.nextInt(3) + 1 else 1
+              val bytes = (Random.nextInt(0x100) + 1)
+              val from = memoryReserved.allocate(size = bytes)
+              val outputId = cp.outputsPorts.randomPick()
 
-          channelPushMemory(channelId, from.base.toInt, 16)
-          channelPopStream(channelId, outputId, source, sink, withLast)
-          channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
-          channelStart(channelId, bytes = bytes, doCount != 1)
-          waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
-          channelStop(channelId)
-          channelWaitCompletion(channelId)
-          waitUntil(!outputsIo(outputId).valid.toBoolean)
-          dut.clockDomain.waitSampling(2)
-          outputs(outputId).ref(sink).clear()
-          outputs(outputId).reservedSink.remove(sink)
+              //          val doCount = 3
+              //          val bytes = 0x40
+              //          val from =  SizeMapping(0x1000, bytes)
+              //          val outputId = 0
+
+              val op = p.outputs(outputId)
+              val source = Random.nextInt(1 << op.sourceWidth)
+              val sink = Random.nextInt(1 << op.sinkWidth)
+              val withLast = Random.nextBoolean()
+
+              while(outputs(outputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
+              outputs(outputId).reservedSink.add(sink)
+
+              for(_ <- 0 until doCount + 4) {
+                for (byteId <- 0 until bytes) {
+                  outputs(outputId).ref(sink).enqueue((memory.read(from.base.toInt + byteId), source, false))
+                }
+                if (withLast) outputs(outputId).ref(sink).enqueue((0, source, true))
+              }
+
+              channelPushMemory(channelId, from.base.toInt, 16)
+              channelPopStream(channelId, outputId, source, sink, withLast)
+              channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
+              channelStart(channelId, bytes = bytes, doCount != 1)
+              waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
+              channelStop(channelId)
+              channelWaitCompletion(channelId)
+              waitUntil(!outputsIo(outputId).valid.toBoolean)
+              dut.clockDomain.waitSampling(2)
+              outputs(outputId).ref(sink).clear()
+              outputs(outputId).reservedSink.remove(sink)
+            }
+          }
         }
       }
     }
