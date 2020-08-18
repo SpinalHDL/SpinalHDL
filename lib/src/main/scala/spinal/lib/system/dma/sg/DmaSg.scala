@@ -59,9 +59,9 @@ object DmaSg{
     addressWidth = p.sgAddressWidth,
     dataWidth    = p.sgWriteDataWidth
   ).addSources(1, BmbSourceParameter(
-    contextWidth = widthOf(p.SgReadContext()),
-    lengthWidth = log2Up(descriptorSize),
-    canWrite = false,
+    contextWidth = widthOf(p.SgWriteContext()),
+    lengthWidth = 2,
+    canRead = false,
     alignment = BmbParameter.BurstAlignement.LENGTH
   ))
 
@@ -251,17 +251,37 @@ object DmaSg{
         }
       }
 
+      //TODO ll interaction with stop
       val ll = cp.linkedListCapable generate new Area{
         val sgStart = False
         val valid = RegInit(False)
-        val sgReadCmdDone = Reg(Bool)
+        val head = Reg(Bool)
+        val sgCmdDone = Reg(Bool)
+        val sgReadDone = Reg(Bool)
+        val sgReadStall = Reg(Bool)
+        val sgWritedDone = Reg(Bool)
         val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
+
+        when(valid && sgWritedDone && sgReadDone){
+          head := False
+          when(!sgReadStall) {
+            descriptorStart := True
+          } otherwise {
+            valid := False
+          }
+        }
+
         when(sgStart){
           valid := True
-          sgReadCmdDone := False
+          sgCmdDone := False
+          head := True
+          sgReadDone := False
+          sgWritedDone := False
         }
         when(descriptorStart){
-          sgReadCmdDone := False
+          sgCmdDone := False
+          sgReadDone := False
+          sgWritedDone := False
         }
       }
 
@@ -979,50 +999,76 @@ object DmaSg{
     val ll = p.canSgRead generate new Area{
       val channels = Core.this.channels.filter(_.cp.linkedListCapable)
       val arbiter = new Area{
-        val requests = channels.map(c => c.channelValid && !c.descriptorValid && c.ll.valid && !c.ll.sgReadCmdDone)
+        val requests = channels.map(c => c.channelValid && !c.descriptorValid && c.ll.valid && !c.ll.sgCmdDone)
         val oh = OHMasking.first(requests)
         val sel = OHMasking.first(requests)
         def channel[T <: Data](f: ChannelLogic => T) = MuxOH(oh, channels.map(f))
-        val address = channel(_.ll.ptrNext)
+        val ptrNext = channel(_.ll.ptrNext)
+        val ptr = channel(_.ll.ptr)
+        val head = channel(_.ll.head)
       }
 
       val cmd = new Area{
         val valid = RegInit(False)
         val oh = Reg(arbiter.oh)
-        val address = Reg(arbiter.address)
+        val ptr = Reg(arbiter.ptr)
+        val ptrNext = Reg(arbiter.ptrNext)
 
         val readFired, writeFired = Reg(Bool)
 
         when(!valid){
           valid setWhen(arbiter.oh.orR)
           oh := arbiter.oh
-          address := arbiter.address
-          for((channel, e) <- (channels, arbiter.oh).zipped) when(e){ channel.ll.sgReadCmdDone := True}
+          ptrNext := arbiter.ptrNext
+          ptr := arbiter.ptr
+          for((channel, e) <- (channels, arbiter.oh).zipped) when(e){
+            channel.ll.sgCmdDone := True
+            channel.ll.sgWritedDone setWhen(arbiter.head)
+            channel.ll.ptr := channel.ll.ptrNext
+          }
           readFired := False
-          writeFired := False
+          writeFired := arbiter.head
         } otherwise{
-          valid.clearWhen(io.sgRead.cmd.fire)
+          valid.clearWhen(writeFired && readFired)
         }
 
         val context = p.SgReadContext()
         context.channel := OHToUInt(oh)
 
-        io.sgRead.cmd.valid := valid
+        io.sgRead.cmd.valid := valid && !readFired
         io.sgRead.cmd.last := True
-        io.sgRead.cmd.address := address
+        io.sgRead.cmd.address := ptrNext(ptrNext.high downto 5) @@ U"00000"
         io.sgRead.cmd.length := descriptorSize-1
         io.sgRead.cmd.opcode := Bmb.Cmd.Opcode.READ
         io.sgRead.cmd.context := B(context)
+
+        io.sgWrite.cmd.valid := valid && !writeFired
+        io.sgWrite.cmd.last := True
+        io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U(32-io.sgWrite.p.access.byteCount, 5 bits)
+        io.sgWrite.cmd.length := 3
+        io.sgWrite.cmd.opcode := Bmb.Cmd.Opcode.WRITE
+        io.sgWrite.cmd.context := B(context)
+
+        val writeMaskSplit = io.sgWrite.cmd.mask.subdivideIn(4 bits)
+        val writeDataSplit = io.sgWrite.cmd.data.subdivideIn(32 bits)
+        writeMaskSplit.dropRight(1).foreach(_ := 0)
+        writeDataSplit.dropRight(1).foreach(_.assignDontCare())
+
+        writeMaskSplit.last := 3
+        writeDataSplit.last := 0
+        writeDataSplit.last.msb := True
+
+        readFired setWhen(io.sgRead.cmd.fire)
+        writeFired setWhen(io.sgWrite.cmd.fire)
       }
 
-      val rsp = new Area{
+      val readRsp = new Area{
         val context = io.sgRead.rsp.context.as(p.SgReadContext())
         val oh = UIntToOh(context.channel, width = channels.size).asBools
 
         val beatBytes = io.sgRead.p.access.byteCount
         val beatCount = descriptorSize/beatBytes
         val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
-
 
 
         val pushOffset = 0
@@ -1058,25 +1104,24 @@ object DmaSg{
           mapChannel(_.pop.b2m.address, _.canWrite, popOffset, 0)
           mapChannel(_.ll.ptrNext, _ => true, nextOffset, 0)
           mapChannel(_.bytes, _ => true, controlOffset, 0)
-          map(completed, statusOffset, 31)
-        }
+          mapChannel(_.ll.sgReadStall, _ => true, statusOffset, 31)
 
+          when(io.sgRead.rsp.last){
+            for ((channel, e) <- (channels, oh).zipped) when(e) {
+              channel.ll.sgReadDone := True
+            }
+          }
+        }
       }
 
-      val engage = new Area{
-        val valid = RegNext(io.sgRead.rsp.lastFire) init(False)
-        val oh = RegNext(rsp.oh)
+      val writeRsp = new Area {
+        val context = io.sgWrite.rsp.context.as(p.SgWriteContext())
+        val oh = UIntToOh(context.channel, width = channels.size).asBools
 
-        when(valid){
-          when(!rsp.completed) {
-            for ((channel, e) <- (channels, oh).zipped) when(e) {
-              channel.descriptorStart := True
-              channel.ll.ptr := channel.ll.ptrNext
-            }
-          } otherwise {
-            for ((channel, e) <- (channels, oh).zipped) when(e) {
-              channel.ll.valid := False
-            }
+        io.sgWrite.rsp.ready := True
+        when(io.sgWrite.rsp.fire){
+          for ((channel, e) <- (channels, oh).zipped) when(e) {
+            channel.ll.sgWritedDone := True
           }
         }
       }
@@ -1501,7 +1546,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     inputs(inputId).reservedSink.remove(sink)
   }
 
-  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex.take(1)) yield fork {
+  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
@@ -1514,10 +1559,10 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         case S2M => if (p.inputs.nonEmpty) {
           val TRANSFER, PACKETS_SELF, PACKETS_STOP, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-//          test += TRANSFER
-//          test += PACKETS_SELF
-//          test += PACKETS_STOP
-          test += LINKED_LIST
+          test += TRANSFER
+          test += PACKETS_SELF
+          test += PACKETS_STOP
+//          test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
@@ -1546,7 +1591,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   memoryReserved.free(to)
                 }
 
-//                println(f"${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
+                println(f"Desc : ${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
               })
 
 
@@ -1601,6 +1646,11 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   var descriptorByteId = 0
                   def moveToNextDescriptor() = {
                     if(descriptorPtr != null) {
+                      var descriptorWrite = 0x80000000l
+                      for(i <- 0 until 3){
+                        writesAllowed(descriptorPtr.address.base.toInt + 28+i) = (((descriptorWrite >> i*8).toByte, 0))
+                      }
+
                       descriptorByteId = 0
                       val descriptorId = descriptors.indexOf(descriptorPtr)
                       descriptorPtr = if (descriptorId == descriptorCount - 1) null else descriptors(descriptorId + 1)
@@ -1813,7 +1863,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           val TRANSFER, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
           test += TRANSFER
-          test += LINKED_LIST
+//          test += LINKED_LIST
           test.randomPick() match {
             case TRANSFER => {
               val bytes = (Random.nextInt (0x100) + 1)
@@ -1893,7 +1943,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
           val TRANSFER, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
           test += TRANSFER
-          test += LINKED_LIST
+//          test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
