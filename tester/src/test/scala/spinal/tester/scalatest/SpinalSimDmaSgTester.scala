@@ -32,6 +32,7 @@ class SpinalSimDmaSgTester extends FunSuite{
         }
       }
       if(p.canSgRead) memory.addPort(dut.io.sgRead, 0, dut.clockDomain, true)
+      if(p.canSgWrite) memory.addPort(dut.io.sgWrite, 0, dut.clockDomain, true)
       if(p.canRead) memory.addPort(dut.io.read, 0, dut.clockDomain, true)
       if(p.canWrite) memory.addPort(dut.io.write, 0, dut.clockDomain, true)
 

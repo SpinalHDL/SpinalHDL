@@ -46,8 +46,18 @@ object DmaSg{
   ))
 
   def getSgReadRequirements(p : Parameter) = BmbAccessParameter(
-    addressWidth = p.sgReadAddressWidth,
+    addressWidth = p.sgAddressWidth,
     dataWidth    = p.sgReadDataWidth
+  ).addSources(1, BmbSourceParameter(
+    contextWidth = widthOf(p.SgReadContext()),
+    lengthWidth = log2Up(descriptorSize),
+    canWrite = false,
+    alignment = BmbParameter.BurstAlignement.LENGTH
+  ))
+
+  def getSgWriteRequirements(p : Parameter) = BmbAccessParameter(
+    addressWidth = p.sgAddressWidth,
+    dataWidth    = p.sgWriteDataWidth
   ).addSources(1, BmbSourceParameter(
     contextWidth = widthOf(p.SgReadContext()),
     lengthWidth = log2Up(descriptorSize),
@@ -61,8 +71,9 @@ object DmaSg{
                        writeAddressWidth : Int,
                        writeDataWidth : Int,
                        writeLengthWidth : Int,
-                       sgReadAddressWidth : Int,
+                       sgAddressWidth : Int,
                        sgReadDataWidth : Int,
+                       sgWriteDataWidth : Int,
                        memory : DmaMemoryLayout,
                        outputs : Seq[BsbParameter],
                        inputs : Seq[BsbParameter],
@@ -82,6 +93,8 @@ object DmaSg{
     def canRead = channels.exists(_.canRead)
     def canWrite = channels.exists(_.canWrite)
     def canSgRead = channels.exists(_.linkedListCapable)
+    def canSgWrite = channels.exists(_.linkedListCapable)
+
     case class ReadContext() extends Bundle{
       val channel = UInt(log2Up(channels.count(_.canRead)) bits)
       val start, stop = UInt(log2Up(readDataWidth/8) bits)
@@ -96,6 +109,10 @@ object DmaSg{
     }
 
     case class SgReadContext() extends Bundle{
+      val channel =  UInt(log2Up(channels.count(_.linkedListCapable)) bits)
+    }
+
+    case class SgWriteContext() extends Bundle{
       val channel =  UInt(log2Up(channels.count(_.linkedListCapable)) bits)
     }
   }
@@ -137,6 +154,7 @@ object DmaSg{
   case class Core[CTRL <: Data with IMasterSlave](p : Parameter, ctrlType : HardType[CTRL], slaveFactory : CTRL => BusSlaveFactory) extends Component{
     val io = new Bundle {
       val sgRead = p.canSgRead generate master(Bmb(getSgReadRequirements(p)))
+      val sgWrite = p.canSgWrite generate master(Bmb(getSgWriteRequirements(p)))
       val read = p.canRead generate master(Bmb(getReadRequirements(p)))
       val write = p.canWrite generate master(Bmb(getWriteRequirements(p)))
       val outputs = Vec(p.outputs.map(s => master(Bsb(s))))
@@ -972,11 +990,16 @@ object DmaSg{
         val valid = RegInit(False)
         val oh = Reg(arbiter.oh)
         val address = Reg(arbiter.address)
+
+        val readFired, writeFired = Reg(Bool)
+
         when(!valid){
           valid setWhen(arbiter.oh.orR)
           oh := arbiter.oh
           address := arbiter.address
           for((channel, e) <- (channels, arbiter.oh).zipped) when(e){ channel.ll.sgReadCmdDone := True}
+          readFired := False
+          writeFired := False
         } otherwise{
           valid.clearWhen(io.sgRead.cmd.fire)
         }
@@ -1272,6 +1295,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   case class Packet(source : Int, sink : Int, last : Boolean){
     val data = mutable.Queue[Int]()
     var done = false
+    var allowSplitLast = true
   }
   val inputs = for(inputId <- 0 until p.inputs.size) yield new {
     val ip = p.inputs(inputId)
@@ -1297,7 +1321,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         p.mask #= mask
         p.source #= packet.source
         p.sink #= packet.sink
-        if(packet.data.isEmpty && Random.nextBoolean()) {
+        if(packet.data.isEmpty && (packet.allowSplitLast || Random.nextBoolean())) {
           p.last #= packet.last
           packet.done = true
           packets.dequeue()
@@ -1477,7 +1501,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     inputs(inputId).reservedSink.remove(sink)
   }
 
-  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
+  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex.take(1)) yield fork {
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
@@ -1490,16 +1514,18 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         case S2M => if (p.inputs.nonEmpty) {
           val TRANSFER, PACKETS_SELF, PACKETS_STOP, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-          test += TRANSFER
-          test += PACKETS_SELF
-          test += PACKETS_STOP
+//          test += TRANSFER
+//          test += PACKETS_SELF
+//          test += PACKETS_STOP
           test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
               val inputId = cp.inputsPorts.randomPick()
+//              val packetBased = Random.nextBoolean()
 
 //              val inputId = 0
+              val packetBased = true
 
               val ip = p.inputs(inputId)
               val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
@@ -1508,29 +1534,19 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
 
-
+//              println("MIAOU")
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
               val descriptors = List.fill(descriptorCount)( new {
                 val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
                 val bytes = (Random.nextInt(0x100) + 1)
                 val to = memoryReserved.allocate(size = bytes)
 
-//                val packet = Packet(source = source, sink = sink, last = true)
-//                for (byteId <- 0 until bytes) {
-//                  val value = Random.nextInt & 0xFF
-//                  writesAllowed(to.base.toInt + byteId) = ((value.toByte, 0))
-//                  packet.data += value
-//                }
-
                 def free(): Unit ={
-                  for (byteId <- 0 until bytes) {
-                    assert (writesAllowed.remove (to.base.toInt + byteId).get._2 == 1)
-                  }
                   memoryReserved.free(address)
                   memoryReserved.free(to)
                 }
 
-//                println(f"${address.base}%x ${to.base}%x")
+//                println(f"${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
               })
 
 
@@ -1547,39 +1563,82 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }
               writeTail(tail.base.toInt)
 
-              channelPushStream(channelId, inputId, source, sink, completionOnPacket = false)
+              channelPushStream(channelId, inputId, source, sink, completionOnPacket = packetBased)
               channelPopMemory (channelId, 0, 16)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               dut.clockDomain.waitSampling(2)
 
-              var descriptorPtr = descriptors.head
-              var descriptorByteId = 0
-              while(descriptorPtr != null){
-                val packet = Packet(source = source, sink = sink, last = true)
-                val bytes = Random.nextInt(0x100)+1
-//                println(bytes)
-                for (byteId <- 0 until bytes) {
-                  val value = Random.nextInt & 0xFF
-                  packet.data += value
+              val checks = ArrayBuffer[() => Unit]()
+              packetBased match {
+                case false => {
+                  var descriptorPtr = descriptors.head
+                  var descriptorByteId = 0
+                  while(descriptorPtr != null){
+                    val packet = Packet(source = source, sink = sink, last = true)
+                    val bytes = Random.nextInt(0x100)+1
+                    for (byteId <- 0 until bytes) {
+                      val value = Random.nextInt & 0xFF
+                      packet.data += value
 
-                  if(descriptorPtr != null){
-                    writesAllowed(descriptorPtr.to.base.toInt + descriptorByteId) = ((value.toByte, 0))
-//                    println(f"$value%02x")
-                    descriptorByteId += 1
-                    if(descriptorByteId == descriptorPtr.bytes) {
+                      if(descriptorPtr != null){
+                        var to = descriptorPtr.to.base.toInt + descriptorByteId
+                        writesAllowed(to) = ((value.toByte, 0))
+                        checks += (() => assert (writesAllowed.remove (to).get._2 == 1))
+                        descriptorByteId += 1
+                        if(descriptorByteId == descriptorPtr.bytes) {
+                          descriptorByteId = 0
+                          val descriptorId = descriptors.indexOf(descriptorPtr)
+                          descriptorPtr = if (descriptorId == descriptorCount - 1) null else descriptors(descriptorId + 1)
+                        }
+                      }
+                    }
+                    inputs(inputId).enqueue(packet)
+                  }
+                }
+                case true => {
+                  var descriptorPtr = descriptors.head
+                  var descriptorByteId = 0
+                  def moveToNextDescriptor() = {
+                    if(descriptorPtr != null) {
                       descriptorByteId = 0
                       val descriptorId = descriptors.indexOf(descriptorPtr)
                       descriptorPtr = if (descriptorId == descriptorCount - 1) null else descriptors(descriptorId + 1)
+//                      println()
                     }
                   }
+                  while(descriptorPtr != null){
+                    val packet = Packet(source = source, sink = sink, last = true)
+                    packet.allowSplitLast = false
+                    val bytes = Random.nextInt(0x100)+1
+                    var overflow = false
+                    for (byteId <- 0 until bytes) {
+                      val value = Random.nextInt & 0xFF
+                      packet.data += value
+
+                      if(descriptorPtr != null){
+                        writesAllowed(descriptorPtr.to.base.toInt + descriptorByteId) = ((value.toByte, 0))
+
+//                        print(f"$value%02x -> ${descriptorPtr.to.base.toInt + descriptorByteId}%08x,")
+                        descriptorByteId += 1
+                        if(descriptorByteId == descriptorPtr.bytes) {
+                          moveToNextDescriptor()
+                        }
+                      } else {
+                        overflow = true
+                      }
+                    }
+                    inputs(inputId).enqueue(packet)
+                    if(descriptorByteId != 0) moveToNextDescriptor()
+                  }
                 }
-                inputs(inputId).enqueue(packet)
               }
+
 
               channelWaitCompletion(channelId)
               descriptors.foreach(_.free())
               memoryReserved.free(tail)
+              checks.foreach(_())
               inputs(inputId).reservedSink.remove(sink)
             }
             case PACKETS_STOP => {
@@ -2084,8 +2143,9 @@ object SgDmaTestsParameter{
         writeAddressWidth = 30,
         writeDataWidth    = 32,
         writeLengthWidth  = 6,
-        sgReadAddressWidth = 30,
+        sgAddressWidth = 30,
         sgReadDataWidth = 32,
+        sgWriteDataWidth = 32,
         memory = DmaMemoryLayout(
           //      bankCount            = 1,
           //      bankWidth            = 32,
