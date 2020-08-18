@@ -1308,12 +1308,14 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
   import spinal.core.sim._
 
-  val writesAllowed = mutable.HashMap[Long, (Byte, Int)]()
+  val writesAllowed = mutable.HashMap[Long, (Byte, Int, Boolean)]()
+  def allowWrite(address : Long, value : Byte) = writesAllowed(address) = (value, 0, true)
+  def allowWrite(address : Long) = writesAllowed(address) = (0, 0, false)
 
   def writeNotification(address: Long, value: Byte): Unit = {
     val e = writesAllowed(address)
-    assert(writesAllowed(address)._1 == value)
-    writesAllowed(address) = ((e._1, e._2 + 1))
+    assert(!e._3 || e._1 == value)
+    writesAllowed(address) = ((e._1, e._2 + 1, e._3))
   }
 
   val memoryReserved = MemoryRegionAllocator(base = 0, size = 1l << p.writeAddressWidth)
@@ -1559,10 +1561,10 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         case S2M => if (p.inputs.nonEmpty) {
           val TRANSFER, PACKETS_SELF, PACKETS_STOP, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-          test += TRANSFER
-          test += PACKETS_SELF
-          test += PACKETS_STOP
-//          test += LINKED_LIST
+//          test += TRANSFER
+//          test += PACKETS_SELF
+//          test += PACKETS_STOP
+          test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
@@ -1591,7 +1593,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   memoryReserved.free(to)
                 }
 
-                println(f"Desc : ${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
+//                println(f"Desc : ${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
               })
 
 
@@ -1628,7 +1630,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
                       if(descriptorPtr != null){
                         var to = descriptorPtr.to.base.toInt + descriptorByteId
-                        writesAllowed(to) = ((value.toByte, 0))
+                        allowWrite(to, value.toByte)
                         checks += (() => assert (writesAllowed.remove (to).get._2 == 1))
                         descriptorByteId += 1
                         if(descriptorByteId == descriptorPtr.bytes) {
@@ -1648,7 +1650,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                     if(descriptorPtr != null) {
                       var descriptorWrite = 0x80000000l
                       for(i <- 0 until 3){
-                        writesAllowed(descriptorPtr.address.base.toInt + 28+i) = (((descriptorWrite >> i*8).toByte, 0))
+                        allowWrite(descriptorPtr.address.base.toInt + 28+i, (descriptorWrite >> i*8).toByte)
                       }
 
                       descriptorByteId = 0
@@ -1667,7 +1669,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       packet.data += value
 
                       if(descriptorPtr != null){
-                        writesAllowed(descriptorPtr.to.base.toInt + descriptorByteId) = ((value.toByte, 0))
+                        allowWrite(descriptorPtr.to.base.toInt + descriptorByteId, value.toByte)
 
 //                        print(f"$value%02x -> ${descriptorPtr.to.base.toInt + descriptorByteId}%08x,")
                         descriptorByteId += 1
@@ -1717,7 +1719,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val packet = Packet(source = source, sink = sink, last = true)
                 for (byteId <- 0 until bytes) {
                   val value = Random.nextInt & 0xFF
-                  writesAllowed(to.base.toInt + byteId) = ((value.toByte, 0))
+                  allowWrite(to.base.toInt + byteId, value.toByte)
                   packet.data += value
                 }
 
@@ -1775,7 +1777,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val datas = ArrayBuffer[Int]()
                 for (byteId <- 0 until bytes) {
                   val value = Random.nextInt & 0xFF
-                  writesAllowed(to.base.toInt + byteId) = ((value.toByte, 0))
+                  allowWrite(to.base.toInt + byteId, value.toByte)
                   datas += value
                 }
                 for(_ <- 0 until doCount + 20) {
@@ -1830,7 +1832,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val datas = ArrayBuffer[Byte]()
                 for (byteId <- 0 until bytes) {
                   val value = Random.nextInt & 0xFF
-                  writesAllowed(to.base.toInt + refIdx) = ((value.toByte, 0))
+                  allowWrite(to.base.toInt + refIdx, value.toByte)
                   packet.data += value
                   datas += value.toByte
                   refIdx += 1
@@ -1878,7 +1880,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 //              val to = SizeMapping(0x2000 + 0x100*channelId, bytes)
 //              val doCount = 3
               for (byteId <- 0 until bytes) {
-                writesAllowed (to.base.toInt + byteId) = Tuple2 (memory.read (from.base.toInt + byteId), 0)
+                allowWrite (to.base.toInt + byteId, memory.read (from.base.toInt + byteId))
               }
 
               channelPushMemory (channelId, from.base.toInt, 16)
@@ -1900,7 +1902,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val from = memoryReserved.allocate(size = bytes)
                 val to = memoryReserved.allocate(size = bytes)
                 for (byteId <- 0 until bytes) {
-                  writesAllowed (to.base.toInt + byteId) = Tuple2 (memory.read (from.base.toInt + byteId), 0)
+                  allowWrite (to.base.toInt + byteId, memory.read (from.base.toInt + byteId))
                 }
                 def free(): Unit ={
                   for (byteId <- 0 until bytes) {
