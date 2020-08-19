@@ -235,7 +235,7 @@ object DmaSg{
 
 
       val bytesProbe = (cp.withProgressCounter) generate new Area{
-        val value = Reg(UInt(p.bytePerTransferWidth bits)) simPublic()
+        val value = Reg(UInt(p.bytePerTransferWidth + 1 bits)) simPublic()
         val incr = Flow(UInt(Math.max(p.writeLengthWidth, p.readLengthWidth) bits))
         incr.valid := False
         incr.payload.assignDontCare()
@@ -260,6 +260,7 @@ object DmaSg{
         val sgReadDone = Reg(Bool)
         val sgReadStall = Reg(Bool)
         val sgWritedDone = Reg(Bool)
+        val packet = Reg(Bool) clearWhen(descriptorStart)
         val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
 
         when(valid && sgWritedDone && sgReadDone){
@@ -434,11 +435,11 @@ object DmaSg{
           val waitFinalRsp = Reg(Bool)
           val flush = Reg(Bool) clearWhen(fire)  //Check flush
           val packetSync = False
-          val packet = Reg(Bool) clearWhen(!channelValid || fire)
+          val packet = Reg(Bool) clearWhen(channelStart || fire)
           val memRsp = False
           val memPending = Reg(UInt(log2Up(p.pendingWritePerChannel + 1) bits)) init(0)
           val address = Reg(UInt(io.write.p.access.addressWidth bits))
-          val bytesLeft = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
+          val bytesLeft = Reg(UInt(p.bytePerTransferWidth+1 bits)) //minus one
 
           // Trigger request when there is enough to do a burst, fifo occupancy > 50 %, flush
           val request = descriptorValid && !channelStop && !waitFinalRsp && memory && (fifo.pop.bytes > bytePerBurst || (fifo.push.available < (fifo.words >> 1) || flush)) && fifo.pop.bytes =/= 0 && memPending =/= p.pendingWritePerChannel
@@ -478,9 +479,11 @@ object DmaSg{
             flush := False
           }
           when(descriptorStart){
-            bytesLeft := bytes
+            bytesLeft := bytes.resized
             waitFinalRsp := False
           }
+
+          if(cp.linkedListCapable) ll.packet setWhen(packetSync)
         }
       }
 
@@ -833,7 +836,7 @@ object DmaSg{
             sel.bytesInFifo :=  channel(_.fifo.pop.bytes)
             sel.flush := channel(_.pop.b2m.flush)
             sel.packet := channel(_.pop.b2m.packet)
-            sel.bytesLeft := channel(_.pop.b2m.bytesLeft)
+            sel.bytesLeft := channel(_.pop.b2m.bytesLeft).resized
             channel(_.pop.b2m.fire) := True
           }
         }
@@ -861,7 +864,7 @@ object DmaSg{
             channel.pop.b2m.decrBytes := bytesInBurstP1.resized
             channel.pop.b2m.address := addressNext
             channel.pop.b2m.bytesLeft := bytesLeftNext.resized
-            channel.pop.b2m.waitFinalRsp := isFinalCmd
+            channel.pop.b2m.waitFinalRsp setWhen(isFinalCmd)
             when(!fifoCompletion) {
               when(sel.flush) {
                 channel.pop.b2m.flush := True
@@ -1002,25 +1005,27 @@ object DmaSg{
         val requests = channels.map(c => c.channelValid && !c.descriptorValid && c.ll.valid && !c.ll.sgCmdDone)
         val oh = OHMasking.first(requests)
         val sel = OHMasking.first(requests)
-        def channel[T <: Data](f: ChannelLogic => T) = MuxOH(oh, channels.map(f))
-        val ptrNext = channel(_.ll.ptrNext)
-        val ptr = channel(_.ll.ptr)
+        def channel[T <: Data](f: ChannelLogic => T, keep : ChannelLogic => Boolean = _ => true) = {
+          val (ohFiltred, channelsFiltred) = (oh.toSeq, channels).zipped.filter((a,b) => keep(b))
+          MuxOH(B(ohFiltred), channelsFiltred.map(f))
+        }
         val head = channel(_.ll.head)
       }
 
       val cmd = new Area{
         val valid = RegInit(False)
-        val oh = Reg(arbiter.oh)
-        val ptr = Reg(arbiter.ptr)
-        val ptrNext = Reg(arbiter.ptrNext)
+        def fromArbiter[T <: Data](f : ChannelLogic => T, keep : ChannelLogic => Boolean = _ => true) = RegNextWhen(arbiter.channel(f, keep), cond = !valid)
+        val oh = RegNextWhen(arbiter.oh, !valid)
+        val ptr = fromArbiter(_.ll.ptr)
+        val ptrNext = fromArbiter(_.ll.ptrNext)
+        val bytesLeft = if(channels.exists(_.cp.canWrite)) fromArbiter(_.pop.b2m.bytesLeft, _.cp.canWrite) else U(1)
+        val endOfPacket = fromArbiter(_.ll.packet)
 
         val readFired, writeFired = Reg(Bool)
 
         when(!valid){
           valid setWhen(arbiter.oh.orR)
           oh := arbiter.oh
-          ptrNext := arbiter.ptrNext
-          ptr := arbiter.ptr
           for((channel, e) <- (channels, arbiter.oh).zipped) when(e){
             channel.ll.sgCmdDone := True
             channel.ll.sgWritedDone setWhen(arbiter.head)
@@ -1054,9 +1059,11 @@ object DmaSg{
         writeMaskSplit.dropRight(1).foreach(_ := 0)
         writeDataSplit.dropRight(1).foreach(_.assignDontCare())
 
-        writeMaskSplit.last := 3
+        writeMaskSplit.last := 0xF
         writeDataSplit.last := 0
-        writeDataSplit.last.msb := True
+        writeDataSplit.last(0, 27 bits) := B(S(bytesLeft).resize(27 bits))
+        writeDataSplit.last(31) := True
+        writeDataSplit.last(30) := endOfPacket
 
         readFired setWhen(io.sgRead.cmd.fire)
         writeFired setWhen(io.sgWrite.cmd.fire)
@@ -1548,7 +1555,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     inputs(inputId).reservedSink.remove(sink)
   }
 
-  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
+  val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex.take(1)) yield fork {
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
@@ -1572,7 +1579,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 //              val packetBased = Random.nextBoolean()
 
 //              val inputId = 0
-              val packetBased = true
+              val packetBased = false
 
               val ip = p.inputs(inputId)
               val connectedChannels = p.channels.filter(_.inputsPorts.contains(inputId))
@@ -1588,12 +1595,26 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val bytes = (Random.nextInt(0x100) + 1)
                 val to = memoryReserved.allocate(size = bytes)
 
+                memory.writeInt(address.base.toLong, Random.nextInt() | (1 << 31))
+                for(i <- 0 until bytes){
+                  allowWrite(to.base.toInt + i)
+                }
+                for(i <- 0 until 4){
+                  allowWrite(address.base.toInt + 28 + i)
+                }
+
                 def free(): Unit ={
                   memoryReserved.free(address)
                   memoryReserved.free(to)
+                  for(i <- 0 until bytes){
+                    writesAllowed.remove(to.base.toInt + i)
+                  }
+                  for(i <- 0 until 4){
+                    assert(writesAllowed.remove(address.base.toInt + 28 + i).get._2 == 1)
+                  }
                 }
 
-//                println(f"Desc : ${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x")
+                println(f"Desc : ${address.base}%08x ${to.base}%08x ${to.base + bytes-1}%08x $bytes")
               })
 
 
@@ -1617,6 +1638,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               dut.clockDomain.waitSampling(2)
 
               val checks = ArrayBuffer[() => Unit]()
+              val packets = mutable.Queue[mutable.Queue[Byte]]()
               packetBased match {
                 case false => {
                   var descriptorPtr = descriptors.head
@@ -1629,7 +1651,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       packet.data += value
 
                       if(descriptorPtr != null){
-                        var to = descriptorPtr.to.base.toInt + descriptorByteId
+                        val to = descriptorPtr.to.base.toInt + descriptorByteId
                         allowWrite(to, value.toByte)
                         checks += (() => assert (writesAllowed.remove (to).get._2 == 1))
                         descriptorByteId += 1
@@ -1641,56 +1663,68 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       }
                     }
                     inputs(inputId).enqueue(packet)
+                    packets.enqueue(mutable.Queue(packet.data.map(_.toByte) :_*))
+                    println(f"Packet : ${packet.data.size}")
                   }
                 }
                 case true => {
-                  var descriptorPtr = descriptors.head
-                  var descriptorByteId = 0
-                  def moveToNextDescriptor() = {
-                    if(descriptorPtr != null) {
-                      var descriptorWrite = 0x80000000l
-                      for(i <- 0 until 3){
-                        allowWrite(descriptorPtr.address.base.toInt + 28+i, (descriptorWrite >> i*8).toByte)
-                      }
-
-                      descriptorByteId = 0
-                      val descriptorId = descriptors.indexOf(descriptorPtr)
-                      descriptorPtr = if (descriptorId == descriptorCount - 1) null else descriptors(descriptorId + 1)
-//                      println()
-                    }
-                  }
-                  while(descriptorPtr != null){
+                  val descriptorsBytes = descriptors.map(_.bytes).sum
+                  var packetsBytes = 0
+                  while(packetsBytes < descriptorsBytes){
                     val packet = Packet(source = source, sink = sink, last = true)
-                    packet.allowSplitLast = false
                     val bytes = Random.nextInt(0x100)+1
-                    var overflow = false
+                    packetsBytes += bytes
                     for (byteId <- 0 until bytes) {
                       val value = Random.nextInt & 0xFF
                       packet.data += value
-
-                      if(descriptorPtr != null){
-                        allowWrite(descriptorPtr.to.base.toInt + descriptorByteId, value.toByte)
-
-//                        print(f"$value%02x -> ${descriptorPtr.to.base.toInt + descriptorByteId}%08x,")
-                        descriptorByteId += 1
-                        if(descriptorByteId == descriptorPtr.bytes) {
-                          moveToNextDescriptor()
-                        }
-                      } else {
-                        overflow = true
-                      }
                     }
                     inputs(inputId).enqueue(packet)
-                    if(descriptorByteId != 0) moveToNextDescriptor()
+                    packets.enqueue(mutable.Queue(packet.data.map(_.toByte) :_*))
+                    println(f"Packet : ${packet.data.size}")
                   }
                 }
               }
 
+              val verificationThread = fork{
+                for(descriptor <- descriptors){
+                  println(s"wait ${descriptor.address.base.toLong + 31}")
+                  waitUntil( memory.read(descriptor.address.base.toLong + 31) < 0)
+                  val status = memory.readInt(descriptor.address.base.toLong + 28)
+                  println(f"Status : $status%08x")
+                  val bytesLeft = (status & 0x7FFFFFF) << 5 >> 5
+                  val isLast = (status & 0x40000000) != 0
+                  val bytes = descriptor.bytes - 1 - bytesLeft
+                  println(f"$bytes")
+                  assert(bytes >= 0)
+                  val packet = packets.head
+                  packetBased match {
+                    case true => {
+                      isLast match {
+                        case true => assert(bytes == packet.size)
+                        case false => assert(bytes == descriptor.bytes)
+                      }
+                      assert(packet.size >= bytes)
+                      for(byteId <- 0 until bytes){
+                        assert(packet.dequeue() == memory.read(descriptor.to.base.toLong + byteId))
+                      }
+                      if(isLast){
+                        assert(packet.isEmpty)
+                        packets.dequeue()
+                      }
+                    }
+                    case false => {
+
+                    }
+                  }
+                }
+              }
 
               channelWaitCompletion(channelId)
+              verificationThread.join()
+              checks.foreach(_())
               descriptors.foreach(_.free())
               memoryReserved.free(tail)
-              checks.foreach(_())
+              waitUntil(inputs(inputId).sinkToPackets(sink).isEmpty)
               inputs(inputId).reservedSink.remove(sink)
             }
             case PACKETS_STOP => {

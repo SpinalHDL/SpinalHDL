@@ -134,6 +134,15 @@ case class SparseMemory(){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
 
+  def readInt(address : Long) : Int = {
+    var value = 0
+    for(i <- 0 until 4) value |= (read(address + i).toInt & 0xFF) << i*8
+    return value
+  }
+  def writeInt(address : Long, data : Int) : Unit = {
+    for(i <- 0 until 4) write(address + i, data >> 8*i)
+  }
+
   def loadBin(offset : Long, file : String): Unit ={
     val bin = Files.readAllBytes(Paths.get(file))
     for(byteId <- 0 until bin.size){
