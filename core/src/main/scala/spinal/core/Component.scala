@@ -324,4 +324,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     }
     null
   }
+
+  /**
+    * User can add comment in the rtl file generated on the top of the component
+    */
+  val rtlComments = new mutable.LinkedHashSet[String]()
+  def addComment(comment: String): Unit = rtlComments += comment
 }

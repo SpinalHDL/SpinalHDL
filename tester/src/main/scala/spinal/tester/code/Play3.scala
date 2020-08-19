@@ -1628,3 +1628,44 @@ object PlayWithGeneric extends App{
 
   SpinalVhdl(new TopLevel)
 }
+
+
+object PlayWithComments extends App {
+
+  class Comp_1(index: Int) extends Component{
+
+    addComment(f"Comp1 index $index")
+    addComment(f"This is a fake component \n toto")
+    addComment(f"useful comments :) ...")
+
+    val io = new Bundle{
+      val din  = in Bool
+      val dout = out Bool
+    }
+    io.dout := RegNext(io.din)
+  }
+
+  class TopLevel() extends Component{
+    addComment("This is my top level")
+
+    val io = new Bundle{
+      val din = in Bits(3 bits)
+      val dout = out Bits(3 bits)
+    }
+
+    for (i <- 0 until 3){
+      val comp = new Comp_1(i)
+      comp.io.din := io.din(i)
+      io.dout(i)  := comp.io.dout
+    }
+  }
+
+  SpinalConfig(
+    mode = VHDL
+  ).generate(new TopLevel())
+
+
+  SpinalConfig(
+    mode = Verilog
+  ).generate(new TopLevel())
+}
