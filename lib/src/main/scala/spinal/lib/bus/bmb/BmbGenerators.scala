@@ -98,7 +98,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
   def timerInterrupt(id : Int) = logic.derivate(_.io.timerInterrupt(id))
   def softwareInterrupt(id : Int) = logic.derivate(_.io.softwareInterrupt(id))
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
     accessRequirements = accessRequirements,
@@ -176,7 +176,7 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   }
 
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(BmbSlaveFactory.getBmbCapabilities(
       _,

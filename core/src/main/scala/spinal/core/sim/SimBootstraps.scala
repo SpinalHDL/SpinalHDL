@@ -398,7 +398,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
     }
     manager.userData = dut
 
-   // println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.waveFormat != WaveFormat.NONE) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.${backend.config.waveFormat.ext}" else ", without wave"}")
+    println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed")
 
     if(joinAll) {
       manager.runAll(body(dut))
