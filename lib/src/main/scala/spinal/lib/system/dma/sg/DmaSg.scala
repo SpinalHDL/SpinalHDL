@@ -231,6 +231,7 @@ object DmaSg{
       val bytes = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
       val priority = Reg(UInt(p.memory.priorityWidth bits))
       val selfRestart = cp.selfRestartCapable generate Reg(Bool)
+      val readyToStop = True //todo Check s2b b2s transiants
 
 
 
@@ -249,9 +250,11 @@ object DmaSg{
         when(kick){
           descriptorStart := True
         }
+        when(channelCompletion){
+          kick := False
+        }
       }
 
-      //TODO ll interaction with stop
       val ll = cp.linkedListCapable generate new Area{
         val sgStart = False
         val valid = RegInit(False)
@@ -265,7 +268,7 @@ object DmaSg{
         val requireSync = Reg(Bool) clearWhen(descriptorStart)
         val ptr, ptrNext = Reg(UInt(p.addressWidth bits))
 
-        val requestLl = channelValid && valid && !waitDone && (!descriptorValid || requireSync) //TODO check no double firing when packet mode is used
+        val requestLl = channelValid && valid && !channelStop && !waitDone && (!descriptorValid || requireSync)
 
         val descriptorUpdated = False
         when(valid && waitDone && writeDone && readDone){
@@ -285,6 +288,8 @@ object DmaSg{
 
         when(sgStart){
           valid := True
+        }
+        when(channelStart){
           waitDone := False
           head := True
           readDone := False
@@ -293,6 +298,12 @@ object DmaSg{
         when(descriptorStart){
           readDone := False
           writeDone := False
+        }
+        when(waitDone){
+          readyToStop := False
+        }
+        when(channelCompletion){
+          valid := False
         }
       }
 
@@ -505,7 +516,7 @@ object DmaSg{
         }
       }
 
-      val readyToStop = True //Check s2b b2s transiants
+
       if(cp.canRead) readyToStop.clearWhen(push.m2b.memPending =/= 0)
       if(cp.canWrite) readyToStop.clearWhen(pop.b2m.memPending =/= 0)
 
@@ -1585,6 +1596,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
   def log(that : String) = Unit //println(that)
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
+    Thread.currentThread().setName("MIAOUUUU")
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
@@ -1592,7 +1604,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
     for (r <- 0 until 1000) {
-      println(f"Channel $channelId")
+//      println(f"Channel $channelId")
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {
         case S2M => if (p.inputs.nonEmpty) {
@@ -1607,6 +1619,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               val descriptorCount = Random.nextInt(5) + 1
               val inputId = cp.inputsPorts.randomPick()
               val packetBased = Random.nextBoolean()
+              val innerStop = Random.nextFloat() < 0.3
 
 //              val inputId = 0
 //              val packetBased = false
@@ -1634,6 +1647,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 }
 
                 def free(): Unit ={
+                  def assertMasked(that : Boolean) = if(!innerStop) assert(that)
                   memoryReserved.free(address)
                   memoryReserved.free(to)
                   for(i <- 0 until bytes){
@@ -1641,7 +1655,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   }
                   for(i <- 0 until 4){
                     val count = writesAllowed.remove(address.base.toInt + 28 + i).get._2
-                    assert(if(packetBased)count == 1 else count >= 1)
+                    assertMasked(if(packetBased)count == 1 else count >= 1)
                   }
                 }
 
@@ -1724,12 +1738,14 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val completed = (status & 0x80000000) != 0
 //                println(f"$bytes")
               }
+              var stopVerification = false
               val verificationThread = fork{
                 packetBased match {
                   case true => {
                     for(descriptor <- descriptors){
 //                      println(s"wait ${descriptor.address.base.toLong + 31}")
-                      waitUntil( memory.read(descriptor.address.base.toLong + 31) < 0)
+                      waitUntil( memory.read(descriptor.address.base.toLong + 31) < 0 || stopVerification)
+                      if(stopVerification) simThread.terminate()
                       val decoded = decodeDescriptor(descriptor.address.base.toLong)
                       val packet = packets.head
                       decoded.isLast match {
@@ -1751,7 +1767,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                     var descriptorByteId = 0
                     channelInterruptConfigure(channelId, 0x8)
                     while(descriptorId != descriptors.size){
-                      waitUntil((dut.io.interrupts.toInt & (1 << channelId)) != 0)
+                      waitUntil((dut.io.interrupts.toInt & (1 << channelId)) != 0 || stopVerification)
+                      if(stopVerification) simThread.terminate()
                       channelInterruptConfigure(channelId, 0x8)
                       var continue = true
                       while(descriptorId != descriptors.size && continue){
@@ -1781,9 +1798,16 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 }
               }
 
+              val stopThread = fork{if(innerStop) {
+                dut.clockDomain.waitSampling(Random.nextInt(600))
+                channelStop(channelId)
+                channelInterruptConfigure(channelId, 0)
+                stopVerification = true
+              }}
               channelWaitCompletion(channelId)
+              stopThread.join()
               verificationThread.join()
-              checks.foreach(_())
+              if(!innerStop) checks.foreach(_())
               descriptors.foreach(_.free())
               memoryReserved.free(tail)
               waitUntil(inputs(inputId).sinkToPackets(sink).isEmpty)
@@ -1990,6 +2014,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
             }
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
+              val innerStop = Random.nextFloat() < 0.3
 
               val tail = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
               val descriptors = List.fill(descriptorCount)( new {
@@ -2005,14 +2030,16 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 }
 
                 def free(): Unit ={
-                  for (byteId <- 0 until bytes) {
-                    assert (writesAllowed.remove (to.base.toInt + byteId).get._2 == 1)
-                  }
-                  for(i <- 0 until 4){
-                    assert (writesAllowed.remove (address.base.toInt + 28 + i).get._2 == 1)
-                  }
+                  def assertMasked(that : Boolean) = if(!innerStop) assert(that)
 
-                  assert((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
+                  for (byteId <- 0 until bytes) {
+                    assertMasked(writesAllowed.remove(to.base.toInt + byteId).get._2 == 1)
+                  }
+                  for (i <- 0 until 4) {
+                    assertMasked(writesAllowed.remove(address.base.toInt + 28 + i).get._2 == 1)
+                  }
+                  assertMasked((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
+
                   memoryReserved.free(address)
                   memoryReserved.free(from)
                   memoryReserved.free(to)
@@ -2039,7 +2066,13 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               channelPopMemory (channelId, 0, 16)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
+              val stopThread = fork{if(innerStop) {
+                dut.clockDomain.waitSampling(Random.nextInt(600))
+                channelStop(channelId)
+                channelInterruptConfigure(channelId, 0)
+              }}
               channelWaitCompletion(channelId)
+              stopThread.join()
               memoryReserved.free(tail)
               descriptors.foreach(_.free())
             }
@@ -2055,6 +2088,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
               val outputId = cp.outputsPorts.randomPick()
+              val innerStop = Random.nextFloat() < 0.3
 
 //              val outputId = 0
 
@@ -2084,11 +2118,12 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 if (withLast) outputs(outputId).ref(sink).enqueue((0, source, true))
 
                 def free(): Unit ={
+                  def assertMasked(that : Boolean) = if(!innerStop) assert(that)
                   memoryReserved.free(address)
                   memoryReserved.free(from)
-                  assert((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
-                  for(i <- 0 until 4){
-                    assert (writesAllowed.remove (address.base.toInt + 28 + i).get._2 == 1)
+                  assertMasked((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
+                  for (i <- 0 until 4) {
+                    assertMasked(writesAllowed.remove(address.base.toInt + 28 + i).get._2 == 1)
                   }
                 }
               })
@@ -2111,9 +2146,16 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               channelPopStream(channelId, outputId, source, sink, withLast)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
+              val stopThread = fork{if(innerStop) {
+                dut.clockDomain.waitSampling(Random.nextInt(600))
+                channelStop(channelId)
+                channelInterruptConfigure(channelId, 0)
+              }}
               channelWaitCompletion(channelId)
+              stopThread.join()
               waitUntil(!outputsIo(outputId).valid.toBoolean)
               dut.clockDomain.waitSampling(2)
+              outputs(outputId).ref(sink).clear()
               descriptors.foreach(_.free())
               memoryReserved.free(tail)
               outputs(outputId).reservedSink.remove(sink)
