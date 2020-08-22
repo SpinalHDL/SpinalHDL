@@ -1130,7 +1130,7 @@ object DmaSg{
 
           def beatHit(offset : Int) = offset/beatBytes === beatCounter
           def mapChannel[T <: Data](f : ChannelLogic => T, gen : Channel => Boolean, byte : Int, bit : Int){
-            val bitOffset = byte % beatBytes + bit
+            val bitOffset = (byte % beatBytes)*8 + bit
             when(beatHit(byte)){
               for((channel, e) <- (channels, oh).zipped) if(gen(channel.cp)) when(e){
                 val target = f(channel)
@@ -1682,7 +1682,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = packetBased)
               channelPopMemory (channelId, 0, 16)
-              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               dut.clockDomain.waitSampling(2)
 
@@ -1849,7 +1849,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
                 channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = true)
                 channelPopMemory(channelId, to.base.toInt, 16)
-                channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
+                channelConfig (channelId, 0x40 * channelId, 0x40, 2)
                 channelInterruptConfigure(channelId, 0x4)
                 channelStart(channelId, bufferSize, selfRestart = false)
                 dut.clockDomain.waitSampling(2)
@@ -1892,7 +1892,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
-              channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               val packet = Packet(source = source, sink = sink, last = false)
               fork{
                 while(!channelBusy(channelId)){
@@ -1945,7 +1945,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
-              channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelInterruptConfigure(channelId, 0x10)
               channelStart(channelId, bufferSize, selfRestart = true)
               var cpuIdx, refIdx = 0
@@ -2009,7 +2009,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, from.base.toInt, 16)
               channelPopMemory (channelId, to.base.toInt, 16)
-              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStartAndWait (channelId, bytes, doCount)
 
               for (byteId <- 0 until bytes) {
@@ -2068,7 +2068,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, 0, 16)
               channelPopMemory (channelId, 0, 16)
-              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
                 dut.clockDomain.waitSampling(Random.nextInt(600))
@@ -2148,7 +2148,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, 0, 16)
               channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
-              channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
                 dut.clockDomain.waitSampling(Random.nextInt(600))
@@ -2192,7 +2192,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory(channelId, from.base.toInt, 16)
               channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
-              channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStart(channelId, bytes = bytes, doCount != 1)
               waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
               channelStop(channelId)
@@ -2216,6 +2216,129 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
 
 object SgDmaTestsParameter{
+
+  import spinal.core.sim._
+
+  def test(p: Parameter) = {
+    val pCtrl = BmbParameter(
+      addressWidth = 12,
+      dataWidth    = 32,
+      sourceWidth  = 0,
+      contextWidth = 4,
+      lengthWidth  = 2
+    )
+
+    SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
+      dut.clockDomain.forkStimulus(10)
+      dut.clockDomain.forkSimSpeedPrinter(1.0)
+
+      var writeNotificationHandle : (Long, Byte) => Unit = null
+
+      val memory = new BmbMemoryAgent{
+        override def writeNotification(address: Long, value: Byte): Unit = {
+          writeNotificationHandle(address,value)
+          super.setByte(address, value)
+        }
+      }
+      if(p.canSgRead) memory.addPort(dut.io.sgRead, 0, dut.clockDomain, true)
+      if(p.canSgWrite) memory.addPort(dut.io.sgWrite, 0, dut.clockDomain, true)
+      if(p.canRead) memory.addPort(dut.io.read, 0, dut.clockDomain, true)
+      if(p.canWrite) memory.addPort(dut.io.write, 0, dut.clockDomain, true)
+
+      val ctrl = BmbDriver(dut.io.ctrl, dut.clockDomain)
+
+      val tester = new DmaSgTester(
+        p            = p,
+        clockDomain  = dut.clockDomain,
+        inputsIo     = dut.io.inputs,
+        outputsIo    = dut.io.outputs,
+        interruptsIo = dut.io.interrupts,
+        memory       = memory.memory,
+        dut
+      ) {
+        override def ctrlWriteHal(data: BigInt, address: BigInt): Unit = ctrl.write(data, address)
+        override def ctrlReadHal(address: BigInt): BigInt = ctrl.read(address)
+        writeNotificationHandle = writeNotification
+      }
+
+      tester.waitCompletion()
+    }
+  }
+
+  def random() : DmaSg.Parameter = {
+    var layout : DmaMemoryLayout = null
+
+    var layoutWidth = 0
+    var layoutWidthByte = 0
+
+    do{
+      layout = DmaMemoryLayout(
+        bankCount            = List(1,2,4).randomPick(),
+        bankWidth            = List(8,16,32).randomPick(),
+        bankWords            = List(512, 1024, 2048).randomPick(),
+        priorityWidth        = 2
+      )
+
+//      layout = DmaMemoryLayout(
+//        bankCount            = 1,
+//        bankWidth            = 64,
+//        bankWords            = 1024,
+//        priorityWidth        = 2
+//      )
+      layoutWidth = layout.bankCount* layout.bankWidth
+      layoutWidthByte = layoutWidth/8
+    } while(layoutWidthByte < 4)
+
+    val outputs = ArrayBuffer[BsbParameter]()
+    for(i <- 0 to Random.nextInt(4)) outputs ++= Seq(
+      BsbParameter(
+        byteCount   = Math.max(layout.bankWidth/8, layoutWidthByte >> Random.nextInt(log2Up(layoutWidthByte) + 1)),
+        sourceWidth = Random.nextInt(4) + 1,
+        sinkWidth   = 4
+      )
+    )
+
+
+
+    val inputs = ArrayBuffer[BsbParameter]()
+    for(i <- 0 to Random.nextInt(4)) inputs ++= Seq(
+      BsbParameter(
+        Math.max(layout.bankWidth/8, layoutWidthByte >> Random.nextInt(log2Up(layoutWidthByte) + 1)),
+        sourceWidth = Random.nextInt(4) + 1,
+        sinkWidth   = 4
+      )
+    )
+
+    val channels = ArrayBuffer[Channel]()
+    for(i <- 0 to Random.nextInt(4)) channels += DmaSg.Channel(
+      memoryToMemory = true,
+      inputsPorts    = inputs.zipWithIndex.map(_._2),
+      outputsPorts   = outputs.zipWithIndex.map(_._2),
+      selfRestartCapable = true,
+      progressProbes = true,
+      halfCompletionInterrupt = true,
+      linkedListCapable = true,
+      directCtrlCapable = true
+    )
+
+    DmaSg.Parameter(
+      readAddressWidth  = 30,
+      readDataWidth     = layoutWidth,
+      readLengthWidth   = 6,
+      writeAddressWidth = 30,
+      writeDataWidth    = layoutWidth,
+      writeLengthWidth  = 6,
+      sgAddressWidth = 30,
+      sgReadDataWidth = layoutWidth,
+      sgWriteDataWidth = layoutWidth,
+      memory = layout,
+      outputs = outputs,
+      inputs = inputs,
+      channels = channels,
+      bytePerTransferWidth = 16
+    )
+  }
+
   def apply(allowSmallerStreams : Boolean) : Seq[(String, DmaSg.Parameter)] = {
     val parameters = ArrayBuffer[(String, DmaSg.Parameter)]()
 
@@ -2292,7 +2415,7 @@ object SgDmaTestsParameter{
       }
 
 
-      val channels = ArrayBuffer[Channel]() //TODO add sparse configs
+      val channels = ArrayBuffer[Channel]()
       channels += DmaSg.Channel(
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
