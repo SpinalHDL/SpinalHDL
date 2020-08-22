@@ -2310,16 +2310,41 @@ object SgDmaTestsParameter{
     )
 
     val channels = ArrayBuffer[Channel]()
-    for(i <- 0 to Random.nextInt(4)) channels += DmaSg.Channel(
-      memoryToMemory = true,
-      inputsPorts    = inputs.zipWithIndex.map(_._2),
-      outputsPorts   = outputs.zipWithIndex.map(_._2),
-      selfRestartCapable = true,
-      progressProbes = true,
-      halfCompletionInterrupt = true,
-      linkedListCapable = true,
-      directCtrlCapable = true
-    )
+    for(i <- 0 to Random.nextInt(4)) {
+      val direct = Random.nextBoolean()
+      val ll = !direct || Random.nextBoolean()
+      val i = inputs.zipWithIndex.map(_._2).filter(_ => Random.nextBoolean())
+      val o = outputs.zipWithIndex.map(_._2).filter(_ => Random.nextBoolean())
+      channels += DmaSg.Channel(
+        memoryToMemory = Random.nextBoolean() || (i.isEmpty && o.isEmpty),
+        inputsPorts    = i,
+        outputsPorts   = o,
+        selfRestartCapable = direct && Random.nextBoolean(),
+        progressProbes = Random.nextBoolean(),
+        halfCompletionInterrupt = true,
+        linkedListCapable = ll,
+        directCtrlCapable = direct
+      )
+    }
+
+    //Ensure all I O have at least one channel
+    {
+      val direct = Random.nextBoolean()
+      val ll = !direct || Random.nextBoolean()
+      val i = inputs.zipWithIndex.map(_._2).filter(id => !channels.flatMap(_.inputsPorts).contains(id))
+      val o = outputs.zipWithIndex.map(_._2).filter(id => !channels.flatMap(_.outputsPorts).contains(id))
+      if(i.nonEmpty || o.nonEmpty)
+      channels += DmaSg.Channel(
+        memoryToMemory = Random.nextBoolean(),
+        inputsPorts =  i,
+        outputsPorts = o,
+        selfRestartCapable = direct && Random.nextBoolean(),
+        progressProbes = Random.nextBoolean(),
+        halfCompletionInterrupt = true,
+        linkedListCapable = ll,
+        directCtrlCapable = direct
+      )
+    }
 
     DmaSg.Parameter(
       readAddressWidth  = 30,

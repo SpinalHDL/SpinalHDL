@@ -11,11 +11,6 @@ import scala.util.Random
 import org.scalatest.{ParallelTestExecution, BeforeAndAfterAll, FunSuite}
 
 class SpinalSimDmaSgTester extends FunSuite {
-
-  for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
-      SgDmaTestsParameter.test(p)
-  }
-
   Random.setSeed(42)
   for(testId <- 0 until 10){
     val p = SgDmaTestsParameter.random()
@@ -23,4 +18,9 @@ class SpinalSimDmaSgTester extends FunSuite {
       SgDmaTestsParameter.test(p)
     }
   }
+  for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
+      SgDmaTestsParameter.test(p)
+  }
+
+
 }
