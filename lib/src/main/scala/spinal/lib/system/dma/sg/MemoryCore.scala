@@ -132,7 +132,7 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
       for(bankId <- 0 until p.layout.bankCount){
         val port = banks(bankId).writeOr.newPort()
         val groupRange = log2Up(p.layout.bankCount)-1 downto log2Up(p.writes(self).bytes*8/p.layout.bankWidth)
-        val sel = doIt && (io.writes(self).cmd.address(groupRange) ^ U(bankId))(groupRange) === 0
+        val sel = doIt && (io.writes(self).cmd.address ^ U(bankId))(groupRange) === 0
         val sliceId = bankId &((1 << groupRange.low)-1)
         when(sel){
           port.valid := True
@@ -218,7 +218,7 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
       for(bankId <- 0 until p.layout.bankCount){
         val port = banks(bankId).readOr.newPort()
         val groupRange = log2Up(p.layout.bankCount)-1 downto log2Up(p.reads(self).bytes*8/p.layout.bankWidth)
-        val sel = doIt && (ports(self).cmd.address(groupRange) ^ U(bankId))(groupRange) === 0
+        val sel = doIt && (ports(self).cmd.address ^ U(bankId))(groupRange) === 0
         when(sel){
           port.valid   := True
           port.payload := ports(self).cmd.address >> log2Up(p.layout.bankCount)
