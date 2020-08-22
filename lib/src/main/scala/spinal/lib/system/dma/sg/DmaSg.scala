@@ -128,14 +128,16 @@ object DmaSg{
                      progressProbes : Boolean,
                      halfCompletionInterrupt : Boolean,
                      bytePerBurst : Option[Int] = None,
-                     fifoMapping : Option[(Int, Int)] = None){
+                     fifoMapping : Option[(Int, Int)] = None) extends OverridedEqualsHashCode {
     def canRead = memoryToMemory || outputsPorts.nonEmpty
     def canWrite = memoryToMemory || inputsPorts.nonEmpty
     def canInput = inputsPorts.nonEmpty
     def canOutput = outputsPorts.nonEmpty
 
+    assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct controle is enabled")
     assert(linkedListCapable || directCtrlCapable, "A DMA channel should be at least controllable via a linked list or direct access")
-    val withProgressCounter = progressProbes || halfCompletionInterrupt
+    val withProgressCounter = progressProbes || halfCompletionInterrupt || linkedListCapable && canInput
+    val withProgressCounterM2s = progressProbes || halfCompletionInterrupt
 
     bytePerBurst match {
       case Some(x) => assert(isPow2(x), "Channel byte per burst should be power of 2")
@@ -235,7 +237,7 @@ object DmaSg{
 
 
 
-      val bytesProbe = (cp.withProgressCounter || cp.linkedListCapable && cp.canInput) generate new Area{
+      val bytesProbe = (cp.withProgressCounter) generate new Area{
         val value = Reg(UInt(p.bytePerTransferWidth + 1 bits)) simPublic()
         val incr = Flow(UInt(Math.max(p.writeLengthWidth, p.readLengthWidth) bits))
         incr.valid := False
@@ -579,7 +581,6 @@ object DmaSg{
         fifo.push.ptr := 0
         fifo.push.available := fifo.words + 1
         fifo.pop.ptr := 0
-        if(cp.withProgressCounter) bytesProbe.value := 0
       }
       if(cp.withProgressCounter) when(channelStart || descriptorStart){
          bytesProbe.value := 0
@@ -653,7 +654,7 @@ object DmaSg{
 
       val cmd = new Area{
         //TODO better arbitration
-        val channelsOh = B(OHMasking.first(channels.map(c => c.channelValid && !c.pop.memory && c.pop.b2s.portId === portId && !c.fifo.pop.empty)))
+        val channelsOh = B(OHMasking.first(channels.map(c => c.channelValid && !c.pop.memory && c.pop.b2s.portId === c.cp.outputsPorts.indexOf(portId) && !c.fifo.pop.empty)))
         val context = B2sReadContext(portId)
         val groupRange = log2Up(p.readDataWidth/p.memory.bankWidth) -1 downto log2Up(bankPerBeat)
         val addressRange = ptrWidth-1 downto log2Up(p.readDataWidth/p.memory.bankWidth)
@@ -798,7 +799,7 @@ object DmaSg{
         for ((channel, ohId) <- channels.zipWithIndex) {
           val fire = memory.ports.m2b.cmd.fire && context.channel === ohId
           channel.fifo.push.ptrIncr.newPort := (fire ? U(io.read.p.access.dataWidth / p.memory.bankWidth) | U(0)).resized
-          if(channel.cp.withProgressCounter) when(fire && io.read.rsp.last){
+          if(channel.cp.withProgressCounterM2s) when(fire && io.read.rsp.last){
             channel.bytesProbe.incr.valid := (if(channel.cp.canWrite) !channel.pop.memory else True)
             channel.bytesProbe.incr.payload := context.length
           }
@@ -1197,12 +1198,13 @@ object DmaSg{
         ctrl.read(channel.channelValid, a + 0x2C, 0)
         if (channel.cp.canInput) ctrl.write(channel.push.s2b.waitFirst, a + 0x2C, 8)
 
+        ctrl.write(channel.channelStop, a + 0x2C, 2)
+
         if(channel.cp.directCtrlCapable) {
           ctrl.setOnSet(channel.channelStart, a + 0x2C, 0)
           ctrl.setOnSet(channel.ctrl.kick, a + 0x2C, 0)
           ctrl.write(channel.bytes, a + 0x20, 0)
           if (channel.cp.selfRestartCapable) ctrl.write(channel.selfRestart, a + 0x2C, 1)
-          ctrl.write(channel.channelStop, a + 0x2C, 2)
         }
 
         if(channel.cp.linkedListCapable){
@@ -1596,24 +1598,26 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
   def log(that : String) = Unit //println(that)
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
-    Thread.currentThread().setName("MIAOUUUU")
+    Thread.currentThread().setName(s"MIAOUUUU $channelId")
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
     if(cp.memoryToMemory)        tests += M2M
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
-    for (r <- 0 until 1000) {
+    for (r <- 0 until 500) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {
         case S2M => if (p.inputs.nonEmpty) {
           val TRANSFER, PACKETS_SELF, PACKETS_STOP, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-          test += TRANSFER
-          test += PACKETS_SELF
-          test += PACKETS_STOP
-          test += LINKED_LIST
+          if(cp.directCtrlCapable) {
+            test += TRANSFER
+            test += PACKETS_SELF
+            test += PACKETS_STOP
+          }
+          if(cp.linkedListCapable) test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
@@ -1676,7 +1680,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }
               writeTail(tail.base.toInt)
 
-              channelPushStream(channelId, inputId, source, sink, completionOnPacket = packetBased)
+              channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = packetBased)
               channelPopMemory (channelId, 0, 16)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
@@ -1843,7 +1847,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   packet.data += value
                 }
 
-                channelPushStream(channelId, inputId, source, sink, completionOnPacket = true)
+                channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = true)
                 channelPopMemory(channelId, to.base.toInt, 16)
                 channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
                 channelInterruptConfigure(channelId, 0x4)
@@ -1886,7 +1890,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
 
-              channelPushStream(channelId, inputId, source, sink)
+              channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
               channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
               val packet = Packet(source = source, sink = sink, last = false)
@@ -1939,7 +1943,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               while(inputs(inputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               inputs(inputId).reservedSink.add(sink)
 
-              channelPushStream(channelId, inputId, source, sink)
+              channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
               channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
               channelInterruptConfigure(channelId, 0x10)
@@ -1984,8 +1988,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         case M2M => {
           val TRANSFER, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-          test += TRANSFER
-          test += LINKED_LIST
+          if(cp.directCtrlCapable) test += TRANSFER
+          if(cp.linkedListCapable) test += LINKED_LIST
           test.randomPick() match {
             case TRANSFER => {
               val bytes = (Random.nextInt (0x100) + 1)
@@ -2082,8 +2086,8 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
         case M2S => if (p.outputs.nonEmpty) {
           val TRANSFER, LINKED_LIST = new Object
           val test = ArrayBuffer[Object]()
-          test += TRANSFER
-          test += LINKED_LIST
+          if(cp.directCtrlCapable) test += TRANSFER
+          if(cp.linkedListCapable) test += LINKED_LIST
           test.randomPick() match {
             case LINKED_LIST => {
               val descriptorCount = Random.nextInt(5) + 1
@@ -2143,7 +2147,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
 
               channelPushMemory (channelId, 0, 16)
-              channelPopStream(channelId, outputId, source, sink, withLast)
+              channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
               channelConfig (channelId, 0x100 + 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
@@ -2187,7 +2191,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }
 
               channelPushMemory(channelId, from.base.toInt, 16)
-              channelPopStream(channelId, outputId, source, sink, withLast)
+              channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
               channelConfig(channelId, 0x100 + 0x40*channelId, 0x40, 2)
               channelStart(channelId, bytes = bytes, doCount != 1)
               waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
@@ -2333,6 +2337,46 @@ object SgDmaTestsParameter{
         memoryToMemory = withMemoryToMemory,
         inputsPorts    = inputs.zipWithIndex.map(_._2),
         outputsPorts   = outputs.zipWithIndex.map(_._2),
+        selfRestartCapable = true,
+        progressProbes = true,
+        halfCompletionInterrupt = true,
+        linkedListCapable = true,
+        directCtrlCapable = true
+      )
+      channels += DmaSg.Channel(
+        memoryToMemory = withMemoryToMemory,
+        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+        selfRestartCapable = true,
+        progressProbes = true,
+        halfCompletionInterrupt = true,
+        linkedListCapable = true,
+        directCtrlCapable = true
+      )
+      channels += DmaSg.Channel(
+        memoryToMemory = withMemoryToMemory,
+        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+        selfRestartCapable = true,
+        progressProbes = false,
+        halfCompletionInterrupt = true,
+        linkedListCapable = false,
+        directCtrlCapable = true
+      )
+      channels += DmaSg.Channel(
+        memoryToMemory = withMemoryToMemory,
+        inputsPorts    = inputs.zipWithIndex.map(_._2).grouped(2).map(_(0)).toSeq,
+        outputsPorts   = outputs.zipWithIndex.map(_._2).grouped(2).map(_(1)).toSeq,
+        selfRestartCapable = false,
+        progressProbes = true,
+        halfCompletionInterrupt = false,
+        linkedListCapable = true,
+        directCtrlCapable = false
+      )
+      channels += DmaSg.Channel(
+        memoryToMemory = withMemoryToMemory,
+        inputsPorts    = inputs.zipWithIndex.map(_._2),
+        outputsPorts   = outputs.zipWithIndex.map(_._2),
         selfRestartCapable = false,
         progressProbes = true,
         halfCompletionInterrupt = true,
@@ -2361,7 +2405,7 @@ object SgDmaTestsParameter{
           //      bankWidth            = 8,
           //      bankCount            = 2,
           //      bankWidth            = 32,
-          bankWords            = 256,
+          bankWords            = 1024,
           priorityWidth        = 2
         ),
         outputs = outputs,
