@@ -2290,7 +2290,7 @@ object SgDmaTestsParameter{
     } while(layoutWidthByte < 4)
 
     val outputs = ArrayBuffer[BsbParameter]()
-    for(i <- 0 to Random.nextInt(4)) outputs ++= Seq(
+    for(i <- 0 until Random.nextInt(4)) outputs ++= Seq(
       BsbParameter(
         byteCount   = Math.max(layout.bankWidth/8, layoutWidthByte >> Random.nextInt(log2Up(layoutWidthByte) + 1)),
         sourceWidth = Random.nextInt(4) + 1,
@@ -2301,7 +2301,7 @@ object SgDmaTestsParameter{
 
 
     val inputs = ArrayBuffer[BsbParameter]()
-    for(i <- 0 to Random.nextInt(4)) inputs ++= Seq(
+    for(i <- 0 until Random.nextInt(4)) inputs ++= Seq(
       BsbParameter(
         Math.max(layout.bankWidth/8, layoutWidthByte >> Random.nextInt(log2Up(layoutWidthByte) + 1)),
         sourceWidth = Random.nextInt(4) + 1,
