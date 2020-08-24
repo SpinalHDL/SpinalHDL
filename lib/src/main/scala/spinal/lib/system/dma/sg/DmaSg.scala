@@ -294,13 +294,8 @@ object DmaSg{
         when(channelStart){
           waitDone := False
           head := True
-          readDone := False
-          writeDone := False
         }
-        when(descriptorStart){
-          readDone := False
-          writeDone := False
-        }
+
         when(waitDone){
           readyToStop := False
         }
@@ -1061,7 +1056,7 @@ object DmaSg{
           oh := arbiter.oh
           for((channel, e) <- (channels, arbiter.oh).zipped) when(e){
             channel.ll.waitDone := True
-            channel.ll.writeDone setWhen(arbiter.head)
+            channel.ll.writeDone := arbiter.head
             channel.ll.justASync := arbiter.isJustASink
             channel.ll.packet := False
             channel.ll.requireSync := False
@@ -1088,7 +1083,7 @@ object DmaSg{
 
         io.sgWrite.cmd.valid := valid && !writeFired
         io.sgWrite.cmd.last := True
-        io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U(32-io.sgWrite.p.access.byteCount, 5 bits)
+        io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U(28, 5 bits)
         io.sgWrite.cmd.length := 3
         io.sgWrite.cmd.opcode := Bmb.Cmd.Opcode.WRITE
         io.sgWrite.cmd.context := B(context)
@@ -1373,6 +1368,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     val ref = Array.fill(1 << p.outputs(outputId).sinkWidth)(mutable.Queue[(Int, Int, Boolean)]())
     val monitor = new BsbMonitor(outputsIo(outputId), clockDomain) {
       override def onByte(value: Byte, source: Int, sink: Int): Unit = {
+        assert(ref(sink).nonEmpty, s"Error output $outputId")
         val e = ref(sink).dequeue()
         assert(value == e._1)
         assert(source == e._2)
@@ -2157,8 +2153,9 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }}
               channelWaitCompletion(channelId)
               stopThread.join()
+              dut.clockDomain.waitSampling(20)
               waitUntil(!outputsIo(outputId).valid.toBoolean)
-              dut.clockDomain.waitSampling(2)
+              dut.clockDomain.waitSampling(20)
               outputs(outputId).ref(sink).clear()
               descriptors.foreach(_.free())
               memoryReserved.free(tail)
@@ -2197,8 +2194,9 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
               channelStop(channelId)
               channelWaitCompletion(channelId)
+              dut.clockDomain.waitSampling(20)
               waitUntil(!outputsIo(outputId).valid.toBoolean)
-              dut.clockDomain.waitSampling(2)
+              dut.clockDomain.waitSampling(20)
               outputs(outputId).ref(sink).clear()
               outputs(outputId).reservedSink.remove(sink)
             }
@@ -2347,13 +2345,13 @@ object SgDmaTestsParameter{
     }
 
     DmaSg.Parameter(
-      readAddressWidth  = 30,
+      readAddressWidth  = 24,
       readDataWidth     = layoutWidth,
       readLengthWidth   = 6,
-      writeAddressWidth = 30,
+      writeAddressWidth = 24,
       writeDataWidth    = layoutWidth,
       writeLengthWidth  = 6,
-      sgAddressWidth = 30,
+      sgAddressWidth = 24,
       sgReadDataWidth = layoutWidth,
       sgWriteDataWidth = layoutWidth,
       memory = layout,
@@ -2406,6 +2404,11 @@ object SgDmaTestsParameter{
           sourceWidth = 0,
           sinkWidth   = 4
         )
+        if(allowSmallerStreams) outputs += BsbParameter(
+          byteCount   = 1,
+          sourceWidth = 0,
+          sinkWidth   = 4
+        )
       }
 
       val inputs = ArrayBuffer[BsbParameter]()
@@ -2431,6 +2434,11 @@ object SgDmaTestsParameter{
             sourceWidth = 2,
             sinkWidth   = 4
           )
+        )
+        if(allowSmallerStreams) inputs += BsbParameter(
+          byteCount   = 1,
+          sourceWidth = 0,
+          sinkWidth   = 4
         )
         if(allowSmallerStreams) inputs += BsbParameter(
           byteCount   = 1,
@@ -2535,13 +2543,13 @@ object SgDmaTestsParameter{
       )
 
       parameters += name -> Parameter(
-        readAddressWidth  = 30,
+        readAddressWidth  = 24,
         readDataWidth     = 32,
         readLengthWidth   = 6,
-        writeAddressWidth = 30,
+        writeAddressWidth = 24,
         writeDataWidth    = 32,
         writeLengthWidth  = 6,
-        sgAddressWidth = 30,
+        sgAddressWidth = 24,
         sgReadDataWidth = 32,
         sgWriteDataWidth = 32,
         memory = DmaMemoryLayout(
