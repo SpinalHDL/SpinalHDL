@@ -2,6 +2,7 @@ package spinal.sim
 
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 case class SimThreadUnschedule() extends Exception
 class SimThread(body: => Unit) {
@@ -79,11 +80,13 @@ class SimThread(body: => Unit) {
     }
   }
 
+  val seed = Random.nextLong()
   val jvmThread = manager.newJvmThread {
     manager.setupJvmThread(Thread.currentThread())
     SimManagerContext.threadLocal.set(mainContext)
     manager.context.thread = SimThread.this
     try {
+      Random.setSeed(seed)
       body
     } catch {
       case e : JvmThreadUnschedule =>
