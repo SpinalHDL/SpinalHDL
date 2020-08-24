@@ -2226,7 +2226,7 @@ object SgDmaTestsParameter{
       lengthWidth  = 2
     )
 
-    SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
+    SimConfig.allOptimisation.withCoverage.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
       dut.clockDomain.forkStimulus(10)
       dut.clockDomain.forkSimSpeedPrinter(1.0)
 

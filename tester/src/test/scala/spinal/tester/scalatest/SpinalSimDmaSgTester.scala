@@ -21,6 +21,4 @@ class SpinalSimDmaSgTester extends FunSuite {
   for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
       SgDmaTestsParameter.test(p)
   }
-
-
 }
