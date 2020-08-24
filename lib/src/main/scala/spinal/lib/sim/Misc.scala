@@ -161,7 +161,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     while(tryies < 10){
 
       val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < size) {
         allocations += region
         return region
       }
@@ -174,7 +174,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     while(tryies < 10){
 
       val region = SizeMapping(sizeRand() + base, size)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
         allocations += region
         return region
       }
@@ -188,7 +188,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     while(tryies < 10){
 
       val region = SizeMapping(sizeRand() + base & ~(size-1), size)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
         allocations += region
         return region
       }
