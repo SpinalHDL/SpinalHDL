@@ -185,6 +185,7 @@ object DmaSg{
     case class B2sReadContext(portId : Int) extends Bundle {
       val channel = Bits(p.channels.count(_.outputsPorts.contains(portId)) bits)
       val veryLast = Bool()
+      val endPacket = Bool()
     }
 
     val memory = new Area{
@@ -427,8 +428,11 @@ object DmaSg{
           val veryLastTrigger = False
           val veryLastValid = Reg(Bool) setWhen(veryLastTrigger)
           val veryLastPtr = Reg(ptrType)
+          val veryLastEndPacket = Reg(Bool)
+
           when(veryLastTrigger){
             veryLastPtr := fifo.push.ptrWithBase
+            veryLastEndPacket := last
           }
           //Memory to stream => descriptor completion when memory is done
           when(descriptorValid && !memory && push.memory && push.m2b.loadDone && push.m2b.memPending === 0){
@@ -657,6 +661,7 @@ object DmaSg{
         val address = MuxOH(channelsOh, channels.map(_.fifo.pop.ptrWithBase))
         context.channel := channelsOh
         context.veryLast :=  MuxOH(channelsOh, channels.map(_.pop.b2s.veryLastValid)) && address(addressRange) === veryLastPtr(addressRange) && address(groupRange) === (1 << groupRange.size)-1
+        context.endPacket :=  MuxOH(channelsOh, channels.map(_.pop.b2s.veryLastEndPacket))
 
         memoryPort.cmd.valid := channelsOh.orR
         memoryPort.cmd.address := address.resized
@@ -674,8 +679,8 @@ object DmaSg{
         source.data   := memoryPort.rsp.data
         source.mask   := memoryPort.rsp.mask
         source.sink   := MuxOH(context.channel, channels.map(_.pop.b2s.sinkId))
-        source.source   := MuxOH(context.channel, channels.map(_.pop.b2s.sourceId)).resized
-        source.last   := context.veryLast && MuxOH(context.channel, channels.map(_.pop.b2s.last))
+        source.source := MuxOH(context.channel, channels.map(_.pop.b2s.sourceId)).resized
+        source.last   := context.veryLast && context.endPacket
         when(source.fire && context.veryLast){
           for((channel, ohId) <- channels.zipWithIndex) when(context.channel(ohId)){
             channel.pop.b2s.veryLastValid := False
@@ -1145,6 +1150,7 @@ object DmaSg{
           mapChannel(_.pop.b2m.address, _.canWrite, popOffset, 0)
           mapChannel(_.ll.ptrNext, _ => true, nextOffset, 0)
           mapChannel(_.bytes, _ => true, controlOffset, 0)
+          mapChannel(_.pop.b2s.last, _.canOutput, controlOffset, 30)
           mapChannel(_.ll.gotDescriptorStall, _ => true, statusOffset, 31)
 
           when(io.sgRead.rsp.last){
@@ -1180,7 +1186,8 @@ object DmaSg{
 //        if (channel.cp.canInput) ctrl.write(channel.push.s2b.sinkId, a + 0x08, 16)
         if (channel.cp.canRead && channel.cp.bytePerBurst.isEmpty) ctrl.write(channel.push.m2b.bytePerBurst, a + 0x0C, 0)
         ctrl.write(channel.push.memory, a + 0x0C, 12)
-        if(channel.cp.canInput) ctrl.write(channel.push.s2b.completionOnLast, a + 0x0C, 13)
+        if (channel.cp.canInput) ctrl.write(channel.push.s2b.completionOnLast, a + 0x0C, 13)
+        if (channel.cp.canInput) ctrl.write(channel.push.s2b.waitFirst, a + 0x0C, 14)
 
         if (channel.cp.canWrite && channel.cp.directCtrlCapable) ctrl.writeMultiWord(channel.pop.b2m.address, a + 0x10)
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.portId, a + 0x18, 0)
@@ -1191,7 +1198,6 @@ object DmaSg{
         if (channel.cp.canOutput) ctrl.write(channel.pop.b2s.last, a + 0x1C, 13)
 
         ctrl.read(channel.channelValid, a + 0x2C, 0)
-        if (channel.cp.canInput) ctrl.write(channel.push.s2b.waitFirst, a + 0x2C, 8)
 
         ctrl.write(channel.channelStop, a + 0x2C, 2)
 
@@ -1462,23 +1468,22 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   def channelPushStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, completionOnPacket : Boolean = false): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x08)
-    ctrlWrite((if(completionOnPacket) 1 << 13 else 0), channelAddress + 0x0C)
+    ctrlWrite((if(completionOnPacket) 1 << 13 else 0) | (1 << 14), channelAddress + 0x0C)
   }
   def channelPopStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, withLast : Boolean): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x18)
     ctrlWrite(if(withLast) 1 << 13 else 0, channelAddress + 0x1C)
   }
-  def WAIT_FIRST = 0x100
   def channelStart(channel : Int, bytes : BigInt, selfRestart : Boolean): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(bytes-1, channelAddress + 0x20)
-    ctrlWrite(1 + (if(selfRestart) 2 else 0) | WAIT_FIRST, channelAddress+0x2C)
+    ctrlWrite(1 + (if(selfRestart) 2 else 0), channelAddress+0x2C)
   }
   def channelStartSg(channel : Int, head : Long): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(head, channelAddress+0x70)
-    ctrlWrite(0x10 | WAIT_FIRST, channelAddress+0x2C)
+    ctrlWrite(0x10, channelAddress+0x2C)
   }
   def channelProgress(channel : Int): Int ={
     val channelAddress = channelToAddress(channel)
@@ -1560,11 +1565,11 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     } while(channelBusy(channel))
   }
 
-  def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean) = {
+  def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean, m2sLast : Boolean = false) = {
     memory.write(address+0, push)
     memory.write(address+8, pop)
     memory.write(address+16, next)
-    memory.write(address+24, size-1)
+    memory.write(address+24, size-1 | (if(m2sLast) 1 << 30 else 0))
     memory.write(address+28, 0)
   }
   def writeTail(address : Long) = {
@@ -1594,7 +1599,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
   def log(that : String) = Unit //println(that)
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
-    Thread.currentThread().setName(s"MIAOUUUU $channelId")
+    Thread.currentThread().setName(s"CH $channelId")
     val cp = p.channels(channelId)
     val M2M, M2S, S2M = new Object
     var tests = ArrayBuffer[Object]()
@@ -2095,7 +2100,6 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               val op = p.outputs(outputId)
               val source = Random.nextInt(1 << op.sourceWidth)
               val sink = Random.nextInt(1 << op.sinkWidth)
-              val withLast = Random.nextBoolean()
 
               while(outputs(outputId).reservedSink.contains(sink)) clockDomain.waitSampling(Random.nextInt(100))
               outputs(outputId).reservedSink.add(sink)
@@ -2105,6 +2109,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                 val address = memoryReserved.allocateAligned(size = DmaSg.descriptorSize)
                 val bytes = (Random.nextInt(0x100) + 1)
                 val from = memoryReserved.allocate(size = bytes)
+                val withLast = Random.nextBoolean()
 
 //                val bytes = 0x40
 //                val from =  SizeMapping(0x1000, bytes)
@@ -2136,14 +2141,15 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   pop = 0,
                   size = d.bytes,
                   next = if(i == descriptorCount-1) tail.base.toLong else descriptors(i+1).address.base.toLong,
-                  completed = false
+                  completed = false,
+                  m2sLast = d.withLast
                 )
               }
               writeTail(tail.base.toInt)
 
 
               channelPushMemory (channelId, 0, 16)
-              channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
+              channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, false)
               channelConfig (channelId, 0x40 * channelId, 0x40, 2)
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
@@ -2226,7 +2232,7 @@ object SgDmaTestsParameter{
       lengthWidth  = 2
     )
 
-    SimConfig.allOptimisation.withCoverage.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
+    SimConfig.allOptimisation.compile(new DmaSg.Core[Bmb](p, ctrlType = HardType(Bmb(pCtrl)), BmbSlaveFactory(_))).doSim(seed=42){ dut =>
       dut.clockDomain.forkStimulus(10)
       dut.clockDomain.forkSimSpeedPrinter(1.0)
 
