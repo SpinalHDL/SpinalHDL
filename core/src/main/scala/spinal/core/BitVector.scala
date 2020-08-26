@@ -168,7 +168,7 @@ abstract class BitVector extends BaseType with Widthable {
     * Cast the BitVector into a Vector of Bool
     * @return a vector of Bool
     */
-  def asBools: Vec[Bool] = {
+  def asBools: Vec[Bool] = signalCache(this, "asBools") {
     val vec = ArrayBuffer[Bool]()
     val bitCount = getWidth
     if (bitCount == -1) SpinalError("Can't convert to bools a Bit that has unspecified width value")
