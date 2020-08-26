@@ -884,6 +884,7 @@ object DmaSg{
         //Assume that the delay of reading the memory and going throug the aggregator is at least two cycles
         val s0 = sel.valid.rise(False)
         val s1 = RegNext(s0) init(False)
+        val s2 = RegInit(False) setWhen(s1) clearWhen(!sel.valid)
 
         when(s0){
           val addressBurstOffset = (sel.address.resized & sel.bytePerBurst)
@@ -970,7 +971,7 @@ object DmaSg{
           val maskLastTriggerReg = RegNext(maskLastTriggerComb)
           val maskLast = RegNext(B((0 until p.writeByteCount).map(byteId => byteId <= maskLastTriggerComb)))
           val maskFirst = B((0 until p.writeByteCount).map(byteId => byteId >= maskFirstTrigger))
-          val enoughAggregation = sel.valid && !aggregate.engine.io.flush && (io.write.cmd.last ? ((aggregate.engine.io.output.mask & maskLast) === maskLast) | aggregate.engine.io.output.mask.andR)
+          val enoughAggregation = s2 && sel.valid && !aggregate.engine.io.flush && (io.write.cmd.last ? ((aggregate.engine.io.output.mask & maskLast) === maskLast) | aggregate.engine.io.output.mask.andR)
 
 
           aggregate.engine.io.output.enough := enoughAggregation
@@ -1087,21 +1088,21 @@ object DmaSg{
 
         io.sgWrite.cmd.valid := valid && !writeFired
         io.sgWrite.cmd.last := True
-        io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U(28, 5 bits)
+        io.sgWrite.cmd.address := ptr(ptrNext.high downto 5) @@ U"00000"
         io.sgWrite.cmd.length := 3
         io.sgWrite.cmd.opcode := Bmb.Cmd.Opcode.WRITE
         io.sgWrite.cmd.context := B(context)
 
         val writeMaskSplit = io.sgWrite.cmd.mask.subdivideIn(4 bits)
         val writeDataSplit = io.sgWrite.cmd.data.subdivideIn(32 bits)
-        writeMaskSplit.dropRight(1).foreach(_ := 0)
-        writeDataSplit.dropRight(1).foreach(_.assignDontCare())
+        writeMaskSplit.tail.foreach(_ := 0)
+        writeDataSplit.tail.foreach(_.assignDontCare())
 
-        writeMaskSplit.last := 0xF
-        writeDataSplit.last := 0
-        writeDataSplit.last(0, 27 bits) := B(bytesDone).resized
-        writeDataSplit.last(31) := !isJustASink
-        writeDataSplit.last(30) := endOfPacket
+        writeMaskSplit.head := 0xF
+        writeDataSplit.head := 0
+        writeDataSplit.head(0, 27 bits) := B(bytesDone).resized
+        writeDataSplit.head(30) := endOfPacket
+        writeDataSplit.head(31) := !isJustASink
 
         readFired setWhen(io.sgRead.cmd.fire)
         writeFired setWhen(io.sgWrite.cmd.fire)
@@ -1116,11 +1117,11 @@ object DmaSg{
         val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init(0)
 
 
-        val pushOffset = 0
-        val popOffset  = 8
-        val nextOffset  = 16
-        val controlOffset  = 24
-        val statusOffset  = 28
+        val statusOffset  = 0
+        val controlOffset  = 4
+        val pushOffset = 8
+        val popOffset  = 16
+        val nextOffset  = 24
 
         val completed = Reg(Bool)
         io.sgRead.rsp.ready := True
@@ -1565,14 +1566,14 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   }
 
   def writeDescriptor(address : Long, push : Long, pop : Long, size : Long, next : Long, completed : Boolean, m2sLast : Boolean = false) = {
-    memory.write(address+0, push)
-    memory.write(address+8, pop)
-    memory.write(address+16, next)
-    memory.write(address+24, size-1 | (if(m2sLast) 1 << 30 else 0))
-    memory.write(address+28, 0)
+    memory.write(address+0, 0)
+    memory.write(address+4, size-1 | (if(m2sLast) 1 << 30 else 0))
+    memory.write(address+8, push)
+    memory.write(address+16, pop)
+    memory.write(address+24, next)
   }
   def writeTail(address : Long) = {
-    memory.write(address+28, 0x80000000)
+    memory.write(address+0, 0x80000000)
   }
 
   val inputsTrasher = if(inputsIo.nonEmpty) for(_ <- 0 until 3) yield fork{
@@ -1647,7 +1648,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   allowWrite(to.base.toInt + i)
                 }
                 for(i <- 0 until 4){
-                  allowWrite(address.base.toInt + 28 + i)
+                  allowWrite(address.base.toInt + 0 + i)
                 }
 
                 def free(): Unit ={
@@ -1658,7 +1659,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                     writesAllowed.remove(to.base.toInt + i)
                   }
                   for(i <- 0 until 4){
-                    val count = writesAllowed.remove(address.base.toInt + 28 + i).get._2
+                    val count = writesAllowed.remove(address.base.toInt + 0 + i).get._2
                     assertMasked(if(packetBased)count == 1 else count >= 1)
                   }
                 }
@@ -1735,7 +1736,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
               }
 
               def decodeDescriptor(address : Long) = new {
-                val status = memory.readInt(address + 28)
+                val status = memory.readInt(address + 0)
                 log(f"Status : $status%08x")
                 val bytes = (status & 0x7FFFFFF)
                 val isLast = (status & 0x40000000) != 0
@@ -1748,7 +1749,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   case true => {
                     for(descriptor <- descriptors){
 //                      println(s"wait ${descriptor.address.base.toLong + 31}")
-                      waitUntil( memory.read(descriptor.address.base.toLong + 31) < 0 || stopVerification)
+                      waitUntil( memory.read(descriptor.address.base.toLong + 3) < 0 || stopVerification)
                       if(stopVerification) simThread.terminate()
                       val decoded = decodeDescriptor(descriptor.address.base.toLong)
                       val packet = packets.head
@@ -2030,7 +2031,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   allowWrite (to.base.toInt + byteId, memory.read (from.base.toInt + byteId))
                 }
                 for(i <- 0 until 4){
-                  allowWrite(address.base.toInt + 28 + i)
+                  allowWrite(address.base.toInt + 0 + i)
                 }
 
                 def free(): Unit ={
@@ -2040,9 +2041,9 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                     assertMasked(writesAllowed.remove(to.base.toInt + byteId).get._2 == 1)
                   }
                   for (i <- 0 until 4) {
-                    assertMasked(writesAllowed.remove(address.base.toInt + 28 + i).get._2 == 1)
+                    assertMasked(writesAllowed.remove(address.base.toInt + 0 + i).get._2 == 1)
                   }
-                  assertMasked((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
+                  assertMasked((memory.readInt(address.base.toLong + 0) & 0x80000000) != 0)
 
                   memoryReserved.free(address)
                   memoryReserved.free(from)
@@ -2114,7 +2115,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 //                val from =  SizeMapping(0x1000, bytes)
 
                 for(i <- 0 until 4){
-                  allowWrite(address.base.toInt + 28 + i)
+                  allowWrite(address.base.toInt + 0 + i)
                 }
                 for (byteId <- 0 until bytes) {
                   outputs(outputId).ref(sink).enqueue((memory.read(from.base.toInt + byteId), source, false))
@@ -2125,9 +2126,9 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                   def assertMasked(that : Boolean) = if(!innerStop) assert(that)
                   memoryReserved.free(address)
                   memoryReserved.free(from)
-                  assertMasked((memory.readInt(address.base.toLong + 28) & 0x80000000) != 0)
+                  assertMasked((memory.readInt(address.base.toLong + 0) & 0x80000000) != 0)
                   for (i <- 0 until 4) {
-                    assertMasked(writesAllowed.remove(address.base.toInt + 28 + i).get._2 == 1)
+                    assertMasked(writesAllowed.remove(address.base.toInt + 0 + i).get._2 == 1)
                   }
                 }
               })
