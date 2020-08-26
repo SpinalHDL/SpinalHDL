@@ -50,7 +50,7 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 7)
   cmdInfo.source := cmdStage.source
   cmdInfo.context := cmdStage.context
 
-  val rspInfo = cmdInfo.queueLowLatency(size = 1 << log2Up(pendingMax), latency = 1)
+  val rspInfo = cmdInfo.queue(size = 1 << log2Up(pendingMax)).halfPipe()
 
   io.output.arw.arbitrationFrom(cmdStage)
   io.output.arw.write  := io.input.cmd.isWrite
@@ -65,7 +65,7 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 7)
   io.output.w.strb := dataStage.mask
   io.output.w.last := dataStage.last
 
-  io.input.rsp.valid := io.output.b.valid | io.output.r.valid
+  io.input.rsp.valid := (io.output.b.valid | io.output.r.valid) && rspInfo.valid
   io.input.rsp.last := (pendingWrite ? True | io.output.r.last)
   io.input.rsp.data := io.output.r.data
   io.input.rsp.source := rspInfo.source
@@ -75,10 +75,9 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 7)
   } otherwise {
     io.input.rsp.setError()
   }
-  io.output.b.ready := io.input.rsp.ready
-  io.output.r.ready := io.input.rsp.ready
+  io.output.b.ready := io.input.rsp.ready && rspInfo.valid
+  io.output.r.ready := io.input.rsp.ready && rspInfo.valid
   rspInfo.ready := io.input.rsp.fire && io.input.rsp.last
-
 }
 
 
