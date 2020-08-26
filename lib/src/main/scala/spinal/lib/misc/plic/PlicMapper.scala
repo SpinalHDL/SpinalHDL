@@ -2,7 +2,7 @@ package spinal.lib.misc.plic
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.{BusSlaveFactory, AllMapping, SingleMapping}
 
 case class PlicMapping(
   gatewayPriorityOffset : Int,
@@ -98,6 +98,19 @@ object PlicMapper{
       }
     }
 
+
+    val coherencyStall = Counter(2)
+    when(coherencyStall =/= 0){
+      bus.readHalt()
+      coherencyStall.increment()
+    }
+    bus.onReadPrimitive(AllMapping, haltSensitive = false, documentation = ""){
+      coherencyStall.increment()
+    }
+    bus.onWritePrimitive(AllMapping, haltSensitive = false, documentation = ""){
+      coherencyStall.increment()
+    }
+
     val targetMapping = for((target, targetId) <- targets.zipWithIndex) yield new Area {
       val thresholdOffset = targetThresholdOffset + (targetId << targetThresholdShift)
       val claimOffset = targetClaimOffset + (targetId << targetClaimShift)
@@ -108,6 +121,9 @@ object PlicMapper{
         claim.valid := True
         claim.payload := target.claim
       }
+
+
+
 
       val targetCompletion = bus.createAndDriveFlow(UInt(target.idWidth bits), claimOffset)
       when(targetCompletion.valid){
