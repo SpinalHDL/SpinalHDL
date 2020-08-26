@@ -3,7 +3,7 @@ package spinal.lib.bus.bsb
 import spinal.core._
 import spinal.lib._
 
-class BsbDownSizerSparse(p : BsbParameter, outputBytes : Int) extends Component{
+class BsbDownSizerSparse(val p : BsbParameter, outputBytes : Int) extends Component{
   val io = new Bundle{
     val input = slave(Bsb(p))
     val output = master(Bsb(p.copy(byteCount = outputBytes)))

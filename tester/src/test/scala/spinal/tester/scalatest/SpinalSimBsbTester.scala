@@ -6,8 +6,9 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bmb.{Bmb, BmbParameter, BmbSlaveFactory}
-import spinal.lib.bus.bsb.{BsbDownSizerSparse, BsbParameter, BsbUpSizerSparse}
+import spinal.lib.bus.bsb.{Bsb, BsbDownSizerSparse, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
 import spinal.lib.bus.bsb.sim.BsbBridgeTester
+import spinal.lib._
 import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
 
 class SpinalSimBsbTester extends FunSuite{
@@ -31,14 +32,37 @@ class SpinalSimBsbTester extends FunSuite{
   }
 
   test("downSizerSparse"){
-    SimConfig.doSim(new BsbDownSizerSparse(
+    SimConfig.compile(new BsbDownSizerSparse(
       p = BsbParameter(
         byteCount   = 8,
         sourceWidth = 3,
         sinkWidth   = 4
       ),
       outputBytes = 2
-    ){val reg = RegNext(False)}) { dut =>
+    ){
+      val buffer = slave(Bsb(p))
+      io.input.setAsDirectionLess.allowDirectionLessIo << buffer.stage()
+    }).doSim(seed = 42) { dut =>
+      dut.clockDomain.forkStimulus(10)
+      new BsbBridgeTester(
+        input = dut.buffer,
+        output = dut.io.output,
+        inputCd = dut.clockDomain,
+        outputCd = dut.clockDomain
+      )
+    }
+  }
+
+
+  test("upSizerDense"){
+    SimConfig.compile(new BsbUpSizerDense(
+      p = BsbParameter(
+        byteCount   = 2,
+        sourceWidth = 2,
+        sinkWidth   = 1
+      ),
+      outputBytes = 8
+    ){val reg = RegNext(False)}).doSim(seed = 42) { dut =>
       dut.clockDomain.forkStimulus(10)
       new BsbBridgeTester(
         input = dut.io.input,

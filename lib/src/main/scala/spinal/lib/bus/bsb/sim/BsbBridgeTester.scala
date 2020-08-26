@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bsb.Bsb
-import spinal.lib.sim.StreamReadyRandomizer
+import spinal.lib.sim.{StreamDriver, StreamReadyRandomizer}
 
 import scala.collection.mutable
 import scala.util.Random
@@ -14,35 +14,47 @@ class BsbBridgeTester(input : Bsb,
                       inputCd : ClockDomain,
                       outputCd : ClockDomain) {
 
-  val inputDriver = new BsbDriver(input, inputCd)
+  var lastSource = input.source.randomizedInt()
+  var lastSink   = input.sink.randomizedInt()
+  val inputDriver = StreamDriver(input, inputCd){ p =>
+    if(Random.nextFloat() < 0.1){
+      lastSource  = input.source.randomizedInt()
+      lastSink    = input.sink.randomizedInt()
+    }
+    p.data.randomize()
+    p.mask.randomize()
+    p.source #= lastSource
+    p.sink #= lastSink
+    p.last #= Random.nextFloat() < 0.2
+    true
+  }
   val outputDriver = StreamReadyRandomizer(output, outputCd)
 
+  case class ByteEvent(value: Byte, source: Int, sink: Int)
+  case class LastEvent(source: Int, sink: Int)
+  val ref = mutable.Queue[Any]()
 
-  val ref = Array.fill(1 << input.p.sourceWidth)(mutable.Queue[BsbPacket]())
-  val progresses = Array.fill(1 << input.p.sourceWidth)(0)
-
-  val outputMonitor = new BsbMonitor(output, outputCd) {
+  val inputMonitor = new BsbMonitor(input, inputCd) {
     override def onByte(value: Byte, source: Int, sink: Int): Unit = {
-      val packet = ref(source).head
-      assert(packet.sink == sink)
-      assert(packet.data(progresses(source)) == value)
-      progresses(source) = progresses(source) + 1
+      ref += ByteEvent(value, source, sink)
     }
     override def onLast(source: Int, sink: Int): Unit = {
-      assert(ref(source).head.data.size == progresses(source))
-      progresses(source) = 0
-      ref(source).dequeue()
+      ref += LastEvent(source, sink)
+    }
+  }
+
+  var progress = 0
+  val outputMonitor = new BsbMonitor(output, outputCd) {
+    override def onByte(value: Byte, source: Int, sink: Int): Unit = {
+      assert(ref.dequeue() ==  ByteEvent(value, source, sink))
+      progress += 1
+    }
+    override def onLast(source: Int, sink: Int): Unit = {
+      assert(ref.dequeue() == LastEvent(source, sink))
+      progress += 1
     }
   }
 
 
-  val agents = for(sourceId <- 0 until 1 << input.p.sourceWidth){
-    for(_ <- 0 until 100){
-      val packet = new BsbPacket(source = input.source.randomizedInt(), sink = input.sink.randomizedInt(), (0 until Random.nextInt(100) + 1).map(_ => Random.nextInt.toByte).toArray)
-      ref(packet.source).enqueue(packet)
-      inputDriver.push(packet)
-    }
-  }
-
-  waitUntil(ref.forall(_.isEmpty))
+  waitUntil(progress > 100000)
 }
