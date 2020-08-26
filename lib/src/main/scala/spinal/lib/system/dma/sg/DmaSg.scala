@@ -134,8 +134,8 @@ object DmaSg{
     def canInput = inputsPorts.nonEmpty
     def canOutput = outputsPorts.nonEmpty
 
-    assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct controle is enabled")
     assert(linkedListCapable || directCtrlCapable, "A DMA channel should be at least controllable via a linked list or direct access")
+    assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct controle is enabled")
     val withProgressCounter = progressProbes || halfCompletionInterrupt || linkedListCapable && canInput
     val withProgressCounterM2s = progressProbes || halfCompletionInterrupt
 
@@ -879,6 +879,7 @@ object DmaSg{
         val addressNext = sel.address + bytesInBurstP1
         val bytesLeftNext = sel.bytesLeft -^ bytesInBurstP1
         val isFinalCmd = bytesLeftNext.msb
+        val beatCounter = Reg(UInt(io.write.p.access.lengthWidth - io.write.p.access.wordRangeLength  bits))
 
         //Assume that the delay of reading the memory and going throug the aggregator is at least two cycles
         val s0 = sel.valid.rise(False)
@@ -891,6 +892,7 @@ object DmaSg{
 
         val fifoCompletion = sel.bytesInBurst === sel.bytesInFifo-1
         when(s1){
+          beatCounter := sel.address(log2Up(io.write.p.access.byteCount)-1 downto 0) + sel.bytesInBurst >> log2Up(io.write.p.access.byteCount)
           for((channel, ohId) <- channels.zipWithIndex) when(sel.channel === ohId){
             channel.pop.b2m.decrBytes := bytesInBurstP1.resized
             channel.pop.b2m.address := addressNext
@@ -963,20 +965,20 @@ object DmaSg{
 
           def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
 
-          val beatCounter = Reg(UInt(io.write.p.access.beatCounterWidth bits))
-          val beatCount = address(log2Up(io.write.p.access.byteCount)-1 downto 0) + sel.bytesInBurst >> log2Up(io.write.p.access.byteCount) //Minus one
           val maskFirstTrigger = address.resize(log2Up(p.writeByteCount) bits)
-          val maskLastTrigger = maskFirstTrigger + sel.bytesInBurst.resized
-          val maskLast = B((0 until p.writeByteCount).map(byteId => byteId <= maskLastTrigger))
+          val maskLastTriggerComb = maskFirstTrigger + sel.bytesInBurst.resized
+          val maskLastTriggerReg = RegNext(maskLastTriggerComb)
+          val maskLast = RegNext(B((0 until p.writeByteCount).map(byteId => byteId <= maskLastTriggerComb)))
           val maskFirst = B((0 until p.writeByteCount).map(byteId => byteId >= maskFirstTrigger))
           val enoughAggregation = sel.valid && !aggregate.engine.io.flush && (io.write.cmd.last ? ((aggregate.engine.io.output.mask & maskLast) === maskLast) | aggregate.engine.io.output.mask.andR)
 
 
           aggregate.engine.io.output.enough := enoughAggregation
           aggregate.engine.io.output.consume := io.write.cmd.fire
-          aggregate.engine.io.output.lastByteUsed := maskLastTrigger
+          aggregate.engine.io.output.lastByteUsed := maskLastTriggerReg
+
           io.write.cmd.valid := enoughAggregation
-          io.write.cmd.last := beatCounter === beatCount
+          io.write.cmd.last := beatCounter === 0
           io.write.cmd.address := address
           io.write.cmd.opcode := Bmb.Cmd.Opcode.WRITE
           io.write.cmd.data := aggregate.engine.io.output.data
@@ -996,10 +998,7 @@ object DmaSg{
           io.write.cmd.context := B(context)
 
           when(io.write.cmd.fire){
-            beatCounter := beatCounter + 1
-          }
-          when(io.write.cmd.lastFire || !sel.valid){
-            beatCounter := 0
+            beatCounter := beatCounter - 1
           }
 
           when(io.write.cmd.lastFire){
