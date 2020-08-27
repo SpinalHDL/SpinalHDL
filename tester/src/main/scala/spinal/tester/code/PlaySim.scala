@@ -213,10 +213,11 @@ object PlaySimGhdl3 extends App{
 }
 
 
-//cd simWorkspace/unnamed
-//verilator_coverage --write-info rawrr.info  --annotate asd rawrr.dat
-//genhtml rawrr.info --output-directory coverage
-//xdg-open coverage/index.html
+// export TEST=rawrr
+// cd simWorkspace/unnamed
+// verilator_coverage --write-info $TEST.info  --annotate asd $TEST.dat
+// genhtml $TEST.info --output-directory coverage
+// xdg-open coverage/index.html
 
 object PlayCoverage extends App{
   val compiled = SimConfig.withCoverage.compile(new Component{
