@@ -368,6 +368,9 @@ case class ClockDomain(clock       : Bool,
   def withRevertedClockEdge() = {
     copy(config = config.copy(clockEdge = if(config.clockEdge == RISING) FALLING else RISING))
   }
+  def withAsyncReset() = {
+    copy(config = config.copy(resetKind = ASYNC))
+  }
 
   def samplingRate : IClockDomainFrequency = {
     if(clockEnable == null) return frequency
