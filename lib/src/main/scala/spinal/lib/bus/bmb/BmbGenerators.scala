@@ -199,7 +199,7 @@ object BmbBridgeGenerator{
 
 
 
-class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
+class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
                         (implicit interconnect: BmbInterconnectGenerator) extends Generator {
   val accessSource = Handle[BmbAccessCapabilities]
   val invalidationSource = Handle[BmbInvalidationParameter]

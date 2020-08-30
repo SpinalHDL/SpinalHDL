@@ -133,6 +133,7 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     val bmb = Bmb(p)
     bmb.cmd.arbitrationFrom(cmd)
     bmb.cmd.last := True
+    bmb.cmd.length := 3
     bmb.cmd.opcode := (cmd.wr ? B(Bmb.Cmd.Opcode.WRITE) | B(Bmb.Cmd.Opcode.READ))
     bmb.cmd.address := (cmd.address >> 2) @@ U"00"
     bmb.cmd.data := cmd.data
