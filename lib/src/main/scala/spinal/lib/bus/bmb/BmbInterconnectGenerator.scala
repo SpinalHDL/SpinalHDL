@@ -150,8 +150,6 @@ case class BmbInterconnectGenerator() extends Generator{
         invalidationRequirements.load(aggregated)
       }
     }
-
-
   }
 
 

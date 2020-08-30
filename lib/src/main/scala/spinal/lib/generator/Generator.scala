@@ -159,6 +159,10 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
   }
   def applyName(value : Any) = value match {
     case value : Nameable => value.setCompositeName(this, Nameable.DATAMODEL_WEAK)
+    case l : Seq[_] if l.nonEmpty && l.head.isInstanceOf[Nameable] => for((e,i) <- l.zipWithIndex) e match {
+      case e : Nameable => e.setCompositeName(this, i.toString, Nameable.DATAMODEL_WEAK)
+      case _ =>
+    }
     case _ =>
   }
   def isLoaded = core.isLoaded
