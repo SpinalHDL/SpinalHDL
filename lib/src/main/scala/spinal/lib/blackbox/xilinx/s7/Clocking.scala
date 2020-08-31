@@ -37,13 +37,13 @@ case class BUFIO() extends BlackBox {
   pll.CLKFBIN := pll.CLKFBOUT // internal loop back
   pll.CLKIN1 := io.clk // input clock 125 MHz
   pll.RST := False
+  pll.PWRDWN := False
   
   ClockDomain(pll.CLKOUT0, frequency = FixedFrequency(25 MHz))
 */
-
 case class PLLE2_BASE(
   bandwidth : String = "OPTIMIZED",
-  startUpWait : Bool = False,
+  startUpWait : String = "FALSE",
   clkIn1_Period : Double = 0.0, // 0.938 to 52.631ns
   clkOut_Mult : Int = 2,
   clkOut0_Divide : Int = 1,
@@ -108,6 +108,5 @@ case class PLLE2_BASE(
   val CLKOUT3  = out Bool
   val CLKOUT4  = out Bool
   val CLKOUT5  = out Bool
+  val PWRDWN = in Bool
 }
-
-
