@@ -29,6 +29,17 @@ case class BUFIO() extends BlackBox {
   val I = in Bool()
   val O = out Bool()
 }
+/*
+  Basic example CLKOUT[n] = (CLKIN1 * clkOut_Mult) / clkOut[n]_Divide
+  (source clk = 125 Mhz)
+  val pll = new PLLE2_BASE(clkOut_Mult = 10,      // 1250 MHz
+                            clkOut0_Divide = 50)  //  25 MHz
+  pll.CLKFBIN := pll.CLKFBOUT // internal loop back
+  pll.CLKIN1 := io.clk // input clock 125 MHz
+  pll.RST := False
+  
+  ClockDomain(pll.CLKOUT0, frequency = FixedFrequency(25 MHz))
+*/
 
 case class PLLE2_BASE(
   bandwidth : String = "OPTIMIZED",
