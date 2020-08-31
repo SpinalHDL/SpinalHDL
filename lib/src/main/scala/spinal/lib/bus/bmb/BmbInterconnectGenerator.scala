@@ -453,6 +453,9 @@ case class BmbInterconnectGenerator() extends Generator{
   val masters = mutable.LinkedHashMap[Handle[Bmb], MasterModel]()
   val slaves = mutable.LinkedHashMap[Handle[Bmb], SlaveModel]()
   val lock = Lock()
+  lock.retain()
+  add task lock.release()
+
   var defaultArbitration : BmbInterconnectGenerator.ArbitrationKind = BmbInterconnectGenerator.ROUND_ROBIN
 
 
