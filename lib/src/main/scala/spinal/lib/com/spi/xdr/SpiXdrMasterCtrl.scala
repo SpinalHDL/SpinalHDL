@@ -370,11 +370,12 @@ object SpiXdrMasterCtrl {
 
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
-        cmd << stream.stage()
+        cmd <-/< stream
       } else {
         cmd << stream
       }
       bus.read(fifoAvailability, address = baseAddress + 4, 0)
+      bus.read(cmd.valid, address = baseAddress + 12, 16)
     }
 
     //RSP

@@ -15,7 +15,6 @@ case class BmbDriver(ctrl : Bmb, cd : ClockDomain) {
 
   val mutex = SimMutex()
 
-  cd.waitSampling()
   def write(data : BigInt, address : BigInt): Unit ={
     mutex.lock()
     ctrl.cmd.valid #= true

@@ -21,9 +21,10 @@ case class BmbContextRemover(p: BmbParameter,
   io.output.cmd << cmdFork
   io.output.cmd.context.removeAssignments()
 
-  val popCtx = fifoFork.translateWith(fifoFork.context).queue(pendingMax)
+  val popCtx = fifoFork.throwWhen(!fifoFork.first).translateWith(fifoFork.context).queue(pendingMax)
+  popCtx.ready := io.output.rsp.valid && io.output.rsp.last && io.input.rsp.ready
 
-  io.input.rsp.arbitrationFrom(StreamJoin(popCtx, io.output.rsp))
+  io.input.rsp.arbitrationFrom(io.output.rsp.haltWhen(!popCtx.valid))
   io.input.rsp.payload := io.output.rsp.payload
   io.input.rsp.context.removeAssignments() := popCtx.payload
 }

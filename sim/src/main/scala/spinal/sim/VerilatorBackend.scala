@@ -23,7 +23,9 @@ class VerilatorBackendConfig{
   var waveFormat             : WaveFormat = WaveFormat.NONE
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
+  var withCoverage           = false
 }
+
 
 class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   import Backend._
@@ -208,6 +210,7 @@ public:
     #ifdef TRACE
 	  Verilated${format.ext.capitalize}C tfp;
 	  #endif
+    string name;
 
     Wrapper_${uniqueId}(const char * name){
       simHandle${uniqueId} = this;
@@ -225,6 +228,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       top.trace(&tfp, 99);
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
+      this->name = name;
     }
 
     virtual ~Wrapper_${uniqueId}(){
@@ -235,6 +239,9 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       if(waveEnabled) tfp.dump((vluint64_t)time);
       tfp.close();
+      #endif
+      #ifdef COVERAGE
+      VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
     }
 
@@ -389,6 +396,12 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case WaveFormat.NONE => ""
     }
 
+    val covArgs = config.withCoverage match {
+      case true =>  "-CFLAGS -DCOVERAGE --coverage"
+      case false => ""
+    }
+
+
     val verilatorScript = s""" set -e ;
        | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
@@ -407,6 +420,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -O3
        | -CFLAGS -O${config.optimisationLevel}
        | $waveArgs
+       | $covArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 

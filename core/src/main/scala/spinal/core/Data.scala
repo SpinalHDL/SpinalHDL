@@ -25,7 +25,9 @@ import spinal.core.internals._
 
 object DataAssign
 object InitAssign
-class VarAssignementTag(var from : ArrayBuffer[Data]) extends SpinalTag
+class VarAssignementTag(val from : Data) extends SpinalTag{
+  var id = 0
+}
 
 trait DataPrimitives[T <: Data]{
 
@@ -60,13 +62,11 @@ trait DataPrimitives[T <: Data]{
       case (from: Data with Nameable, to: Data with Nameable) => {
         val t = from.getTag(classOf[VarAssignementTag]) match {
           case Some(t) => t
-          case None => new VarAssignementTag(ArrayBuffer[Data]())
+          case None => new VarAssignementTag(from)
         }
-        for((s,i) <- t.from.zipWithIndex){
-          s.setCompositeName(to,i.toString)
-        }
+        t.id += 1
+        to.setCompositeName(t.from,t.id.toString)
 
-        t.from += ret
         from.removeTag(t)
         ret.addTag(t)
       }

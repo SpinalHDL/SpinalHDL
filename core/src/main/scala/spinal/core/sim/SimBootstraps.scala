@@ -42,7 +42,8 @@ case class SpinalVerilatorBackendConfig[T <: Component](
                                                          vcdPrefix         : String = null,
                                                          waveDepth         : Int = 0,
                                                          optimisationLevel : Int = 2,
-                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                         withCoverage      : Boolean
 )
 
 
@@ -66,6 +67,7 @@ object SpinalVerilatorBackend {
     vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
     vconfig.simulatorFlags        = simulatorFlags
+    vconfig.withCoverage  = withCoverage
 
     var signalId = 0
 
@@ -458,7 +460,8 @@ case class SpinalSimConfig(
   var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
   var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
   var _waveFormat        : WaveFormat = WaveFormat.NONE,
-  var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR
+  var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
+  var _withCoverage      : Boolean = false
 ){
 
 
@@ -494,6 +497,11 @@ case class SpinalSimConfig(
   def withWave(depth: Int): this.type = {
     _waveFormat = WaveFormat.DEFAULT
     _waveDepth = depth
+    this
+  }
+
+  def withCoverage: this.type = {
+    _withCoverage = true
     this
   }
 
@@ -603,7 +611,8 @@ case class SpinalSimConfig(
           workspaceName = "verilator",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
-          simulatorFlags = _simulatorFlags
+          simulatorFlags = _simulatorFlags,
+          withCoverage = _withCoverage
         )
         val backend = SpinalVerilatorBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6

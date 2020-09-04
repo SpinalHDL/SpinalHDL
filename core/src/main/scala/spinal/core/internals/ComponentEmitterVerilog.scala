@@ -659,12 +659,15 @@ class ComponentEmitterVerilog(
 
                   b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
                   switchStatement.elements.foreach(element => {
-                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
-                    if (nextScope == element.scopeStatement) {
-                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
-                      nextScope = findSwitchScope()
+                    val hasStuff = nextScope == element.scopeStatement
+                    if(hasStuff || switchStatement.defaultScope != null) {
+                      b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                      if (hasStuff) {
+                        statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                        nextScope = findSwitchScope()
+                      }
+                      b ++= s"${tab}  end\n"
                     }
-                    b ++= s"${tab}  end\n"
                   })
                   b ++= s"${tab}  default : begin\n"
                   if (nextScope == switchStatement.defaultScope) {

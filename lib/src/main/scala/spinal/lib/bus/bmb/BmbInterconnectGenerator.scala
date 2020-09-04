@@ -11,12 +11,14 @@ object BmbInterconnectGenerator{
   class ArbitrationKind
   val ROUND_ROBIN = new ArbitrationKind
   val STATIC_PRIORITY = new ArbitrationKind
+
+  def apply() = new BmbInterconnectGenerator
 }
 
 case class BmbImplicitPeripheralDecoder(bus : Handle[Bmb])
 case class BmbImplicitDebugDecoder(bus : Handle[Bmb])
 
-case class BmbInterconnectGenerator() extends Generator{
+class BmbInterconnectGenerator() extends Generator{
 
   def setDefaultArbitration(kind : BmbInterconnectGenerator.ArbitrationKind): Unit ={
     defaultArbitration = kind
