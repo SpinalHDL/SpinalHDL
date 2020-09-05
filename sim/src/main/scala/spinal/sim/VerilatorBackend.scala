@@ -56,6 +56,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include <string>
 #include <memory>
 #include <jni.h>
+#include <iostream>
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
@@ -201,9 +202,14 @@ public:
 class Wrapper_${uniqueId};
 thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
 
+#include <chrono>
+using namespace std::chrono;
+
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
+    high_resolution_clock::time_point lastFlushAt;
+    uint32_t timeCheck;
     bool waveEnabled;
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
@@ -215,6 +221,8 @@ public:
     Wrapper_${uniqueId}(const char * name){
       simHandle${uniqueId} = this;
       time = 0;
+      timeCheck = 0;
+      lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
@@ -285,7 +293,19 @@ JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
 JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
-  if(handle->waveEnabled) handle->tfp.dump((vluint64_t)handle->time);
+  if(handle->waveEnabled) {
+    handle->tfp.dump((vluint64_t)handle->time);
+  }
+  handle->timeCheck++;
+  if(handle->timeCheck > 10000){
+    handle->timeCheck = 0;
+    high_resolution_clock::time_point timeNow = high_resolution_clock::now();
+    duration<double, std::milli> time_span = timeNow - handle->lastFlushAt;
+    if(time_span.count() > 1e3){
+      handle->lastFlushAt = timeNow;
+      handle->tfp.flush();
+    }
+  }
   #endif
   handle->time += cycles;
 }
