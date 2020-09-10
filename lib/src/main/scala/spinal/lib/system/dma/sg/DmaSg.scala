@@ -17,11 +17,11 @@ import scala.util.Random
 
 
 object DmaSg{
-
+  val ctrlAddressWidth = 16
   val descriptorSize = 32
   def getCtrlCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
-    addressWidth = 12,
+    addressWidth = ctrlAddressWidth,
     dataWidth = 32
   )
 
@@ -136,6 +136,7 @@ object DmaSg{
 
     assert(linkedListCapable || directCtrlCapable, "A DMA channel should be at least controllable via a linked list or direct access")
     assert(!(!directCtrlCapable && selfRestartCapable), "Channel self restart is only available if direct controle is enabled")
+    assert(memoryToMemory || inputsPorts.nonEmpty || outputsPorts.nonEmpty, "A DMA channel require at least one opperation (m->m, m->s, s->m)")
     val withProgressCounter = progressProbes || halfCompletionInterrupt || linkedListCapable && canInput
     val withProgressCounterM2s = progressProbes || halfCompletionInterrupt
 
@@ -746,7 +747,7 @@ object DmaSg{
 
           val addressNext = address + length + 1
           val byteLeftNext = bytesLeft - length - 1
-          val fifoPushDecr = ((address(log2Up(io.read.p.access.byteCount)-1 downto 0) + io.read.cmd.length | (io.read.p.access.byteCount-1))+1 >> log2Up(p.memory.bankWidth/8)).resized
+          val fifoPushDecr = ((address(log2Up(io.read.p.access.byteCount)-1 downto 0) + io.read.cmd.length | (io.read.p.access.byteCount-1))+^1 >> log2Up(p.memory.bankWidth/8)).resized
 
           when(valid) {
             io.read.cmd.valid := True
@@ -2225,7 +2226,7 @@ object SgDmaTestsParameter{
 
   def test(p: Parameter) = {
     val pCtrl = BmbParameter(
-      addressWidth = 12,
+      addressWidth = DmaSg.ctrlAddressWidth,
       dataWidth    = 32,
       sourceWidth  = 0,
       contextWidth = 4,
