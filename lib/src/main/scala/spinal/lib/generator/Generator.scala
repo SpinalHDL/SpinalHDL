@@ -145,6 +145,7 @@ class Handle[T] extends Nameable with Dependable with HandleCoreSubscriber{
       Handle.this.load(body(that))
     }
   }
+
   def merge[T2 <: T](that : Handle[T2]): Unit = this.core.merge(that.core)
 
   def apply : T = get.asInstanceOf[T]
@@ -365,7 +366,7 @@ class GeneratorCompiler {
           s"\nDependable not completed :\n" +
           s"${missingDepedancies.map(d => "- " + d + "\n").mkString}" +
           s"\nHandles without potential sources :\n" +
-          s"${withoutSources.map(d => "- " + d + "\n").mkString}"
+          s"${withoutSources.toSeq.sortBy(_.getName()).map(d => "- " + d + "\n").mkString}"
         )
       }
       step += 1

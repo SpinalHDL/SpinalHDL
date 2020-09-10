@@ -57,6 +57,7 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
       var state: Any = IDLE
       var read, write = BigInt(0)
       var successCounter = 0
+      var conflictCounter = 0
       var data = 0l
 
       dut.clockDomain.onSamplings {
@@ -83,6 +84,8 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
             if(rspEvent){
               if(dut.io.input.rsp.exclusive.toBoolean) {
                 successCounter = successCounter + 1
+              } else {
+                conflictCounter = conflictCounter + 1
               }
               state = IDLE
             }
@@ -165,6 +168,6 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
     val memoryExpected = masterAgent.map(a => a.successCounter*(a.sourceId + 1)).sum
     println(s"memory:$memory expected:${memoryExpected}")
 
-    assert(memory == memoryExpected && memory > 10000 && !masterAgent.exists(_.successCounter < 5000))
+    assert(memory == memoryExpected && memory > 10000 && !masterAgent.exists(a => a.successCounter < 5000 || a.conflictCounter < 100))
   }
 }
