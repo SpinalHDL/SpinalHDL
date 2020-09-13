@@ -22,6 +22,16 @@ case class IDDRX1F() extends BlackBox{
   mapCurrentClockDomain(SCLK, RST)
 }
 
+
+object ODDRX1F{
+  def apply(Q : Bool, D0 : Bool, D1 : Bool): ODDRX1F ={
+    val ret = ODDRX1F()
+    ret.D0 := D0
+    ret.D1 := D1
+    Q := ret.Q
+    ret
+  }
+}
 case class ODDRX1F() extends BlackBox{
   val SCLK, RST, D0, D1 = in Bool()
   val Q = out Bool()

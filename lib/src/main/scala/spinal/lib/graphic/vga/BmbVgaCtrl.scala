@@ -10,6 +10,7 @@ import spinal.lib.generator._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.com.uart.BmbUartCtrl
+import spinal.lib.graphic.hdmi.VgaToHdmiEcp5
 
 
 
@@ -51,9 +52,9 @@ case class BmbVgaCtrl(p : BmbVgaCtrlParameter,
     val adapted = Stream(Fragment(Rgb(p.rgbConfig)))
     adapted.arbitrationFrom(resized)
     adapted.last := resized.last
-    adapted.r := U(resized.fragment(15-3, 4 bits))
-    adapted.g := U(resized.fragment(10-3, 4 bits))
-    adapted.b := U(resized.fragment( 4-3, 4 bits))
+    adapted.r := U(resized.fragment(15-p.rgbConfig.rWidth+1, p.rgbConfig.rWidth bits))
+    adapted.g := U(resized.fragment(10-p.rgbConfig.gWidth+1, p.rgbConfig.gWidth bits))
+    adapted.b := U(resized.fragment( 4-p.rgbConfig.bWidth+1, p.rgbConfig.bWidth bits))
 
     val run = BufferCC(BmbVgaCtrl.this.run)
     val ctrl = VgaCtrl(p.rgbConfig, p.timingsWidth)
@@ -113,4 +114,11 @@ case class BmbVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
     reg
   }
 
+  def withHdmiEcp5(hdmiCd : Handle[ClockDomain]) = output produce new Area{
+    val bridge = VgaToHdmiEcp5(vgaCd, hdmiCd)
+    bridge.io.vga << output
+    val gpdi_dp, gpdi_dn = out Bits(4 bits)
+    gpdi_dp := bridge.io.gpdi_dp
+    gpdi_dn := bridge.io.gpdi_dn
+  }
 }
