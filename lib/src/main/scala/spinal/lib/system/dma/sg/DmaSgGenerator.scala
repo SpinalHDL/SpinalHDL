@@ -14,6 +14,8 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
   val ctrl = produce(logic.io.ctrl)
   val write = produce(logic.io.write)
   val read = produce(logic.io.read)
+  val writeSg = produce(logic.io.sgWrite)
+  val readSg = produce(logic.io.sgRead)
   val interrupts = produce(logic.io.interrupts)
   val interrupt = produce(logic.io.interrupts.orR)
 
@@ -78,6 +80,14 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
         accessRequirements = DmaSg.getReadRequirements(p),
         bus = read
       )
+      if(p.canSgWrite) interconnect.addMaster(
+        accessRequirements = DmaSg.getSgWriteRequirements(p),
+        bus = writeSg
+      )
+      if(p.canSgRead) interconnect.addMaster(
+        accessRequirements = DmaSg.getSgReadRequirements(p),
+        bus = readSg
+      )
     }
   }
 
@@ -115,7 +125,7 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
     new ChannelModel
   }
 
-  def connectInterrupts(ctrl : InterruptCtrlGeneratorI, offsetId : Int): Unit = interrupts.produce{
+  def connectInterrupts(ctrl : InterruptCtrlGeneratorI, offsetId : Int): Unit = {
     ctrl.addInterrupt(interrupt, offsetId)
   }
 
@@ -160,6 +170,11 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
     channels += this
     parameter.dependencies += this
 
+    val interrupt = DmaSgGenerator.this.interrupts.derivate(_(id))
+    def connectInterrupt(ctrl : InterruptCtrlGeneratorI, offsetId : Int): Unit = {
+      ctrl.addInterrupt(interrupt, offsetId)
+    }
+
     val memoryToMemory = createDependency[Boolean]
     val linkedListCapable = createDependency[Boolean]
     val directCtrlCapable = createDependency[Boolean]
@@ -182,6 +197,10 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
       directCtrlCapable load true
       selfRestartCapable load true
       halfCompletionInterrupt load false
+    }
+
+    def withScatterGatter(): Unit ={
+      linkedListCapable load true
     }
 
     def fixedBurst(bytePerBurst : Int): Unit ={

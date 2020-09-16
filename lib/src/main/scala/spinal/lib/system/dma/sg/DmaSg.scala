@@ -215,7 +215,7 @@ object DmaSg{
 
     class Interrupt(fire : Bool) extends Area{
       val enable = Reg(Bool) init(False)
-      val valid = Reg(Bool) init(False) setWhen(enable && fire)
+      val valid = Reg(Bool) init(False) setWhen(fire) clearWhen(!enable)
     }
 
     def bytesType = UInt(log2Up(p.memory.bankWords*p.memory.bankCount*p.memory.bankWidth/8+1) bits)
