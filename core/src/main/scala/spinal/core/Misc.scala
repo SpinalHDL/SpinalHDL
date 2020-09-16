@@ -121,7 +121,7 @@ class HardType[T <: Data](t : => T){
       case w : BitVector if w.isFixedWidth || !w.dlcIsEmpty => w.fixWidth()
       case _ =>
     }
-    val ret = if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    val ret = if(called.getInstanceCounter < id || called.component != Component.current) cloneOf(called) else called.purify()
     ret match {
       case ret : Bundle => ret.hardtype = this
       case _ =>
