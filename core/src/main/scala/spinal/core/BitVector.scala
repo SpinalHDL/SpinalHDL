@@ -115,6 +115,10 @@ abstract class BitVector extends BaseType with Widthable {
     inferredWidth        = -1
   }
 
+  private[core] def fixWidth() = {
+    setWidth(getWidth)
+  }
+
   /**
     * Set the width of the BitVector
     * @param width the width of the data

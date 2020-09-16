@@ -117,6 +117,10 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
+    called.flattenForeach{
+      case w : BitVector if w.isFixedWidth || !w.dlcIsEmpty => w.fixWidth()
+      case _ =>
+    }
     val ret = if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
     ret match {
       case ret : Bundle => ret.hardtype = this
