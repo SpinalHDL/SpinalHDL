@@ -25,26 +25,54 @@ case class BsbToDeltaSigmaParameter(channels : Int,
 
 case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbParameter) extends Component{
   val io = new Bundle{
-    val run = in Bool()
+    val channelCount = in UInt(log2Up(p.channels + 1) bits)
     val rate = in UInt(p.rateWidth bits)
     val input = slave(Bsb(inputParameter))
     val outputs = out Bits(p.channels bits)
 
     def driveFrom(ctrl : BusSlaveFactory): Unit ={
-      ctrl.drive(run,  0x10, 0)
+      ctrl.drive(channelCount,  0x10, 0)
       ctrl.drive(rate, 0x14)
     }
   }
 
   val decoder = new Area{
     val input = io.input.toStream(omitMask = true) //TODO
-    val output = Stream(Vec(UInt(p.channelWidth bits), p.channels))
-    StreamWidthAdapter(input, output)
+    val output, adapter = Stream(Vec(UInt(p.channelWidth bits), p.channels))
+    StreamWidthAdapter(input, adapter)
+
+    assert(p.channels >= 1 && p.channels <= 2)
+    if(p.channels == 1) output << adapter
+    val gearbox = if(p.channels == 2) new Area{
+      val counter = Reg(UInt(1 bits))
+      when(output.fire){
+        counter := counter + 1
+      }
+      when(io.channelCount === 0){
+        counter := 0
+      }
+
+      output.valid := adapter.valid
+      output.payload.assignDontCare()
+      adapter.ready := output.ready
+      switch(io.channelCount){
+        is(1){
+          val sel = adapter.payload(counter)
+          output.payload(0) := sel
+          output.payload(1) := sel
+          adapter.ready clearWhen(counter =/= 1)
+        }
+        is(2){
+          output.payload(0) := adapter.payload(0)
+          output.payload(1) := adapter.payload(1)
+        }
+      }
+    }
   }
 
   val sampler = new Area{
     val counter = Reg(UInt(p.rateWidth bits)) randBoot()
-    val fire = counter === io.rate || !io.run
+    val fire = counter === io.rate || io.channelCount === 0
     counter := counter + 1
     when(fire){
       counter := 0
@@ -58,7 +86,7 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
     toSigmaDelta.io.input <> (sampler.state(channelId) ^ (BigInt(1) << p.channelWidth-1))
 
     val buffer = Reg(Bool)
-    buffer := toSigmaDelta.io.output && io.run
+    buffer := toSigmaDelta.io.output && io.channelCount >= channelId
 
     io.outputs(channelId) := buffer
   }
