@@ -16,7 +16,7 @@ case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
   val accumulator = Reg(UInt(inputWidth bits)) randBoot()
   val adder = accumulator +^ io.input
   accumulator := adder.resized
-  io.output := RegNext(adder.msb)
+  io.output := adder.msb
 }
 
 case class BsbToDeltaSigmaParameter(channels : Int,
@@ -55,8 +55,12 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
 
   val channels = for(channelId <- 0 until p.channels) yield new Area{
     val toSigmaDelta = UIntToSigmaDelta(p.channelWidth)
-    toSigmaDelta.io.input <> sampler.state(channelId)
-    toSigmaDelta.io.output <> io.outputs(channelId)
+    toSigmaDelta.io.input <> (sampler.state(channelId) ^ (BigInt(1) << p.channelWidth-1))
+
+    val buffer = Reg(Bool)
+    buffer := toSigmaDelta.io.output && io.run
+
+    io.outputs(channelId) := buffer
   }
 }
 
