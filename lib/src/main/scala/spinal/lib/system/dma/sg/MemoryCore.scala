@@ -208,8 +208,8 @@ case class DmaMemoryCore(p : DmaMemoryCoreParameter) extends Component{
           nodes(other)(self).priority := True
         }
       }
-      nodes(self)(other).conflict := ports(self).cmd.valid && io.reads(other).cmd.valid && ((ports(self).cmd.address ^ io.reads(other).cmd.address) & bankMask) === 0
-      nodes(other)(self).conflict :=  nodes(self)(other).conflict
+      nodes(self)(other).conflict := ports(self).cmd.valid && ports(other).cmd.valid && ((ports(self).cmd.address ^ io.reads(other).cmd.address) & bankMask) === 0
+      nodes(other)(self).conflict := nodes(self)(other).conflict
     }
     val arbiter = for(self <- 0 until p.reads.size) yield new Area{
       val others = (0 until p.reads.size).filter(_ != self)
