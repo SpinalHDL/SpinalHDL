@@ -249,7 +249,9 @@ class SpinalReport[T <: Component]() {
 
   val generatedSourcesPaths  = mutable.LinkedHashSet[String]()
   val blackboxesSourcesPaths = mutable.LinkedHashSet[String]()
+  val blackboxesIncludeDir = mutable.LinkedHashSet[String]()
   def rtlSourcesPaths        = generatedSourcesPaths ++ blackboxesSourcesPaths
+  def rtlIncludeDirs        = blackboxesIncludeDir
 
 
   def printUnused() : this.type = {

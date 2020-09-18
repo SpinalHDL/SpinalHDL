@@ -54,6 +54,7 @@ object SpinalVerilatorBackend {
     import config._
 
     val vconfig = new VerilatorBackendConfig()
+    vconfig.rtlIncludeDirs ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
     vconfig.toplevelName      = rtl.toplevelName
     vconfig.vcdPath           = vcdPath
@@ -452,16 +453,17 @@ object SpinalSimBackendSel{
   * SpinalSim configuration
   */
 case class SpinalSimConfig(
-  var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
-  var _workspaceName     : String = null,
-  var _waveDepth         : Int = 0, //0 => all
-  var _spinalConfig      : SpinalConfig = SpinalConfig(),
-  var _optimisationLevel : Int = 0,
-  var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
-  var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
-  var _waveFormat        : WaveFormat = WaveFormat.NONE,
-  var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
-  var _withCoverage      : Boolean = false
+                            var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
+                            var _workspaceName     : String = null,
+                            var _waveDepth         : Int = 0, //0 => all
+                            var _spinalConfig      : SpinalConfig = SpinalConfig(),
+                            var _optimisationLevel : Int = 0,
+                            var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _additionalIncludeDir : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _waveFormat        : WaveFormat = WaveFormat.NONE,
+                            var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
+                            var _withCoverage      : Boolean = false
 ){
 
 
@@ -547,6 +549,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def addIncludeDir(that : String) : this.type = {
+    _additionalIncludeDir += that
+    this
+  }
+
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSim(name)(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
@@ -577,6 +584,7 @@ case class SpinalSimConfig(
       case SpinalSimBackendSel.IVERILOG => config.generateVerilog(rtl)
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
+    report.blackboxesIncludeDir ++= _additionalIncludeDir
     compile[T](report)
   }
 

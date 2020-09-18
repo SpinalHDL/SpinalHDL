@@ -15,6 +15,7 @@ class VerilatorBackendConfig{
   var signals                = ArrayBuffer[Signal]()
   var optimisationLevel: Int = 2
   val rtlSourcesPaths        = ArrayBuffer[String]()
+  val rtlIncludeDirs         = ArrayBuffer[String]()
   var toplevelName: String   = null
   var workspacePath: String  = null
   var workspaceName: String  = null
@@ -421,6 +422,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case false => ""
     }
 
+    val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
+
 
     val verilatorScript = s""" set -e ;
        | ${if(isWindows)"verilator_bin.exe" else "verilator"}
@@ -443,6 +446,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | $covArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
+       | $rtlIncludeDirsArgs
        | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
                                                   e.endsWith(".sv") || 
                                                   e.endsWith(".h"))
