@@ -12,13 +12,18 @@ trait MMSlaveFactoryBase extends Area {
 
   val readData: Bits
   val writeData: Bits
-  val readError: Bool
+
+  def readRespond(data : Bits, error : Boolean): Unit
+  def writeRespond(error : Boolean): Unit
 
   def readAddress(): UInt
   def writeAddress(): UInt
 
   def readHalt(): Unit
   def writeHalt(): Unit
+
+  def readAccept() : Unit
+  def writeAccept() : Unit
 
   def busDataWidth: Int
   def wordAddressInc: Int = busDataWidth / 8
@@ -48,6 +53,13 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
 
   def createWriteOnlyReg(name: String, doc: String) = {
     val ret = new WriteOnlyRegEntry(name, nxtAddr, doc, this)
+    entries += ret
+    nxtAddr += wordAddressInc
+    ret
+  }
+
+  def createWriteStream(name: String, doc: String) = {
+    val ret = new WriteStreamEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
     ret
@@ -101,18 +113,28 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def readGenerator() = {
-    when(doRead){
+    when(askRead){
       switch (readAddress()) {
         entries.foreach{(reg: Entry) =>
           reg.finish
           is(reg.getAddress){
-            readData  := reg.readBits
-            readError := Bool(reg.readErrorTag)
+            reg.onReadReq()
           }
         }
         default{
-          readData  := 0x0
-          readError := True
+          readRespond(0x0, true)
+        }
+      }
+    }
+    when(askWrite){
+      switch (readAddress()) {
+        entries.foreach{(reg: Entry) =>
+          is(reg.getAddress){
+            reg.onWriteReq()
+          }
+        }
+        default{
+          writeRespond(true)
         }
       }
     }

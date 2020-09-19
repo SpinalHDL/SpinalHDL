@@ -33,5 +33,28 @@ case class Apb3MMSlaveFactory(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, r
   override def readHalt()  = bus.PREADY := False
   override def writeHalt() = bus.PREADY := False
 
+  override def readAccept() = {
+
+  }
+
+  override def writeAccept() = {
+    
+  }
+
+  override def readRespond(data : Bits, error : Boolean) = {
+    readData := data
+    if(bus.config.useSlaveError) {
+      if(error)
+        readError := True
+    }
+  }
+
+  override def writeRespond(error : Boolean) = {
+    if(bus.config.useSlaveError) {
+      if(error)
+        readError := True
+    }
+  }
+
   override def busDataWidth   = bus.config.dataWidth
 }

@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer
-import spinal.lib.Flow
+import spinal.lib._
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -25,8 +25,10 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var rerror: Boolean = false
+  protected var werror: Boolean = false
 
   def readErrorTag = rerror
+  def writeErrorTag = werror
   def getFields = fields.toList
 
   def getAddress : Long = addr
@@ -55,6 +57,14 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   
   def eventW() : Bool = {
     hitDoWrite
+  }
+
+  def onReadReq() : Unit = {
+    bus.readAccept()
+  }
+
+  def onWriteReq() : Unit = {
+    bus.writeAccept()
   }
 
   protected def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
@@ -120,15 +130,22 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
   override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val data : Bits = Reg(Bits(bc)) init(resetValue)
     addField(data, resetValue, doc)(symbol)
+    data.setName(s"mmslave_field_${symbol.name}")
     data
   }
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     assert(that.isReg)
+    that.removeAssignments()
     when(hitDoWrite) {
       that.assignFromBits(bus.writeData(section))
     }
     that.asBits
+  }
+
+  override def onReadReq(): Unit = {
+    bus.readAccept()
+    bus.readRespond(readBits, false)
   }
 }
 
@@ -136,6 +153,15 @@ class ReadOnlyEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     that.asBits
+  }
+
+  override def onReadReq(): Unit = {
+    bus.readAccept()
+    bus.readRespond(readBits, false)
+  }
+
+  override def onWriteReq(): Unit = {
+    bus.writeRespond(true)
   }
 
   override def getAccess() : String = "RO"
@@ -149,11 +175,40 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
     read
   }
 
-  def newFlowField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Flow[Bits] = {
-    val data : Flow[Bits] = Reg(Flow(Bits(bc)))
-    addField(data.payload, resetValue, doc)(symbol)
-    data.valid := eventW()
-    data
+  override def onReadReq(): Unit = {
+    val data : Bits = Bits(bus.busDataWidth bits)
+    data := 0x0l
+    bus.readAccept()
+    bus.readRespond(data, true)
+  }
+
+  override def getAccess() : String = "WO"
+}
+
+class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends RegEntry(name, addr, doc, bus) with RegDescr {
+  val ready = Bool()
+  
+  override def readBits: Bits = {
+    val read : Bits = Bits(bus.busDataWidth bits)
+    read.clearAll()
+    read
+  }
+  
+  override def onWriteReq() : Unit = {
+    when(ready) {
+      bus.writeAccept()
+      bus.writeRespond(true)
+    }
+  }
+  
+  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits] = {
+    val stream : Stream[Bits] = Stream(Bits(bc))
+    val out = stream.stage()
+    addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
+    stream.payload.setName(s"mmslave_streamfield_${symbol.name}")
+    stream.valid := hitWrite && bus.askWrite
+    ready := stream.ready
+    out
   }
 
   override def getAccess() : String = "WO"
