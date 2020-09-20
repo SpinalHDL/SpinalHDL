@@ -12,11 +12,32 @@ case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
     val input = in UInt(inputWidth bits)
     val output = out Bool()
   }
+  val counter = CounterFreeRun(3)
+  
+  val accumulator = Reg(UInt(inputWidth + 1 bits)) randBoot()
+  when(counter === 2) {
+    accumulator := accumulator.resize(inputWidth) +^ io.input
+  }
 
-  val accumulator = Reg(UInt(inputWidth bits)) randBoot()
-  val adder = accumulator +^ io.input
-  accumulator := adder.resized
-  io.output := adder.msb
+  val symbol = accumulator.msb ? B"110" | B"100"
+  io.output := symbol(counter)
+}
+
+case class UIntToSigmaDeltaSecondOrder(inputWidth : Int, togglePeriod : Int)  extends Component{
+  val io = new Bundle{
+    val input = in SInt(inputWidth bits)
+    val output = out Bool()
+  }
+
+  val inputScaled =  io.output ? S(-(1 << inputWidth-1)) | S(1 << inputWidth-1)
+  val acc1, acc2 = Reg(SInt(inputWidth+16 bits)) randBoot()
+
+  val acc1Next = acc1 + io.input + inputScaled
+  val acc2Next = acc2 + acc1Next + inputScaled
+  acc1 := acc1Next
+  acc2 := acc2Next
+
+  io.output := !acc2.msb
 }
 
 case class BsbToDeltaSigmaParameter(channels : Int,
