@@ -3,7 +3,7 @@ package spinal.lib.misc.analog
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbImplicitPeripheralDecoder, BmbInterconnectGenerator, BmbParameter, BmbSlaveFactory}
-import spinal.lib.bus.bsb.{Bsb, BsbInterconnectGenerator, BsbParameter}
+import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.generator._
 
@@ -12,9 +12,9 @@ case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
     val input = in UInt(inputWidth bits)
     val output = out Bool()
   }
-  val counter = CounterFreeRun(3)
-  
+
   val accumulator = Reg(UInt(inputWidth + 1 bits)) randBoot()
+  val counter = CounterFreeRun(3)
   when(counter === 2) {
     accumulator := accumulator.resize(inputWidth) +^ io.input
   }
@@ -23,21 +23,29 @@ case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
   io.output := symbol(counter)
 }
 
-case class UIntToSigmaDeltaSecondOrder(inputWidth : Int, togglePeriod : Int)  extends Component{
+case class UIntToSigmaDeltaSecondOrder(inputWidth : Int)  extends Component{
   val io = new Bundle{
     val input = in SInt(inputWidth bits)
     val output = out Bool()
   }
-
-  val inputScaled =  io.output ? S(-(1 << inputWidth-1)) | S(1 << inputWidth-1)
+  val bitstream = Bool()
+  val inputScaled =  bitstream ? S(-(1 << inputWidth-1)) | S(1 << inputWidth-1)
   val acc1, acc2 = Reg(SInt(inputWidth+16 bits)) randBoot()
 
   val acc1Next = acc1 + io.input + inputScaled
   val acc2Next = acc2 + acc1Next + inputScaled
-  acc1 := acc1Next
-  acc2 := acc2Next
 
-  io.output := !acc2.msb
+
+  val counter = CounterFreeRun(3)
+  when(counter === 2) {
+    acc1 := acc1Next
+    acc2 := acc2Next
+  }
+
+  bitstream := !acc2.msb
+
+  val symbol = bitstream ? B"110" | B"100"
+  io.output := symbol(counter)
 }
 
 case class BsbToDeltaSigmaParameter(channels : Int,
@@ -58,30 +66,35 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
   }
 
   val decoder = new Area{
-    val input = io.input.toStream(omitMask = true) //TODO
+    val downSizerMods = p.channels match {
+      case 1 => List(p.channelWidth/8)
+      case 2 => List(p.channelWidth/8, 2*p.channelWidth/8)
+    }
+
+    val downSizer = BsbDownSizerAlignedMultiWidth(io.input.p, downSizerMods)
+    downSizer.io.sel := (io.channelCount-1).resized
+    downSizer.io.input << io.input
+
+    val toStream = downSizer.io.output.throwWhen(!downSizer.io.output.mask.lsb).toStream(omitMask = true)
     val output, adapter = Stream(Vec(UInt(p.channelWidth bits), p.channels))
-    StreamWidthAdapter(input, adapter)
+
+    adapter.arbitrationFrom(toStream)
+    adapter.payload.assignFromBits(toStream.payload)
+
 
     assert(p.channels >= 1 && p.channels <= 2)
-    if(p.channels == 1) output << adapter
-    val gearbox = if(p.channels == 2) new Area{
-      val counter = Reg(UInt(1 bits))
-      when(output.fire){
-        counter := counter + 1
-      }
-      when(io.channelCount === 0){
-        counter := 0
-      }
 
-      output.valid := adapter.valid
+    val mono = if(p.channels == 1) new Area{
+      output << adapter
+    }
+
+    val stereo = if(p.channels == 2) new Area{
+      output.arbitrationFrom(adapter)
       output.payload.assignDontCare()
-      adapter.ready := output.ready
       switch(io.channelCount){
         is(1){
-          val sel = adapter.payload(counter)
-          output.payload(0) := sel
-          output.payload(1) := sel
-          adapter.ready clearWhen(counter =/= 1)
+          output.payload(0) := adapter.payload(0)
+          output.payload(1) := adapter.payload(0)
         }
         is(2){
           output.payload(0) := adapter.payload(0)
@@ -105,6 +118,9 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
   val channels = for(channelId <- 0 until p.channels) yield new Area{
     val toSigmaDelta = UIntToSigmaDelta(p.channelWidth)
     toSigmaDelta.io.input <> (sampler.state(channelId) ^ (BigInt(1) << p.channelWidth-1))
+    
+//    val toSigmaDelta = UIntToSigmaDeltaSecondOrder(p.channelWidth)
+//      toSigmaDelta.io.input <> S(sampler.state(channelId))
 
     val buffer = Reg(Bool)
     buffer := toSigmaDelta.io.output && io.channelCount =/= 0
