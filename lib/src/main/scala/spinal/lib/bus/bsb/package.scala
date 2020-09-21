@@ -21,10 +21,13 @@ package object bsb {
       s.last := pimped.last
       s
     }
-    def toStream(omitMask : Boolean = false) = {
-      assert(omitMask || !pimped.p.withMask)
+    def toStream(omitMask : Boolean = false, throwSparse : Boolean = false) = {
+      assert(omitMask || throwSparse || !pimped.p.withMask)
       val s = Stream(Bits(pimped.p.byteCount*8 bits))
-      s.arbitrationFrom(pimped)
+      throwSparse match {
+        case false => s.arbitrationFrom(pimped)
+        case true => s.arbitrationFrom(pimped.throwWhen(!pimped.mask.andR))
+      }
       s.payload := pimped.data
       s
     }
