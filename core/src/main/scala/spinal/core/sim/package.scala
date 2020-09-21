@@ -742,7 +742,7 @@ package object sim {
     def isResetAsserted: Boolean         = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDeasserted: Boolean       =  ! isResetAsserted
 
-    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
     def isClockEnableDeasserted: Boolean = ! isClockEnableAsserted
 
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
