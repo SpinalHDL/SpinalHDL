@@ -507,7 +507,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
     ret
   }
 
-  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - 1.0 / math.pow(2.0, bitCount - 1))
+  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - 1.0 / math.pow(2.0, bitCount))
   def minValue: BigDecimal = 0.0
 
   override def resolution: BigDecimal = Math.pow(2.0, maxExp - bitCount)
