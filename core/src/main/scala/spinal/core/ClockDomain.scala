@@ -377,6 +377,11 @@ case class ClockDomain(clock       : Bool,
     copy(config = config.copy(resetKind = SYNC))
   }
 
+  def withBootReset() = {
+    copy(reset = null, config = config.copy(resetKind = BOOT))
+  }
+
+
   def samplingRate : IClockDomainFrequency = {
     if(clockEnable == null) return frequency
     try{
