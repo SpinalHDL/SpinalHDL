@@ -38,6 +38,7 @@ class Apb3MMSlaveFactoryExample extends Component {
 class AxiLite4MMSlaveFactoryExample extends Component {
   val io = new Bundle {
     val axilite = slave(AxiLite4(AxiLite4Config(16,32)))
+    val stream = master(Stream(Bits(8 bits)))
   }
   
   val slavFac = AxiLite4MMSlaveFactory(io.axilite,(0x000,1 KiB), 0)
@@ -49,10 +50,21 @@ class AxiLite4MMSlaveFactoryExample extends Component {
   val regAddr = slavFac.createReg("address", "Destination address")
   val address = regAddr.newField(32 bits, 0, "Address")
 
-  val regSecret = slavFac.createWriteStream("Secret", "Secret data")
-  val secretFlow = regSecret.newStreamField(8 bits, 0x0, "Secret Flow")
+  val writeStream = slavFac.createWriteStream("Secret", "Secret data")
+  val streamData = writeStream.newStreamField(8 bits, 0x0, "Secret Flow")
+  val queue = streamData.queue(3)  
+  io.stream << queue
 
-  secretFlow.ready := True
+  val regSecret = slavFac.createWriteOnlyReg("Secret", "Secret data")
+  val secret1 = regSecret.newField(16 bits, 0x0, "Secret 1")
+
+  val regExpose = slavFac.createReadOnlyReg("expose", "Expose secret")
+  val exposedSecret = regExpose.addField(secret1, 0, "Exposed secret")
+
+  val readStream = slavFac.createReadStream("Read FIFO", "Read data")
+  val readStreamData = readStream.newStreamField(16 bits, 0x0, "Data")
+  readStreamData.valid := True && readStreamData.ready;
+  readStreamData.payload := 0xbeef;
 }
 
 object MMSlaveFactory {
@@ -103,6 +115,8 @@ object MMSlaveFactory {
       dut.clockDomain.forkStimulus(period = 10)
 
       val axi = AxiLite4Driver(dut.io.axilite, dut.clockDomain)
+
+      dut.io.stream.ready #= false
       
       axi.reset()
 
@@ -117,6 +131,45 @@ object MMSlaveFactory {
       dut.clockDomain.waitSampling(10)
       
       axi.read(0x4)
+
+      dut.clockDomain.waitSampling(10)
+
+      axi.write(0x8, 0x1)
+
+      dut.clockDomain.waitSampling(10)
+
+      axi.write(0x8, 0x2)
+
+      dut.clockDomain.waitSampling(10)
+
+      axi.write(0x8, 0x3)
+
+      dut.clockDomain.waitSampling(10)
+      
+      axi.write(0x8, 0x4)
+
+      dut.clockDomain.waitSampling(10)
+      
+      val writeThread = fork {
+        axi.write(0x8, 0x5)
+      }
+
+      dut.clockDomain.waitSampling(20)
+      dut.io.stream.ready #= true
+
+      writeThread.join()
+
+      dut.clockDomain.waitSampling(10)
+      
+      axi.write(0xc, 0xbabe)
+
+      dut.clockDomain.waitSampling(10)
+      
+      axi.read(0x10)
+
+      dut.clockDomain.waitSampling(10)
+      
+      axi.read(0x14)
 
       dut.clockDomain.waitSampling(10)
     }

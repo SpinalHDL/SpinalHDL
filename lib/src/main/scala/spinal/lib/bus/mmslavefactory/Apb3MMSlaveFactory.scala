@@ -21,10 +21,10 @@ case class Apb3MMSlaveFactory(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, r
   bus.PRDATA := readData
   if(bus.config.useSlaveError) bus.PSLVERROR := readError
 
-  val askWrite  = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
-  val askRead   = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
-  val doWrite   = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
-  val doRead    = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
+  val writeReq  = (bus.PSEL(selId) && bus.PENABLE && bus.PWRITE).allowPruning()
+  val readReq   = (bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE).allowPruning()
+  val writeResp = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
+  val readResp  = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
   val writeData = bus.PWDATA
 
   override def readAddress()  = bus.PADDR

@@ -35,8 +35,8 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
 
   val hitRead  = bus.readAddress === U(addr)
   val hitWrite = bus.writeAddress === U(addr)
-  val hitDoRead  = hitRead && bus.doRead
-  val hitDoWrite = hitWrite && bus.doWrite
+  val hitDoRead  = hitRead && bus.readResp
+  val hitDoWrite = hitWrite && bus.writeResp
 
   def finish = {
     val spareNumbers = if(fields.isEmpty) bus.busDataWidth else bus.busDataWidth-1 - fields.last.tailBitPos
@@ -185,7 +185,11 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
   override def getAccess() : String = "WO"
 }
 
-class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends RegEntry(name, addr, doc, bus) with RegDescr {
+abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends RegEntry(name, addr, doc, bus) {
+  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits]
+}
+
+class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends StreamEntry(name, addr, doc, bus) {
   val ready = Bool()
   
   override def readBits: Bits = {
@@ -197,7 +201,7 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
   override def onWriteReq() : Unit = {
     when(ready) {
       bus.writeAccept()
-      bus.writeRespond(true)
+      bus.writeRespond(false)
     }
   }
   
@@ -206,12 +210,44 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
     val out = stream.stage()
     addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
     stream.payload.setName(s"mmslave_streamfield_${symbol.name}")
-    stream.valid := hitWrite && bus.askWrite
+    stream.valid := hitWrite && bus.writeReq
     ready := stream.ready
     out
   }
 
   override def getAccess() : String = "WO"
+}
+
+class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends StreamEntry(name, addr, doc, bus) {
+  val valid = Bool()
+
+  override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
+    that.asBits
+  }
+  
+  override def onReadReq() : Unit = {
+    when(valid) {
+      bus.readAccept()
+      bus.readRespond(readBits, false)
+    }
+  }
+
+  override def onWriteReq() : Unit = {
+      bus.writeAccept()
+      bus.writeRespond(true)
+  }
+  
+  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits] = {
+    val stream : Stream[Bits] = Stream(Bits(bc))
+    val out = stream.stage()
+    addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
+    out.payload.setName(s"mmslave_streamfield_${symbol.name}")
+    out.ready := hitRead && bus.readReq
+    valid := out.valid
+    stream
+  }
+
+  override def getAccess() : String = "RO"
 }
 
 class ClearRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends RegEntry(name, addr, doc, bus) with RegDescr {

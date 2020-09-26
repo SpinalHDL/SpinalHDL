@@ -5,10 +5,10 @@ import spinal.lib._
 import scala.collection.mutable._
 
 trait MMSlaveFactoryBase extends Area {
-  val askWrite: Bool
-  val askRead: Bool
-  val doWrite: Bool
-  val doRead: Bool
+  val writeReq: Bool
+  val readReq: Bool
+  val writeResp: Bool
+  val readResp: Bool
 
   val readData: Bits
   val writeData: Bits
@@ -34,7 +34,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   private var nxtAddr: Long = 0
 
   component.addPrePopTask(() => {
-    readGenerator()
+    rwGenerator()
   })
 
   def createReg(name: String, doc: String) = {
@@ -53,6 +53,13 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
 
   def createWriteOnlyReg(name: String, doc: String) = {
     val ret = new WriteOnlyRegEntry(name, nxtAddr, doc, this)
+    entries += ret
+    nxtAddr += wordAddressInc
+    ret
+  }
+
+  def createReadStream(name: String, doc: String) = {
+    val ret = new ReadStreamEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
     ret
@@ -112,8 +119,8 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
     vs.end()
   }
 
-  def readGenerator() = {
-    when(askRead){
+  def rwGenerator() = {
+    when(readReq){
       switch (readAddress()) {
         entries.foreach{(reg: Entry) =>
           reg.finish
@@ -126,8 +133,8 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
         }
       }
     }
-    when(askWrite){
-      switch (readAddress()) {
+    when(writeReq){
+      switch (writeAddress()) {
         entries.foreach{(reg: Entry) =>
           is(reg.getAddress){
             reg.onWriteReq()
