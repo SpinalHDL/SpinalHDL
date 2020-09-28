@@ -341,7 +341,11 @@ case class ClockDomain(clock       : Bool,
         override def getMax: BigInt = currentDivisionRate.getMax*factor
         override def getMin: BigInt =  currentDivisionRate.getMin*factor
       }
-      this.copy(clockEnable = RegNext(tick) init(False), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+      def syncResetFix(enable : Bool) = config.resetKind match {
+        case `SYNC` if hasResetSignal => enable || isResetActive //Ensure that the area get a reset even if the enable isn't set
+        case _ => enable
+      }
+      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
