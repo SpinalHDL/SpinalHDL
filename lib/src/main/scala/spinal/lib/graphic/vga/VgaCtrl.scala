@@ -56,8 +56,8 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     busCtrl.drive(v.syncEnd    ,baseAddress + 20)
     busCtrl.drive(v.colorStart ,baseAddress + 24)
     busCtrl.drive(v.colorEnd   ,baseAddress + 28)
-    busCtrl.drive(h.polarity   ,baseAddress + 32)
-    busCtrl.drive(v.polarity   ,baseAddress + 36)
+    busCtrl.drive(h.polarity   ,baseAddress + 32, 0) init(False)
+    busCtrl.drive(v.polarity   ,baseAddress + 32, 1) init(False)
   }
 }
 
