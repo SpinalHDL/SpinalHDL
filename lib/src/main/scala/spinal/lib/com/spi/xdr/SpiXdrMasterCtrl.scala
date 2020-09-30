@@ -3,6 +3,7 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.lattice.ecp5.{IDDRX1F, IFS1P3BX, ODDRX1F, OFE1P3BX}
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
@@ -123,6 +124,54 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     spi
   }
 
+  def toSpiEcp5(): SpiHalfDuplexMaster ={
+    val spi = SpiHalfDuplexMaster(
+      dataWidth = p.dataWidth,
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+    KeepAttribute(spi) //Yosys workaround
+
+    p.ioRate match {
+      case 1 => {
+        def outputFF(that : Bool): Bool ={
+          val ret = ODDRX1F()
+          ret.D0 := that
+          ret.D1 := that
+          ret.Q
+
+//          val oFF = OFE1P3BX()   OFS1P3BX
+//          oFF.PD := False
+//          oFF.SP := True
+//          oFF.D := that
+//          oFF.Q
+
+//          RegNext(that)
+        }
+        spi.sclk := outputFF(sclk.write(0))
+        if(ssWidth != 0) for((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+        for(i <- 0 until p.dataWidth){
+          spi.data.write(i) := outputFF(data(i).write(0))
+          spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
+
+//          val iFF = IFS1P3BX()
+//          iFF.PD := False
+//          iFF.SP := True
+//          iFF.D := spi.data.read(i)
+//          data(i).read(0) := iFF.Q
+
+          val bb = IDDRX1F()
+          bb.D <> spi.data.read(i)
+          bb.Q0 <> data(i).read(0)
+
+//          data(i).read(0) := RegNext(spi.data.read(i))
+        }
+      }
+    }
+
+    spi
+  }
+
   def toMdio(): Mdio ={
     val ctrl = Mdio()
 
@@ -213,7 +262,7 @@ object SpiXdrMasterCtrl {
 
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8, lateSampling : Boolean = true): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true, lateSampling = lateSampling)
     def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false, lateSampling : Boolean = true): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
