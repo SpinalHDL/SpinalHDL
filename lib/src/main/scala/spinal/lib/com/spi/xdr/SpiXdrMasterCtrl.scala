@@ -3,14 +3,14 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.blackbox.lattice.ecp5.{IDDRX1F, IFS1P3BX, ODDRX1F, OFE1P3BX}
+import spinal.lib.blackbox.lattice.ecp5.{IDDRX1F, IFS1P3BX, ODDRX1F, OFS1P3BX, Ulx3sUsrMclk}
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.eth.Mdio
-import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
+import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind, SpiMaster}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
@@ -124,50 +124,70 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     spi
   }
 
-  def toSpiEcp5(): SpiHalfDuplexMaster ={
-    val spi = SpiHalfDuplexMaster(
-      dataWidth = p.dataWidth,
+  def toSpiEcp5(): SpiMaster = {
+    val spi = SpiMaster(
       ssWidth = p.ssWidth,
       useSclk = true
     )
-    KeepAttribute(spi) //Yosys workaround
 
-    p.ioRate match {
-      case 1 => {
-        def outputFF(that : Bool): Bool ={
-          val ret = ODDRX1F()
-          ret.D0 := that
-          ret.D1 := that
-          ret.Q
+    assert(p.ioRate == 1)
 
-//          val oFF = OFE1P3BX()   OFS1P3BX
-//          oFF.PD := False
-//          oFF.SP := True
-//          oFF.D := that
-//          oFF.Q
-
-//          RegNext(that)
-        }
-        spi.sclk := outputFF(sclk.write(0))
-        if(ssWidth != 0) for((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
-        for(i <- 0 until p.dataWidth){
-          spi.data.write(i) := outputFF(data(i).write(0))
-          spi.data.writeEnable(i) := RegNext(data(i).writeEnable)
-
-//          val iFF = IFS1P3BX()
-//          iFF.PD := False
-//          iFF.SP := True
-//          iFF.D := spi.data.read(i)
-//          data(i).read(0) := iFF.Q
-
-          val bb = IDDRX1F()
-          bb.D <> spi.data.read(i)
-          bb.Q0 <> data(i).read(0)
-
-//          data(i).read(0) := RegNext(spi.data.read(i))
-        }
-      }
+    def outputFF(that: Bool): Bool = {
+                val oFF = OFS1P3BX()
+                oFF.PD := False
+                oFF.SP := True
+                oFF.D := that
+                oFF.Q
     }
+
+    spi.sclk := outputFF(sclk.write(0))
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
+
+    spi
+  }
+
+
+  def toSpiEcp5Flash(): SpiMaster = {
+    val spi = SpiMaster(
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    assert(p.ioRate == 1)
+
+    def outputFF(that: Bool): Bool = {
+      val oFF = OFS1P3BX()
+      oFF.PD := False
+      oFF.SP := True
+      oFF.D := that
+      oFF.Q
+    }
+
+    spi.sclk := RegNext(sclk.write(0))
+    Component.current.afterElaboration(spi.sclk.setAsDirectionLess())
+    val usrMclk = Ulx3sUsrMclk()
+    usrMclk.USRMCLKTS := False
+    usrMclk.USRMCLKI := spi.sclk
+
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
 
     spi
   }

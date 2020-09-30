@@ -44,9 +44,17 @@ case class IFS1P3BX() extends BlackBox{
   mapCurrentClockDomain(SCLK)
 }
 
-case class OFE1P3BX() extends BlackBox{
-  val ECLK, PD, SP, D = in Bool()
+case class OFS1P3BX() extends BlackBox{
+  val SCLK, PD, SP, D = in Bool()
   val Q = out Bool()
-  mapCurrentClockDomain(ECLK)
+  mapCurrentClockDomain(SCLK)
 }
 
+
+
+case class Ulx3sUsrMclk() extends BlackBox{
+  setDefinitionName("USRMCLK")
+
+  val USRMCLKI = in Bool()
+  val USRMCLKTS = in Bool()
+}
