@@ -38,12 +38,31 @@ case class ODDRX1F() extends BlackBox{
   mapCurrentClockDomain(SCLK, RST)
 }
 
+object IFS1P3BX{
+  def apply(that : Bool): Bool ={
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := that
+    iFF.Q
+  }
+}
+
 case class IFS1P3BX() extends BlackBox{
   val SCLK, PD, SP, D = in Bool()
   val Q = out Bool()
   mapCurrentClockDomain(SCLK)
 }
 
+object OFS1P3BX{
+  def apply(that : Bool): Bool ={
+    val oFF = OFS1P3BX()
+    oFF.PD := False
+    oFF.SP := True
+    oFF.D := that
+    oFF.Q
+  }
+}
 case class OFS1P3BX() extends BlackBox{
   val SCLK, PD, SP, D = in Bool()
   val Q = out Bool()
