@@ -37,3 +37,16 @@ case class ODDRX1F() extends BlackBox{
   val Q = out Bool()
   mapCurrentClockDomain(SCLK, RST)
 }
+
+case class IFS1P3BX() extends BlackBox{
+  val SCLK, PD, SP, D = in Bool()
+  val Q = out Bool()
+  mapCurrentClockDomain(SCLK)
+}
+
+case class OFE1P3BX() extends BlackBox{
+  val ECLK, PD, SP, D = in Bool()
+  val Q = out Bool()
+  mapCurrentClockDomain(ECLK)
+}
+
