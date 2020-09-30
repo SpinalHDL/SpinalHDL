@@ -120,8 +120,10 @@ case class RmiiTx(p : RmiiTxParameter) extends Bundle with IMasterSlave {
 
   def fromTxStream() = {
     val ret = MacTxInterFrame(p.dataWidth)
-    D := ClockDomain.current.withRevertedClockEdge()(RegNext(ret.io.output.data))
-    EN := ClockDomain.current.withRevertedClockEdge()(RegNext(ret.io.output.valid))
+    val data = RegNext(ret.io.output.data)
+    val valid = RegNext(ret.io.output.valid)
+    D := ClockDomain.current.withRevertedClockEdge()(data)
+    EN := ClockDomain.current.withRevertedClockEdge()(valid)
     ret.io.input
   }
 }
