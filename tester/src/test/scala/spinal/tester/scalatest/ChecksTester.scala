@@ -481,12 +481,12 @@ class RepeatabilityTester extends FunSuite{
 
   test("Apb3I2cCtrlGraph"){
     val dut = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).generateVerilog(new Apb3I2cCtrl(configI2C)).toplevel
-    assert(GraphUtils.countNames(dut) == 154)
+    assert(GraphUtils.countNames(dut) == 152)
   }
 
   test("UartGraph"){
     val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
-    assert(GraphUtils.countNames(dut) == 81)
+    assert(GraphUtils.countNames(dut) == 80)
   }
 
 

@@ -4,11 +4,10 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: T = null, bufferDepth: Int = 2): T = {
-    val c = new BufferCC(input, init != null, bufferDepth)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = 2): T = {
+    val c = new BufferCC(input, init, bufferDepth)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
-    if(init != null) c.io.initial := init
 
     val ret = cloneOf(c.io.dataOut)
     ret := c.io.dataOut
@@ -16,23 +15,21 @@ object BufferCC {
   }
 }
 
-class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) extends Component {
+class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val initial = if(!withInit) null.asInstanceOf[T] else in(cloneOf(dataType))
     val dataIn = in(cloneOf(dataType))
     val dataOut = out(cloneOf(dataType))
   }
 
-  val buffers = Vec(Reg(dataType, io.initial),bufferDepth)
+  val buffers = Vec(Reg(dataType, init),bufferDepth)
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
   for (i <- 1 until bufferDepth) {
     buffers(i) := buffers(i - 1)
     buffers(i).addTag(crossClockBuffer)
-
   }
 
   io.dataOut := buffers.last

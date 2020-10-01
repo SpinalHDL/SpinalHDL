@@ -117,7 +117,11 @@ class HardType[T <: Data](t : => T){
   def apply()   = {
     val id = GlobalData.get.instanceCounter
     val called = t
-    val ret = if(called.getInstanceCounter < id) cloneOf(called) else called.purify()
+    called.flattenForeach{
+      case w : BitVector if w.isFixedWidth || !w.dlcIsEmpty => w.fixWidth()
+      case _ =>
+    }
+    val ret = if(called.getInstanceCounter < id || called.component != Component.current) cloneOf(called) else called.purify()
     ret match {
       case ret : Bundle => ret.hardtype = this
       case _ =>
@@ -129,9 +133,9 @@ class HardType[T <: Data](t : => T){
 
 
 object signalCache {
-  def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
+  def apply[T <: Data](key: Object, subKey: Object)(factory: => T): T = {
     val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-    cache.getOrElseUpdate(subKey, factory()).asInstanceOf[T]
+    cache.getOrElseUpdate(subKey, factory).asInstanceOf[T]
   }
 }
 

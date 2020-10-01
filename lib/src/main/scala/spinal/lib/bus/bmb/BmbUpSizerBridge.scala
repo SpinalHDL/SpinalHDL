@@ -43,10 +43,12 @@ case class BmbUpSizerBridge(inputParameter: BmbParameter,
   }
 
   val cmdArea = new Area {
+    val selStart = io.input.cmd.address(selRange)
+
     val context = OutputContext()
     context.context := io.input.cmd.context
     if (inputParameter.access.canRead) {
-      context.selStart := io.input.cmd.address(selRange)
+      context.selStart := selStart
       context.selEnd := (io.input.cmd.address(selRange) + io.input.cmd.transferBeatCountMinusOne).resized
       if (inputParameter.access.canWrite) when(io.input.cmd.isWrite) {
         context.selEnd := io.input.cmd.address(selRange)
@@ -71,7 +73,7 @@ case class BmbUpSizerBridge(inputParameter: BmbParameter,
       val maskRegs = Vec(Reg(Bits(inputParameter.access.dataWidth / 8 bits)) init(0), ratio - 1)
 
       val selReg = Reg(UInt(log2Up(ratio) bits))
-      val sel = io.input.cmd.first ? context.selStart | selReg
+      val sel = io.input.cmd.first ? selStart | selReg
       when(io.input.cmd.fire) {
         selReg := sel + 1
       }

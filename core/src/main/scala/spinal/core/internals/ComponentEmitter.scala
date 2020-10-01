@@ -120,7 +120,7 @@ abstract class ComponentEmitter {
           case target: BaseType if target.isAnalog =>
         }
       case assertStatement: AssertStatement =>
-        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
+        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, true), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, true, syncGroupInstanceCounter))
         syncGroupInstanceCounter += 1
         group.dataStatements += assertStatement
       case x: MemPortStatement       =>

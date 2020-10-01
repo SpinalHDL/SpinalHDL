@@ -217,6 +217,8 @@ package object sim {
     }
   }
 
+  def simThread = SimManagerContext.current.thread
+
   /**
     * Add implicit function to BaseType for simulation
     */
@@ -740,7 +742,7 @@ package object sim {
     def isResetAsserted: Boolean         = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDeasserted: Boolean       =  ! isResetAsserted
 
-    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
     def isClockEnableDeasserted: Boolean = ! isClockEnableAsserted
 
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
@@ -750,4 +752,26 @@ package object sim {
 
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
+
+  case class SimMutex(){
+    val queue = mutable.Queue[SimThread]()
+    var locked = false
+    def lock(){
+      val t = simThread
+      if(locked) {
+        queue.enqueue(t)
+        t.suspend()
+      } else {
+        locked = true
+      }
+    }
+    def unlock(){
+      assert(locked)
+      if(queue.nonEmpty) {
+        queue.dequeue().resume()
+      } else {
+        locked = false
+      }
+    }
+  }
 }

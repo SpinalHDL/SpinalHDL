@@ -33,10 +33,10 @@ case class PlicTarget(gateways : Seq[PlicGateway], priorityWidth : Int) extends 
     )
   )
 
-  val bestRequest = requests.reduceBalancedTree((a, b) => {
+  val bestRequest = RegNext(requests.reduceBalancedTree((a, b) => {
     val takeA = !b.valid || (a.valid && a.priority >= b.priority)
     takeA ? a | b
-  })
+  }))
 
   val iep = bestRequest.priority > threshold
   val claim = iep ? bestRequest.id | 0

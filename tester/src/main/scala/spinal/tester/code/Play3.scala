@@ -1,6 +1,7 @@
 package spinal.tester.code
 
 import spinal.core._
+import spinal.core.internals.PhaseInitReg
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
@@ -1627,4 +1628,55 @@ object PlayWithGeneric extends App{
   }
 
   SpinalVhdl(new TopLevel)
+}
+
+
+object PlayWithInitRegPhase extends App {
+
+  class TopLevel extends Component{
+
+    object MyEnum extends SpinalEnum{
+      val s1, s2, s3, s4 = newElement()
+    }
+
+    val reg_Bool = Reg(Bool)
+    val reg_Bits = Reg(Bits(32 bits))
+    val reg_UInt = Reg(UInt(32 bits))
+    val reg_SInt = Reg(SInt(32 bits))
+    val reg_Enum = Reg(MyEnum())
+
+
+    val io = new Bundle{
+      val start = in Bool
+      val out_Bool = out Bool
+      val out_Bits = out Bits(32 bits)
+      val out_SInt = out SInt(32 bits)
+      val out_UInt = out UInt(32 bits)
+      val out_Enum = out(MyEnum())
+    }
+
+    io.out_Bool := reg_Bool
+    io.out_Bits := reg_Bits
+    io.out_UInt := reg_UInt
+    io.out_SInt := reg_SInt
+    io.out_Enum := reg_Enum
+
+    when(io.start){
+      reg_Bool := True
+      reg_Bits := 1
+      reg_SInt := 1
+      reg_UInt := 1
+      reg_Enum := MyEnum.s3
+    }
+  }
+
+  SpinalConfig(
+    mode = VHDL,
+    transformationPhases  = ArrayBuffer(new PhaseInitReg())
+  ).generate(new TopLevel)
+
+  SpinalConfig(
+    mode = Verilog,
+    transformationPhases  = ArrayBuffer(new PhaseInitReg())
+  ).generate(new TopLevel)
 }

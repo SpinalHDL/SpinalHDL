@@ -75,7 +75,7 @@ case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component
 
       val forWrite = ip.access.canWrite generate new Area {
         val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
-        beatCounter := beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)
+        beatCounter := (beatCounter + U(io.output.cmd.fire && io.input.cmd.isWrite)).resized
 
         val prePadding = io.input.cmd.isWrite && io.input.cmd.first && beatCounter < paddings
         val postPadding = RegInit(False) setWhen (!prePadding && io.output.cmd.fire && io.input.cmd.last) clearWhen (io.input.cmd.ready)
@@ -106,7 +106,7 @@ case class BmbAligner(ip : BmbParameter, alignmentWidth : Int) extends Component
       val forRead = ip.access.canRead generate new Area {
         val beatCounter = Reg(UInt(log2Up(beatCount) bits)) init (0)
         when(io.output.rsp.fire) {
-          beatCounter := beatCounter + U(!context.write)
+          beatCounter := (beatCounter + U(!context.write)).resized
         }
 
         val transferCounter = Reg(UInt(log2Up(transferCount + 1) bits)) init (0)

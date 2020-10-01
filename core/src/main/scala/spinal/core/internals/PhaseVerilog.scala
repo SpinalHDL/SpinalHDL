@@ -60,6 +60,15 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile.close()
     }
     else {
+      val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      // dump Enum define to define.v instead attach that on every .v file
+      val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+      val defineFile = new java.io.FileWriter(defineFileName)
+      emitEnumPackage(defineFile)
+      defineFile.flush()
+      defineFile.close()
+      fileList.write(defineFileName.replace("//", "/") + "\n")
+
       for (c <- sortedComponents) {
         val moduleContent = compile(c)()
 
@@ -72,15 +81,17 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
             if(pc.config.dumpWave != null) {
               outFile.write("`timescale 1ns/1ps ")
             }
-            emitEnumPackage(outFile)
+//            emitEnumPackage(outFile)
             outFile.write(moduleContent)
             outFile.flush()
             outFile.close()
+            fileList.write(targetFilePath.replace("//", "/") + "\n")
           }
         }
-
       }
 
+      fileList.flush()
+      fileList.close()
     }
   }
 

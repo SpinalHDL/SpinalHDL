@@ -19,7 +19,7 @@ object BmbExclusiveMonitorState extends SpinalEnum{
 case class BmbExclusiveMonitor(inputParameter : BmbParameter,
                                pendingWriteMax : Int) extends Component{
   import BmbExclusiveMonitorState._
-  assert(inputParameter.access.aggregated.alignment == BmbParameter.BurstAlignement.LENGTH)
+//  assert(inputParameter.access.aggregated.alignment == BmbParameter.BurstAlignement.LENGTH)
   val outputParameter = BmbExclusiveMonitor.outputParameter(inputParameter.access)
   val io = new Bundle {
     val input = slave(Bmb(inputParameter))
@@ -36,6 +36,8 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
 
   val exclusiveReadParameter = BmbParameter(inputParameter.access.sourcesTransform(_.copy(canWrite = false)))
   val exclusiveWriteCancel = False
+  val inputAddressLow = io.input.cmd.address(Bmb.boundaryWidth -1 downto 0)
+  val inputAddressLowEnd = inputAddressLow + io.input.cmd.length
   val sources = for(sourceId <- inputParameter.access.sources.keys;
                     sourceParameter = inputParameter.access.sources(sourceId);
                     if sourceParameter.canExclusive) yield new Area {
@@ -45,7 +47,11 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     val address = Reg(UInt(inputParameter.access.addressWidth bits))
     val length = Reg(UInt(sourceParameter.lengthWidth bits))
     val context = Reg(Bits(sourceParameter.contextWidth bits))
-    val addressHit = address >> inputParameter.access.aggregated.lengthWidth === io.input.cmd.address >> inputParameter.access.aggregated.lengthWidth
+    val addressLow = address(Bmb.boundaryWidth -1 downto 0)
+    val addressLowEnd = Reg(UInt(Bmb.boundaryWidth bits))
+    val addressHitHigh = address >> Bmb.boundaryWidth === io.input.cmd.address >> Bmb.boundaryWidth
+    val addressHitLow = addressLow <= inputAddressLowEnd && addressLowEnd >= inputAddressLow
+    val addressHit = addressHitLow && addressHitHigh // address >> inputParameter.access.aggregated.lengthWidth === io.input.cmd.address >> inputParameter.access.aggregated.lengthWidth
     val inputSourceHit = io.input.cmd.source === sourceId
     val haltSource = state =/= IDLE
 
@@ -59,7 +65,8 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
         valid := True
         address := io.input.cmd.address
         length := io.input.cmd.length
-        context := io.input.cmd.context
+        addressLowEnd := inputAddressLowEnd
+        context := io.input.cmd.context.resized
         state := FENCE_START
       }
     }
@@ -79,7 +86,7 @@ case class BmbExclusiveMonitor(inputParameter : BmbParameter,
     exclusiveReadCmd.exclusive := True
     exclusiveReadCmd.address := address
     exclusiveReadCmd.length := length
-    exclusiveReadCmd.context := context
+    exclusiveReadCmd.context := context.resized
     exclusiveReadCmd.source := sourceId
     exclusiveReadCmd.last := True
 

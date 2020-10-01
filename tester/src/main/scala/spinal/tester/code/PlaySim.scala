@@ -213,6 +213,27 @@ object PlaySimGhdl3 extends App{
 }
 
 
+// export TEST=rawrr
+// cd simWorkspace/unnamed
+// verilator_coverage --write-info $TEST.info  --annotate asd $TEST.dat
+// genhtml $TEST.info --output-directory coverage
+// xdg-open coverage/index.html
+
+object PlayCoverage extends App{
+  val compiled = SimConfig.withCoverage.compile(new Component{
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    result := RegNext(a + b)
+  })
+  compiled.doSim("rawrr"){dut =>
+    dut.clockDomain.forkStimulus(10)
+    for(i <- 0 until 10){
+      dut.a #= i
+      dut.b #= 0
+      dut.clockDomain.waitSampling()
+    }
+  }
+}
 
 
 object PlaySimGhdlBugTodo extends App{

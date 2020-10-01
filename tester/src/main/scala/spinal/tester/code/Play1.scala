@@ -1208,10 +1208,24 @@ object PlaySymplify {
 
 object PlayBug extends App{
   SpinalVerilog(new Component{
-    val x = out(Reg(UInt(16 bits)))
+    setDefinitionName("miaou")
+    val x = out(UInt(16 bits))
 
-    x(1 downto 0) := 0
-    x.allowPartialyAssigned
+    x := 0
+    switch(U(32)){
+      is(1) {
+
+      }
+      is(2) {
+        x := 5
+      }
+    }
+
+
+    var y = False
+    y \= True
+    y \= False
+    y \= True
   })
 }
 

@@ -44,7 +44,7 @@ case class BmbAdapter(pp : BmbPortParameter,
     spliter.io.input << aligner.io.output
 
     val converter = BmbToCorePort(spliter.io.output.p, io.output.cpp, cpa, pp)
-    converter.io.input << spliter.io.output
+    converter.io.input << spliter.io.output.pipelined(cmdValid = true)
     converter.io.inputBurstLast := spliter.io.outputBurstLast
   }
 

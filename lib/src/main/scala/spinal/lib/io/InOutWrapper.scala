@@ -29,7 +29,7 @@ object InOutWrapper {
               newIo := bundle.write
             }
           }
-          case bundle : TriStateOutput[_] if bundle.isOutput => {
+          case bundle : TriStateOutput[_] if bundle.isOutput || bundle.isMasterInterface => {
             val newIo = inout(Analog(bundle.dataType)).setWeakName(bundle.getName())
             bundle.setAsDirectionLess.unsetName().allowDirectionLessIo
             when(bundle.writeEnable){

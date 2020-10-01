@@ -2159,6 +2159,43 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 }
 
 
+/**
+  * Initialize all registers not initialized
+  */
+class PhaseInitReg() extends PhaseNetlist {
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+
+    SpinalProgress("Initialize all registers not initialized")
+
+
+    walkComponents{ comp =>
+      comp.rework{
+        comp.dslBody.walkStatements{
+
+          case bt: BaseType if bt.isReg =>
+
+            SpinalInfo(s"Init register ${bt.toString}")
+
+            if(!bt.hasInit){
+              bt match{
+                case d: SInt                        => d.init(0)
+                case d: Bits                        => d.init(0)
+                case d: UInt                        => d.init(0)
+                case d: Bool                        => d.init(False)
+                case d: SpinalEnumCraft[SpinalEnum] => d.init(d.spinalEnum.elements(0))
+                case _                              =>
+              }
+            }
+
+          case _ =>
+        }
+      }
+    }
+  }
+}
+
+
 class PhaseDummy(doThat : => Unit) extends PhaseMisc {
   override def impl(pc : PhaseContext): Unit = {
     doThat

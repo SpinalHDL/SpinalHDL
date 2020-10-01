@@ -417,6 +417,11 @@ trait Nameable extends OwnableRef with ContextUser{
     case DATAMODEL_WEAK => namePriority > this.namePriority
   }
 
+  def overrideLocalName(name : String): this.type ={
+    this.name = name
+    this
+  }
+
   def setCompositeName(nameable: Nameable): this.type  = setCompositeName(nameable, weak = false)
   def setCompositeName(nameable: Nameable, weak: Boolean): this.type = setCompositeName(nameable, if(weak) USER_WEAK else USER_SET)
   def setCompositeName(nameable: Nameable, namePriority: Byte): this.type = {

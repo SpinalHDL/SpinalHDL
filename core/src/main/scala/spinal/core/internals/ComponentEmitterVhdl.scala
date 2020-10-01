@@ -592,10 +592,13 @@ class ComponentEmitterVhdl(
 
               b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
               switchStatement.elements.foreach(element =>  {
-                b ++= s"${tab}  when ${element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
-                if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
-                  nextScope      = findSwitchScope()
+                val hasStuff = nextScope == element.scopeStatement
+                if(hasStuff || switchStatement.defaultScope != null) {
+                  b ++= s"${tab}  when ${element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
+                  if (hasStuff || switchStatement.defaultScope != null) {
+                    statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                    nextScope = findSwitchScope()
+                  }
                 }
               })
 
