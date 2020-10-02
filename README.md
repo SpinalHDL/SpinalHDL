@@ -58,6 +58,21 @@ dependencies {
 }
 ```
 
+### Mill(Build Tool)
+
+```scala 
+object MySpinalModule extends ScalaModule {
+  def scalaVersion = "2.11.12"
+
+  def ivyDeps = Agg(
+    ivy"com.github.spinalhdl::spinalhdl-core:1.4.1",
+    ivy"com.github.spinalhdl::spinalhdl-lib:1.4.1",
+  )
+
+  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.4.1")
+}
+```
+
 ### JAR
 
     https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-core_2.11/
