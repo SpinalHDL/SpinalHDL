@@ -66,8 +66,7 @@ class AxiLite4MMSlaveFactoryExample extends Component {
   readStreamData.valid := True && readStreamData.ready;
   readStreamData.payload := 0xbeef;
 }
-
-object MMSlaveFactory {
+object MMSlaveFactoryGenerator {
   def main(args: Array[String]) {
     val report = SpinalVhdl(new Apb3MMSlaveFactoryExample)
     val toplevel = report.toplevel
@@ -77,39 +76,45 @@ object MMSlaveFactory {
     toplevel.slavFac.accept(CHeaderGenerator("test_hw.h", "test"))
     toplevel.slavFac.accept(HtmlGenerator("test.html", "test"))
     toplevel.slavFac.accept(JsonGenerator("test.json"))
-
-    //SimConfig.withWave.doSim(new Apb3MMSlaveFactoryExample){dut =>
-    //  //Fork a process to generate the reset and the clock on the dut
-    //  dut.clockDomain.forkStimulus(period = 10)
-//
-    //  val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
-//
-    //  dut.clockDomain.waitSampling(10)
-    //  
-    //  apb.read(0x4)
-//
-    //  dut.clockDomain.waitSampling(10)
-//
-    //  apb.write(0x8, 0xdeadbeefl)
-    //  apb.read(0x8)
-//
-    //  dut.clockDomain.waitSampling(10)
-//
-    //  apb.read(0xc)
-    //  apb.write(0xc, 0x5l)
-//
-    //  dut.clockDomain.waitSampling(10)
-//
-    //  apb.read(0xc)
-//
-    //  dut.clockDomain.waitSampling(10)
-    //  
-    //  apb.write(0x10, 0xal)
-    //  apb.read(0x14)
-//
-    //  dut.clockDomain.waitSampling(10)
-    //}
-
+  }
+}
+object MMSlaveFactoryApb {
+  def main(args: Array[String]) {
+    SimConfig.withWave.doSim(new Apb3MMSlaveFactoryExample){dut =>
+      //Fork a process to generate the reset and the clock on the dut
+      dut.clockDomain.forkStimulus(period = 10)
+  
+      val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
+  
+      dut.clockDomain.waitSampling(10)
+      
+      apb.read(0xc)
+  
+      dut.clockDomain.waitSampling(10)
+  
+      apb.write(0x10, 0xdeadbeefl)
+      apb.read(0x10)
+  
+      dut.clockDomain.waitSampling(10)
+  
+      apb.read(0x14)
+      apb.write(0x14, 0x5l)
+  
+      dut.clockDomain.waitSampling(10)
+  
+      apb.read(0x14)
+  
+      dut.clockDomain.waitSampling(10)
+      
+      apb.write(0x18, 0xal)
+      apb.read(0x1c)
+  
+      dut.clockDomain.waitSampling(10)
+    }
+  }
+}
+object MMSlaveFactoryAxi {
+  def main(args: Array[String]) {
     SimConfig.withWave.doSim(new AxiLite4MMSlaveFactoryExample){dut =>
       //Fork a process to generate the reset and the clock on the dut
       dut.clockDomain.forkStimulus(period = 10)

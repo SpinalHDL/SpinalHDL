@@ -147,6 +147,11 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
     bus.readAccept()
     bus.readRespond(readBits, false)
   }
+
+  override def onWriteReq(): Unit = {
+    bus.writeAccept()
+    bus.writeRespond(false)
+  }
 }
 
 class ReadOnlyEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends Entry(name, addr, doc, bus) with RegDescr {
