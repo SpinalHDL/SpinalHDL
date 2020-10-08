@@ -27,8 +27,10 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   protected var rerror: Boolean = false
   protected var werror: Boolean = false
 
-  val readHit = Bool()
-  val writeHit = Bool()
+  // Goes high when the current read/write request is accepted. That means that
+  // the request can be served.
+  val readAccept = Bool()
+  val writeAccept = Bool()
 
   def readErrorTag = rerror
   def writeErrorTag = werror
@@ -49,11 +51,11 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   }
   
   def eventR() : Bool = {
-    readHit
+    readAccept
   }
   
   def eventW() : Bool = {
-    writeHit
+    writeAccept
   }
 
   final def onReadReqIntern() : Unit = {
@@ -64,15 +66,15 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
     onWriteReq()
   }
 
-  readHit := False
+  readAccept := False
   def onReadReq() : Unit = {
-    readHit := True
+    readAccept := True
     bus.readAccept()
   }
 
-  writeHit := False
+  writeAccept := False
   def onWriteReq() : Unit = {
-    writeHit := True
+    writeAccept := True
     bus.writeAccept()
   }
 
@@ -126,13 +128,13 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
 
   override def eventR() : Bool = {
     val event = Reg(Bool) init(False)
-    event := readHit
+    event := readAccept
     event
   }
 
   override def eventW() : Bool = {
     val event = Reg(Bool) init(False)
-    event := writeHit
+    event := writeAccept
     event
   }
 
@@ -146,20 +148,20 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     assert(that.isReg)
     that.removeAssignments()
-    when(writeHit) {
+    when(writeAccept) {
       that.assignFromBits(bus.writeData(section))
     }
     that.asBits
   }
 
   override def onReadReq(): Unit = {
-    readHit := True
+    readAccept := True
     bus.readAccept()
     bus.readRespond(readBits, false)
   }
 
   override def onWriteReq(): Unit = {
-    writeHit := True
+    writeAccept := True
     bus.writeAccept()
     bus.writeRespond(false)
   }
@@ -172,13 +174,13 @@ class ReadOnlyEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
   }
 
   override def onReadReq(): Unit = {
-    readHit := True
+    readAccept := True
     bus.readAccept()
     bus.readRespond(readBits, false)
   }
 
   override def onWriteReq(): Unit = {
-    writeHit := True
+    writeAccept := True
     bus.writeRespond(true)
   }
 
@@ -196,7 +198,7 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
   override def onReadReq(): Unit = {
     val data : Bits = Bits(bus.busDataWidth bits)
     data := 0x0l
-    readHit := True
+    readAccept := True
     bus.readAccept()
     bus.readRespond(data, true)
   }
@@ -228,7 +230,7 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
   override def onWriteReq() : Unit = {
     valid := True
     when(ready) {
-      writeHit := True
+      writeAccept := True
       bus.writeAccept()
       bus.writeRespond(false)
     }
@@ -265,7 +267,7 @@ class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory
   ready := False
   override def onReadReq() : Unit = {
     when(valid) {
-      readHit := True
+      readAccept := True
       ready := True
       bus.readAccept()
       bus.readRespond(readBits, false)
@@ -273,7 +275,7 @@ class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory
   }
 
   override def onWriteReq() : Unit = {
-      writeHit := True
+      writeAccept := True
       bus.writeAccept()
       bus.writeRespond(true)
   }
@@ -297,7 +299,7 @@ class ClearRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     assert(that.isReg)
-    when(writeHit) {
+    when(writeAccept) {
       that.assignFromBits((bus.writeData(section) & that.asBits) ^ that.asBits)
     }
     that.asBits
