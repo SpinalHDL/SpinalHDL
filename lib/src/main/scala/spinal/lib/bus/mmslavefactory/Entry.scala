@@ -27,16 +27,13 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   protected var rerror: Boolean = false
   protected var werror: Boolean = false
 
+  val readHit = Bool()
+  val writeHit = Bool()
+
   def readErrorTag = rerror
   def writeErrorTag = werror
   def getFields = fields.toList
-
   def getAddress : Long = addr
-
-  val hitRead  = bus.readAddress === U(addr)
-  val hitWrite = bus.writeAddress === U(addr)
-  val hitDoRead  = hitRead && bus.readResp
-  val hitDoWrite = hitWrite && bus.writeResp
 
   def finish = {
     val spareNumbers = if(fields.isEmpty) bus.busDataWidth else bus.busDataWidth-1 - fields.last.tailBitPos
@@ -52,18 +49,30 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
   }
   
   def eventR() : Bool = {
-    hitDoRead
+    readHit
   }
   
   def eventW() : Bool = {
-    hitDoWrite
+    writeHit
   }
 
+  final def onReadReqIntern() : Unit = {
+    onReadReq()
+  }
+
+  final def onWriteReqIntern() : Unit = {
+    onWriteReq()
+  }
+
+  readHit := False
   def onReadReq() : Unit = {
+    readHit := True
     bus.readAccept()
   }
 
+  writeHit := False
   def onWriteReq() : Unit = {
+    writeHit := True
     bus.writeAccept()
   }
 
@@ -117,38 +126,40 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
 
   override def eventR() : Bool = {
     val event = Reg(Bool) init(False)
-    event := hitDoRead
+    event := readHit
     event
   }
 
   override def eventW() : Bool = {
     val event = Reg(Bool) init(False)
-    event := hitDoWrite
+    event := writeHit
     event
   }
 
   override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
     val data : Bits = Reg(Bits(bc)) init(resetValue)
     addField(data, resetValue, doc)(symbol)
-    data.setName(s"mmslave_field_${symbol.name}")
+    data.setName(s"mmslave_${symbol.name}")
     data
   }
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     assert(that.isReg)
     that.removeAssignments()
-    when(hitDoWrite) {
+    when(writeHit) {
       that.assignFromBits(bus.writeData(section))
     }
     that.asBits
   }
 
   override def onReadReq(): Unit = {
+    readHit := True
     bus.readAccept()
     bus.readRespond(readBits, false)
   }
 
   override def onWriteReq(): Unit = {
+    writeHit := True
     bus.writeAccept()
     bus.writeRespond(false)
   }
@@ -161,11 +172,13 @@ class ReadOnlyEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
   }
 
   override def onReadReq(): Unit = {
+    readHit := True
     bus.readAccept()
     bus.readRespond(readBits, false)
   }
 
   override def onWriteReq(): Unit = {
+    writeHit := True
     bus.writeRespond(true)
   }
 
@@ -183,6 +196,7 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
   override def onReadReq(): Unit = {
     val data : Bits = Bits(bus.busDataWidth bits)
     data := 0x0l
+    readHit := True
     bus.readAccept()
     bus.readRespond(data, true)
   }
@@ -201,6 +215,7 @@ abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFa
 }
 
 class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends StreamEntry(name, addr, doc, bus) {
+  val valid = Bool()
   val ready = Bool()
   
   override def readBits: Bits = {
@@ -209,8 +224,11 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
     read
   }
   
+  valid := False
   override def onWriteReq() : Unit = {
+    valid := True
     when(ready) {
+      writeHit := True
       bus.writeAccept()
       bus.writeRespond(false)
     }
@@ -228,7 +246,7 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
     stream.payload.setName(s"mmslave_${symbol.name}_payload")
     stream.valid.setName(s"mmslave_${symbol.name}_valid")
     stream.ready.setName(s"mmslave_${symbol.name}_ready")
-    stream.valid := hitDoWrite
+    stream.valid := valid
     ready := stream.ready
     out
   }
@@ -238,19 +256,24 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
 
 class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends StreamEntry(name, addr, doc, bus) {
   val valid = Bool()
+  val ready = Bool()
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     that.asBits
   }
   
+  ready := False
   override def onReadReq() : Unit = {
     when(valid) {
+      readHit := True
+      ready := True
       bus.readAccept()
       bus.readRespond(readBits, false)
     }
   }
 
   override def onWriteReq() : Unit = {
+      writeHit := True
       bus.writeAccept()
       bus.writeRespond(true)
   }
@@ -259,8 +282,10 @@ class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory
     val stream : Stream[Bits] = Stream(Bits(bc))
     val out = stream.stage()
     addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
-    out.payload.setName(s"mmslave_streamfield_${symbol.name}")
-    out.ready := hitRead && bus.readReq
+    out.payload.setName(s"mmslave_${symbol.name}_payload")
+    out.valid.setName(s"mmslave_${symbol.name}_valid")
+    out.ready.setName(s"mmslave_${symbol.name}_ready")
+    out.ready := ready
     valid := out.valid
     stream
   }
@@ -272,7 +297,7 @@ class ClearRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
 
   override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
     assert(that.isReg)
-    when(hitDoWrite) {
+    when(writeHit) {
       that.assignFromBits((bus.writeData(section) & that.asBits) ^ that.asBits)
     }
     that.asBits

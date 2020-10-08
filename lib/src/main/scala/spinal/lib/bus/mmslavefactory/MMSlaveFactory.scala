@@ -122,7 +122,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
         entries.foreach{(reg: Entry) =>
           reg.finish
           is(reg.getAddress){
-            reg.onReadReq()
+            reg.onReadReqIntern()
           }
         }
         default{
@@ -134,7 +134,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
       switch (writeAddress()) {
         entries.foreach{(reg: Entry) =>
           is(reg.getAddress){
-            reg.onWriteReq()
+            reg.onWriteReqIntern()
           }
         }
         default{
