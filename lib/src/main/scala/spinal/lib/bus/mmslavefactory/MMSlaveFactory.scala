@@ -19,9 +19,6 @@ trait MMSlaveFactoryBase extends Area {
   def readAddress(): UInt
   def writeAddress(): UInt
 
-  def readHalt(): Unit
-  def writeHalt(): Unit
-
   def readAccept() : Unit
   def writeAccept() : Unit
 

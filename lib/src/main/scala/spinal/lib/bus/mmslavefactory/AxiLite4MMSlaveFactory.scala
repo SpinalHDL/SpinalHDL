@@ -37,12 +37,6 @@ case class AxiLite4MMSlaveFactory(bus: AxiLite4, sizeMap: SizeMapping, selId: In
   override def readAddress()  = bus.ar.payload.addr
   override def writeAddress() = bus.aw.payload.addr
 
-  override def readHalt()  = bus.ar.ready := False
-  override def writeHalt() = {
-    bus.aw.ready := False
-    bus.w.ready := False
-  }
-
   override def readAccept() = {
     bus.ar.ready := True
   }

@@ -190,8 +190,14 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
   override def getAccess() : String = "WO"
 }
 
-abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends RegEntry(name, addr, doc, bus) {
+abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends Entry(name, addr, doc, bus) with RegDescr {
   def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits]
+
+  override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+    val data : Bits = 0xdeadbeefl
+    assert(false, "newField not implemented, use newStreamField!");
+    data
+  }
 }
 
 class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends StreamEntry(name, addr, doc, bus) {
@@ -209,13 +215,20 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
       bus.writeRespond(false)
     }
   }
+
+  override def genDataHandler[T <: Data](that: T, section: Range, resetValue: Long): Bits = {
+    that.assignFromBits(bus.writeData(section))
+    that.asBits
+  }
   
   def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits] = {
     val stream : Stream[Bits] = Stream(Bits(bc))
     val out = stream.stage()
-    addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
-    stream.payload.setName(s"mmslave_streamfield_${symbol.name}")
-    stream.valid := hitWrite && bus.writeReq
+    addField(stream.payload, resetValue, doc)(symbol)
+    stream.payload.setName(s"mmslave_${symbol.name}_payload")
+    stream.valid.setName(s"mmslave_${symbol.name}_valid")
+    stream.ready.setName(s"mmslave_${symbol.name}_ready")
+    stream.valid := hitDoWrite
     ready := stream.ready
     out
   }
