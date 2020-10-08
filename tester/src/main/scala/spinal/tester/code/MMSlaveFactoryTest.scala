@@ -14,6 +14,7 @@ import spinal.lib.bus.amba4.axilite.sim.AxiLite4Driver
 class Apb3MMSlaveFactoryExample extends Component {
   val io = new Bundle {
     val apb = slave(Apb3(Apb3Config(16,32)))
+    val stream = master(Stream(Bits(8 bits)))
   }
   
   val slavFac = Apb3MMSlaveFactory(io.apb,(0x000,1 KiB), 0)
@@ -33,6 +34,16 @@ class Apb3MMSlaveFactoryExample extends Component {
 
   val regValue = slavFac.createReadOnlyReg("value", "Values")
   val value1 = regValue.addField(secret1, 0x0, "Value 1")
+
+  val readStream = slavFac.createReadStream("Read FIFO", "Read data")
+  val readStreamData = readStream.newStreamField(16 bits, 0x0, "Data")
+  readStreamData.valid := True && readStreamData.ready;
+  readStreamData.payload := 0xbeef;
+
+  val writeStream = slavFac.createWriteStream("Secret", "Secret data")
+  val streamData = writeStream.newStreamField(8 bits, 0x0, "Secret Flow")
+  val queue = streamData.queue(3)  
+  io.stream << queue
 }
 
 class AxiLite4MMSlaveFactoryExample extends Component {
@@ -83,8 +94,9 @@ object MMSlaveFactoryApb {
     SimConfig.withWave.doSim(new Apb3MMSlaveFactoryExample){dut =>
       //Fork a process to generate the reset and the clock on the dut
       dut.clockDomain.forkStimulus(period = 10)
-  
+      
       val apb = Apb3Driver(dut.io.apb, dut.clockDomain)
+      dut.io.stream.ready #= false
   
       dut.clockDomain.waitSampling(10)
       
@@ -107,8 +119,42 @@ object MMSlaveFactoryApb {
       dut.clockDomain.waitSampling(10)
       
       apb.write(0x18, 0xal)
+
+      dut.clockDomain.waitSampling(10)
+
       apb.read(0x1c)
   
+      dut.clockDomain.waitSampling(10)
+      
+      apb.read(0x1c)
+  
+      dut.clockDomain.waitSampling(10)
+
+      apb.write(0x20, 0x1)
+
+      dut.clockDomain.waitSampling(10)
+
+      apb.write(0x20, 0x2)
+
+      dut.clockDomain.waitSampling(10)
+
+      apb.write(0x20, 0x3)
+
+      dut.clockDomain.waitSampling(10)
+      
+      apb.write(0x20, 0x4)
+
+      dut.clockDomain.waitSampling(10)
+      
+      val writeThread = fork {
+        apb.write(0x20, 0x5)
+      }
+
+      dut.clockDomain.waitSampling(20)
+      dut.io.stream.ready #= true
+
+      writeThread.join()
+
       dut.clockDomain.waitSampling(10)
     }
   }

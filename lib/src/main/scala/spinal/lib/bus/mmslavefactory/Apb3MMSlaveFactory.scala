@@ -26,7 +26,8 @@ case class Apb3MMSlaveFactory(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, r
   bus.PRDATA := readData
   if(bus.config.useSlaveError) bus.PSLVERROR := readError
 
-  val writeReq  = (bus.PSEL(selId) && bus.PWRITE).allowPruning()
+  // todo: writePreReq needed ???
+  val writeReq  = (bus.PSEL(selId) &&  bus.PWRITE).allowPruning()
   val readReq   = (bus.PSEL(selId) && !bus.PWRITE).allowPruning()
   val writeResp = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY &&  bus.PWRITE).allowPruning()
   val readResp  = (bus.PSEL(selId) && bus.PENABLE && bus.PREADY && !bus.PWRITE).allowPruning()
