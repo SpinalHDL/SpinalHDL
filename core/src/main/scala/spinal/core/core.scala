@@ -448,69 +448,49 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def asOct: BigInt = oct(s)
     def asBin: BigInt = bin(s)
     def hexToBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(s, 16))
-    def hexToBinstAlign: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(s, 16), 4 * s.size, true)
+    def hexToBinstAlign: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(s, 16), 4 * s.size)
   }
 
-  implicit class BigIntRicher(value: BigInt) {
-    def HexString: String = binarySystem.LiteralToString.HexString(value, 64)
-    def HexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(value, bitSize, true)
-    def OctString: String = binarySystem.LiteralToString.OctString(value, 64)
-    def OctString(bitSize: Int): String = binarySystem.LiteralToString.OctString(value, bitSize, true)
-    def BinString: String = binarySystem.LiteralToString.BinString(value, 64)
-    def BinString(bitSize: Int): String = binarySystem.LiteralToString.BinString(value, bitSize, true)
-    def decString(align: Int): String = s"%${align}d".format(value)
-    def toBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(value)
-    def toDecst: List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(value)
-    def toOctst: List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(value)
+  trait LiteralRicher {
+    val bigInt: BigInt
+    val defaultAlignBit: Int = 0
 
-    def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(value, num, true)
-    def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(value, num, true)
-    def toOctst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(value, num, true)
+    def hexString: String = binarySystem.LiteralToString.HexString(bigInt, defaultAlignBit)
+    def octString: String = binarySystem.LiteralToString.OctString(bigInt, defaultAlignBit)
+    def binString: String = binarySystem.LiteralToString.BinString(bigInt, defaultAlignBit)
+
+    def hexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(bigInt, bitSize)
+    def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(bigInt, bitSize)
+    def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(bigInt, bitSize)
+
+    def toBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, defaultAlignBit)
+    def toDecst: List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, defaultAlignBit)
+    def toOctst: List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, defaultAlignBit)
+
+    def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, num)
+    def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, num)
+    def toOctst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, num)
   }
 
-  implicit class LongRicher(value: Long) {
-    def HexString: String = binarySystem.LiteralToString.HexString(BigInt(value), 64)
-    def HexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(BigInt(value), bitSize, true)
-    def OctString: String = binarySystem.LiteralToString.OctString(BigInt(value), 64)
-    def OctString(bitSize: Int): String = binarySystem.LiteralToString.OctString(BigInt(value), bitSize, true)
-    def BinString: String = binarySystem.LiteralToString.BinString(BigInt(value), 64)
-    def BinString(bitSize: Int): String = binarySystem.LiteralToString.BinString(BigInt(value), bitSize, true)
-    def decString(align: Int): String = s"%${align}d".format(value)
-    def toBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(value))
-    def toDecst: List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(BigInt(value))
-    def toOctst: List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(BigInt(value))
-
-    def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(value), num, true)
-    def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(BigInt(value), num, true)
-    def toOctst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(BigInt(value), num, true)
+  implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
+    val bigInt = value
   }
 
-  implicit class IntRicher(value: Int) {
-    def HexString: String = binarySystem.LiteralToString.HexString(BigInt(value), 32)
-    def HexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(BigInt(value), bitSize, true)
-    def OctString: String = binarySystem.LiteralToString.OctString(BigInt(value), 32)
-    def OctString(bitSize: Int): String = binarySystem.LiteralToString.OctString(BigInt(value), bitSize, true)
-    def BinString: String = binarySystem.LiteralToString.BinString(BigInt(value), 32)
-    def BinString(bitSize: Int): String = binarySystem.LiteralToString.BinString(BigInt(value), bitSize, true)
-    def decString(align: Int): String = s"%${align}d".format(value)
-    def toBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(value))
-    def toDecst: List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(BigInt(value))
-    def toOctst: List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(BigInt(value))
+  implicit class LongRicher(value: Long) extends LiteralRicher  {
+    val bigInt = BigInt(value)
+  }
 
-    def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(value), num, true)
-    def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(BigInt(value), num, true)
-    def toOctst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(BigInt(value), num, true)
+  implicit class IntRicher(value: Int) extends LiteralRicher {
+    val bigInt = BigInt(value)
+  }
+
+  implicit class ByteRicher(value: Byte) extends LiteralRicher {
+    val bigInt = BigInt(value)
+
+    override val defaultAlignBit: Int = 8
   }
 
   implicit class BinstRicher(li: List[Int]){
-    def decToBigInt = "Not Ready"
-    def decToInt = "Not Ready"
-    def decToLong = "Not Ready"
-
-    def octToBigInt = "Not Ready"
-    def octToInt = "Not Ready"
-    def octToLong = "Not Ready"
-
     def BinstToOctAlignLeft: String  = binarySystem.BinstToLiteral.BinstToOctString(li, true)
     def BinstToHexAlignLeft: String  = binarySystem.BinstToLiteral.BinstToHexString(li, true)
     def BinstToOct: String    = binarySystem.BinstToLiteral.BinstToOctString(li)

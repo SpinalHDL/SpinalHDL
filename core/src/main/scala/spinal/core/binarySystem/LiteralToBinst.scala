@@ -9,24 +9,16 @@ object LiteralToBinst {
     }
   }
 
-  def BigIntToBinst(value: BigInt, size: Int = 0, align: Boolean = false): List[Int] = {
-    val ret = value.toString(2)
-      .map(b => Integer.parseInt(b.toString,2))
-      .toList
-    if (align) listPad(ret, size) else ret
+  def BigIntToDecst(value: BigInt, alignNum: Int = 0): List[Int] = {
+    val ret = value.toString(radix = 10).map(_.asDigit).toList
+    listPad(ret, alignNum).reverse
   }
 
-  def BigIntToDecst(value: BigInt, size: Int = 0 , align: Boolean = false): List[Int] = {
-    val ret = value.toString(10)
-      .map(b => Integer.parseInt(b.toString,10))
-      .toList
-    if (align) listPad(ret, size) else ret
+  def BigIntToOctst(value: BigInt, alignNum: Int = 0): List[Int] = {
+    LiteralToString.OctString(value, alignNum).map(_.asDigit).toList.reverse
   }
 
-  def BigIntToOctst(value: BigInt, size: Int = 0, align: Boolean = false): List[Int] = {
-    val ret = value.toString(8)
-      .map(b => Integer.parseInt(b.toString,8))
-      .toList
-    if (align) listPad(ret, size) else ret
+  def BigIntToBinst(value: BigInt, alignNum: Int = 0): List[Int] = {
+    LiteralToString.BinString(value, alignNum).map(_.asDigit).toList.reverse
   }
 }
