@@ -124,6 +124,20 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     spi
   }
 
+  def lazySclk(ssIdle : Int, sclkValue : Boolean) = {
+    val ret = cloneOf(this)
+
+    ret.sclk.write := ((ss =/= ssIdle) ? this.sclk.write | B(if(sclkValue) (1 << p.ssWidth) - 1 else 0))
+    for((s,m) <- (ret.data, this.data).zipped){
+      s.write := m.write
+      s.writeEnable := m.writeEnable
+      m.read := s.read
+    }
+    ret.ss := this.ss
+
+    ret
+  }
+
   def toSpiEcp5(): SpiMaster = {
     val spi = SpiMaster(
       ssWidth = p.ssWidth,

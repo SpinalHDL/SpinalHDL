@@ -34,11 +34,13 @@ SpinalHDL is simply a set of Scala libraries. Include them into your project and
 ### SBT (Scala build tool)
 
 ```scala
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.12"
 
 libraryDependencies ++= Seq(
   "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",
   "com.github.spinalhdl" % "spinalhdl-lib_2.11" % "latest.release"
+
+  compilerPlugin("com.github.spinalhdl" % "spinalhdl-idsl-plugin_2.11" % "latest.release")
 )
 ```
 
@@ -55,6 +57,21 @@ repositories {
 dependencies {
 	compile group: 'com.github.spinalhdl', name: 'spinalhdl-core_2.11', version: '1.3.6'
 	compile group: 'com.github.spinalhdl', name: 'spinalhdl-lib_2.11', version: '1.3.6'
+}
+```
+
+### Mill(Build Tool)
+
+```scala 
+object MySpinalModule extends ScalaModule {
+  def scalaVersion = "2.11.12"
+
+  def ivyDeps = Agg(
+    ivy"com.github.spinalhdl::spinalhdl-core:1.4.1",
+    ivy"com.github.spinalhdl::spinalhdl-lib:1.4.1",
+  )
+
+  def scalacPluginIvyDeps = Agg(ivy"com.github.spinalhdl::spinalhdl-idsl-plugin:1.4.1")
 }
 ```
 
