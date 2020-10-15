@@ -30,9 +30,28 @@ import scala.collection.mutable.ListBuffer
 
 
 
+object UIntToOh {
+  def apply(value: UInt, width : Int): Bits = {
+    val ret = Bits(width bits)
+    for(i <- 0 until width){
+      ret(i) := value === i
+    }
+    ret
+  }
+
+  def apply(value: UInt, mapping : Seq[Int]): Bits = {
+    val ret = Bits(mapping.size bits)
+    for((m, i) <- mapping.zipWithIndex){
+      ret(i) := value === m
+    }
+    ret
+  }
+}
+
+
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: Seq[Bool]): UInt = {
+  def apply(bools: Seq[Bool]): UInt = signalCache(bools, "OHToUInt") {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0,0 bits)
 
@@ -51,6 +70,24 @@ object OHToUInt {
     }
 
     ret.asBits.asUInt
+  }
+
+  def apply(bitVector: BitVector, mapping : Seq[Int]): UInt = apply(bitVector.asBools, mapping)
+  def apply(oh: Seq[Bool], mapping : Seq[Int]): UInt = {
+    assert(oh.size == mapping.size)
+    val ret = UInt(log2Up(mapping.max + 1) bits)
+
+    if (mapping.size == 1) {
+      ret := mapping.head
+    } else {
+      for (bitId <- ret.range) {
+        val triggersId = mapping.zipWithIndex.filter(e => ((e._1 >> bitId) & 1) != 0).map(_._2)
+        val triggers = triggersId.map(oh(_))
+        ret(bitId) := triggers.orR
+      }
+    }
+
+    ret
   }
 }
 
@@ -131,14 +168,30 @@ object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
   def apply(thats : Seq[Bool]) : UInt = {
-    var ret = UInt(log2Up(thats.length+1) bit)
-    ret := 0
-    for(e <- thats){
-      when(e){
-        ret \= ret + 1
-      }
-    }
-    ret
+    if(thats.isEmpty) return U(0, 0 bits)
+    val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(3)
+    val seeds = groups.map(l => lut.read(U(l.asBits()).resized)).toSeq
+    seeds.reduceBalancedTree(_+_)
+  }
+}
+
+object CountOneOnEach{
+  def args(thats : Bool*) : Seq[UInt] = apply(thats)
+  def apply(thats : BitVector) : Seq[UInt] = apply(thats.asBools)
+  def apply(thats : Seq[Bool]) : Seq[UInt] = {
+    for(bitCount <- 1 to thats.size) yield CountOne(thats.take(bitCount))
+
+    //TODO
+    /*val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(3)
+    val seeds = groups.map(l => lut.read(U(l.asBits()))).toSeq
+    var offset = U(0)
+    for(bitId <- 0 until thats.size) yield {
+      val ret = offset + U(resize(log2Up(bitId + 1) bits)
+      if(bitId % 3 == 2) offset = offset + seeds(bitId/3)
+      ret
+    }*/
   }
 }
 
@@ -761,7 +814,11 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
   def write(index: UInt, data: T): Unit = {
     apply(index) := data
   }
+  def write(index: Int, data: T): Unit = {
+    apply(index) := data
+  }
   def apply(index: UInt): T = Vec(pimped)(index)
+  def apply(index: Int): T = Vec(pimped)(index)
 
   def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExist(_ === value)
@@ -904,5 +961,21 @@ object Callable{
     when(isCalled){doIt}
 
     def call() = isCalled := True
+  }
+}
+
+case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
+  val value = dataType()
+  val values = ArrayBuffer[T]()
+  Component.current.afterElaboration{
+    values.size match {
+      case 0 => value := value.getZero
+      case _ => value.assignFromBits(values.map(_.asBits).reduceBalancedTree(_ | _))
+    }
+  }
+  def newPort(): T ={
+    val port = dataType()
+    values += port
+    port
   }
 }

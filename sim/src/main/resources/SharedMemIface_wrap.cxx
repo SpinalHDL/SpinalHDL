@@ -930,6 +930,232 @@ SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_
 }
 
 
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read_1mem_1_1SWIG_10(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+  jlong jresult = 0 ;
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int64_t arg3 ;
+  std::vector< int8_t > result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int64_t)jarg3; 
+  {
+    try {
+      result = (arg1)->read_mem(arg2,arg3);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    }
+    
+  }
+  *(std::vector< int8_t > **)&jresult = new std::vector< int8_t >((const std::vector< int8_t > &)result); 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read_1mem_1_1SWIG_11(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  std::vector< int8_t > *arg3 = 0 ;
+  int64_t arg4 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  (void)jarg3_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = *(std::vector< int8_t > **)&jarg3;
+  if (!arg3) {
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< int8_t > & reference is null");
+    return ;
+  } 
+  arg4 = (int64_t)jarg4; 
+  {
+    try {
+      (arg1)->read_mem(arg2,*arg3,arg4);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
+SWIGEXPORT jlong JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read64_1mem(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+  jlong jresult = 0 ;
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int64_t arg3 ;
+  int64_t result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int64_t)jarg3; 
+  {
+    try {
+      result = (int64_t)(arg1)->read64_mem(arg2,arg3);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    }
+    
+  }
+  jresult = (jlong)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT jint JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1read32_1mem(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3) {
+  jint jresult = 0 ;
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int64_t arg3 ;
+  int32_t result;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int64_t)jarg3; 
+  {
+    try {
+      result = (int32_t)(arg1)->read32_mem(arg2,arg3);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return 0;
+    }
+    
+  }
+  jresult = (jint)result; 
+  return jresult;
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write_1mem(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3, jobject jarg3_, jlong jarg4) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  std::vector< int8_t > *arg3 = 0 ;
+  int64_t arg4 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  (void)jarg3_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = *(std::vector< int8_t > **)&jarg3;
+  if (!arg3) {
+    SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< int8_t > const & reference is null");
+    return ;
+  } 
+  arg4 = (int64_t)jarg4; 
+  {
+    try {
+      (arg1)->write_mem(arg2,(std::vector< int8_t > const &)*arg3,arg4);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write64_1mem(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jlong jarg3, jlong jarg4) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int64_t arg3 ;
+  int64_t arg4 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int64_t)jarg3; 
+  arg4 = (int64_t)jarg4; 
+  {
+    try {
+      (arg1)->write64_mem(arg2,arg3,arg4);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
+SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1write32_1mem(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2, jint jarg3, jlong jarg4) {
+  SharedMemIface *arg1 = (SharedMemIface *) 0 ;
+  int64_t arg2 ;
+  int32_t arg3 ;
+  int64_t arg4 ;
+  
+  (void)jenv;
+  (void)jcls;
+  (void)jarg1_;
+  arg1 = *(SharedMemIface **)&jarg1; 
+  arg2 = (int64_t)jarg2; 
+  arg3 = (int32_t)jarg3; 
+  arg4 = (int64_t)jarg4; 
+  {
+    try {
+      (arg1)->write32_mem(arg2,arg3,arg4);
+    } catch (VpiException &e) {
+      jclass clazz = jenv->FindClass("spinal/sim/VpiException");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    } catch (std::exception &e) {
+      jclass clazz = jenv->FindClass("java/lang/Exception");
+      jenv->ThrowNew(clazz, e.what());
+      return ;
+    }
+    
+  }
+}
+
+
 SWIGEXPORT void JNICALL Java_spinal_sim_vpi_JNISharedMemIfaceJNI_SharedMemIface_1sleep(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jlong jarg2) {
   SharedMemIface *arg1 = (SharedMemIface *) 0 ;
   int64_t arg2 ;

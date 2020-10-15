@@ -239,7 +239,7 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
       val color = Rgb(5, 6, 5)
     }
 
-    val compiled = SimConfig.withWave.allOptimisation.compile(
+    val compiled = SimConfig.allOptimisation.compile(
       rtl = new StreamFifoLowLatency(
         dataType = Transaction(),
         depth = 4,

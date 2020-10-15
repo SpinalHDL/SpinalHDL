@@ -82,7 +82,7 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
     io.phy.writeEnable := history.valid
     io.writeDatas.foreach(_.ready := False)
     io.writeDatas(history.sel).ready := history.valid
-    assert(io.writeDatas.map(p => !(!p.valid && p.ready)).andR, "SDRAM write data stream starved !")
+    assert(io.writeDatas.map(p => !(!p.valid && p.ready)).andR, "SDRAM write data stream starved !", ERROR)
 
     val payload = io.writeDatas.map(_.payload).read(history.sel)
     for ((phase, dq, dm) <- (io.phy.phases, payload.data.subdivideIn(pl.phaseCount slices), payload.mask.subdivideIn(pl.phaseCount slices)).zipped) {

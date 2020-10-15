@@ -213,6 +213,27 @@ object PlaySimGhdl3 extends App{
 }
 
 
+// export TEST=rawrr
+// cd simWorkspace/unnamed
+// verilator_coverage --write-info $TEST.info  --annotate asd $TEST.dat
+// genhtml $TEST.info --output-directory coverage
+// xdg-open coverage/index.html
+
+object PlayCoverage extends App{
+  val compiled = SimConfig.withCoverage.compile(new Component{
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    result := RegNext(a + b)
+  })
+  compiled.doSim("rawrr"){dut =>
+    dut.clockDomain.forkStimulus(10)
+    for(i <- 0 until 10){
+      dut.a #= i
+      dut.b #= 0
+      dut.clockDomain.waitSampling()
+    }
+  }
+}
 
 
 object PlaySimGhdlBugTodo extends App{
@@ -229,6 +250,32 @@ object PlaySimGhdlBugTodo extends App{
     dut.a #= -1
     sleep(1)
     assert(dut.b.toInt == -1)
+  }
+}
+
+object PlayTracingOff extends App{
+  class Sub extends Component {
+    val a = in SInt (16 bits)
+    val b = out SInt (16 bits)
+    b := a
+  }
+
+  class WaveTop extends Component {
+    val io = new Bundle{
+      val a = in SInt (16 bits)
+      val b = out SInt (16 bits)
+    }
+    val sub0 = new Sub
+    sub0.a := io.a
+    val sub1 = new Sub
+    sub1.a := sub0.b
+    io.b := sub1.b
+  }
+
+  SpinalConfig(targetDirectory = "./tmp").generateVerilog{
+    val dut = new WaveTop
+    dut.sub0.tracingOff()
+    dut
   }
 }
 

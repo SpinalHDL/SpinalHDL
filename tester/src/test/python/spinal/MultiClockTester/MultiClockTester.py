@@ -1,4 +1,4 @@
-from Queue import Queue
+from queue import Queue
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge

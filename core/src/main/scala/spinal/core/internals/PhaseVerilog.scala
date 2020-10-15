@@ -35,28 +35,64 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   override def impl(pc: PhaseContext): Unit = {
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
-    outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+    if (!pc.config.oneFilePerComponent) {
+      outFile = new java.io.FileWriter(targetPath)
+      outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
-    if(pc.config.dumpWave != null) {
-      outFile.write("`timescale 1ns/1ps ")
-    }
-
-    emitEnumPackage(outFile)
-
-    val componentsText = ArrayBuffer[() => String]()
-    for (c <- sortedComponents) {
-      if (!c.isInBlackBoxTree) {
-        componentsText += compile(c)
+      if(pc.config.dumpWave != null) {
+        outFile.write("`timescale 1ns/1ps ")
       }
-    }
 
-    for(e <- componentsText.reverse){
-      outFile.write(e())
-    }
+      emitEnumPackage(outFile)
 
-    outFile.flush()
-    outFile.close()
+      val componentsText = ArrayBuffer[() => String]()
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          componentsText += compile(c)
+        }
+      }
+
+      for(e <- componentsText.reverse){
+        outFile.write(e())
+      }
+
+      outFile.flush()
+      outFile.close()
+    }
+    else {
+      val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
+      // dump Enum define to define.v instead attach that on every .v file
+      val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+      val defineFile = new java.io.FileWriter(defineFileName)
+      emitEnumPackage(defineFile)
+      defineFile.flush()
+      defineFile.close()
+      fileList.write(defineFileName.replace("//", "/") + "\n")
+
+      for (c <- sortedComponents) {
+        val moduleContent = compile(c)()
+
+        if (!moduleContent.contains("replaced by")) {
+          val targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(c.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+
+          if (!c.isInBlackBoxTree) {
+            outFile = new java.io.FileWriter(targetFilePath)
+            outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
+            if(pc.config.dumpWave != null) {
+              outFile.write("`timescale 1ns/1ps ")
+            }
+//            emitEnumPackage(outFile)
+            outFile.write(moduleContent)
+            outFile.flush()
+            outFile.close()
+            fileList.write(targetFilePath.replace("//", "/") + "\n")
+          }
+        }
+      }
+
+      fileList.flush()
+      fileList.close()
+    }
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()

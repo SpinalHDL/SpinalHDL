@@ -5,7 +5,7 @@ import spinal.core.sim._
 import spinal.lib.Fragment
 import spinal.lib.bus.amba3.apb.Apb3Config
 import spinal.lib.bus.amba3.apb.sim.Apb3Monitor
-import spinal.lib.bus.bmb.{Bmb, BmbCmd, BmbDownSizerBridge, BmbExclusiveMonitor, BmbParameter, BmbRsp, BmbToApb3Bridge}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbCmd, BmbDownSizerBridge, BmbExclusiveMonitor, BmbInvalidationParameter, BmbParameter, BmbRsp, BmbSourceParameter, BmbToApb3Bridge}
 import spinal.lib.bus.bmb.sim.{BmbBridgeTester, BmbMasterAgent, BmbMemoryAgent, BmbRegionAllocator}
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.sim._
@@ -24,23 +24,26 @@ private object WRITE_RSP
 
 class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
 
-  SimConfig.withWave.compile(
+  SimConfig.compile(
     new BmbExclusiveMonitor(
       inputParameter = BmbParameter(
-        addressWidth                    = 32,
-        dataWidth                       = 32,
-        lengthWidth                     = 8,
-        sourceWidth                     = 2,
-        contextWidth                    = 8,
-        alignment                       = BmbParameter.BurstAlignement.LENGTH,
-        canRead                         = true,
-        canWrite                        = true,
-        canExclusive                    = true,
-        canInvalidate                   = true,
-        canSync                         = true,
-        invalidateLength                = 8,
-        invalidateAlignment             = BmbParameter.BurstAlignement.LENGTH,
-        maximumPendingTransactionPerId  = Int.MaxValue
+        BmbAccessParameter(
+          addressWidth                    = 32,
+          dataWidth                       = 32
+        ).addSources(4, BmbSourceParameter(
+          lengthWidth                     = 8,
+          contextWidth                    = 8,
+          alignment                       = BmbParameter.BurstAlignement.LENGTH,
+          canRead                         = true,
+          canWrite                        = true,
+          canExclusive                    = true
+        )),
+        BmbInvalidationParameter(
+          canInvalidate                   = true,
+          canSync                         = true,
+          invalidateLength                = 8,
+          invalidateAlignment             = BmbParameter.BurstAlignement.LENGTH
+        )
       ),
       pendingWriteMax = 8
     )
@@ -49,11 +52,12 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
 
     var endSim = false
 
-    val masterAgent = for (i <- 0 until dut.sourceCount) yield new {
+    val masterAgent = for (i <- dut.inputParameter.access.sources.keys) yield new {
       val sourceId = i
       var state: Any = IDLE
       var read, write = BigInt(0)
       var successCounter = 0
+      var conflictCounter = 0
       var data = 0l
 
       dut.clockDomain.onSamplings {
@@ -80,6 +84,8 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
             if(rspEvent){
               if(dut.io.input.rsp.exclusive.toBoolean) {
                 successCounter = successCounter + 1
+              } else {
+                conflictCounter = conflictCounter + 1
               }
               state = IDLE
             }
@@ -92,7 +98,7 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
     def genInputCmd(payload: Fragment[BmbCmd]): Boolean = {
       val requests = masterAgent.filter(a => a.state == READ_CMD || a.state == WRITE_CMD)
       if(requests.isEmpty) return false
-      val request = requests.randomPick()
+      val request = requests.toSeq.randomPick()
 
       request.state match {
         case READ_CMD =>{
@@ -162,6 +168,6 @@ class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
     val memoryExpected = masterAgent.map(a => a.successCounter*(a.sourceId + 1)).sum
     println(s"memory:$memory expected:${memoryExpected}")
 
-    assert(memory == memoryExpected && memory > 10000 && !masterAgent.exists(_.successCounter < 5000))
+    assert(memory == memoryExpected && memory > 10000 && !masterAgent.exists(a => a.successCounter < 5000 || a.conflictCounter < 100))
   }
 }

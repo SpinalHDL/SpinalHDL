@@ -27,7 +27,8 @@ case class RtlPhyInterface(pl : PhyLayout) extends Bundle with IMasterSlave {
     import spinal.core.sim._
     val bytePerBeat = pl.bytePerBeat
     assert(offset % bytePerBeat == 0)
-    val bin = Files.readAllBytes(Paths.get(path))
+    var bin = Files.readAllBytes(Paths.get(path))
+    bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
     for(beatId <- 0 until bin.size/bytePerBeat){
       var data = BigInt(0)
       for(byteId <- 0 until bytePerBeat){
@@ -54,7 +55,10 @@ case class RtlPhy(pl : PhyLayout) extends Component{
   }
 
   val columnPerBeatLog2Up = log2Up(pl.phaseCount*pl.dataRate)
-  val ram = Mem(Bits(pl.beatWidth bits), (1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))/(pl.phaseCount*pl.dataRate))
+
+  import spinal.core.sim._
+  val ram = Mem(Bits(pl.beatWidth bits), (1l << (sl.bankWidth + sl.columnWidth + sl.rowWidth))/(pl.phaseCount*pl.dataRate)).simPublic()
+
   ClockDomain(io.write.clk){
     ram.write(
       address = io.write.cmd.address,
@@ -140,4 +144,20 @@ case class RtlPhy(pl : PhyLayout) extends Component{
     )
   }
   Vec(io.ctrl.phases.flatMap(_.DQr)).assignFromBits(readed)
+
+  //Sim usage
+  def loadBin(offset : Long, path : String): Unit ={
+    import spinal.core.sim._
+    val bytePerBeat = pl.bytePerBeat
+    assert(offset % bytePerBeat == 0)
+    var bin = Files.readAllBytes(Paths.get(path))
+    bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
+    for(beatId <- 0 until bin.size/bytePerBeat){
+      var data = BigInt(0)
+      for(byteId <- 0 until bytePerBeat){
+        data = data | (BigInt(bin(beatId*bytePerBeat + byteId).toInt & 0xFF) << (byteId*8))
+      }
+      ram.setBigInt(offset/bytePerBeat + beatId, data)
+    }
+  }
 }

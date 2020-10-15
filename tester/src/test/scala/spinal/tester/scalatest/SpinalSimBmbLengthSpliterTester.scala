@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
-import spinal.lib.bus.bmb.{BmbAlignedSpliter, BmbParameter}
+import spinal.lib.bus.bmb.{BmbAccessParameter, BmbAlignedSpliter, BmbParameter, BmbSourceParameter}
 
 class SpinalSimBmbLengthSpliterTester extends FunSuite {
   for(w <- List(false, true); r <- List(false, true);   if w || r) {
@@ -11,17 +11,17 @@ class SpinalSimBmbLengthSpliterTester extends FunSuite {
     test("bypass" + header) {
       SimConfig.compile {
         val c = BmbAlignedSpliter(
-          ip = BmbParameter(
+          ip = BmbAccessParameter(
             addressWidth = 16,
-            dataWidth = 32,
+            dataWidth = 32
+          ).addSources(16, BmbSourceParameter(
             lengthWidth = 6,
-            sourceWidth = 4,
             contextWidth = 3,
             alignmentMin = 0,
             canRead = r,
             canWrite = w,
             alignment = BmbParameter.BurstAlignement.WORD
-          ),
+          )).toBmbParameter(),
           lengthMax = 4
         )
         c
@@ -31,35 +31,35 @@ class SpinalSimBmbLengthSpliterTester extends FunSuite {
           masterCd = dut.clockDomain,
           slave = dut.io.output,
           slaveCd = dut.clockDomain,
-          alignmentMinWidth = dut.ip.alignmentMin
+          alignmentMinWidth = dut.ip.access.alignmentMin
         )
       }
     }
 
     test("8" + header) {
-      SimConfig.compile {
+      SimConfig.withWave.compile {
         val c = BmbAlignedSpliter(
-          ip = BmbParameter(
+          ip = BmbAccessParameter(
             addressWidth = 16,
-            dataWidth = 32,
+            dataWidth = 32
+          ).addSources(16, BmbSourceParameter(
             lengthWidth = 6,
-            sourceWidth = 4,
             contextWidth = 8,
             alignmentMin = 0,
             canRead = r,
             canWrite = w,
             alignment = BmbParameter.BurstAlignement.WORD
-          ),
+          )).toBmbParameter(),
           lengthMax = 8
         )
         c
-      }.doSimUntilVoid("test") { dut =>
+      }.doSimUntilVoid("test", 42) { dut =>
         new BmbBridgeTester(
           master = dut.io.input,
           masterCd = dut.clockDomain,
           slave = dut.io.output,
           slaveCd = dut.clockDomain,
-          alignmentMinWidth = dut.ip.alignmentMin
+          alignmentMinWidth = dut.ip.access.alignmentMin
         )
       }
     }
@@ -67,17 +67,17 @@ class SpinalSimBmbLengthSpliterTester extends FunSuite {
     test("16" + header) {
       SimConfig.compile {
         val c = BmbAlignedSpliter(
-          ip = BmbParameter(
+          ip = BmbAccessParameter(
             addressWidth = 16,
-            dataWidth = 32,
+            dataWidth = 32
+          ).addSources(16, BmbSourceParameter(
             lengthWidth = 6,
-            sourceWidth = 4,
             contextWidth = 8,
             alignmentMin = 0,
             canRead = r,
             canWrite = w,
             alignment = BmbParameter.BurstAlignement.WORD
-          ),
+          )).toBmbParameter(),
           lengthMax = 16
         )
         c
@@ -87,7 +87,7 @@ class SpinalSimBmbLengthSpliterTester extends FunSuite {
           masterCd = dut.clockDomain,
           slave = dut.io.output,
           slaveCd = dut.clockDomain,
-          alignmentMinWidth = dut.ip.alignmentMin
+          alignmentMinWidth = dut.ip.access.alignmentMin
         )
       }
     }

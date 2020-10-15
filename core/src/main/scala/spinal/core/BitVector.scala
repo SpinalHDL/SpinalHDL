@@ -115,6 +115,10 @@ abstract class BitVector extends BaseType with Widthable {
     inferredWidth        = -1
   }
 
+  private[core] def fixWidth() = {
+    setWidth(getWidth)
+  }
+
   /**
     * Set the width of the BitVector
     * @param width the width of the data
@@ -168,7 +172,7 @@ abstract class BitVector extends BaseType with Widthable {
     * Cast the BitVector into a Vector of Bool
     * @return a vector of Bool
     */
-  def asBools: Vec[Bool] = {
+  def asBools: Vec[Bool] = signalCache(this, "asBools") {
     val vec = ArrayBuffer[Bool]()
     val bitCount = getWidth
     if (bitCount == -1) SpinalError("Can't convert to bools a Bit that has unspecified width value")
@@ -176,11 +180,93 @@ abstract class BitVector extends BaseType with Widthable {
     Vec(vec)
   }
 
-
   def asBool : Bool = {
     val ret = Bool()
     ret := lsb
     ret
+  }
+
+  private def toBitsInstance(x: BitVector): Bits ={
+    x match{
+      case x: Bits => x
+      case x: SInt => x.asBits
+      case x: UInt => x.asBits
+    }
+  }
+
+  /**
+    * Take lowerst n bits
+    * @example {{{ val res = data10bits.take(4) }}}
+    * @return data10bits(3 downto 0)
+    */
+  def take(n: Int): Bits = {
+    val x = this(n - 1 downto 0)
+    toBitsInstance(x)
+  }
+
+  def takeLow(n: Int): Bits = take(n)
+
+  /**
+    * Drop lowerst n bits
+    * @example {{{ val res = data10bits.drop(4) }}}
+    * @return data10bits(9 downto 4)
+    */
+  def drop(n: Int): Bits = {
+    val ret = this(this.high downto n)
+    toBitsInstance(ret)
+  }
+
+  def dropLow(n: Int): Bits = drop(n)
+  /**
+    * Take highest n bits
+    * @example {{{ val res = data10bits.takeHigh(4) }}}
+    * @return data10bits(9 downto 6)
+    */
+  def takeHigh(n: Int): Bits = drop(widthOf(this) - n)
+
+  /**
+    * Drop highest n bits
+    * @example {{{ val res = data10bits.dropHigh(4) }}}
+    * @return data10bits(5 downto 0)
+    */
+  def dropHigh(n: Int): Bits = take(widthOf(this) - n)
+
+  /**
+    * Split at n st bits
+    * @example {{{ val res = data10bits.splitAt(4) }}}
+    * @return (data10bits(8 downto 4), data10bits(3 downto 0))
+    */
+  def splitAt(n: Int): (Bits,Bits) = {
+    require(n>=0)
+    if(n==0){
+      (toBitsInstance(this), Bits(0 bits))
+    } else {
+      (toBitsInstance(this(this.high downto n)), toBitsInstance(this(n - 1 downto 0)))
+    }
+  }
+
+  /**
+    * apart by a list of width
+    * @example {{{
+    *         val res = A.sliceBy(2, 3, 5)
+    *         val res = A.sliceBy(List(2, 3, 5)) }}}
+    * @return (List(A(1 downto 0), A(2 downto 4), A(9 downto 3))
+    */
+  def sliceBy(divisor: Int*): List[Bits] = sliceBy(divisor.toList)
+
+  def sliceBy(divisor: List[Int]): List[Bits] = {
+    val width  = widthOf(this)
+    require(divisor.sum == width, s"the sum of ${divisor} =! ${this} width, cant parted")
+
+    import scala.collection.mutable.ListBuffer
+
+    val pool = ListBuffer.fill(divisor.size + 1)(0)
+    (1 to divisor.size).foreach{ i =>
+      pool(i) = pool(i - 1) + divisor(i - 1)
+    }
+    pool.take(divisor.size).zip(pool.tail).map{ case(pos, nxtpos) =>
+      toBitsInstance(this(nxtpos - 1 downto pos))
+    }.toList
   }
 
   /**

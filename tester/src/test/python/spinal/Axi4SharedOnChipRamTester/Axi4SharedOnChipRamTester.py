@@ -18,7 +18,7 @@ def test1(dut):
     cocotb.fork(simulationSpeedPrinter(dut.clk))
 
     phaseManager = PhaseManager()
-    phaseManager.setWaitTasksEndTime(1000*200)
+    phaseManager.setWaitTasksEndTime(1000*2000)
 
     checker = Axi4SharedMemoryChecker("checker",phaseManager,Axi4Shared(dut, "io_axi"),12,dut.clk,dut.reset)
     checker.idWidth = 2

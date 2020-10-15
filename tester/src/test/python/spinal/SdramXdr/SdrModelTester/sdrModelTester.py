@@ -25,13 +25,13 @@ def test1(dut):
 
     cocotb.fork(genClock(dut.Clk, None, clockPeriod//phaseCount))
 
-    map(top, "ADDR", lambda v : dut.Addr <= v)
-    map(top, "BA", lambda v : dut.Ba <= v)
-    map(top, "CASn", lambda v : dut.Cas_n <= v)
-    map(top, "CKE", lambda v : dut.Cke <= v)
-    map(top, "CSn", lambda v : dut.Cs_n <= v)
-    map(top, "RASn", lambda v : dut.Ras_n <= v)
-    map(top, "WEn", lambda v : dut.We_n <= v)
+    list(map(top, "ADDR", lambda v : dut.Addr <= v))
+    list(map(top, "BA", lambda v : dut.Ba <= v))
+    list(map(top, "CASn", lambda v : dut.Cas_n <= v))
+    list(map(top, "CKE", lambda v : dut.Cke <= v))
+    list(map(top, "CSn", lambda v : dut.Cs_n <= v))
+    list(map(top, "RASn", lambda v : dut.Ras_n <= v))
+    list(map(top, "WEn", lambda v : dut.We_n <= v))
 
 
     for fork in forks:
