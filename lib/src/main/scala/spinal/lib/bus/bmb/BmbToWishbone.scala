@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.wishbone._
 object BmbToWishbone{
-  def getWishboneConfig(p : BmbParameter): WishboneConfig = WishboneConfig(
+  def getWishboneConfig(p : BmbAccessParameter): WishboneConfig = WishboneConfig(
     addressWidth = p.addressWidth-log2Up(p.byteCount),
     dataWidth = p.dataWidth,
     selWidth = p.byteCount,
@@ -17,10 +17,10 @@ object BmbToWishbone{
 case class BmbToWishbone(p : BmbParameter) extends Component{
   val io = new Bundle {
     val input = slave(Bmb(p))
-    val output = master(Wishbone(BmbToWishbone.getWishboneConfig(p)))
+    val output = master(Wishbone(BmbToWishbone.getWishboneConfig(p.access)))
   }
 
-  val beatCounter = Reg(UInt(p.beatCounterWidth bits)) init(0)
+  val beatCounter = Reg(UInt(p.access.beatCounterWidth bits)) init(0)
   val beatLast = beatCounter === io.input.cmd.transferBeatCountMinusOne
   when(io.input.cmd.valid && io.output.ACK){
     beatCounter := beatCounter + 1
@@ -30,7 +30,7 @@ case class BmbToWishbone(p : BmbParameter) extends Component{
   }
 
 
-  io.output.ADR := Bmb.addToAddress(io.input.cmd.address, beatCounter << log2Up(p.byteCount), p) >> log2Up(p.byteCount)
+  io.output.ADR := Bmb.addToAddress(io.input.cmd.address, beatCounter << log2Up(p.access.byteCount), p) >> log2Up(p.access.byteCount)
   io.output.CTI := io.input.cmd.last ? (io.input.cmd.first ? B"000" | B"111") | B"010"
   io.output.BTE :=  B"00"
   io.output.SEL := io.input.cmd.isWrite ? io.input.cmd.mask | io.output.SEL.getAllTrue

@@ -13,7 +13,7 @@ class BmbMemoryTester(bmb : Bmb,
                       cd : ClockDomain,
                       rspCounterTarget : Int = 30000) {
 
-  val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.addressWidth)
+  val memory = new BmbMemoryAgent(BigInt(1) << bmb.p.access.addressWidth)
   Phase.boot()
   Phase.setup {
     cd.forkStimulus(10)
@@ -34,7 +34,7 @@ class BmbMemoryTester(bmb : Bmb,
       val busP = bmb.p
       override def onRspRead(address: BigInt, data: Byte): Unit = assert(data == memory.getByte(address.toLong))
       override def getCmd(): () => Unit = if(Phase.stimulus.isActive || cmdQueue.nonEmpty) super.getCmd() else null
-      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.addressWidth), sizeMax, busP)
+      override def regionAllocate(sizeMax : Int): SizeMapping = regions.allocate(Random.nextInt(1 << bmb.p.access.addressWidth), sizeMax, busP)
       override def regionFree(region: SizeMapping): Unit = regions.free(region)
       override def regionIsMapped(region: SizeMapping, opcode : Int): Boolean = true
     }
@@ -51,8 +51,8 @@ class BmbMemoryTester(bmb : Bmb,
       }
     }
 
-    //Retain the stimulus phase until at least 30000 transaction are completed
-    val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(rspCounterTarget))
+    //Retain the stimulus phase until at least rspCounterTarget transaction are completed
+    val retainers = List.tabulate(1 << bmb.p.access.sourceWidth)(source => Phase.stimulus.retainer(if(bmb.p.access.sources.contains(source)) rspCounterTarget else 0))
     masterAgent.rspMonitor.addCallback{payload =>
       if(payload.last.toBoolean){
         retainers(payload.fragment.source.toInt).release()
@@ -66,10 +66,10 @@ case class BmbMemoryMultiPort(bmb : Bmb,
                               cd : ClockDomain)
 
 class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Float = 0.5f, rspFactor : Float = 0.5f, forkClocks : Boolean = true) {
-  def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.addressWidth)
+  def addressGen(bmb : Bmb) = Random.nextInt(1 << bmb.p.access.addressWidth)
   def transactionCountTarget = 30000
 
-  val memory = new BmbMemoryAgent(BigInt(1) << ports.head.bmb.p.addressWidth)
+  val memory = new BmbMemoryAgent(BigInt(1) << ports.head.bmb.p.access.addressWidth)
   Phase.boot()
   Phase.setup {
     //Regions used to avoid having write to read hazard
@@ -111,8 +111,8 @@ class BmbMemoryMultiPortTester(ports : Seq[BmbMemoryMultiPort], cmdFactor : Floa
         }
       }
 
-      //Retain the stimulus phase until at least 30000 transaction are completed
-      val retainers = List.fill(1 << bmb.p.sourceWidth)(Phase.stimulus.retainer(transactionCountTarget))
+      //Retain the stimulus phase until at least transactionCountTarget transaction are completed
+      val retainers = List.tabulate(1 << bmb.p.access.sourceWidth)(source => Phase.stimulus.retainer(if(bmb.p.access.sources.contains(source)) transactionCountTarget else 0))
       masterAgent.rspMonitor.addCallback { payload =>
         if (payload.last.toBoolean) {
           retainers(payload.fragment.source.toInt).release()

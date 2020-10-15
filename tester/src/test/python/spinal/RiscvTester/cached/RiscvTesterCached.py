@@ -3,6 +3,7 @@ from cocotb.regression import TestFactory
 from spinal.RiscvTester.RiscvTester import  isaTestsMemory, isaTestsMulDiv, isaTestsBase, testIsa
 
 from cocotblib.misc import cocotbXHack
+from functools import reduce
 cocotbXHack()
 
 factory = TestFactory(testIsa)

@@ -11,14 +11,14 @@ def test1(dut):
 
     dut.log.info("Cocotb test boot")
 
-    for i in xrange(100):
+    for i in range(100):
         randSignal(dut.bus_cmd_writeenable)
         randSignal(dut.bus_cmd_write)
         yield Timer(10)
         writeEnable = str(dut.bus_cmd_writeenable)
         write = str(dut.bus_cmd_write)
         expected = ""
-        for i in xrange(8):
+        for i in range(8):
             if(writeEnable[i] == '0'):
                 expected = expected + "z"
             else:

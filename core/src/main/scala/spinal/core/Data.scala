@@ -25,7 +25,9 @@ import spinal.core.internals._
 
 object DataAssign
 object InitAssign
-class VarAssignementTag(var from : ArrayBuffer[Data]) extends SpinalTag
+class VarAssignementTag(val from : Data) extends SpinalTag{
+  var id = 0
+}
 
 trait DataPrimitives[T <: Data]{
 
@@ -60,13 +62,11 @@ trait DataPrimitives[T <: Data]{
       case (from: Data with Nameable, to: Data with Nameable) => {
         val t = from.getTag(classOf[VarAssignementTag]) match {
           case Some(t) => t
-          case None => new VarAssignementTag(ArrayBuffer[Data]())
+          case None => new VarAssignementTag(from)
         }
-        for((s,i) <- t.from.zipWithIndex){
-          s.setCompositeName(to,i.toString)
-        }
+        t.id += 1
+        to.setCompositeName(t.from,t.id.toString)
 
-        t.from += ret
         from.removeTag(t)
         ret.addTag(t)
       }
@@ -242,7 +242,16 @@ object Data {
 }
 
 
-trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef with OverridedEqualsHashCode {
+trait InComponent{
+  def getComponent() : Component
+  /** Get current component with all parents */
+  def getComponents(): Seq[Component] = {
+    val component = getComponent()
+    if(component == null) Nil else component.parents() ++ Seq(component)
+  }
+}
+
+trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef with OverridedEqualsHashCode with InComponent{
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
@@ -409,6 +418,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def allowDirectionLessIo: this.type = {
     addTag(allowDirectionLessIoTag)
+  }
+
+  def allowPartialyAssigned : this.type = {
+    addTag(AllowPartialyAssignedTag)
   }
 
   def allowUnsetRegToAvoidLatch: this.type = {
@@ -615,9 +628,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     }
     null
   }
-
-  /** Get current component with all parents */
-  def getComponents(): Seq[Component] = if(component == null) Nil else component.parents() ++ Seq(component)
 
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null

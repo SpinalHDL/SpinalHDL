@@ -3,6 +3,7 @@ package spinal.lib.io
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 
 object Gpio {
@@ -64,6 +65,8 @@ object Gpio {
       }
     }
   }
+
+  def addressWidth = 8
 }
 
 
@@ -73,4 +76,18 @@ case class Apb3Gpio2(  parameter: Gpio.Parameter,
   parameter,
   Apb3(busConfig),
   Apb3SlaveFactory(_)
-) { val dummy = 0 }
+)
+object BmbGpio2{
+  def getBmbCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
+    accessSource,
+    addressWidth = Gpio.addressWidth,
+    dataWidth = 32
+  )
+}
+case class BmbGpio2(   parameter: Gpio.Parameter,
+                       busConfig: BmbParameter
+                    ) extends Gpio.Ctrl[Bmb] (
+  parameter,
+  Bmb(busConfig),
+  BmbSlaveFactory(_)
+)

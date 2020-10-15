@@ -223,8 +223,8 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   /** Access an element of the bector by a oneHot value */
   def oneHotAccess(oneHot: Bits): T = {
 
-    if(elements.size == oneHot.getWidth){
-      SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
+    if(elements.size != oneHot.getWidth){
+      SpinalError(s"Invalid length of oneHot selection vector (${oneHot.getWidth}), not matching length of Vec (${elements.size})\n at\n${ScalaLocated.long}")
     }
 
     val ret = cloneOf(dataType)
