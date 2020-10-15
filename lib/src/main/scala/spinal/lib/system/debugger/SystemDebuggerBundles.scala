@@ -5,6 +5,8 @@ import spinal.lib.bus.amba4.axi.Axi4Shared
 import spinal.lib.bus.avalon.AvalonMM
 import spinal.lib.bus.avalon._
 import spinal.lib._
+import spinal.lib.bus.bmb.Bmb
+import spinal.lib.bus.simple.PipelinedMemoryBus
 
 
 case class SystemDebuggerRsp(c : SystemDebuggerConfig) extends Bundle{
@@ -67,6 +69,26 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm
   }
 
+  def toPipelinedMemoryBus(): PipelinedMemoryBus = {
+    assert(c.memAddressWidth == 32)
+    assert(c.memDataWidth == 32)
+    val avalonConfig = c.getMemAvalonConfig
+    val mm = PipelinedMemoryBus(32,32)
+    mm.cmd.arbitrationFrom(cmd)
+    mm.cmd.write := cmd.wr
+    mm.cmd.address := cmd.address(cmd.address.high downto 2) @@ U"00"
+    mm.cmd.data := cmd.data //No allignment needed, done by remote
+    mm.cmd.mask := (cmd.size.mux (
+      U(0) -> B"0001",
+      U(1) -> B"0011",
+      default -> B"1111"
+    ) << cmd.address(1 downto 0)).resized
+
+    rsp.valid := mm.rsp.valid
+    rsp.payload := mm.rsp.data
+    mm
+  }
+
 
   def toAxi4Shared(): Axi4Shared = {
     assert(c.memDataWidth == 32)
@@ -103,6 +125,29 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm.readRsp.ready := True
     mm.writeRsp.ready := True
     mm
+  }
+
+  def toBmb(): Bmb = {
+    assert(c.memDataWidth == 32)
+    val p = c.getBmbParameter
+    val bmb = Bmb(p)
+    bmb.cmd.arbitrationFrom(cmd)
+    bmb.cmd.last := True
+    bmb.cmd.length := 3
+    bmb.cmd.opcode := (cmd.wr ? B(Bmb.Cmd.Opcode.WRITE) | B(Bmb.Cmd.Opcode.READ))
+    bmb.cmd.address := (cmd.address >> 2) @@ U"00"
+    bmb.cmd.data := cmd.data
+    bmb.cmd.mask := (cmd.size.mux (
+      U(0) -> B"0001",
+      U(1) -> B"0011",
+      default -> B"1111"
+    ) << cmd.address(1 downto 0)).resized
+
+    rsp.valid := bmb.rsp.valid
+    rsp.payload := bmb.rsp.data
+    bmb.rsp.ready := True
+
+    bmb
   }
 }
 

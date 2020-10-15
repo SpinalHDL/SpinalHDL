@@ -41,11 +41,13 @@ enum class ProcStatus : int8_t {
     get_signal_handle = 3,
     read = 4,
     write = 5,
-    sleep = 6,
-    close = 7,
-    set_seed = 8,
-    randomize = 9,
-    closed = 10,
+    read_mem = 6,
+    write_mem =7,
+    sleep = 8,
+    close = 9,
+    set_seed = 10,
+    randomize = 11,
+    closed = 12,
 };
 
 class SharedStruct {
@@ -83,6 +85,7 @@ class SharedStruct {
         std::atomic<ProcStatus> proc_status;
         std::atomic<uint64_t> sleep_cycles;
         std::atomic<uint64_t> seed;
+        std::atomic<size_t> index;
         std::atomic<size_t> handle;
         SharedVector data; 
 };

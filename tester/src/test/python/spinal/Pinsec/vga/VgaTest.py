@@ -11,7 +11,7 @@ from spinal.Pinsec.common.Misc import pinsecClockGen
 @cocotb.coroutine
 def assertions(dut):
 
-    for i in xrange(2500000):
+    for i in range(2500000):
         yield RisingEdge(dut.uut.io_vgaClk)
 
 @cocotb.test()

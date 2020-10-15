@@ -3,23 +3,23 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
-import spinal.lib.bus.bmb.{BmbLengthFixer, BmbParameter, BmbUnburstify}
+import spinal.lib.bus.bmb.{BmbAccessParameter, BmbLengthFixer, BmbParameter, BmbSourceParameter, BmbUnburstify}
 
 class SpinalSimBmbUnburstifyTester extends FunSuite {
   test("miaou") {
-    SimConfig.withWave.compile {
+    SimConfig.compile {
       val c = BmbUnburstify(
-        inputParameter = BmbParameter(
+        inputParameter = BmbAccessParameter(
           addressWidth = 16,
-          dataWidth = 32,
+          dataWidth = 32
+        ).addSources(16, BmbSourceParameter(
           lengthWidth = 6,
-          sourceWidth = 4,
           contextWidth = 3,
           alignmentMin = 2,
           canRead = true,
           canWrite = true,
           alignment = BmbParameter.BurstAlignement.WORD
-        )
+        )).toBmbParameter()
       )
       c
     }.doSimUntilVoid("test") { dut =>
@@ -28,7 +28,7 @@ class SpinalSimBmbUnburstifyTester extends FunSuite {
         masterCd = dut.clockDomain,
         slave = dut.io.output,
         slaveCd = dut.clockDomain,
-        alignmentMinWidth = dut.inputParameter.alignmentMin,
+        alignmentMinWidth = dut.inputParameter.access.alignmentMin,
         rspCountTarget = 1000
       )
     }

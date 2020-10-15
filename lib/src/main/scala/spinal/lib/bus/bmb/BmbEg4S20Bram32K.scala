@@ -6,16 +6,11 @@ import spinal.lib.misc.BinTools
 import spinal.lib.blackbox.anlogic.eagle.EG_PHY_BRAM32K
 
 object BmbEg4S20Bram32K{
-  def busCapabilities(size : BigInt) = BmbParameter(
-    addressWidth  = log2Up(size),
-    dataWidth     = 32,
-    lengthWidth   = 2,
-    sourceWidth   = Int.MaxValue,
-    contextWidth  = Int.MaxValue,
-    canRead       = true,
-    canWrite      = true,
-    alignment     = BmbParameter.BurstAlignement.LENGTH,
-    maximumPendingTransactionPerId = Int.MaxValue
+  def busCapabilities(size : BigInt) = BmbAccessCapabilities(
+    addressWidth   = log2Up(size),
+    dataWidth      = 32,
+    lengthWidthMax = 2,
+    alignment      = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -26,9 +21,9 @@ case class BmbEg4S20Bram32K(p: BmbParameter,
     val bus = slave(Bmb(p))
   }
 
-  assert(p.addressWidth >= 13)
+  assert(p.access.addressWidth >= 13)
   val bankSel = io.bus.cmd.address >> 13
-  val bankCount = 1 << (p.addressWidth - 13)
+  val bankCount = 1 << (p.access.addressWidth - 13)
 
   val banks = for(bankId <- 0 until bankCount) yield new Area {
 

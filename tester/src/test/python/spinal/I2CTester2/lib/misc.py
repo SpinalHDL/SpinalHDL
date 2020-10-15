@@ -117,7 +117,7 @@ class I2cSoftMaster:
         if ret != None :
             ret[0] = 0
         buffer = [False]
-        for i in xrange(8):
+        for i in range(8):
             yield self.sendBit(testBit(value,7-i),buffer)
             if ret != None:
                 ret[0] |= buffer[0] << (7-i)

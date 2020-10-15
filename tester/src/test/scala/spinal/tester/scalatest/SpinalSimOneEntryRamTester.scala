@@ -7,7 +7,7 @@ import spinal.lib._
 
 class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   test("general") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) randBoot()
       val writePort = slave(mem.writePort)
       val readSyncPort = slave(mem.readSyncPort)
@@ -49,7 +49,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   }
 
   test("rwPort") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) randBoot()
       val readWrite = new Area {
         val address = U""
@@ -103,7 +103,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   }
 
   test("rom") {
-    SimConfig.withWave.doSim(new Component {
+    SimConfig.doSim(new Component {
       val mem = Mem(Bits(8 bits), 1) init (Seq(B"xAA"))
       val readSyncPort = slave(mem.readSyncPort)
       val readAsyncPort = new Area {
@@ -133,6 +133,58 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
         assert(dut.readAsyncPort.data.toInt == ramModel)
         ()
       }
+    }
+  }
+}
+
+
+class SpinalSimRamTester extends FunSuite {
+  test("general") {
+    SimConfig.withConfig(SpinalConfig(device = Device.XILINX)).compile(new Component {
+      val ram = Mem(Bits(32 bits), 256)
+
+      val wrEnable = in Bool()
+      val wrAddress = in UInt(8 bits)
+      val wrData = in Bits(32 bits)
+      val wrMask = in Bits(4 bits)
+
+      ram.write(wrAddress, wrData, wrEnable, wrMask)
+
+      val rdAddress = in UInt(8 bits)
+      val rdData = out Bits(32 bits)
+      rdData := ram.readAsync(rdAddress)
+    }).doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+
+      def wr(address : Int, data : Long, mask : Long): Unit ={
+        dut.clockDomain.waitSampling()
+        dut.wrEnable #= true
+        dut.wrAddress #= address
+        dut.wrData #= data
+        dut.wrMask #= mask
+        dut.clockDomain.waitSampling()
+      }
+
+      wr(42, 0x00112233l, 0x1)
+      wr(43, 0x44556677l, 0x3)
+      wr(44, 0x8899AABBl, 0xF)
+      wr(42, 0xFFFFFFFFl, 0xE)
+      wr(43, 0xFFFFFFFFl, 0xC)
+      wr(44, 0xFFFFFFFFl, 0x0)
+
+      dut.clockDomain.waitSampling()
+      dut.clockDomain.waitSampling()
+
+      def rdCheck(address : Int, data : Long, mask : Long): Unit ={
+        dut.rdAddress #= address
+        sleep(1)
+        assert((dut.rdData.toLong & mask) == (data & mask))
+      }
+
+      rdCheck(42, 0x00112233l, 0x000000FF)
+      rdCheck(43, 0x44556677l, 0x0000FFFF)
+      rdCheck(44, 0x8899AABBl, 0xFFFFFFFF)
     }
   }
 }

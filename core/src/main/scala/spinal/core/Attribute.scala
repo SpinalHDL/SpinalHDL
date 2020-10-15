@@ -63,5 +63,13 @@ object Verilator{
   object public extends AttributeFlag("verilator public", COMMENT_ATTRIBUTE){
     override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
   }
+
+  object tracing_off extends AttributeFlag("verilator tracing_off", COMMENT_ATTRIBUTE){
+    override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
+  }    
+
+  object tracing_on extends AttributeFlag("verilator tracing_on", COMMENT_ATTRIBUTE){
+    override def isLanguageReady(language: Language) : Boolean = language == Language.VERILOG || language == Language.SYSTEM_VERILOG
+  } 
 }
 

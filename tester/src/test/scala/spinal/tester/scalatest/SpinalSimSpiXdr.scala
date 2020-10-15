@@ -40,7 +40,7 @@ class SpinalSimSpiXdrMaster extends FunSuite {
     import env._
     var compiled: SimCompiled[SpiXdrMasterCtrl.TopLevel] = null
     test(prefix + "compile") {
-      compiled = SimConfig.withWave.withConfig(SpinalConfig(verbose = true)).compile(
+      compiled = SimConfig.withConfig(SpinalConfig(verbose = true)).compile(
         SpiXdrMasterCtrl(
           SpiXdrMasterCtrl.Parameters(8, 12, SpiXdrParameter(dataWidth = 4, ioRate = 2, ssWidth = 3))
             .addFullDuplex(0, rate = 1, ddr = false)

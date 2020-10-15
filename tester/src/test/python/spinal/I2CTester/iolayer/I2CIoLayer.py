@@ -143,7 +143,7 @@ class I2CIoLayerAnalyser:
                             pass
                         elif (isinstance(ref, WRITE) or isinstance(ref, READ)) and isinstance(op, DATA):
                             if ref.data != op.data:
-                                print("ref ", hex(ref.data), " op ", hex(op.data))
+                                print(("ref ", hex(ref.data), " op ", hex(op.data)))
                                 assertEquals(ref.data , op.data , "Analyser data ERROR")
 
                         else:

@@ -85,13 +85,12 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-
+object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
 
 
-class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady {
-
+class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
   if(parentScope != null) parentScope.append(this)
 
   var forceMemToBlackboxTranslation = false
@@ -121,6 +120,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     forceMemToBlackboxTranslation = true
     this
   }
+
+
+  override def getComponent(): Component = parentScope.component
 
   var initialContent: Array[BigInt] = null
 //  private[core] def checkInferedWidth: Unit = {
@@ -790,3 +792,9 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
+
+case class MemSymbolesMapping(name : String, range: Range){
+  val width = range.size
+  val mask = BigInt(1 << width) - 1
+}
+case class MemSymbolesTag(mapping : Seq[MemSymbolesMapping]) extends SpinalTag

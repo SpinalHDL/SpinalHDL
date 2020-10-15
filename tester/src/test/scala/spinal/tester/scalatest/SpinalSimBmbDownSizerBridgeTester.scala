@@ -14,7 +14,7 @@ import scala.util.Random
 
 class SpinalSimBmbDownSizerBridgeTester extends SpinalSimFunSuite{
   test("test1"){
-    SimConfig.withWave.compile{
+    SimConfig.compile{
       BmbDownSizerBridge(
         inputParameter = BmbParameter(
           addressWidth = 16,
@@ -30,8 +30,8 @@ class SpinalSimBmbDownSizerBridgeTester extends SpinalSimFunSuite{
           addressWidth = 16,
           dataWidth = 16,
           lengthWidth = 5,
-          sourceWidth = 0,
-          contextWidth = 3+1+4,
+          sourceWidth = 4,
+          contextWidth = 3+1,
           canRead =  true,
           canWrite = true,
           alignment = BmbParameter.BurstAlignement.BYTE
@@ -61,7 +61,7 @@ class SpinalSimBmbDownSizerBridgeTester extends SpinalSimFunSuite{
       )
       BmbDownSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter, 16)
+        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter.access, 16).toBmbParameter()
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(
@@ -87,7 +87,7 @@ class SpinalSimBmbDownSizerBridgeTester extends SpinalSimFunSuite{
       )
       BmbDownSizerBridge(
         inputParameter = inputParameter,
-        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter, 32)
+        outputParameter = BmbDownSizerBridge.outputParameterFrom(inputParameter.access, 32).toBmbParameter()
       )
     }.doSimUntilVoid("test") { dut =>
       new BmbBridgeTester(

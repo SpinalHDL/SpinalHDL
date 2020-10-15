@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.{StreamFifoMultiChannel, master, slave}
 import spinal.lib.bus.bmb.sim.{BmbInterconnectTester, BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester}
-import spinal.lib.bus.bmb.{Bmb, BmbDecoder, BmbDecoderOutOfOrder, BmbParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbParameter, BmbSourceParameter}
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 
@@ -17,7 +17,7 @@ import scala.util.Random
 
 
 class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
-  def doIt(outputCount : Int, sourceCount : Int): Unit ={
+  def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
     val p = BmbParameter(
       addressWidth = 20,
       dataWidth    = 32,
@@ -27,8 +27,8 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
     )
     SimConfig.compile(new BmbDecoderOutOfOrder(
       p             = p,
-      mappings      = Seq(DefaultMapping) ++ Seq.tabulate(outputCount)(e => SizeMapping(0x40000*e, 0x40000)),
-      capabilities  = Seq.fill(outputCount + 1)(p),
+      mappings      = Seq.tabulate(outputCount)(e => if(e == 0 && withDefault) DefaultMapping else SizeMapping(0x40000*e, 0x40000)),
+      capabilities  = Seq.fill(outputCount)(p),
       pendingRspTransactionMax = 64
     )).doSimUntilVoid(seed = 42) { dut =>
       SimTimeout(10000000)
@@ -45,10 +45,50 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       )
     }
   }
-  test("2p_4s") {doIt(1, 4)}
-  test("4p_4s") {doIt(3, 4)}
-  test("2p_8s") {doIt(1, 8)}
-  test("4p_8s") {doIt(3, 8)}
+  test("2p_4s") {doIt(2, 4, false)}
+  test("4p_4s") {doIt(4, 4, false)}
+  test("2p_8s") {doIt(2, 8, false)}
+  test("4p_8s") {doIt(4, 8, false)}
+  test("2p_4s_wd") {doIt(2, 4, true)}
+  test("4p_4s_wd") {doIt(4, 4, true)}
+  test("2p_8s_wd") {doIt(2, 8, true)}
+  test("4p_8s_wd") {doIt(4, 8, true)}
+
+  test("mixed"){
+    val ap = BmbAccessParameter(
+      addressWidth = 20,
+      dataWidth    = 32
+    )
+    for(i <- List(1,9,5,6,4)){
+//    for(i <- List(0,1,2,3,4,5)){
+      ap.sources(i) = BmbSourceParameter(
+        lengthWidth  = 6,
+        contextWidth = 16
+      )
+    }
+    val p = ap.toBmbParameter()
+    val outputCount = 4
+    val withDefault = false
+    SimConfig.compile(new BmbDecoderOutOfOrder(
+      p             = p,
+      mappings      = Seq.tabulate(outputCount)(e => if(e == 0 && withDefault) DefaultMapping else SizeMapping(0x40000*e, 0x40000)),
+      capabilities  = Seq.fill(outputCount)(p),
+      pendingRspTransactionMax = 64
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(10000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.perSourceRspCountTarget = 10000
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
 }
 
 
