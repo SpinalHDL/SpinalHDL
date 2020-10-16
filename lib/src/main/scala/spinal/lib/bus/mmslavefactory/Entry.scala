@@ -181,6 +181,7 @@ class ReadOnlyEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) 
 
   override def onWriteReq(): Unit = {
     writeAccept := True
+    bus.writeAccept()
     bus.writeRespond(true)
   }
 
