@@ -7,7 +7,7 @@ import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.amba4.axilite.AxiLite4B
 import spinal.lib.bus.amba4.axilite.AxiLite4R
 
-case class AxiLite4MMSlaveFactory(bus: AxiLite4, sizeMap: SizeMapping, selId: Int = 0, readSync: Boolean = true) extends MMSlaveFactory {
+case class AxiLite4MMSlaveFactory(bus: AxiLite4, sizeMap: SizeMapping, selId: Int = 0) extends MMSlaveFactory {
 
   val readError = Bool()
   val readRespStream = Stream(AxiLite4R(bus.config))
