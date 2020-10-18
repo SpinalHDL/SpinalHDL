@@ -9,7 +9,7 @@ import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter}
 import spinal.lib.com.usb._
 import spinal.lib.com.usb.ohci._
-import spinal.lib.com.usb.phy.UsbLsFs.TxKind
+import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy}
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 import spinal.lib.sim._
 
@@ -81,12 +81,27 @@ class SpinalSimUsbHostTester extends FunSuite{
       noPowerSwitching = true,
       powerSwitchingMode = true,
       noOverCurrentProtection = true,
-      overCurrentProtectionMode = true,
       powerOnToPowerGoodTime = 10,
-      localPowerStatus = true,
       fsRatio = 4,
-      dataWidth = 32
+      dataWidth = 32,
+      portCount = 1
     )
+
+    class UsbOhciTbTop extends Component {
+      val ohci = UsbOhci(p, BmbParameter(
+        addressWidth = 12,
+        dataWidth = 32,
+        sourceWidth = 0,
+        contextWidth = 0,
+        lengthWidth = 2
+      ))
+
+      val phy = UsbLsFsPhy(p.portCount, p.fsRatio)
+
+      val ctrl = propagateIo(ohci.io.ctrl)
+      ohci.io.phy <> phy.io.ctrl
+      val usb = propagateIo(phy.io.usb)
+    }
 
     SimConfig.withFstWave.compile(
       UsbOhci(p, BmbParameter(
@@ -103,7 +118,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.onSamplings{
         if(txBusy == 0) {
           dut.io.phy.tx.ready #= false
-          if (dut.io.phy.tx.kind.toEnum != TxKind.NONE) {
+          if (dut.io.phy.tx.valid.toBoolean) {
             txBusy = 1
           }
         } else {
@@ -237,11 +252,10 @@ object UsbHostSynthesisTest {
           noPowerSwitching = true,
           powerSwitchingMode = true,
           noOverCurrentProtection = true,
-          overCurrentProtectionMode = true,
           powerOnToPowerGoodTime = 10,
-          localPowerStatus = true,
           fsRatio = 4,
-          dataWidth = 32
+          dataWidth = 32,
+          portCount = 1
         )
         UsbOhci(p, BmbParameter(
           addressWidth = 12,
