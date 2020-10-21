@@ -98,7 +98,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
   def timerInterrupt(id : Int) = logic.derivate(_.io.timerInterrupt(id))
   def softwareInterrupt(id : Int) = logic.derivate(_.io.softwareInterrupt(id))
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
     accessRequirements = accessRequirements,
@@ -176,7 +176,7 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   }
 
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(BmbSlaveFactory.getBmbCapabilities(
       _,
@@ -199,7 +199,7 @@ object BmbBridgeGenerator{
 
 
 
-class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
+class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
                         (implicit interconnect: BmbInterconnectGenerator) extends Generator {
   val accessSource = Handle[BmbAccessCapabilities]
   val invalidationSource = Handle[BmbInvalidationParameter]

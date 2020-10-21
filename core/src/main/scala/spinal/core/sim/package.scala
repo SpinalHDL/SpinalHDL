@@ -157,6 +157,7 @@ package object sim {
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
+  def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
@@ -742,7 +743,7 @@ package object sim {
     def isResetAsserted: Boolean         = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDeasserted: Boolean       =  ! isResetAsserted
 
-    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
     def isClockEnableDeasserted: Boolean = ! isClockEnableAsserted
 
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted

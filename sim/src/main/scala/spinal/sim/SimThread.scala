@@ -2,7 +2,9 @@ package spinal.sim
 
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
+case class SimThreadUnschedule() extends Exception
 class SimThread(body: => Unit) {
   private val manager = SimManagerContext.current.manager
   var waitingThreads = ArrayBuffer[() => Unit]()
@@ -27,7 +29,8 @@ class SimThread(body: => Unit) {
     if (!cond) {
       manager.sensitivities += new SimManagerSensitive {
         override def update() = {
-          if (cond) {
+          Thread.currentThread()
+          if (cond || isDone) {
             manager.schedule(0, SimThread.this)
             false
           } else {
@@ -47,6 +50,9 @@ class SimThread(body: => Unit) {
     jvmThread.barrier.await()
     jvmThread.park()
     manager.context.thread = SimThread.this
+    if(isDone) {
+      throw SimThreadUnschedule()
+    }
   }
 
   def resume(): Unit = {
@@ -66,17 +72,28 @@ class SimThread(body: => Unit) {
   }
 
   var done = false
+  def terminate(): Unit ={
+    if(manager.context.thread == this) {
+      throw SimThreadUnschedule()
+    } else {
+      done = true
+    }
+  }
+
+  val seed = Random.nextLong()
   val jvmThread = manager.newJvmThread {
     manager.setupJvmThread(Thread.currentThread())
     SimManagerContext.threadLocal.set(mainContext)
     manager.context.thread = SimThread.this
     try {
+      Random.setSeed(seed)
       body
     } catch {
       case e : JvmThreadUnschedule =>
         manager.context.thread = null
         done = true
         throw e
+      case e : SimThreadUnschedule =>
       case e : Throwable =>
         exception = e
     }

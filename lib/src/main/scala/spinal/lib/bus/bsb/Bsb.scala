@@ -4,7 +4,8 @@ import spinal.core._
 import spinal.lib._
 case class BsbParameter(byteCount : Int,
                         sourceWidth : Int,
-                        sinkWidth : Int){
+                        sinkWidth : Int,
+                        withMask : Boolean = true){
 
 }
 

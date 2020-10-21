@@ -13,4 +13,10 @@ case class Rgb(c: RgbConfig) extends Bundle{
   val r = UInt(c.rWidth bits)
   val g = UInt(c.gWidth bits)
   val b = UInt(c.bWidth bits)
+
+  def clear(): Unit ={
+    r := 0
+    g := 0
+    b := 0
+  }
 }

@@ -51,7 +51,7 @@ object UIntToOh {
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: Seq[Bool]): UInt = {
+  def apply(bools: Seq[Bool]): UInt = signalCache(bools, "OHToUInt") {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0,0 bits)
 

@@ -15,6 +15,7 @@ class VerilatorBackendConfig{
   var signals                = ArrayBuffer[Signal]()
   var optimisationLevel: Int = 2
   val rtlSourcesPaths        = ArrayBuffer[String]()
+  val rtlIncludeDirs         = ArrayBuffer[String]()
   var toplevelName: String   = null
   var workspacePath: String  = null
   var workspaceName: String  = null
@@ -23,7 +24,9 @@ class VerilatorBackendConfig{
   var waveFormat             : WaveFormat = WaveFormat.NONE
   var waveDepth:Int          = 1 // 0 => all
   var simulatorFlags         = ArrayBuffer[String]()
+  var withCoverage           = false
 }
+
 
 class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   import Backend._
@@ -54,6 +57,7 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 #include <string>
 #include <memory>
 #include <jni.h>
+#include <iostream>
 
 #include "V${config.toplevelName}.h"
 #ifdef TRACE
@@ -199,19 +203,27 @@ public:
 class Wrapper_${uniqueId};
 thread_local Wrapper_${uniqueId} *simHandle${uniqueId};
 
+#include <chrono>
+using namespace std::chrono;
+
 class Wrapper_${uniqueId}{
 public:
     uint64_t time;
+    high_resolution_clock::time_point lastFlushAt;
+    uint32_t timeCheck;
     bool waveEnabled;
     V${config.toplevelName} top;
     ISignalAccess *signalAccess[${config.signals.length}];
     #ifdef TRACE
 	  Verilated${format.ext.capitalize}C tfp;
 	  #endif
+    string name;
 
     Wrapper_${uniqueId}(const char * name){
       simHandle${uniqueId} = this;
       time = 0;
+      timeCheck = 0;
+      lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
 ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
@@ -225,6 +237,7 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       top.trace(&tfp, 99);
       tfp.open((std::string("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".${format.ext}").c_str());
       #endif
+      this->name = name;
     }
 
     virtual ~Wrapper_${uniqueId}(){
@@ -235,6 +248,9 @@ ${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
       #ifdef TRACE
       if(waveEnabled) tfp.dump((vluint64_t)time);
       tfp.close();
+      #endif
+      #ifdef COVERAGE
+      VerilatedCov::write((("${new File(config.vcdPath).getAbsolutePath.replace("\\","\\\\")}/${if(config.vcdPrefix != null) config.vcdPrefix + "_" else ""}") + name + ".dat").c_str());
       #endif
     }
 
@@ -278,7 +294,19 @@ JNIEXPORT jboolean API JNICALL ${jniPrefix}eval_1${uniqueId}
 JNIEXPORT void API JNICALL ${jniPrefix}sleep_1${uniqueId}
   (JNIEnv *, jobject, Wrapper_${uniqueId} *handle, uint64_t cycles){
   #ifdef TRACE
-  if(handle->waveEnabled) handle->tfp.dump((vluint64_t)handle->time);
+  if(handle->waveEnabled) {
+    handle->tfp.dump((vluint64_t)handle->time);
+  }
+  handle->timeCheck++;
+  if(handle->timeCheck > 10000){
+    handle->timeCheck = 0;
+    high_resolution_clock::time_point timeNow = high_resolution_clock::now();
+    duration<double, std::milli> time_span = timeNow - handle->lastFlushAt;
+    if(time_span.count() > 1e3){
+      handle->lastFlushAt = timeNow;
+      handle->tfp.flush();
+    }
+  }
   #endif
   handle->time += cycles;
 }
@@ -389,6 +417,14 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case WaveFormat.NONE => ""
     }
 
+    val covArgs = config.withCoverage match {
+      case true =>  "-CFLAGS -DCOVERAGE --coverage"
+      case false => ""
+    }
+
+    val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
+
+
     val verilatorScript = s""" set -e ;
        | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
@@ -407,8 +443,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -O3
        | -CFLAGS -O${config.optimisationLevel}
        | $waveArgs
+       | $covArgs
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
+       | $rtlIncludeDirsArgs
        | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
                                                   e.endsWith(".sv") || 
                                                   e.endsWith(".h"))

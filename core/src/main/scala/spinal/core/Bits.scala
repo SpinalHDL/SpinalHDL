@@ -228,4 +228,5 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
+  def reversed = B(asBools.reverse)
 }

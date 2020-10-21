@@ -113,6 +113,18 @@ case class SparseMemory(){
     }
     content(idx)
   }
+  def write(address : Long, data : Int) : Unit = {
+    for(i <- 0 to 3) {
+      val a = address + i
+      getElseAlocate((a >> 20).toInt)(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+    }
+  }
+  def write(address : Long, data : Long) : Unit = {
+    for(i <- 0 to 7) {
+      val a = address + i
+      getElseAlocate((a >> 20).toInt)(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+    }
+  }
 
   def write(address : Long, data : Byte) : Unit = {
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF) = data
@@ -120,6 +132,15 @@ case class SparseMemory(){
 
   def read(address : Long) : Byte = {
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
+  }
+
+  def readInt(address : Long) : Int = {
+    var value = 0
+    for(i <- 0 until 4) value |= (read(address + i).toInt & 0xFF) << i*8
+    return value
+  }
+  def writeInt(address : Long, data : Int) : Unit = {
+    for(i <- 0 until 4) write(address + i, data >> 8*i)
   }
 
   def loadBin(offset : Long, file : String): Unit ={
@@ -140,7 +161,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     while(tryies < 10){
 
       val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < size) {
         allocations += region
         return region
       }
@@ -153,7 +174,21 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     while(tryies < 10){
 
       val region = SizeMapping(sizeRand() + base, size)
-      if(allocations.forall(r => r.base > region.end || r.end < region.base)) {
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+
+  def allocateAligned(size : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base & ~(size-1), size)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
         allocations += region
         return region
       }

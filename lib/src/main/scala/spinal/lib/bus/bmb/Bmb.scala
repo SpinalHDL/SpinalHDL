@@ -382,7 +382,11 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
 
   def transferBeatCountMinusOne : UInt = {
     if(!p.access.alignment.allowByte){
-      length(length.high downto log2Up(p.access.byteCount))
+      if(p.access.lengthWidth < log2Up(p.access.byteCount)){
+        U""
+      } else {
+        length(length.high downto log2Up(p.access.byteCount))
+      }
     } else {
       ((U"0" @@ length) + address(p.access.wordRange))(length.high + 1 downto log2Up(p.access.byteCount))
     }

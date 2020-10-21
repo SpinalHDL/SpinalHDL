@@ -3,13 +3,14 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.lattice.ecp5.{IDDRX1F, IFS1P3BX, ODDRX1F, OFS1P3BX, Ulx3sUsrMclk}
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.eth.Mdio
-import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
+import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind, SpiMaster}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
@@ -123,6 +124,88 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
     spi
   }
 
+  def lazySclk(ssIdle : Int, sclkValue : Boolean) = {
+    val ret = cloneOf(this)
+
+    ret.sclk.write := ((ss =/= ssIdle) ? this.sclk.write | B(if(sclkValue) (1 << p.ssWidth) - 1 else 0))
+    for((s,m) <- (ret.data, this.data).zipped){
+      s.write := m.write
+      s.writeEnable := m.writeEnable
+      m.read := s.read
+    }
+    ret.ss := this.ss
+
+    ret
+  }
+
+  def toSpiEcp5(): SpiMaster = {
+    val spi = SpiMaster(
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    assert(p.ioRate == 1)
+
+    def outputFF(that: Bool): Bool = {
+                val oFF = OFS1P3BX()
+                oFF.PD := False
+                oFF.SP := True
+                oFF.D := that
+                oFF.Q
+    }
+
+    spi.sclk := outputFF(sclk.write(0))
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
+
+    spi
+  }
+
+
+  def toSpiEcp5Flash(): SpiMaster = {
+    val spi = SpiMaster(
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    assert(p.ioRate == 1)
+
+    def outputFF(that: Bool): Bool = {
+      val oFF = OFS1P3BX()
+      oFF.PD := False
+      oFF.SP := True
+      oFF.D := that
+      oFF.Q
+    }
+
+    spi.sclk := RegNext(sclk.write(0))
+    Component.current.afterElaboration(spi.sclk.setAsDirectionLess())
+    val usrMclk = Ulx3sUsrMclk()
+    usrMclk.USRMCLKTS := False
+    usrMclk.USRMCLKI := spi.sclk
+
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
+
+    spi
+  }
+
   def toMdio(): Mdio ={
     val ctrl = Mdio()
 
@@ -213,7 +296,7 @@ object SpiXdrMasterCtrl {
 
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8, lateSampling : Boolean = true): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true, lateSampling = lateSampling)
     def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false, lateSampling : Boolean = true): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
@@ -370,11 +453,12 @@ object SpiXdrMasterCtrl {
 
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
-        cmd << stream.stage()
+        cmd <-/< stream
       } else {
         cmd << stream
       }
       bus.read(fifoAvailability, address = baseAddress + 4, 0)
+      bus.read(cmd.valid, address = baseAddress + 12, 16)
     }
 
     //RSP
