@@ -330,8 +330,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     val io = cloneOf(childIo)
 
     (io.flatten, childIo.flatten).zipped.foreach{(a,b) => b.dir match {
-      case `in` => b.asInput()
-      case `out` => b.asOutput()
+      case `in` => a.asInput()
+      case `out` => a.asOutput()
     }}
 
     io <> childIo
