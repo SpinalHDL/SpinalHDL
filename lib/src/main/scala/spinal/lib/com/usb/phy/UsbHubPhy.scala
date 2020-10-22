@@ -29,9 +29,14 @@ case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
     val rcv = Bool()
   }
 
+  val overcurrent = Bool()
+  val power = Bool()
+
   override def asMaster(): Unit = {
     out(tx)
     in(rx)
+    in(overcurrent)
+    out(power)
   }
 }
 
@@ -116,6 +121,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
       val oneCycle = cycles(1)
       val twoCycle = cycles(2)
       val fourCycle = cycles(4)
+
+      lowSpeed.assignDontCare() //TODO
     }
 
     val encoder = new Area {
@@ -142,24 +149,25 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
         output.valid := input.valid
         output.lowSpeed := input.lowSpeed
         timer.lowSpeed := input.lowSpeed
-        when(counter === 5) {
+        when(counter === 6) {
           output.data := !state
           when(timer.oneCycle) {
             counter := 0;
             state := !state
+            timer.clear := True
           }
         } otherwise {
           when(input.data) {
             output.data := state
             when(timer.oneCycle) {
               counter := counter + 1;
-              input.ready := True;
+              input.ready := True
             }
           } otherwise {
             output.data := !state
             when(timer.oneCycle) {
               counter := 0;
-              input.ready := True;
+              input.ready := True
               state := !state
             }
           }
@@ -180,7 +188,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
       val input = new Area{
         val valid = False
         val ready = False
-        val data = Bits(8 bits)
+        val data = Bits(8 bits) assignDontCare()
         val lowSpeed = Bool().assignDontCare()
       }
 
@@ -231,6 +239,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
 
       val busy = this.isStarted
 
+
       def doByte(current : State, value : Bits, lowSpeed : Bool, next : State): Unit = current.whenIsActive{
         serialiser.input.valid := True
         serialiser.input.data := value
@@ -266,6 +275,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
 
       doByte(SYNC, 0x80,io.ctrl.lowSpeed, DATA)
 
+      io.ctrl.tx.ready := False
       DATA whenIsActive {
         serialiser.input.valid := True
         serialiser.input.data := io.ctrl.tx.fragment
@@ -294,7 +304,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
           goto(EOP_2)
         }
       }
-      EOP_0 whenIsActive {
+      EOP_2 whenIsActive {
         when(timer.oneCycle) {
           timer.clear := True
           goto(IDLE)
@@ -303,13 +313,17 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
     }
   }
 
+
+  io.ctrl.overcurrent := False
+
   val ports = for((usb, ctrl) <- (io.usb, io.ctrl.ports).zipped) yield new Area{
     val connected = Reg(Bool) init(False)
-    val lowSpeed = Reg(Bool)
+    val lowSpeed = Reg(Bool) init(False) //TODO
     val enable = Reg(Bool)
 
     ctrl.connected := connected
     ctrl.lowSpeed := lowSpeed
+    ctrl.remoteResume := False //TODO
 
     val filter = UsbLsFsPhyFilter(fsRatio)
     filter.io.usb.dp := usb.rx.dp
@@ -325,8 +339,15 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
       val j = filter.io.filtred.dp === !lowSpeed && filter.io.filtred.dm ===  lowSpeed
       val k = filter.io.filtred.dp ===  lowSpeed && filter.io.filtred.dm === !lowSpeed
 
+      usb.power := ctrl.power
+      ctrl.overcurrent := usb.overcurrent
+
       val decoder = new Area{
-        val state = Reg(Bool) init(???)
+        val state = Reg(Bool) init(True) //TODO reset
+        val clear = False
+        when(clear){
+          state := True
+        }
 
         val output = Flow(Bool)
         output.valid := False
@@ -407,6 +428,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
         }
       }
 
+      decoder.clear setWhen(eop.hit)
+
 
       val packet = new StateMachine {
         val IDLE, PACKET = new State
@@ -445,7 +468,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
       val POWER_OFF, DISCONNECTED, DISABLED, RESETTING, ENABLED, SUSPENDED, RESUMING, SEND_EOP_0, SEND_EOP_1, RESTART_S, RESTART_E  = new State
       setEntry(POWER_OFF)
 
-      val disconnectDetect = Bool()
+      val disconnectDetect = False //TODO
       val timer = new Timer(30e-3){
         val DISCONNECTED_EOI = trigger(500e-6)
         val RESET_EOI = trigger(51e-3)
@@ -455,7 +478,15 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int) extends Component {
         this.lowSpeed := True //RESUME
       }
 
-      ctrl.disable.ready := True
+      ctrl.disable.ready := True //TODO
+      ctrl.reset.ready := False   //TODO
+      ctrl.resume.ready := False  //TODO
+      ctrl.suspend.ready := False  //TODO
+
+      usb.tx.enable := False
+      usb.tx.data  assignDontCare()
+      usb.tx.se0   assignDontCare()
+
       always{
         when(!ctrl.power){
           goto(POWER_OFF)

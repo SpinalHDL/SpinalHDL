@@ -38,6 +38,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val phy = master(UsbHubLsFs.Ctrl(p.portCount))
     val dma = master(Bmb(UsbOhci.dmaParameter(p)))
   }
+  io.phy.lowSpeed := False
 
   io.dma.cmd.valid := False
   io.dma.cmd.payload.assignDontCare()
@@ -672,7 +673,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isFs = !S
       val isLs =  S
 
-      io.phy.lowSpeed := S
+      when(isStarted){
+        io.phy.lowSpeed := S
+      }
     }
 
     val TD = new Area{
