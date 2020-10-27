@@ -75,6 +75,13 @@ object SizeMapping{
   }
 }
 
+object AllMapping extends AddressMapping{
+  override def hit(address: UInt): Bool = True
+  override def removeOffset(address: UInt): UInt = address
+  override def lowerBound: BigInt = 0
+  override def applyOffset(addressOffset: BigInt): AddressMapping = ???
+}
+
 object DefaultMapping extends AddressMapping{
   override def hit(address: UInt): Bool = ???
   override def removeOffset(address: UInt): UInt = ???
@@ -107,4 +114,6 @@ case class SizeMapping(base: BigInt, size: BigInt) extends AddressMapping {
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = SizeMapping(base + addressOffset, size)
   def overlap(that : SizeMapping) = this.base < that.base + that.size && this.base + this.size > that.base
+
+  override def toString: String = f"$base%x $size%x"
 }

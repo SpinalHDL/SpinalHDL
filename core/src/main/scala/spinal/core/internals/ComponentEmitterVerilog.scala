@@ -23,6 +23,7 @@ package spinal.core.internals
 import java.io.File
 
 import spinal.core._
+import spinal.core.sim.{SimPublic, TracingOff}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -76,12 +77,10 @@ class ComponentEmitterVerilog(
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
         portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
-//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
       } else {
         val siginit = if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)
         val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
         portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${siginit}${EDAcomment}${comma}"
-//        portMaps += s"${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
       }
     }
   }
@@ -211,6 +210,15 @@ class ComponentEmitterVerilog(
   }
 
   def emitSubComponents(openSubIo: mutable.HashSet[BaseType]): Unit = {
+    //Fixing the spacing
+    def netsWithSection(data: BaseType): String = {
+      if(openSubIo.contains(data)) ""
+      else {
+        val wireName = emitReference(data, false)
+        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        wireName + section
+      }
+    }
 
     for (child <- component.children) {
       val isBB             = child.isInstanceOf[BlackBox] && child.asInstanceOf[BlackBox].isBlackBox
@@ -218,6 +226,12 @@ class ComponentEmitterVerilog(
       val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef, child, child).definitionName
 
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
+
+      val istracingOff = child.hasTag(TracingOff)
+
+      if(istracingOff){
+        logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_off))} \n"
+      }
 
       logics ++= s"  $instanceAttributes$definitionString "
 
@@ -242,29 +256,9 @@ class ComponentEmitterVerilog(
         }
       }
 
-      //Fixing the spacing
-      def netsWithSection(data: BaseType): String = {
-        if(openSubIo.contains(data)) ""
-        else {
-          val wireName = emitReference(data, false)
-          val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
-          wireName + section
-        }
-      }
-
       val maxNameLength: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => emitReferenceNoOverrides(data).length()).max
 
       val maxNameLengthCon: Int = if(child.getOrdredNodeIo.isEmpty) 0 else child.getOrdredNodeIo.map(data => netsWithSection(data).length()).max
-
-//      var maxNameLength = 0
-//      for(data <- child.getOrdredNodeIo) {
-//        if (emitReferenceNoOverrides(data).toString.length() > maxNameLength) maxNameLength = emitReferenceNoOverrides(data).toString.length()
-//      }
-//      var maxNameLengthCon = 0
-//      for(data <- child.getOrdredNodeIo) {
-//        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
-//        if (logic.toString.length() > maxNameLengthCon) maxNameLengthCon = logic.toString.length()
-//      }
 
       logics ++= s"${child.getName()} (\n"
 
@@ -281,9 +275,14 @@ class ComponentEmitterVerilog(
         s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
       }.mkString
 
+
       logics ++= instports
       logics ++= s"  );"
       logics ++= s"\n"
+
+      if(istracingOff){
+        logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_on))} \n"
+      }
     }
   }
 
@@ -660,12 +659,15 @@ class ComponentEmitterVerilog(
 
                   b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
                   switchStatement.elements.foreach(element => {
-                    b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
-                    if (nextScope == element.scopeStatement) {
-                      statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
-                      nextScope = findSwitchScope()
+                    val hasStuff = nextScope == element.scopeStatement
+                    if(hasStuff || switchStatement.defaultScope != null) {
+                      b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                      if (hasStuff) {
+                        statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
+                        nextScope = findSwitchScope()
+                      }
+                      b ++= s"${tab}  end\n"
                     }
-                    b ++= s"${tab}  end\n"
                   })
                   b ++= s"${tab}  default : begin\n"
                   if (nextScope == switchStatement.defaultScope) {
@@ -879,8 +881,6 @@ class ComponentEmitterVerilog(
 
   def emitMem(mem: Mem[_]): Unit ={
 
-    def emitDataType(mem: Mem[_], constrained: Boolean = true) =  s"${emitReference(mem, constrained)}_type"
-
     //ret ++= emitSignal(mem, mem);
     val symbolWidth = mem.getMemSymbolWidth()
     val symbolCount = mem.getMemSymbolCount()
@@ -918,10 +918,14 @@ class ComponentEmitterVerilog(
     }
 
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+      val mappings = ArrayBuffer[MemSymbolesMapping]()
       for(i <- 0 until symbolCount) {
           val postfix = "_symbol" + i
-        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] ${emitReference(mem,false)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        val symboleName = s"${emitReference(mem,false)}$postfix"
+        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] $symboleName [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
+        mappings += MemSymbolesMapping(symboleName, i*symbolWidth until (i+1)*symbolWidth)
       }
+      mem.addTag(MemSymbolesTag(mappings))
     }else{
       declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
     }

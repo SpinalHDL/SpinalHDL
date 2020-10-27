@@ -304,12 +304,12 @@ void sanitize_byte_str(char* byte_str){
     } 
 }
 
-bool read_cmd(){
+bool read_cmd_raw(vpiHandle handle){
 
     s_vpi_value value_struct;
     value_struct.format = vpiBinStrVal;
     shared_struct->data.clear();
-    vpi_get_value((vpiHandle)shared_struct->handle.load(), &value_struct);
+    vpi_get_value(handle, &value_struct);
     if(check_error()) return true;
     size_t valueStrLen = strlen(value_struct.value.str);
 
@@ -357,7 +357,21 @@ bool read_cmd(){
     return false;
 }
 
-bool write_cmd(){
+bool read_cmd(){
+    return read_cmd_raw((vpiHandle)shared_struct->handle.load());
+}
+
+bool read_mem_cmd(){
+    vpiHandle handle = vpi_handle_by_index((vpiHandle)shared_struct->handle.load(),
+                                           (PLI_INT32)shared_struct->index.load()); 
+
+    if(check_error()) return true;
+    if(read_cmd_raw(handle)) return true;
+    vpi_free_object(handle);
+    return check_error();
+}
+
+bool write_cmd_raw(vpiHandle handle){
 
     s_vpi_value value_struct;
     ss.str(std::string());
@@ -369,11 +383,26 @@ bool write_cmd(){
     value_struct.format = vpiBinStrVal;
     val_str = ss.str();
     value_struct.value.str = (PLI_BYTE8*)val_str.c_str();
-    vpi_put_value((vpiHandle)shared_struct->handle.load(), 
-            &value_struct, 
-            NULL, 
-            vpiNoDelay);
+    vpi_put_value(handle, 
+                  &value_struct, 
+                  NULL, 
+                  vpiNoDelay);
 
+    return check_error();
+}
+
+
+bool write_cmd(){
+    return write_cmd_raw((vpiHandle)shared_struct->handle.load());
+}
+
+bool write_mem_cmd(){
+    vpiHandle handle = vpi_handle_by_index((vpiHandle)shared_struct->handle.load(),
+                                           (PLI_INT32)shared_struct->index.load()); 
+
+    if(check_error()) return true;
+    if(write_cmd_raw(handle)) return true;
+    vpi_free_object(handle);
     return check_error();
 }
 
@@ -423,7 +452,9 @@ PLI_INT32 rw_cb(p_cb_data){
             case ProcStatus::print_signals : run_simulation = print_signals_cmd(); break;
             case ProcStatus::get_signal_handle : run_simulation = get_signal_handle_cmd(); break;
             case ProcStatus::read : run_simulation = read_cmd(); break;
+            case ProcStatus::read_mem : run_simulation = read_mem_cmd(); break;
             case ProcStatus::write : run_simulation = write_cmd(); break;
+            case ProcStatus::write_mem : run_simulation = write_mem_cmd(); break;
             case ProcStatus::sleep : run_simulation = sleep_cmd(); break;
             case ProcStatus::set_seed : run_simulation = set_seed_cmd(); break;
             case ProcStatus::randomize : run_simulation = randomize_cmd(); break;

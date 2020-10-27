@@ -35,6 +35,13 @@ public class JNISharedMemIfaceJNI {
   public final static native void SharedMemIface_write(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, VectorInt8 jarg3_);
   public final static native void SharedMemIface_write64(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3);
   public final static native void SharedMemIface_write32(long jarg1, SharedMemIface jarg1_, long jarg2, int jarg3);
+  public final static native long SharedMemIface_read_mem__SWIG_0(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3);
+  public final static native void SharedMemIface_read_mem__SWIG_1(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, VectorInt8 jarg3_, long jarg4);
+  public final static native long SharedMemIface_read64_mem(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3);
+  public final static native int SharedMemIface_read32_mem(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3);
+  public final static native void SharedMemIface_write_mem(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, VectorInt8 jarg3_, long jarg4);
+  public final static native void SharedMemIface_write64_mem(long jarg1, SharedMemIface jarg1_, long jarg2, long jarg3, long jarg4);
+  public final static native void SharedMemIface_write32_mem(long jarg1, SharedMemIface jarg1_, long jarg2, int jarg3, long jarg4);
   public final static native void SharedMemIface_sleep(long jarg1, SharedMemIface jarg1_, long jarg2);
   public final static native void SharedMemIface_eval(long jarg1, SharedMemIface jarg1_);
   public final static native void SharedMemIface_set_seed(long jarg1, SharedMemIface jarg1_, long jarg2);

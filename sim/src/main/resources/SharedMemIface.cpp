@@ -37,13 +37,29 @@ int64_t SharedMemIface::get_signal_handle(const string& handle_name){
     return shared_struct->handle;
 }
 
-void SharedMemIface::read(int64_t handle, std::vector<int8_t>& data_){
+void SharedMemIface::read_raw(int64_t handle, std::vector<int8_t>& data_, bool is_mem){
     this->check_ready();
     shared_struct->handle.store(handle);
-    shared_struct->proc_status.store(ProcStatus::read);
+    
+    if(is_mem) {
+        shared_struct->index.store(this->index);
+        shared_struct->proc_status.store(ProcStatus::read_mem);
+    } else {
+        shared_struct->proc_status.store(ProcStatus::read);
+    }
+    
     this->check_ready();
     data_.resize(shared_struct->data.size());
     std::copy(shared_struct->data.begin(), shared_struct->data.end(), data_.begin());
+}
+
+void SharedMemIface::read(int64_t handle, std::vector<int8_t>& data_){
+    read_raw(handle, data_, false);
+}
+
+void SharedMemIface::read_mem(int64_t handle, std::vector<int8_t>& data_, int64_t index_){
+    this->index = index_;
+    read_raw(handle, data_, true);
 }
 
 std::vector<int8_t> SharedMemIface::read(int64_t handle){
@@ -51,9 +67,14 @@ std::vector<int8_t> SharedMemIface::read(int64_t handle){
     return this->data_buffer;
 }
 
-int64_t SharedMemIface::read64(int64_t handle){
+std::vector<int8_t> SharedMemIface::read_mem(int64_t handle, int64_t index_){
+    this->read_mem(handle, data_buffer, index_);
+    return this->data_buffer;
+}
+
+int64_t SharedMemIface::read64_raw(int64_t handle, bool is_mem){
     int64_t ret = 0;
-    this->read(handle, this->data_buffer);
+    this->read_raw(handle, this->data_buffer, is_mem);
     size_t copy_size = std::min((size_t)8, this->data_buffer.size());
     size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
@@ -62,9 +83,18 @@ int64_t SharedMemIface::read64(int64_t handle){
     return ret;
 }
 
-int32_t SharedMemIface::read32(int64_t handle){
+int64_t SharedMemIface::read64(int64_t handle){
+    return read64_raw(handle, false);
+}
+
+int64_t SharedMemIface::read64_mem(int64_t handle, int64_t index_){
+    this->index = index_;
+    return read64_raw(handle, true);
+}
+
+int32_t SharedMemIface::read32_raw(int64_t handle, bool is_mem){
     int32_t ret = 0;
-    this->read(handle, this->data_buffer);
+    this->read_raw(handle, this->data_buffer, is_mem);
     size_t copy_size = std::min((size_t)4, this->data_buffer.size());
     size_t start_orig = this->data_buffer.size()-1;
     for(uint8_t i = 0; i < copy_size; i++) {
@@ -73,25 +103,66 @@ int32_t SharedMemIface::read32(int64_t handle){
     return ret;
 }
 
-void SharedMemIface::write(int64_t handle, const std::vector<int8_t>& data_){
+int32_t SharedMemIface::read32(int64_t handle){
+    return read32_raw(handle, false);
+}
+
+int32_t SharedMemIface::read32_mem(int64_t handle, int64_t index_){
+    this->index = index_;
+    return read32_raw(handle, true);
+}
+
+void SharedMemIface::write_raw(int64_t handle, const std::vector<int8_t>& data_, bool is_mem){
     this->check_ready();
     shared_struct->handle.store(handle);
     shared_struct->data.resize(data_.size());
     std::copy(data_.begin(), data_.end(), shared_struct->data.begin());
-    shared_struct->proc_status.store(ProcStatus::write);
+    if(is_mem) {
+        shared_struct->index.store(this->index);
+        shared_struct->proc_status.store(ProcStatus::write_mem);
+    } else {
+        shared_struct->proc_status.store(ProcStatus::write);
+    }
 }
 
-void SharedMemIface::write64(int64_t handle, int64_t data_){
+void SharedMemIface::write(int64_t handle, const std::vector<int8_t>& data_){
+    write_raw(handle, data_, false);
+}
+
+void SharedMemIface::write_mem(int64_t handle, const std::vector<int8_t>& data_, int64_t index_){
+    this->index = index_;
+    write_raw(handle, data_, true);
+}
+
+void SharedMemIface::write64_raw(int64_t handle, int64_t data_, bool is_mem){
 
     this->data_buffer.resize(8);
     for(uint8_t i = 0; i < 8; i++) this->data_buffer[7-i] = (data_ >> 8*i) & 0xFF;
-    this->write(handle, this->data_buffer);
+    write_raw(handle, this->data_buffer, is_mem);
+}
+
+void SharedMemIface::write64(int64_t handle, int64_t data_){
+    write64_raw(handle, data_, false);
+}
+
+void SharedMemIface::write64_mem(int64_t handle, int64_t data_, int64_t index_){
+    this->index = index_;
+    write64_raw(handle, data_, true);
+}
+
+void SharedMemIface::write32_raw(int64_t handle, int32_t data_, bool is_mem){
+    this->data_buffer.resize(4);
+    for(uint8_t i = 0; i < 4; i++) this->data_buffer[3-i] = (data_ >> 8*i) & 0xFF;
+    write_raw(handle, this->data_buffer, is_mem);
 }
 
 void SharedMemIface::write32(int64_t handle, int32_t data_){
-    this->data_buffer.resize(4);
-    for(uint8_t i = 0; i < 4; i++) this->data_buffer[3-i] = (data_ >> 8*i) & 0xFF;
-    this->write(handle, this->data_buffer);
+    write32_raw(handle, data_, false);
+}
+
+void SharedMemIface::write32_mem(int64_t handle, int32_t data_, int64_t index_){
+    this->index = index_;
+    write32_raw(handle, data_, true);
 }
 
 void SharedMemIface::sleep(int64_t sleep_cycles){

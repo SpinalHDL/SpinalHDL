@@ -39,6 +39,7 @@ package object lib  {
     def toOneHot : Bits = B"1" << that
   }
 
+  implicit def easyFragment[T <: Data](that: Fragment[T]) = that.fragment
   
   def StreamArbiterFactory = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]

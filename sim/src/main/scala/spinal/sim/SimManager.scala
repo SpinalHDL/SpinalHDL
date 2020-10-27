@@ -151,6 +151,11 @@ class SimManager(val raw : SimRaw) {
       case _ => raw.getBigInt(bt)
     }
   }
+
+  def getBigInt(bt : Signal, address : Long) : BigInt =  {
+    raw.getBigIntMem(bt, address)
+  }
+
   def setLong(bt : Signal, value : Long): Unit = {
     bt.dataType.checkLongRange(value, bt)
     commandBuffer += {() => raw.setLong(bt, value); if(readBypass != null)(readBypass += (bt -> BigInt(value)))}
@@ -158,6 +163,10 @@ class SimManager(val raw : SimRaw) {
   def setBigInt(bt : Signal, value : BigInt): Unit = {
     bt.dataType.checkBigIntRange(value, bt)
     commandBuffer += {() => raw.setBigInt(bt, value); if(readBypass != null) readBypass += (bt -> value)}
+  }
+  def setBigInt(mem : Signal,address : Long, value : BigInt): Unit = {
+    mem.dataType.checkBigIntRange(value, mem)
+    commandBuffer += {() => raw.setBigIntMem(mem, value, address) /*;if(readBypass != null) readBypass += (bt -> value)*/}
   }
 
   def schedule(thread : SimCallSchedule): Unit = {
@@ -181,7 +190,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   def schedule(delay : Long, thread : SimThread): Unit = {
-    val s = new SimCallSchedule(time + delay, thread.resume)
+    val s = new SimCallSchedule(time + delay, thread.managerResume)
     schedule(s)
   }
 

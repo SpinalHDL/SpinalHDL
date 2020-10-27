@@ -9,10 +9,11 @@ import spinal.lib.graphic.{RgbConfig, Rgb}
 
 
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
-  val colorStart = UInt(timingsWidth bit)
-  val colorEnd = UInt(timingsWidth bit)
   val syncStart = UInt(timingsWidth bit)
   val syncEnd = UInt(timingsWidth bit)
+  val colorStart = UInt(timingsWidth bit)
+  val colorEnd = UInt(timingsWidth bit)
+  val polarity = Bool()
 }
 
 case class VgaTimings(timingsWidth: Int) extends Bundle {
@@ -28,6 +29,8 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     v.syncEnd := 525 - 1
     v.colorStart := 2 + 10 - 1
     v.colorEnd := 525 - 33 - 1
+    h.polarity := False
+    v.polarity := False
   }
   def setAs_h64_v64_r60: Unit = {
     h.syncStart := 96 - 1
@@ -38,6 +41,8 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     v.syncEnd := 525 - 1
     v.colorStart := 2 + 10 - 1 + 208
     v.colorEnd := 525 - 33 - 1 - 208
+    h.polarity := False
+    v.polarity := False
   }
 
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : Int) : Unit = {
@@ -51,6 +56,8 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     busCtrl.drive(v.syncEnd    ,baseAddress + 20)
     busCtrl.drive(v.colorStart ,baseAddress + 24)
     busCtrl.drive(v.colorEnd   ,baseAddress + 28)
+    busCtrl.drive(h.polarity   ,baseAddress + 32, 0) init(False)
+    busCtrl.drive(v.polarity   ,baseAddress + 32, 1) init(False)
   }
 }
 
@@ -74,6 +81,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
     val syncEnd = counter === timingsHV.syncEnd
     val colorStart = counter === timingsHV.colorStart
     val colorEnd = counter === timingsHV.colorEnd
+    val polarity = timingsHV.polarity
 
     when(enable) {
       counter := counter + 1
@@ -100,8 +108,8 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
 
   io.frameStart := v.syncStart && h.syncStart
 
-  io.vga.hSync := h.sync
-  io.vga.vSync := v.sync
+  io.vga.hSync := h.sync ^ h.polarity
+  io.vga.vSync := v.sync ^ v.polarity
   io.vga.colorEn := colorEn
   io.vga.color := io.pixels.payload
 

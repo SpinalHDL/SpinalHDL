@@ -23,8 +23,8 @@ package spinal.core.sim
 import java.io.File
 
 import org.apache.commons.io.FileUtils
-import spinal.core.internals.{GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
+import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -42,7 +42,8 @@ case class SpinalVerilatorBackendConfig[T <: Component](
                                                          vcdPrefix         : String = null,
                                                          waveDepth         : Int = 0,
                                                          optimisationLevel : Int = 2,
-                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String]()
+                                                         simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                                                         withCoverage      : Boolean
 )
 
 
@@ -53,6 +54,7 @@ object SpinalVerilatorBackend {
     import config._
 
     val vconfig = new VerilatorBackendConfig()
+    vconfig.rtlIncludeDirs ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
     vconfig.toplevelName      = rtl.toplevelName
     vconfig.vcdPath           = vcdPath
@@ -66,16 +68,18 @@ object SpinalVerilatorBackend {
     vconfig.waveDepth         = waveDepth
     vconfig.optimisationLevel = optimisationLevel
     vconfig.simulatorFlags        = simulatorFlags
+    vconfig.withCoverage  = withCoverage
 
     var signalId = 0
 
-    def addSignal(bt: BaseType): Unit ={
+    def addSignal(bt: DeclarationStatement with InComponent): Unit ={
       val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
         case bt: Bool               => new BoolDataType
         case bt: Bits               => new BitsDataType(bt.getBitsWidth)
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+        case mem: Mem[_] => new BitsDataType(mem.width)
       })
 
       bt.algoInt = signalId
@@ -89,6 +93,22 @@ object SpinalVerilatorBackend {
       s match {
         case bt: BaseType if bt.hasTag(Verilator.public) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
+        }
+        case mem : Mem[_] if mem.hasTag(Verilator.public) => {
+          val tag = mem.getTag(classOf[MemSymbolesTag])
+          mem.algoInt = signalId
+          mem.algoIncrementale = -1
+          tag match {
+            case None => addSignal(mem)
+            case Some(tag) => {
+              for(mapping <- tag.mapping){
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                signal.id = signalId
+                vconfig.signals += signal
+                signalId += 1
+              }
+            }
+          }
         }
         case _ =>{
           s.algoInt = -1
@@ -239,13 +259,14 @@ object SpinalVpiBackend {
 
     val signalsCollector = ArrayBuffer[Signal]()
 
-    def addSignal(bt: BaseType): Unit ={
+    def addSignal(bt: DeclarationStatement with InComponent): Unit ={
       val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
         case bt: Bool               => new BoolDataType
         case bt: Bits               => new BitsDataType(bt.getBitsWidth)
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+        case mem: Mem[_] => new BitsDataType(mem.width)
       })
 
       bt.algoInt = signalId
@@ -259,6 +280,22 @@ object SpinalVpiBackend {
       s match {
         case bt: BaseType if bt.hasTag(SimPublic) && !(!bt.isDirectionLess && bt.component.parent == null) => {
           addSignal(bt)
+        }
+        case mem : Mem[_] if mem.hasTag(SimPublic) => {
+          val tag = mem.getTag(classOf[MemSymbolesTag])
+          mem.algoInt = signalId
+          mem.algoIncrementale = -1
+          tag match {
+            case None => addSignal(mem)
+            case Some(tag) => {
+              for(mapping <- tag.mapping){
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                signal.id = signalId
+                signalsCollector += signal
+                signalId += 1
+              }
+            }
+          }
         }
         case _ =>{
           s.algoInt = -1
@@ -290,6 +327,7 @@ object SpinalVpiBackend {
 /** Tag SimPublic  */
 object SimPublic extends SpinalTag
 
+object TracingOff extends SpinalTag
 
 /**
   * Swap all oldTag with newTag
@@ -363,7 +401,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
     }
     manager.userData = dut
 
-   // println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed${if(backend.config.waveFormat != WaveFormat.NONE) s", wave in ${new File(backend.config.vcdPath).getAbsolutePath}/${allocatedName}.${backend.config.waveFormat.ext}" else ", without wave"}")
+    println(f"[Progress] Start ${dut.definitionName} $allocatedName simulation with seed $seed")
 
     if(joinAll) {
       manager.runAll(body(dut))
@@ -415,15 +453,17 @@ object SpinalSimBackendSel{
   * SpinalSim configuration
   */
 case class SpinalSimConfig(
-  var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
-  var _workspaceName     : String = null,
-  var _waveDepth         : Int = 0, //0 => all
-  var _spinalConfig      : SpinalConfig = SpinalConfig(),
-  var _optimisationLevel : Int = 0,
-  var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
-  var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
-  var _waveFormat        : WaveFormat = WaveFormat.NONE,
-  var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR
+                            var _workspacePath     : String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE","./simWorkspace"),
+                            var _workspaceName     : String = null,
+                            var _waveDepth         : Int = 0, //0 => all
+                            var _spinalConfig      : SpinalConfig = SpinalConfig(),
+                            var _optimisationLevel : Int = 0,
+                            var _simulatorFlags    : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _additionalRtlPath : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _additionalIncludeDir : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _waveFormat        : WaveFormat = WaveFormat.NONE,
+                            var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
+                            var _withCoverage      : Boolean = false
 ){
 
 
@@ -459,6 +499,11 @@ case class SpinalSimConfig(
   def withWave(depth: Int): this.type = {
     _waveFormat = WaveFormat.DEFAULT
     _waveDepth = depth
+    this
+  }
+
+  def withCoverage: this.type = {
+    _withCoverage = true
     this
   }
 
@@ -504,6 +549,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def addIncludeDir(that : String) : this.type = {
+    _additionalIncludeDir += that
+    this
+  }
+
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSim(name)(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
@@ -534,6 +584,7 @@ case class SpinalSimConfig(
       case SpinalSimBackendSel.IVERILOG => config.generateVerilog(rtl)
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
+    report.blackboxesIncludeDir ++= _additionalIncludeDir
     compile[T](report)
   }
 
@@ -568,7 +619,8 @@ case class SpinalSimConfig(
           workspaceName = "verilator",
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
-          simulatorFlags = _simulatorFlags
+          simulatorFlags = _simulatorFlags,
+          withCoverage = _withCoverage
         )
         val backend = SpinalVerilatorBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6

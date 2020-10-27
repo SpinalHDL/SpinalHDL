@@ -33,6 +33,16 @@ case class JtagTapInstructionCtrl() extends Bundle with IMasterSlave {
     tap.TDO := tdo
     tap
   }
+
+  def <<(that : JtagTapInstructionCtrl): Unit ={
+    this.tdi := that.tdi
+    this.enable := that.enable
+    this.capture := that.capture
+    this.shift := that.shift
+    this.update := that.update
+    this.reset := that.reset
+    that.tdo := this.tdo
+  }
 }
 
 

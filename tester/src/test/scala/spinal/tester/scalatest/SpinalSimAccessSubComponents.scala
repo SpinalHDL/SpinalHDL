@@ -50,7 +50,7 @@ class SpinalSimAccessSubComponents extends FunSuite {
 
     var compiled: SimCompiled[SpinalSimAccessSubComponents.Dut] = null
     test(prefix + "compile") {
-      compiled = SimConfig.withWave.compile {
+      compiled = SimConfig.compile {
         val dut = new SpinalSimAccessSubComponents.Dut
         dut.subInst.subSubInst.miaouVec.simPublic()
         dut.subInst.subSubInst.io.a.simPublic()

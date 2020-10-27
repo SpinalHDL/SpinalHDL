@@ -55,6 +55,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     ret
   }
 
+  def toFlowFire: Flow[T] = {
+    val ret = Flow(payloadType)
+    ret.valid := this.fire
+    ret.payload := this.payload
+    ret
+  }
+
   def asFlow: Flow[T] = {
     val ret = Flow(payloadType)
     ret.valid := this.valid
@@ -188,6 +195,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     fifo.setPartialName(this, "fifo", true)
     fifo.io.push << this
     fifo.io.pop
+  }
+
+  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
   }
 
   /**
@@ -364,7 +377,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
   def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "halfPipe")
+    val ret = Stream(payloadType).setCompositeName(this, "halfPipe", weak = true)
 
     val regs = new Area {
       val valid = RegInit(False)
@@ -903,65 +916,62 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
     val availability = out UInt (log2Up(depth + 1) bits)
   }
 
-  val logic = depth match {
-    case 0 => new Area {
+  val bypass = (depth == 0) generate new Area {
       io.push >> io.pop
       io.occupancy := 0
       io.availability := 0
     }
-    case 1 => new Area{
+  val oneStage = (depth == 1) generate new Area{
       io.push.m2sPipe(flush = io.flush) >> io.pop
       io.occupancy := U(io.pop.valid)
       io.availability := U(!io.pop.valid)
     }
-    case _ => new Area {
-      val ram = Mem(dataType, depth)
-      val pushPtr = Counter(depth)
-      val popPtr = Counter(depth)
-      val ptrMatch = pushPtr === popPtr
-      val risingOccupancy = RegInit(False)
-      val pushing = io.push.fire
-      val popping = io.pop.fire
-      val empty = ptrMatch & !risingOccupancy
-      val full = ptrMatch & risingOccupancy
+  val logic = (depth > 1) generate new Area {
+    val ram = Mem(dataType, depth)
+    val pushPtr = Counter(depth)
+    val popPtr = Counter(depth)
+    val ptrMatch = pushPtr === popPtr
+    val risingOccupancy = RegInit(False)
+    val pushing = io.push.fire
+    val popping = io.pop.fire
+    val empty = ptrMatch & !risingOccupancy
+    val full = ptrMatch & risingOccupancy
 
-      io.push.ready := !full
-      io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
-      io.pop.payload := ram.readSync(popPtr.valueNext)
+    io.push.ready := !full
+    io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
+    io.pop.payload := ram.readSync(popPtr.valueNext)
 
-      when(pushing =/= popping) {
-        risingOccupancy := pushing
-      }
-      when(pushing) {
-        ram(pushPtr.value) := io.push.payload
-        pushPtr.increment()
-      }
-      when(popping) {
-        popPtr.increment()
-      }
+    when(pushing =/= popping) {
+      risingOccupancy := pushing
+    }
+    when(pushing) {
+      ram(pushPtr.value) := io.push.payload
+      pushPtr.increment()
+    }
+    when(popping) {
+      popPtr.increment()
+    }
 
-      val ptrDif = pushPtr - popPtr
-      if (isPow2(depth)) {
-        io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-        io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
-      } else {
-        when(ptrMatch) {
-          io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
-          io.availability := Mux(risingOccupancy, U(0), U(depth))
-        } otherwise {
-          io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
-          io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
-        }
-      }
-
-      when(io.flush){
-        pushPtr.clear()
-        popPtr.clear()
-        risingOccupancy := False
+    val ptrDif = pushPtr - popPtr
+    if (isPow2(depth)) {
+      io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
+      io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
+    } else {
+      when(ptrMatch) {
+        io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
+        io.availability := Mux(risingOccupancy, U(0), U(depth))
+      } otherwise {
+        io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
+        io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
       }
     }
-  }
 
+    when(io.flush){
+      pushPtr.clear()
+      popPtr.clear()
+      risingOccupancy := False
+    }
+  }
 }
 
 object StreamFifoLowLatency{
@@ -1036,7 +1046,7 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 }
 
 object StreamFifoCC{
-  def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
+  def apply[T <: Data](dataType: HardType[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
 //class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
@@ -1167,10 +1177,10 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val output = master Stream (dataType)
+    val input = slave Stream (dataType())
+    val output = master Stream (dataType())
   }
 
   val outHitSignal = Bool
@@ -1303,7 +1313,7 @@ object StreamFragmentWidthAdapter {
 }
 
 case class StreamFifoMultiChannelPush[T <: Data](payloadType : HardType[T], channelCount : Int) extends Bundle with IMasterSlave {
-  val channel = UInt(log2Up(channelCount) bits)
+  val channel = Bits(channelCount bits)
   val full = Bool()
   val stream = Stream(payloadType)
 
@@ -1381,7 +1391,7 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
       headPtr := pushNextEntry
     }
 
-    when(io.push.stream.fire && io.push.channel === channelId) {
+    when(io.push.stream.fire && io.push.channel(channelId)) {
       lastPtr := pushNextEntry
       valid := True
     }
@@ -1389,10 +1399,10 @@ case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelC
   }
 
   val pushLogic = new Area{
-    val previousAddress = channels.map(_.lastPtr).read(io.push.channel)
+    val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when(channels.map(_.valid).read(io.push.channel)) {
+      when((channels.map(_.valid).asBits & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }

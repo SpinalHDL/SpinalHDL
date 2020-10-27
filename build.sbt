@@ -1,5 +1,6 @@
 import sbt.Keys._
 import sbt._
+import sbt.Tests._
 
 
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
@@ -10,6 +11,16 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
   baseDirectory in test := file("/out/"),
   fork := true,
+
+  //Enable parallel tests
+  Test / testForkedParallel := true,
+  testGrouping in Test := (testGrouping in Test).value.flatMap { group =>
+//    for(i <- 0 until 4) yield {
+//      Group("g" + i,  group.tests.zipWithIndex.filter(_._2 % 4 == i).map(_._1), SubProcess(ForkOptions()))
+//    }
+    Seq(Group("g",  group.tests, SubProcess(ForkOptions())))
+  },
+//  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
   libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
 
@@ -150,7 +161,7 @@ lazy val debugger = (project in file("debugger"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL Debugger",
     version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
+    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
     libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
     libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
     publishArtifact := false,
