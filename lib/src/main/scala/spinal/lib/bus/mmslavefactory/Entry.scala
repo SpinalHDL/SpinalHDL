@@ -89,17 +89,17 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
     ret
   }
 
-  def addField[T <: Data](that: T, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Unit = {
+  def addField[T <: Data](name: String, that: T, resetValue:Long = 0, doc: String = ""): Unit = {
     val section : Range = fieldPtr + that.getBitsWidth-1 downto fieldPtr
     val ret : Bits = genDataHandler(that, section, resetValue)
-    fields   += new Field(symbol.name, ret, section, resetValue, rerror, doc)
+    fields   += new Field(name, ret, section, resetValue, rerror, doc)
     fieldPtr += that.getBitsWidth
   }
 
-  def newField(bc : BitCount, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def newField(name: String, bc : BitCount, resetValue:Long = 0, doc: String = ""): Bits = {
     val data : Bits = Bits(bc)
     data := B(resetValue)
-    addField(data, resetValue, doc)
+    addField(name, data, resetValue, doc)
     data
   }
 
@@ -138,10 +138,10 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
     event
   }
 
-  override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  override def newField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
     val data : Bits = Reg(Bits(bc)) init(resetValue)
-    addField(data, resetValue, doc)(symbol)
-    data.setName(s"mmslave_${symbol.name}")
+    addField(name, data, resetValue, doc)
+    data.setName(s"mmslave_${this.name}_${name}")
     data
   }
 
@@ -208,9 +208,9 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
 }
 
 abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends Entry(name, addr, doc, bus) with RegDescr {
-  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits]
+  def newStreamField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Stream[Bits]
 
-  override def newField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  override def newField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
     val data : Bits = 0xdeadbeefl
     assert(false, "newField not implemented, use newStreamField!");
     data
@@ -242,13 +242,13 @@ class WriteStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactor
     that.asBits
   }
   
-  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits] = {
+  def newStreamField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Stream[Bits] = {
     val stream : Stream[Bits] = Stream(Bits(bc))
     val out = stream.stage()
-    addField(stream.payload, resetValue, doc)(symbol)
-    stream.payload.setName(s"mmslave_${symbol.name}_payload")
-    stream.valid.setName(s"mmslave_${symbol.name}_valid")
-    stream.ready.setName(s"mmslave_${symbol.name}_ready")
+    addField(name, stream.payload, resetValue, doc)
+    stream.payload.setName(s"mmslave_${this.name}_${name}_payload")
+    stream.valid.setName(s"mmslave_${this.name}_${name}_valid")
+    stream.ready.setName(s"mmslave_${this.name}_${name}_ready")
     stream.valid := valid
     ready := stream.ready
     out
@@ -281,13 +281,13 @@ class ReadStreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory
       bus.writeRespond(true)
   }
   
-  def newStreamField(bc : BitCount, resetValue : Long = 0, doc: String = "")(implicit symbol: SymbolName): Stream[Bits] = {
+  def newStreamField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Stream[Bits] = {
     val stream : Stream[Bits] = Stream(Bits(bc))
     val out = stream.stage()
-    addField(out.payload.getDrivingReg, resetValue, doc)(symbol)
-    out.payload.setName(s"mmslave_${symbol.name}_payload")
-    out.valid.setName(s"mmslave_${symbol.name}_valid")
-    out.ready.setName(s"mmslave_${symbol.name}_ready")
+    addField(name, out.payload.getDrivingReg, resetValue, doc)
+    out.payload.setName(s"mmslave_${this.name}_${name}_payload")
+    out.valid.setName(s"mmslave_${this.name}_${name}_valid")
+    out.ready.setName(s"mmslave_${this.name}_${name}_ready")
     out.ready := ready
     valid := out.valid
     stream

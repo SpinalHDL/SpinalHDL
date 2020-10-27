@@ -23,26 +23,26 @@ class Apb3MMSlaveFactoryExample extends Component {
   val irq = slavFac.createIrqRegs("irq", dummy)
 
   val regVersion = slavFac.createReadOnlyReg("version", "Version number")
-  val versionMajor = regVersion.newField(4 bits, 0x1, "Major version")
-  val versionMinor = regVersion.newField(8 bits, 0x23, "Minor version")
+  val versionMajor = regVersion.newField("major", 4 bits, 0x1, "Major version")
+  val versionMinor = regVersion.newField("minor", 8 bits, 0x23, "Minor version")
 
   val regAddr = slavFac.createReg("address", "Destination address")
-  val address = regAddr.newField(32 bits, 0, "Address")
+  val address = regAddr.newField("addr", 32 bits, 0, "Address")
 
-  val regSecret = slavFac.createWriteOnlyReg("Secret", "Secret data")
-  val secret1 = regSecret.newField(16 bits, 0x0, "Secret 1")
+  val regSecret = slavFac.createWriteOnlyReg("secret", "Secret data")
+  val secret1 = regSecret.newField("secret", 16 bits, 0x0, "Secret 1")
 
   val regValue = slavFac.createReadOnlyReg("value", "Values")
-  val value1 = regValue.addField(secret1, 0x0, "Value 1")
+  val value1 = regValue.addField("value", secret1, 0x0, "Value 1")
 
-  val readStream = slavFac.createReadStream("Read FIFO", "Read data")
-  val readStreamData = readStream.newStreamField(16 bits, 0x0, "Data")
+  val readStream = slavFac.createReadStream("read_fifo", "Read data")
+  val readStreamData = readStream.newStreamField("data", 16 bits, 0x0, "Data")
   readStreamData.valid := True && readStreamData.ready;
   readStreamData.payload := 0xbeef;
 
-  val writeStream = slavFac.createWriteStream("Secret", "Secret data")
-  val streamData = writeStream.newStreamField(8 bits, 0x0, "Secret Flow")
-  val queue = streamData.queue(3)  
+  val writeStream = slavFac.createWriteStream("secret", "Secret data")
+  val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
+  val queue = streamData.queue(3)
   io.stream << queue
 }
 
@@ -58,25 +58,25 @@ class AxiLite4MMSlaveFactoryExample extends Component {
   val irq = slavFac.createIrqRegs("irq", dummy)
 
   val regVersion = slavFac.createReadOnlyReg("version", "Version number")
-  val versionMajor = regVersion.newField(4 bits, 0x1, "Major version")
-  val versionMinor = regVersion.newField(8 bits, 0x23, "Minor version")
+  val versionMajor = regVersion.newField("major", 4 bits, 0x1, "Major version")
+  val versionMinor = regVersion.newField("minor", 8 bits, 0x23, "Minor version")
 
   val regAddr = slavFac.createReg("address", "Destination address")
-  val address = regAddr.newField(32 bits, 0, "Address")
+  val address = regAddr.newField("addr", 32 bits, 0, "Address")
 
-  val regSecret = slavFac.createWriteOnlyReg("Secret", "Secret data")
-  val secret1 = regSecret.newField(16 bits, 0x0, "Secret 1")
+  val regSecret = slavFac.createWriteOnlyReg("secret", "Secret data")
+  val secret1 = regSecret.newField("secret", 16 bits, 0x0, "Secret 1")
 
   val regValue = slavFac.createReadOnlyReg("value", "Values")
-  val value1 = regValue.addField(secret1, 0x0, "Value 1")
+  val value1 = regValue.addField("value", secret1, 0x0, "Value 1")
 
-  val readStream = slavFac.createReadStream("Read FIFO", "Read data")
-  val readStreamData = readStream.newStreamField(16 bits, 0x0, "Data")
+  val readStream = slavFac.createReadStream("read_fifo", "Read data")
+  val readStreamData = readStream.newStreamField("data", 16 bits, 0x0, "Data")
   readStreamData.valid := True && readStreamData.ready;
   readStreamData.payload := 0xbeef;
 
-  val writeStream = slavFac.createWriteStream("Secret", "Secret data")
-  val streamData = writeStream.newStreamField(8 bits, 0x0, "Secret Flow")
+  val writeStream = slavFac.createWriteStream("secret", "Secret data")
+  val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
   val queue = streamData.queue(3)  
   io.stream << queue
 }
