@@ -34,7 +34,19 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
     rwGenerator()
   })
 
+  private def checkName(name: String) = {
+    for(e <- entries) {
+      if(e.getName().equals(name)) {
+        throw new IllegalArgumentException(s"Register name ${name} is not unique.")
+      }
+    }
+    if(!name.matches("[a-zA-Z_][a-zA-Z0-9_]*")) {
+      throw new IllegalArgumentException(s"${name} is not a legal C literal.")
+    }
+  }
+
   def createReg(name: String, doc: String) = {
+    checkName(name)
     val ret = new RegEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
@@ -42,6 +54,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def createReadOnlyReg(name: String, doc: String) = {
+    checkName(name)
     val ret = new ReadOnlyEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
@@ -49,6 +62,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def createWriteOnlyReg(name: String, doc: String) = {
+    checkName(name)
     val ret = new WriteOnlyRegEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
@@ -56,6 +70,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def createReadStream(name: String, doc: String) = {
+    checkName(name)
     val ret = new ReadStreamEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
@@ -63,6 +78,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def createWriteStream(name: String, doc: String) = {
+    checkName(name)
     val ret = new WriteStreamEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
@@ -70,6 +86,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
   }
 
   def createClearReg(name: String, doc: String) = {
+    checkName(name)
     val ret = new ClearRegEntry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc

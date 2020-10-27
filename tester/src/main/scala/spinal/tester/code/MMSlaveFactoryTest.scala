@@ -40,7 +40,7 @@ class Apb3MMSlaveFactoryExample extends Component {
   readStreamData.valid := True && readStreamData.ready;
   readStreamData.payload := 0xbeef;
 
-  val writeStream = slavFac.createWriteStream("secret", "Secret data")
+  val writeStream = slavFac.createWriteStream("secret2", "Secret data")
   val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
   val queue = streamData.queue(3)
   io.stream << queue
@@ -75,7 +75,7 @@ class AxiLite4MMSlaveFactoryExample extends Component {
   readStreamData.valid := True && readStreamData.ready;
   readStreamData.payload := 0xbeef;
 
-  val writeStream = slavFac.createWriteStream("secret", "Secret data")
+  val writeStream = slavFac.createWriteStream("secret2", "Secret data")
   val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
   val queue = streamData.queue(3)  
   io.stream << queue
