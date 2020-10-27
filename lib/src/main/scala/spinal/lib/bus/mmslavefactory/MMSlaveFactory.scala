@@ -103,9 +103,9 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
       case x if x > busDataWidth => SpinalError(s"Trigger signal number exceed bus width ${busDataWidth}")
       case _ =>
     }
-    val ENS    = createReg("irq_enable", "IRQ enable register")
-    val MASKS  = createReg("irq_mask", "IRQ mask register")
-    val STATUS = createClearReg("irq_status", "IRQ status register")
+    val ENS    = createReg(s"${name}_enable", "IRQ enable register")
+    val MASKS  = createReg(s"${name}_mask", "IRQ mask register")
+    val STATUS = createClearReg(s"${name}_status", "IRQ status register")
     val intWithMask = new ListBuffer[Bool]()
     triggers.foreach(trigger => {
       val en   = ENS.newField("enable", 1 bits, doc= "irq enable")(0)
