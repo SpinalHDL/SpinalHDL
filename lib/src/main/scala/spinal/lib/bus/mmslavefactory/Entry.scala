@@ -89,18 +89,30 @@ class Entry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends 
     ret
   }
 
-  def addField[T <: Data](name: String, that: T, resetValue:Long = 0, doc: String = ""): Unit = {
+  def addFieldEx[T <: Data](startIndex: Int, name: String, that: T, resetValue:Long = 0, doc: String = ""): Unit = {
+    if(startIndex < fieldPtr)
+      new Exception("Bits already occupied.")
+    if(startIndex > fieldPtr)
+      reserved((startIndex - fieldPtr) bits, "Reserved")
     val section : Range = fieldPtr + that.getBitsWidth-1 downto fieldPtr
     val ret : Bits = genDataHandler(that, section, resetValue)
     fields   += new Field(name, ret, section, resetValue, rerror, doc)
     fieldPtr += that.getBitsWidth
   }
 
-  def newField(name: String, bc : BitCount, resetValue:Long = 0, doc: String = ""): Bits = {
+  def addField[T <: Data](name: String, that: T, resetValue:Long = 0, doc: String = ""): Unit = {
+    addFieldEx(fieldPtr, name, that, resetValue, doc)
+  }
+
+  def newFieldEx(startIndex: Int, name: String, bc : BitCount, resetValue:Long = 0, doc: String = ""): Bits = {
     val data : Bits = Bits(bc)
     data := B(resetValue)
-    addField(name, data, resetValue, doc)
+    addFieldEx(startIndex, name, data, resetValue, doc)
     data
+  }
+
+  def newField(name: String, bc : BitCount, resetValue:Long = 0, doc: String = ""): Bits = {
+    newFieldEx(fieldPtr, name, bc, resetValue, doc)
   }
 
   def reserved(bc: BitCount, doc : String = "") : Bits =  {
@@ -138,9 +150,9 @@ class RegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) exten
     event
   }
 
-  override def newField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
+  override def newFieldEx(startIndex: Int, name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
     val data : Bits = Reg(Bits(bc)) init(resetValue)
-    addField(name, data, resetValue, doc)
+    addFieldEx(startIndex, name, data, resetValue, doc)
     data.setName(s"mmslave_${this.name}_${name}")
     data
   }
@@ -210,7 +222,7 @@ class WriteOnlyRegEntry(name: String, addr: Long, doc: String, bus: MMSlaveFacto
 abstract class StreamEntry(name: String, addr: Long, doc: String, bus: MMSlaveFactory) extends Entry(name, addr, doc, bus) with RegDescr {
   def newStreamField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Stream[Bits]
 
-  override def newField(name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
+  override def newFieldEx(startIndex: Int, name: String, bc : BitCount, resetValue : Long = 0, doc: String = ""): Bits = {
     val data : Bits = 0xdeadbeefl
     assert(false, "newField not implemented, use newStreamField!");
     data

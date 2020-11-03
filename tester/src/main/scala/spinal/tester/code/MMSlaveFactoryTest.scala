@@ -44,6 +44,10 @@ class Apb3MMSlaveFactoryExample extends Component {
   val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
   val queue = streamData.queue(3)
   io.stream << queue
+
+  val regGap = slavFac.createReg("dimension", "Dimension in pixels")
+  val height = regGap.newField("height", 12 bits, 0, "Height in pixels")
+  val width = regGap.newFieldEx(16, "width", 12 bits, 0, "Width in pixels")
 }
 
 class AxiLite4MMSlaveFactoryExample extends Component {
@@ -79,6 +83,10 @@ class AxiLite4MMSlaveFactoryExample extends Component {
   val streamData = writeStream.newStreamField("data", 8 bits, 0x0, "Secret Flow")
   val queue = streamData.queue(3)  
   io.stream << queue
+
+  val regGap = slavFac.createReg("dimension", "Dimension in pixels")
+  val height = regGap.newField("height", 12 bits, 0, "Height in pixels")
+  val width = regGap.newFieldEx(16, "width", 12 bits, 0, "Width in pixels")
 }
 object MMSlaveFactoryGenerator {
   def main(args: Array[String]) {
@@ -159,6 +167,10 @@ object MMSlaveFactoryApb {
       writeThread.join()
 
       dut.clockDomain.waitSampling(10)
+
+      apb.write(0x24, 0xffffffffl)
+
+      dut.clockDomain.waitSampling(10)
     }
   }
 }
@@ -229,6 +241,14 @@ object MMSlaveFactoryAxi {
       dut.io.stream.ready #= true
 
       writeThread.join()
+
+      dut.clockDomain.waitSampling(10)
+
+      bus.write(0x24, 0xffffffffl)
+      
+      dut.clockDomain.waitSampling(10)
+      
+      bus.read(0x24)
 
       dut.clockDomain.waitSampling(10)
       
