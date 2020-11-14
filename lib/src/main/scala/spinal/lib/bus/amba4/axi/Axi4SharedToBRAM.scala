@@ -65,6 +65,7 @@ object Axi4SharedToBram {
 
 /**
   * Axi4 <-> BRAM bus with burst
+  * WARNING do not support byte mask !!
   */
 class Axi4SharedToBram(addressAxiWidth: Int, addressBRAMWidth: Int, dataWidth: Int, idWidth: Int) extends Component {
   import Axi4ToBRAMPhase._
