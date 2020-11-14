@@ -343,13 +343,26 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Implicit SInt helper
     */
-  implicit class SIntPimper(pimped: SInt) {
+  implicit class SIntPimper(self: SInt) {
     def toSFix: SFix = {
-      val width = pimped.getWidth
+      val width = self.getWidth
       val fix = SFix(width - 1 exp, width bit)
-      fix.raw := pimped
+      fix.raw := self
       fix
     }
+    /**
+      * Absolute value of a SInt
+      * @example {{{ myUInt := mySInt.abs }}}
+      * @return a UInt assign with the absolute value of the SInt
+      */
+    def abs: UInt = Mux(self.msb, ~self, self).asUInt + self.msb.asUInt
+    /** Return the absolute value of the SInt when enable is True */
+    def abs(enable: Bool): UInt = Mux(self.msb && enable, ~self, self).asUInt + (self.msb && enable).asUInt
+    /** symmetric abs
+      * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
+      * @return a UInt assign with the absolute value save 1 bit
+      */
+    def absWithSym: UInt = self.symmetry.abs.resize(self.getWidth-1)
   }
 
   /**
