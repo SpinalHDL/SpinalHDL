@@ -137,7 +137,7 @@ public:
     bool sint;
 
     WDataSignalAccess(WData *raw, uint32_t width, bool sint) : 
-      raw(raw), width(width), sint(sint), wordsCount((width+31)/32) {}
+      raw(raw), width(width), wordsCount((width+31)/32), sint(sint) {}
 
     uint64_t getU64_mem(size_t index) {
       WData *mem_el = &(raw[index*wordsCount]);

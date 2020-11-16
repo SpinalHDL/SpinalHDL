@@ -2,12 +2,12 @@ package spinal.lib.misc.analog
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbImplicitPeripheralDecoder, BmbInterconnectGenerator, BmbParameter, BmbSlaveFactory}
+import spinal.lib.bus.bmb._
 import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
 import spinal.lib.generator._
 
-case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
+case class UIntToSigmaDeltaFirstOrder(inputWidth : Int)  extends Component{
   val io = new Bundle{
     val input = in UInt(inputWidth bits)
     val output = out Bool()
@@ -23,7 +23,7 @@ case class UIntToSigmaDelta(inputWidth : Int)  extends Component{
   io.output := symbol(counter)
 }
 
-case class UIntToSigmaDeltaSecondOrder(inputWidth : Int)  extends Component{
+case class SIntToSigmaDeltaSecondOrder(inputWidth : Int)  extends Component{
   val io = new Bundle{
     val input = in SInt(inputWidth bits)
     val output = out Bool()
@@ -116,9 +116,9 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
   }
 
   val channels = for(channelId <- 0 until p.channels) yield new Area{
-    val toSigmaDelta = UIntToSigmaDelta(p.channelWidth)
+    val toSigmaDelta = UIntToSigmaDeltaFirstOrder(p.channelWidth)
     toSigmaDelta.io.input <> (sampler.state(channelId) ^ (BigInt(1) << p.channelWidth-1))
-    
+
 //    val toSigmaDelta = UIntToSigmaDeltaSecondOrder(p.channelWidth)
 //      toSigmaDelta.io.input <> S(sampler.state(channelId))
 

@@ -33,7 +33,7 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
     if(!allowGen) return
     val region = bus.aw.region.randomizedInt()
     val burst = bursts(Random.nextInt(bursts.size))
-    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
+    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(bus.config.bytePerWord) + 1)
     val sizeByte = 1 << size
@@ -80,12 +80,15 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
 //      println(beatOffsetCache)
       wQueue.enqueue { () =>
         bus.w.data.randomize()
-        if(bus.config.useStrb)  bus.w.strb #= (Random.nextInt(1 << sizeByte) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
+        val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
+        if(bus.config.useStrb)  bus.w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
+//        if(bus.config.useStrb)  bus.w.strb #= (((1 << bytesInBeat)-1) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
         if(bus.config.useWUser) bus.w.user.randomize()
         if(bus.config.useLast)  bus.w.last #= beat == lenBeat-1
       }
       beatOffset += sizeByte
       beatOffset &= (bus.config.bytePerWord-1)
+      beatOffset &= ~(sizeByte-1)
     }
 
     //WRITE RSP
