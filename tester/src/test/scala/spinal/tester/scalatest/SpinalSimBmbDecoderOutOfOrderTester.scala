@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.{StreamFifoMultiChannel, master, slave}
+import spinal.lib.{StreamFifoMultiChannelSharedSpace, master, slave}
 import spinal.lib.bus.bmb.sim.{BmbInterconnectTester, BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester}
 import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbParameter, BmbSourceParameter}
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
