@@ -62,6 +62,7 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
 
     when(cmdLogic.dataFork.fire){
       byteCounter := cmdLogic.dataFork.addr.resized
+      for(bit <- 0 until Math.min(7,widthOf(byteCounter))) byteCounter(bit) clearWhen(cmdLogic.dataFork.size > bit)
       size := cmdLogic.dataFork.size
       alwaysFire := !cmdLogic.dataFork.isINCR()
       incrementByteCounter := !cmdLogic.dataFork.isFIXED

@@ -1,7 +1,7 @@
 package spinal.lib.system.dma.sg
 
 import spinal.core._
-import spinal.core.sim.SimDataPimper
+import spinal.core.sim.{SimDataPimper, SimMutex, fork, waitUntil}
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
@@ -1267,11 +1267,27 @@ object DmaSg{
     }
 
     val s0 = new Area{
-      val countOnes = CountOneOnEach(io.input.mask)
+      val input = io.input.m2sPipe(flush = io.flush)
+
+      val countOnesLogic = Vec(CountOneOnEach(input.mask))
+
+      case class S0Output() extends Bundle{
+        val cmd = AggregatorCmd(p)
+        val countOnes = cloneOf(countOnesLogic)
+      }
+
+      val outputPayload = S0Output()
+      outputPayload.cmd := input.payload
+      outputPayload.countOnes := countOnesLogic
+      val output = input.translateWith(outputPayload)
+    }
+
+    val s1 = new Area{
+      val input = s0.output.m2sPipe(flush = io.flush)
 
       val offset = Reg(UInt(log2Up(p.byteCount) bits))
-      val offsetNext = offset + countOnes.last
-      when(io.input.fire){
+      val offsetNext = offset + input.countOnes.last
+      when(input.fire){
         offset := offsetNext.resized
       }
       when(io.flush){
@@ -1279,30 +1295,37 @@ object DmaSg{
       }
 
       val byteCounter = Reg(UInt(p.burstLength + 1 bits))
-      when(io.input.fire){
-        byteCounter := byteCounter + countOnes.last
+      when(input.fire){
+        byteCounter := byteCounter + input.countOnes.last
       }
       when(io.flush){
         byteCounter := 0
       }
 
-      val inputIndexes = Vec((U(0) +: countOnes.dropRight(1)).map(_ + offset))
-      case class S0Output() extends Bundle{
+      val inputIndexes = Vec((U(0) +: input.countOnes.dropRight(1)).map(_ + offset))
+      case class S1Output() extends Bundle{
         val cmd = AggregatorCmd(p)
         val index = cloneOf(inputIndexes)
         val last = Bool()
+        val sel = Vec(UInt(log2Up(p.byteCount) bits), p.byteCount)
+        val selValid = Bits(p.byteCount bits)
       }
-      val outputPayload = S0Output()
-      outputPayload.cmd := io.input.payload
+      val outputPayload = S1Output()
+      outputPayload.cmd := input.cmd
       outputPayload.index := inputIndexes
       outputPayload.last := offsetNext.msb
-      val output = io.input.translateWith(outputPayload)
+      for(i <- 0 until p.byteCount) {
+        val selOh = (0 until p.byteCount).map(inputId => input.cmd.mask(inputId) && inputIndexes(inputId) === i)
+        outputPayload.sel(i) := OHToUInt(selOh)
+        outputPayload.selValid(i) := selOh.orR && outputPayload.cmd.mask(outputPayload.sel(i))
+      }
+      val output = input.translateWith(outputPayload)
     }
 
-    val s1 = new Area{
-      val input = s0.output.m2sPipe(flush = io.flush)
+    val s2 = new Area{
+      val input = s1.output.m2sPipe(flush = io.flush)
       input.ready := !io.output.enough || io.output.consume
-      when(s0.byteCounter > io.burstLength){
+      when(s1.byteCounter > io.burstLength){
         input.ready := False
       }
 
@@ -1315,11 +1338,10 @@ object DmaSg{
           val valid = Reg(Bool)
           val data = Reg(Bits(8 bits))
         }
-        val selOh = (0 until p.byteCount).map(inputId => input.cmd.mask(inputId) && input.index(inputId) === byteId)
-        val sel = OHToUInt(selOh)
+        def sel = input.sel(byteId)
         val lastUsed = byteId === io.output.lastByteUsed
-        val inputMask = (B(selOh) & input.cmd.mask).orR
-        val inputData = MuxOH(selOh, inputDataBytes)
+        val inputMask = input.selValid(byteId)
+        val inputData = inputDataBytes.read(sel)
         val outputMask = buffer.valid || (input.valid && inputMask)
         val outputData = buffer.valid ? buffer.data | inputData
 
@@ -1347,6 +1369,109 @@ object DmaSg{
   }
 }
 
+abstract class DmaSgTesterCtrl(clockDomain: ClockDomain){
+  import spinal.core.sim._
+  val mutex = SimMutex()
+
+  def ctrlWriteHal(data : BigInt, address : BigInt): Unit
+  def ctrlReadHal(address : BigInt): BigInt
+
+  def ctrlWrite(data : BigInt, address : BigInt): Unit ={
+    mutex.lock()
+    ctrlWriteHal(data,address)
+    mutex.unlock()
+  }
+
+  def ctrlRead(address : BigInt): BigInt ={
+    mutex.lock()
+    val ret = ctrlReadHal(address)
+    mutex.unlock()
+    ret
+  }
+
+
+  def channelToAddress(channel : Int) = 0x000 + channel*0x80
+  def channelPushMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(address, channelAddress + 0x00)
+    ctrlWrite(bytePerBurst-1 | 1 << 12, channelAddress + 0x0C)
+  }
+  def channelPopMemory(channel : Int, address : BigInt, bytePerBurst : Int): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(address, channelAddress + 0x10)
+    ctrlWrite(bytePerBurst-1 | 1 << 12, channelAddress + 0x1C)
+  }
+  def channelPushStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, completionOnPacket : Boolean = false): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x08)
+    ctrlWrite((if(completionOnPacket) 1 << 13 else 0) | (1 << 14), channelAddress + 0x0C)
+  }
+  def channelPopStream(channel : Int, portId : Int, sourceId : Int, sinkId : Int, withLast : Boolean): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(portId << 0 | sourceId << 8 | sinkId << 16, channelAddress + 0x18)
+    ctrlWrite(if(withLast) 1 << 13 else 0, channelAddress + 0x1C)
+  }
+  def channelStart(channel : Int, bytes : BigInt, selfRestart : Boolean): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(bytes-1, channelAddress + 0x20)
+    ctrlWrite(1 + (if(selfRestart) 2 else 0), channelAddress+0x2C)
+  }
+  def channelStartSg(channel : Int, head : Long): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(head, channelAddress+0x70)
+    ctrlWrite(0x10, channelAddress+0x2C)
+  }
+  def channelProgress(channel : Int): Int ={
+    val channelAddress = channelToAddress(channel)
+    ctrlRead(channelAddress + 0x60).toInt
+  }
+  def channelConfig(channel : Int,
+                    fifoBase : Int,
+                    fifoBytes : Int,
+                    priority : Int): Unit ={
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(fifoBase << 0 | fifoBytes-1 << 16,  channelAddress+0x40)
+    ctrlWrite(priority,  channelAddress+0x44)
+  }
+  def channelInterruptConfigure(channel : Int, mask : Int): Unit = {
+    val channelAddress = channelToAddress(channel)
+    ctrlWrite(0xFFFFFFFFl, channelAddress+0x54)
+    ctrlWrite(mask, channelAddress+0x50)
+  }
+  def channelStop(channel : Int): Unit ={
+    val channelAddress = channelToAddress(channel)
+    clockDomain.waitSampling(Random.nextInt(10))
+    ctrlWrite(4, channelAddress + 0x2c)
+  }
+
+  def channelStartAndWait(channel : Int, bytes : BigInt): Unit = {
+    val channelAddress = channelToAddress(channel)
+    channelStart(channel, bytes, false)
+    channelWaitCompletion(channel)
+
+  }
+  def channelBusy(channel : Int) ={
+    val channelAddress = channelToAddress(channel)
+    (ctrlRead(channelAddress + 0x2C) & 1) != 0
+  }
+
+  def channelSgBusy(channel : Int) ={
+    val channelAddress = channelToAddress(channel)
+    (ctrlRead(channelAddress + 0x2C) & 0x10) != 0
+  }
+  def channelWaitSgDone(channel : Int) ={
+    val channelAddress = channelToAddress(channel)
+    while (channelSgBusy(channel)) {
+      clockDomain.waitSampling(Random.nextInt(50))
+    }
+  }
+  def channelWaitCompletion(channel : Int) ={
+    do{
+      clockDomain.waitSampling(Random.nextInt(50))
+    } while(channelBusy(channel))
+  }
+
+}
 
 abstract class DmaSgTester(p : DmaSg.Parameter,
                            clockDomain : ClockDomain,

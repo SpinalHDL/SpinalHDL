@@ -19,7 +19,7 @@ class Axi4UpsizerTester extends FunSuite {
 
     val regions = mutable.Set[SizeMapping]()
     val inputAgent = new Axi4WriteOnlyMasterAgent(dut.io.input, dut.clockDomain) {
-      override def genAddress(): BigInt = Random.nextInt(1 << 19)
+      override def genAddress(): BigInt = ((Random.nextInt(1 << 19)))// & 0xFFF00) | 6
 
       override def bursts: List[Int] = List(1)
 

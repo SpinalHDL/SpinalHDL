@@ -49,6 +49,7 @@ trait VecFactory {
   }
 
   def Vec[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
+  def Vec[T <: Data](gen: HardType[T], size: Int): Vec[T] = Vec.fill(size)(gen())
 
 //  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
 

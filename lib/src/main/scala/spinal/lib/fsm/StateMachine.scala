@@ -137,8 +137,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var stateNextCand : enumDefinition.C = null
   /* Condition for transition */
   var transitionCond : Bool = null
-  var stateBoot : State = null
   override val wantExit  = False.allowPruning()
+  val wantStart = False
   var autoStart = true
 
   @dontName var parentStateMachine: StateMachineAccessor = null
@@ -154,10 +154,15 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   def checkState(state: State) = assert(state.getStateMachineAccessor == this, s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
 
+  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT")
   override def build(): Unit = {
     inGeneration = true
     childStateMachines.foreach(_.build())
-    stateBoot = new StateBoot(autoStart).setName("boot")
+    if(autoStart) {
+      stateBoot.whenIsActive {
+        startFsm()
+      }
+    }
     stateReg  = Reg(enumDefinition())
     stateNext = enumDefinition().allowOverride
     /* Only synthesize, if conditional state machine */
@@ -228,6 +233,13 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
+
+    when(wantStart){
+      if(entryState == null)
+        globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
+      else
+        forceGoto(entryState)
+    }
   }
 
   Component.current.addPrePopTask(() => {
@@ -287,10 +299,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   override def startFsm(): Unit = {
-    if(entryState == null)
-      globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
-    else
-      forceGoto(entryState)
+    wantStart := True
   }
 
   override def exitFsm(): Unit = {
@@ -309,4 +318,13 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   override def isStateNextBoot(): Bool = stateNext === enumOf(stateBoot)
   override def isStateRegBoot():  Bool = stateReg === enumOf(stateBoot)
+
+  def onStart(body : => Unit) = stateBoot.onExit(body)
+  def isStarted = !isActive(stateBoot)
+  def isStopped = isActive(stateBoot)
+}
+
+
+class StateMachineSlave extends StateMachine{
+  disableAutoStart()
 }

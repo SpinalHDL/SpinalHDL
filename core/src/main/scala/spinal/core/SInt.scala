@@ -447,20 +447,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**
-    * Absolute value of a SInt
-    * @example {{{ myUInt := mySInt.abs }}}
-    * @return a UInt assign with the absolute value of the SInt
-    */
-  def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
-  /** Return the absolute value of the SInt when enable is True */
-  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
-  /** symmetric abs
-    * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
-    * @return a UInt assign with the absolute value save 1 bit
-    */
-  def absWithSym: UInt = this.symmetry.abs.resize(getWidth-1)
-
-  /**
     * Assign a range value to a SInt
     * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
     * @param rangesValue The first range value

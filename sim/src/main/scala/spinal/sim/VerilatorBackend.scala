@@ -137,7 +137,7 @@ public:
     bool sint;
 
     WDataSignalAccess(WData *raw, uint32_t width, bool sint) : 
-      raw(raw), width(width), sint(sint), wordsCount((width+31)/32) {}
+      raw(raw), width(width), wordsCount((width+31)/32), sint(sint) {}
 
     uint64_t getU64_mem(size_t index) {
       WData *mem_el = &(raw[index*wordsCount]);
@@ -406,7 +406,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
-    config.rtlSourcesPaths.filter(_.endsWith(".bin")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
+    config.rtlSourcesPaths.filter(s => s.endsWith(".bin") || s.endsWith(".mem")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
 
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200

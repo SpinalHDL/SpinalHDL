@@ -925,7 +925,10 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
                 case _ =>
               }
               obj match {
-                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => {
+                  o.addTag(GenericValue(o.head.source))
+                  (o.getName(), o)
+                })
                 case _         => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
               }
             })

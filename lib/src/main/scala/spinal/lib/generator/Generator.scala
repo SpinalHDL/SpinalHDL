@@ -378,9 +378,12 @@ class GeneratorCompiler {
 
 object GeneratorComponent{
   implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.generator
+
+  def apply[T <: Generator](generatorLamda : => T, name : String = null) = new GeneratorComponent(generatorLamda, name)
 }
 
-class GeneratorComponent[T <: Generator](val generator : T, name : String = null) extends Component{
+class GeneratorComponent[T <: Generator](generatorLamda : => T, name : String = null) extends Component{
+  val generator = generatorLamda
   val c = new GeneratorCompiler()
   c.rootGenerators += generator
   generator.setName("")

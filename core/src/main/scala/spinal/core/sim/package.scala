@@ -157,6 +157,7 @@ package object sim {
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
+  def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
@@ -320,6 +321,14 @@ package object sim {
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
     def #=(value: BigInt) = setBigInt(bt, value)
+    def #=(value: Array[Byte]) = { //TODO improve perf
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        acc = acc << 8
+        acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
   }
 
   /**

@@ -33,7 +33,7 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
     if(!allowGen) return
     val region = bus.aw.region.randomizedInt()
     val burst = bursts(Random.nextInt(bursts.size))
-    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
+    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(bus.config.bytePerWord) + 1)
     val sizeByte = 1 << size
@@ -80,12 +80,15 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
 //      println(beatOffsetCache)
       wQueue.enqueue { () =>
         bus.w.data.randomize()
-        if(bus.config.useStrb)  bus.w.strb #= (Random.nextInt(1 << sizeByte) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
+        val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
+        if(bus.config.useStrb)  bus.w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
+//        if(bus.config.useStrb)  bus.w.strb #= (((1 << bytesInBeat)-1) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
         if(bus.config.useWUser) bus.w.user.randomize()
         if(bus.config.useLast)  bus.w.last #= beat == lenBeat-1
       }
       beatOffset += sizeByte
       beatOffset &= (bus.config.bytePerWord-1)
+      beatOffset &= ~(sizeByte-1)
     }
 
     //WRITE RSP
@@ -229,7 +232,7 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
     }
   }
 
-  StreamDriver(b, clockDomain){ _ =>
+  val bDriver = StreamDriver(b, clockDomain){ _ =>
     val queues = bQueue.filter(_.nonEmpty)
     if(queues.nonEmpty) {
       queues(Random.nextInt(queues.size)).dequeue().apply()
@@ -239,8 +242,8 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
     }
   }
 
-  StreamReadyRandomizer(aw, clockDomain)
-  StreamReadyRandomizer(w, clockDomain)
+  val awDriver = StreamReadyRandomizer(aw, clockDomain)
+  val wDriver = StreamReadyRandomizer(w, clockDomain)
 }
 
 
@@ -286,7 +289,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   }
 
 
-  StreamDriver(r, clockDomain){ _ =>
+  val rDriver = StreamDriver(r, clockDomain){ _ =>
     val queues = rQueue.filter(_.nonEmpty)
     if(queues.nonEmpty) {
       queues(Random.nextInt(queues.size)).dequeue().apply()
@@ -296,7 +299,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     }
   }
 
-  StreamReadyRandomizer(ar, clockDomain)
+  val arDriver = StreamReadyRandomizer(ar, clockDomain)
 }
 
 abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream[Axi4B], clockDomain: ClockDomain) {

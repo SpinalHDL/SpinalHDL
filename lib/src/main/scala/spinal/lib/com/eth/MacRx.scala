@@ -53,6 +53,24 @@ object CrcKind{
     outputReflected = true,
     finalXor = BigInt("FFFFFFFF", 16)
   )
+  val usb = new {
+    val crc5 = new CrcKind(
+      polynomial = BigInt("5", 16),
+      polynomialWidth = 5,
+      initValue = BigInt("1F", 16),
+      inputReflected = true,
+      outputReflected = true,
+      finalXor = BigInt("1F", 16)
+    )
+    val crc16 = new CrcKind(
+      polynomial = BigInt("8005", 16),
+      polynomialWidth = 16,
+      initValue = BigInt("FFFF", 16),
+      inputReflected = true,
+      outputReflected = true,
+      finalXor = BigInt("FFFF", 16)
+    )
+  }
 }
 
 case class Crc(kind : CrcKind, dataWidth : Int) extends Component{

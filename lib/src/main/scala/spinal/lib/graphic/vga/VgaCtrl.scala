@@ -45,6 +45,43 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     v.polarity := False
   }
 
+  def setAs(hPixels : Int,
+            hSync : Int,
+            hFront : Int,
+            hBack : Int,
+            hPolarity : Boolean,
+            vPixels : Int,
+            vSync : Int,
+            vFront : Int,
+            vBack : Int,
+            vPolarity : Boolean): Unit = {
+    h.syncStart := hSync - 1
+    h.colorStart := hSync + hBack - 1
+    h.colorEnd := hSync + hBack + hPixels - 1
+    h.syncEnd := hSync + hBack + hPixels + hFront - 1
+    v.syncStart := vSync - 1
+    v.colorStart := vSync + vBack - 1
+    v.colorEnd := vSync + vBack + vPixels - 1
+    v.syncEnd := vSync + vBack + vPixels + vFront - 1
+    h.polarity := Bool(hPolarity)
+    v.polarity := Bool(vPolarity)
+  }
+
+
+  def setAs_h1920_v1080_r60: Unit = setAs(
+    hPixels    = 1920,
+    hSync      = 44,
+    hFront     = 88,
+    hBack      = 148,
+    hPolarity  = true,
+    vPixels    = 1080,
+    vSync      = 5,
+    vFront     = 4,
+    vBack      = 36,
+    vPolarity  = true
+  )
+
+
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : Int) : Unit = {
     require(busCtrl.busDataWidth == 32)
 
@@ -101,7 +138,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   }
 
   val h = HVArea(io.timings.h, True)
-  val v = HVArea(io.timings.v, h.syncEnd)
+  val v = HVArea(io.timings.v, h.syncEnd) // h.colorEnd
   val colorEn = h.colorEn && v.colorEn
   io.pixels.ready := colorEn
   io.error := colorEn && !io.pixels.valid

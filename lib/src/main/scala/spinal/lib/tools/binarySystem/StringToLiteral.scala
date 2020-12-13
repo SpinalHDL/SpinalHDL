@@ -1,4 +1,4 @@
-package spinal.core.binarySystem
+package spinal.lib.tools.binarySystem
 
 object StringToLiteral {
   def hex(s: String): BigInt = {
