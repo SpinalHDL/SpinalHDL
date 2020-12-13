@@ -1,4 +1,4 @@
-package spinal.core.binarySystem
+package spinal.lib.tools.binarySystem
 
 object BinstToLiteral {
   def BinstToHexString(li: List[Int], alignLeft: Boolean = false): String = {

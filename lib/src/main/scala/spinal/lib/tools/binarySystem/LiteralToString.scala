@@ -1,4 +1,4 @@
-package spinal.core.binarySystem
+package spinal.lib.tools.binarySystem
 
 object LiteralToString {
   def HexString(value: BigInt, alignBits: Int = 0): String = {
