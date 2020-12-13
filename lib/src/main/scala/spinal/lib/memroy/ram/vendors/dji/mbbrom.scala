@@ -1,6 +1,6 @@
 package spinal.lib.memroy.ram.vendors.dji
 
-import spinal.lib.memory.ram.blackbox.{MemBlackBox, Rom}
+import spinal.lib.memory.ram._
 import spinal.core._
 
 class mbbrom(wrap: Rom) extends MemBlackBox{

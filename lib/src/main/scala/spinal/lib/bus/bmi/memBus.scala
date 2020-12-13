@@ -1,6 +1,6 @@
 package spinal.lib.bus.bmi
 
-import memlib.{Ram1r1w, Ram1rw}
+import spinal.lib.memory.ram._
 import spinal.core._
 import spinal.lib.IMasterSlave
 
