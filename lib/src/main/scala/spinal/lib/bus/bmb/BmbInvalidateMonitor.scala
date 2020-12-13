@@ -57,7 +57,7 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter,
 
 
   val ackLogic = new Area{
-    val syncSource = rspLogic.rspToSyncFiltred.queue(pendingInvMax)
+    val syncSource = rspLogic.rspToSyncFiltred.s2mPipe().queue(pendingInvMax)
     syncSource.ready := io.input.ack.fire
 
     io.input.sync.arbitrationFrom(io.input.ack)

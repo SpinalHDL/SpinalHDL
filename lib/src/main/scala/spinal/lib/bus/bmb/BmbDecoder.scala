@@ -116,14 +116,14 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
   }
 
   val sourceCount = p.access.sources.size
-  val sourceOrderingFifo = StreamFifoMultiChannel(SourceHistory(), channelCount = sourceCount, depth = pendingRspTransactionMax)
+  val sourceOrderingFifo = StreamFifoMultiChannelSharedSpace(SourceHistory(), channelCount = sourceCount, depth = pendingRspTransactionMax)
   val sourceOrderingUnbuffered = sourceOrderingFifo.io.pop.toStreams(withCombinatorialBuffer = true).unsetName()
   val sourceOrdering = sourceOrderingUnbuffered.map(_.m2sPipe())
 
   val cmdToRspCountMinusOne = io.input.cmd.isRead ? io.input.cmd.transferBeatCountMinusOne | 0
 
   val portsLogic = for ((port, portId) <- io.outputs.zipWithIndex) yield new Area {
-    val rspFifo = StreamFifoMultiChannel(Fragment(BmbRsp(outputParameter)), channelCount = sourceCount, depth = pendingRspTransactionMax)
+    val rspFifo = StreamFifoMultiChannelSharedSpace(Fragment(BmbRsp(outputParameter)), channelCount = sourceCount, depth = pendingRspTransactionMax)
     rspFifo.io.push.stream.valid := port.rsp.valid
     rspFifo.io.push.stream.payload := port.rsp.payload
     rspFifo.io.push.channel := UIntToOh(port.rsp.source, port.p.access.sourcesId.toSeq)
