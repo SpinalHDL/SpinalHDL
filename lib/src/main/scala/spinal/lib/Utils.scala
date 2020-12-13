@@ -979,3 +979,19 @@ case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
     port
   }
 }
+
+object File{
+  def creatIfNotExits(dir: String)  = {
+    import java.io.File
+    if(! new File(dir).exists()){
+      new File(dir).mkdirs()
+    }
+  }
+
+  def writeFile(name: String, content: Seq[String]) = {
+    import java.io.PrintWriter
+    val dir = name.split('/').dropRight(1).mkString("/")
+    creatIfNotExits(dir)
+    new PrintWriter(name){write(content.mkString("\n"));close}
+  }
+}

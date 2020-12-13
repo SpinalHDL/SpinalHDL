@@ -1,6 +1,6 @@
 package spinal.lib
 
-import spinal.core.assert
+import spinal.core._
 
 object playbinary extends App{
   assert("16".hexToBinst == List(0,1,1,0,1))
@@ -16,4 +16,13 @@ object playbinary extends App{
   println("中文字体".getBytes().toList.flatMap(_.binString))
   println("123".hexToBinst)
 }
+
+
+object playmem extends App{
+  import spinal.lib.memory.ram._
+  val mc = MemConfig(32, 512, 8)
+  SpinalConfig(targetDirectory = "./rtl").generateVerilog(new Ram1rw(mc, "fft"))
+  SpinalConfig(targetDirectory = "./rtl").generateVerilog(new Ram1r1w(mc, "fft"))
+}
+
 
