@@ -229,4 +229,44 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
   def reversed = B(asBools.reverse)
+
+  /*
+  * Bits auto slide to a Bundle
+  * Bits ::> Bundle
+  * */
+  def ::>(dest: Bundle): Unit = {
+    require(dest.getBitsWidth == this.getWidth, "width mismatch, can't auto extract")
+    autoSlideConnect(dest.elements.map(_._2).toList, this)
+  }
+
+  /*
+  * Bits auto slide to a Vec
+  * Bits ::> Vec
+  * */
+  def ::>[T <: Data](dest: Vec[T]): Unit = {
+    require(dest.getBitsWidth == this.getWidth, "width mismatch, can't auto extract")
+    autoSlideConnect(dest.toList, this)
+  }
+
+  protected def autoSlideConnect[T <: Data](elements: List[T], source: Bits): Unit = {
+    var pos = 0
+    for (i <- 0 until elements.size) {
+      val element = elements(i)
+      val width = element.getBitsWidth
+      val slide = source.drop(pos).take(width)
+      pos += width
+      autoConnect(element, slide)
+    }
+  }
+
+  protected def autoConnect[T <: Data](element: T, slidebits: Bits): Unit = {
+    element match {
+      case elem: Vec[T] => slidebits ::> elem
+      case elem: Bundle => slidebits ::> elem
+      case elem: UInt => elem := U(slidebits)
+      case elem: SInt => elem := S(slidebits)
+      case elem: Bool => elem := slidebits.lsb
+      case _ => SpinalError(s"${element} not recognized")
+    }
+  }
 }
