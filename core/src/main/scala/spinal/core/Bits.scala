@@ -253,9 +253,15 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     for (i <- 0 until elements.size) {
       val element = elements(i)
       val width = element.getBitsWidth
-      val slide = source.drop(pos).take(width)
+      if(width == 1){
+        element match{
+          case elem: Bool => elem := source(pos)
+          case _ => autoConnect(element, source(pos downto pos))
+        }
+      }else{
+        autoConnect(element, source(width + pos -1 downto pos))
+      }
       pos += width
-      autoConnect(element, slide)
     }
   }
 
