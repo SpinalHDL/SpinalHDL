@@ -1596,3 +1596,28 @@ object PlayFixPointProperty2 extends App {
 
   check(RoundType.ROUNDUP, true)  //it's ok now
 }
+
+object PlayBits2Bundle extends App{
+  case class MyRGB(dw: Int) extends Bundle{
+    val R = UInt(dw bit)
+    val G = UInt(dw bit)
+    val B = UInt(dw bit)
+  }
+
+  class Top extends Component{
+    val io = new Bundle{
+      val a = in Bits(120 bit)
+      val b: Vec[UInt] = out Vec(UInt(10 bits), 12)
+      val c: Bundle = out(MyRGB(40))
+    }
+
+    io.a ::> io.b
+    io.a ::> io.c
+//    io.b.<<(io.a)
+//    io.c.<<(io.a)
+//    io.b << io.a
+//    io.c << io.a
+  }
+//  SpinalConfig(targetDirectory = "./tmp").generateVerilog(new Top)
+  SpinalVerilog(new Top)
+}
