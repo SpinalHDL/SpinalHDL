@@ -1147,7 +1147,12 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         }
         if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
       }
-      case _ =>
+      case bt : BaseType =>{
+        if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
+          bt.addAttribute("async_reg")
+          bt.addAttribute("ASYNC_REG")
+        }
+      }
     }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
       pc.walkDeclarations {
