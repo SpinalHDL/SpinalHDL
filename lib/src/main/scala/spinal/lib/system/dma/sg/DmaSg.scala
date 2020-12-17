@@ -1,6 +1,6 @@
 package spinal.lib.system.dma.sg
 
-import spinal.core._
+import spinal.core.{Bool, _}
 import spinal.core.sim.{SimDataPimper, SimMutex, fork, waitUntil}
 import spinal.lib._
 import spinal.lib.bus.bmb._
@@ -79,6 +79,7 @@ object DmaSg{
                        inputs : Seq[BsbParameter],
                        channels : Seq[Channel],
                        bytePerTransferWidth : Int,
+                       weightWidth : Int,
                        pendingWritePerChannel : Int = 15,
                        pendingReadPerChannel : Int = 15){
 
@@ -233,7 +234,8 @@ object DmaSg{
       val descriptorValid = RegInit(False) setWhen(descriptorStart) clearWhen(descriptorCompletion)
 
       val bytes = Reg(UInt(p.bytePerTransferWidth bits)) //minus one
-      val priority = Reg(UInt(p.memory.priorityWidth bits))
+      val priority = Reg(UInt(p.memory.priorityWidth bits)) init(0)
+      val weight = Reg(UInt(p.weightWidth bits)) init(0)
       val selfRestart = cp.selfRestartCapable generate Reg(Bool)
       val readyToStop = True //todo Check s2b b2s transiants
 
@@ -470,8 +472,8 @@ object DmaSg{
 
           val decrBytes = fifo.pop.bytesDecr.newPort()
 
-
-          memPending := memPending + U(fire) - U(memRsp)
+          val memPendingInc = False
+          memPending := memPending + U(memPendingInc) - U(memRsp)
 
           decrBytes := 0
 
@@ -691,26 +693,57 @@ object DmaSg{
     }
 
 
+    abstract class ArbiterLogic(channels : Seq[ChannelLogic]) extends Area {
+      def requestFrom(c : ChannelLogic) : Bool
+      def acceptFrom(c : ChannelLogic) : Unit
+
+      val valid = RegInit(False)
+      val chosen = Reg(UInt(log2Up(channels.size) bits))
+
+      val priority = new Area{
+        def TB2[T <: Data, T2 <: Data](a: T, b : T2) = {
+          val ret = TupleBundle2(a,b)
+          ret._1 := a
+          ret._2 := b
+          ret
+        }
+        val highest = channels.map(c => TB2(requestFrom(c), c.priority)).reduceBalancedTree((a,b) => (!b._1 || (a._1 && a._2 > b._2)) ? a | b)._2
+        val masked = B(channels.map(c => requestFrom(c) && c.priority === highest))
+        val roundRobins = Vec(Reg(Bits(channels.size bits)) init(1), 1 << p.memory.priorityWidth)
+        val counter = Reg(UInt(p.weightWidth bits)) init(0)
+        val chosenOh = OHMasking.roundRobin(masked, roundRobins(highest))
+        val chosen = OHToUInt(chosenOh)
+        val weightLast = channels.map(_.weight === counter).read(chosen)
+        val contextNext = weightLast ? chosenOh.rotateLeft(1) | chosenOh
+      }
+
+      when(!valid) {
+        chosen := priority.chosen
+        when(channels.map(requestFrom(_)).orR) {
+          valid := True
+
+          for(roundRobinId <- 0 until 1 << p.memory.priorityWidth) when(roundRobinId === priority.highest){
+            priority.roundRobins(roundRobinId) := priority.contextNext
+          }
+
+          priority.counter := (priority.counter + 1).resized
+          when(priority.weightLast){
+            priority.counter := 0
+          }
+        }
+
+        for(id <- 0 until channels.length) when(requestFrom(channels(id)) && priority.chosenOh(id)){
+          acceptFrom(channels(id))
+        }
+      }
+    }
+
     val m2b = p.canRead generate new Area {
       val channels = Core.this.channels.filter(_.cp.canRead)
       val cmd = new Area {
-        val arbiter = StreamArbiterFactory.roundRobin.noLock.build(NoData, channels.size)
-        (arbiter.io.inputs, channels.map(_.push.m2b.loadRequest)).zipped.foreach(_.valid := _)
-        arbiter.io.output.ready := False
-
-
-        val s0 = new Area {
-          val valid = RegInit(False)
-          val chosen = Reg(UInt(log2Up(channels.size) bits))
-
-          when(!valid) {
-            chosen := arbiter.io.chosen
-            arbiter.io.output.ready := True
-            when(arbiter.io.inputs.map(_.valid).orR) {
-              valid := True
-              channels.map(_.push.m2b.memPendingIncr).write(arbiter.io.chosen, True)
-            }
-          }
+        val s0 = new ArbiterLogic(channels) {
+          def requestFrom(c : ChannelLogic) : Bool = c.push.m2b.loadRequest
+          def acceptFrom(c : ChannelLogic) : Unit = c.push.m2b.memPendingIncr := True
 
           def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(chosen)
           val address = channel(_.push.m2b.address)
@@ -849,18 +882,21 @@ object DmaSg{
           def isStall = valid && !ready
         }
 
-        val arbiter = new Area {
-          val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, channels.size)
-          (core.io.inputs, channels.map(_.pop.b2m.request)).zipped.foreach(_.valid := _)
-          core.io.output.ready := False
-          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
+        val arbiter = new Area{
+
+          val logic = new ArbiterLogic(channels) {
+            def requestFrom(c: ChannelLogic): Bool = c.pop.b2m.request
+            def acceptFrom(c: ChannelLogic): Unit = {c.pop.b2m.memPendingInc := True}
+          }
+
+          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(logic.chosen)
           when(sel.ready){
             sel.valid := False
+            when(sel.valid) {logic.valid := False}
           }
-          when(!sel.valid && core.io.output.valid) {
-            core.io.output.ready := True
+          when(!sel.valid && logic.valid) {
             sel.valid := True
-            sel.channel := core.io.chosen
+            sel.channel := logic.chosen
             sel.address := channel(_.pop.b2m.address)
             sel.ptr := channel(_.fifo.pop.ptrWithBase)
             sel.ptrMask := channel(_.fifo.words)
@@ -872,6 +908,30 @@ object DmaSg{
             channel(_.pop.b2m.fire) := True
           }
         }
+
+//        val arbiter = new Area {
+//          val core = StreamArbiterFactory.roundRobin.noLock.build(NoData, channels.size)
+//          (core.io.inputs, channels.map(_.pop.b2m.request)).zipped.foreach(_.valid := _)
+//          core.io.output.ready := False
+//          def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(core.io.chosen)
+//          when(sel.ready){
+//            sel.valid := False
+//          }
+//          when(!sel.valid && core.io.output.valid) {
+//            core.io.output.ready := True
+//            sel.valid := True
+//            sel.channel := core.io.chosen
+//            sel.address := channel(_.pop.b2m.address)
+//            sel.ptr := channel(_.fifo.pop.ptrWithBase)
+//            sel.ptrMask := channel(_.fifo.words)
+//            sel.bytePerBurst := channel(_.pop.b2m.bytePerBurst)
+//            sel.bytesInFifo :=  channel(_.fifo.pop.bytes)
+//            sel.flush := channel(_.pop.b2m.flush)
+//            sel.packet := channel(_.pop.b2m.packet)
+//            sel.bytesLeft := channel(_.pop.b2m.bytesLeft).resized
+//            channel(_.pop.b2m.fire) := True
+//          }
+//        }
 
 //        val sel = arbiter.sel.halfPipe()
         def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
@@ -1222,6 +1282,7 @@ object DmaSg{
           ctrl.write(channel.fifo.words, a + 0x40, 16 + log2Up(p.memory.bankWidth / 8))
         }
         ctrl.write(channel.priority, a+0x44, 0)
+        ctrl.write(channel.weight, a+0x44, 8)
 
         def map(interrupt : Interrupt, id : Int): Unit ={
           ctrl.write(interrupt.enable, a+0x50, id)
@@ -1428,10 +1489,11 @@ abstract class DmaSgTesterCtrl(clockDomain: ClockDomain){
   def channelConfig(channel : Int,
                     fifoBase : Int,
                     fifoBytes : Int,
-                    priority : Int): Unit ={
+                    priority : Int,
+                    weight : Int): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(fifoBase << 0 | fifoBytes-1 << 16,  channelAddress+0x40)
-    ctrlWrite(priority,  channelAddress+0x44)
+    ctrlWrite(priority | weight << 8,  channelAddress+0x44)
   }
   def channelInterruptConfigure(channel : Int, mask : Int): Unit = {
     val channelAddress = channelToAddress(channel)
@@ -1618,10 +1680,11 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   def channelConfig(channel : Int,
                     fifoBase : Int,
                     fifoBytes : Int,
-                    priority : Int): Unit ={
+                    priority : Int,
+                    weight : Int): Unit ={
     val channelAddress = channelToAddress(channel)
     ctrlWrite(fifoBase << 0 | fifoBytes-1 << 16,  channelAddress+0x40)
-    ctrlWrite(priority,  channelAddress+0x44)
+    ctrlWrite(priority | weight << 8,  channelAddress+0x44)
   }
   def channelInterruptConfigure(channel : Int, mask : Int): Unit = {
     val channelAddress = channelToAddress(channel)
@@ -1809,7 +1872,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = packetBased)
               channelPopMemory (channelId, 0, 16)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               dut.clockDomain.waitSampling(2)
 
@@ -1976,7 +2039,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
                 channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink, completionOnPacket = true)
                 channelPopMemory(channelId, to.base.toInt, 16)
-                channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+                channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
                 channelInterruptConfigure(channelId, 0x4)
                 channelStart(channelId, bufferSize, selfRestart = false)
                 dut.clockDomain.waitSampling(2)
@@ -2019,7 +2082,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               val packet = Packet(source = source, sink = sink, last = false)
               fork{
                 while(!channelBusy(channelId)){
@@ -2072,7 +2135,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushStream(channelId, cp.inputsPorts.indexOf(inputId), source, sink)
               channelPopMemory(channelId, to.base.toInt, 16)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelInterruptConfigure(channelId, 0x10)
               channelStart(channelId, bufferSize, selfRestart = true)
               var cpuIdx, refIdx = 0
@@ -2136,7 +2199,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, from.base.toInt, 16)
               channelPopMemory (channelId, to.base.toInt, 16)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelStartAndWait (channelId, bytes, doCount)
 
               for (byteId <- 0 until bytes) {
@@ -2195,7 +2258,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, 0, 16)
               channelPopMemory (channelId, 0, 16)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
                 dut.clockDomain.waitSampling(Random.nextInt(600))
@@ -2276,7 +2339,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory (channelId, 0, 16)
               channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, false)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelStartSg(channelId, descriptors.head.address.base.toLong)
               val stopThread = fork{if(innerStop) {
                 dut.clockDomain.waitSampling(Random.nextInt(600))
@@ -2321,7 +2384,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
 
               channelPushMemory(channelId, from.base.toInt, 16)
               channelPopStream(channelId, cp.outputsPorts.indexOf(outputId), source, sink, withLast)
-              channelConfig (channelId, 0x40 * channelId, 0x40, 2)
+              channelConfig (channelId, 0x40 * channelId, 0x40, Random.nextInt(2), Random.nextInt(4))
               channelStart(channelId, bytes = bytes, doCount != 1)
               waitUntil(outputs(outputId).ref(sink).size <= 4*(bytes + (if(withLast) 1 else 0)))
               channelStop(channelId)
@@ -2490,7 +2553,8 @@ object SgDmaTestsParameter{
       outputs = outputs,
       inputs = inputs,
       channels = channels,
-      bytePerTransferWidth = 16
+      bytePerTransferWidth = 16,
+      weightWidth = 2
     )
   }
 
@@ -2699,7 +2763,8 @@ object SgDmaTestsParameter{
         outputs = outputs,
         inputs = inputs,
         channels = channels,
-        bytePerTransferWidth = 16
+        bytePerTransferWidth = 16,
+        weightWidth = 2
       )
     }
     parameters

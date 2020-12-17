@@ -68,7 +68,8 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
       )),
       bytePerTransferWidth = bytePerTransferWidth,
       pendingWritePerChannel = pendingWritePerChannel,
-      pendingReadPerChannel = pendingReadPerChannel
+      pendingReadPerChannel = pendingReadPerChannel,
+      weightWidth = 2
     )
 
     add task {
