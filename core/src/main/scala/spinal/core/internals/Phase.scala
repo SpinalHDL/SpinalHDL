@@ -1150,9 +1150,9 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
       case bt : BaseType =>{
         if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
           bt.addAttribute("async_reg")
-          bt.addAttribute("ASYNC_REG")
         }
       }
+      case _ =>
     }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
       pc.walkDeclarations {
