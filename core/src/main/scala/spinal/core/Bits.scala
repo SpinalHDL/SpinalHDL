@@ -271,6 +271,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
       case elem: Bundle => slidebits ::> elem
       case elem: UInt => elem := U(slidebits)
       case elem: SInt => elem := S(slidebits)
+      case elem: Bits => elem := slidebits
       case elem: Bool => elem := slidebits.lsb
       case _ => SpinalError(s"${element} not recognized")
     }
