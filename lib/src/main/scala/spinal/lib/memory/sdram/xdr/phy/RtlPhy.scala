@@ -160,4 +160,19 @@ case class RtlPhy(pl : PhyLayout) extends Component{
       ram.setBigInt(offset/bytePerBeat + beatId, data)
     }
   }
+
+  def loadBytes(offset : Long, data : Seq[Byte]): Unit ={
+    import spinal.core.sim._
+    val bytePerBeat = pl.bytePerBeat
+    assert(offset % bytePerBeat == 0)
+    var bin = data
+    bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
+    for(beatId <- 0 until bin.size/bytePerBeat){
+      var data = BigInt(0)
+      for(byteId <- 0 until bytePerBeat){
+        data = data | (BigInt(bin(beatId*bytePerBeat + byteId).toInt & 0xFF) << (byteId*8))
+      }
+      ram.setBigInt(offset/bytePerBeat + beatId, data)
+    }
+  }
 }
