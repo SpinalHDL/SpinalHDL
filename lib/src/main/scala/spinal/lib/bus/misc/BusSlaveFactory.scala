@@ -524,8 +524,8 @@ trait BusSlaveFactory extends Area{
                                        payloadBitOffset : Int,
                                        validInverted    : Boolean = false): Unit = {
 
-    assert(widthOf(that) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
-    assert(payloadBitOffset + widthOf(that) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter is bigger than the data bus width" )
+    assert(widthOf(that.payload) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter payload + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
+    assert(payloadBitOffset + widthOf(that.payload) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter payload is bigger than the data bus width" )
     assert(validBitOffset <= busDataWidth - 1, "BusSlaveFactory ERROR [readStreamNonBlocking] : validBitOffset is outside the data bus width")
 
     that.ready := False
