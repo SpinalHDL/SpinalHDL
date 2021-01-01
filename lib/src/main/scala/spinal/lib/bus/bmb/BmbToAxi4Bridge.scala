@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 
-case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31) extends Component{
+case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31, halfRateAw : Boolean = true) extends Component{
   val axiConfig = Axi4Config(
     addressWidth = bmbConfig.access.addressWidth,
     dataWidth    = bmbConfig.access.dataWidth,
@@ -64,7 +64,7 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31
   readCmdInfo.source := cmdStage.source
   readCmdInfo.context := cmdStage.context
 
-  val writeRspInfo = writeCmdInfo.queue(size = 1 << log2Up(pendingMax)).halfPipe()
+  val writeRspInfo = writeCmdInfo.queue(size = 1 << log2Up(pendingMax)).pipelined(m2s = !halfRateAw, s2m = !halfRateAw, halfRate = halfRateAw)
   val readRspInfo = readCmdInfo.queue(size = 1 << log2Up(pendingMax)).halfPipe()
 
   io.output.arw.arbitrationFrom(cmdStage.haltWhen(!writeCmdInfo.ready || !readCmdInfo.ready))
