@@ -195,7 +195,7 @@ class BmbInterconnectGenerator() extends Generator{
           inputsParameter = sorted.map(c => BmbParameter(c.arbiterAccessRequirements, c.arbiterInvalidationRequirements)),
           outputParameter = bus.p,
           lowerFirstPriority = defaultArbitration == BmbInterconnectGenerator.STATIC_PRIORITY,
-          pendingInvMax = 16 //TODO
+          pendingInvMax = 15 //TODO
         )
         arbiter.setCompositeName(bus, "arbiter")
         for((connection, arbiterInput) <- (sorted, arbiter.io.inputs).zipped) {

@@ -61,7 +61,7 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
     val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsParameter(inputId).invalidation.canInvalidate) yield (io.inputs(inputId), inputId)).unzip
 
     val invCounter = CounterUpDown(
-      stateCount = 1 << log2Up(pendingInvMax),
+      stateCount = 2 << log2Up(pendingInvMax),
       incWhen    = io.output.inv.fire,
       decWhen    = io.output.ack.fire
     )
@@ -70,7 +70,7 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
     val forks = StreamFork(io.output.inv.haltWhen(haltInv), inputs.size)
     val logics = for(((input, inputId), forkId) <- (inputs, inputsIndex).zipped.toSeq.zipWithIndex) yield new Area{
       val ackCounter = CounterUpDown(
-        stateCount = 1 << log2Up(pendingInvMax),
+        stateCount = 2 << log2Up(pendingInvMax),
         incWhen    = input.ack.fire,
         decWhen    = io.output.ack.fire
       )
