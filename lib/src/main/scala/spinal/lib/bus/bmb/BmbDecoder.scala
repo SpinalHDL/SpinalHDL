@@ -98,6 +98,7 @@ case class BmbErrorSlave(p : BmbParameter) extends Component{
   val beats = Reg(UInt(p.access.beatCounterWidth bits))
   val source = Reg(UInt(p.access.sourceWidth bits))
   val context = Reg(Bits(p.access.contextWidth bits))
+  val opcode = Reg(Bits(1 bits))
 
   io.input.rsp.setError()
   io.input.rsp.source := source
@@ -105,18 +106,23 @@ case class BmbErrorSlave(p : BmbParameter) extends Component{
   if(p.access.canExclusive) io.input.rsp.exclusive := False
   if(p.access.canWrite) io.input.rsp.data.assignDontCare()
 
+
+
+  io.input.rsp.last := beats === 0 || opcode === Bmb.Cmd.Opcode.WRITE
   when(!busy){
     io.input.cmd.ready := True
-    busy := io.input.cmd.valid
+    io.input.rsp.valid := False
+    busy := io.input.cmd.valid && io.input.cmd.last
     beats := io.input.cmd.transferBeatCountMinusOne
     source := io.input.cmd.source
     context := io.input.cmd.context
+    opcode := io.input.cmd.opcode
   } otherwise {
     io.input.cmd.ready := False
     io.input.rsp.valid := True
     when(io.input.rsp.ready){
       beats := beats - 1
-      when(beats === 0){
+      when(io.input.rsp.last ){
         busy := False
       }
     }
@@ -140,17 +146,19 @@ case class BmbDecoderPerSource  (p : BmbParameter,
   } else new Area {
     var internalMapping = mappings
     var internalOutputs = io.outputs.toList
+    var internalCapabilities = capabilities
     if(!hasDefault){
       val error = BmbErrorSlave(p)
       internalMapping :+= DefaultMapping
       internalOutputs :+= error.io.input
+      internalCapabilities :+= p
     }
 
     val hits = Vec(Bool, internalMapping.size)
     for (portId <- 0 until internalMapping.length) yield {
       val slaveBus = internalOutputs(portId)
-      val memorySpace = mappings(portId)
-      val capability = capabilities(portId)
+      val memorySpace = internalMapping(portId)
+      val capability = internalCapabilities(portId)
       val hit = hits(portId)
       hit := (memorySpace match {
         case DefaultMapping => !hits.filterNot(_ == hit).orR

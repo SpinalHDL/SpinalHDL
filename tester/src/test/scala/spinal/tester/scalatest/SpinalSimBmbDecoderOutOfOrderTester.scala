@@ -133,7 +133,35 @@ class SpinalSimBmbDecoderInOrderPerSourceTester extends FunSuite {
     )
     SimConfig.compile(BmbDecoderPerSource(
       p             = p,
-      mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000)),
+      mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
+      capabilities  = Seq.fill(3)(p),
+      pendingMax = 15
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(1000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
+
+  test("t2") {
+    val p = BmbParameter(
+      addressWidth = 20,
+      dataWidth    = 32,
+      lengthWidth  = 6,
+      sourceWidth  = 2,
+      contextWidth = 16
+    )
+    SimConfig.withWave.compile(BmbDecoderPerSource(
+      p             = p,
+      mappings      = Seq(SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
       capabilities  = Seq.fill(2)(p),
       pendingMax = 15
     )).doSimUntilVoid(seed = 42) { dut =>
