@@ -109,6 +109,93 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31
 
 }
 
+//Assume that the AXI read and writes keep order
+case class BmbToAxi4SharedBridgeAssumeInOrder(bmbConfig : BmbParameter, pendingMax : Int = 31, halfRateAw : Boolean = true) extends Component{
+  val axiConfig = Axi4Config(
+    addressWidth = bmbConfig.access.addressWidth,
+    dataWidth    = bmbConfig.access.dataWidth,
+    idWidth      = 0,
+    useId        = true,
+    useSize      = true,
+    useLen       = true,
+    useLast      = true,
+    useResp      = true,
+    useStrb      = true,
+    useProt      = true,
+    useCache     = true,
+    useQos       = false,
+    useRegion    = false,
+    useBurst     = false,
+    useLock      = false
+  )
+
+  val io = new Bundle {
+    val input = slave(Bmb(bmbConfig))
+    val output = master(Axi4Shared(axiConfig))
+  }
+
+
+  val (cmdFork, dataFork, reorderFork) = StreamFork3(io.input.cmd)
+  val cmdStage  = cmdFork.throwWhen(!io.input.cmd.first)
+  val dataStage = dataFork.throwWhen(!dataFork.isWrite)
+
+  case class Info() extends Bundle {
+    val opcode = cloneOf(io.input.cmd.opcode)
+    val source = cloneOf(io.input.cmd.source)
+    val context = cloneOf(io.input.cmd.context)
+  }
+
+  val cmdInfo = Stream(Info())
+  cmdInfo.arbitrationFrom(reorderFork.throwWhen(!reorderFork.first))
+  cmdInfo.source := reorderFork.source
+  cmdInfo.context := reorderFork.context
+  cmdInfo.opcode := reorderFork.opcode
+
+  val rspInfo = cmdInfo.queue(size = 1 << log2Up(pendingMax)).pipelined(m2s = true, s2m = true)
+  rspInfo.ready := io.input.rsp.lastFire
+
+  io.output.arw.arbitrationFrom(cmdStage)
+  io.output.arw.write  := io.input.cmd.isWrite
+  io.output.arw.addr   := io.input.cmd.address
+  io.output.arw.len    := io.input.cmd.transferBeatCountMinusOne.resized
+  io.output.arw.size   := log2Up(bmbConfig.access.byteCount)
+  io.output.arw.prot := "010"
+  io.output.arw.cache := "1111"
+
+  io.output.w.arbitrationFrom(dataStage)
+  io.output.w.data := dataStage.data
+  io.output.w.strb := dataStage.mask
+  io.output.w.last := dataStage.last
+
+  io.input.rsp.valid := rspInfo.valid
+  io.input.rsp.data := io.output.r.data
+  io.input.rsp.source :=  rspInfo.source
+  io.input.rsp.context := rspInfo.context
+
+  io.output.b.ready := False
+  io.output.r.ready := False
+
+  when(rspInfo.opcode === Bmb.Cmd.Opcode.WRITE){
+    io.output.b.ready := io.input.rsp.ready && rspInfo.valid
+    io.input.rsp.valid.clearWhen(!io.output.b.valid)
+    io.input.rsp.last := True
+    when(io.output.b.isOKAY()){
+      io.input.rsp.setSuccess()
+    } otherwise {
+      io.input.rsp.setError()
+    }
+  } otherwise {
+    io.output.r.ready := io.input.rsp.ready && rspInfo.valid
+    io.input.rsp.valid.clearWhen(!io.output.r.valid)
+    io.input.rsp.last := io.output.r.last
+    when(io.output.r.isOKAY()){
+      io.input.rsp.setSuccess()
+    } otherwise {
+      io.input.rsp.setError()
+    }
+  }
+}
+
 
 
 case class BmbToAxi4ReadOnlyBridge(p : BmbParameter) extends Component{
