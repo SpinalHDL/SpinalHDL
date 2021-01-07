@@ -925,7 +925,10 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
                 case _ =>
               }
               obj match {
-                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => {
+                  o.addTag(GenericValue(o.head.source))
+                  (o.getName(), o)
+                })
                 case _         => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
               }
             })
@@ -1143,6 +1146,11 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
           case _ =>
         }
         if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
+      }
+      case bt : BaseType =>{
+        if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
+          bt.addAttribute("async_reg")
+        }
       }
       case _ =>
     }

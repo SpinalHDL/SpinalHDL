@@ -37,10 +37,14 @@ class BmbInterconnectGenerator() extends Generator{
 
     val DECODER_SMALL = 0
     val DECODER_OUT_OF_ORDER = 1
+    val DECODER_SMALL_PER_SOURCE = 2
     var decoderKind = DECODER_SMALL
 
     def withOutOfOrderDecoder(): Unit ={
       decoderKind = DECODER_OUT_OF_ORDER
+    }
+    def withPerSourceDecoder(): Unit ={
+      decoderKind = DECODER_SMALL_PER_SOURCE
     }
 
     def addConnection(c : ConnectionModel): Unit ={
@@ -75,6 +79,7 @@ class BmbInterconnectGenerator() extends Generator{
                 canWrite = c.s.accessCapabilities.canWrite,
                 contextWidth = decoderKind match {
                   case DECODER_SMALL => source.contextWidth
+                  case DECODER_SMALL_PER_SOURCE => source.contextWidth
                   case DECODER_OUT_OF_ORDER => 0
                 }
               ))))
@@ -87,6 +92,14 @@ class BmbInterconnectGenerator() extends Generator{
               add task (decoderKind match {
                 case DECODER_SMALL => new Area {
                   val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
+                  decoder.setCompositeName(bus, "decoder")
+                  connector(bus, decoder.io.input)
+                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                    connection.decoder.load(decoderOutput)
+                  }
+                }
+                case DECODER_SMALL_PER_SOURCE => new Area {
+                  val decoder = BmbDecoderPerSource(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
                   decoder.setCompositeName(bus, "decoder")
                   connector(bus, decoder.io.input)
                   for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
@@ -195,7 +208,7 @@ class BmbInterconnectGenerator() extends Generator{
           inputsParameter = sorted.map(c => BmbParameter(c.arbiterAccessRequirements, c.arbiterInvalidationRequirements)),
           outputParameter = bus.p,
           lowerFirstPriority = defaultArbitration == BmbInterconnectGenerator.STATIC_PRIORITY,
-          pendingInvMax = 16 //TODO
+          pendingInvMax = 15 //TODO
         )
         arbiter.setCompositeName(bus, "arbiter")
         for((connection, arbiterInput) <- (sorted, arbiter.io.inputs).zipped) {
