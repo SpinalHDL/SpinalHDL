@@ -369,7 +369,7 @@ class BmbInterconnectGenerator() extends Generator{
         }
       }
 
-      if(m.generatorClockDomain.get != s.generatorClockDomain.get) { //TODO better sync check
+      if(m.generatorClockDomain.clock != s.generatorClockDomain.clock) { //TODO better sync check
         ccKind match {
           case CC_FIFO =>
             accessBridges += new AccessBridge {
