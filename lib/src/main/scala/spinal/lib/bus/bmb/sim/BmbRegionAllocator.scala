@@ -11,12 +11,12 @@ case class BmbRegionAllocator(alignmentMinWidth : Int = 0){
 
   def align(v : Int) = v & ~((1 << alignmentMinWidth) -1)
   def free(region : SizeMapping) = allocations.remove(region)
-  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1) : SizeMapping = {
+  def allocate(addressGen : => Int, sizeMax : Int, p : BmbParameter, sizeMin : Int = 1, boundarySize : Int = Bmb.boundarySize) : SizeMapping = {
     val sizeMinAligned = Math.max(sizeMin, 1 << alignmentMinWidth)
     var tryies = 0
     while(tryies < 10){
       var address = align(addressGen)
-      val boundaryMax = Bmb.boundarySize - (address & (Bmb.boundarySize-1))
+      val boundaryMax = boundarySize - (address & (boundarySize-1))
       var size = Math.max(sizeMinAligned, align(Math.min(boundaryMax, Random.nextInt(sizeMax) + 1)))
       if(!p.access.aggregated.alignment.allowByte) {
         address &= ~p.access.wordMask
