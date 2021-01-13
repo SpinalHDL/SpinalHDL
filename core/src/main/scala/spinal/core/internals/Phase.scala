@@ -1268,6 +1268,9 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
       case s: Mem[_] if s.getWidth == 0 =>
         s.foreachStatements(toRemove += _)
         s.removeStatement()
+      case s: SpinalEnumCraft[_] if s.spinalEnum.elements.size < 2 =>
+        s.foreachStatements(toRemove += _)
+        s.removeStatement()
       case s => s.walkRemapExpressions(_.simplifyNode)
     }
 
