@@ -303,8 +303,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
-  /** Change the payload's content type. The new type must have the same bit length as the current one.
-    */
+
   def swapPayload[T2 <: Data](that: HardType[T2]) = {
     val next = new Stream(that).setCompositeName(this, "swap", true)
     next.arbitrationFrom(this)
