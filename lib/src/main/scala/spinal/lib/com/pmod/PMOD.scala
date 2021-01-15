@@ -3,14 +3,14 @@ package spinal.lib.com.pmod
 import spinal.core._
 
 abstract class PMODBundle extends Bundle {
-  val pin1 = Bool
-  val pin2 = Bool
-  val pin3 = Bool
-  val pin4 = Bool
-  val pin7 = Bool
-  val pin8 = Bool
-  val pin9 = Bool
-  val pin10 = Bool
+  val pin1 = Bits(1 bit)
+  val pin2 = Bits(1 bit)
+  val pin3 = Bits(1 bit)
+  val pin4 = Bits(1 bit)
+  val pin7 = Bits(1 bit)
+  val pin8 = Bits(1 bit)
+  val pin9 = Bits(1 bit)
+  val pin10 = Bits(1 bit)
 
   def build()
 }

@@ -23,16 +23,16 @@ case class SevenSegmentDisplayCtrl() extends Component {
 
     val segments = Reg(UInt(7 bits)) init (0)
 
-    io.pins.pin1 := ~io.enable | ~segments(0)
-    io.pins.pin2 := ~io.enable | ~segments(1)
-    io.pins.pin3 := ~io.enable | ~segments(2)
-    io.pins.pin4 := ~io.enable | ~segments(3)
-    io.pins.pin7 := ~io.enable | ~segments(4)
-    io.pins.pin8 := ~io.enable | ~segments(5)
-    io.pins.pin9 := ~io.enable | ~segments(6)
+    io.pins.pin1 := (~io.enable | ~segments(0)).asBits
+    io.pins.pin2 := (~io.enable | ~segments(1)).asBits
+    io.pins.pin3 := (~io.enable | ~segments(2)).asBits
+    io.pins.pin4 := (~io.enable | ~segments(3)).asBits
+    io.pins.pin7 := (~io.enable | ~segments(4)).asBits
+    io.pins.pin8 := (~io.enable | ~segments(5)).asBits
+    io.pins.pin9 := (~io.enable | ~segments(6)).asBits
 
-    val lowNibble = io.pins.pin10
-    lowNibble := True
+    val lowNibble = True
+    io.pins.pin10 := lowNibble.asBits
 
     showLowNibble.whenIsActive {
       segments := digitToSegments(io.value(3 downto 0))

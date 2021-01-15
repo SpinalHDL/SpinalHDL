@@ -23,12 +23,13 @@ case class SnapOffCtrl() extends Component {
     val button3 = out(Bool)
   }
 
-  io.button1 := io.pins.pin9
-  io.button2 := io.pins.pin4
-  io.button3 := io.pins.pin10
-  io.pins.pin1 := io.led2
-  io.pins.pin2 := io.led3
-  io.pins.pin3 := io.led5
-  io.pins.pin7 := io.led1
-  io.pins.pin8 := io.led4
+  io.pins.pin1 := io.led2.asBits
+  io.pins.pin2 := io.led3.asBits
+  io.pins.pin3 := io.led5.asBits
+  io.pins.pin7 := io.led1.asBits
+  io.pins.pin8 := io.led4.asBits
+
+  io.button1 := io.pins.pin9.as(Bool)
+  io.button2 := io.pins.pin4.as(Bool)
+  io.button3 := io.pins.pin10.as(Bool)
 }
