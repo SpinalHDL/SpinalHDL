@@ -427,13 +427,13 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
 
     assert(Process(Seq(iverilogPath,
                        analyzeFlags,
+                       "-o",
+                       toplevelName + ".vvp",
                        "-s __simulation_def",
                        "-s",
                        toplevelName,
                        verilogSourcePaths,
-                       s"./rtl/__simulation_def.v",
-                       "-o",
-                       toplevelName + ".vvp").mkString(" "), 
+                       s"./rtl/__simulation_def.v").mkString(" "),
                      new File(workspacePath)).! (new Logger()) == 0, 
            s"Analyze step of verilog files failed") 
   }
