@@ -55,9 +55,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   var runIface = 0
 
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
-  CFLAGS += (if(isMac) " -dynamiclib " else "")
   LDFLAGS += (if(!isMac) " -shared" else "")
-  LDFLAGS += (if(!isWindows) " -lrt" else "")
+  LDFLAGS += (if(!isWindows && !isMac) " -lrt" else "")
 
   val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
 
@@ -104,7 +103,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       "Compilation of SharedMemIface_wrap.cxx failed")
 
         assert(Process(Seq(CC, 
-          CFLAGS, 
+          CFLAGS + (if(isMac) " -dynamiclib " else ""),
           "SharedMemIface.o", 
           "SharedMemIface_wrap.o",
           LDFLAGS, 
