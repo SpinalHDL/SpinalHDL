@@ -1,4 +1,4 @@
-package spinal.lib.pmod
+package spinal.lib.com.pmod
 
 import spinal.core._
 
