@@ -92,7 +92,7 @@ trait BusIf extends BusIfBase {
 
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
-      case 0 => SpinalError("There have no inputs Trrigger signals")
+      case 0 => SpinalError("There have no inputs Trigger signals")
       case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
       case _ =>
     }
@@ -113,7 +113,7 @@ trait BusIf extends BusIfBase {
 //  @AutoInterrupt
 //  def interruptFactory2(regNamePre: String, triggers: Bool*): Bool = {
 //    triggers.size match {
-//      case 0 => SpinalError("There have no inputs Trrigger signals")
+//      case 0 => SpinalError("There have no inputs Trigger signals")
 //      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
 //      case _ =>
 //    }
