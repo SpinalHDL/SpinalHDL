@@ -514,3 +514,8 @@ object CombInit {
 
   def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
 }
+
+
+trait AllowIoBundle{
+
+}
