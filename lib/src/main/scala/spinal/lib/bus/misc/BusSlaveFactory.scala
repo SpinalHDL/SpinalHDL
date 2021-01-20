@@ -596,6 +596,40 @@ trait BusSlaveFactory extends Area{
     nonStopWrite(port.data, bitOffset)
     mem
   }
+
+  /**
+    * Memory map a Mem to bus for writing. Elements can be larger than bus data width in bits.
+    */
+  def writeMemMultiWord[T <: Data](mem: Mem[T],
+                                   addressOffset: BigInt): Mem[T] = {
+    // sanity check
+    if (mem.width % busDataWidth != 0) {
+      PendingError(s"Memory width ${mem.width} must be multiple of bus data width ${busDataWidth} \n${getScalaLocationLong}")
+    }
+
+    val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
+    val memAddress = writeAddress(mapping) >> log2Up(mem.width / 8)
+    val port = mem.writePortWithMask
+    val data = Bits(busDataWidth bits)
+
+    port.address := memAddress
+    port.valid := False
+    onWritePrimitive(mapping, true, null) {
+      port.valid := True
+    }
+    // replicate data to `mem.width` bits
+    port.data.assignFromBits(Cat(Seq.fill(mem.width / busDataWidth)(data): _*))
+
+    // generate mask
+    val maskWidth = mem.width / busDataWidth
+    val mask = UInt(maskWidth bits)
+    mask := 0
+    mask(writeAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))) := True
+    port.mask := mask.asBits
+
+    nonStopWrite(data)
+    mem
+  }
 }
 
 
