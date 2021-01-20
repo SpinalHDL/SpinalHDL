@@ -534,7 +534,7 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}`ifndef SYNTHESIS\n"
               b ++= s"${tab}  `ifdef FORMAL\n"
               /* Emit actual assume/assert/cover statements */
-              b ++= s"${tab}    $keyword($cond)\n"
+              b ++= s"${tab}    $keyword($cond);\n"
               b ++= s"${tab}  `else\n"
               /* Emulate them using $display */
               b ++= s"${tab}    if(!$cond) begin\n"

@@ -309,7 +309,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @param enable enable the 2'complement
     * @return Return the 2'Complement of the number
     */
-  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+  def twoComplement(enable: Bool): SInt = ((enable ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+//  def twoComplementUInt(enable: Bool): UInt = ((Mux(enable, ~this, this)) + enable.asUInt)
 
   /**
     * Assign a range value to an UInt

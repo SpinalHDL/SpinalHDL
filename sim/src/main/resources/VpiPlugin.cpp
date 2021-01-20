@@ -70,6 +70,7 @@ bool register_cb(PLI_INT32(*f)(p_cb_data),
         int64_t cycles){
 
     s_cb_data cbData;
+    memset(&cbData, 0, sizeof(cbData));
     s_vpi_time simuTime;
     if (cycles < 0){
         cbData.time = NULL;

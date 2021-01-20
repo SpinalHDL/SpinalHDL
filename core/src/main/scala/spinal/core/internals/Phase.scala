@@ -1149,7 +1149,7 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
       }
       case bt : BaseType =>{
         if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
-          bt.addAttribute("async_reg")
+          bt.addAttribute("async_reg", "true")
         }
       }
       case _ =>
@@ -1221,7 +1221,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
           }
 
-          if (e.inferredWidth > 4095) {
+          if (e.inferredWidth > 4096) {
             errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
           }
         }
@@ -1233,7 +1233,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             if (e.getWidth < 0) {
               errors += s"Negative width on $e at ${e.getScalaLocationLong}"
             }
-            if (e.getWidth > 4095) {
+            if (e.getWidth > 4096) {
               errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
             }
           case _ =>
@@ -1266,6 +1266,9 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
         s.foreachStatements(toRemove += _)
         s.removeStatement()
       case s: Mem[_] if s.getWidth == 0 =>
+        s.foreachStatements(toRemove += _)
+        s.removeStatement()
+      case s: SpinalEnumCraft[_] if s.spinalEnum.elements.size < 2 =>
         s.foreachStatements(toRemove += _)
         s.removeStatement()
       case s => s.walkRemapExpressions(_.simplifyNode)

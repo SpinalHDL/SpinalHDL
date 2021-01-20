@@ -952,6 +952,13 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+
+      override def simplifyNode: Expression = {
+        if (left.getDefinition.elements.size < 2)
+          new BoolLiteral(true)
+        else
+          this
+      }
     }
 
     class NotEqual(enumDef: SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl {
@@ -962,6 +969,13 @@ object Operator {
       override type T = Expression with EnumEncoded
       override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
       override def getDefinition: SpinalEnum = enumDef
+
+      override def simplifyNode: Expression = {
+        if (left.getDefinition.elements.size < 2)
+          new BoolLiteral(false)
+        else
+          this
+      }
     }
   }
 }

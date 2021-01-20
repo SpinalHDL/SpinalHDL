@@ -33,4 +33,32 @@ class SpinalSimBmbUnburstifyTester extends FunSuite {
       )
     }
   }
+
+  test("miaou2") {
+    SimConfig.compile {
+      val c = BmbUnburstify(
+        inputParameter = BmbAccessParameter(
+          addressWidth = 16,
+          dataWidth = 32
+        ).addSources(16, BmbSourceParameter(
+          lengthWidth = 2,
+          contextWidth = 3,
+          alignmentMin = 2,
+          canRead = true,
+          canWrite = true,
+          alignment = BmbParameter.BurstAlignement.WORD
+        )).toBmbParameter()
+      )
+      c
+    }.doSimUntilVoid("test") { dut =>
+      new BmbBridgeTester(
+        master = dut.io.input,
+        masterCd = dut.clockDomain,
+        slave = dut.io.output,
+        slaveCd = dut.clockDomain,
+        alignmentMinWidth = dut.inputParameter.access.alignmentMin,
+        rspCountTarget = 1000
+      )
+    }
+  }
 }

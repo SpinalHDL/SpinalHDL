@@ -303,7 +303,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
-/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+
+  def swapPayload[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "swap", true)
+    next.arbitrationFrom(this)
+    next
+  }
+
+
+  /** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
   */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
