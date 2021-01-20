@@ -581,6 +581,21 @@ trait BusSlaveFactory extends Area{
     mem
   }
 
+  /**
+    * Memory map a Mem to bus for reading. Elements can be larger than bus data width in bits.
+    */
+  def readSyncMemMultiWord[T <: Data](mem: Mem[T],
+                                      addressOffset: BigInt): Mem[T] = {
+    val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
+    val memAddress = readAddress(mapping) >> log2Up(mem.width / 8)
+    val readData = mem.readSync(memAddress).asBits
+    val offset = readAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))
+    val partialRead = readData(offset << log2Up(busDataWidth), busDataWidth bits)
+    multiCycleRead(mapping, 2)
+    readPrimitive(partialRead, mapping, 0, null)
+    mem
+  }
+
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
                                      bitOffset     : Int = 0) : Mem[T] = {
