@@ -22,6 +22,9 @@ class UutModel:
         while True:
             yield RisingEdge(dut.clk)
             assertEquals(dut.io_nonStopWrited,truncUInt(int(dut.io_bus_w_payload_data) >> 4,dut.io_nonStopWrited),"io_nonStopWrited")
+            # when read to addr=2 and write to addr=7 happen at the same cycle
+            # the former takes precedence
+            regBassigned = False
             if int(dut.io_bus_r_valid) & int(dut.io_bus_r_ready) == 1:
                 if self.readAddresses.empty():
                     raise TestFailure("FAIL readAddresses is empty")
@@ -33,6 +36,7 @@ class UutModel:
 
                 if addr == 2:
                     self.regB = 33
+                    regBassigned = True
 
 
             if int(dut.io_bus_ar_valid) & int(dut.io_bus_ar_ready) == 1:
@@ -43,7 +47,7 @@ class UutModel:
                 addr = int(dut.io_bus_aw_payload_addr)
                 if addr == 9:
                     self.regA = truncUInt(int(dut.io_bus_w_payload_data) >> 10,20)
-                if addr == 7:
+                if addr == 7 and not regBassigned:
                     self.regB = truncUInt(int(dut.io_bus_w_payload_data) >> 10,20)
                 if addr == 15:
                     self.regA = 11
