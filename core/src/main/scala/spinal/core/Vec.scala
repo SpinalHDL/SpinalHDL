@@ -165,7 +165,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
       if(finalAddress.hasTag(tagAutoResize)){
         finalAddress = address.resize(bitNeeded)
       }else {
-        SpinalError(s"To many bit to address the vector (${finalAddress.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
+        SpinalError(s"Too many bit to address the vector (${finalAddress.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
       }
     }
 
@@ -187,7 +187,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     if(address.hasTag(tagAutoResize)){
       address.resize(log2Up(length))
     }else{
-      LocatedPendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
+      LocatedPendingError(s"Vec address width mismatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
       address
     }
   }else{
@@ -221,7 +221,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   }
 
   //TODO sub element composite assignment, as well for indexed access (std)
-  /** Access an element of the bector by a oneHot value */
+  /** Access an element of the vector by a oneHot value */
   def oneHotAccess(oneHot: Bits): T = {
 
     if(elements.size != oneHot.getWidth){
