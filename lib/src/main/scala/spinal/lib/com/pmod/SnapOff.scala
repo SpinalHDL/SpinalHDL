@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 case class SnapOff() extends PMODBundle {
-  override def build() = {
+  override def asMaster() = {
     in(pin4, pin9, pin10)
     out(pin1, pin2, pin3, pin7, pin8)
   }
@@ -12,7 +12,7 @@ case class SnapOff() extends PMODBundle {
 
 case class SnapOffCtrl() extends Component {
   val io = new Bundle {
-    val pins = pmod(SnapOff())
+    val pins = master(SnapOff())
     val led1 = in(Bool)
     val led2 = in(Bool)
     val led3 = in(Bool)

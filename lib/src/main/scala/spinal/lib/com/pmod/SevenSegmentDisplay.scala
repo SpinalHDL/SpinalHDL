@@ -5,12 +5,12 @@ import spinal.lib._
 import spinal.lib.fsm._
 
 case class SevenSegmentDisplay() extends PMODBundle {
-  override def build() = this.asOutput()
+  override def asMaster() = this.asOutput()
 }
 
 case class SevenSegmentDisplayCtrl() extends Component {
   val io = new Bundle {
-    val pins = pmod(SevenSegmentDisplay())
+    val pins = master(SevenSegmentDisplay())
     val value = in(UInt(8 bits))
     val enable = in(Bool)
   }
@@ -80,7 +80,7 @@ case class SevenSegmentDisplayCtrl() extends Component {
 
 case class SevenSegmentDisplayDemo() extends Component {
   val io = new Bundle {
-    val pmod2 = pmod(SevenSegmentDisplay())
+    val pmod2 = master(SevenSegmentDisplay())
   }
 
   val displayArea = new SlowArea(400 Hz) {

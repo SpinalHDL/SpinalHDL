@@ -4,12 +4,12 @@ import spinal.core._
 import spinal.lib._
 
 case class DIPSwitch() extends PMODBundle {
-  override def build() = this.asInput()
+  override def asMaster() = this.asInput()
 }
 
 case class DIPSwitchCtrl(msbFirst: Boolean = true) extends Component {
   val io = new Bundle {
-    val pins = pmod(DIPSwitch())
+    val pins = master(DIPSwitch())
     val output = out(UInt(8 bits))
   }
 
