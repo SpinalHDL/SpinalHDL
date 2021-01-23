@@ -555,15 +555,22 @@ trait BusSlaveFactory extends Area{
 
   def multiCycleRead(address: AddressMapping, cycles: BigInt): Unit = {
     val counter = Counter(cycles)
+    val reading = False
     onReadPrimitive(
       address       = address,
       haltSensitive = false,
       documentation = null
     ){
-      counter.increment()
+      reading := True
       when(!counter.willOverflowIfInc){
         readHalt()
+        counter.increment()
       }
+    }
+
+    // clear counter before next read
+    when(!reading) {
+      counter.clear()
     }
   }
 
