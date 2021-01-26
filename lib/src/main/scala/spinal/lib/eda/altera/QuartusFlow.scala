@@ -60,6 +60,11 @@ object QuartusFlow {
     return leArea
   }
 
+  def apply(quartusPath : String, qpfPath : String, cdfPath : String = null): Unit = {
+    doCmd(s"""${Paths.get(quartusPath,"quartus_sh")} --flow compile $qpfPath""")
+    if (cdfPath != null)
+      doCmd(s"""${Paths.get(quartusPath,"quartus_pgm")} $cdfPath""")
+  }
 
   def apply(quartusPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
@@ -82,6 +87,7 @@ object QuartusFlow {
   }
 
   def main(args: Array[String]) {
+    QuartusFlow("F:/intelFPGA_lite/20.1/quartus/bin64/", "../top", "../output_files/top.cdf")
     val report = QuartusFlow(
       quartusPath="/eda/intelFPGA_lite/17.0/quartus/bin/",
       workspacePath="/home/spinalvm/tmp",
