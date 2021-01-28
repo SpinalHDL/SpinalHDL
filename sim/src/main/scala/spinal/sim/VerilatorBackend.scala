@@ -395,7 +395,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
 //     VL_THREADED
   def compileVerilator(): Unit = {
-    val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
+    val java_home = System.getProperty("java.home")
+    assert(java_home != "" && java_home != null, "JAVA_HOME need to be set")
+    val jdk = java_home.replace("/jre","").replace("\\jre","")
     val jdkIncludes = if(isWindows){
       new File(s"${workspacePath}\\${workspaceName}").mkdirs()
       FileUtils.copyDirectory(new File(s"$jdk\\include"), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
