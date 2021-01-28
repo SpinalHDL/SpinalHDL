@@ -9,14 +9,13 @@ import spinal.lib.sim.{Phase, SparseMemory}
 import scala.util.Random
 object BmbL2CacheRandomTester extends App{
   val addrBusSize = 24
-  val addrRandomSize = 14
+  val addrRandomSize = 17
   assert(addrRandomSize <= addrBusSize)
 
   val p = BmbL2CacheParameter(
     lineLength = 64,
     waySize = 32768,
-    wayCount = 1
-
+    wayCount = 2
   )
   val ip = BmbParameter(
     access =  BmbAccessParameter(
@@ -50,7 +49,7 @@ object BmbL2CacheRandomTester extends App{
     ).addSources(
       count = 1,
       p = BmbSourceParameter(
-        contextWidth               = 18,
+        contextWidth               = 11,
         lengthWidth                = 6,
         alignment                  = BmbParameter.BurstAlignement.LENGTH,
         alignmentMin               = 0,
@@ -108,6 +107,9 @@ object BmbL2CacheRandomTester extends App{
       cacheState.write(i, i)
     }
 
+    //def filterTransactions(addr : BigInt, data: Byte): Boolean = addr == 0x1CA8C
+    def filterTransactions(addr : BigInt, data: Byte): Boolean = getLine(addr.toInt) == 0x12A
+
     val regions = BmbRegionAllocator()
     val agent = new BmbMasterAgent(dut.io.input, dut.clockDomain) {
       override def getCmd(): () => Unit = super.getCmd()
@@ -116,13 +118,23 @@ object BmbL2CacheRandomTester extends App{
         //print (f"addr 0x$address%X\n")
         val refData = cacheState.read(address.longValue())
         val lineId = getLine(address.toInt)
+        if (filterTransactions(address, data)) {
+          val simtime = simTime()
+          println(f"IN  RD $address%x $data%02X ($simtime)")
+        }
         if(refData != data){
           simFailure(f"Invalid data output from cache got 0x$data%02X expected 0x$refData%02X at 0x$address%X (line 0x$lineId)")
         }
       }
 
+
+
       override def onCmdWrite(address: BigInt, data: Byte): Unit = {
         cacheState.write(address.longValue(), data)
+        if (filterTransactions(address, data)) {
+          val simtime = simTime()
+          println(f"IN  WR $address%x $data%02X ($simtime)")
+        }
       }
 
       override def regionAllocate(sizeMax: Int): SizeMapping = regions.allocate(Random.nextInt(1 << addrRandomSize), sizeMax, dut.io.input.p, boundarySize=64)
@@ -150,8 +162,9 @@ object BmbL2CacheRandomTester extends App{
         }
         val rd = if(opc == 0) "RD" else "WR"
         //val cond = (lineId == 0x282)
-        val cond = true
-        if (cond) {
+        //val cond = (addr == 0x2F180)
+        val cond = false
+        if (filterTransactions(addr, 0x00)) {
           print(f"$simtime $rd $hit 0x$addr%06x $replaceId%x 0x$lineId%x $len\n")
         }
       }
@@ -160,21 +173,22 @@ object BmbL2CacheRandomTester extends App{
     val bmbMon = new BmbMonitor(dut.io.output, dut.clockDomain) {
       var prevReadLine = 0l
       override def getByte(address: Long, value: Byte): Unit = {
-        val simtime = simTime()
-        val line = getLine(address.toInt)
-        if (prevReadLine != line) {
-          print(f"$simtime* READ 0x$line%x\n")
+        if (filterTransactions(address, value)) {
+          val simtime = simTime()
+          println(f"DDR RD $address%x $value%02X ($simtime)")
         }
-        prevReadLine = line
       }
+
       override def setByte(address: Long, value: Byte): Unit = {
-        val simtime = simTime()
-        print(f"$simtime* WRITE 0x$address%08x 0x$value%x\n")
+        if (filterTransactions(address, value)) {
+          val simtime = simTime()
+          println(f"DDR  WR $address%x $value%02X ($simtime)")
+        }
       }
     }
 
     //dut.clockDomain.waitSampling(50000000)
-    dut.clockDomain.waitSampling(1000000)
+    dut.clockDomain.waitSampling(2500000)
     print (s"Operations $opCount misses $missCount\n")
   }
 }

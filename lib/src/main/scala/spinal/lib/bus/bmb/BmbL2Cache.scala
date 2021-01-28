@@ -42,7 +42,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val needsWriteback = Bool
     val writebackAddr = UInt(ip.access.addressWidth - (wordAddrBits + wordAlignBits) bits)
     val loadAddr = UInt(ip.access.addressWidth bits)
-    val transactionId = UInt(8 bits)
+    val missId = UInt(8 bits)
     val way = UInt(wayBits bits)
   }
 
@@ -54,7 +54,6 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
   case class DDRContext() extends Bundle {
     val write = Bool
     val index = UInt(indexBits bits)
-    val transactionId = UInt(8 bits)
     val way = UInt(wayBits bits)
   }
 
@@ -87,7 +86,6 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
         Mux(initCache, wrTagInit, wrTag),
         Mux(initCache, wrInit, wr(i)))
     }
-
   }
 
   // pLRU tag storage
@@ -268,7 +266,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
       val missId = UInt(8 bits)
       val lockId = UInt(lockTable.lockTableAddrBits bits)
     }
-    val transactionId = Reg(UInt(8 bits)) init 0x1
+    val reqMissId = Reg(UInt(8 bits)) init 0x1
 
     stallTagReading_s2 := (io.input.cmd.payload.fragment.address(tagIndexRange) === input.cmd.address(tagIndexRange)) && input.valid
 
@@ -295,21 +293,21 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     S2miss.loadAddr := input.payload.cmd.address
     S2miss.needsWriteback := (missTagLine.dirty && missTagLine.valid)
     S2miss.writebackAddr := missTagLine.tagAddr
-    S2miss.transactionId := transactionId
+    S2miss.missId := reqMissId
     S2miss.way := replaceWayId
 
     val newMiss = RegNextWhen(missStream.cmd.last, missStream.fire, True)
-
-    val missTransaction = missStream.translateWith(S2miss).throwWhen(tagHit && !newMiss)
-
-    when (missTransaction.fire) {
-      transactionId := transactionId + 1
+    val missTransaction = missStream.translateWith(S2miss)
+    val missTransactionFiltered = missTransaction.throwWhen(tagHit || !newMiss)
+    val missTransactionLocked = missTransactionFiltered.haltWhen(lockTable.matchOut.orR)
+    val missQueue = missTransactionLocked.queue(16)
+    when (missTransactionFiltered.fire) {
+      reqMissId := reqMissId + 1
     }
 
     // Lock refill when collision happens
     lockTable.matchAddr := S2miss.loadAddr(tagIndexRange)
     lockTable.matchWay := S2miss.way
-    val missQueue = missTransaction.haltWhen(lockTable.matchOut.orR).queue(16)
 
     // Tag Updating
     tagBroadcast.valid := False
@@ -370,7 +368,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     // Stream for pending operations
     val rspContext = DDRContext()
     rspContext.assignFromBits(io.output.rsp.context)
-    S2out.missId := transactionId
+    S2out.missId := reqMissId
     S2out.hit := tagHit
 
     val hitDataReady = Bool()
@@ -378,14 +376,10 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val fifoMissId = UInt(8 bits)
     val loadMissId = Reg(UInt(8 bits)) init 0x00
 
-    when (io.output.rsp.fire && io.output.rsp.last) {
-      loadMissId := rspContext.transactionId
-    }
-
     // Advance in items between the loader and the output fifo
-    val missDifference = (loadMissId.resize(9) - fifoMissId.resize(9)).asSInt
+    val missDifference = (loadMissId - fifoMissId).asSInt
     val action = pipeStream.translateWith(S2out)
-    val actionFifo = action.queue(8)
+    val actionFifo = action.queue(32)
     missDataReady := (missDifference >= 0) && actionFifo.valid
     val output = actionFifo.continueWhen(missDataReady | hitDataReady)
 
@@ -475,7 +469,6 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val reloadWay = Reg(UInt(wayBits bits))
 
     val respAddrCounter = Reg(UInt(wordLoadAddrBit bits)) init 0
-    val transactionId = Reg(UInt(8 bits)) init 0
 
     val missStream = s2.missQueue
     val readDataValid = Reg(Bool) init False
@@ -530,7 +523,6 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
         }
         cmdContext.write := False
         cmdContext.index := reloadBaseAddr(tagIndexRange)
-        cmdContext.transactionId := transactionId
         cmdContext.way := reloadWay
         io.output.cmd.valid := True
 
@@ -551,7 +543,6 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
           reloadBaseAddr(wordLoadAddrBit + wordAlignBits - 1 downto 0).clearAll()
           reloadWay := missStream.payload.way
 
-          transactionId := missStream.payload.transactionId
           when (missStream.payload.needsWriteback) {
             loadState := WRITE
           } otherwise {
@@ -579,6 +570,10 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
 
     when (io.output.rsp.fire && !rspContext.write) {
       respAddrCounter := respAddrCounter + 1
+    }
+
+    when (io.output.rsp.fire && io.output.rsp.last && !rspContext.write) {
+      s2.loadMissId := s2.loadMissId + 1
     }
 
     val lineRdData = Vec(lineMem.map(_.missRdData))
