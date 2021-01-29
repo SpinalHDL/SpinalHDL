@@ -1,8 +1,14 @@
 package spinal.lib.bus.regif
 
 import spinal.core._
-import spinal.lib.bus.amba3.apb.Apb3
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.misc.SizeMapping
+import spinal.lib.slave
+import spinal.core.sim._
+import spinal.lib.bus.amba3.apb.sim.Apb3Driver
+import spinal.lib.bus.regif.AccessType.RW
+
+import scala.util.Random
 
 case class Apb3BusInterface(bus: Apb3, sizeMap: SizeMapping, selId: Int = 0, readSync: Boolean = true, regPre: String = "")(implicit moduleName: ClassName) extends BusIf{
 
