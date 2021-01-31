@@ -47,7 +47,7 @@ trait SIntFactory{
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }
@@ -445,20 +445,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     val thatMod = that % width
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
-
-  /**
-    * Absolute value of a SInt
-    * @example {{{ myUInt := mySInt.abs }}}
-    * @return a UInt assign with the absolute value of the SInt
-    */
-  def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
-  /** Return the absolute value of the SInt when enable is True */
-  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
-  /** symmetric abs
-    * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
-    * @return a UInt assign with the absolute value save 1 bit
-    */
-  def absWithSym: UInt = this.symmetry.abs.resize(getWidth-1)
 
   /**
     * Assign a range value to a SInt

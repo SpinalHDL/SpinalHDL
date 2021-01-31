@@ -424,7 +424,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
         if(port.mask != null){
           val portSymbolWidth = getWidth/port.mask.getWidth
           if(symbolWidthSet){
-            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different asspect ratio at\n${this.getScalaLocationLong}")
+            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different aspect ratio at\n${this.getScalaLocationLong}")
           }else{
             symbolWidth = portSymbolWidth
             symbolWidthSet = true
@@ -434,7 +434,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
         if(port.mask != null){
           val portSymbolWidth = getWidth/port.mask.getWidth
           if(symbolWidthSet){
-            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different asspect ratio at\n${this.getScalaLocationLong}")
+            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different aspect ratio at\n${this.getScalaLocationLong}")
           }else{
             symbolWidth = portSymbolWidth
             symbolWidthSet = true
@@ -507,11 +507,11 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
 
     if(mem.getWidth != getWidth){
       if(!hasTag(AllowMixedWidth)) {
-        PendingError(s"Read data width (${getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        PendingError(s"Read data width (${getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
         return
       }
       if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
-        PendingError(s"The aspect ration between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        PendingError(s"The aspect ratio between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
         return
       }
     }
@@ -591,7 +591,7 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
         return
       }
       if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
-        PendingError(s"The aspect ration between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        PendingError(s"The aspect ratio between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
         return
       }
     }
@@ -670,11 +670,11 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
 
     if(mem.getWidth != getWidth){
       if(!hasTag(AllowMixedWidth)) {
-        PendingError(s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        PendingError(s"Write data width (${data.getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
         return
       }
       if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
-        PendingError(s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        PendingError(s"The aspect ratio between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
         return
       }
     }
@@ -767,11 +767,11 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
 
     if(mem.getWidth != getWidth){
       if(!hasTag(AllowMixedWidth)) {
-        PendingError(s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        PendingError(s"Write data width (${data.getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
         return
       }
       if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
-        PendingError(s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        PendingError(s"The aspect ratio between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
         return
       }
     }

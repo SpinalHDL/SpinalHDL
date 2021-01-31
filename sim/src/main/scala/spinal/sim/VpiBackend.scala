@@ -55,9 +55,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   var runIface = 0
 
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
-  CFLAGS += (if(isMac) " -dynamiclib " else "")
   LDFLAGS += (if(!isMac) " -shared" else "")
-  LDFLAGS += (if(!isWindows) " -lrt" else "")
+  LDFLAGS += (if(!isWindows && !isMac) " -lrt" else "")
 
   val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
 
@@ -104,7 +103,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       "Compilation of SharedMemIface_wrap.cxx failed")
 
         assert(Process(Seq(CC, 
-          CFLAGS, 
+          CFLAGS + (if(isMac) " -dynamiclib " else ""),
           "SharedMemIface.o", 
           "SharedMemIface_wrap.o",
           LDFLAGS, 
@@ -427,13 +426,13 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
 
     assert(Process(Seq(iverilogPath,
                        analyzeFlags,
+                       "-o",
+                       toplevelName + ".vvp",
                        "-s __simulation_def",
                        "-s",
                        toplevelName,
                        verilogSourcePaths,
-                       s"./rtl/__simulation_def.v",
-                       "-o",
-                       toplevelName + ".vvp").mkString(" "), 
+                       s"./rtl/__simulation_def.v").mkString(" "),
                      new File(workspacePath)).! (new Logger()) == 0, 
            s"Analyze step of verilog files failed") 
   }
