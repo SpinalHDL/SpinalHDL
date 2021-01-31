@@ -321,6 +321,14 @@ package object sim {
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
     def #=(value: BigInt) = setBigInt(bt, value)
+    def #=(value: Array[Byte]) = { //TODO improve perf
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        acc = acc << 8
+        acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
   }
 
   /**

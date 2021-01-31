@@ -37,7 +37,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     val isWrite = Bmb.Cmd.Opcode.isWrite(opcode)
 
     when(io.output.cmd.fire) {
-      beat := beat - 1
+      beat := (beat - 1).resized
       address(addrIncrRange) := addressIncr(addrIncrRange)
       when(last){
         valid := False

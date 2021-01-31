@@ -524,8 +524,8 @@ trait BusSlaveFactory extends Area{
                                        payloadBitOffset : Int,
                                        validInverted    : Boolean = false): Unit = {
 
-    assert(widthOf(that) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
-    assert(payloadBitOffset + widthOf(that) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter is bigger than the data bus width" )
+    assert(widthOf(that.payload) + 1 <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : width of that parameter payload + valid signal is bigger than the data bus width. To solve it use readStreamNonBlocking(that: Stream, address: BigInt)")
+    assert(payloadBitOffset + widthOf(that.payload) <= busDataWidth, "BusSlaveFactory ERROR [readStreamNonBlocking] : payloadBitOffset + width of that parameter payload is bigger than the data bus width" )
     assert(validBitOffset <= busDataWidth - 1, "BusSlaveFactory ERROR [readStreamNonBlocking] : validBitOffset is outside the data bus width")
 
     that.ready := False
@@ -581,6 +581,21 @@ trait BusSlaveFactory extends Area{
     mem
   }
 
+  /**
+    * Memory map a Mem to bus for reading. Elements can be larger than bus data width in bits.
+    */
+  def readSyncMemMultiWord[T <: Data](mem: Mem[T],
+                                      addressOffset: BigInt): Mem[T] = {
+    val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
+    val memAddress = readAddress(mapping) >> log2Up(mem.width / 8)
+    val readData = mem.readSync(memAddress).asBits
+    val offset = readAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))
+    val partialRead = readData(offset << log2Up(busDataWidth), busDataWidth bits)
+    multiCycleRead(mapping, 2)
+    readPrimitive(partialRead, mapping, 0, null)
+    mem
+  }
+
   def writeMemWordAligned[T <: Data](mem           : Mem[T],
                                      addressOffset : BigInt,
                                      bitOffset     : Int = 0) : Mem[T] = {
@@ -594,6 +609,40 @@ trait BusSlaveFactory extends Area{
       port.valid := True
     }
     nonStopWrite(port.data, bitOffset)
+    mem
+  }
+
+  /**
+    * Memory map a Mem to bus for writing. Elements can be larger than bus data width in bits.
+    */
+  def writeMemMultiWord[T <: Data](mem: Mem[T],
+                                   addressOffset: BigInt): Mem[T] = {
+    // sanity check
+    if (mem.width % busDataWidth != 0) {
+      PendingError(s"Memory width ${mem.width} must be multiple of bus data width ${busDataWidth} \n${getScalaLocationLong}")
+    }
+
+    val mapping = SizeMapping(addressOffset, mem.wordCount << log2Up(mem.width / 8))
+    val memAddress = writeAddress(mapping) >> log2Up(mem.width / 8)
+    val port = mem.writePortWithMask
+    val data = Bits(busDataWidth bits)
+
+    port.address := memAddress
+    port.valid := False
+    onWritePrimitive(mapping, true, null) {
+      port.valid := True
+    }
+    // replicate data to `mem.width` bits
+    port.data.assignFromBits(Cat(Seq.fill(mem.width / busDataWidth)(data): _*))
+
+    // generate mask
+    val maskWidth = mem.width / busDataWidth
+    val mask = UInt(maskWidth bits)
+    mask := 0
+    mask(writeAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))) := True
+    port.mask := mask.asBits
+
+    nonStopWrite(data)
     mem
   }
 }

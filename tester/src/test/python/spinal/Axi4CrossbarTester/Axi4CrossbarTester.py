@@ -209,10 +209,10 @@ class SlaveHandle:
 
                 #Check it
                 masterWrite = next(write for write in self.idToWrites[cmd.hid & 0xF] if write.addr >> 10 == self.hid)
-                assertEquals(cmd.addr,masterWrite.addr,"write cmd missmatch")
-                assertEquals(cmd.len, masterWrite.len, "write cmd missmatch")
+                assertEquals(cmd.addr,masterWrite.addr,"write cmd mismatch")
+                assertEquals(cmd.len, masterWrite.len, "write cmd mismatch")
                 for data, dataRef in zip(datas, masterWrite.linkedDatas):
-                    assertEquals(data.data, dataRef.data, "write data missmatch")
+                    assertEquals(data.data, dataRef.data, "write data mismatch")
 
                 #Clean
                 self.writeCmds = self.writeCmds[1:]

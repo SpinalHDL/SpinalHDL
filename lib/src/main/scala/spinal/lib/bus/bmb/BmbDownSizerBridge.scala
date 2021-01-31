@@ -111,6 +111,7 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
 
       io.input.rsp.valid := io.output.rsp.valid && (io.output.rsp.last || sel === sel.maxValue)
       io.input.rsp.data := B(words)
+      io.output.rsp.ready setWhen(!io.input.rsp.valid)
     }
   }
 

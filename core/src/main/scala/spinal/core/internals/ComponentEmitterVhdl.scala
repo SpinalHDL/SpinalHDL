@@ -1095,7 +1095,7 @@ class ComponentEmitterVhdl(
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
         if (baseType.isIo) {
-          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, true))};\n"
+          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, false))};\n"
         }
       case _ =>
     }
