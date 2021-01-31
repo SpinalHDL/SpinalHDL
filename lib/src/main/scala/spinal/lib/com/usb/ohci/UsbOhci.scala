@@ -4,19 +4,18 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.com.eth.{Crc, CrcKind}
-import spinal.lib.com.usb.phy.UsbLsFs
-import spinal.lib.com.usb.phy.UsbLsFs.TxKind
+import spinal.lib.com.usb.phy.UsbHubLsFs
 import spinal.lib.fsm._
 
 case class UsbOhciParameter(downstreamPorts : Int,
                             noPowerSwitching : Boolean,
                             powerSwitchingMode : Boolean,
                             noOverCurrentProtection : Boolean,
-                            overCurrentProtectionMode : Boolean,
+//                            overCurrentProtectionMode : Boolean,
                             powerOnToPowerGoodTime : Int,
-                            localPowerStatus : Boolean,
                             fsRatio : Int,
                             dataWidth : Int,
+                            portCount : Int,
                             dmaLengthWidth : Int = 6){
   assert(dmaLengthWidth >= 5 && dmaLengthWidth <= 12)
   def dmaLength = 1 << dmaLengthWidth
@@ -36,9 +35,10 @@ object UsbOhci{
 case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends Component{
   val io = new Bundle {
     val ctrl = slave(Bmb(ctrlParameter))
-    val phy = master(UsbLsFs.Ctrl())
+    val phy = master(UsbHubLsFs.Ctrl(p.portCount))
     val dma = master(Bmb(UsbOhci.dmaParameter(p)))
   }
+  io.phy.lowSpeed := False
 
   io.dma.cmd.valid := False
   io.dma.cmd.payload.assignDontCare()
@@ -131,10 +131,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  io.phy.tx.kind := TxKind.NONE
-  io.phy.tx.data.assignDontCare()
+  io.phy.tx.valid := False
+  io.phy.tx.fragment.assignDontCare()
   io.phy.tx.last.assignDontCare()
-  io.phy.fullSpeed := True
 
   val ctrl = BmbSlaveFactory(io.ctrl)
 
@@ -268,44 +267,120 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val NDP = ctrl.read(U(p.downstreamPorts, 8 bits), 0x48, 0)
       val PSM = ctrl.createReadAndWrite(Bool(), 0x48, 8) init(p.powerSwitchingMode)
       val NPS = ctrl.createReadAndWrite(Bool(), 0x48, 9) init(p.noPowerSwitching)
-      val OCPM = ctrl.createReadAndWrite(Bool(), 0x48, 11) init(p.overCurrentProtectionMode)
+      val OCPM = ctrl.createReadAndWrite(Bool(), 0x48, 11) init(p.powerSwitchingMode)
       val NOCP = ctrl.createReadAndWrite(Bool(), 0x48, 12) init(p.noOverCurrentProtection)
       val POTPGT = ctrl.createReadAndWrite(UInt(8 bits), 0x48, 24) init(p.powerOnToPowerGoodTime)
     }
 
     val hcRhDescriptorB = new Area{
-      val DR = ctrl.createReadAndWrite(Bits(16 bits), 0x4C, 0) //init(???)
-      val PPCM = ctrl.createReadAndWrite(Bits(16 bits), 0x4C, 16) //init(???)
+      val DR = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 1) //init(???)
+      val PPCM = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 17) //init(???)
+
+
     }
 
     val hcRhStatus = new Area{
-//      val LPS = ??? //ctrl.createReadAndWrite(Bool(), 0x50, 0) init(False)
-//      val OCI = ??? //ctrl.createReadOnly(Bool(), 0x50, 1) init(False)
-//      val DRWE = ???
-//      val LPSC = ???
-//      val CCIC = ???
-//      val CRWE = ???
+      val OCI = ctrl.read(io.phy.overcurrent, 0x50, 1)
+      val DRWE = ctrl.createReadOnly(Bool, 0x50, 15) init(False)
+      val CCIC = ctrl.createReadAndClearOnSet(Bool, 0x50, 17) init(False) setWhen(OCI.edge(False))
+
+      val clearGlobalPower    = ctrl.setOnSet(False, 0x50, 0)
+      val setRemoteWakeupEnable    = ctrl.setOnSet(False, 0x50, 15)
+      val setGlobalPower  = ctrl.setOnSet(False, 0x50, 16)
+      val clearRemoteWakeupEnable  = ctrl.setOnSet(False, 0x50, 31)
+
+      DRWE setWhen(setRemoteWakeupEnable) clearWhen(clearRemoteWakeupEnable)
+      io.phy.remoteWakupEnable := DRWE
     }
 
-    val hcRhPortStatus = for(portId <- 1 to p.downstreamPorts) yield new Area {
-//      val CCS  = ???
-//      val PES  = ???
-//      val PSS  = ???
-//      val POCI = ???
-//      val PRS  = ???
-//      val PPS  = ???
-//      val LSDA = ???
-//      val CSC  = ???
-//      val PESC = ???
-//      val PSSC = ???
-//      val OCIC = ???
-//      val PRSC = ???
+    val hcRhPortStatus = for(portId <- 0 to p.downstreamPorts-1) yield new Area {
+      import hcRhDescriptorB._
+      val id = portId + 1
+      val port = io.phy.ports(portId)
+      val address = 0x54+portId*4
+
+      def change(bitId : Int) = new Area{
+        val set = Bool()
+        val clear = False
+        val reg = ctrl.createReadOnly(Bool(), address, bitId) init(False) clearWhen(clear) setWhen(set)
+        ctrl.setOnSet(clear, address, bitId)
+      }
+
+      val clearPortEnable    = ctrl.setOnSet(False, address, 0)
+      val setPortEnable      = ctrl.setOnSet(False, address, 1)
+      val setPortSuspend     = ctrl.setOnSet(False, address, 2)
+      val clearSuspendStatus = ctrl.setOnSet(False, address, 3)
+      val setPortReset       = ctrl.setOnSet(False, address, 4)
+      val setPortPower       = ctrl.setOnSet(False, address, 8)
+      val clearPortPower     = ctrl.setOnSet(False, address, 9)
+
+      val resume, reset, suspend = RegInit(False)
+
+      val PSS  = ctrl.createReadOnly(Bool(), address, 2) init(False)
+      val PPS  = ctrl.createReadOnly(Bool(), address, 8) init(False)
+      val CCS  = ctrl.read((port.connected || DR(portId)) && PPS, address, 0)
+      val PES  = ctrl.createReadOnly(Bool(), address, 1) init(False)
+      val POCI = ctrl.read(port.overcurrent, address, 3)
+      val PRS  = ctrl.read(reset, address, 4)
+      val LSDA = ctrl.read(port.lowSpeed, address, 9)
+
+      val CSC  = change(16)
+      val PESC = change(17)
+      val PSSC = change(18)
+      val OCIC = change(19)
+      val PRSC = change(20)
+
+      PES clearWhen(clearPortEnable || PESC.set || !PPS) setWhen(PRSC.set || PSSC.set) setWhen(setPortEnable && CCS)
+      PSS clearWhen(PSSC.set || PRSC.set  || !PPS || hcControl.HCFS === MainState.RESUME) setWhen(setPortSuspend && CCS)
+      suspend setWhen(setPortSuspend && CCS)
+      resume setWhen(clearSuspendStatus && PSS)
+      reset setWhen(setPortReset && CCS)
+
+      when(hcRhDescriptorA.NPS){
+        PPS := True
+      } otherwise {
+        when(hcRhDescriptorA.PSM){
+          when(hcRhDescriptorB.PPCM(portId)){
+            PPS clearWhen(clearPortPower) setWhen(setPortPower)
+          } otherwise {
+            PPS clearWhen(hcRhStatus.clearGlobalPower) setWhen(hcRhStatus.setGlobalPower)
+          }
+        } otherwise {
+          PPS clearWhen(hcRhStatus.clearGlobalPower) setWhen(hcRhStatus.setGlobalPower)
+        }
+      }
+
+      if(!p.noOverCurrentProtection) {
+        if (p.powerSwitchingMode) PPS clearWhen (port.overcurrent)
+        if (!p.powerSwitchingMode) PPS clearWhen (io.phy.overcurrent)
+      }
+
+      CSC.set  := CCS.edge(False) || (setPortEnable && !CCS) || (setPortSuspend && !CCS) || (setPortReset && !CCS)
+      PESC.set := port.overcurrent
+      PSSC.set := port.suspend.fire || port.remoteResume
+      OCIC.set := POCI
+      PRSC.set := port.reset.fire
+
+      PSSC.clear setWhen(PRSC.set)
+
+      //      port.enable := PES
+      port.disable.valid := clearPortEnable //TODO
+      port.removable := DR(portId)
+      port.power := PPS //PPCM(portId)
+      port.resume.valid := resume
+      resume clearWhen(port.resume.fire)
+      port.reset.valid := reset
+      reset clearWhen(port.reset.fire)
+      port.suspend.valid := suspend
+      suspend.clearWhen(port.suspend.fire)
+
+
+    }
+
+    when(hcRhStatus.DRWE && hcControl.HCFS === MainState.SUSPEND && hcRhPortStatus.map(_.CSC.set).orR){
+      hcControl.HCFS := MainState.RESUME
     }
   }
-
-
-
-
 
   val bitTimer = new Area{
     val reload = False
@@ -371,26 +446,26 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     PID.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
+      io.phy.tx.valid := True
       io.phy.tx.last := False
-      io.phy.tx.data := ~pid ## pid
+      io.phy.tx.fragment := ~pid ## pid
       when(io.phy.tx.ready){
         goto(B1)
       }
     }
 
     B1.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
+      io.phy.tx.valid := True
       io.phy.tx.last := False
-      io.phy.tx.data := data(0, 8 bits)
+      io.phy.tx.fragment := data(0, 8 bits)
       when(io.phy.tx.ready){
         goto(B2)
       }
     }
 
     B2.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
-      io.phy.tx.data := crc5.io.result ## data(8, 3 bits)
+      io.phy.tx.valid := True
+      io.phy.tx.fragment := crc5.io.result ## data(8, 3 bits)
       io.phy.tx.last := True
       when(io.phy.tx.ready){
         exitFsm()
@@ -419,9 +494,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     PID.whenIsActive{
       crc16.io.flush := True
-      io.phy.tx.kind := TxKind.PACKET
+      io.phy.tx.valid := True
       io.phy.tx.last := False
-      io.phy.tx.data := ~pid ## pid
+      io.phy.tx.fragment := ~pid ## pid
       when(io.phy.tx.ready){
         when(data.valid) {
           goto(DATA)
@@ -432,9 +507,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     DATA.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
+      io.phy.tx.valid := True
       io.phy.tx.last := False
-      io.phy.tx.data := data.fragment
+      io.phy.tx.fragment := data.fragment
       when(io.phy.tx.ready){
         data.ready := True
         when(data.last) {
@@ -444,8 +519,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     CRC_0.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
-      io.phy.tx.data := crc16.io.result(7 downto 0)
+      io.phy.tx.valid := True
+      io.phy.tx.fragment := crc16.io.result(7 downto 0)
       io.phy.tx.last := False
       when(io.phy.tx.ready){
         goto(CRC_1)
@@ -453,8 +528,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     CRC_1.whenIsActive{
-      io.phy.tx.kind := TxKind.PACKET
-      io.phy.tx.data := crc16.io.result(15 downto 8)
+      io.phy.tx.valid := True
+      io.phy.tx.fragment := crc16.io.result(15 downto 8)
       io.phy.tx.last := True
       when(io.phy.tx.ready){
         exitFsm()
@@ -565,6 +640,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val DATA_TX, DATA_RX = new State
     val UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
+    val ABORD = new State
 
     setEntry(ED_READ_CMD)
 
@@ -573,7 +649,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val Status = new SpinalEnum{
       val OK, FRAME_TIME = newElement()
     }
-    val status = Status.OK()
+    val status = Reg(Status)
 
     val ED = new Area {
       val address = Reg(UInt(32 bits))
@@ -596,6 +672,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val tdEmpty = tailP === headP
       val isFs = !S
       val isLs =  S
+
+      when(isStarted){
+        io.phy.lowSpeed := S
+      }
     }
 
     val TD = new Area{
@@ -617,6 +697,23 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val pageMatch = CBP(12, 20 bits) === BE(12, 20 bits)
     }
 
+    val codes = new {
+      val noError              = B"0000"
+      val crc                  = B"0001"
+      val bitStuffing          = B"0010"
+      val dataToggleMismatch   = B"0011"
+      val stall                = B"0100"
+      val deviceNotResponding  = B"0101"
+      val pidCheckFailure      = B"0110"
+      val unexpectedPid        = B"0111"
+      val dataOverrun          = B"1000"
+      val dataUnderrun         = B"1001"
+      val bufferOverrun        = B"1100"
+      val bufferUnderrun       = B"1101"
+      val notAccessed          = M"111-"
+    }
+
+
     val applyNextED = False
     when(applyNextED){
       switch(flowType){
@@ -626,6 +723,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
+    onStart{
+      status := Status.OK
+    }
 
     ED_READ_CMD.whenIsActive{
       io.dma.cmd.valid := True
@@ -704,6 +804,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       // Implement buffer filling threshold
       val bufferReady = Reg(Bool)
       val readRspCounter = Reg(UInt(4 bits))
+      val abord = Event
+      abord.valid := False
+      abord.ready := False
 
       onStart{
         bufferReady := False
@@ -791,7 +894,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       // Implement io.dma.cmd
       CALC whenIsActive{
         length := lengthCalc
-        when(dataDone) {
+        when(dataDone || abord.valid) {
           exitFsm()
         } otherwise {
           val checkShift = log2Up(p.dmaLength*8/p.dataWidth)
@@ -812,6 +915,19 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           goto(CALC)
         }
       }
+
+      val abordCounter = Reg(UInt(2 bits))
+      when(abord.valid){
+        readCmdEnable := False
+        readRspEnable := False
+        dataBuffer.read.rsp.ready := True
+        save := False
+        abordCounter := abordCounter + 1
+        abord.ready := abordCounter === 3
+      }
+      when(dataBuffer.read.rsp.valid || this.isStarted || !dmaCtx.pendingEmpty){
+        abordCounter := 0
+      }
     }
 
     val currentAddressCalc = TD.CBP(0, 12 bits)
@@ -828,24 +944,28 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       zeroLength := TD.CBP === 0
       dataPhase := TD.T(1) ? TD.T(0) | ED.C
-      goto(TD_CHECK_TIME)
+
+      dmaLogic.startFsm()
+      goto(BUFFER_READ)
     }
 
     val byteCountCalc = lastAddress-currentAddress+1
-    TD_CHECK_TIME whenIsActive{
-      when(ED.isFs && (byteCountCalc << 3) >= frame.limitCounter || (ED.isLs && reg.hcLSThreshold.hit)){
-        status := Status.FRAME_TIME
-        exitFsm()
-      } otherwise {
-        dmaLogic.startFsm()
-        goto(BUFFER_READ)
-      }
-
-    }
 
     BUFFER_READ.whenIsActive{
-      when(dmaLogic.bufferReady){
-        goto(TOKEN)
+      when(ED.isFs && (byteCountCalc << 3) >= frame.limitCounter || (ED.isLs && reg.hcLSThreshold.hit)){
+        status := Status.FRAME_TIME
+        goto(ABORD)
+      } otherwise {
+        when(dmaLogic.bufferReady){
+          goto(TOKEN)
+        }
+      }
+    }
+
+    ABORD whenIsActive{
+      dmaLogic.abord.valid := True
+      when(dmaLogic.abord.ready) {
+        exitFsm()
       }
     }
 
@@ -873,22 +993,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(dataTx.wantExit){
         goto(UPDATE_TD_CMD); dmaLogic.save := False
       }
-    }
-
-    val codes = new {
-      val noError              = B"0000"
-      val crc                  = B"0001"
-      val bitStuffing          = B"0010"
-      val dataToggleMismatch   = B"0011"
-      val stall                = B"0100"
-      val deviceNotResponding  = B"0101"
-      val pidCheckFailure      = B"0110"
-      val unexpectedPid        = B"0111"
-      val dataOverrun          = B"1000"
-      val dataUnderrun         = B"1001"
-      val bufferOverrun        = B"1100"
-      val bufferUnderrun       = B"1101"
-      val notAccessed          = M"111-"
     }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat)
@@ -951,7 +1055,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val operational = new StateMachineSlave{
     val SOF, ARBITER, END_POINT, PERIODIC_HEAD_CMD, PERIODIC_HEAD_RSP, WAIT_SOF = new State
-    setEntry(SOF)
+    setEntry(WAIT_SOF)
 
 
 
@@ -1130,6 +1234,5 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
 
 //TODO
-// why 210 ?
 // READ
 // notAccessed

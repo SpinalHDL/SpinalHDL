@@ -9,7 +9,7 @@ import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter}
 import spinal.lib.com.usb._
 import spinal.lib.com.usb.ohci._
-import spinal.lib.com.usb.phy.UsbLsFs.TxKind
+import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy}
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 import spinal.lib.sim._
 
@@ -81,45 +81,55 @@ class SpinalSimUsbHostTester extends FunSuite{
       noPowerSwitching = true,
       powerSwitchingMode = true,
       noOverCurrentProtection = true,
-      overCurrentProtectionMode = true,
       powerOnToPowerGoodTime = 10,
-      localPowerStatus = true,
       fsRatio = 4,
-      dataWidth = 32
+      dataWidth = 32,
+      portCount = 1
     )
 
-    SimConfig.withFstWave.compile(
-      UsbOhci(p, BmbParameter(
+    class UsbOhciTbTop extends Component {
+      val ohci = UsbOhci(p, BmbParameter(
         addressWidth = 12,
         dataWidth = 32,
         sourceWidth = 0,
         contextWidth = 0,
         lengthWidth = 2
       ))
+
+      val phy = UsbLsFsPhy(p.portCount, p.fsRatio)
+
+      val ctrl = propagateIo(ohci.io.ctrl)
+      val dma = propagateIo(ohci.io.dma)
+      ohci.io.phy <> phy.io.ctrl
+      val usb = propagateIo(phy.io.usb)
+    }
+
+    SimConfig.withFstWave.compile(
+      new UsbOhciTbTop()
     ).doSim(seed = 42){dut =>
       dut.clockDomain.forkStimulus(20800)
 
-      var txBusy = 0
-      dut.clockDomain.onSamplings{
-        if(txBusy == 0) {
-          dut.io.phy.tx.ready #= false
-          if (dut.io.phy.tx.kind.toEnum != TxKind.NONE) {
-            txBusy = 1
-          }
-        } else {
-          txBusy = txBusy + 1
-          if(txBusy == 4*8){
-            txBusy = 0
-            dut.io.phy.tx.ready #= true
-          }
-        }
-      }
+//      var txBusy = 0
+//      dut.clockDomain.onSamplings{
+//        if(txBusy == 0) {
+//          dut.io.phy.tx.ready #= false
+//          if (dut.io.phy.tx.valid.toBoolean) {
+//            txBusy = 1
+//          }
+//        } else {
+//          txBusy = txBusy + 1
+//          if(txBusy == 4*8){
+//            txBusy = 0
+//            dut.io.phy.tx.ready #= true
+//          }
+//        }
+//      }
 
       val memory = new BmbMemoryAgent()
-      memory.addPort(dut.io.dma, 0, dut.clockDomain, true)
+      memory.addPort(dut.dma, 0, dut.clockDomain, true)
       def ram = memory.memory
 
-      val ctrl = BmbDriver(dut.io.ctrl, dut.clockDomain)
+      val ctrl = BmbDriver(dut.ctrl, dut.clockDomain)
       dut.clockDomain.waitSampling(10)
 
 
@@ -217,6 +227,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
       ctrl.write(BLF | CLF, hcCommand)
       dut.clockDomain.waitSampling(100)
+//      ctrl.write(USB_OPERATIONAL, hcControl)
       ctrl.write(USB_OPERATIONAL | BLE  | CLE | PLE | 0x3, hcControl)
 
       dut.clockDomain.waitSampling(100)
@@ -237,11 +248,10 @@ object UsbHostSynthesisTest {
           noPowerSwitching = true,
           powerSwitchingMode = true,
           noOverCurrentProtection = true,
-          overCurrentProtectionMode = true,
           powerOnToPowerGoodTime = 10,
-          localPowerStatus = true,
           fsRatio = 4,
-          dataWidth = 32
+          dataWidth = 32,
+          portCount = 1
         )
         UsbOhci(p, BmbParameter(
           addressWidth = 12,
