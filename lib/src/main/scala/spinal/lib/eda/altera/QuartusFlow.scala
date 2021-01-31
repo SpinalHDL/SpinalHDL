@@ -33,21 +33,20 @@ object QuartusFlow {
     return fMax*1e6
   }
 
-  def getArea(reportPath : String, family : String): String ={
+  def getArea(reportPath : String): String = {
     import scala.io.Source
     val report = Source.fromFile(reportPath).getLines.mkString
     val intFind = "(\\d+,?)+".r
-    val leArea = try {
-      family match {
-        case "Cyclone V" => intFind.findFirstIn("Logic utilization \\(in ALMs\\)[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " ALMs"
-        case "Cyclone IV" | "Cyclone II" =>
-          intFind.findFirstIn("Total combinational functions[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
+    val foundCycloneV = "Logic utilization \\(in ALMs\\)[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report)
+    try {
+      if (foundCycloneV.isDefined)
+        intFind.findFirstIn(foundCycloneV.get).get + " ALMs"
+      else
+        intFind.findFirstIn("Total combinational functions[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
           intFind.findFirstIn("Dedicated logic registers[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
-      }
-    }catch{
-      case e : Exception => "???"
+    } catch {
+      case _: Exception => "Unknown device family?"
     }
-    return leArea
   }
 
 
@@ -67,7 +66,7 @@ object QuartusFlow {
 
     new Report{
       override def getFMax(): Double =  (QuartusFlow.getFMax(s"${Paths.get(workspacePath,s"$projectName.sta.rpt")}"))
-      override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}", family))
+      override def getArea(): String =  (QuartusFlow.getArea(s"${Paths.get(workspacePath,s"$projectName.flow.rpt")}"))
     }
   }
 
@@ -89,5 +88,46 @@ object QuartusTest {
   def main(args: Array[String]) {
 
 
+  }
+}
+
+class QuartusProject(quartusPath: String, workspacePath: String) {
+  private def search(file: File, name: String): String = {
+    try {
+      if (file.isFile) {
+        if (file.getName.endsWith(name))
+          return file.getAbsoluteFile.toString
+      } else
+        for (f <- file.listFiles()) {
+          val ret = search(f, name)
+          if (ret != null)
+            return ret
+        }
+    } catch {
+      case _: Exception => println("Invalid path!")
+    }
+    null
+  }
+
+  val qpfPath: String = search(new File(workspacePath), ".qpf")
+  val cdfPath: String = search(new File(workspacePath), ".cdf")
+
+  def report(): Unit = {
+    val area = QuartusFlow.getArea(search(new File(workspacePath), ".flow.rpt"))
+    val fMax = QuartusFlow.getFMax(search(new File(workspacePath), ".sta.rpt"))
+    println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    printf("Area: %s\n\rFMax: %f MHz\n\r", area, fMax/1e6)
+  }
+
+  def compile(): Unit = {
+    if (qpfPath != null)
+      doCmd(s"""${Paths.get(quartusPath,"quartus_sh")} --flow compile $qpfPath""")
+    report()
+  }
+
+  def program(): Unit = {
+    if (cdfPath != null)
+      doCmd(s"""${Paths.get(quartusPath,"quartus_pgm")} $cdfPath""")
+    report()
   }
 }
