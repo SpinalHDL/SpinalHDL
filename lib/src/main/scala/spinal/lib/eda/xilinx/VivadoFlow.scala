@@ -3,7 +3,7 @@ package spinal.lib.eda.xilinx
 import org.apache.commons.io.FileUtils
 import spinal.core._
 import spinal.lib.DoCmd.doCmd
-import spinal.lib.eda.bench.Report
+import spinal.lib.eda.bench.{Report, Rtl}
 
 import java.io.File
 import java.nio.file.Paths
@@ -23,24 +23,26 @@ object VivadoFlow {
    * @param processorCount  Number of processor count used
    * @return Report
    */
-  def apply(vivadoPath: String, workspacePath: String, toplevelPath: String, family: String, device: String, frequencyTarget: HertzNumber = null, processorCount: Int = 1): Report = {
+  def apply(vivadoPath: String, workspacePath: String, rtl: Rtl, family: String, device: String, frequencyTarget: HertzNumber = null, processorCount: Int = 1): Report = {
     val targetPeriod = (if (frequencyTarget != null) frequencyTarget else 400 MHz).toTime
 
     val workspacePathFile = new File(workspacePath)
     FileUtils.deleteDirectory(workspacePathFile)
     workspacePathFile.mkdir()
-    FileUtils.copyFileToDirectory(new File(toplevelPath), workspacePathFile)
+    for (file <- rtl.getRtlPaths()) {
+      FileUtils.copyFileToDirectory(new File(file), workspacePathFile)
+    }
 
-
-    val isVhdl = toplevelPath.endsWith(".vhd") || toplevelPath.endsWith(".vhdl")
+    val isVhdl = (file: String) => file.endsWith(".vhd") || file.endsWith(".vhdl")
+    val readRtl = rtl.getRtlPaths().map(file => s"""read_${if(isVhdl(file)) "vhdl" else "verilog"} ${Paths.get(file).getFileName()}""").mkString("\n")
 
     // generate tcl script
     val tcl = new java.io.FileWriter(Paths.get(workspacePath,"doit.tcl").toFile)
     tcl.write(
-s"""read_${if(isVhdl) "vhdl" else "verilog"} $toplevelPath
+s"""${readRtl}
 read_xdc doit.xdc
 
-synth_design -part $device -top ${toplevelPath.split("\\.").head}
+synth_design -part $device -top ${rtl.getTopModuleName()}
 opt_design
 place_design
 route_design
@@ -92,19 +94,6 @@ report_timing"""
         return leArea
       }
     }
-  }
-
-  def main(args: Array[String]) {
-    val report = VivadoFlow(
-      vivadoPath="/eda/Xilinx/Vivado/2017.2/bin",
-      workspacePath="/home/spinalvm/tmp",
-      toplevelPath="TopLevel.vhd",
-      family="Artix 7",
-      device="xc7k70t-fbg676-3",
-      frequencyTarget = 1 MHz
-    )
-    println(report.getArea())
-    println(report.getFMax())
   }
 }
 
