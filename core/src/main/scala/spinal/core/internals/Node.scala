@@ -110,7 +110,7 @@ object InputNormalize {
         ret
       case _ =>
         if(input.getWidth != targetWidth){
-          PendingError(s"WIDTH MISMATCH on ${target.toStringMultiLine()}  at \n${where.getScalaLocationLong}")
+          PendingError(s"WIDTH MISMATCH (${targetWidth} bits <- ${input.getWidth} bits) on ${target.toStringMultiLine()}  at \n${where.getScalaLocationLong}")
         }
         input
     }
@@ -131,7 +131,7 @@ object InputNormalize {
         ret
       case _ =>
         if(inputWidth != targetWidth){
-          PendingError(s"WIDTH MISMATCH on ${assignement.toStringMultiLine} at \n${assignement.getScalaLocationLong}")
+          PendingError(s"WIDTH MISMATCH (${targetWidth} bits <- ${inputWidth} bits) on ${assignement.toStringMultiLine} at \n${assignement.getScalaLocationLong}")
         }
         assignement.source
     }
