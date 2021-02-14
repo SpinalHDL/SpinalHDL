@@ -351,7 +351,8 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
         // Update tag for future get
         tagMem.wrTag.tagAddr := pipeStream.payload.cmd.address(tagRange)
         tagMem.wrTag.valid := True
-        tagMem.wrTag.dirty := False
+        // Line is dirty at load when it's a write, it will be directly replaced with new value
+        tagMem.wrTag.dirty := pipeStream.payload.cmd.isWrite
         tagMem.wr(replaceWayId) := True
 
         // Copy the Hit vector when all pLRU bits are set, this only keeps the last hit, reset other bits
