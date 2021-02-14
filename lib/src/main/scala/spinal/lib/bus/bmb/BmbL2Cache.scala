@@ -581,7 +581,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
 
     io.output.cmd.fragment.source := 0
     io.output.cmd.fragment.mask.setAll()
-    io.output.cmd.fragment.data := lineRdData(rspContext.way)
+    io.output.cmd.fragment.data := lineRdData(reloadWay)
     io.output.cmd.fragment.length := p.lineLength - 1
     io.output.cmd.fragment.address := (loadState === WRITE) ? replaceBaseAddr | reloadBaseAddr
   }
