@@ -27,8 +27,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   def onRspRead(address : BigInt, data : Seq[Byte]) : Unit = {}
   def onRspRead(address : BigInt, data : Byte) : Unit = {}
   def onCmdWrite(address : BigInt, data : Byte) : Unit = {}
-
-
+  def onCmdRead(address : BigInt) : Unit = {}
 
   def getCmd(): () => Unit = {
     //Generate a new CMD if none is pending
@@ -61,6 +60,7 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
             bus.cmd.source #= sourceId
             bus.cmd.length #= length
             bus.cmd.last #= true
+            if (mapped) onCmdRead(address)
           }
 
           //READ RSP
