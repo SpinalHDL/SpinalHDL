@@ -275,7 +275,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this.dlcAppend(writePort)
 
 
-    //    if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
+    if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
 //    val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
 //    addressBuffer := address
 //    val dataBuffer = (if(allowMixedWidth) Bits() else Bits(getWidth bits)).dontSimplifyIt()
