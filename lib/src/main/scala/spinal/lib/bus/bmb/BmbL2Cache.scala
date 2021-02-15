@@ -10,6 +10,7 @@ case class BmbL2CacheParameter(lineLength : Int,
 case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParameter) extends Component{
   // Sanity checks
   assert ((op.access.dataWidth % ip.access.dataWidth) == 0, "Output width must be a multiple of the input width")
+  assert ((op.access.dataWidth/8*2) <= p.lineLength, "Output data width must be smaller or equal to a line length/2")
 
   // Constant definitions
   val lineCount = p.waySize / p.lineLength // Number of cache lines in a way
@@ -18,15 +19,20 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
 
   val indexBits = log2Up(lineCount) // Bits in the index
   val wordAlignBits = log2Up(op.access.dataWidth / 8) // Line access index
+  val inputAlignBits = log2Up(ip.access.dataWidth / 8) // Input align bits
   val wordAddrBits = log2Up(wordCount) // Bits to address inside a line
   val wordLoadAddrBit = log2Up(loadBeatsCount)
   val indexBitsOffset = log2Up(p.lineLength)
   val wayBits = log2Up(p.wayCount)
+  val inMaskBits = ip.access.dataWidth / 8
+  val outMaskBits = op.access.dataWidth / 8
+  val outInSizeRatio = op.access.dataWidth / ip.access.dataWidth
+  val wordSelBits = log2Up(outInSizeRatio)
 
   val tagIndexRange = (indexBits + indexBitsOffset - 1) downto indexBitsOffset // bits in the address to access the tag
   val tagRange = ip.access.addressWidth - 1 downto (wordAddrBits + wordAlignBits) // bits in the address to check the tag
-
-  val lineIndexRange = (wordAddrBits + wordAlignBits - 1 downto wordAlignBits) // part of the address in the line indexing
+  val lineIndexRange = (wordAddrBits + inputAlignBits + wordSelBits - 1 downto inputAlignBits) // part of the address in the line indexing
+  val maskRange = log2Up(outMaskBits) - 1 downto log2Up(inMaskBits)
 
   val io = new Bundle{
     val input = slave(Bmb(ip))
@@ -399,12 +405,13 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
       val wayId = Bits(p.wayCount bits)
       val last = Bool
       val lockId = UInt(lockTable.lockTableAddrBits bits)
+      val wordSel = UInt(log2Up(outInSizeRatio) bits)
     }
 
     val outputStream = Stream(S3Output())
 
-    val burstLen = input.cmd.length |>> (log2Up(op.access.dataWidth) - 3)
-    val burstCount = Reg(UInt(log2Up(p.lineLength*8/op.access.dataWidth) bits)) init 0
+    val burstLen = input.cmd.length |>> (log2Up(ip.access.dataWidth) - 3)
+    val burstCount = Reg(UInt(log2Up(p.lineLength*8/ip.access.dataWidth) bits)) init 0
     val burstFinished = Bool
 
     outputStream.valid := input.valid && input.cmd.last
@@ -417,21 +424,27 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
         burstCount := 0
       }
     }
+    val hitAddr = input.cmd.address(lineIndexRange) + burstCount
+    val wordSel = hitAddr(wordSelBits - 1 downto 0)
 
     val S3out = outputStream.payload
     S3out.cmd := input.payload.cmd
     S3out.wayId := input.payload.wayId
     S3out.lockId := input.payload.lockId
     S3out.last := burstFinished || (input.cmd.isWrite && input.cmd.last)
+    S3out.wordSel := wordSel
 
     val output = outputStream
     // Keep ready while expanding a read burst or when writing to consume inputs from FIFO
     input.ready := output.ready & (burstFinished || input.cmd.isWrite)
 
     for (i <- 0 until p.wayCount) {
-      lineMem(i).hitWrMask := input.cmd.mask
-      lineMem(i).hitAddr := input.cmd.address(lineIndexRange) + burstCount
-      lineMem(i).hitWrData := input.cmd.data
+      lineMem(i).hitAddr := hitAddr(hitAddr.high downto wordSelBits)
+      val hitWrData = Bits(op.access.dataWidth bits)
+      for (k <- 0 until outInSizeRatio) {
+        lineMem(i).hitWrData((k+1) * ip.access.dataWidth - 1 downto k * ip.access.dataWidth) := input.cmd.data
+        lineMem(i).hitWrMask((k+1) * inMaskBits - 1 downto k * inMaskBits) := Mux(wordSel === U(k), input.cmd.mask, B(0))
+      }
       lineMem(i).hitWr := input.cmd.isWrite && input.wayId(i)
       lineMem(i).hitEn := burstActive
     }
@@ -442,7 +455,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val input = s3.output.m2sPipe()
 
     val S4Out = Fragment(BmbRsp(ip));
-    S4Out.fragment.data := lineMem.map(_.hitRdData).read(OHToUInt(input.payload.wayId))
+    S4Out.fragment.data := lineMem.map(_.hitRdData).read(OHToUInt(input.payload.wayId)).subdivideIn(ip.access.dataWidth bits)(input.wordSel)
     S4Out.fragment.context := input.cmd.context
     S4Out.fragment.exclusive := False
     S4Out.fragment.opcode := 0

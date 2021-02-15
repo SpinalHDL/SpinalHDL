@@ -46,7 +46,7 @@ object BmbL2CacheRandomTester extends App{
   val op = BmbParameter(
     access =  BmbAccessParameter(
       addressWidth = 31,
-      dataWidth = 32
+      dataWidth = 128
     ).addSources(
       count = 1,
       p = BmbSourceParameter(
@@ -84,7 +84,7 @@ object BmbL2CacheRandomTester extends App{
     //dut.io.input.inv.valid #= false
     //dut.io.input.ack.ready #= false
     //dut.io.input.sync.valid #= false
-    val trace = false
+    val trace = true
 
     val lineShift = 6
     val lineMask = (1 << 9) - 1
@@ -184,7 +184,7 @@ object BmbL2CacheRandomTester extends App{
     }
 
     //dut.clockDomain.waitSampling(50000000)
-    dut.clockDomain.waitSampling(1000000)
+    dut.clockDomain.waitSampling(10000000)
     print (s"Operations $opCount misses $missCount\n")
     cache_tr.flush()
     cache_tr.close()
