@@ -485,6 +485,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val reloadWay = Reg(UInt(wayBits bits))
 
     val respAddrCounter = Reg(UInt(wordLoadAddrBit bits)) init 0
+    val missRamWrite = Bool()
 
     val missStream = s2.missQueue
     val readDataValid = Reg(Bool) init False
@@ -584,11 +585,12 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
       }
     }
 
-    when (io.output.rsp.fire && !rspContext.write) {
+    missRamWrite := io.output.rsp.fire && !rspContext.write
+    when (missRamWrite) {
       respAddrCounter := respAddrCounter + 1
     }
 
-    when (io.output.rsp.fire && io.output.rsp.last && !rspContext.write) {
+    when (missRamWrite && io.output.rsp.last) {
       s2.loadMissId := s2.loadMissId + 1
     }
 
