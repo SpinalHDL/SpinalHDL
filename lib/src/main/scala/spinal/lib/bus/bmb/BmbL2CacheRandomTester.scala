@@ -69,8 +69,8 @@ object BmbL2CacheRandomTester extends App{
     )
   )
 
-  //val compiled = SimConfig.withFstWave.compile {
-  val compiled = SimConfig.compile {
+  val compiled = SimConfig.withFstWave.compile {
+  //val compiled = SimConfig.compile {
     val dut = BmbL2Cache(p, ip, op)
     dut.s2.input.simPublic()
     dut.s2.S2out.simPublic()

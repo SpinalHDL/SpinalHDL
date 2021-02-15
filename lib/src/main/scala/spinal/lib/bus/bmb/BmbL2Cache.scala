@@ -8,6 +8,8 @@ case class BmbL2CacheParameter(lineLength : Int,
                                wayCount : Int)
 
 case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParameter) extends Component{
+  // Sanity checks
+  assert ((op.access.dataWidth % ip.access.dataWidth) == 0, "Output width must be a multiple of the input width")
 
   // Constant definitions
   val lineCount = p.waySize / p.lineLength // Number of cache lines in a way
@@ -122,7 +124,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
     val hitWrData = Bits(op.access.dataWidth bits)
     val hitEn = Bool()
     val hitWr = Bool()
-    val hitWrMask = Bits(4 bits)
+    val hitWrMask = Bits(op.access.dataWidth/8 bits)
     val hitRdData = lines.readWriteSync(hitAddr, hitWrData, hitEn, hitWr, hitWrMask)
 
     val missWrData = Bits(op.access.dataWidth bits)
@@ -401,7 +403,7 @@ case class BmbL2Cache(p : BmbL2CacheParameter, ip : BmbParameter, op : BmbParame
 
     val outputStream = Stream(S3Output())
 
-    val burstLen = input.cmd.length |>> 2
+    val burstLen = input.cmd.length |>> (log2Up(op.access.dataWidth) - 3)
     val burstCount = Reg(UInt(log2Up(p.lineLength*8/op.access.dataWidth) bits)) init 0
     val burstFinished = Bool
 
