@@ -1208,24 +1208,22 @@ object PlaySymplify {
 
 object PlayBug extends App{
   SpinalVerilog(new Component{
-    setDefinitionName("miaou")
-    val x = out(UInt(16 bits))
+    val mem = Mem(Bits(16 bits), 64)
+    mem.generateAsBlackBox()
 
-    x := 0
-    switch(U(32)){
-      is(1) {
-
-      }
-      is(2) {
-        x := 5
-      }
+    val wr = new Area{
+      val enable = in Bool()
+      val address = in UInt(7 bits)
+      val data = in Bits(8 bits)
+      mem.writeMixedWidth(address, data, enable)
     }
 
-
-    var y = False
-    y \= True
-    y \= False
-    y \= True
+    val rd = new Area{
+      val enable = in Bool()
+      val address = in UInt(8 bits)
+      val data = out Bits(4 bits)
+      mem.readSyncMixedWidth(address, data, enable)
+    }
   })
 }
 
