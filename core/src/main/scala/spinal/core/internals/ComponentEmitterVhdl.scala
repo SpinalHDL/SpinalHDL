@@ -806,7 +806,7 @@ class ComponentEmitterVhdl(
   def emitSignals(): Unit = {
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
-        if (!signal.isIo) {
+        if (!signal.isIo && !signal.parent.isInstanceOf[SpinalStruct]) {
           declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
         }
         emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
