@@ -78,8 +78,8 @@ lazy val all = (project in file("."))
 
 
 import sys.process._
-def gitHash = (try {
-  "git rev-parse HEAD".!!
+def gitHash(dir: File) = (try {
+  s"git -C ${dir.toString} rev-parse HEAD".!!
 } catch{
   case e : java.io.IOException => "???"
 }).linesIterator.next()
@@ -140,7 +140,7 @@ lazy val core = (project in file("core"))
                        |  val name = "%s"
                        |  val gitHash = "%s"
                        |}
-                       |""".stripMargin.format(SpinalVersion.core, name, gitHash))
+                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
       Seq(file)
     }.taskValue
   )
