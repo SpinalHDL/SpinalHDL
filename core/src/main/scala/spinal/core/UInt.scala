@@ -122,9 +122,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
 
   /** += */
-  def inc(that: UInt): Unit = this := this + that
+  def inc(that: UInt = 1): Unit = this := this + that
   /** -= */
-  def dec(that: UInt): Unit = this := this - that
+  def dec(that: UInt = 1): Unit = this := this - that
 
   /**Round Api*/
 
