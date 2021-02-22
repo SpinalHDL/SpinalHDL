@@ -64,7 +64,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * Concatenation between two UInt
-    * @example{{{ val myUInt = uInt1 @@ uInt2 }}}
+    * @example {{{ val myUInt = uInt1 @@ uInt2 }}}
     * @param that an UInt to append
     * @return a new UInt of width (w(this) + w(right))
     */
@@ -120,6 +120,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
   /**highest m bits Discard */
   def trim(m: Int): UInt = this(getWidth-m-1 downto 0)
+
+  /** += */
+  def inc(that: UInt): Unit = this := this + that
+  /** -= */
+  def dec(that: UInt): Unit = this := this - that
 
   /**Round Api*/
 
@@ -270,7 +275,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * Logical shift Right (output width = input width)
-    * @example{{{ val result = myUInt >> myUIntShift }}}
+    * @example {{{ val result = myUInt >> myUIntShift }}}
     * @param that the number of shift
     * @return a Bits of width : w(this)
     */
@@ -280,7 +285,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * Logical shift right (output width = input width)
-    * @example{{{ val result = myUInt |>> 4 }}}
+    * @example {{{ val result = myUInt |>> 4 }}}
     * @param that the number of shift
     * @return a Bits of width : w(this)
     */
@@ -314,7 +319,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * Assign a range value to an UInt
-    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
+    * @example {{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
     * @param rangesValue The first range value
     * @param _rangesValues Others range values
     */
@@ -423,7 +428,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
 /**
   * Define an UInt 2D point
-  * @example{{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
+  * @example {{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
   * @param xBitCount width of the x point
   * @param yBitCount width of the y point
   */
