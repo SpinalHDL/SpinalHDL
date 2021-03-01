@@ -133,6 +133,7 @@ lazy val core = (project in file("core"))
     version := SpinalVersion.core,
     sourceGenerators in Compile += Def.task {
       val dir = (sourceManaged in Compile).value
+      dir.mkdirs()
       val file = dir / "Info.scala"
       IO.write(file, """package spinal.core
                        |object Info {
