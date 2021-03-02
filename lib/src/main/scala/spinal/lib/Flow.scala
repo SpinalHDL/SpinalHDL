@@ -28,6 +28,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
 
   override def freeRun(): this.type = this
+  def setIdle(): this.type = {
+    valid := False
+    payload.assignDontCare()
+    this
+  }
 
 
   def toReg() : T = toReg(null.asInstanceOf[T])
