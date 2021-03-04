@@ -379,7 +379,7 @@ trait Nameable extends OwnableRef with ContextUser{
         if (ref.isNamed) {
           val ownerName = ref.getName()
           if(ownerName != "" && name != "") {
-            if (refOwner.isInstanceOf[SpinalStruct])
+            if (refOwner.isInstanceOf[Suffixable])
               ownerName + "." + name
             else
               ownerName + "_" + name

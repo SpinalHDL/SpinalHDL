@@ -1607,6 +1607,30 @@ class SIntRangedAccessFloating extends BitVectorRangedAccessFloating {
   override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new SIntRangedAccessFixed
 }
 
+/**
+  * SuffixExpression
+  */
+class SuffixExpression extends Expression with ScalaLocated {
+  var target: BaseType = null
+
+  override def opName: String = "Prefix.Suffix"
+  override def getTypeObject: Any = TypeStruct
+  override def remapExpressions(func: Expression => Expression): Unit = {}
+  override def foreachExpression(func: Expression => Unit): Unit = {}
+}
+
+object SuffixExpression {
+  def apply(target: Expression): SuffixExpression = {
+    if (!target.isInstanceOf[BaseType])
+      LocatedPendingError(s"INVALID SUFFIX Cannot suffix non-BaseType expression ${target} at")
+
+    val expr = new SuffixExpression
+
+    expr.target = target.asInstanceOf[BaseType]
+
+    expr
+  }
+}
 
 /**
   * Assigned bits

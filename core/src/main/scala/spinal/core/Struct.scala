@@ -1,18 +1,68 @@
 package spinal.core
 
-import spinal.core.internals.TypeStruct
+import spinal.core.internals.{Suffixable, TypeStruct}
+import spinal.idslplugin.ValCallback
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
  * Class representing Verilog Struct and VHDL Record data types.
  * @param typeName Underlying structure name to use if not the subclass name.
  */
-abstract class SpinalStruct(val typeName: String = null) extends BaseType with Nameable with ValCallbackRec with DataPrimitives[SpinalStruct] {
+abstract class SpinalStruct(val typeName: String = null) extends BaseType with Nameable with ValCallbackRec with DataPrimitives[SpinalStruct] with Suffixable {
 
   def elements: ArrayBuffer[(String, Data)] = elementsCache
 
   override private[spinal] def _data: SpinalStruct = this
+
+  override def asInput(): this.type = {
+    super.asInput()
+    elements.foreach(_._2.asInput())
+    this
+  }
+
+  override def asOutput(): this.type = {
+    super.asOutput()
+    elements.foreach(_._2.asOutput())
+    this
+  }
+
+  override def asInOut(): this.type = {
+    super.asInOut()
+    elements.foreach(_._2.asInOut())
+    this
+  }
+
+  override def copyDirectionOfImpl(that : Data): this.type = {
+    super.copyDirectionOfImpl(that)
+    (elements, that.asInstanceOf[MultiData].elements).zipped.foreach{case (t, s) => t._2.copyDirectionOfImpl(s._2)}
+    this
+  }
+
+  override def setAsDirectionLess: this.type = {
+    super.setAsDirectionLess()
+    elements.foreach(_._2.setAsDirectionLess());
+    this
+  }
+
+  /** Set baseType to reg */
+  override def setAsReg(): this.type = {
+    super.setAsReg()
+    elements.foreach(_._2.setAsReg())
+    this
+  }
+
+  /** Set baseType to Combinatorial */
+  override def setAsComb(): this.type = {
+    super.setAsComb()
+    elements.foreach(_._2.setAsComb())
+    this
+  }
+
+  override def flatten: Seq[BaseType] = {
+    elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
+  }
 
   def find(name: String): Data = {
     val temp = elements.find((tuple) => tuple._1 == name).getOrElse(null)
@@ -77,7 +127,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
       if (other == null)
         LocatedPendingError(s"Bundle assignment is not complete. Missing $name")
       else element match {
-        case b: Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
+        case b: SpinalStruct => b.assignAllByName(other.asInstanceOf[Bundle])
         case _         => element := other
       }
     }
@@ -89,7 +139,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
       val other = that.find(name)
       if (other != null) {
         element match {
-          case b: Bundle => b.assignSomeByName(other.asInstanceOf[Bundle])
+          case b: SpinalStruct => b.assignSomeByName(other.asInstanceOf[Bundle])
           case _         => element := other
         }
       }
@@ -122,7 +172,10 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
 
   private[core] override def autoConnect(that: Data): Unit = {
     that match {
-      case that: SpinalStruct => this.autoConnectBaseImpl(that)
+      case that: SpinalStruct => {
+        this autoConnectBaseImpl that
+        zippedMap(that, _ autoConnect _)
+      }
       case _               => SpinalError(s"Function autoConnect is not implemented between $this and $that")
     }
   }
@@ -152,7 +205,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
 
   def getTypeString: String = {
     if (typeName == null)
-      getClass.getTypeName
+      getClass.getSimpleName + "_t"
     else
       typeName
   }

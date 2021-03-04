@@ -100,7 +100,8 @@ class ComponentEmitterVhdl(
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+      if (!baseType.isSuffix)
+        portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
     )
   }
 
@@ -156,7 +157,7 @@ class ComponentEmitterVhdl(
 
     component.children.foreach(sub =>
       sub.getAllIo.foreach(io =>
-        if(io.isOutput) {
+        if(io.isOutput && !io.isSuffix) {
           val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
           declarations ++= s"  signal $name : ${emitDataType(io)};\n"
           referencesOverrides(io) = name
@@ -301,8 +302,10 @@ class ComponentEmitterVhdl(
       logics ++= s"    port map ( \n"
 
       for (data <- children.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-        logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+        if (!data.isInstanceOf[Suffixable]) {
+          val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
+          logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+        }
       }
 
       logics.setCharAt(logics.size - 2, ' ')
@@ -806,7 +809,7 @@ class ComponentEmitterVhdl(
   def emitSignals(): Unit = {
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
-        if (!signal.isIo && !signal.parent.isInstanceOf[SpinalStruct]) {
+        if (!signal.isIo && !signal.isSuffix) {
           declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
         }
         emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
@@ -1094,7 +1097,7 @@ class ComponentEmitterVhdl(
 
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
-        if (baseType.isIo) {
+        if (baseType.isIo && !baseType.isSuffix) {
           declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, false))};\n"
         }
       case _ =>
