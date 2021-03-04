@@ -245,6 +245,7 @@ class SpinalReport[T <: Component]() {
   val unusedSignals   = mutable.Set[BaseType]()
   var counterRegister = 0
   var toplevelName: String = null
+  var globalData : GlobalData = null
 
 
   val generatedSourcesPaths  = mutable.LinkedHashSet[String]()

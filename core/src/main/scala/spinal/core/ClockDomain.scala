@@ -137,16 +137,16 @@ object ClockDomain {
 
   /** Push a clockdomain on the stack */
   def push(c: ClockDomain): Unit = {
-    GlobalData.get.dslClockDomain.push(c)
+    ClockDomainStack.push(c)
   }
 
   /** Pop a clockdomain on the stack */
   def pop(c: ClockDomain): Unit = {
-    GlobalData.get.dslClockDomain.pop()
+    ClockDomainStack.pop()
   }
 
   /** Return the current clock Domain */
-  def current: ClockDomain = GlobalData.get.dslClockDomain.head
+  def current: ClockDomain = ClockDomainStack.get
 
   def isResetActive       = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive

@@ -37,7 +37,7 @@ object ConditionalContext {
   def isTrue(rootScope: ScopeStatement): Bool ={
     val globalData = GlobalData.get
 
-    if(globalData.dslScope.head == rootScope) return True
+    if(DslScopeStack.get == rootScope) return True
 
     rootScope.push()
 
@@ -51,7 +51,7 @@ object ConditionalContext {
     cond
   }
 
-  def isTrue(): Bool = isTrue(GlobalData.get.dslScope.head.component.dslBody)
+  def isTrue(): Bool = isTrue(DslScopeStack.get.component.dslBody)
 }
 
 
@@ -77,7 +77,7 @@ object when {
     val whenStatement = new WhenStatement(cond)
     val whenContext   = new WhenContext(whenStatement)
 
-    cond.globalData.dslScope.head.append(whenStatement)
+    DslScopeStack.get.append(whenStatement)
 
     whenStatement.whenTrue.push()
     block
@@ -147,11 +147,11 @@ object switch {
       val switchStatement = new SwitchStatement(value)
       val switchContext   = new SwitchContext(switchStatement)
 
-      globalData.switchStack.push(switchContext)
+      SwitchStack.push(switchContext)
       block
-      globalData.switchStack.pop()
+      SwitchStack.pop()
 
-      globalData.dslScope.head.append(switchStatement)
+      DslScopeStack.get.append(switchStatement)
   }
 }
 
@@ -168,7 +168,7 @@ object is {
   def list(values: Iterator[Any])(block: => Unit): Unit = {
 
     val globalData    = GlobalData.get
-    val switchContext = globalData.switchStack.head
+    val switchContext = SwitchStack.get
     val switchElement = new SwitchStatementElement(ArrayBuffer[Expression](), new ScopeStatement(switchContext.statement))
     val switchValue   = switchContext.statement.value
 
@@ -235,8 +235,7 @@ object default {
 
   def apply(block: => Unit): Unit = {
 
-    val globalData    = GlobalData.get
-    val switchContext = globalData.switchStack.head
+    val switchContext = SwitchStack.get
     val defaultScope  =  new ScopeStatement(switchContext.statement)
 
     switchContext.statement.defaultScope = defaultScope

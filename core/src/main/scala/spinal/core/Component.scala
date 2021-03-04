@@ -32,22 +32,19 @@ object Component {
   /** Push a new component on the stack */
   def push(c: Component): Unit = {
     if(c != null) {
-      c.globalData.dslScope.push(c.dslBody)
+      DslScopeStack.push(c.dslBody)
     }else
-      GlobalData.get.dslScope.push(null)
+      DslScopeStack.push(null)
   }
 
   /**  Remove component of the stack if it is the same as c */
   def pop(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.dslScope.pop()
+    DslScopeStack.pop()
   }
 
   /** Get the current component on the stack */
-  def current: Component = current(GlobalData.get)
-
-  /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
+  def current: Component = DslScopeStack.headOption match {
     case None        => null
     case Some(scope) => scope.component
   }
