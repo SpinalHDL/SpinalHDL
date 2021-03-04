@@ -22,7 +22,7 @@ class SimCallSchedule(val time: Long, val call : ()  => Unit){
 class JvmThreadUnschedule extends Exception
 
 //Reusable thread
-abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffinity : Int) extends Thread{
+abstract class JvmThread(cpuAffinity : Int) extends Thread{
   var body : () => Unit = null
   var unscheduleAsked = false
   val barrier = new CyclicBarrier(2)
@@ -106,7 +106,7 @@ class SimManager(val raw : SimRaw) {
   val jvmIdleThreads = mutable.Stack[JvmThread]()
   def newJvmThread(body : => Unit) : JvmThread = {
     if(jvmIdleThreads.isEmpty){
-      val newJvmThread = new JvmThread(mainThread, Thread.currentThread(), cpuAffinity){
+      val newJvmThread = new JvmThread(cpuAffinity){
         override def bodyDone(): Unit = {
           jvmBusyThreads.remove(jvmBusyThreads.indexOf(this))
           jvmIdleThreads.push(this)
