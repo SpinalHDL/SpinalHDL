@@ -1,4 +1,4 @@
-package spinal.core.async
+package spinal.core.fiber
 
 import spinal.core.{Nameable, ScopeProperty}
 import spinal.sim.{JvmThread, JvmThreadUnschedule, SimThread, SimThreadUnschedule}
@@ -11,11 +11,12 @@ object AsyncThread{
   def current = Engine.get.currentAsyncThread
 }
 
-class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) { // TODO
+class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) extends Nameable { // TODO
   var exception : Throwable = null
   var done = false
   def isDone = done
   var willLoad : Handle[_] = null
+  var context = ScopeProperty.capture()
 
   def managerResume() = {
     waitOn = null
@@ -64,5 +65,8 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) {
     done = true
   }
 
-  override def toString: String = if(willLoad != null) s"$willLoad loader" else super.toString
+  override def toString: String = {
+    val self = if(isNamed) return getName()
+    if(willLoad != null) s"$willLoad loader" else super.toString
+  }
 }

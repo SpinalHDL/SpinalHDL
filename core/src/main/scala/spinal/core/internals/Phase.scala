@@ -24,6 +24,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 import scala.collection.mutable.ListBuffer
 import spinal.core._
+import spinal.core.fiber.Engine
 
 import scala.collection.immutable
 import scala.collection.mutable
@@ -166,8 +167,8 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def checkGlobalData(): Unit = {
-    if (GlobalData.get.dslScope.nonEmpty) SpinalError("dslScope stack is not empty :(")
-    if (GlobalData.get.dslClockDomain.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
+    if (DslScopeStack.nonEmpty) SpinalError("dslScope stack is not empty :(")
+    if (ClockDomainStack.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
@@ -2253,87 +2254,89 @@ object SpinalVhdlBoot{
 
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
-    pc.globalData.phaseContext = pc
+    Engine.create{
+      pc.globalData.phaseContext = pc
+      pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
-    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
+      val prunedSignals   = mutable.Set[BaseType]()
+      val unusedSignals   = mutable.Set[BaseType]()
+      val counterRegister = Ref[Int](0)
+      val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
 
-    val prunedSignals   = mutable.Set[BaseType]()
-    val unusedSignals   = mutable.Set[BaseType]()
-    val counterRegister = Ref[Int](0)
-    val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
+      SpinalProgress("Elaborate components")
 
-    SpinalProgress("Elaborate components")
+      val phases = ArrayBuffer[Phase]()
 
-    val phases = ArrayBuffer[Phase]()
+      phases += new PhaseCreateComponent(gen)(pc)
+      phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
+      phases ++= config.transformationPhases
+      phases ++= config.memBlackBoxers
+      if(config.onlyStdLogicVectorAtTopLevelIo){
+        phases += new PhaseStdLogicVectorAtTopLevelIo()
+      }
+      phases += new PhaseDeviceSpecifics(pc)
+      phases += new PhaseApplyIoDefault(pc)
 
-    phases += new PhaseCreateComponent(gen)(pc)
-    phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
-    phases ++= config.transformationPhases
-    phases ++= config.memBlackBoxers
-    if(config.onlyStdLogicVectorAtTopLevelIo){
-      phases += new PhaseStdLogicVectorAtTopLevelIo()
+      phases += new PhaseNameNodesByReflection(pc)
+      phases += new PhaseCollectAndNameEnum(pc)
+
+      phases += new PhaseCheckIoBundle()
+      phases += new PhaseCheckHiearchy()
+      phases += new PhaseAnalog()
+      phases += new PhaseRemoveUselessStuff(false, false)
+      phases += new PhaseRemoveIntermediateUnnameds(true)
+
+      phases += new PhasePullClockDomains(pc)
+
+      phases += new PhaseInferEnumEncodings(pc,e => e)
+      phases += new PhaseInferWidth(pc)
+      phases += new PhaseNormalizeNodeInputs(pc)
+      phases += new PhaseSimplifyNodes(pc)
+
+      phases += new PhaseCompletSwitchCases()
+      phases += new PhaseRemoveUselessStuff(true, true)
+      phases += new PhaseRemoveIntermediateUnnameds(false)
+
+      phases += new PhaseCheck_noLatchNoOverride(pc)
+      phases += new PhaseCheck_noRegisterAsLatch()
+      phases += new PhaseCheckCombinationalLoops()
+      phases += new PhaseCheckCrossClock()
+
+      phases += new PhaseAllocateNames(pc)
+      phases += new PhaseDevice(pc)
+
+      phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
+      val report = new SpinalReport[T]()
+      report.globalData = pc.globalData
+      phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
+      phases += new PhaseVhdl(pc, report)
+
+      for(inserter <-config.phasesInserters){
+        inserter(phases)
+      }
+
+      for(phase <- phases){
+        if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
+        pc.doPhase(phase)
+      }
+
+      if(prunedSignals.nonEmpty){
+        SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+      }
+
+      pc.checkGlobalData()
+
+  //    SpinalInfo(s"Number of registers : ${counterRegister.value}")
+
+
+      report.toplevel = pc.topLevel.asInstanceOf[T]
+      report.prunedSignals ++= prunedSignals
+      report.unusedSignals ++= unusedSignals
+      report.counterRegister = counterRegister.value
+      report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
+
+      report
     }
-    phases += new PhaseDeviceSpecifics(pc)
-    phases += new PhaseApplyIoDefault(pc)
-
-    phases += new PhaseNameNodesByReflection(pc)
-    phases += new PhaseCollectAndNameEnum(pc)
-
-    phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
-    phases += new PhaseAnalog()
-    phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnnameds(true)
-
-    phases += new PhasePullClockDomains(pc)
-
-    phases += new PhaseInferEnumEncodings(pc,e => e)
-    phases += new PhaseInferWidth(pc)
-    phases += new PhaseNormalizeNodeInputs(pc)
-    phases += new PhaseSimplifyNodes(pc)
-
-    phases += new PhaseCompletSwitchCases()
-    phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnnameds(false)
-
-    phases += new PhaseCheck_noLatchNoOverride(pc)
-    phases += new PhaseCheck_noRegisterAsLatch()
-    phases += new PhaseCheckCombinationalLoops()
-    phases += new PhaseCheckCrossClock()
-
-    phases += new PhaseAllocateNames(pc)
-    phases += new PhaseDevice(pc)
-
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
-    val report = new SpinalReport[T]()
-    phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
-    phases += new PhaseVhdl(pc, report)
-
-    for(inserter <-config.phasesInserters){
-      inserter(phases)
-    }
-
-    for(phase <- phases){
-      if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
-      pc.doPhase(phase)
-    }
-
-    if(prunedSignals.nonEmpty){
-      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
-    }
-
-    pc.checkGlobalData()
-
-//    SpinalInfo(s"Number of registers : ${counterRegister.value}")
-
-
-    report.toplevel = pc.topLevel.asInstanceOf[T]
-    report.prunedSignals ++= prunedSignals
-    report.unusedSignals ++= unusedSignals
-    report.counterRegister = counterRegister.value
-    report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
-
-    report
   }
 }
 
@@ -2377,84 +2380,86 @@ object SpinalVerilogBoot{
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
-
     val pc = new PhaseContext(config)
-    pc.globalData.phaseContext = pc
-    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
+    Engine.create{
+      pc.globalData.phaseContext = pc
+      pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
 
-    val prunedSignals    = mutable.Set[BaseType]()
-    val unusedSignals    = mutable.Set[BaseType]()
-    val counterRegister  = Ref[Int](0)
-    val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
+      val prunedSignals    = mutable.Set[BaseType]()
+      val unusedSignals    = mutable.Set[BaseType]()
+      val counterRegister  = Ref[Int](0)
+      val blackboxesSourcesPaths  = new mutable.LinkedHashSet[String]()
 
-    SpinalProgress("Elaborate components")
+      SpinalProgress("Elaborate components")
 
-    val phases = ArrayBuffer[Phase]()
+      val phases = ArrayBuffer[Phase]()
 
-    phases += new PhaseCreateComponent(gen)(pc)
-    phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
-    phases ++= config.transformationPhases
-    phases ++= config.memBlackBoxers
-    phases += new PhaseDeviceSpecifics(pc)
-    phases += new PhaseApplyIoDefault(pc)
+      phases += new PhaseCreateComponent(gen)(pc)
+      phases += new PhaseDummy(SpinalProgress("Checks and transforms"))
+      phases ++= config.transformationPhases
+      phases ++= config.memBlackBoxers
+      phases += new PhaseDeviceSpecifics(pc)
+      phases += new PhaseApplyIoDefault(pc)
 
-    phases += new PhaseNameNodesByReflection(pc)
-    phases += new PhaseCollectAndNameEnum(pc)
+      phases += new PhaseNameNodesByReflection(pc)
+      phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseCheckIoBundle()
-    phases += new PhaseCheckHiearchy()
-    phases += new PhaseAnalog()
-    phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnnameds(true)
+      phases += new PhaseCheckIoBundle()
+      phases += new PhaseCheckHiearchy()
+      phases += new PhaseAnalog()
+      phases += new PhaseRemoveUselessStuff(false, false)
+      phases += new PhaseRemoveIntermediateUnnameds(true)
 
-    phases += new PhasePullClockDomains(pc)
+      phases += new PhasePullClockDomains(pc)
 
-    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
-    phases += new PhaseInferWidth(pc)
-    phases += new PhaseNormalizeNodeInputs(pc)
-    phases += new PhaseSimplifyNodes(pc)
+      phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
+      phases += new PhaseInferWidth(pc)
+      phases += new PhaseNormalizeNodeInputs(pc)
+      phases += new PhaseSimplifyNodes(pc)
 
-    phases += new PhaseCompletSwitchCases()
-    phases += new PhaseRemoveUselessStuff(true, true)
-    phases += new PhaseRemoveIntermediateUnnameds(false)
+      phases += new PhaseCompletSwitchCases()
+      phases += new PhaseRemoveUselessStuff(true, true)
+      phases += new PhaseRemoveIntermediateUnnameds(false)
 
-    phases += new PhaseCheck_noLatchNoOverride(pc)
-    phases += new PhaseCheck_noRegisterAsLatch()
-    phases += new PhaseCheckCombinationalLoops()
-    phases += new PhaseCheckCrossClock()
+      phases += new PhaseCheck_noLatchNoOverride(pc)
+      phases += new PhaseCheck_noRegisterAsLatch()
+      phases += new PhaseCheckCombinationalLoops()
+      phases += new PhaseCheckCrossClock()
 
-    phases += new PhaseAllocateNames(pc)
-    phases += new PhaseDevice(pc)
+      phases += new PhaseAllocateNames(pc)
+      phases += new PhaseDevice(pc)
 
-    phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
+      phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
 
-    phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
+      phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
 
-    val report = new SpinalReport[T]()
-    phases += new PhaseVerilog(pc, report)
+      val report = new SpinalReport[T]()
+      report.globalData = pc.globalData
+      phases += new PhaseVerilog(pc, report)
 
-    for(inserter <-config.phasesInserters){
-      inserter(phases)
-    }
+      for(inserter <-config.phasesInserters){
+        inserter(phases)
+      }
 
-    for(phase <- phases){
-      if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
-      pc.doPhase(phase)
-    }
+      for(phase <- phases){
+        if(config.verbose) SpinalProgress(s"${phase.getClass.getSimpleName}")
+        pc.doPhase(phase)
+      }
 
-    if(prunedSignals.nonEmpty){
-      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
-    }
+      if(prunedSignals.nonEmpty){
+        SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+      }
 
-//    SpinalInfo(s"Number of registers : ${counterRegister.value}")
+  //    SpinalInfo(s"Number of registers : ${counterRegister.value}")
 
-    pc.checkGlobalData()
-    report.toplevel = pc.topLevel.asInstanceOf[T]
-    report.prunedSignals ++= prunedSignals
-    report.unusedSignals ++= unusedSignals
-    report.counterRegister = counterRegister.value
-    report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
+      pc.checkGlobalData()
+      report.toplevel = pc.topLevel.asInstanceOf[T]
+      report.prunedSignals ++= prunedSignals
+      report.unusedSignals ++= unusedSignals
+      report.counterRegister = counterRegister.value
+      report.blackboxesSourcesPaths ++= blackboxesSourcesPaths
 
-    report
+      report
+   }
   }
 }

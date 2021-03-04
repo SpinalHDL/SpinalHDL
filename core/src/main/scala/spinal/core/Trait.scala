@@ -93,7 +93,9 @@ object GlobalData {
 
   /** Return the GlobalData of the current thread */
   def get = it.get()
-
+  def set(gb : GlobalData) = {
+    it.set(gb)
+  }
   /** Reset the GlobalData of the current thread */
   def reset(config: SpinalConfig) = {
     it.set(new GlobalData(config))
@@ -101,28 +103,25 @@ object GlobalData {
   }
 }
 
+
+
+object DslScopeStack extends ScopeProperty[ScopeStatement]{
+  override protected var _default: ScopeStatement = null
+}
+
+object ClockDomainStack extends ScopeProperty[ClockDomain]{
+  override protected var _default: ClockDomain = null
+}
+
+object SwitchStack extends ScopeProperty[SwitchContext]{
+  override protected var _default: SwitchContext = null
+}
+
+
 /**
   * Global data
   */
 class GlobalData(val config : SpinalConfig) {
-
-  val dslScope       = new Stack[ScopeStatement]()
-  val dslClockDomain = new Stack[ClockDomain]()
-
-  def currentComponent = dslScope.headOption match {
-    case None        => null
-    case Some(scope) => scope.component
-  }
-
-  def currentScope = dslScope.headOption match {
-    case None        => null
-    case Some(scope) => scope
-  }
-
-  def currentClockDomain = dslClockDomain.headOption match {
-    case None     => null
-    case Some(cd) => cd
-  }
 
   private var algoIncrementale = 1
 
@@ -142,7 +141,6 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
-  val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
@@ -218,7 +216,7 @@ trait GlobalDataUser {
 
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
-  var parentScope = if(globalData != null) globalData.currentScope else null
+  var parentScope = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -528,7 +526,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
     null
   } else {
     new Throwable()

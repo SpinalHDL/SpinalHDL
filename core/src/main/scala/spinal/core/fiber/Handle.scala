@@ -1,4 +1,4 @@
-package spinal.core.async
+package spinal.core.fiber
 
 import spinal.core._
 
@@ -24,9 +24,19 @@ class Handle[T] extends Nameable {
   }
 
   def load(value : T) = {
+    applyName(value)
     loaded = true
     this.value = value
     wakeups.foreach(_.apply())
     wakeups.clear()
+  }
+
+  def applyName(value : Any) = value match {
+    case value : Nameable => value.setCompositeName(this, Nameable.DATAMODEL_WEAK)
+    case l : Seq[_] if l.nonEmpty && l.head.isInstanceOf[Nameable] => for((e,i) <- l.zipWithIndex) e match {
+      case e : Nameable => e.setCompositeName(this, i.toString, Nameable.DATAMODEL_WEAK)
+      case _ =>
+    }
+    case _ =>
   }
 }

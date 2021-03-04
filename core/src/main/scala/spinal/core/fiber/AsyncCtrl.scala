@@ -1,7 +1,7 @@
-package spinal.core.async
+package spinal.core.fiber
 
 import net.openhft.affinity.Affinity
-import spinal.core.{ScopeProperty, SpinalError}
+import spinal.core.{GlobalData, ScopeProperty, SpinalError}
 import spinal.sim.{JvmThread, SimManager}
 
 import scala.collection.mutable
@@ -29,8 +29,12 @@ class EngineContext {
       newJvmThread.barrier.await()
     }
 
+    val gb = GlobalData.get
     val jvmThread = jvmIdleThreads.pop()
-    jvmThread.body = () => body
+    jvmThread.body = {() =>
+      GlobalData.set(gb)
+      body
+    }
 
     jvmBusyThreads += jvmThread
     jvmThread
@@ -44,10 +48,13 @@ class EngineContext {
   }
 
   def start(): Unit ={
+    val initialContext = ScopeProperty.capture()
     try {
       while (pending.nonEmpty) {
         val t = pending.dequeue()
+        t.context.restore()
         t.managerResume()
+        t.context = ScopeProperty.capture()
       }
 
       if (waiting.nonEmpty) {
@@ -58,14 +65,14 @@ class EngineContext {
         throw new Exception("SpinalHDL async engine is stuck")
       }
     } finally {
-        (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
-        (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
-        for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
-          while (t.isAlive()) {
-            Thread.sleep(0)
-          }
+      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
+      (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
+      for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
+        while (t.isAlive()) {
+          Thread.sleep(0)
         }
       }
+      initialContext.restore()
     }
   }
 
@@ -83,11 +90,11 @@ class EngineContext {
 object Engine extends ScopeProperty[EngineContext]{
   override protected var _default: EngineContext = null
 
-  def create[T](body : => T) = {
+  def create[T](body : => T, name : String = "root") = {
     val e = new EngineContext
     Engine.push(e)
     var ret : T = null.asInstanceOf[T]
-    e.schedule{ret = body}
+    e.schedule{ret = body}.setName(name)
     e.start
     ret
   }
