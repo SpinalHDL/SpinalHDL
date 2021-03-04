@@ -478,15 +478,33 @@ class ComponentEmitterVhdl(
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
-              val funcName = "zz_" + emitReference(node, false)
-              declarations ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-              declarations ++= s"    variable ${emitReference(node, false)} : ${emitDataType(node, true)};\n"
-              declarations ++= s"  begin\n"
+              val localDeclaration = new StringBuilder
+
+              val funcName = "zz_" + emitReference(node, false).replace(".", "__")
+              val varName = emitReference(node, false)
+
+              localDeclaration ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
+              localDeclaration ++= s"    variable ${varName} : ${emitDataType(node, true)};\n"
+              localDeclaration ++= s"  begin\n"
               val statements = ArrayBuffer[LeafStatement]()
               node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
-              emitLeafStatements(statements, 0, process.scope, ":=", declarations, "    ")
-              declarations ++= s"    return ${emitReference(node, false)};\n"
-              declarations ++= s"  end function;\n"
+              emitLeafStatements(statements, 0, process.scope, ":=", localDeclaration, "    ")
+              localDeclaration ++= s"    return ${varName};\n"
+              localDeclaration ++= s"  end function;\n"
+
+              localDeclaration.lines.foreach(line => {
+                if (line.contains(":=")) {
+                  val parts = line.split(":=")
+                  declarations ++= parts.head.replace(".", "__") + ":="
+                  parts.tail.foreach {
+                    declarations ++= _
+                  }
+                  declarations ++= "\n"
+                } else {
+                  declarations ++= line.replace(".", "__") + "\n"
+                }
+              })
+
               logics ++= s"  ${emitReference(node, false)} <= ${funcName};\n"
           }
         }
