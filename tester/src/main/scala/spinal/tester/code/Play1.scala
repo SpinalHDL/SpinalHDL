@@ -1207,24 +1207,37 @@ object PlaySymplify {
 //addAttribute("ramstyle", "no_rw_check")
 
 object PlayBug extends App{
-  SpinalVerilog(new Component{
-    val mem = Mem(Bits(16 bits), 64)
-    mem.generateAsBlackBox()
-
-    val wr = new Area{
-      val enable = in Bool()
-      val address = in UInt(7 bits)
-      val data = in Bits(8 bits)
-      mem.writeMixedWidth(address, data, enable)
+  import spinal.core._
+  new SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVerilog(new Component{
+    val io=new Bundle{
+      val sig0=out Bool() setAsReg() init(False)
+      val sig1=out Bool () setAsReg() init(False)
     }
-
-    val rd = new Area{
-      val enable = in Bool()
-      val address = in UInt(8 bits)
-      val data = out Bits(4 bits)
-      mem.readSyncMixedWidth(address, data, enable)
+    val normalMode=new Area{
+      io.sig0:= ~io.sig0
+    }
+    val slowMode=new SlowArea(25 MHz){
+      io.sig1:= ~io.sig1
     }
   })
+//  SpinalVerilog(new Component{
+//    val mem = Mem(Bits(16 bits), 64)
+//    mem.generateAsBlackBox()
+//
+//    val wr = new Area{
+//      val enable = in Bool()
+//      val address = in UInt(7 bits)
+//      val data = in Bits(8 bits)
+//      mem.writeMixedWidth(address, data, enable)
+//    }
+//
+//    val rd = new Area{
+//      val enable = in Bool()
+//      val address = in UInt(8 bits)
+//      val data = out Bits(4 bits)
+//      mem.readSyncMixedWidth(address, data, enable)
+//    }
+//  })
 }
 
 object PlayRamInfer {
