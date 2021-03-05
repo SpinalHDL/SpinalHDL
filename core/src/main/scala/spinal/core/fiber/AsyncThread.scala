@@ -66,7 +66,7 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   }
 
   override def toString: String = {
-    val self = if(isNamed) return getName()
-    if(willLoad != null) s"$willLoad loader" else super.toString
+    if(isNamed) return getName()
+    if(willLoad != null) s"${willLoad.getName("???")} loader" else super.toString
   }
 }

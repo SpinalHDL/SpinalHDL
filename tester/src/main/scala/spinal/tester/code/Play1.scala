@@ -5,6 +5,7 @@ import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio}

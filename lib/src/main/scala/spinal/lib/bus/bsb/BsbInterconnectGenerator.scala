@@ -22,6 +22,7 @@ case class BsbInterconnectGenerator() extends Generator{
   def getSlave(key : Handle[Bsb]) = slaves.getOrElseUpdate(key, SlaveModel(key).setCompositeName(key, "slaveModel"))
 
   case class MasterModel(bsb : Handle[Bsb]) extends Generator {
+    val generatorClockDomain = ClockDomain.currentHandle
     val byteCount = Handle[Int]
     val sourceWidth = Handle[Int]
     val sinkWidth = Handle[Int]
@@ -40,6 +41,7 @@ case class BsbInterconnectGenerator() extends Generator{
   }
 
   case class SlaveModel(bsb : Handle[Bsb]) extends Generator {
+    val generatorClockDomain = ClockDomain.currentHandle
     val byteCount = Handle[Int]
     val sourceWidth = Handle[Int]
     val sinkWidth = Handle[Int]

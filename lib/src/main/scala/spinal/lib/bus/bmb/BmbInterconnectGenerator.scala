@@ -27,6 +27,7 @@ class BmbInterconnectGenerator() extends Generator{
   def setPriority(m : Handle[Bmb], priority : Int) = getMaster(m).priority = priority
 
   case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
+    val generatorClockDomain = ClockDomain.currentHandle
     val connections = ArrayBuffer[ConnectionModel]()
     val accessRequirements = Handle[BmbAccessParameter]
     val invalidationSource = Handle[BmbInvalidationParameter]
@@ -170,6 +171,7 @@ class BmbInterconnectGenerator() extends Generator{
 
 
   case class SlaveModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
+    val generatorClockDomain = ClockDomain.currentHandle
     val connections = ArrayBuffer[ConnectionModel]()
     val accessSource = Handle[BmbAccessCapabilities]()
     val accessCapabilities = Handle[BmbAccessCapabilities]()
@@ -299,7 +301,7 @@ class BmbInterconnectGenerator() extends Generator{
       ccKind = CC_TOGGLE
     }
 
-    Dependable(mapping){
+    hardFork{
       val address = mapping.get match {
         case `DefaultMapping` => BigInt(0)
         case m => m.lowerBound

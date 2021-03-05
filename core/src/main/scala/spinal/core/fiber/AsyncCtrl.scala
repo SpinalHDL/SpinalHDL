@@ -59,8 +59,9 @@ class EngineContext {
 
       if (waiting.nonEmpty) {
         println("\n! SpinalHDL async engine is stuck !")
-        for (t <- waiting) {
-          println(s"$t wait on ${t.waitOn}")
+        val incomingHandles = waiting.map(_.willLoad).filter(_ != null)
+        for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
+          println(s"$t wait on ${t.waitOn.getName("???")}")
         }
         throw new Exception("SpinalHDL async engine is stuck")
       }

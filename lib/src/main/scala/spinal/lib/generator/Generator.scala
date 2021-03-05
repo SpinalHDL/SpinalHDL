@@ -65,6 +65,9 @@ class Generator extends Area with TagContainer{ //TODO TagContainer
     b
   }
 
+  def toComponent(name : String = null) = new Component{
+    this.setDefinitionName(if(name == null) classNameOf(this) else name)
+  }
 }
 
 case class Lock() extends Handle{
