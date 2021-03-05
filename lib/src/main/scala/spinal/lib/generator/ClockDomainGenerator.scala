@@ -52,42 +52,47 @@ case class ClockDomainResetGenerator() extends Generator {
     )
   )
 
-  val logic = add task new ClockingArea(inputClockDomain.copy(reset = null, config = inputClockDomain.config.copy(resetKind = BOOT))) {
-    val inputResetTrigger = False
-    val outputResetUnbuffered = False
+  val logic = add task {
+    println(s"11111111 $this")
+    val cdXX = inputClockDomain.get
+    println(s"22222222 $this")
+    new ClockingArea(inputClockDomain.copy(reset = null, config = inputClockDomain.config.copy(resetKind = BOOT))) {
+      val inputResetTrigger = False
+      val outputResetUnbuffered = False
 
-    val inputResetAdapter = (inputClockDomain.reset != null) generate {
-      val generator = ResetGenerator(ClockDomainResetGenerator.this)
-      generator.reset.load(inputClockDomain.reset)
-      generator.kind.load(inputClockDomain.config.resetKind)
-      generator.sensitivity.load(inputClockDomain.config.resetActiveLevel match {
-        case HIGH => ResetSensitivity.HIGH
-        case LOW => ResetSensitivity.LOW
-      })
-      generator
-    }
-
-    //Keep reset active for a while
-    val duration = holdDuration.get
-    val noHold = (duration == 0) generate outputResetUnbuffered.setWhen(inputResetTrigger)
-    val holdingLogic = (duration != 0) generate new Area{
-      val resetCounter = Reg(UInt(log2Up(duration + 1) bits))
-
-      when(resetCounter =/= duration) {
-        resetCounter := resetCounter + 1
-        outputResetUnbuffered := True
+      val inputResetAdapter = (inputClockDomain.reset != null) generate {
+        val generator = ResetGenerator(ClockDomainResetGenerator.this)
+        generator.reset.load(inputClockDomain.reset)
+        generator.kind.load(inputClockDomain.config.resetKind)
+        generator.sensitivity.load(inputClockDomain.config.resetActiveLevel match {
+          case HIGH => ResetSensitivity.HIGH
+          case LOW => ResetSensitivity.LOW
+        })
+        generator
       }
-      when(inputResetTrigger) {
-        resetCounter := 0
+
+      //Keep reset active for a while
+      val duration = holdDuration.get
+      val noHold = (duration == 0) generate outputResetUnbuffered.setWhen(inputResetTrigger)
+      val holdingLogic = (duration != 0) generate new Area{
+        val resetCounter = Reg(UInt(log2Up(duration + 1) bits))
+
+        when(resetCounter =/= duration) {
+          resetCounter := resetCounter + 1
+          outputResetUnbuffered := True
+        }
+        when(inputResetTrigger) {
+          resetCounter := 0
+        }
       }
-    }
 
-    //Create all reset used later in the design
-    val outputReset = RegNext(outputResetUnbuffered)
+      //Create all reset used later in the design
+      val outputReset = RegNext(outputResetUnbuffered)
 
-    if(inputClockDomain.config.resetKind == BOOT || powerOnReset.get){
-      outputReset init(True)
-      holdingLogic.resetCounter init(0)
+      if(inputClockDomain.config.resetKind == BOOT || powerOnReset.get){
+        outputReset init(True)
+        holdingLogic.resetCounter init(0)
+      }
     }
   }
 

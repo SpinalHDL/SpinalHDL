@@ -125,6 +125,7 @@ object SwitchStack extends ScopeProperty[SwitchContext]{
 class GlobalData(val config : SpinalConfig) {
 
   private var algoIncrementale = 1
+  var toplevel : Component = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)

@@ -51,7 +51,7 @@ class BmbInterconnectGenerator() extends Generator{
 
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
-      decoderGen.products += c.decoderAccessRequirements
+//      decoderGen.products.+=(c.decoderAccessRequirements)
     }
 
     dependencies += lock
@@ -62,7 +62,9 @@ class BmbInterconnectGenerator() extends Generator{
       dependencies += accessRequirements
       dependencies ++= connections.map(_.mapping)
       dependencies ++= connections.map(_.s.accessCapabilities)
+      println("RAWRR")
       add task {
+        println("MIAOU")
         slaves match {
           case _ if connections.size == 1 && connections.head.mapping.get == DefaultMapping && accessRequirements.canRead == connections.head.s.accessCapabilities.canRead  && accessRequirements.canWrite == connections.head.s.accessCapabilities.canWrite => {
             connections.head.decoder.derivatedFrom(bus){_ =>
@@ -224,7 +226,9 @@ class BmbInterconnectGenerator() extends Generator{
     val invalidationGen = add task new Generator{
       dependencies += invalidationRequirements
       dependencies ++= connections.map(_.arbiterAccessRequirements)
+      println("invalidationGen")
       add task {
+        println("invalidationGen task")
         for(c <- connections){
           c.arbiterInvalidationRequirements.load(invalidationRequirements.copy(
             canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
@@ -287,6 +291,10 @@ class BmbInterconnectGenerator() extends Generator{
 
   case class ConnectionModel(m : MasterModel, s : SlaveModel, mapping : Handle[AddressMapping]) extends Generator{
     var connector : (Bmb,Bmb) => Unit = defaultConnector
+
+
+    dependencies += m.generatorClockDomain
+    dependencies += s.generatorClockDomain
 
     val decoderAccessRequirements = Handle[BmbAccessParameter]()
     val arbiterInvalidationRequirements = Handle[BmbInvalidationParameter]()
@@ -471,7 +479,7 @@ class BmbInterconnectGenerator() extends Generator{
   val masters = mutable.LinkedHashMap[Handle[Bmb], MasterModel]()
   val slaves = mutable.LinkedHashMap[Handle[Bmb], SlaveModel]()
   val lock = Lock()
-  lock.retain()
+  lock.retain() //????
   add task lock.release()
 
   var defaultArbitration : BmbInterconnectGenerator.ArbitrationKind = BmbInterconnectGenerator.ROUND_ROBIN

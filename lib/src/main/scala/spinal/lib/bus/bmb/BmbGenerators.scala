@@ -123,6 +123,8 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   val priorityWidth = createDependency[Int]
   val mapping = createDependency[PlicMapping]
 
+  val lock = Lock()
+
   val targetsModel = ArrayBuffer[Handle[Bool]]()
   def addTarget(target : Handle[Bool]) = {
     val id = targetsModel.size
