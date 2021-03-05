@@ -310,7 +310,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     prePop()
     scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
-    ClockDomain.pop(this.clockDomain)
+    ClockDomain.pop()
     ret
   }
 

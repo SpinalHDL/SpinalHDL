@@ -1,8 +1,9 @@
 package spinal.lib.bus.bmb
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.misc._
-import spinal.lib.generator.{Dependable, Generator, Handle, Lock, MemoryConnection}
+import spinal.lib.generator._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

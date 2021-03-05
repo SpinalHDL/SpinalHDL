@@ -4,6 +4,7 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.generator._
 import spinal.lib._
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.amba3.apb.Apb3Config
 import spinal.lib.misc.{BmbClint, Clint}
 import spinal.lib.misc.plic.{PlicGateway, PlicGatewayActiveHigh, PlicMapper, PlicMapping, PlicTarget}
@@ -20,9 +21,9 @@ case class BmbExclusiveMonitorGenerator()
 
 
   val inputAccessSource = Handle[BmbAccessCapabilities]
-  val inputAccessRequirements = createDependency[BmbAccessParameter]
+  val inputAccessRequirements = Handle[BmbAccessParameter]
   val outputInvalidationSource = Handle[BmbInvalidationParameter]
-  val invalidationRequirements = createDependency[BmbInvalidationParameter]
+  val invalidationRequirements = Handle[BmbInvalidationParameter]
 
   interconnect.addSlave(
     accessSource = inputAccessSource,

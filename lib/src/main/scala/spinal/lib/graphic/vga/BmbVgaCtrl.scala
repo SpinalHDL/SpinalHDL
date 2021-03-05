@@ -1,6 +1,7 @@
 package spinal.lib.graphic.vga
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi.Axi4ReadOnly
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbImplicitPeripheralDecoder, BmbInterconnectGenerator, BmbParameter, BmbSlaveFactory}

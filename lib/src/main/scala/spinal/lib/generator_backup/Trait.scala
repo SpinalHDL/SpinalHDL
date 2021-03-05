@@ -1,7 +1,6 @@
-package spinal.lib.generator
+package spinal.lib.generator_backup
 
 import spinal.core.{Bool, Nameable}
-import spinal.core.fiber._
 
 trait InterruptCtrlGeneratorI{
   def addInterrupt(interrupt : Handle[Bool], id : Int)
