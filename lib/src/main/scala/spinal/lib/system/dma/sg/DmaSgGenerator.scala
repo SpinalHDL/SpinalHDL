@@ -1,6 +1,7 @@
 package spinal.lib.system.dma.sg
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bsb.{Bsb, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.SizeMapping

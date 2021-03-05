@@ -174,7 +174,7 @@ object Data {
 
     def push(c: Component, scope: ScopeStatement): Unit = {
       DslScopeStack.push(scope)
-      ClockDomainStack.push(c.clockDomain)
+      ClockDomain.push(c.clockDomain)
     }
 
     def pop(c: Component): Unit = {

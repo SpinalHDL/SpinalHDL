@@ -50,9 +50,9 @@ object Test2 extends App{
     val sub = new Component{
       val c = out(U(0x0C, 8 bits))
     }
-    val x = Handle[Int]
-    hardFork(println(x.get))
-    hardFork(hardFork(x.load(42)))
+//    val x = Handle[Int]
+//    hardFork(println(x.get))
+//    hardFork(hardFork(x.load(42)))
 
     val sum = out(a + b + sub.c)
 
@@ -63,7 +63,7 @@ object Test2 extends App{
 
 object Test3 extends App{
   SpinalVerilog(new Component{
-    val x = Handle[Int]
+    val x = Handle[Int] //x defined here
 
     val a,b = in UInt(8 bits)
 
@@ -74,13 +74,13 @@ object Test3 extends App{
     val d = hardFork(U(0x0D, 8 bits))
 
     val sub2 = new Component{
-      val e = hardFork(out(RegNext(U(0x0e, x.get bits))))
-      val f = ClockDomain.external("miaou") on hardFork(out(RegNext(U(0x0f, x.get bits))))
+      val e = hardFork(out(RegNext(U(0x0e, x.get bits))))  //x used here
+      val f = ClockDomain.external("miaou") on hardFork(out(RegNext(U(0x0f, x.get bits)))) //x used here
     }
 
 
-    hardFork(println(x.get))
-    hardFork(hardFork(x.load(8)))
+    val rawrrr = hardFork(println(x.get))
+    x.load(8) //x set here
     val sum = out(a + b + sub.c + d.get + sub2.e.get + sub2.f.get)
 
     setDefinitionName("toplevel")

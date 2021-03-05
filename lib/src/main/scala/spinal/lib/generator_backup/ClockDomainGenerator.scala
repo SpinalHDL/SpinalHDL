@@ -1,7 +1,6 @@
-package spinal.lib.generator
+package spinal.lib.generator_backup
 
 import spinal.core._
-import spinal.core.fiber._
 import spinal.lib.BufferCC
 import spinal.lib.blackbox.xilinx.s7.BUFG
 
@@ -16,15 +15,17 @@ object ResetSensitivity{
 }
 
 case class ClockDomainResetGenerator() extends Generator {
-  val inputClockDomain = Handle[ClockDomain]
-  val holdDuration = Handle[Int]
-  val powerOnReset = Handle(false)
+  noClockDomain()
 
+  val inputClockDomain = createDependency[ClockDomain]
+  val holdDuration = createDependency[Int]
+  val powerOnReset = createDependency[Boolean]
+  powerOnReset.load(false)
 
   def setInput(input : Handle[ClockDomain]) = inputClockDomain.merge(input)
 
-  def setInput(input : Handle[ClockDomain], omitReset : Boolean) : Unit = hardFork(
-    inputClockDomain.load(input.copy(reset = if(omitReset) null else input.reset))
+  def setInput(input : Handle[ClockDomain], omitReset : Boolean) : Unit = input.produce(
+    inputClockDomain.load(input.get.copy(reset = if(omitReset) null else input.reset))
   )
 
   def setInput(input : ClockDomainResetGenerator) = inputClockDomain.merge(input.outputClockDomain)
@@ -92,9 +93,10 @@ case class ClockDomainResetGenerator() extends Generator {
   }
 
   case class ResetGenerator(dady : ClockDomainResetGenerator) extends Generator{
-    val reset = Handle[Bool]
-    val kind = Handle[ResetKind]
-    val sensitivity = Handle[ResetSensitivity]
+    val reset = createDependency[Bool]
+    val kind = createDependency[ResetKind]
+    val sensitivity = createDependency[ResetSensitivity]
+    dependencies += dady.logic
 
     val stuff = add task new ClockingArea(dady.inputClockDomain){
       val syncTrigger = kind.get match {
@@ -137,7 +139,7 @@ case class ClockDomainResetGenerator() extends Generator {
 
 
   def makeExternal(frequency : IClockDomainFrequency = UnknownFrequency, withResetPin : Boolean = true): this.type = {
-    hardFork{
+    this(Dependable(){
       val clock = in Bool() setCompositeName(ClockDomainResetGenerator.this, "external_clk")
       val reset = withResetPin generate (in Bool()  setCompositeName(ClockDomainResetGenerator.this, "external_reset"))
 
@@ -152,7 +154,7 @@ case class ClockDomainResetGenerator() extends Generator {
           )
         )
       )
-    }
+    })
 
     this
   }
@@ -162,7 +164,7 @@ case class ClockDomainResetGenerator() extends Generator {
 
 
 case class Arty7BufgGenerator() extends Generator{
-  val input = Handle[ClockDomain]
+  val input = createDependency[ClockDomain]
   val output = produce{
     input.copy(
       clock = if(input.clock != null) BUFG.on(input.clock ) else input.clock ,

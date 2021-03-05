@@ -2,6 +2,7 @@ package spinal.lib.misc.analog
 
 import spinal.core._
 import spinal.lib._
+import spinal.core.fiber._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}

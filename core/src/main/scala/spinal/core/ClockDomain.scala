@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.ClockDomain.DivisionRate
+import spinal.core.fiber.Handle
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -136,17 +137,26 @@ object ClockDomain {
   }
 
   /** Push a clockdomain on the stack */
-  def push(c: ClockDomain): Unit = {
+  def push(c: Handle[ClockDomain]): Unit = {
     ClockDomainStack.push(c)
   }
 
+  def push(c: ClockDomain): Unit = {
+    ClockDomainStack.push(Handle(c))
+  }
+
+
   /** Pop a clockdomain on the stack */
-  def pop(c: ClockDomain): Unit = {
+  def pop(): Unit = {
     ClockDomainStack.pop()
   }
 
   /** Return the current clock Domain */
-  def current: ClockDomain = ClockDomainStack.get
+  def current: ClockDomain = {
+    val h = currentHandle
+    if(h != null) h.get else null
+  }
+  def currentHandle: Handle[ClockDomain] = ClockDomainStack.get
 
   def isResetActive       = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive
@@ -276,7 +286,7 @@ case class ClockDomain(clock       : Bool,
   def hasSoftResetSignal   = softReset != null
 
   def push(): Unit = ClockDomain.push(this)
-  def pop(): Unit  = ClockDomain.pop(this)
+  def pop(): Unit  = ClockDomain.pop()
 
   def isResetActive = {
     if(config.useResetPin && reset != null)

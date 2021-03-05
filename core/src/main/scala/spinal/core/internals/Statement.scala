@@ -577,7 +577,7 @@ object AssertStatementKind{
 }
 
 case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind) extends LeafStatement with SpinalTagReady {
-  var clockDomain = ClockDomainStack.get
+  var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)

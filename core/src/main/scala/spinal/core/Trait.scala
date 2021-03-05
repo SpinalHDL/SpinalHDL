@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.Nameable._
+import spinal.core.fiber.Handle
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -109,8 +110,8 @@ object DslScopeStack extends ScopeProperty[ScopeStatement]{
   override protected var _default: ScopeStatement = null
 }
 
-object ClockDomainStack extends ScopeProperty[ClockDomain]{
-  override protected var _default: ClockDomain = null
+object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
+  override protected var _default: Handle[ClockDomain] = null
 }
 
 object SwitchStack extends ScopeProperty[SwitchContext]{
