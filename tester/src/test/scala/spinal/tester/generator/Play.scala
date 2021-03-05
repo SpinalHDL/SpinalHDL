@@ -52,5 +52,15 @@ object Play extends App{
       val yyy = vgaCd.outputClockDomain(RegNext(U(2)))
       val zzz = sdramCd.outputClockDomain(RegNext(U(3)))
     }
+
+    val lock = new Lock
+    lock.retain()
+    hardFork(lock.release()) //TODO comment me
+    val g = new Generator{
+      dependencies += lock
+      val logic = add task new Area{
+
+      }
+    }
   })
 }

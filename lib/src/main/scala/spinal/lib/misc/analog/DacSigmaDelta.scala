@@ -187,6 +187,6 @@ case class BmbBsbToDeltaSigmaGenerator(ctrlOffset : Handle[BigInt] = Unset)
   )
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
   val is = bsbInterconnect.addSlave(input)
-  dependencies += List(is.byteCount, is.sourceWidth, is.withMask)
+  dependencies ++= List(is.byteCount, is.sourceWidth, is.withMask)
   is.sinkWidth.load(0)
 }

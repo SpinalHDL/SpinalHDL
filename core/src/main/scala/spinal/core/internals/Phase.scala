@@ -2167,6 +2167,21 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
     Engine.create {
       gen
     }
+
+    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+    var hadPrePop = true
+    while(hadPrePop) {
+      hadPrePop = false
+      pc.walkComponents { c =>
+        if (c.prePopTasks.nonEmpty) {
+          c.rework(
+            c.prePop()
+          )
+          hadPrePop = true
+        }
+      }
+    }
+
     defaultClockDomain.pop()
     pc.checkGlobalData()
   }

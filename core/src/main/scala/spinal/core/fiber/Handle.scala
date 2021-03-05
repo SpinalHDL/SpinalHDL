@@ -7,6 +7,8 @@ import scala.collection.mutable.ArrayBuffer
 class Unset
 object Unset extends Unset
 
+
+
 object Handle{
 //  def apply[T] = new Handle[T]
   def apply[T]() = new Handle[T]
@@ -19,6 +21,7 @@ object Handle{
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
   implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
+  implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 }
 
 class Handle[T] extends Nameable {
@@ -54,6 +57,11 @@ class Handle[T] extends Nameable {
     }
     t.willLoad = this
   }
+
+  def loadNothing(): Unit ={
+    load(null.asInstanceOf[T])
+  }
+
   def unload(): Unit ={
     loaded = false
     value = null.asInstanceOf[T]
@@ -69,24 +77,25 @@ class Handle[T] extends Nameable {
   }
 
 
+  override def toString: String = getName("???")
 
   //TODO legacy API ?
   def produce[T](body : => T) = hardFork(body)
 
   def merge(that : Handle[T]): Unit ={
-    var loaded = false
+    var loadDone = false
     hardFork{
       that.get
-      if(!loaded) this.load(that.get)
-      loaded = true
-    }
+      if(!loadDone) this.load(that.get)
+      loadDone = true
+    }.setCompositeName(this, "merge")
     hardFork{
       this.get
-      if(!loaded) that.load(this.get)
-      loaded = true
-    }
+      if(!loadDone) that.load(this.get)
+      loadDone = true
+    }.setCompositeName(that, "merge")
   }
 
-  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = hardFork(body)
-  def derivate[T2](body : (T) => T2) = hardFork(body(value))
+  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = hardFork(load(body(that.get)))
+  def derivate[T2](body : (T) => T2) = hardFork(body(get))
 }

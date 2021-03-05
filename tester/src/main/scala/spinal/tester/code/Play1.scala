@@ -106,7 +106,7 @@ object PlayGeneratorA extends App{
     b.load(4)
   }
 
-  SpinalVerilog(new Root().toComponent())
+//  SpinalVerilog(new Root().toComponent())
 }
 
 object PlayGeneratorA1 extends App{
@@ -142,7 +142,7 @@ object PlayGeneratorA1 extends App{
     b.load(4)
   }
 
-  SpinalVerilog(new Root().toComponent())
+//  SpinalVerilog(new Root().toComponent())
 }
 
 
@@ -158,7 +158,7 @@ object PlayGeneratorB extends App{
     b.load(4)
   }
 
-  SpinalVerilog(new Root().toComponent())
+//  SpinalVerilog(new Root().toComponent())
 }
 
 object PlayGeneratorC extends App{

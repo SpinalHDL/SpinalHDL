@@ -8,15 +8,47 @@ import spinal.idslplugin.PostInitCallback
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
-class Generator extends Area with TagContainer{ //TODO TagContainer
 
-  //TODO old API
-  val add = new {
-    def task[T](body : => T) = produce(body)
+//TODO old API
+object Dependable{
+  def apply[T](d : Handle[_]*)(body : => T) : Handle[T] = {
+    val h = Handle[T]
+    val p = new Generator()
+    p.dependencies ++= d
+    p.add task {h.load(body)}
+    p.products += h
+    p.setCompositeName(h, "generator", true)
+    h
   }
-  def produce[T](body : => T) = hardFork(body)
+}
+
+
+
+class Generator extends Area with TagContainer{ //TODO TagContainer
+  //TODO old API
+
+  val initialClockDomain = ClockDomain.currentHandle
+
+  val generatorLock = new Lock
+  val generatorDone = new Lock
+
+  val add = new {
+    def task[T](body : => T) = {
+      generatorDone.retain()
+      produce{
+        val v = body
+        generatorDone.release()
+        v
+      }
+    }
+  }
+  def produce[T](body : => T) = hardFork{generatorLock.get; body}
 //  def createDependency[T](that : Handle[T]) = {}
-  def createDependency[T]() = Handle[T]
+  def createDependency[T]() = {
+    val h = Handle[T]
+    dependencies += h
+    h
+  }
 
   def export[T](h : Handle[T]) = {
     h.produce(this.tags += new Export(h.getName, h.get))
@@ -28,12 +60,24 @@ class Generator extends Area with TagContainer{ //TODO TagContainer
   }
 
   val dependencies = new {
-    def += [T](that : Handle[T]) = {}
-    def ++= (that : Seq[Handle[_]]) = {}
+    def += [T <: Generator](that : T) : Unit = {
+      +=(that.generatorDone)
+    }
+
+    def += [T](that : Handle[T]) : Unit = {
+      generatorLock.retain()
+      val t = hardFork {
+        that.get
+        generatorLock.release()
+      }
+      t.setCompositeName(Generator.this, "unlock")
+    }
+    def ++= (that : Seq[Handle[_]]) : Unit = that.foreach(+=(_))
   }
 
+//  val products = ArrayBuffer[Handle[_]]()
   val products = new {
-    def += [T](that : Handle[T]) = {}
+    def += (that : Handle[_]) = {}
     def ++= (that : Seq[Handle[_]]) = {}
   }
 
@@ -65,13 +109,25 @@ class Generator extends Area with TagContainer{ //TODO TagContainer
     b
   }
 
-  def toComponent(name : String = null) = new Component{
-    this.setDefinitionName(if(name == null) classNameOf(this) else name)
-  }
+//  def toComponent(name : String = null) = new GeneratorComponent()
+
+  def product[T] = Handle[T]
 }
 
-case class Lock() extends Handle{
-  val wake = Handle[Int](0)
+object GeneratorComponent{
+  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.body
+
+  def apply[T <: Generator](generatorLamda : => T, name : String = null) = new GeneratorComponent(generatorLamda, name)
+}
+
+
+class GeneratorComponent[T](gen : => T) extends Component {
+  val body : T = gen
+  this.setDefinitionName(if(name == null) classNameOf(this) else name)
+}
+
+case class Lock() extends Handle[Int]{
+  val wake = Handle[Int]
   var retains = 0
   def retain() : Unit = {
     retains += 1
@@ -80,17 +136,16 @@ case class Lock() extends Handle{
   def release() : Unit = {
     assert(retains > 0)
     retains -= 1
-    if(retains == 0) wake.load(0)
-  }
-
-  def start() {
-    hardFork {
-      wake.waitLoad
-      if (retain == 0) this.load(null) else {
-        wake.unload()
-        start()
-      }
+    if(retains == 0) {
+      wake.load(0)
     }
   }
-  start()
+
+  hardFork {
+    while (retains != 0) {
+      wake.unload()
+      wake.waitLoad
+    }
+    this.load(0)
+  }.setCompositeName(this, "internal")
 }

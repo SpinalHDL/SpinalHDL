@@ -8,7 +8,7 @@ package object generator {
 
   implicit class GeneratorSeqPimper(pimped : Seq[Handle[_]]){
     //TODO fiber
-    def produce[T](body : => T) : Handle[T] = hardFork(body)
+    def produce[T](body : => T) : Handle[T] = hardFork{pimped.foreach(_.get); body}
   }
 
   implicit class HandleClockDomainPimper(pimped : Handle[ClockDomain]) {

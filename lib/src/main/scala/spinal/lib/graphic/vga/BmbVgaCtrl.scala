@@ -103,7 +103,7 @@ case class BmbVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
   )
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
   val is = vgaCd on bsbInterconnect.addSlave(input)
-  dependencies += List(is.byteCount, is.sourceWidth, is.withMask)
+  dependencies ++= List(is.byteCount, is.sourceWidth, is.withMask)
   is.sinkWidth.load(0)
 
   def withRegisterPhy(withColorEn : Boolean) = output.produce{

@@ -9,9 +9,9 @@ import scala.collection.mutable
 class EngineContext {
   val pending = mutable.Queue[AsyncThread]()
   val waiting = mutable.LinkedHashSet[AsyncThread]()
+  val onCompletion = mutable.ArrayBuffer[() => Unit]()
   var currentAsyncThread : AsyncThread = null
   val cpuAffinity = SimManager.newCpuAffinity()
-  Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
 
   //Manage the JvmThread poll
   val jvmBusyThreads = mutable.ArrayBuffer[JvmThread]()
@@ -49,23 +49,21 @@ class EngineContext {
 
   def start(): Unit ={
     val initialContext = ScopeProperty.capture()
+    var hadException = true
+    val initialAffinity = Affinity.getAffinity
     try {
+      Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
       while (pending.nonEmpty) {
         val t = pending.dequeue()
         t.context.restore()
         t.managerResume()
+        if(t.isDone) println(s"Done   $t") else println(s"Resume $t")
         t.context = ScopeProperty.capture()
       }
-
-      if (waiting.nonEmpty) {
-        println("\n! SpinalHDL async engine is stuck !")
-        val incomingHandles = waiting.map(_.willLoad).filter(_ != null)
-        for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
-          println(s"$t wait on ${t.waitOn.getName("???")}")
-        }
-        throw new Exception("SpinalHDL async engine is stuck")
-      }
+      hadException = false
+      onCompletion.foreach(_.apply())
     } finally {
+      Affinity.setAffinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for (t <- (jvmIdleThreads ++ jvmBusyThreads)) {
@@ -74,6 +72,15 @@ class EngineContext {
         }
       }
       initialContext.restore()
+
+      if (waiting.nonEmpty) {
+        println("\n! SpinalHDL async engine is stuck !")
+        val incomingHandles = waiting.map(_.willLoad).filter(_ != null)
+        for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
+          println(s"$t wait on ${t.waitOn.getName("???")}")
+        }
+        if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
+      }
     }
   }
 

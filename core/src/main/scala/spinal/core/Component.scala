@@ -67,6 +67,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
+  if(globalData.toplevel == null) globalData.toplevel = this
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 

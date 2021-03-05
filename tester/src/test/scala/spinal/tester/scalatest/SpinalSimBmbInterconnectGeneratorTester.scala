@@ -164,12 +164,17 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
-      def fullAccess(bus: Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+      def fullAccess(bus: Handle[Bmb]) = {
+        println("fullAccess")
+        interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+        println("fullAccess done")
+      }
 
       fullAccess(mA.busHandle)
       fullAccess(mB.busHandle)
       fullAccess(mC.busHandle)
       fullAccess(mD.busHandle)
+      println("DONE")
     }
   }
 }
