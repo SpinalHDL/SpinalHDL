@@ -1,5 +1,6 @@
 package spinal.lib
 
+import spinal.core.ClockDomain
 import spinal.core.fiber._
 
 package object generator {
@@ -8,5 +9,16 @@ package object generator {
   implicit class GeneratorSeqPimper(pimped : Seq[Handle[_]]){
     //TODO fiber
     def produce[T](body : => T) : Handle[T] = hardFork(body)
+  }
+
+  implicit class HandleClockDomainPimper(pimped : Handle[ClockDomain]) {
+    def apply[T](block: => T): T = {
+      ClockDomain.push(pimped)
+      val ret: T = block
+      ClockDomain.pop()
+      ret
+    }
+
+    def on[T](block: => T): T = apply(block)
   }
 }
