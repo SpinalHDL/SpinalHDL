@@ -51,7 +51,7 @@ class Generator extends Area { //TODO TagContainer
   }
 
   def export[T](h : Handle[T]) = {
-    h.produce(Component.current.addTag(new Export(h.getName, h.get)))
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
     h
   }
   def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
