@@ -8,7 +8,6 @@ package object fiber {
     val e = Engine.get
     val t = e.schedule{
       val v = body
-
       ret.load(v)
     }
     t.willLoad = ret

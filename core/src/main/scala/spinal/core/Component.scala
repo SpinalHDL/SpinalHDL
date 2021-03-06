@@ -21,6 +21,7 @@
 
 package spinal.core
 
+import spinal.core.fiber._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -84,7 +85,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
+  case class PrePopTask(task : () => Unit, clockDomain: Handle[ClockDomain])
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
@@ -111,7 +112,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the parent component (null if there is no parent)*/
   def parent: Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  val clockDomain = ClockDomain.current
+  val clockDomain = ClockDomain.currentHandle
 
   var withoutReservedKeywords = false
   def withoutKeywords(): Unit ={
@@ -136,7 +137,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
       for(t <- prePopTasksToDo){
-        t.clockDomain(t.task())
+        ClockDomain.push(t.clockDomain)
+        t.task()
+        ClockDomain.pop()
+
       }
     }
   }
@@ -148,7 +152,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.currentHandle)
+//  def addPrePopTask(task: () => Unit) = Engine.get.onCompletion += task
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */

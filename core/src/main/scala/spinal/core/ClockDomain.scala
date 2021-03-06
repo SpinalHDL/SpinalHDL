@@ -142,7 +142,7 @@ object ClockDomain {
   }
 
   def push(c: ClockDomain): Unit = {
-    ClockDomainStack.push(Handle(c))
+    ClockDomainStack.push(Handle.sync(c))
   }
 
 

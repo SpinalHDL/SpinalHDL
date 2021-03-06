@@ -222,3 +222,32 @@ object DemoGenerator {
     b.load(4)
   }
 }
+
+
+
+object MiaouRawrrr extends App{
+  class Wuff(val value : Int){
+    println("Wuff")
+  }
+  class Miaou(val value : Int){
+    println("Miaou")
+  }
+
+  implicit def asdasd(src : => Wuff) = {
+    println("a")
+    val ret = new Miaou(src.value)
+    println("b")
+    ret
+  }
+
+  def gen = new {
+    println("gen")
+    def create() = new {
+      def create2() = new Wuff(1)
+    }
+  }
+
+  println("1")
+  var y : Miaou = gen.create().create2()
+  println("2")
+}
