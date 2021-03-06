@@ -24,7 +24,7 @@ object Dependable{
 
 
 
-class Generator extends Area with TagContainer{ //TODO TagContainer
+class Generator extends Area { //TODO TagContainer
   //TODO old API
 
   val initialClockDomain = ClockDomain.currentHandle
@@ -51,11 +51,11 @@ class Generator extends Area with TagContainer{ //TODO TagContainer
   }
 
   def export[T](h : Handle[T]) = {
-    h.produce(this.tags += new Export(h.getName, h.get))
+    h.produce(Component.current.addTag(new Export(h.getName, h.get)))
     h
   }
   def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
-    node.produce(this.tags += new Dts(node, value))
+    node.produce(Component.current.addTag(new Dts(node, value)))
     node
   }
 
@@ -79,6 +79,10 @@ class Generator extends Area with TagContainer{ //TODO TagContainer
   val products = new {
     def += (that : Handle[_]) = {}
     def ++= (that : Seq[Handle[_]]) = {}
+  }
+
+  val tags = new {
+    def += (that : SpinalTag) : Unit = hardFork(Component.current.addTag(that))
   }
 
   def produceIo[T <: Data](body : => T) : Handle[T] = {

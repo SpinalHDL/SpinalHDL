@@ -53,9 +53,6 @@ case class ClockDomainResetGenerator() extends Generator {
   )
 
   val logic = add task {
-    println(s"11111111 $this")
-    val cdXX = inputClockDomain.get
-    println(s"22222222 $this")
     new ClockingArea(inputClockDomain.copy(reset = null, config = inputClockDomain.config.copy(resetKind = BOOT))) {
       val inputResetTrigger = False
       val outputResetUnbuffered = False

@@ -62,9 +62,7 @@ class BmbInterconnectGenerator() extends Generator{
       dependencies += accessRequirements
       dependencies ++= connections.map(_.mapping)
       dependencies ++= connections.map(_.s.accessCapabilities)
-      println("RAWRR")
       add task {
-        println("MIAOU")
         slaves match {
           case _ if connections.size == 1 && connections.head.mapping.get == DefaultMapping && accessRequirements.canRead == connections.head.s.accessCapabilities.canRead  && accessRequirements.canWrite == connections.head.s.accessCapabilities.canWrite => {
             connections.head.decoder.derivatedFrom(bus){_ =>
@@ -226,9 +224,7 @@ class BmbInterconnectGenerator() extends Generator{
     val invalidationGen = add task new Generator{
       dependencies += invalidationRequirements
       dependencies ++= connections.map(_.arbiterAccessRequirements)
-      println("invalidationGen")
       add task {
-        println("invalidationGen task")
         for(c <- connections){
           c.arbiterInvalidationRequirements.load(invalidationRequirements.copy(
             canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
