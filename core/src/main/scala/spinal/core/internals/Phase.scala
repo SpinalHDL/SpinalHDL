@@ -2160,29 +2160,31 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
 
-    defaultClockDomain.push()
-    native //Avoid unconstructable during phase
-    binarySequential
-    binaryOneHot
+
     Engine.create {
+      defaultClockDomain.push()
+      native //Avoid unconstructable during phase
+      binarySequential
+      binaryOneHot
       gen
+      defaultClockDomain.pop()
     }
 
-    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
-    var hadPrePop = true
-    while(hadPrePop) {
-      hadPrePop = false
-      pc.walkComponents { c =>
-        if (c.prePopTasks.nonEmpty) {
-          c.rework(
-            c.prePop()
-          )
-          hadPrePop = true
-        }
-      }
-    }
+//    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+//    var hadPrePop = true
+//    while(hadPrePop) {
+//      hadPrePop = false
+//      pc.walkComponents { c =>
+//        assert(c.prePopTasks.isEmpty)
+////        if (c.prePopTasks.nonEmpty) {
+////          c.rework(
+////            c.prePop()
+////          )
+////          hadPrePop = true
+////        }
+//      }
+//    }
 
-    defaultClockDomain.pop()
     pc.checkGlobalData()
   }
 }

@@ -629,6 +629,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     null
   }
 
+
+  def toIo(): this.type ={
+    val subIo = this
+    val topIo = cloneOf(subIo)//.setPartialName(h, "", true)
+    topIo.copyDirectionOf(subIo)
+    for((s,t) <- (subIo.flatten, topIo.flatten).zipped if s.isAnalog) t.setAsAnalog()
+    topIo <> subIo
+    topIo.asInstanceOf[this.type]
+  }
+
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null
 

@@ -1,7 +1,8 @@
 package spinal.core.fiber
 
 import net.openhft.affinity.Affinity
-import spinal.core.{GlobalData, ScopeProperty, SpinalError}
+import spinal.core
+import spinal.core.{Component, GlobalData, ScopeProperty, SpinalError}
 import spinal.sim.{JvmThread, SimManager}
 
 import scala.collection.mutable
@@ -34,6 +35,8 @@ class EngineContext {
     jvmThread.body = {() =>
       GlobalData.set(gb)
       body
+//      val c = Component.current
+//      if(c != null && c.prePopTasks.nonEmpty) hardFork(c.rework(c.prePop()))
     }
 
     jvmBusyThreads += jvmThread
@@ -56,12 +59,27 @@ class EngineContext {
       while (pending.nonEmpty) {
         val t = pending.dequeue()
         t.context.restore()
+//        println(s"Resume $t")
         t.managerResume()
-//        if(t.isDone) println(s"Done   $t") else println(s"Resume $t")
+//        if(t.isDone) println(s"Done   $t")
         t.context = ScopeProperty.capture()
       }
-      hadException = false
+      //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+      var hadPrePop = true
+      while(hadPrePop) {
+        hadPrePop = false
+        GlobalData.get.toplevel.walkComponents { c =>
+//          assert(c.prePopTasks.isEmpty)
+          if (c.prePopTasks.nonEmpty) {
+            c.rework(
+              c.prePop()
+            )
+            hadPrePop = true
+          }
+        }
+      }
       onCompletion.foreach(_.apply())
+      hadException = false
     } finally {
       Affinity.setAffinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)

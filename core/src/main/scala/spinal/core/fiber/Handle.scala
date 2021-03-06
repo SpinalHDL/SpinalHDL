@@ -12,12 +12,19 @@ object Unset extends Unset
 object Handle{
 //  def apply[T] = new Handle[T]
   def apply[T]() = new Handle[T]
-  def apply[T](value : T) = new Handle[T].load(value)
+  def apply[T](value : => T) = hardFork(value)
+  def sync[T](value : T) = {
+    val h = new Handle[T]
+    h.loaded = true
+    h.value = value
+    h
+  }
 
 
   implicit def keyImplicit[T](key : Handle[T]): T = key.get
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
   implicit def initImplicit[T](value : T) : Handle[T] = Handle(value) //TODO might need to remove that dangerous one ?
+//  implicit def initImplicit[T](value : => T) : Handle[T] = hardFork(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
   implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
@@ -27,7 +34,7 @@ object Handle{
 class Handle[T] extends Nameable {
   private var loaded = false
   private var value : T = null.asInstanceOf[T]
-  private var wakeups = ArrayBuffer[() => Unit]()
+  private var wakeups : ArrayBuffer[() => Unit] = null // ArrayBuffer[() => Unit]()
 
   def isLoaded = loaded
   def get : T = {
@@ -35,6 +42,7 @@ class Handle[T] extends Nameable {
     val t = AsyncThread.current
     val e = Engine.get
     t.waitOn = this
+    if(wakeups == null) wakeups = ArrayBuffer[() => Unit]()
     wakeups += {() => e.wakeup(t)}
     e.sleep(t)
     value
@@ -45,8 +53,10 @@ class Handle[T] extends Nameable {
     applyName(value)
     loaded = true
     this.value = value
-    wakeups.foreach(_.apply())
-    wakeups.clear()
+    if(wakeups != null) {
+      wakeups.foreach(_.apply())
+      wakeups.clear()
+    }
     this
   }
 
