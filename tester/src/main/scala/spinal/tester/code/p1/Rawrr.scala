@@ -178,6 +178,23 @@ object DemoSpinalSim extends App{
       }
     }
   }
+
+
+  def func(x : Int, y : Int) : Int = {
+    val result = x + y
+    return result
+  }
+
+  def func2(x : Int, y : Int) = {  //Return type can by inferred
+    val result = x + y
+    result  //Last statement of the block is used as return value implicitly
+  }
+
+  def func3(x : Int, y : Int) = {
+    x + y
+  }
+
+  def func4(x : Int, y : Int) = x + y
 }
 
 object DemoGenerator {

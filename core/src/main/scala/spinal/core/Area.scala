@@ -40,7 +40,7 @@ import spinal.idslplugin.PostInitCallback
   * }}}
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
   */
-trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec {
+trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
   override def valCallbackRec(obj: Any, name: String): Unit = {
     obj match {
       case component: Component =>
