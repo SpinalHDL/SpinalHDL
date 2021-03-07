@@ -214,15 +214,11 @@ class BmbInterconnectGenerator() extends Generator{
       }
     })
 
-    val invalidationGen = add task new Generator{
-      dependencies += invalidationRequirements
-      dependencies ++= connections.map(_.arbiterAccessRequirements)
-      add task {
-        for(c <- connections){
-          c.arbiterInvalidationRequirements.load(invalidationRequirements.copy(
-            canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
-          ))
-        }
+    val invalidationGen = Handle {
+      for(c <- connections){
+        c.arbiterInvalidationRequirements.load(invalidationRequirements.copy(
+          canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
+        ))
       }
     }
 
@@ -306,7 +302,8 @@ class BmbInterconnectGenerator() extends Generator{
     }
     val accessBridges = ArrayBuffer[AccessBridge]()
 
-    val adapterGen = add task List(decoderAccessRequirements, s.accessCapabilities).produce{
+    arbiterAccessRequirements.loadAsync{
+      lock.await()
       if(m.accessRequirements.dataWidth < s.accessCapabilities.dataWidth) accessBridges += new AccessBridge {
         override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbUpSizerBridge.outputParameterFrom(
           inputParameter = mSide,
@@ -403,7 +400,7 @@ class BmbInterconnectGenerator() extends Generator{
       for(bridge <- accessBridges){
         accessParameter = bridge.accessParameter(accessParameter)
       }
-      arbiterAccessRequirements.load(accessParameter)
+      accessParameter
     }
 
 
@@ -456,8 +453,8 @@ class BmbInterconnectGenerator() extends Generator{
   val masters = mutable.LinkedHashMap[Handle[Bmb], MasterModel]()
   val slaves = mutable.LinkedHashMap[Handle[Bmb], SlaveModel]()
   val lock = Lock()
-  lock.retain() //TODO ????
-  add task lock.release()
+//  lock.retain() //TODO ????
+//  add task lock.release()
 
   var defaultArbitration : BmbInterconnectGenerator.ArbitrationKind = BmbInterconnectGenerator.ROUND_ROBIN
 

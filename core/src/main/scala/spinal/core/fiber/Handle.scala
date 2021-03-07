@@ -79,7 +79,6 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
 
   def loadAsync(body : => T) : Unit = {
     val t = Engine.get.schedule{
-      soon(this)
       this.load(body)
     }
     t.addSoonHandle(this)
