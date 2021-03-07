@@ -30,7 +30,7 @@ object Handle{
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 }
 
-class Handle[T] extends Nameable {
+class Handle[T] extends Nameable with OverridedEqualsHashCode {
   @dontName private var loaded = false
   @dontName private var value : T = null.asInstanceOf[T]
   @dontName private var wakeups : ArrayBuffer[() => Unit] = null // ArrayBuffer[() => Unit]()
@@ -40,7 +40,7 @@ class Handle[T] extends Nameable {
   def await() = this.get
   def soon(that : Handle[_]*) : Unit = {
     if(willBeLoadedBy != null) {
-      willBeLoadedBy.willLoadHandles ++= that
+      that.foreach(willBeLoadedBy.addSoonHandle)
     } else {
       Handle{
         that.foreach(spinal.core.fiber.soon(_))
@@ -73,7 +73,7 @@ class Handle[T] extends Nameable {
     this
   }
 
-  def load(value : Handle[T]): Unit ={
+  def load(value : Handle[T]): Unit ={ //TODO optimise if value is loaded already
     loadAsync(value.get)
   }
 
@@ -82,7 +82,7 @@ class Handle[T] extends Nameable {
       soon(this)
       this.load(body)
     }
-    t.willLoadHandles += this
+    t.addSoonHandle(this)
   }
 
   def loadNothing(): Unit ={
@@ -111,20 +111,20 @@ class Handle[T] extends Nameable {
   //TODO legacy API ?
   def produce[T](body : => T) = hardFork(body)
 
-  def merge(that : Handle[T]): Unit ={
-    var loadDone = false
-    hardFork{
-      that.get
-      if(!loadDone) this.load(that.get)
-      loadDone = true
-    }.setCompositeName(this, "merge")
-    hardFork{
-      this.get
-      if(!loadDone) that.load(this.get)
-      loadDone = true
-    }.setCompositeName(that, "merge")
-  }
+//  def merge(that : Handle[T]): Unit ={
+//    var loadDone = false
+//    hardFork{
+//      that.get
+//      if(!loadDone) this.load(that.get)
+//      loadDone = true
+//    }.setCompositeName(this, "merge")
+//    hardFork{
+//      this.get
+//      if(!loadDone) that.load(this.get)
+//      loadDone = true
+//    }.setCompositeName(that, "merge")
+//  }
 
-  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) = hardFork(load(body(that.get)))
-  def derivate[T2](body : (T) => T2) = hardFork(body(get))
+  def derivatedFrom[T2](that : Handle[T2])(body : T2 => T) : Unit = hardFork{soon(this); load(body(that.get))}
+  def derivate[T2](body : (T) => T2) = hardFork{body(get)}
 }

@@ -240,10 +240,10 @@ class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, 
   }
 
   if(bypass){
-    accessCapabilities.derivatedFrom(accessSource){
-      accessTranform.foldLeft(_)((v, f) => f(v))
+    accessCapabilities.loadAsync{
+      accessTranform.foldLeft(accessSource)((v, f) => f(v))
     }
-    invalidationCapabilities.merge(invalidationSource)
+    invalidationCapabilities.load(invalidationSource)
   }
 
   interconnect.addSlave(

@@ -35,7 +35,9 @@ class Generator extends Area { //TODO TagContainer
   val add = new {
     def task[T](body : => T) = {
       generatorDone.retain()
-      produce{
+      hardFork{
+        soon(generatorDone)
+        generatorLock.get;
         val v = body
         generatorDone.release()
         v
@@ -67,6 +69,7 @@ class Generator extends Area { //TODO TagContainer
     def += [T](that : Handle[T]) : Unit = {
       generatorLock.retain()
       val t = hardFork {
+        soon(generatorLock)
         that.get
         generatorLock.release()
       }
@@ -115,7 +118,11 @@ class Generator extends Area { //TODO TagContainer
 
 //  def toComponent(name : String = null) = new GeneratorComponent()
 
-  def product[T] = Handle[T]
+  def product[T] = {
+    val h = Handle[T]
+    this.generatorLock.soon(h)
+    h
+  }
 }
 
 object GeneratorComponent{
@@ -132,7 +139,6 @@ class GeneratorComponent[T](gen : => T) extends Component {
 
 case class Lock() extends Handle[Int]{
   load(0)
-//  private val wake = Handle[Int]
   private var retains = 0
   def retain() : Unit = {
     retains += 1

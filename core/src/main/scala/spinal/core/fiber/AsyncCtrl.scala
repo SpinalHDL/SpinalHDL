@@ -6,6 +6,7 @@ import spinal.core.{Component, GlobalData, ScopeProperty, SpinalError}
 import spinal.sim.{JvmThread, SimManager}
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 class EngineContext {
   val pending = mutable.Queue[AsyncThread]()
@@ -95,12 +96,20 @@ class EngineContext {
     if (waiting.nonEmpty) {
       println("\n! SpinalHDL async engine is stuck !")
       val incomingHandles = waiting.flatMap(_.willLoadHandles).filter(_ != null)
+      val handleToWaiters = mutable.LinkedHashMap[Handle[_], ArrayBuffer[AsyncThread]]()
       var count = 0
       for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
-        println(s"$t wait on ${t.waitOn.getName("???")}")
+//        println(s"$t wait on ${t.waitOn.getName("???")}")
+        handleToWaiters.getOrElseUpdate(t.waitOn, ArrayBuffer[AsyncThread]()) += t
         count += 1
       }
-      println(count)
+
+      for((handle, threads) <- handleToWaiters){
+        println(s"Waiting on $handle :")
+        threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t")}
+      }
+
+//      println(count)
       println("\n")
       if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
     }
