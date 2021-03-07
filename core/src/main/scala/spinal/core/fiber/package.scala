@@ -10,7 +10,12 @@ package object fiber {
       val v = body
       ret.load(v)
     }
-    t.willLoad = ret
+    ret.willBeLoadedBy = t
+    t.willLoadHandles += ret
     ret
+  }
+
+  def soon(that : Handle[_]*)  : Unit = {
+    Engine.get.currentAsyncThread.willLoadHandles ++= that
   }
 }

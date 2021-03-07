@@ -131,25 +131,18 @@ class GeneratorComponent[T](gen : => T) extends Component {
 }
 
 case class Lock() extends Handle[Int]{
-  val wake = Handle[Int]
-  var retains = 0
+  load(0)
+//  private val wake = Handle[Int]
+  private var retains = 0
   def retain() : Unit = {
     retains += 1
-    assert(!this.isLoaded)
+    this.unload()
   }
   def release() : Unit = {
     assert(retains > 0)
     retains -= 1
     if(retains == 0) {
-      wake.load(0)
+      this.load(0)
     }
   }
-
-  hardFork {
-    while (retains != 0) {
-      wake.unload()
-      wake.waitLoad
-    }
-    this.load(0)
-  }.setCompositeName(this, "internal")
 }

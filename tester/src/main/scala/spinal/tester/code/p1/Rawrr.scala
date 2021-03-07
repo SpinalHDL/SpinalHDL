@@ -224,6 +224,29 @@ object DemoGenerator {
 }
 
 
+object DemoHandle extends App {
+
+  import spinal.core.fiber._
+
+  SpinalVerilog (new Component {
+    val a, b = Handle[Int] // Create empty Handles
+
+    //Print a + b
+    val calculator = Handle {
+      a.get + b.get
+    }
+
+    val printer = Handle{
+      println(s"a + b = ${calculator.get}")
+    }
+
+    //load a and b with values, which will then unlock the calculator generator
+    a.load(3)
+    b.load(4)
+
+  })
+}
+
 
 object MiaouRawrrr extends App{
   class Wuff(val value : Int){
