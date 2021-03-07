@@ -10,7 +10,6 @@ object Unset extends Unset
 
 
 object Handle{
-//  def apply[T] = new Handle[T]
   def apply[T]() = new Handle[T]
   def apply[T](value : => T) = hardFork(value)
   def sync[T](value : T) = {
@@ -23,7 +22,7 @@ object Handle{
 
   implicit def keyImplicit[T](key : Handle[T]): T = key.get
   implicit def keyImplicit[T](key : Seq[Handle[T]]): Seq[T] = key.map(_.get)
-  implicit def initImplicit[T](value : T) : Handle[T] = Handle(value) //TODO might need to remove that dangerous one ?
+  implicit def initImplicit[T](value : T) : Handle[T] = Handle.sync(value) //TODO might need to remove that dangerous one ?
 //  implicit def initImplicit[T](value : => T) : Handle[T] = hardFork(value)
   implicit def initImplicit[T](value : Unset) : Handle[T] = Handle[T]
   implicit def initImplicit[T](value : Int) : Handle[BigInt] = Handle(value)
@@ -32,9 +31,23 @@ object Handle{
 }
 
 class Handle[T] extends Nameable {
-  private var loaded = false
-  private var value : T = null.asInstanceOf[T]
-  private var wakeups : ArrayBuffer[() => Unit] = null // ArrayBuffer[() => Unit]()
+  @dontName private var loaded = false
+  @dontName private var value : T = null.asInstanceOf[T]
+  @dontName private var wakeups : ArrayBuffer[() => Unit] = null // ArrayBuffer[() => Unit]()
+  @dontName var willBeLoadedBy : AsyncThread = null
+
+
+  def await() = this.get
+  def soon(that : Handle[_]*) : Unit = {
+    if(willBeLoadedBy != null) {
+      willBeLoadedBy.willLoadHandles ++= that
+    } else {
+      Handle{
+        that.foreach(spinal.core.fiber.soon(_))
+        this.await()
+      }.setCompositeName(this, "soon")
+    }
+  }
 
   def isLoaded = loaded
   def get : T = {
@@ -61,11 +74,15 @@ class Handle[T] extends Nameable {
   }
 
   def load(value : Handle[T]): Unit ={
-    val e = Engine.get
-    val t = e.schedule{
-      this.load(value.get)
+    loadAsync(value.get)
+  }
+
+  def loadAsync(body : => T) : Unit = {
+    val t = Engine.get.schedule{
+      soon(this)
+      this.load(body)
     }
-    t.willLoad = this
+    t.willLoadHandles += this
   }
 
   def loadNothing(): Unit ={
@@ -88,6 +105,8 @@ class Handle[T] extends Nameable {
 
 
   override def toString: String = getName("???")
+
+  def map[T2](body : (T) => T2) = hardFork(body(get))
 
   //TODO legacy API ?
   def produce[T](body : => T) = hardFork(body)

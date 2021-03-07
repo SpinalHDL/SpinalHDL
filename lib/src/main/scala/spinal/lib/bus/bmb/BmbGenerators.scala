@@ -115,48 +115,46 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
 
 case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator with InterruptCtrlGeneratorI{
   @dontName val gateways = ArrayBuffer[Handle[PlicGateway]]()
-  val ctrl = produce(logic.bmb)
+  val ctrl = Handle(logic.bmb)
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
 
-  val priorityWidth = createDependency[Int]
-  val mapping = createDependency[PlicMapping]
+  val priorityWidth = Handle[Int]
+  val mapping = Handle[PlicMapping]
 
   val lock = Lock()
 
   val targetsModel = ArrayBuffer[Handle[Bool]]()
   def addTarget(target : Handle[Bool]) = {
     val id = targetsModel.size
-
     targetsModel += target
-    dependencies += target
 
     //TODO remove the need of delaying stuff for name capture
-    add task(tags += new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id))
+    Handle(tags += new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id))
   }
 
   override def addInterrupt(source : Handle[Bool], id : Int) = {
-    this.dependencies += new Generator {
-      dependencies += source
-      add task new Area {
-        gateways += PlicGatewayActiveHigh(
-          source = source,
-          id = id,
-          priorityWidth = priorityWidth
-        ).setCompositeName(source, "plic_gateway")
+    lock.retain()
+    Handle{
+      soon(lock)
+      gateways += PlicGatewayActiveHigh(
+        source = source,
+        id = id,
+        priorityWidth = priorityWidth
+      ).setCompositeName(source, "plic_gateway")
 
-        tags += new Export(BmbPlicGenerator.this.getName() + "_" + source.getName, id)
-      }
+      tags += new Export(BmbPlicGenerator.this.getName() + "_" + source.getName, id)
+      lock.release()
     }
   }
 
   override def getBus(): Handle[Nameable] = ctrl
 
-  val logic = add task new Area{
+  val logic = Handle(new Area{
+    lock.get
     val bmb = Bmb(accessRequirements.toBmbParameter())
     val bus = BmbSlaveFactory(bmb)
-
     val targets = targetsModel.map(flag =>
       PlicTarget(
         gateways = gateways.map(_.get),
@@ -176,19 +174,19 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     for(targetId <- 0 until targetsModel.length){
       targetsModel(targetId) := targets(targetId).iep
     }
-  }
+  })
 
 
   if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
-    accessCapabilities = accessSource.derivate(BmbSlaveFactory.getBmbCapabilities(
-      _,
+    accessCapabilities = Handle(BmbSlaveFactory.getBmbCapabilities(
+      accessSource,
       addressWidth = 22,
       dataWidth = 32
     )),
     accessRequirements = accessRequirements,
     bus = ctrl,
-    mapping = apbOffset.derivate(SizeMapping(_, 1 << 22))
+    mapping = Handle(SizeMapping(apbOffset, 1 << 22))
   )
 
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)

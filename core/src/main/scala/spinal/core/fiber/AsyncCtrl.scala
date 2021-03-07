@@ -78,7 +78,8 @@ class EngineContext {
           }
         }
       }
-      onCompletion.foreach(_.apply())
+
+      if(waiting.isEmpty) onCompletion.foreach(_.apply())
       hadException = false
     } finally {
       Affinity.setAffinity(initialAffinity)
@@ -90,15 +91,18 @@ class EngineContext {
         }
       }
       initialContext.restore()
-
-      if (waiting.nonEmpty) {
-        println("\n! SpinalHDL async engine is stuck !")
-        val incomingHandles = waiting.map(_.willLoad).filter(_ != null)
-        for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
-          println(s"$t wait on ${t.waitOn.getName("???")}")
-        }
-        if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
+    }
+    if (waiting.nonEmpty) {
+      println("\n! SpinalHDL async engine is stuck !")
+      val incomingHandles = waiting.flatMap(_.willLoadHandles).filter(_ != null)
+      var count = 0
+      for (t <- waiting; if !incomingHandles.contains(t.waitOn)) {
+        println(s"$t wait on ${t.waitOn.getName("???")}")
+        count += 1
       }
+      println(count)
+      println("\n")
+      if(!hadException) throw new Exception("SpinalHDL async engine is stuck")
     }
   }
 

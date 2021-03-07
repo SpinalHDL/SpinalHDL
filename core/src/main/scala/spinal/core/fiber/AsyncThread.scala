@@ -15,7 +15,7 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   var exception : Throwable = null
   var done = false
   def isDone = done
-  var willLoad : Handle[_] = null
+  val willLoadHandles = ArrayBuffer[Handle[_]]()
   var context = ScopeProperty.capture()
 
   def managerResume() = {
@@ -67,6 +67,6 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   override def toString: String = {
     if(isNamed) return getName()
-    if(willLoad != null) s"${willLoad.getName("???")} loader" else super.toString
+    if(willLoadHandles.nonEmpty) s"${willLoadHandles.map(_.getName("???")).mkString(", ")} loader" else super.toString
   }
 }
