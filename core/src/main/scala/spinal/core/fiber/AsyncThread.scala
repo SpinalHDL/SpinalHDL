@@ -18,6 +18,10 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
   val willLoadHandles = ArrayBuffer[Handle[_]]()
   var context = ScopeProperty.capture()
 
+  def addSoonHandle(that : Handle[_]): Unit ={
+    willLoadHandles += that
+  }
+
   def managerResume() = {
     waitOn = null
     jvmThread.unpark()

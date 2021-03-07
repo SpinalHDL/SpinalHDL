@@ -11,11 +11,12 @@ package object fiber {
       ret.load(v)
     }
     ret.willBeLoadedBy = t
-    t.willLoadHandles += ret
+    t.addSoonHandle(ret)
     ret
   }
 
   def soon(that : Handle[_]*)  : Unit = {
-    Engine.get.currentAsyncThread.willLoadHandles ++= that
+    val t = Engine.get.currentAsyncThread
+    that.foreach(t.addSoonHandle(_))
   }
 }

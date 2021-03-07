@@ -21,13 +21,13 @@ case class ClockDomainResetGenerator() extends Generator {
   val powerOnReset = Handle(false)
 
 
-  def setInput(input : Handle[ClockDomain]) = inputClockDomain.merge(input)
+  def setInput(input : Handle[ClockDomain]) = inputClockDomain.load(input)
 
   def setInput(input : Handle[ClockDomain], omitReset : Boolean) : Unit = hardFork(
     inputClockDomain.load(input.copy(reset = if(omitReset) null else input.reset))
   )
 
-  def setInput(input : ClockDomainResetGenerator) = inputClockDomain.merge(input.outputClockDomain)
+  def setInput(input : ClockDomainResetGenerator) = inputClockDomain.load(input.outputClockDomain)
 
   def setInput(clock : Bool,
                frequency : IClockDomainFrequency = UnknownFrequency,
@@ -121,7 +121,7 @@ case class ClockDomainResetGenerator() extends Generator {
 
   def asyncReset(reset : Handle[Bool], sensitivity : ResetSensitivity) = {
     val generator = ResetGenerator(this)
-    generator.reset.merge(reset)
+    generator.reset.load(reset)
     generator.sensitivity.load(sensitivity)
     generator.kind.load(ASYNC)
     generator

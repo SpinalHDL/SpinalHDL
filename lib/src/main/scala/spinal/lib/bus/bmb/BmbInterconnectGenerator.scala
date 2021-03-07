@@ -51,80 +51,77 @@ class BmbInterconnectGenerator() extends Generator{
 
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
-//      decoderGen.products.+=(c.decoderAccessRequirements)
+      decoderGen.soon(c.decoderAccessRequirements)
     }
 
     dependencies += lock
 
     add task assert(connections.nonEmpty, s"$bus has no slaves")
 
-    val decoderGen = add task new Generator {
-      dependencies += accessRequirements
-      dependencies ++= connections.map(_.mapping)
-      dependencies ++= connections.map(_.s.accessCapabilities)
-      add task {
-        slaves match {
-          case _ if connections.size == 1 && connections.head.mapping.get == DefaultMapping && accessRequirements.canRead == connections.head.s.accessCapabilities.canRead  && accessRequirements.canWrite == connections.head.s.accessCapabilities.canWrite => {
-            connections.head.decoder.derivatedFrom(bus){_ =>
-              val decoder = Bmb(bus.p)
-              connector(bus, decoder)
-              decoder
-            }
-            connections.head.decoderAccessRequirements.load(accessRequirements)
+    val decoderGen = Handle{
+      lock.get
+      slaves match {
+        case _ if connections.size == 1 && connections.head.mapping.get == DefaultMapping && accessRequirements.canRead == connections.head.s.accessCapabilities.canRead  && accessRequirements.canWrite == connections.head.s.accessCapabilities.canWrite => {
+          connections.head.decoder.derivatedFrom(bus){_ =>
+            val decoder = Bmb(bus.p)
+            connector(bus, decoder)
+            decoder
           }
-          case _ => {
-            for(c <- connections){
-              c.decoderAccessRequirements.load(accessRequirements.produce(accessRequirements.copy(
-                addressWidth = c.s.accessCapabilities.addressWidth
-              ).sourcesTransform(source => source.copy(
-                canRead = c.s.accessCapabilities.canRead,
-                canWrite = c.s.accessCapabilities.canWrite,
-                contextWidth = decoderKind match {
-                  case DECODER_SMALL => source.contextWidth
-                  case DECODER_SMALL_PER_SOURCE => source.contextWidth
-                  case DECODER_OUT_OF_ORDER => 0
-                }
-              ))))
-            }
-            new Generator{
-              dependencies += bus
-              dependencies += invalidationRequirements
-              dependencies ++= connections.map(_.decoderAccessRequirements)
+          connections.head.decoderAccessRequirements.load(accessRequirements)
+        }
+        case _ => {
+          for(c <- connections){
+            c.decoderAccessRequirements.load(accessRequirements.produce(accessRequirements.copy(
+              addressWidth = c.s.accessCapabilities.addressWidth
+            ).sourcesTransform(source => source.copy(
+              canRead = c.s.accessCapabilities.canRead,
+              canWrite = c.s.accessCapabilities.canWrite,
+              contextWidth = decoderKind match {
+                case DECODER_SMALL => source.contextWidth
+                case DECODER_SMALL_PER_SOURCE => source.contextWidth
+                case DECODER_OUT_OF_ORDER => 0
+              }
+            ))))
+          }
+          new Generator{
+            dependencies += bus
+            dependencies += invalidationRequirements
+            dependencies ++= connections.map(_.decoderAccessRequirements)
 
-              add task (decoderKind match {
-                case DECODER_SMALL => new Area {
-                  val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
-                  decoder.setCompositeName(bus, "decoder")
-                  connector(bus, decoder.io.input)
-                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
-                    connection.decoder.load(decoderOutput)
-                  }
+            add task (decoderKind match {
+              case DECODER_SMALL => new Area {
+                val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
+                decoder.setCompositeName(bus, "decoder")
+                connector(bus, decoder.io.input)
+                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                  connection.decoder.load(decoderOutput)
                 }
-                case DECODER_SMALL_PER_SOURCE => new Area {
-                  val decoder = BmbDecoderPerSource(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
-                  decoder.setCompositeName(bus, "decoder")
-                  connector(bus, decoder.io.input)
-                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
-                    connection.decoder.load(decoderOutput)
-                  }
+              }
+              case DECODER_SMALL_PER_SOURCE => new Area {
+                val decoder = BmbDecoderPerSource(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
+                decoder.setCompositeName(bus, "decoder")
+                connector(bus, decoder.io.input)
+                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                  connection.decoder.load(decoderOutput)
                 }
-                case DECODER_OUT_OF_ORDER => new Area {
-                  val decoder = BmbDecoderOutOfOrder(
-                    bus.p,
-                    connections.map(_.mapping.get),
-                    connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)),
-                    pendingRspTransactionMax = 32
-                  )
-                  decoder.setCompositeName(bus, "decoder")
-                  connector(bus, decoder.io.input)
-                  for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
-                    connection.decoder.load(decoderOutput)
-                  }
+              }
+              case DECODER_OUT_OF_ORDER => new Area {
+                val decoder = BmbDecoderOutOfOrder(
+                  bus.p,
+                  connections.map(_.mapping.get),
+                  connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)),
+                  pendingRspTransactionMax = 32
+                )
+                decoder.setCompositeName(bus, "decoder")
+                connector(bus, decoder.io.input)
+                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                  connection.decoder.load(decoderOutput)
                 }
-              })
-            }
+              }
+            })
           }
         }
+
       }
     }
 
@@ -144,25 +141,22 @@ class BmbInterconnectGenerator() extends Generator{
       aggregated
     }
 
-    val invalidationRequirementsGen2 = add task new Generator{
-      dependencies ++= connections.map(_.decoderInvalidationRequirements)
-      dependencies += accessRequirements
-      products += invalidationRequirements
-      val gen = add task new Area{
-        val sInvalidationRequirements = connections.map(_.decoderInvalidationRequirements)
-        var invalidationAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
-        if(sInvalidationRequirements.exists(_.invalidateAlignment.allowWord)) invalidationAlignement = BmbParameter.BurstAlignement.WORD
-        if(sInvalidationRequirements.exists(_.invalidateAlignment.allowByte)) invalidationAlignement = BmbParameter.BurstAlignement.BYTE
+    invalidationRequirements.loadAsync{
+      lock.await()
 
-        val aggregated = BmbInvalidationParameter(
-          canInvalidate       = sInvalidationRequirements.exists(_.canInvalidate),
-          canSync             = sInvalidationRequirements.exists(_.canInvalidate),
-          invalidateLength    = sInvalidationRequirements.map(_.invalidateLength).max,
-          invalidateAlignment = invalidationAlignement
-        )
+      val sInvalidationRequirements = connections.map(_.decoderInvalidationRequirements)
+      var invalidationAlignement : BmbParameter.BurstAlignement.Kind = BmbParameter.BurstAlignement.LENGTH
+      if(sInvalidationRequirements.exists(_.invalidateAlignment.allowWord)) invalidationAlignement = BmbParameter.BurstAlignement.WORD
+      if(sInvalidationRequirements.exists(_.invalidateAlignment.allowByte)) invalidationAlignement = BmbParameter.BurstAlignement.BYTE
 
-        invalidationRequirements.load(aggregated)
-      }
+      val aggregated = BmbInvalidationParameter(
+        canInvalidate       = sInvalidationRequirements.exists(_.canInvalidate),
+        canSync             = sInvalidationRequirements.exists(_.canInvalidate),
+        invalidateLength    = sInvalidationRequirements.map(_.invalidateLength).max,
+        invalidateAlignment = invalidationAlignement
+      )
+
+      aggregated
     }
   }
 
@@ -544,11 +538,11 @@ class BmbInterconnectGenerator() extends Generator{
                bus : Handle[Bmb],
                mapping : Handle[AddressMapping]) ={
     val model = getSlave(bus)
-    model.accessSource.merge(accessSource)
-    model.accessCapabilities.merge(accessCapabilities)
-    model.accessRequirements.merge(accessRequirements)
-    model.invalidationRequirements.merge(invalidationRequirements)
-    model.mapping.merge(mapping)
+    accessSource.load(model.accessSource)
+    model.accessCapabilities.load(accessCapabilities)
+    accessRequirements.load(model.accessRequirements)
+    model.invalidationRequirements.load(invalidationRequirements)
+    model.mapping.load(mapping)
     model
   }
 
@@ -559,10 +553,10 @@ class BmbInterconnectGenerator() extends Generator{
                 invalidationRequirements : Handle[BmbInvalidationParameter] = Handle[BmbInvalidationParameter],
                 bus : Handle[Bmb]): Unit ={
     val model = getMaster(bus)
-    model.accessRequirements.merge(accessRequirements)
-    model.invalidationSource.merge(invalidationSource)
-    model.invalidationCapabilities.merge(invalidationCapabilities)
-    model.invalidationRequirements.merge(invalidationRequirements)
+    model.accessRequirements.load(accessRequirements)
+    invalidationSource.load(model.invalidationSource)
+    model.invalidationCapabilities.load(invalidationCapabilities)
+    invalidationRequirements.load(model.invalidationRequirements)
   }
 
   def addConnection(m : Handle[Bmb], s : Handle[Bmb]) : ConnectionModel = {
