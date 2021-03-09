@@ -52,6 +52,7 @@ class BmbInterconnectGenerator() extends Generator{
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
       decoderGen.soon(c.decoderAccessRequirements)
+      decoderGen.soon(c.decoder)
     }
 
     dependencies += lock
@@ -83,17 +84,16 @@ class BmbInterconnectGenerator() extends Generator{
               }
             ))))
           }
-          new Generator{
-            dependencies += bus
-            dependencies += invalidationRequirements
-            dependencies ++= connections.map(_.decoderAccessRequirements)
 
-            add task (decoderKind match {
+          Handle{
+            connections.foreach(c => soon(c.decoder))
+            lock.await()
+            decoderKind match {
               case DECODER_SMALL => new Area {
                 val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
                 decoder.setCompositeName(bus, "decoder")
                 connector(bus, decoder.io.input)
-                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                for ((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
                   connection.decoder.load(decoderOutput)
                 }
               }
@@ -101,7 +101,7 @@ class BmbInterconnectGenerator() extends Generator{
                 val decoder = BmbDecoderPerSource(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
                 decoder.setCompositeName(bus, "decoder")
                 connector(bus, decoder.io.input)
-                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                for ((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
                   connection.decoder.load(decoderOutput)
                 }
               }
@@ -114,11 +114,11 @@ class BmbInterconnectGenerator() extends Generator{
                 )
                 decoder.setCompositeName(bus, "decoder")
                 connector(bus, decoder.io.input)
-                for((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
+                for ((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
                   connection.decoder.load(decoderOutput)
                 }
               }
-            })
+            }
           }
         }
 
