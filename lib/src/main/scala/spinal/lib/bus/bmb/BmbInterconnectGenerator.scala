@@ -57,7 +57,7 @@ class BmbInterconnectGenerator() extends Generator{
 
     dependencies += lock
 
-    add task assert(connections.nonEmpty, s"$bus has no slaves")
+    add task assert(connections.nonEmpty, s"BMB bus named $bus has no slave. Located at :\n${bus.getScalaLocationLong}")
 
     val decoderGen = Handle{
       lock.get
@@ -185,7 +185,7 @@ class BmbInterconnectGenerator() extends Generator{
 //    lock.soon(accessRequirements)
 
 
-    add task assert(connections.nonEmpty, s"$bus has no master")
+    add task assert(connections.nonEmpty, s"BMB bus named $bus has no master. Located at :\n${bus.getScalaLocationLong}")
 
     def connectionsSorted = connections.sortBy(connection => connection.m.priority).reverse
 
@@ -528,7 +528,7 @@ class BmbInterconnectGenerator() extends Generator{
   }
 
 
-  def addSlave(accessSource : Handle[BmbAccessCapabilities] = Handle[BmbAccessCapabilities],
+  def addSlave(accessSource       : Handle[BmbAccessCapabilities] = Handle[BmbAccessCapabilities],
                accessCapabilities : Handle[BmbAccessCapabilities],
                accessRequirements : Handle[BmbAccessParameter],
                invalidationRequirements : Handle[BmbInvalidationParameter] = BmbInvalidationParameter(),
