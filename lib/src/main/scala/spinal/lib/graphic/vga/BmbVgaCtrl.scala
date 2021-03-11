@@ -72,15 +72,15 @@ case class BmbVgaCtrl(p : BmbVgaCtrlParameter,
 }
 
 case class BmbVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
-                              (implicit val interconnect: BmbInterconnectGenerator, val bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator{
+                              (implicit val interconnect: BmbInterconnectGenerator, val bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area{
 
-  val ctrl = produce(logic.io.ctrl)
-  val input = produce(logic.io.input)
-  val output = produce(logic.io.vga)
-  val parameter = createDependency[BmbVgaCtrlParameter]
-  val vgaCd = createDependency[ClockDomain]
+  val ctrl = Handle(logic.io.ctrl)
+  val input = Handle(logic.io.input)
+  val output = Handle(logic.io.vga)
+  val parameter = Handle[BmbVgaCtrlParameter]
+  val vgaCd = Handle[ClockDomain]
 
-  val logic : Handle[BmbVgaCtrl] = add task BmbVgaCtrl(
+  val logic : Handle[BmbVgaCtrl] = Handle(BmbVgaCtrl(
     p              = parameter,
     ctrlParameter  = accessRequirements.toBmbParameter(),
     inputParameter = BsbParameter(
@@ -90,10 +90,10 @@ case class BmbVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
       withMask = is.withMask
     ),
     vgaCd          = vgaCd
-  )
+  ))
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
   interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(BmbVgaCtrl.getBmbCapabilities),
@@ -103,7 +103,6 @@ case class BmbVgaCtrlGenerator(ctrlOffset : Handle[BigInt] = Unset)
   )
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
   val is = vgaCd on bsbInterconnect.addSlave(input)
-  dependencies ++= List(is.byteCount, is.sourceWidth, is.withMask)
   is.sinkWidth.load(0)
 
   def withRegisterPhy(withColorEn : Boolean) = output.produce{

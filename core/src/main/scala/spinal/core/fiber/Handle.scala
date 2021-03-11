@@ -42,7 +42,7 @@ class Handle[T] extends Nameable with OverridedEqualsHashCode {
     if(willBeLoadedBy != null) {
       that.foreach(willBeLoadedBy.addSoonHandle)
     } else {
-      Handle{
+      Handle{  //TODO maybe can avoid that fork
         that.foreach(spinal.core.fiber.soon(_))
         this.await()
       }.setCompositeName(this, "soon")

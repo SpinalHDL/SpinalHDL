@@ -11,7 +11,7 @@ import spinal.lib.system.dma.sg.DmaSg.Channel
 import scala.collection.mutable.ArrayBuffer
 
 class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
-                         (implicit interconnect: BmbInterconnectGenerator, bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator{
+                         (implicit interconnect: BmbInterconnectGenerator, bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area{
   val ctrl       = Handle(logic.io.ctrl)
   val write      = Handle(logic.io.write)
   val read       = Handle(logic.io.read)
@@ -95,9 +95,6 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
     }
   }
 
-  dependencies += parameter.p
-
-
 
   def setBmbParameter(addressWidth : Int, dataWidth : Int, lengthWidth : Int): Unit ={
     parameter.readAddressWidth.load(addressWidth)
@@ -136,11 +133,11 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
   val inputs = ArrayBuffer[InputModel]()
   case class InputModel() extends Area{
     val id = inputs.size
-    val byteCount = createDependency[Int]
-    val sourceWidth = createDependency[Int]
-    val sinkWidth = createDependency[Int]
-    val withMask = createDependency[Boolean]
-    val input = produce(logic.io.inputs(id))
+    val byteCount = Handle[Int]
+    val sourceWidth = Handle[Int]
+    val sinkWidth = Handle[Int]
+    val withMask = Handle[Boolean]
+    val input = Handle(logic.io.inputs(id))
 //    val inputModel = bsbInterconnect.addSlave(
 //      bsb = input,
 //      byteCount = byteCount,
@@ -153,9 +150,9 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
 
   val outputs = ArrayBuffer[OutputModel]()
-  case class OutputModel(bsbInterconnect : BsbInterconnectGenerator) extends Generator{
+  case class OutputModel(bsbInterconnect : BsbInterconnectGenerator) extends Area{
     val id = outputs.size
-    val output = DmaSgGenerator.this.produce(logic.io.outputs(id))
+    val output = Handle(logic.io.outputs(id))
     val im = bsbInterconnect.addMaster(bsb = output)
 
     im.sourceWidth.load(0)
@@ -166,7 +163,7 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
 
   val channels = ArrayBuffer[ChannelModel]()
-  case class ChannelModel() extends Generator{
+  case class ChannelModel() extends Area{
     val id = channels.size
     channels += this
 
@@ -221,7 +218,7 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
   interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(DmaSg.getCtrlCapabilities),

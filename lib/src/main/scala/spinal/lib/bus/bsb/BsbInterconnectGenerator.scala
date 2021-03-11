@@ -14,14 +14,25 @@ import scala.collection.mutable.ArrayBuffer
 //                         sinkWidth : Option[Int],
 //                         withMask : Option[Boolean])
 
-case class BsbInterconnectGenerator() extends Generator{
+case class BsbInterconnectGenerator() extends Area{
   val masters = mutable.LinkedHashMap[Handle[Bsb], MasterModel]()
   val slaves = mutable.LinkedHashMap[Handle[Bsb], SlaveModel]()
 
   def getMaster(key : Handle[Bsb]) = masters.getOrElseUpdate(key, MasterModel(key).setCompositeName(key, "masterModel"))
   def getSlave(key : Handle[Bsb]) = slaves.getOrElseUpdate(key, SlaveModel(key).setCompositeName(key, "slaveModel"))
 
-  case class MasterModel(bsb : Handle[Bsb]) extends Generator {
+  case class MasterModel(bsb : Handle[Bsb]) extends Area {
+    val generatorClockDomain = ClockDomain.currentHandle
+    val byteCount = Handle[Int]
+    val sourceWidth = Handle[Int]
+    val sinkWidth = Handle[Int]
+    val withMask = Handle[Boolean]
+    val connections = ArrayBuffer[ConnectionModel]()
+
+    sinkWidth.loadAsync(connections.map(_.s.sinkWidth.get).max + log2Up(connections.size))
+  }
+
+  case class SlaveModel(bsb : Handle[Bsb]) extends Area {
     val generatorClockDomain = ClockDomain.currentHandle
     val byteCount = Handle[Int]
     val sourceWidth = Handle[Int]
@@ -30,63 +41,20 @@ case class BsbInterconnectGenerator() extends Generator{
 
     val connections = ArrayBuffer[ConnectionModel]()
 
-    dependencies += BsbInterconnectGenerator.this
-
-    val sinkWidthGen = add task new Generator{
-      dependencies ++= connections.map(_.s.sinkWidth)
-      add task{
-        sinkWidth.load(connections.map(_.s.sinkWidth.get).max + log2Up(connections.size))
-      }
-    }
+    byteCount.loadAsync(connections.map(_.m.byteCount.get).max)
+    sourceWidth.loadAsync(connections.map(_.m.sourceWidth.get).max + log2Up(connections.size))
+    withMask.loadAsync(connections.map(_.m.withMask.get).reduce(_ || _))
   }
 
-  case class SlaveModel(bsb : Handle[Bsb]) extends Generator {
-    val generatorClockDomain = ClockDomain.currentHandle
-    val byteCount = Handle[Int]
-    val sourceWidth = Handle[Int]
-    val sinkWidth = Handle[Int]
-    val withMask = Handle[Boolean]
-
-    val connections = ArrayBuffer[ConnectionModel]()
-
-    dependencies += BsbInterconnectGenerator.this
-
-    val byteCountGen = add task new Generator{
-      dependencies ++= connections.map(_.m.byteCount)
-      add task{
-        byteCount.load(connections.map(_.m.byteCount.get).max)
-      }
-    }
-
-    val sourceWidthGen = add task new Generator{
-      dependencies ++= connections.map(_.m.sourceWidth)
-      add task{
-        sourceWidth.load(connections.map(_.m.sourceWidth.get).max + log2Up(connections.size))
-      }
-    }
-
-    val withMaskGen = add task new Generator{
-      dependencies ++= connections.map(_.m.withMask)
-      add task{
-        withMask.load(connections.map(_.m.withMask.get).reduce(_ || _))
-      }
-    }
-  }
-
-  case class ConnectionModel(m : MasterModel, s : SlaveModel) extends Generator {
+  case class ConnectionModel(m : MasterModel, s : SlaveModel) extends Area {
     m.connections += this
     s.connections += this
 
-    val rtl = new Generator{
-      dependencies += m.bsb
-      dependencies += s.bsb
-
-      val logic = add task new Area{
-        if(m.generatorClockDomain.get != s.generatorClockDomain.get) { //TODO better sync check
-          m.bsb.queue(128, m.generatorClockDomain, s.generatorClockDomain) >> s.bsb
-        } else {
-          m.bsb >> s.bsb
-        }
+    val rtl = Handle{
+      if(m.generatorClockDomain.get != s.generatorClockDomain.get) { //TODO better sync check
+        m.bsb.queue(128, m.generatorClockDomain, s.generatorClockDomain) >> s.bsb
+      } else {
+        m.bsb >> s.bsb
       }
     }
   }
@@ -110,6 +78,5 @@ case class BsbInterconnectGenerator() extends Generator{
 
   def connect(m : Handle[Bsb], s : Handle[Bsb], id : Handle[Int] = Handle(0)): Unit ={
     val c = new ConnectionModel(getMaster(m), getSlave(s))
-
   }
 }
