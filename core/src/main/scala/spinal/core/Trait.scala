@@ -153,9 +153,6 @@ class GlobalData(val config : SpinalConfig) {
       val pc = GlobalData.get.phaseContext
       pc.walkComponents(c => {
         c.dslBody.walkStatements(s => {
-          if (scalaLocateds.contains(s)) {
-            scalaLocatedComponents += c.getClass
-          }
           s match {
             case s : SwitchStatement => if(s.elements.exists(scalaLocateds.contains(_))) scalaLocatedComponents += c.getClass
             case _ =>
@@ -167,6 +164,15 @@ class GlobalData(val config : SpinalConfig) {
           })
         })
       })
+      for(e <- pc.globalData.scalaLocateds) e match {
+        case ctx : ContextUser => {
+          val c = ctx.component
+          if (c != null) {
+            scalaLocatedComponents += c.getClass
+          }
+        }
+        case _ =>
+      }
     } catch {
       case e: Throwable =>
     }
@@ -578,6 +584,12 @@ object ScalaLocated {
     if(scalaTrace == null) return "???"
 
     filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+  }
+
+  def long2(trace: Array[StackTraceElement], tab: String = "    "): String = {
+    if(trace == null) return "???"
+
+    filterStackTrace(trace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())

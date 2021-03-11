@@ -2,7 +2,7 @@ package spinal.core.fiber
 
 import net.openhft.affinity.Affinity
 import spinal.core
-import spinal.core.{Component, GlobalData, ScopeProperty, SpinalError}
+import spinal.core.{Component, GlobalData, ScalaLocated, ScopeProperty, SpinalError}
 import spinal.sim.{JvmThread, SimManager}
 
 import scala.collection.mutable
@@ -11,6 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 class EngineContext {
   val pending = mutable.Queue[AsyncThread]()
   val waiting = mutable.LinkedHashSet[AsyncThread]()
+  var mainThread : AsyncThread = null
   val onCompletion = mutable.ArrayBuffer[() => Unit]()
   var currentAsyncThread : AsyncThread = null
   val cpuAffinity = SimManager.newCpuAffinity()
@@ -83,6 +84,12 @@ class EngineContext {
       if(waiting.isEmpty) onCompletion.foreach(_.apply())
       hadException = false
     } finally {
+      if(!mainThread.isDone) {
+        println("The main thread is stuck at :\n")
+        println(ScalaLocated.long2(mainThread.jvmThread.getStackTrace))
+        println("\n")
+      }
+
       Affinity.setAffinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
@@ -133,7 +140,9 @@ object Engine extends ScopeProperty[EngineContext]{
     val e = new EngineContext
     Engine.push(e)
     var ret : T = null.asInstanceOf[T]
-    e.schedule{ret = body}.setName(name)
+    e.mainThread = e.schedule{
+      ret = body
+    }.setName(name)
     e.start
     ret
   }
