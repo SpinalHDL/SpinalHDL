@@ -197,32 +197,6 @@ object DemoSpinalSim extends App{
   def func4(x : Int, y : Int) = x + y
 }
 
-object DemoGenerator {
-  import spinal.lib.generator._
-
-  class Root() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b = Handle[Int]
-
-    //Print a + b
-    val calculator = new Generator{
-      //Specify that this generator need a and b before executing his tasks
-      dependencies += a
-      dependencies += b
-
-      //Create a new task that will run when all the dependencies are loaded
-      add task{
-        val sum = a.get + b.get
-        println(s"a + b = $sum") //Will print a + b = 7
-      }
-    }
-
-    //load a and b with values, which will then unlock the calculator generator
-    a.load(3)
-    b.load(4)
-  }
-}
-
 
 object DemoHandle extends App {
 

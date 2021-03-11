@@ -112,7 +112,7 @@ class EngineContext {
       }
 
       for((handle, threads) <- handleToWaiters){
-        println(s"Waiting on $handle :")
+        println(s"Waiting on $handle defined at ${handle.getScalaLocationShort}:")
         threads.zipWithIndex.foreach{case(t, i) => println(s"${i+1}) $t")}
       }
 
@@ -142,6 +142,7 @@ object Engine extends ScopeProperty[EngineContext]{
     var ret : T = null.asInstanceOf[T]
     e.mainThread = e.schedule{
       ret = body
+      val dummy = 1
     }.setName(name)
     e.start
     ret

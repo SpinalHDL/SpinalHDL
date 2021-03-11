@@ -12,13 +12,10 @@ import scala.collection.mutable.{ArrayBuffer, Stack}
 //TODO old API
 object Dependable{
   def apply[T](d : Handle[_]*)(body : => T) : Handle[T] = {
-    val h = Handle[T]
-    val p = new Generator()
-    p.dependencies ++= d
-    p.add task {h.load(body)}
-    p.products += h
-    p.setCompositeName(h, "generator", true)
-    h
+    Handle{
+      d.foreach(_.get)
+      body
+    }
   }
 }
 
@@ -52,10 +49,7 @@ class Generator extends Area { //TODO TagContainer
     h
   }
 
-  def export[T](h : Handle[T]) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
-    h
-  }
+
   def dts[T <: Nameable](node : Handle[T])(value : => String) = add task {
     node.produce(Component.current.addTag(new Dts(node, value)))
     node
@@ -107,14 +101,7 @@ class Generator extends Area { //TODO TagContainer
     h
   }
 
-  val _context = ScopeProperty.capture() //TODO not as heavy
-  def apply[T](body : => T): T = {
-    val oldContext = ScopeProperty.capture() //TODO not as heavy
-    _context.restore()
-    val b = body
-    oldContext.restore()
-    b
-  }
+  def apply[T](body : => T): T = this.rework(body)
 
 //  def toComponent(name : String = null) = new GeneratorComponent()
 

@@ -15,7 +15,7 @@ object ResetSensitivity{
   object FALL extends ResetSensitivity
 }
 
-case class ClockDomainResetGenerator() extends Generator {
+case class ClockDomainResetGenerator() extends Area {
   val inputClockDomain = Handle[ClockDomain]
   val holdDuration = Handle[Int]
   val powerOnReset = Handle(false)
@@ -41,7 +41,7 @@ case class ClockDomainResetGenerator() extends Generator {
     )
   )
 
-  val outputClockDomain = produce(
+  val outputClockDomain = Handle(
     ClockDomain(
       clock = inputClockDomain.clock,
       reset = logic.outputReset,
@@ -52,7 +52,7 @@ case class ClockDomainResetGenerator() extends Generator {
     )
   )
 
-  val logic = add task {
+  val logic = Handle{
     new ClockingArea(inputClockDomain.copy(reset = null, config = inputClockDomain.config.copy(resetKind = BOOT))) {
       val inputResetTrigger = False
       val outputResetUnbuffered = False
@@ -93,12 +93,12 @@ case class ClockDomainResetGenerator() extends Generator {
     }
   }
 
-  case class ResetGenerator(dady : ClockDomainResetGenerator) extends Generator{
+  case class ResetGenerator(dady : ClockDomainResetGenerator) extends Area{
     val reset = Handle[Bool]
     val kind = Handle[ResetKind]
     val sensitivity = Handle[ResetSensitivity]
 
-    val stuff = add task new ClockingArea(dady.inputClockDomain){
+    val stuff = Handle(new ClockingArea(dady.inputClockDomain){
       val syncTrigger = kind.get match {
         case SYNC => {
           RegNext(reset.get)
@@ -115,7 +115,7 @@ case class ClockDomainResetGenerator() extends Generator {
         case BOOT => ???
       }
       dady.logic.inputResetTrigger setWhen(syncTrigger)
-    }
+    })
   }
 
 
@@ -163,9 +163,9 @@ case class ClockDomainResetGenerator() extends Generator {
 }
 
 
-case class Arty7BufgGenerator() extends Generator{
+case class Arty7BufgGenerator() extends Area{
   val input = Handle[ClockDomain]
-  val output = produce{
+  val output = Handle{
     input.copy(
       clock = if(input.clock != null) BUFG.on(input.clock ) else input.clock ,
       reset = if(input.reset != null) BUFG.on(input.reset ) else input.reset ,

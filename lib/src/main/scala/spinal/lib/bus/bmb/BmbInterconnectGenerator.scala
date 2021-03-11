@@ -2,6 +2,7 @@ package spinal.lib.bus.bmb
 
 import spinal.core._
 import spinal.core.fiber._
+import spinal.lib.`export`
 import spinal.lib.bus.misc._
 import spinal.lib.generator._
 
@@ -19,14 +20,14 @@ object BmbInterconnectGenerator{
 case class BmbImplicitPeripheralDecoder(bus : Handle[Bmb])
 case class BmbImplicitDebugDecoder(bus : Handle[Bmb])
 
-class BmbInterconnectGenerator() extends Generator{
+class BmbInterconnectGenerator() extends Area{
 
   def setDefaultArbitration(kind : BmbInterconnectGenerator.ArbitrationKind): Unit ={
     defaultArbitration = kind
   }
   def setPriority(m : Handle[Bmb], priority : Int) = getMaster(m).priority = priority
 
-  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
+  case class MasterModel(@dontName bus : Handle[Bmb], lock : Lock) extends Area{
     val generatorClockDomain = ClockDomain.currentHandle
     val connections = ArrayBuffer[ConnectionModel]()
     val accessRequirements = Handle[BmbAccessParameter]
@@ -55,9 +56,8 @@ class BmbInterconnectGenerator() extends Generator{
       decoderGen.soon(c.decoder)
     }
 
-    dependencies += lock
 
-    add task assert(connections.nonEmpty, s"BMB bus named $bus has no slave. Located at :\n${bus.getScalaLocationLong}")
+    lock.map(_ => assert(connections.nonEmpty, s"BMB bus named $bus has no slave. Located at :\n${bus.getScalaLocationLong}"))
 
     val decoderGen = Handle{
       lock.get
@@ -161,7 +161,7 @@ class BmbInterconnectGenerator() extends Generator{
   }
 
 
-  case class SlaveModel(@dontName bus : Handle[Bmb], lock : Lock) extends Generator{
+  case class SlaveModel(@dontName bus : Handle[Bmb], lock : Lock) extends Area{
     val generatorClockDomain = ClockDomain.currentHandle
     val connections = ArrayBuffer[ConnectionModel]()
     val accessSource = Handle[BmbAccessCapabilities]()
@@ -180,12 +180,7 @@ class BmbInterconnectGenerator() extends Generator{
       invalidationGen.soon(c.arbiterInvalidationRequirements)
     }
 
-    dependencies += lock
-
-//    lock.soon(accessRequirements)
-
-
-    add task assert(connections.nonEmpty, s"BMB bus named $bus has no master. Located at :\n${bus.getScalaLocationLong}")
+    lock.map(_ => assert(connections.nonEmpty, s"BMB bus named $bus has no master. Located at :\n${bus.getScalaLocationLong}"))
 
     def connectionsSorted = connections.sortBy(connection => connection.m.priority).reverse
 
@@ -267,12 +262,8 @@ class BmbInterconnectGenerator() extends Generator{
 
   def defaultConnector(m : Bmb, s : Bmb) : Unit = s << m
 
-  case class ConnectionModel(m : MasterModel, s : SlaveModel, mapping : Handle[AddressMapping]) extends Generator{
+  case class ConnectionModel(m : MasterModel, s : SlaveModel, mapping : Handle[AddressMapping]) extends Area{
     var connector : (Bmb,Bmb) => Unit = defaultConnector
-
-
-    dependencies += m.generatorClockDomain
-    dependencies += s.generatorClockDomain
 
     val decoderAccessRequirements = Handle[BmbAccessParameter]()
     val arbiterInvalidationRequirements = Handle[BmbInvalidationParameter]()
@@ -292,7 +283,7 @@ class BmbInterconnectGenerator() extends Generator{
         case `DefaultMapping` => BigInt(0)
         case m => m.lowerBound
       }
-      tags += new MemoryConnection(m.bus, s.bus, address)
+      export(new MemoryConnection(m.bus, s.bus, address))
     }
 
 

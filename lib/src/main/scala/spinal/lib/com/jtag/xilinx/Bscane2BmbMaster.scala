@@ -3,7 +3,7 @@ package spinal.lib.com.jtag.xilinx
 import spinal.core._
 import spinal.lib.blackbox.xilinx.s7.BSCANE2
 import spinal.lib.bus.bmb.{Bmb, BmbInterconnectGenerator}
-import spinal.lib.generator._
+import spinal.core.fiber._
 import spinal.lib.master
 import spinal.lib.system.debugger.{JtagBridgeNoTap, SystemDebugger, SystemDebuggerConfig}
 
@@ -26,9 +26,9 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
   io.bmb << debugger.io.mem.toBmb()
 }
 
-case class Bscane2BmbMasterGenerator(userId : Int)(implicit interconnect : BmbInterconnectGenerator) extends Generator{
-  val bmb = produce(logic.io.bmb)
-  val logic = add task Bscane2BmbMaster(userId)
+case class Bscane2BmbMasterGenerator(userId : Int)(implicit interconnect : BmbInterconnectGenerator) extends Area{
+  val bmb = Handle(logic.io.bmb)
+  val logic = Handle(Bscane2BmbMaster(userId))
   interconnect.addMaster(
     accessRequirements = SystemDebuggerConfig().getBmbParameter,
     bus = bmb
