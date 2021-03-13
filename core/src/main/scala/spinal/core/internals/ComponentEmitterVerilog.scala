@@ -67,7 +67,9 @@ class ComponentEmitterVerilog(
   }
 
   def emitEntity(): Unit = {
-    component.getOrdredNodeIo.foreach{baseType =>
+    component.getOrdredNodeIo
+      .filterNot(_.isSuffix)
+      .foreach{baseType =>
       val syntax     = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
@@ -137,11 +139,16 @@ class ComponentEmitterVerilog(
       }
     }
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
-      val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
-      declarations ++= emitExpressionWrap(io, name)
-      referencesOverrides(io) = name
-    }))
+    component.children.foreach(sub =>
+      sub.getAllIo
+      .filterNot(_.isInstanceOf[Suffixable])
+      .foreach(io => if(io.isOutput) {
+        val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow).replaceAllLiterally(".", "__")
+        val name = component.localNamingScope.allocateName(componentSignalName)
+        declarations ++= emitExpressionWrap(io, name)
+        referencesOverrides(io) = name
+      }
+    ))
 
     //Wrap expression which need it
     cutLongExpressions()
@@ -214,7 +221,7 @@ class ComponentEmitterVerilog(
     def netsWithSection(data: BaseType): String = {
       if(openSubIo.contains(data)) ""
       else {
-        val wireName = emitReference(data, false)
+        val wireName = emitReference(data, false).replaceAllLiterally(".", "__")
         val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
         wireName + section
       }
@@ -262,7 +269,9 @@ class ComponentEmitterVerilog(
 
       logics ++= s"${child.getName()} (\n"
 
-      val instports: String = child.getOrdredNodeIo.map{ data =>
+      val instports: String = child.getOrdredNodeIo
+        .filterNot(_.isInstanceOf[Suffixable])
+        .map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
         val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
         val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
@@ -456,7 +465,7 @@ class ComponentEmitterVerilog(
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
-              val funcName = "zz_" + emitReference(node, false)
+              val funcName = "zz_" + emitReference(node, false).replaceAllLiterally(".", "__")
               declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
 //              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
               declarations ++= s"    begin\n"
@@ -849,7 +858,7 @@ class ComponentEmitterVerilog(
     val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
-        if (!signal.isIo) {
+        if (!signal.isIo && !signal.isSuffix) {
           declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
         }
         if(spinalConfig._withEnumString) {
