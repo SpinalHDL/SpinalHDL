@@ -1187,7 +1187,7 @@ object DmaSg{
         val completed = Reg(Bool)
         io.sgRead.rsp.ready := True
         when(io.sgRead.rsp.fire){
-          beatCounter := beatCounter + 1
+          beatCounter := (beatCounter + 1).resized
 
           def beatHit(offset : Int) = offset/beatBytes === beatCounter
           def mapChannel[T <: Data](f : ChannelLogic => T, gen : Channel => Boolean, byte : Int, bit : Int){
