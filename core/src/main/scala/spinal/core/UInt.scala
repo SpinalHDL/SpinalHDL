@@ -51,7 +51,7 @@ trait UIntFactory{
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
     require(!q.signed, "assign SQ to UInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }
@@ -345,13 +345,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case that: MaskedLiteral  => that === this
     case that: Int            => this === that
     case that: BigInt         => this === that
-    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+    case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
   private[core] override def isNotEquals(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
     case that: MaskedLiteral  => that === this
-    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+    case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerUInt
@@ -372,7 +372,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**
     * Assign a mask to the output signal
     * @example {{{ output4 assignMask M"1111 }}}
-    * @param maskedLiteral masked litteral value
+    * @param maskedLiteral masked literal value
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {
     assert(maskedLiteral.width == this.getWidth)

@@ -474,7 +474,7 @@ begin
         assert(io_iCheck_payload_address(1 downto 0) = "00");
         if io_iCheck_payload_data /= X"00000013" and io_iCheck_payload_data /= X"01c02023" and io_iCheck_payload_data /= X"ffc02e23" then
           for i in 0 to 3 loop
-            assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8)) report "instruction missmatch";
+            assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8)) report "instruction mismatch";
           end loop;
         end if;
       end if;

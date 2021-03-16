@@ -49,7 +49,7 @@ class BmbInterconnectTester {
         override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
           val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
           if(ref != data){
-            simFailure(s"Read missmatch on $m.bus\n  REF=$ref\n  DUT=$data")
+            simFailure(s"Read mismatch on $m.bus\n  REF=$ref\n  DUT=$data")
           }
         }
 

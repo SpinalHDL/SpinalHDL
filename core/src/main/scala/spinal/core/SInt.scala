@@ -47,7 +47,7 @@ trait SIntFactory{
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }

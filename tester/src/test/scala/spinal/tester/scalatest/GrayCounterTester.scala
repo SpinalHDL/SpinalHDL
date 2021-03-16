@@ -53,7 +53,7 @@ object GrayCounterTester {
     val enable = in Bool
     val gray = out(GrayCounter(n, enable))
     val customGrayCounter = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,clockEnable = enable)(new GrayCnt(n))
-    assert(gray === customGrayCounter.io.gval,"Gray missmatch :(",FAILURE)
+    assert(gray === customGrayCounter.io.gval,"Gray mismatch :(",FAILURE)
   }
 
 }

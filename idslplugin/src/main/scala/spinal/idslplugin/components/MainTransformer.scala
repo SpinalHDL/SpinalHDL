@@ -50,8 +50,8 @@ class MainTransformer(val global: Global) extends PluginComponent with Transform
             case vd : ValDef if vd.name.toString == "io " && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => true
             case _ => false
           }
-          if(withIoBundle && !symbolHasTrait(cd.symbol, "spinal.core.Component") && !symbolHasTrait(cd.symbol, "spinal.core.Area")){
-            global.globalError(cd.symbol.pos, "MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component")
+          if(withIoBundle && !symbolHasTrait(cd.symbol, "spinal.core.Component") && !symbolHasTrait(cd.symbol, "spinal.core.Area" ) && !symbolHasTrait(cd.symbol, "spinal.core.Data" ) && !symbolHasTrait(cd.symbol, "spinal.core.AllowIoBundle" )){
+            global.globalError(cd.symbol.pos, s"MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component")
           }
 
 

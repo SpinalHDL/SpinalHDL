@@ -189,7 +189,7 @@ def spiSlaveAgent(spi, queue, clk):
                                 break
                         assert sclkStableLast >= spiConfig.sclkToggle
                         assert mosiStable >= spiConfig.sclkToggle
-                        assertEquals(spi.mosi, testBit(head.masterData, 7-i),"MOSI missmatch")
+                        assertEquals(spi.mosi, testBit(head.masterData, 7-i),"MOSI mismatch")
                         while True:
                             yield wait(1)
                             if spi.sclk == (spiConfig.cpol):
@@ -208,7 +208,7 @@ def spiSlaveAgent(spi, queue, clk):
                                 break
                         assert mosiStable >= spiConfig.sclkToggle
                         assert sclkStableLast >= spiConfig.sclkToggle
-                        assertEquals(spi.mosi, testBit(head.masterData, 7 - i), "MOSI missmatch")
+                        assertEquals(spi.mosi, testBit(head.masterData, 7 - i), "MOSI mismatch")
 
 
             elif isinstance(head, SlaveCmdSs):

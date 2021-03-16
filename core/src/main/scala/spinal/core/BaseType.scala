@@ -118,7 +118,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   /** Can this data be simplified ?? */
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
-  /** Remove all assignements of the base type */
+  /** Remove all assignments of the base type */
   override def removeAssignments(): this.type = {
     foreachStatements(s => {
       s.removeStatement()
@@ -200,8 +200,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
         globalData.dslScope.head.append(statement(that))
       case _ => kind match {
-        case `DataAssign` => LocatedPendingError(s"Assignement data type missmatch\n$this := $that")
-        case `InitAssign` => LocatedPendingError(s"Register initialisation type missmatch\nReg($this) init($that)")
+        case `DataAssign` => LocatedPendingError(s"Assignment data type mismatch\n$this := $that")
+        case `InitAssign` => LocatedPendingError(s"Register initialisation type mismatch\nReg($this) init($that)")
       }
     }
   }
@@ -231,7 +231,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
 
   private[core] def newMultiplexerExpression() : Multiplexer
-  /** Base fucntion to create mux */
+  /** Base function to create mux */
   private[core] def newMultiplexer[T <: Expression](select: UInt, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
 
 
@@ -244,7 +244,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   private[core] def newBinaryMultiplexerExpression() : BinaryMultiplexer
-  /** Base fucntion to create mux */
+  /** Base function to create mux */
   private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): BinaryMultiplexer = newMultiplexer(sel,whenTrue, whenFalse, newBinaryMultiplexerExpression())
 
   /** Create a multiplexer */

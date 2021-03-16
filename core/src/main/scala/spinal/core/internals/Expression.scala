@@ -1400,7 +1400,7 @@ abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
     }
     if (bitId.getWidth > log2Up(source.getWidth)) {
       bitId = InputNormalize.resizedOrUnfixedLit(bitId, log2Up(source.getWidth), new ResizeUInt, this, this)
-      //PendingError(s"Index ${bitId} used to access ${source} has to many bits\n${getScalaLocationLong}")
+      //PendingError(s"Index ${bitId} used to access ${source} has too many bits\n${getScalaLocationLong}")
     }
   }
 
@@ -1531,7 +1531,7 @@ class SIntRangedAccessFixed extends BitVectorRangedAccessFixed {
 /**
   * Base class for accessing a range of bits in a bitvector with a floating range
   *
-  * When used offset.dontSimplifyIt() Because it can appear at multipe location (o+bc-1 downto o)
+  * When used offset.dontSimplifyIt() Because it can appear at multiple location (o+bc-1 downto o)
   */
 abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvider {
   var size    : Int = -1
@@ -1992,7 +1992,7 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLo
 
   override def normalizeInputs: Unit = {
     if (bitId.getWidth > log2Up(out.getWidth)) {
-      PendingError(s"Index ${bitId} used to access ${out} has to many bits\n${getScalaLocationLong}")
+      PendingError(s"Index ${bitId} used to access ${out} has too many bits\n${getScalaLocationLong}")
     }
   }
 

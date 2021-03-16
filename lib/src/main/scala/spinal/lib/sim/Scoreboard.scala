@@ -47,7 +47,7 @@ case class ScoreboardInOrder[T]() {
       val dutHead = dut.dequeue()
       val refHead = ref.dequeue()
       if(!compare(refHead, dutHead)){
-        println("Transaction missmatch :")
+        println("Transaction mismatch :")
         println("REF :")
         println(refHead)
         println("DUT :")
@@ -112,7 +112,7 @@ case class ScoreboardInOrder[T]() {
 //      val dutHead = dut.dequeue()
 //      val refHead = ref.dequeue()
 //      if(dutHead != refHead){
-//        println("Transaction missmatch :")
+//        println("Transaction mismatch :")
 //        println("REF :")
 //        println(refHead)
 //        println("DUT :")

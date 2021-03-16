@@ -1,11 +1,11 @@
 package spinal.core
 
-/* Example UQ(8,8) means 8 bit width with 8 bit decimal 0 bit interge */
+/* Example UQ(8,8) means 8 bit width with 8 bit decimal 0 bit integer */
 object UQ {
   def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,false)
 }
 
-/* Example SQ(8,7) means 8 bit width with 7 bit decimal, 0 bit interge, 1 sign bit*/
+/* Example SQ(8,7) means 8 bit width with 7 bit decimal, 0 bit integer, 1 sign bit*/
 object SQ {
   def apply(width: Int, fraction: Int): QFormat = new QFormat(width, fraction,true)
 }

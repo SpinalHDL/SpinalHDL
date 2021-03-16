@@ -358,13 +358,13 @@ class PhaseAnalog extends PhaseNetlist{
         case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
       }
 
-      //Remove target analog assignements
+      //Remove target analog assignments
       target.foreachStatements {
         case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
         case _ =>
       }
 
-      //redirect island assignements to target
+      //redirect island assignments to target
       //drive isllands analogs from target as comb signal
       for(bt <- island if bt != target){
         val btStatements = ArrayBuffer[AssignmentStatement]()
@@ -388,7 +388,7 @@ class PhaseAnalog extends PhaseNetlist{
         bt.rootScopeStatement.pop()
       }
 
-      //Convert target comb assignement into AnalogDriver nods
+      //Convert target comb assignment into AnalogDriver nods
       target.foreachStatements(s => {
         s.source match {
           case btSource: BaseType if btSource.isAnalog =>
@@ -495,13 +495,13 @@ class PhaseAnalog extends PhaseNetlist{
 //            case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
 //          }
 //
-//          //Remove target analog assignements
+//          //Remove target analog assignments
 //          target.foreachStatements {
 //            case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
 //            case _ =>
 //          }
 //
-//          //redirect island assignements to target
+//          //redirect island assignments to target
 //          //drive isllands analogs from target as comb signal
 //          for(bt <- island if bt != target){
 //            val btStatements = ArrayBuffer[AssignmentStatement]()
@@ -525,7 +525,7 @@ class PhaseAnalog extends PhaseNetlist{
 //            bt.rootScopeStatement.pop()
 //          }
 //
-//          //Convert target comb assignement into AnalogDriver nods
+//          //Convert target comb assignment into AnalogDriver nods
 //          target.foreachStatements(s => {
 //            s.source match {
 //              case btSource: BaseType if btSource.isAnalog =>

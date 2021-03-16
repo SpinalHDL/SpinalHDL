@@ -89,11 +89,23 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   }
 
 
+  /**
+    * Create a write port of memory.
+    */
   def writePort : Flow[MemWriteCmd[T]] = {
     val ret = Flow(MemWriteCmd(mem))
     when(ret.valid){
       mem.write(ret.address,ret.data)
     }
+    ret
+  }
+
+  /**
+    * Create a write port of memory with masking.
+    */
+  def writePortWithMask : Flow[MemWriteCmdWithMask[T]] = {
+    val ret = Flow(MemWriteCmdWithMask(mem))
+    mem.write(ret.address,ret.data, ret.valid, ret.mask)
     ret
   }
 
@@ -108,6 +120,12 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
   val address = mem.addressType()
   val data    = mem.wordType()
+}
+
+case class MemWriteCmdWithMask[T <: Data](mem : Mem[T]) extends Bundle {
+  val address = mem.addressType()
+  val data    = mem.wordType()
+  val mask    = Bits
 }
 
 case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{

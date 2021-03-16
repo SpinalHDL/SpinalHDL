@@ -264,7 +264,7 @@ begin
     procedure cpuReadRsp(data : std_logic_vector) is
     begin
       wait until rising_edge(clk) and io_cpu_rsp_valid = '1';
-      assert io_cpu_rsp_payload_data = data report "read missmatch" severity failure;
+      assert io_cpu_rsp_payload_data = data report "read mismatch" severity failure;
     end procedure;
     variable counter : integer := 0;
   begin
@@ -277,7 +277,7 @@ begin
     while cpuRspcounter < 100000 loop
       wait until rising_edge(clk) and io_cpu_rsp_valid = '1';
       assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
-      assert io_cpu_rsp_payload_data = cpuPendingRsp(cpuPendingRspHit) report "read missmatch" severity error;
+      assert io_cpu_rsp_payload_data = cpuPendingRsp(cpuPendingRspHit) report "read mismatch" severity error;
       cpuPendingRspHit := (cpuPendingRspHit + 1) mod cpuPendingRspSize;
       cpuRspcounter <= cpuRspcounter + 1;
     end loop;

@@ -28,6 +28,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
 
   override def freeRun(): this.type = this
+  def setIdle(): this.type = {
+    valid := False
+    payload.assignDontCare()
+    this
+  }
 
 
   def toReg() : T = toReg(null.asInstanceOf[T])
@@ -48,6 +53,18 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   def >->(that: Flow[T]): Flow[T] = that <-< this
 
   override def fire: Bool = valid
+
+  def combStage() : Flow[T] = {
+    val ret = Flow(payloadType).setCompositeName(this, "combStage", true)
+    ret << this
+    ret
+  }
+  def swapPayload[T2 <: Data](that: HardType[T2]) = {
+    val next = new Flow(that).setCompositeName(this, "swap", true)
+    next.valid := this.valid
+    next
+  }
+
 
   def toStream  : Stream[T] = toStream(null)
   def toStream(overflow : Bool) : Stream[T] = {

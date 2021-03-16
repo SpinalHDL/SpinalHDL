@@ -537,7 +537,7 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
 
 
 /**
-  * Two-dimensionnal SFix
+  * Two-dimensional SFix
   */
 object SFix2D {
   def apply(maxExp: ExpNumber, bitCount: BitCount): SFix2D = new SFix2D(maxExp.value, bitCount.value)
@@ -547,7 +547,7 @@ object SFix2D {
 
 
 /**
-  * Two-dimensionnal UFix
+  * Two-dimensional UFix
   */
 object UFix2D {
   def apply(maxExp: ExpNumber, bitCount: BitCount): UFix2D = new UFix2D(maxExp.value, bitCount.value)

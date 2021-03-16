@@ -258,7 +258,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkNoInputAssignement") {
+  test("checkNoInputAssignment") {
     generationShouldFaild(new Component{
       val input = in Bool()
       val output = out Bool()
@@ -267,7 +267,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkNoSubOutputAssignement") {
+  test("checkNoSubOutputAssignment") {
     generationShouldFaild(new Component{
       val sub = new Component{
         val output = out(True)
@@ -278,7 +278,7 @@ class ChecksTester extends FunSuite  {
 
 
 
-  test("checkNoSubSignalAssignement") {
+  test("checkNoSubSignalAssignment") {
     generationShouldFaild(new Component{
       val sub = new Component{
         val tmp = True
@@ -513,7 +513,7 @@ class NameingTester extends FunSuite {
   import CheckTester._
 
 
-  test("reflectionNamming") {
+  test("reflectionNaming") {
     val t = SpinalVhdl(new Component{
       val a = new Area{
         val aa = Bool

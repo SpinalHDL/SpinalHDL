@@ -3,11 +3,11 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
-case class Axi4ReadyOnlyCC (axiConfig : Axi4Config,
-                            inputCd : ClockDomain,
-                            outputCd : ClockDomain,
-                            arFifoSize : Int,
-                            rFifoSize : Int) extends Component{
+case class Axi4ReadOnlyCC(axiConfig : Axi4Config,
+                          inputCd : ClockDomain,
+                          outputCd : ClockDomain,
+                          arFifoSize : Int,
+                          rFifoSize : Int) extends Component{
   val io = new Bundle {
     val input = slave(Axi4ReadOnly(axiConfig))
     val output = master(Axi4ReadOnly(axiConfig))

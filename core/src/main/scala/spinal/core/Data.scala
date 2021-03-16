@@ -40,7 +40,7 @@ trait DataPrimitives[T <: Data]{
   /** Assign a data to this */
   def := (that: T): Unit = _data assignFrom that
 
-  /** Use as \= to have the same behavioral thant VHDL variable */
+  /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
 
     val globalData = GlobalData.get
@@ -83,7 +83,7 @@ trait DataPrimitives[T <: Data]{
   /** Auto connection between two data */
   def <>(that: T): Unit = _data autoConnect that
 
-  /** Set inital value to a data */
+  /** Set initial value to a data */
   def init(that: T): T = {
     _data.initFrom(that)
     _data
@@ -262,7 +262,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as input */
   def asInput(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as input outside it's own component." )
+      LocatedPendingError(s"You should not set $this as input outside its own component." )
     }else {
       dir = in
     }
@@ -272,7 +272,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as output */
   def asOutput(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = out
     }
@@ -282,7 +282,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** set a data as inout */
   def asInOut(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = inout
     }
@@ -291,7 +291,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def copyDirectionOfImpl(that : Data): this.type ={
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = that.dir
     }
@@ -340,7 +340,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       case `in`    => dir = out
       case `out`   => dir = in
       case `inout` =>
-      case _       => LocatedPendingError(s"Can't flip a data that is direction less $this")
+      case _       => LocatedPendingError(s"Can't flip a data that is direction less ($this)")
     }
     this
   }
@@ -475,7 +475,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         case (null,`in`)                          => this := that
         case (null,`out`)                         => that := this
         case _ if this.isAnalog && that.isAnalog  => this := that
-        case _                                    => LocatedPendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that ")
+        case _                                    => LocatedPendingError(s"DIRECTION MISMATCH, impossible to infer the connection direction between $this and $that ")
       }
     }
   }
@@ -524,8 +524,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   /**
-    * Usefull for register that doesn't need a reset value in RTL,
-    * but need a randome value for simulation (avoid x-propagation)
+    * Useful for register that doesn't need a reset value in RTL,
+    * but need a random value for simulation (avoid x-propagation)
     */
   def randBoot(): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))

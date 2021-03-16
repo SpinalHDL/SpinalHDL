@@ -1,9 +1,9 @@
 package spinal.lib.eda.bench
 import spinal.core._
-import java.util.concurrent.ForkJoinPool
-
 import spinal.lib.StreamFifo
+import spinal.sim.SimManager
 
+import java.util.concurrent.ForkJoinPool
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
@@ -12,17 +12,32 @@ import scala.concurrent.{Await, Future}
  */
 
 trait Rtl {
+  /** Name */
   def getName(): String
-  def getRtlPath() : String
+  /** Path of top module RTL */
+  def getRtlPath() : String = getRtlPaths().head
+  /** A List of RTL paths */
+  def getRtlPaths() : Seq[String] = Seq(getRtlPath())
+  /** The top module name, defaulting to the file name of top module RTL */
+  def getTopModuleName() : String = getRtlPath().split("\\.").head
 }
 
+object Rtl {
+  /** Create Rtl from SpinalReport */
+  def apply[T <: Component](rtl: SpinalReport[T]): Rtl = {
+    new Rtl {
+      override def getName(): String = rtl.toplevelName
+      override def getRtlPaths(): Seq[String] = rtl.rtlSourcesPaths.toSeq
+      override def getTopModuleName(): String = rtl.toplevelName
+    }
+  }
+}
 
-
-object Bench{
+object Bench {
   def apply(rtls : Seq[Rtl], targets : Seq[Target], workspacesRoot : String = sys.env.getOrElse("SPINAL_BENCH_WORKSPACE", null)): Unit ={
     import scala.concurrent.ExecutionContext
     implicit val ec = ExecutionContext.fromExecutorService(
-      new ForkJoinPool(Math.max(1,new oshi.SystemInfo().getHardware.getProcessor.getLogicalProcessorCount/2), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
+      new ForkJoinPool(Math.max(1, SimManager.cpuCount / 2), ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
     )
 
     val results = (for (rtl <- rtls) yield {
