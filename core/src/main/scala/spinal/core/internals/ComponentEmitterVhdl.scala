@@ -155,15 +155,29 @@ class ComponentEmitterVhdl(
 
     }
 
-    component.children.foreach(sub =>
-      sub.getAllIo.foreach(io =>
-        if(io.isOutput && !io.isSuffix) {
+    component.children.foreach(sub => {
+      val structSignals = new mutable.MutableList[SpinalStruct]()
+      sub.getAllIo.foreach(_io => {
+        var io = _io
+        if (io.isOutput) {
+          // If output is a suffix'd type emit the parent exactly once
+          if (io.isInstanceOf[SpinalStruct]) {
+            structSignals += io.asInstanceOf[SpinalStruct]
+          }
+          if (io.isSuffix) {
+            val structParent = io.parent.asInstanceOf[SpinalStruct]
+            if (!structSignals.contains(structParent)) {
+              structSignals += structParent
+              io = structParent
+            }
+          }
           val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
-          declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+          if (!io.isSuffix)
+            declarations ++= s"  signal $name : ${emitDataType(io)};\n"
           referencesOverrides(io) = name
         }
-      )
-    )
+      })
+    })
 
     //Wrap expression which need it
     cutLongExpressions()
@@ -302,7 +316,7 @@ class ComponentEmitterVhdl(
       logics ++= s"    port map ( \n"
 
       for (data <- children.getOrdredNodeIo) {
-        if (!data.isInstanceOf[Suffixable]) {
+        if (!data.isInstanceOf[SpinalStruct]) {
           val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
           logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
         }
@@ -480,7 +494,7 @@ class ComponentEmitterVhdl(
             case node: BaseType =>
               val localDeclaration = new StringBuilder
 
-              val funcName = "zz_" + emitReference(node, false).replace(".", "__")
+              val funcName = "zz_" + emitReference(node, false).replace(".", "_")
               val varName = emitReference(node, false)
 
               localDeclaration ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
@@ -495,13 +509,13 @@ class ComponentEmitterVhdl(
               localDeclaration.lines.foreach(line => {
                 if (line.contains(":=")) {
                   val parts = line.split(":=")
-                  declarations ++= parts.head.replace(".", "__") + ":="
+                  declarations ++= parts.head.replace(".", "_") + ":="
                   parts.tail.foreach {
                     declarations ++= _
                   }
                   declarations ++= "\n"
                 } else {
-                  declarations ++= line.replace(".", "__") + "\n"
+                  declarations ++= line.replace(".", "_") + "\n"
                 }
               })
 
@@ -671,7 +685,10 @@ class ComponentEmitterVhdl(
   def emitAssignment(assignment: AssignmentStatement, tab: String, assignmentKind: String): String = {
     assignment match {
       case _ =>
-        s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+        if (!assignment.target.isInstanceOf[SpinalStruct])
+          s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+        else
+          ""
     }
   }
 
