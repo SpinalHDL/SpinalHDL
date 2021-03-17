@@ -1,6 +1,8 @@
 package spinal.tester.code.p1
 
 import spinal.core._
+import spinal.core.fiber._
+
 object MyScalaProgramme{
   def main(args: Array[String]) {
     println("Hello world")
@@ -176,30 +178,73 @@ object DemoSpinalSim extends App{
       }
     }
   }
+
+
+  def func(x : Int, y : Int) : Int = {
+    val result = x + y
+    return result
+  }
+
+  def func2(x : Int, y : Int) = {  //Return type can by inferred
+    val result = x + y
+    result  //Last statement of the block is used as return value implicitly
+  }
+
+  def func3(x : Int, y : Int) = {
+    x + y
+  }
+
+  def func4(x : Int, y : Int) = x + y
 }
 
-object DemoGenerator {
-  import spinal.lib.generator._
 
-  class Root() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b = Handle[Int]
+object DemoHandle extends App {
+
+  import spinal.core.fiber._
+
+  SpinalVerilog (new Component {
+    val a, b = Handle[Int] // Create empty Handles
 
     //Print a + b
-    val calculator = new Generator{
-      //Specify that this generator need a and b before executing his tasks
-      dependencies += a
-      dependencies += b
+    val calculator = Handle {
+      a.get + b.get
+    }
 
-      //Create a new task that will run when all the dependencies are loaded
-      add task{
-        val sum = a.get + b.get
-        println(s"a + b = $sum") //Will print a + b = 7
-      }
+    val printer = Handle{
+      println(s"a + b = ${calculator.get}")
     }
 
     //load a and b with values, which will then unlock the calculator generator
     a.load(3)
     b.load(4)
+
+  })
+}
+
+
+object MiaouRawrrr extends App{
+  class Wuff(val value : Int){
+    println("Wuff")
   }
+  class Miaou(val value : Int){
+    println("Miaou")
+  }
+
+  implicit def asdasd(src : => Wuff) = {
+    println("a")
+    val ret = new Miaou(src.value)
+    println("b")
+    ret
+  }
+
+  def gen = new {
+    println("gen")
+    def create() = new {
+      def create2() = new Wuff(1)
+    }
+  }
+
+  println("1")
+  var y : Miaou = gen.create().create2()
+  println("2")
 }

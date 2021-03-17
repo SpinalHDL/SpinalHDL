@@ -45,7 +45,7 @@ trait DataPrimitives[T <: Data]{
 
     val globalData = GlobalData.get
 
-    globalData.dslScope.push(_data.parentScope)
+    DslScopeStack.push(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -53,7 +53,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    globalData.dslScope.pop()
+    DslScopeStack.pop()
 
     ret.allowOverride
     ret := that
@@ -173,14 +173,14 @@ object Data {
     }
 
     def push(c: Component, scope: ScopeStatement): Unit = {
-      c.globalData.dslScope.push(scope)
-      c.globalData.dslClockDomain.push(c.clockDomain)
+      DslScopeStack.push(scope)
+      ClockDomain.push(c.clockDomain)
     }
 
     def pop(c: Component): Unit = {
-      assert(c.globalData.currentComponent == c)
-      c.globalData.dslScope.pop()
-      c.globalData.dslClockDomain.pop()
+      assert(Component.current == c)
+      DslScopeStack.pop()
+      ClockDomainStack.pop()
     }
 
     var currentData: T = srcData
@@ -627,6 +627,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       null
     }
     null
+  }
+
+
+  def toIo(): this.type ={
+    val subIo = this
+    val topIo = cloneOf(subIo)//.setPartialName(h, "", true)
+    topIo.copyDirectionOf(subIo)
+    for((s,t) <- (subIo.flatten, topIo.flatten).zipped if s.isAnalog) t.setAsAnalog()
+    topIo <> subIo
+    topIo.asInstanceOf[this.type]
   }
 
   /** Generate this if condition is true */

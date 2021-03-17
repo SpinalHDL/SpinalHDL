@@ -6,7 +6,7 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
 object ScopeProperty {
-  private [core] val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]]
+  val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]]
   def get : mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]] = {
     val v = it.get()
     if(v != null) return v
@@ -16,6 +16,7 @@ object ScopeProperty {
 
   case class Capture(context : Seq[(ScopeProperty[Any], Seq[Any])]){
     def restore(): Unit ={
+      get.clear()
       for(e <- context){
         get.update(e._1, Stack.concat(e._2))
       }
@@ -43,6 +44,11 @@ trait ScopeProperty[T]{
       ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
     }
   }
+
+  def headOption = if(stack.isEmpty) None else Some(get)
+  def isEmpty = stack.isEmpty
+  def nonEmpty = stack.nonEmpty
+
   protected var _default: T
   def default : T = _default
   def setDefault(x: T): Unit = _default = x

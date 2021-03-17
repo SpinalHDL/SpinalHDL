@@ -1,6 +1,7 @@
 package spinal.lib.blackbox.xilinx.s7
 
 import spinal.core._
+import spinal.core.fiber.Handle
 
 object BUFG{
   def on(that : Bool) : Bool = {
@@ -8,6 +9,10 @@ object BUFG{
     bufg.setCompositeName(that, "BUFG")
     bufg.I := that
     bufg.O
+  }
+
+  def onReset(that : Handle[ClockDomain]): Handle[ClockDomain] = Handle {
+    that.copy(reset = BUFG.on(that.reset))
   }
 }
 

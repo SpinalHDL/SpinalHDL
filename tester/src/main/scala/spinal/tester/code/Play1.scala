@@ -5,6 +5,7 @@ import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio}
@@ -82,97 +83,6 @@ class ComplexBundle extends Bundle {
 //  override def clone() : this.type = new ComplexBundle
 }
 
-object PlayGeneratorA extends App{
-  import spinal.lib.generator._
-
-  class Root() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b = Handle[Int]
-
-    //Print a + b
-    val calculator = new Generator{
-      dependencies += a
-      dependencies += b
-
-      add task{
-        val sum = a.get + b.get
-        println(s"a + b = $sum")
-      }
-    }
-
-    //load a and b with values, which will then unlock the calculator generator
-    a.load(3)
-    b.load(4)
-  }
-
-  SpinalVerilog(new Root().toComponent())
-}
-
-object PlayGeneratorA1 extends App{
-  import spinal.lib.generator._
-
-  class Root() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b,signalWidth = Handle[Int]
-
-    //Load signalWidth as the result of a + b
-    val calculator = new Generator{
-      dependencies += a
-      dependencies += b
-
-      add task{
-        signalWidth.load(a.get + b.get)
-      }
-    }
-
-    //Generate a signal of signalWidth bits
-    val rtl = new Generator{
-      dependencies += signalWidth
-
-      val signal = Handle[UInt]
-      add task{
-        println(s"rtlSignal will have ${signalWidth.get} bits")
-        signal.load(UInt(signalWidth.get bits))
-      }
-    }
-
-    //load a and b with values, which will then unlock the calculator generator, which will then unlock the rtl generator
-    a.load(3)
-    b.load(4)
-  }
-
-  SpinalVerilog(new Root().toComponent())
-}
-
-
-object PlayGeneratorB extends App{
-  import spinal.lib.generator._
-
-  class Root() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b = Handle[Int]
-    val signalWidth = List(a,b).produce(a.get + b.get)
-    val signal = signalWidth.produce(UInt(signalWidth.get bits))
-    a.load(3)
-    b.load(4)
-  }
-
-  SpinalVerilog(new Root().toComponent())
-}
-
-object PlayGeneratorC extends App{
-  import spinal.lib.generator._
-
-  class MyGenerator() extends Generator{
-    //Define some Handle which will be later loaded with real values
-    val a,b, somebodyElseHandle = Handle[Int]
-    val x = a.derivate(_ + 3)
-    dependencies += somebodyElseHandle
-    val myHandle : Handle[Int] = createDependency[Int]
-  }
-
-
-}
 
 
 

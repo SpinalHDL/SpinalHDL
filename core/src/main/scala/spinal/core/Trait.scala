@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.Nameable._
+import spinal.core.fiber.Handle
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
@@ -93,7 +94,9 @@ object GlobalData {
 
   /** Return the GlobalData of the current thread */
   def get = it.get()
-
+  def set(gb : GlobalData) = {
+    it.set(gb)
+  }
   /** Reset the GlobalData of the current thread */
   def reset(config: SpinalConfig) = {
     it.set(new GlobalData(config))
@@ -101,30 +104,28 @@ object GlobalData {
   }
 }
 
+
+
+object DslScopeStack extends ScopeProperty[ScopeStatement]{
+  override protected var _default: ScopeStatement = null
+}
+
+object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
+  override protected var _default: Handle[ClockDomain] = null
+}
+
+object SwitchStack extends ScopeProperty[SwitchContext]{
+  override protected var _default: SwitchContext = null
+}
+
+
 /**
   * Global data
   */
 class GlobalData(val config : SpinalConfig) {
 
-  val dslScope       = new Stack[ScopeStatement]()
-  val dslClockDomain = new Stack[ClockDomain]()
-
-  def currentComponent = dslScope.headOption match {
-    case None        => null
-    case Some(scope) => scope.component
-  }
-
-  def currentScope = dslScope.headOption match {
-    case None        => null
-    case Some(scope) => scope
-  }
-
-  def currentClockDomain = dslClockDomain.headOption match {
-    case None     => null
-    case Some(cd) => cd
-  }
-
   private var algoIncrementale = 1
+  var toplevel : Component = null
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)
@@ -142,7 +143,6 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
-  val switchStack           = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
@@ -153,9 +153,6 @@ class GlobalData(val config : SpinalConfig) {
       val pc = GlobalData.get.phaseContext
       pc.walkComponents(c => {
         c.dslBody.walkStatements(s => {
-          if (scalaLocateds.contains(s)) {
-            scalaLocatedComponents += c.getClass
-          }
           s match {
             case s : SwitchStatement => if(s.elements.exists(scalaLocateds.contains(_))) scalaLocatedComponents += c.getClass
             case _ =>
@@ -167,6 +164,15 @@ class GlobalData(val config : SpinalConfig) {
           })
         })
       })
+      for(e <- pc.globalData.scalaLocateds) e match {
+        case ctx : ContextUser => {
+          val c = ctx.component
+          if (c != null) {
+            scalaLocatedComponents += c.getClass
+          }
+        }
+        case _ =>
+      }
     } catch {
       case e: Throwable =>
     }
@@ -218,7 +224,7 @@ trait GlobalDataUser {
 
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
-  var parentScope = if(globalData != null) globalData.currentScope else null
+  var parentScope = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -528,7 +534,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (globalData.currentScope != null && !globalData.scalaLocatedComponents.contains(globalData.currentScope.component.getClass))) {
+  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
     null
   } else {
     new Throwable()
@@ -578,6 +584,12 @@ object ScalaLocated {
     if(scalaTrace == null) return "???"
 
     filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
+  }
+
+  def long2(trace: Array[StackTraceElement], tab: String = "    "): String = {
+    if(trace == null) return "???"
+
+    filterStackTrace(trace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())

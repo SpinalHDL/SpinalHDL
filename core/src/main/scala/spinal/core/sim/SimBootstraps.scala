@@ -392,6 +392,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
   def doSimApi(name: String = "test", seed: Int = Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
     Random.setSeed(seed)
+    GlobalData.set(report.globalData)
 
     val allocatedName = allocateTestName(name)
     val backendSeed   = if(seed == 0) 1 else seed

@@ -24,6 +24,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 import scala.collection.mutable.ListBuffer
 import spinal.core._
+import spinal.core.fiber.Engine
 
 import scala.collection.immutable
 import scala.collection.mutable
@@ -166,8 +167,8 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def checkGlobalData(): Unit = {
-    if (GlobalData.get.dslScope.nonEmpty) SpinalError("dslScope stack is not empty :(")
-    if (GlobalData.get.dslClockDomain.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
+    if (DslScopeStack.nonEmpty) SpinalError("dslScope stack is not empty :(")
+    if (ClockDomainStack.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
   def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
@@ -2159,12 +2160,31 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
 
-    defaultClockDomain.push()
-    native //Avoid unconstructable during phase
-    binarySequential
-    binaryOneHot
-    gen
-    defaultClockDomain.pop()
+
+    Engine.create {
+      defaultClockDomain.push()
+      native //Avoid unconstructable during phase
+      binarySequential
+      binaryOneHot
+      gen
+      defaultClockDomain.pop()
+    }
+
+//    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+//    var hadPrePop = true
+//    while(hadPrePop) {
+//      hadPrePop = false
+//      pc.walkComponents { c =>
+//        assert(c.prePopTasks.isEmpty)
+////        if (c.prePopTasks.nonEmpty) {
+////          c.rework(
+////            c.prePop()
+////          )
+////          hadPrePop = true
+////        }
+//      }
+//    }
+
     pc.checkGlobalData()
   }
 }
@@ -2254,7 +2274,6 @@ object SpinalVhdlBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
-
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
     val prunedSignals   = mutable.Set[BaseType]()
@@ -2306,6 +2325,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
+    report.globalData = pc.globalData
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += new PhaseVhdl(pc, report)
 
@@ -2377,7 +2397,6 @@ object SpinalVerilogBoot{
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
-
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
@@ -2431,6 +2450,7 @@ object SpinalVerilogBoot{
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
 
     val report = new SpinalReport[T]()
+    report.globalData = pc.globalData
     phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){
