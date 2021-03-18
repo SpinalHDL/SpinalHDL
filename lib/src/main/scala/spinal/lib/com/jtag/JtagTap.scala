@@ -83,7 +83,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
 
   switch(fsm.state) {
     is(JtagState.IR_CAPTURE) {
-      instructionShift := instruction
+      instructionShift := B"01".resize(instructionWidth)
     }
     is(JtagState.IR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
