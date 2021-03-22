@@ -198,7 +198,7 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     case ref : Data => {
       elementsCache += name -> ref
       ref.parent = this
-      if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_WEAK)
+      if(OwnableRef.proposal(ref, this)) ref.setPartialName(name, Nameable.DATAMODEL_STRONG)
     }
     case ref =>
   }

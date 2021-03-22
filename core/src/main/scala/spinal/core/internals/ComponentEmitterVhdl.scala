@@ -106,8 +106,16 @@ class ComponentEmitterVhdl(
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
-    val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-    declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    if (referencesOverrides.contains(io))
+      return
+    var name: String = null
+    if (!io.isSuffix) {
+      name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    } else {
+      wrapSubInput(io.parent.asInstanceOf[BaseType])
+      name = referencesOverrides(io.parent) + "." + io.getPartialName()
+    }
     referencesOverrides(io) = name
   }
 

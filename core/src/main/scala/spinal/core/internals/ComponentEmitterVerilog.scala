@@ -74,7 +74,7 @@ class ComponentEmitterVerilog(
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.last) "" else ","
+      val comma      = if(baseType == component.getOrdredNodeIo.filterNot(_.isSuffix).last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -88,8 +88,16 @@ class ComponentEmitterVerilog(
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
-    val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-    declarations ++= emitBaseTypeWrap(io, name)
+    if (referencesOverrides.contains(io))
+      return
+    var name: String = null
+    if (!io.isSuffix) {
+      name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      declarations ++= emitBaseTypeWrap(io, name)
+    } else {
+      wrapSubInput(io.parent.asInstanceOf[BaseType])
+      name = referencesOverrides(io.parent) + "." + io.getPartialName()
+    }
     referencesOverrides(io) = name
   }
 
@@ -141,9 +149,9 @@ class ComponentEmitterVerilog(
 
     component.children.foreach(sub =>
       sub.getAllIo
-      .filterNot(_.isInstanceOf[Suffixable])
+      .filterNot(_.isSuffix)
       .foreach(io => if(io.isOutput) {
-        val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow).replaceAllLiterally(".", "__")
+        val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
         val name = component.localNamingScope.allocateName(componentSignalName)
         declarations ++= emitExpressionWrap(io, name)
         referencesOverrides(io) = name
@@ -221,7 +229,7 @@ class ComponentEmitterVerilog(
     def netsWithSection(data: BaseType): String = {
       if(openSubIo.contains(data)) ""
       else {
-        val wireName = emitReference(data, false).replaceAllLiterally(".", "__")
+        val wireName = emitReference(data, false)
         val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
         wireName + section
       }
@@ -270,11 +278,11 @@ class ComponentEmitterVerilog(
       logics ++= s"${child.getName()} (\n"
 
       val instports: String = child.getOrdredNodeIo
-        .filterNot(_.isInstanceOf[Suffixable])
+        .filterNot(_.isSuffix)
         .map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
         val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
-        val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
+        val comma      = if (data == child.getOrdredNodeIo.filterNot(_.isSuffix).last) " " else ","
         val dirtag: String = data.dir match{
           case spinal.core.in  | spinal.core.inWithNull  => "i"
           case spinal.core.out | spinal.core.outWithNull => "o"
@@ -449,7 +457,9 @@ class ComponentEmitterVerilog(
       case _ if emitAsynchronousAsAsign(process) =>
         process.leafStatements.head match {
           case s: AssignmentStatement =>
-            logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+            if (!s.target.isInstanceOf[Suffixable]) {
+              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+            }
         }
       case _ =>
         val tmp = new StringBuilder
@@ -796,7 +806,10 @@ class ComponentEmitterVerilog(
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
     val net = if(signalNeedProcess(baseType)) "reg" else "wire"
     val section = emitType(baseType)
-    s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+    baseType match {
+      case struct: SpinalStruct => s"${theme.maintab}${expressionAlign(section, "", name)};\n"
+      case _                    => s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+    }
 //    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
