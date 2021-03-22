@@ -24,7 +24,7 @@ import java.io.File
 
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -581,7 +581,12 @@ case class SpinalSimConfig(
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
-    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId")
+    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
+      override def impl(pc: PhaseContext): Unit = pc.walkComponents{
+        case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
+        case _ =>
+      }
+    })
     val report = _backend match {
       case SpinalSimBackendSel.VERILATOR => {
         config.addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public))
