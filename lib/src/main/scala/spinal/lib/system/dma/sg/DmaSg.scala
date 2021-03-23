@@ -1795,7 +1795,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     if(cp.memoryToMemory)        tests += M2M
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
-    for (r <- 0 until 500) {
+    for (r <- 0 until 100) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {
