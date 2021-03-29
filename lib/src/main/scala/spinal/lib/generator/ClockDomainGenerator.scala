@@ -138,7 +138,10 @@ case class ClockDomainResetGenerator() extends Area {
   def asyncReset(reset : ClockDomainResetGenerator) : Handle[ResetGenerator] = asyncReset(reset.outputClockDomain)
 
 
-  def makeExternal(frequency : IClockDomainFrequency = UnknownFrequency, withResetPin : Boolean = true): this.type = {
+  def makeExternal(frequency : IClockDomainFrequency = UnknownFrequency,
+                   withResetPin : Boolean = true,
+                   resetKind: ResetKind = ASYNC,
+                   resetActiveLevel : Polarity = HIGH): this.type = {
     hardFork{
       val clock = in Bool() setCompositeName(ClockDomainResetGenerator.this, "external_clk")
       val reset = withResetPin generate (in Bool()  setCompositeName(ClockDomainResetGenerator.this, "external_reset"))
@@ -149,8 +152,8 @@ case class ClockDomainResetGenerator() extends Area {
           reset = reset,
           frequency = frequency,
           config = ClockDomainConfig(
-            resetKind = ASYNC,
-            resetActiveLevel = HIGH
+            resetKind = resetKind,
+            resetActiveLevel = resetActiveLevel
           )
         )
       )
