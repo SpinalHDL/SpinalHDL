@@ -2126,7 +2126,7 @@ object BitsLiteral {
     val minimalWidth   = Math.max(poisonBitCount,valueBitCount)
     var bitCount       = specifiedBitCount
 
-    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0) throw new Exception("literal value is negative and cannot be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
@@ -2167,7 +2167,7 @@ object UIntLiteral {
     var bitCount       = specifiedBitCount
 
     if (value < 0)
-      throw new Exception("literal value is negative and can be represented")
+      throw new Exception("literal value is negative and cannot be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in UInt($specifiedBitCount bits)")
