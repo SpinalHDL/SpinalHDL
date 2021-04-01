@@ -255,6 +255,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
+  private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
   def getRootParent: Data = if(parent == null) this else parent.getRootParent

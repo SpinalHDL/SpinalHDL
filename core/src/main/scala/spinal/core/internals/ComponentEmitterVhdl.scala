@@ -100,13 +100,22 @@ class ComponentEmitterVhdl(
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+      if (!baseType.isSuffix)
+        portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
     )
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
-    val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-    declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    if (referencesOverrides.contains(io))
+      return
+    var name: String = null
+    if (!io.isSuffix) {
+      name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    } else {
+      wrapSubInput(io.parent.asInstanceOf[BaseType])
+      name = referencesOverrides(io.parent) + "." + io.getPartialName()
+    }
     referencesOverrides(io) = name
   }
 
@@ -154,15 +163,29 @@ class ComponentEmitterVhdl(
 
     }
 
-    component.children.foreach(sub =>
-      sub.getAllIo.foreach(io =>
-        if(io.isOutput) {
+    component.children.foreach(sub => {
+      val structSignals = new mutable.MutableList[SpinalStruct]()
+      sub.getAllIo.foreach(_io => {
+        var io = _io
+        if (io.isOutput) {
+          // If output is a suffix'd type emit the parent exactly once
+          if (io.isInstanceOf[SpinalStruct]) {
+            structSignals += io.asInstanceOf[SpinalStruct]
+          }
+          if (io.isSuffix) {
+            val structParent = io.parent.asInstanceOf[SpinalStruct]
+            if (!structSignals.contains(structParent)) {
+              structSignals += structParent
+              io = structParent
+            }
+          }
           val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
-          declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+          if (!io.isSuffix)
+            declarations ++= s"  signal $name : ${emitDataType(io)};\n"
           referencesOverrides(io) = name
         }
-      )
-    )
+      })
+    })
 
     //Wrap expression which need it
     cutLongExpressions()
@@ -301,8 +324,10 @@ class ComponentEmitterVhdl(
       logics ++= s"    port map ( \n"
 
       for (data <- children.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
-        logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+        if (!data.isInstanceOf[SpinalStruct]) {
+          val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
+          logics ++= addCasting(data, emitReferenceNoOverrides(data), logic , data.dir)
+        }
       }
 
       logics.setCharAt(logics.size - 2, ' ')
@@ -475,15 +500,33 @@ class ComponentEmitterVhdl(
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
-              val funcName = "zz_" + emitReference(node, false)
-              declarations ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-              declarations ++= s"    variable ${emitReference(node, false)} : ${emitDataType(node, true)};\n"
-              declarations ++= s"  begin\n"
+              val localDeclaration = new StringBuilder
+
+              val funcName = "zz_" + emitReference(node, false).replace(".", "_")
+              val varName = emitReference(node, false)
+
+              localDeclaration ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
+              localDeclaration ++= s"    variable ${varName} : ${emitDataType(node, true)};\n"
+              localDeclaration ++= s"  begin\n"
               val statements = ArrayBuffer[LeafStatement]()
               node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
-              emitLeafStatements(statements, 0, process.scope, ":=", declarations, "    ")
-              declarations ++= s"    return ${emitReference(node, false)};\n"
-              declarations ++= s"  end function;\n"
+              emitLeafStatements(statements, 0, process.scope, ":=", localDeclaration, "    ")
+              localDeclaration ++= s"    return ${varName};\n"
+              localDeclaration ++= s"  end function;\n"
+
+              localDeclaration.lines.foreach(line => {
+                if (line.contains(":=")) {
+                  val parts = line.split(":=")
+                  declarations ++= parts.head.replace(".", "_") + ":="
+                  parts.tail.foreach {
+                    declarations ++= _
+                  }
+                  declarations ++= "\n"
+                } else {
+                  declarations ++= line.replace(".", "_") + "\n"
+                }
+              })
+
               logics ++= s"  ${emitReference(node, false)} <= ${funcName};\n"
           }
         }
@@ -650,7 +693,10 @@ class ComponentEmitterVhdl(
   def emitAssignment(assignment: AssignmentStatement, tab: String, assignmentKind: String): String = {
     assignment match {
       case _ =>
-        s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+        if (!assignment.target.isInstanceOf[SpinalStruct])
+          s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
+        else
+          ""
     }
   }
 
@@ -806,7 +852,7 @@ class ComponentEmitterVhdl(
   def emitSignals(): Unit = {
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
-        if (!signal.isIo) {
+        if (!signal.isIo && !signal.isSuffix) {
           declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
         }
         emitAttributes(signal, signal.instanceAttributes(Language.VHDL), "signal", declarations)
@@ -1094,7 +1140,7 @@ class ComponentEmitterVhdl(
 
     component.getOrdredNodeIo.foreach {
       case baseType: BaseType =>
-        if (baseType.isIo) {
+        if (baseType.isIo && !baseType.isSuffix) {
           declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxReplaceTypeRegardingTag(component, emitDataType(baseType, false))};\n"
         }
       case _ =>
