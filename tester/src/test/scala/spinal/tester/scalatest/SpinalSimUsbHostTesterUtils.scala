@@ -1,0 +1,456 @@
+package spinal.tester.scalatest
+
+import spinal.core._
+import spinal.core.sim._
+import spinal.lib.bus.bmb._
+import spinal.lib.bus.bmb.sim._
+import spinal.lib.com.usb.ohci._
+import spinal.lib.com.usb.phy._
+import spinal.lib.sim._
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
+
+class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
+  val ohci = UsbOhci(p, BmbParameter(
+    addressWidth = 12,
+    dataWidth = 32,
+    sourceWidth = 0,
+    contextWidth = 0,
+    lengthWidth = 2
+  ))
+
+  val phy = UsbLsFsPhy(p.portCount, p.fsRatio, sim=true)
+
+  val ctrl = propagateIo(ohci.io.ctrl)
+  val dma = propagateIo(ohci.io.dma)
+  ohci.io.phy <> phy.io.ctrl
+  val usb = propagateIo(phy.io.usb)
+}
+
+class TesterUtils(dut : UsbOhciTbTop) {
+  val p = dut.p
+  val hcControl = 0x04
+  val hcCommand = 0x08
+  val hcHCCA = 0x18
+  val hcPeriodicStart = 0x40
+  val hcFmInterval = 0x34
+  val hcControlHeadED = 0x20
+  val hcBulkHeadED = 0x28
+  val hcFmNumber = 0x3C
+  def hcRhPortStatus(portId : Int) = 0x54+portId*4
+
+  val USB_OPERATIONAL = 2 << 6
+  val BLE = 1 << 5
+  val BLF = 1 << 2
+  val CLF = 1 << 1
+  val CLE = 1 << 4
+  val IE = 1 << 3
+  val PLE = 1 << 2
+
+  val TOCKEN_SETUP = 13
+  val TOCKEN_IN = 9
+  val TOCKEN_OUT = 1
+  val DATA0 = 3
+  val DATA1 = 11
+
+  implicit class BooleanPimper(self: Boolean) {
+    def toInt = if (self) 1 else 0
+  }
+
+  def HCCA(malloc : MemoryRegionAllocator): HCCA ={
+    val addr = malloc.allocateAligned(0x100)
+    HCCA(addr.base.toInt)
+  }
+
+  case class HCCA(address: Int) {
+    var interrupts = Array.fill(32)(0)
+    var frameNumber = 0
+    var doneHead = 0
+
+    def save(m: SparseMemory): Unit = {
+      for (i <- 0 until 32) m.write(address + i * 4, interrupts(i))
+      m.write(address + 0x80, frameNumber)
+      m.write(address + 0x84, doneHead)
+    }
+  }
+
+  def ED(malloc : MemoryRegionAllocator): ED ={
+    val addr = malloc.allocateAligned(0x10)
+    ED(addr.base.toInt)
+  }
+
+
+  case class ED(address: Int) {
+    var FA, EN, D, MPS, tailP, headP, nextED = 0
+    var C, H, F, K, S = false
+
+    def save(m: SparseMemory): Unit = {
+      m.write(address + 0x00, (FA << 0) | (EN << 7) | (D << 11) | (S.toInt << 13) | (K.toInt << 14) | (F.toInt << 15) | (MPS << 16))
+      m.write(address + 0x04, tailP)
+      m.write(address + 0x08, headP | (C.toInt << 1) | (H.toInt << 0))
+      m.write(address + 0x0C, nextED)
+    }
+  }
+
+  def TD(malloc : MemoryRegionAllocator): TD ={
+    val addr = malloc.allocateAligned(0x10)
+    TD(addr.base.toInt)
+  }
+  case class TD(address: Int) {
+    var CC, EC, T, DI, DP, currentBuffer, nextTD, bufferEnd = 0
+    var R = false
+
+    def save(m: SparseMemory): Unit = {
+      m.write(address + 0x00, (CC << 28) | (EC << 26) | (T << 24) | (DI << 21) | (DP << 19) | (R.toInt << 18))
+      m.write(address + 0x04, currentBuffer)
+      m.write(address + 0x08, nextTD)
+      m.write(address + 0x0C, bufferEnd)
+    }
+  }
+
+
+  def getCurrentConnectStatus(portId : Int) = (ctrl.read(hcRhPortStatus(portId)) & 1) != 0
+  def waitConnected(portId : Int) = while(!getCurrentConnectStatus(portId)){dut.clockDomain.waitSampling(Random.nextInt(10))}
+  def setPortReset(portId : Int) = ctrl.write(1 << 4, hcRhPortStatus(portId))
+  def waitPortReset(portId : Int) = while((ctrl.read(hcRhPortStatus(portId)) & (1 << 4)) != 0) {dut.clockDomain.waitSampling(Random.nextInt(10))}
+  def setBulkListFilled() = ctrl.write(BLF, hcCommand)
+
+  val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.clockDomain, p.fsRatio))
+  val devices = for(i <- 0 until p.portCount) yield new UsbDeviceAgent(portAgents(i))
+  val scoreboards = for(i <- 0 until p.portCount) yield new UsbDeviceScoreboard(devices(i))
+
+  dut.clockDomain.forkStimulus(20800)
+  val memory = new BmbMemoryAgent()
+  memory.addPort(dut.dma, 0, dut.clockDomain, true)
+  def ram = memory.memory
+
+  val ctrl = BmbDriver(dut.ctrl, dut.clockDomain)
+  dut.clockDomain.waitSampling(10)
+
+  val interval = 12000
+  val intervalWithOverhead = (((interval - 210) * 6) / 7)
+  ctrl.write((interval-1) | intervalWithOverhead << 16, hcFmInterval)
+  ctrl.write(interval*9/10, hcPeriodicStart)
+}
+
+trait UsbDeviceAgentListener{
+  def reset() : Unit
+  def txData(addr : Int, endp : Int, tocken : Int, pid : Int, data : Seq[Int]) : Unit
+}
+
+
+case class TockenKey(addr: Int, endp: Int, tocken : Int)
+case class DataPacket(pid: Int, data: Seq[Int])
+
+class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
+  override def reset() = {
+
+  }
+
+  val ref = mutable.LinkedHashMap[TockenKey, mutable.Queue[DataPacket]]()
+  override def txData(addr: Int, endp: Int, tocken : Int, pid: Int, data: Seq[Int]) = {
+    val key = TockenKey(addr, endp, tocken)
+    val packet = DataPacket(pid, data)
+    val ed = ref.get(key).get
+    val expected = ed.dequeue()
+    assert(packet == expected)
+  }
+
+  def pushRef(key : TockenKey, data : DataPacket) = ref.getOrElseUpdate(key, mutable.Queue[DataPacket]()).enqueue(data)
+
+  io.listener = this
+
+  def assertEmpty = assert(ref.valuesIterator.forall(_.isEmpty))
+}
+
+
+trait UsbLsFsPhyAbstractIoListener{
+  def reset() : Unit
+  def keepAlive() : Unit
+  def txPacket(data : Seq[Int]) : Unit
+}
+
+class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractIoListener{
+  var lowSpeed = false
+  var frameNumber = -1
+
+  var listener : UsbDeviceAgentListener = null
+  def onListener(body : UsbDeviceAgentListener => Unit) = if(listener != null) body(listener)
+
+
+  object WAIT_RESET
+  object ENABLED
+  object TX_DATA
+
+  var state : Any = WAIT_RESET
+  override def reset() = {
+    assert(state == WAIT_RESET)
+    state = ENABLED
+    onListener(_.reset())
+  }
+
+  override def keepAlive() = {
+    state match {
+      case ENABLED =>
+    }
+  }
+
+  var txAddr, txEndp, tocken = 0
+  override def txPacket(data: Seq[Int]) = {
+    val pidLow = data(0) & 0xF
+    val pidHigh = (~data(0) >> 4) & 0xF
+    assert(pidLow == pidHigh)
+    state match {
+      case ENABLED => {
+        pidLow match {
+          case 5 => { //SOF
+            val fn = data(1) | ((data(2) & 0x3) << 8)
+            assert(frameNumber == -1 || frameNumber+1 == fn)
+            frameNumber = fn
+          }
+          case 13 => { //STEUP
+            tocken = pidLow
+            txAddr = data(1) & 0x7F
+            txEndp = data(1) >> 7 | ((data(2) & 0x3) << 1)
+            state = TX_DATA
+          }
+        }
+      }
+      case TX_DATA => {
+        val pidLow = data(0) & 0xF
+        val pidHigh = (~data(0) >> 4) & 0xF
+        println(s"TX $txAddr $txEndp ${data.map(e => f"${e}%02x").mkString(",")}")
+        state = ENABLED //TODO check CRC
+        onListener(_.txData(txAddr, txEndp, tocken, pidLow, data.tail.dropRight(2)))
+      }
+    }
+  }
+
+  def connect(lowSpeed : Boolean): Unit ={
+    this.lowSpeed = lowSpeed
+    io.connect(lowSpeed)
+  }
+
+  io.listener = this
+}
+
+class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cdRatio : Int){
+  var lowSpeed = false
+  var connected = false
+  val rx = new {
+    val dp, dm, enable = false
+  }
+
+  var listener : UsbLsFsPhyAbstractIoListener = null
+  def onListener(body : UsbLsFsPhyAbstractIoListener => Unit) = if(listener != null) body(listener)
+
+  usb.rx.dp #= false
+  usb.rx.dm #= false
+  usb.overcurrent #= false
+
+  class State
+  object DISCONNECTED extends State
+  object ENABLED extends State
+  object TX_SE0 extends State
+  object TX_K extends State
+  object BIT extends State
+  object EOP_1 extends State
+  object EOP_2 extends State
+  var state : State = DISCONNECTED
+  var phase = 0
+
+  var txEnableLast = false
+  var txSe0Last = false
+  var txDataLast = false
+  var txStable, txStableLast = 0
+
+  var cdBitRatio = 0
+  var byteBuffer = 0
+  var counter = 0
+  val packetBits = ArrayBuffer[Boolean]()
+
+  def log(that : String) =  {} //println(usb + " " + that)
+
+  def decodePacketToggle(packet : Seq[Boolean]): Seq[Boolean] ={
+    val ret = ArrayBuffer[Boolean]()
+    var last = true
+    for(e <- packet){
+      ret += e == last
+      last = e
+    }
+    ret
+  }
+
+  def decodeStuffing(packet : Seq[Boolean]): Seq[Boolean] ={
+    val ret = ArrayBuffer[Boolean]()
+    var counter = 0
+    for(e <- packet){
+      if(counter != 6){
+        ret += e
+      } else {
+        assert(!e)
+      }
+      if(e){
+        counter += 1
+      } else {
+        counter = 0
+      }
+    }
+    ret
+  }
+
+  def decodeBytes(packet : Seq[Boolean]) : Seq[Int] = {
+    assert(packet.size % 8 == 0)
+    val ret = ArrayBuffer[Int]()
+    for(byteId <- 0 until packet.size/8){
+      var buf = 0
+      for(bitId <- 0 until 8){
+        if(packet(byteId*8+bitId)){
+          buf |= 1 << bitId
+        }
+      }
+      ret += buf
+    }
+    ret
+  }
+
+  def calcCrc(that : Seq[Int], poly : Int, width : Int): Int ={
+    def getBit(id : Int) = (that(id/8) >> ((id % 8))) & 1
+    val mask = ((1l << width)-1).toInt
+    var crc = -1
+    for(bitId <- 0 until that.size*8){
+      val bit = getBit(bitId) ^ ((crc >> (width-1)) & 1)
+      crc = (crc << 1) ^ ((if(bit == 1) poly else 0))
+    }
+//    val crcReversed = (0 until width).map(i => ((crc >> i) & 1) << (width-i-1)).reduce(_ | _)
+//    (~crcReversed) & mask
+    crc & mask
+  }
+
+  cd.onSamplings{
+    val txEnable = usb.tx.enable.toBoolean
+    val txSe0 = usb.tx.se0.toBoolean
+    val txData = usb.tx.data.toBoolean
+    if(txEnable != txEnableLast || txEnable && (txSe0 != txSe0Last || !txSe0 && txData != txDataLast)){
+      txStableLast = txStable
+      txStable = 0
+    }
+    phase = phase + 1
+    txStable = txStable + 1
+    val bitEvent = phase == cdBitRatio
+    if(bitEvent) phase = 0
+
+    def txJ = !txSe0 && ( txData ^ lowSpeed)
+    def txK = !txSe0 && (!txData ^ lowSpeed)
+    assert(!(rx.enable && txEnable))
+    if(rx.enable){
+      usb.rx.dp #= rx.dp
+      usb.rx.dm #= rx.dm
+    }else if(txEnable){
+      usb.rx.dp #= !txSe0 &&  txData
+      usb.rx.dm #= !txSe0 && !txData
+    } else {
+      usb.rx.dp #= connected && !lowSpeed
+      usb.rx.dm #= connected &&  lowSpeed
+    }
+
+
+    state match {
+      case DISCONNECTED =>
+      case ENABLED => {
+        if(txEnable){
+          phase = 1
+          if(txSe0){
+            state = TX_SE0
+          } else {
+            assert(txK)
+            state = TX_K
+          }
+        }
+      }
+      case TX_SE0 => {
+        if (!txEnable) { //Reset
+          log("Reset")
+          onListener(_.reset())
+          state = ENABLED
+        } else if (txJ) {
+          log("keep alive")
+          onListener(_.keepAlive())
+          state = EOP_2
+        } else {
+          assert(txSe0)
+        }
+      }
+      case TX_K => {
+        assert(txEnable)
+        if(txSe0){
+          ??? //RESUME
+        } else if(txJ){
+          assert(txStableLast == cdBitRatio)
+          log("PACKET")
+          state = BIT
+          byteBuffer = 0
+          counter = 1
+          packetBits.clear()
+          packetBits += false
+        } else {
+          assert(txK)
+        }
+      }
+      case BIT => {
+        assert(txEnable)
+        if(bitEvent){
+          assert(txStable >= cdBitRatio)
+          if(txSe0){
+            val detoggled = decodePacketToggle(packetBits)
+            val destuffed = decodeStuffing(detoggled)
+            val bytes = decodeBytes(destuffed)
+            log(bytes.map(e => f"${e}%02x").mkString(","))
+            assert(bytes(0) == 0x80)
+            (bytes(1) & 0x3) match{
+              case 1 => {
+                val crc = calcCrc(bytes.drop(2), 5, 5)
+                assert(crc == 0x0C)
+              }
+              case 3 => {
+                val crc = calcCrc(bytes.drop(2), 0x8005, 16)
+                assert(crc == 0x800D)
+              }
+              case _ =>
+            }
+
+            onListener(_.txPacket(bytes.drop(1)))
+            state = EOP_1
+            log("EOP")
+          } else {
+            packetBits += txJ
+          }
+        }
+      }
+      case EOP_1 => {
+        assert(txEnable && txSe0)
+        if(bitEvent){
+          state = EOP_2
+        }
+      }
+      case EOP_2 => {
+        assert(txEnable && !txSe0 && txJ)
+        if(bitEvent){
+          state = ENABLED
+        }
+      }
+    }
+    txEnableLast = txEnable
+    txSe0Last = txSe0
+    txDataLast = txData
+  }
+
+  def connect(lowSpeed : Boolean): Unit ={
+    this.lowSpeed = lowSpeed
+    this.connected = true
+    state = ENABLED
+    cdBitRatio = (if(lowSpeed) 8 else 1) * cdRatio
+  }
+}

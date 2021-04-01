@@ -134,6 +134,9 @@ case class SparseMemory(){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
 
+
+  def readByteAsInt(address : Long) : Int = read(address).toInt & 0xFF
+
   def readInt(address : Long) : Int = {
     var value = 0
     for(i <- 0 until 4) value |= (read(address + i).toInt & 0xFF) << i*8

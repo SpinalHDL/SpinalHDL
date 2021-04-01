@@ -17,7 +17,8 @@ object UsbHubLsFs{
     val suspend = Event
     val resume = Event
 
-    val connected = Bool()
+//    val connected = Bool()
+    val connect, disconnect = Bool()
     val overcurrent = Bool()
     val remoteResume = Bool()
     val lowSpeed = Bool()
@@ -25,7 +26,7 @@ object UsbHubLsFs{
     override def asMaster(): Unit = {
       out(removable, power)
       master(reset, suspend, resume, disable)
-      in(connected, overcurrent, lowSpeed, remoteResume)
+      in(connect, disconnect, overcurrent, lowSpeed, remoteResume)
     }
   }
 
@@ -44,13 +45,12 @@ object UsbHubLsFs{
     val overcurrent = Bool()
     val tx = Stream(Fragment(Bits(8 bits)))
     val rx = CtrlRx()
-    val remoteWakupEnable = Bool()
 
     val ports = Vec(CtrlPort(), portCount)
 
     override def asMaster(): Unit = {
       in(overcurrent)
-      out(lowSpeed, remoteWakupEnable)
+      out(lowSpeed)
       master(tx)
       slave(rx)
       ports.foreach(master(_))

@@ -7,18 +7,20 @@ import spinal.lib.com.eth.{Crc, CrcKind}
 import spinal.lib.com.usb.phy.UsbHubLsFs
 import spinal.lib.fsm._
 
-case class UsbOhciParameter(downstreamPorts : Int,
-                            noPowerSwitching : Boolean,
+case class OhciPortParameter(removable : Boolean = true, powerControlMask : Boolean = true)
+
+case class UsbOhciParameter(noPowerSwitching : Boolean,
                             powerSwitchingMode : Boolean,
                             noOverCurrentProtection : Boolean,
 //                            overCurrentProtectionMode : Boolean,
                             powerOnToPowerGoodTime : Int,
                             fsRatio : Int,
                             dataWidth : Int,
-                            portCount : Int,
+                            portsConfig : Seq[OhciPortParameter],
                             dmaLengthWidth : Int = 6){
   assert(dmaLengthWidth >= 5 && dmaLengthWidth <= 12)
   def dmaLength = 1 << dmaLengthWidth
+  val portCount = portsConfig.size
 }
 
 object UsbOhci{
@@ -51,6 +53,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val data = vec(sel)
   }
 
+  //Follow the DMA read response to setup internals registers via the usage of the load function
   val dmaReadCtx = new Area{
     val wordPerBeat = p.dataWidth/32
     val counterStates = (1 << p.dmaLengthWidth)/(p.dataWidth/8)
@@ -68,6 +71,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  //Follow the DMA write cmd to set the appropriated cmd.data values following the save function calls
   val dmaWriteCtx = new Area{
     val wordPerBeat = p.dataWidth/32
     val counterStates = (1 << p.dmaLengthWidth)/(p.dataWidth/8)
@@ -87,8 +91,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  // Track the number of inflight memory requests, used to be sure everything is done before continuing
   val ramBurstCapacity = 4
-
   val dmaCtx = new Area{
     val pendingCounter = Reg(UInt(log2Up(ramBurstCapacity+1) bits)) init(0)
     pendingCounter := pendingCounter + U(io.dma.cmd.lastFire) - U(io.dma.rsp.lastFire)
@@ -97,6 +101,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val pendingEmpty = pendingCounter === 0
   }
 
+  // Used as buffer for USB data <> DMA transfers
   val dataBuffer = new Area{
     val ram = Mem(Bits(p.dataWidth bits), ramBurstCapacity * p.dmaLength*8/p.dmaLengthWidth)
 
@@ -264,7 +269,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val hcRhDescriptorA = new Area{
-      val NDP = ctrl.read(U(p.downstreamPorts, 8 bits), 0x48, 0)
+      val NDP = ctrl.read(U(p.portCount, 8 bits), 0x48, 0)
       val PSM = ctrl.createReadAndWrite(Bool(), 0x48, 8) init(p.powerSwitchingMode)
       val NPS = ctrl.createReadAndWrite(Bool(), 0x48, 9) init(p.noPowerSwitching)
       val OCPM = ctrl.createReadAndWrite(Bool(), 0x48, 11) init(p.powerSwitchingMode)
@@ -273,10 +278,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val hcRhDescriptorB = new Area{
-      val DR = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 1) //init(???)
-      val PPCM = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 17) //init(???)
-
-
+      val DR = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 1) init(Cat(p.portsConfig.map(!_.removable).map(Bool(_))))
+      val PPCM = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 17) init(Cat(p.portsConfig.map(_.powerControlMask).map(Bool(_))))
     }
 
     val hcRhStatus = new Area{
@@ -290,10 +293,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val clearRemoteWakeupEnable  = ctrl.setOnSet(False, 0x50, 31)
 
       DRWE setWhen(setRemoteWakeupEnable) clearWhen(clearRemoteWakeupEnable)
-      io.phy.remoteWakupEnable := DRWE
     }
 
-    val hcRhPortStatus = for(portId <- 0 to p.downstreamPorts-1) yield new Area {
+    val hcRhPortStatus = for(portId <- 0 to p.portCount-1) yield new Area {
       import hcRhDescriptorB._
       val id = portId + 1
       val port = io.phy.ports(portId)
@@ -316,9 +318,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val resume, reset, suspend = RegInit(False)
 
+      val connected = RegInit(False) setWhen(port.connect) clearWhen(port.disconnect)
       val PSS  = ctrl.createReadOnly(Bool(), address, 2) init(False)
       val PPS  = ctrl.createReadOnly(Bool(), address, 8) init(False)
-      val CCS  = ctrl.read((port.connected || DR(portId)) && PPS, address, 0)
+      val CCS  = ctrl.read((connected || DR(portId)) && PPS, address, 0) //MAYBUG DR => always one ???
       val PES  = ctrl.createReadOnly(Bool(), address, 1) init(False)
       val POCI = ctrl.read(port.overcurrent, address, 3)
       val PRS  = ctrl.read(reset, address, 4)
@@ -391,6 +394,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  // Track the progress of the current frame (1 ms)
   val frame = new Area {
     val run = False
     val reload = False
@@ -426,6 +430,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  // FSM to emit tocken
   val token  = new StateMachineSlave{
     val pid = Bits(4 bits).assignDontCare()
     val data = Bits(11 bits).assignDontCare()
@@ -473,6 +478,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  // FSM to emit a packet
   val dataTx  = new StateMachineSlave{
     val pid = Bits(4 bits).assignDontCare()
     val data = Stream(Fragment(Bits(8 bits)))
@@ -995,7 +1001,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    val tdCompletion = RegNext(currentAddress > lastAddressNoSat)
+    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
     UPDATE_TD_CMD.whenIsActive{
       io.dma.cmd.valid := True
       io.dma.cmd.address := TD.address
@@ -1222,17 +1228,29 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
+    //TODO
     RESUME.whenIsActive{
 
     }
 
+    //TODO
     SUSPEND.whenIsActive{
-
+      when(reg.hcRhStatus.DRWE && reg.hcRhPortStatus.map(_.CSC.reg).orR){
+        reg.hcInterrupt.RD.status := True
+        goto(RESUME)
+      }
     }
   }
 }
 
-
-//TODO
-// READ
-// notAccessed
+/*
+TODO
+ READ
+ notAccessed
+ rx timeout ?
+ suspend / resume
+ time budget for low speed over high speed packet
+ protect port exiting reset in the middle of something else
+ tx end of packet of zero byte check
+ 6.5.7 RootHubStatusChange Event
+ */
