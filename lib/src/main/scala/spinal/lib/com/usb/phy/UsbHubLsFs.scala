@@ -46,11 +46,15 @@ object UsbHubLsFs{
     val tx = Stream(Fragment(Bits(8 bits)))
     val rx = CtrlRx()
 
+
+    val suspended = Bool()
+    val resume = Bool()
+
     val ports = Vec(CtrlPort(), portCount)
 
     override def asMaster(): Unit = {
       in(overcurrent)
-      out(lowSpeed)
+      out(lowSpeed, suspended, resume)
       master(tx)
       slave(rx)
       ports.foreach(master(_))

@@ -1267,4 +1267,5 @@ TODO
  protect port exiting reset in the middle of something else
  tx end of packet of zero byte check
  6.5.7 RootHubStatusChange Event
+ Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  */

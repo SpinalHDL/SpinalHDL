@@ -341,6 +341,9 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
   io.ctrl.rx.error := False //TODO
   io.ctrl.rx.data := 0
 
+  val resumeFromPort = False
+  val resumeFromCtrl = io.ctrl.resume
+
   val ports = for((usb, ctrl) <- (io.usb, io.ctrl.ports).zipped) yield new Area{
 //    val connected = Reg(Bool) init(False) //TODO
     val lowSpeed = Reg(Bool)
@@ -488,12 +491,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
       }
 
-      val disconnect = new Timeout(2.1e-6)
-//      val connect = new Timeout(3e-6)
+      val disconnect = new Timeout(2.2e-6)
       disconnect.clear setWhen(!filter.io.filtred.se0 || usb.tx.enable)
-//      connect.clear setWhen(filter.io.filtred.dm === filter.io.filtred.dp)
-
-//      ctrl.connect := connect.event
       ctrl.disconnect := disconnect.event
     }
 
@@ -507,6 +506,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         val RESET_DELAY = trigger(50e-6)
         val RESET_EOI = trigger(if(sim)3e-3 else 50e-3)
         val RESUME_EOI = trigger(if(sim)2e-3 else 21e-3)
+        val RESTART_EOI = trigger(100e-6)
         val ONE_BIT = cycles(1)
         val TWO_BIT = cycles(2)
         this.lowSpeed := ls
@@ -514,13 +514,17 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
       ctrl.disable.ready := True //TODO
       ctrl.reset.ready := False
-      ctrl.resume.ready := False  //TODO
-      ctrl.suspend.ready := False  //TODO
+      ctrl.resume.ready := True  //TODO
+      ctrl.suspend.ready := True
       ctrl.connect := False
 
       usb.tx.enable := False
       usb.tx.data  assignDontCare()
       usb.tx.se0   assignDontCare()
+
+      def Rx_Suspend = io.ctrl.suspended
+      def SE0 =  filter.io.filtred.se0
+      def K   = !SE0 && filter.io.filtred.d ^ lowSpeed
 
       val resetInProgress = False
 
@@ -605,14 +609,21 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
           usb.tx.se0    := txShared.lowSpeedSof.se0
         }
 
+
         when(ctrl.suspend.valid){
           goto(SUSPENDED)
+        } elsewhen(Rx_Suspend & (SE0 || K)){
+          goto(RESTART_E)
+        } elsewhen(resumeFromCtrl){
+          goto(RESUMING)
         }
       }
 
       SUSPENDED whenIsActive{
-        when(ctrl.resume.valid){
+        when(ctrl.resume.valid || (!Rx_Suspend & K)){
           goto(RESUMING)
+        } elsewhen(Rx_Suspend & (SE0 || K)){
+          goto(RESTART_S)
         }
       }
 
@@ -646,45 +657,29 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
       }
 
+      //11.9 Suspend and Resume
+      RESTART_S onEntry(timer.clear := True)
+      RESTART_S whenIsActive {
+        when(K){
+          resumeFromPort := True
+          goto(RESUMING)
+        }
+        when(timer.RESTART_EOI){
+          goto(DISCONNECTED) //TODO raise interrupts and stuff like this ?
+        }
+      }
+      RESTART_E onEntry(timer.clear := True)
+      RESTART_E whenIsActive {
+        when(K){
+          resumeFromPort := True
+          goto(RESUMING)
+        }
+        when(timer.RESTART_EOI){
+          goto(DISCONNECTED) //TODO raise interrupts and stuff like this ?
+        }
+      }
 
-
-      //
-      //    DISCONNECTED.onEntry{
-      //      connected := False
-      //    }
-      //    DISCONNECTED.whenIsActive{
-      //      when(filter.io.filtred.dp =/= filter.io.filtred.dm){
-      //        lowSpeed := filter.io.filtred.dm
-      //        connected := True
-      //      }
-      //    }
-      //
-      //    CONNECTED.whenIsActive{
-      //      when(!io.ctrl.transaction) {
-      //        when(ctrl.reset.valid) {
-      //          goto(RESET)
-      //        }
-      //        when(ctrl.suspend.valid) {
-      //          goto(SUSPEND)
-      //        }
-      //        when(ctrl.resume.valid) {
-      //          goto(RESUME)
-      //        }
-      //      }
-      //    }
-      //
-      //    RESET.whenIsActive{
-      //
-      //    }
-      //    SUSPEND.whenIsActive{
-      //
-      //    }
-      //    RESUME.whenIsActive{
-      //
-      //    }
-
-      rx.disconnect.clear setWhen(List(ENABLED, SUSPENDED, DISABLED).map(isActive(_)).orR) //TODO can't disconnect when port enabled ?
-
+      rx.disconnect.clear setWhen(List(ENABLED, SUSPENDED, DISABLED).map(!isActive(_)).andR)
     }
   }
 }
