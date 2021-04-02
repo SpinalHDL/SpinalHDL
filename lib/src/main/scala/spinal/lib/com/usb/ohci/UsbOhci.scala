@@ -478,7 +478,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  // FSM to emit a packet
+  // FSM to emit a data packet (from dma)
   val dataTx  = new StateMachineSlave{
     val pid = Bits(4 bits).assignDontCare()
     val data = Stream(Fragment(Bits(8 bits)))
@@ -644,6 +644,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val BUFFER_READ = new State
     val TOKEN = new State
     val DATA_TX, DATA_RX = new State
+    val ACK_RX, ACK_TX = new State
     val UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
     val ABORD = new State
@@ -997,8 +998,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     DATA_TX.whenIsActive{
       dataTx.pid := dataPhase ## B"011"
       when(dataTx.wantExit){
-        goto(UPDATE_TD_CMD); dmaLogic.save := False
+        goto(ACK_RX)
+        dmaLogic.save := False
       }
+    }
+
+
+    ACK_RX.onEntry{
+//      dataTx.startFsm()
+    }
+    ACK_RX.whenIsActive{
+//      dataTx.pid := dataPhase ## B"011"
+//      when(dataTx.wantExit){
+//        goto(UPDATE_TD_CMD)
+//        dmaLogic.save := False
+//      }
     }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?

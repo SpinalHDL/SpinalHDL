@@ -64,7 +64,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       p1.join()
 
       val td0 = TD(malloc)
-      val td0Buffer = malloc.allocateAligned(256)
+      val td0Buffer = malloc.allocateAligned(256) //TODO should not be aligned
       td0.DP = 0
       td0.DI = 5
       td0.currentBuffer = td0Buffer.base.toInt
@@ -88,9 +88,12 @@ class SpinalSimUsbHostTester extends FunSuite{
       ctrl.write(ed0.address, hcBulkHeadED)
 
       for((group, groupId) <- (0 until 448).grouped(ed0.MPS).zipWithIndex) {
-        scoreboards(0).pushRef(TockenKey(ed0.FA, ed0.EN, TOCKEN_SETUP), DataPacket(if(groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => ram.readByteAsInt(td0.currentBuffer + byteId))))
+        scoreboards(0).pushRef(TockenKey(ed0.FA, ed0.EN, TOCKEN_SETUP), DataPacket(if(groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => ram.readByteAsInt(td0.currentBuffer + byteId)))){
+          println("maou")
+          portAgents(0).emitBytes(HANDSHAKE_ACK, List(), false, true)
+        }
       }
-      //TODO missing end of packet ?
+
 
       setBulkListFilled()
 

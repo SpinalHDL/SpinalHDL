@@ -54,6 +54,9 @@ class TesterUtils(dut : UsbOhciTbTop) {
   val TOCKEN_OUT = 1
   val DATA0 = 3
   val DATA1 = 11
+  val HANDSHAKE_ACK = 2
+  val HANDSHAKE_NACK = 10
+  val HANDSHAKE_STALL = 14
 
   implicit class BooleanPimper(self: Boolean) {
     def toInt = if (self) 1 else 0
@@ -149,16 +152,18 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
 
   }
 
-  val ref = mutable.LinkedHashMap[TockenKey, mutable.Queue[DataPacket]]()
-  override def txData(addr: Int, endp: Int, tocken : Int, pid: Int, data: Seq[Int]) = {
+  case class RefEntry(packet : DataPacket, onCompletion : () => Unit)
+  val ref = mutable.LinkedHashMap[TockenKey, mutable.Queue[RefEntry]]()
+  override def txData(addr: Int, endp: Int, tocken : Int, pid: Int, data: Seq[Int]) : Unit = {
     val key = TockenKey(addr, endp, tocken)
     val packet = DataPacket(pid, data)
     val ed = ref.get(key).get
-    val expected = ed.dequeue()
-    assert(packet == expected)
+    val entry = ed.dequeue()
+    assert(packet == entry.packet)
+    entry.onCompletion()
   }
 
-  def pushRef(key : TockenKey, data : DataPacket) = ref.getOrElseUpdate(key, mutable.Queue[DataPacket]()).enqueue(data)
+  def pushRef(key : TockenKey, data : DataPacket)(onCompletion : => Unit) = ref.getOrElseUpdate(key, mutable.Queue[RefEntry]()).enqueue(RefEntry(data, () => onCompletion))
 
   io.listener = this
 
@@ -240,7 +245,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
   var lowSpeed = false
   var connected = false
   val rx = new {
-    val dp, dm, enable = false
+    var dp, dm, enable = false
   }
 
   var listener : UsbLsFsPhyAbstractIoListener = null
@@ -316,7 +321,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     ret
   }
 
-  def calcCrc(that : Seq[Int], poly : Int, width : Int): Int ={
+  def calcCrc(that : Seq[Int], poly : Int, width : Int, check : Boolean): Int ={
     def getBit(id : Int) = (that(id/8) >> ((id % 8))) & 1
     val mask = ((1l << width)-1).toInt
     var crc = -1
@@ -324,9 +329,113 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       val bit = getBit(bitId) ^ ((crc >> (width-1)) & 1)
       crc = (crc << 1) ^ ((if(bit == 1) poly else 0))
     }
-//    val crcReversed = (0 until width).map(i => ((crc >> i) & 1) << (width-i-1)).reduce(_ | _)
-//    (~crcReversed) & mask
-    crc & mask
+    if(!check) {
+      val crcReversed = (0 until width).map(i => ((crc >> i) & 1) << (width - i - 1)).reduce(_ | _)
+      (~crcReversed) & mask
+    } else {
+      crc & mask
+    }
+  }
+
+  def emitBytes(pid : Int, data : Seq[Int], crc16 : Boolean, turnaround : Boolean) : Unit = {
+    val head = (pid | (~pid << 4)) & 0xFF
+    emitBytes(head +: data, crc16, turnaround)
+  }
+
+  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean) : Unit = {
+    var buf = data
+    if(crc16){
+      val crc = calcCrc(data, 0x8005, 16, false)
+      buf = buf ++ List(crc & 0xFF, crc >> 8)
+    }
+    buf = 0x80 +: buf
+    val booleans = bytesToBoolean(buf)
+    val stuffed = encodeStuffing(booleans)
+    val toggled = encodeToggle(stuffed).toList
+
+    def rec(data : List[Boolean]): Unit ={
+      if(data.isEmpty){
+        emitEop(Random.nextBoolean())
+      } else {
+        rx.enable = true
+        rx.dm = !lowSpeed ^ data.head
+        rx.dp =  lowSpeed ^ data.head
+        delayed(randomBitTime()){
+          rec(data.tail)
+        }
+      }
+    }
+    delayed(if(turnaround) bitTime()*2 else 0){//TODO better delay for better testing
+      rec(toggled)
+    }
+  }
+
+  def bitTime(): Long ={
+    if(lowSpeed) 666666 else 83333
+  }
+
+  def randomBitTime(): Long ={
+    bitTime()
+  }
+
+  def emitEop(extraBit : Boolean): Unit ={
+    if(extraBit){
+      rx.enable = true
+      rx.dm = Random.nextBoolean()
+      rx.dp = !rx.dm
+      delayed(randomBitTime()){
+        emitEop(false)
+      }
+    } else {
+      rx.enable = true
+      rx.dm = false
+      rx.dp = false
+      delayed(randomBitTime() + randomBitTime()){
+        rx.enable = true
+        rx.dm =  lowSpeed
+        rx.dp = !lowSpeed
+        delayed(randomBitTime()){
+          rx.enable = false
+        }
+      }
+    }
+  }
+
+  def bytesToBoolean(data : Seq[Int]) = {
+    val ret = ArrayBuffer[Boolean]()
+    for(e <- data) {
+      for (bitId <- 0 until 8) {
+        ret += ((e >> bitId) & 1) != 0
+      }
+    }
+    ret
+  }
+
+  def encodeStuffing(data : Seq[Boolean]) : Seq[Boolean] = {
+    val ret = ArrayBuffer[Boolean]()
+    var counter = 0
+    for(e <- data){
+      if(counter == 6){
+        ret += false
+      }
+      ret += e
+      if(e){
+        counter = counter + 1
+      } else {
+        counter = 0
+      }
+    }
+    ret
+  }
+
+  def encodeToggle(data : Seq[Boolean]) : Seq[Boolean] = {
+    val ret = ArrayBuffer[Boolean]()
+    var value = true
+    for(e <- data){
+      value ^= !e
+      ret += value
+    }
+    ret
   }
 
   cd.onSamplings{
@@ -404,24 +513,6 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
         if(bitEvent){
           assert(txStable >= cdBitRatio)
           if(txSe0){
-            val detoggled = decodePacketToggle(packetBits)
-            val destuffed = decodeStuffing(detoggled)
-            val bytes = decodeBytes(destuffed)
-            log(bytes.map(e => f"${e}%02x").mkString(","))
-            assert(bytes(0) == 0x80)
-            (bytes(1) & 0x3) match{
-              case 1 => {
-                val crc = calcCrc(bytes.drop(2), 5, 5)
-                assert(crc == 0x0C)
-              }
-              case 3 => {
-                val crc = calcCrc(bytes.drop(2), 0x8005, 16)
-                assert(crc == 0x800D)
-              }
-              case _ =>
-            }
-
-            onListener(_.txPacket(bytes.drop(1)))
             state = EOP_1
             log("EOP")
           } else {
@@ -432,6 +523,24 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       case EOP_1 => {
         assert(txEnable && txSe0)
         if(bitEvent){
+          val detoggled = decodePacketToggle(packetBits)
+          val destuffed = decodeStuffing(detoggled)
+          val bytes = decodeBytes(destuffed)
+          log(bytes.map(e => f"${e}%02x").mkString(","))
+          assert(bytes(0) == 0x80)
+          (bytes(1) & 0x3) match{
+            case 1 => {
+              val crc = calcCrc(bytes.drop(2), 5, 5, true)
+              assert(crc == 0x0C)
+            }
+            case 3 => {
+              val crc = calcCrc(bytes.drop(2), 0x8005, 16, true)
+              assert(crc == 0x800D)
+            }
+            case _ =>
+          }
+
+          onListener(_.txPacket(bytes.drop(1)))
           state = EOP_2
         }
       }

@@ -72,7 +72,7 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
       counter := 0
     }
 
-    val sampleAt = io.fullSpeed ? U(fsRatio/2) | U(fsRatio*8/2)
+    val sampleAt = io.fullSpeed ? U(fsRatio/2-1) | U(fsRatio*8/2-1)
     val sampleDo = counter === sampleAt
 
     when(frontend.valid & frontend.edge){
@@ -405,8 +405,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       val history = new Area{
-        val value = History(destuffer.output.payload, 0 to 7, when = destuffer.output.valid).asBits
         val updated = CombInit(destuffer.output.valid)
+        val value = History(destuffer.output.payload, 0 to 7, when = updated).reverse.asBits
         val sync = new Area {
           val pattern = 0x80
           val hit = updated && value === pattern
@@ -434,8 +434,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
   //    }
 
       val eop = new Area{
-        val minThreshold = lowSpeed ? U(fsRatio*8*3)     | U(fsRatio*3)
-        val maxThreshold = lowSpeed ? U(fsRatio*8*2*2/3) | U(fsRatio*2*2/3)
+        val maxThreshold = lowSpeed ? U(fsRatio*8*3)     | U(fsRatio*3)
+        val minThreshold = lowSpeed ? U(fsRatio*8*2*2/3) | U(fsRatio*2*2/3)
         val counter = Reg(UInt(log2Up(fsRatio*8*3+1) bits)) init(0)
         val maxHit = counter === maxThreshold
         val hit = False
