@@ -303,7 +303,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
-/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+
+  def swapPayload[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "swap", true)
+    next.arbitrationFrom(this)
+    next
+  }
+
+
+  /** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
   */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
@@ -1353,7 +1361,7 @@ case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], chann
 }
 
 //io.availability has one cycle latency
-case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
+case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
   assert(isPow2(depth))
   val io = new Bundle {
     val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
@@ -1450,7 +1458,7 @@ object StreamFifoMultiChannelBench extends App{
     SpinalVerilog(new Component{
       val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
       val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
-      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+      val fifo = StreamFifoMultiChannelSharedSpace(payloadType, channelCount, 32)
 
       fifo.io.push.channel := RegNext(push.channel)
       push.full := RegNext(fifo.io.push.full)
@@ -1468,7 +1476,7 @@ object StreamFifoMultiChannelBench extends App{
     override def getRtlPath(): String = getName() + ".v"
     SpinalVerilog(new Component{
       val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
-      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+      val fifo = StreamFifoMultiChannelSharedSpace(payloadType, channelCount, 32)
 
       fifo.io.push.channel := RegNext(push.channel)
       push.full := RegNext(fifo.io.push.full)

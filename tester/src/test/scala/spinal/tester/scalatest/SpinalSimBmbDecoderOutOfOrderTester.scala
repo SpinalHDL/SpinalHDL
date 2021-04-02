@@ -3,9 +3,9 @@ package spinal.tester.scalatest
 import org.scalatest.FunSuite
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.{StreamFifoMultiChannel, master, slave}
+import spinal.lib.{StreamFifoMultiChannelSharedSpace, master, slave}
 import spinal.lib.bus.bmb.sim.{BmbInterconnectTester, BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester}
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbParameter, BmbSourceParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbDecoderPerSource, BmbParameter, BmbSourceParameter}
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 
@@ -122,6 +122,63 @@ class SpinalSimBmbDecoderInOrderTester extends FunSuite {
   }
 }
 
+class SpinalSimBmbDecoderInOrderPerSourceTester extends FunSuite {
+  test("t1") {
+    val p = BmbParameter(
+      addressWidth = 20,
+      dataWidth    = 32,
+      lengthWidth  = 6,
+      sourceWidth  = 2,
+      contextWidth = 16
+    )
+    SimConfig.compile(BmbDecoderPerSource(
+      p             = p,
+      mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
+      capabilities  = Seq.fill(3)(p),
+      pendingMax = 15
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(1000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
+
+  test("t2") {
+    val p = BmbParameter(
+      addressWidth = 20,
+      dataWidth    = 32,
+      lengthWidth  = 6,
+      sourceWidth  = 2,
+      contextWidth = 16
+    )
+    SimConfig.withWave.compile(BmbDecoderPerSource(
+      p             = p,
+      mappings      = Seq(SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
+      capabilities  = Seq.fill(2)(p),
+      pendingMax = 15
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(1000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
+}
 
 
 object SpinalSimBmbDecoderOutOfOrderSynthesisBench extends App{

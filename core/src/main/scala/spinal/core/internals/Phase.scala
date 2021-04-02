@@ -358,13 +358,13 @@ class PhaseAnalog extends PhaseNetlist{
         case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
       }
 
-      //Remove target analog assignements
+      //Remove target analog assignments
       target.foreachStatements {
         case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
         case _ =>
       }
 
-      //redirect island assignements to target
+      //redirect island assignments to target
       //drive isllands analogs from target as comb signal
       for(bt <- island if bt != target){
         val btStatements = ArrayBuffer[AssignmentStatement]()
@@ -388,7 +388,7 @@ class PhaseAnalog extends PhaseNetlist{
         bt.rootScopeStatement.pop()
       }
 
-      //Convert target comb assignement into AnalogDriver nods
+      //Convert target comb assignment into AnalogDriver nods
       target.foreachStatements(s => {
         s.source match {
           case btSource: BaseType if btSource.isAnalog =>
@@ -495,13 +495,13 @@ class PhaseAnalog extends PhaseNetlist{
 //            case _ => PendingError("MULTIPLE INOUT interconnected in the same component"); null
 //          }
 //
-//          //Remove target analog assignements
+//          //Remove target analog assignments
 //          target.foreachStatements {
 //            case s@AssignmentStatement(x, y: BaseType) if y.isAnalog && y.component == target.component => s.removeStatement()
 //            case _ =>
 //          }
 //
-//          //redirect island assignements to target
+//          //redirect island assignments to target
 //          //drive isllands analogs from target as comb signal
 //          for(bt <- island if bt != target){
 //            val btStatements = ArrayBuffer[AssignmentStatement]()
@@ -525,7 +525,7 @@ class PhaseAnalog extends PhaseNetlist{
 //            bt.rootScopeStatement.pop()
 //          }
 //
-//          //Convert target comb assignement into AnalogDriver nods
+//          //Convert target comb assignment into AnalogDriver nods
 //          target.foreachStatements(s => {
 //            s.source match {
 //              case btSource: BaseType if btSource.isAnalog =>
@@ -925,7 +925,10 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
                 case _ =>
               }
               obj match {
-                case obj: Data => bb.genericElements ++= obj.flatten.map(o => (o.getName(), o))
+                case obj: Data => bb.genericElements ++= obj.flatten.map(o => {
+                  o.addTag(GenericValue(o.head.source))
+                  (o.getName(), o)
+                })
                 case _         => bb.genericElements += Tuple2(name, obj.asInstanceOf[Any])
               }
             })
@@ -1144,6 +1147,11 @@ class PhaseDevice(pc : PhaseContext) extends PhaseMisc{
         }
         if (hit) mem.addAttribute("ram_style", "distributed") //Vivado stupid gambling workaround Synth 8-6430
       }
+      case bt : BaseType =>{
+        if(bt.isReg && (bt.hasTag(crossClockDomain) || bt.hasTag(crossClockBuffer))){
+          bt.addAttribute("async_reg", "true")
+        }
+      }
       case _ =>
     }
     if(pc.config.device.vendor == Device.ALTERA.vendor){
@@ -1213,7 +1221,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
           }
 
-          if (e.inferredWidth > 4095) {
+          if (e.inferredWidth > 4096) {
             errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
           }
         }
@@ -1225,7 +1233,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             if (e.getWidth < 0) {
               errors += s"Negative width on $e at ${e.getScalaLocationLong}"
             }
-            if (e.getWidth > 4095) {
+            if (e.getWidth > 4096) {
               errors += s"Way too big signal $e at ${e.getScalaLocationLong}"
             }
           case _ =>
@@ -1258,6 +1266,9 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
         s.foreachStatements(toRemove += _)
         s.removeStatement()
       case s: Mem[_] if s.getWidth == 0 =>
+        s.foreachStatements(toRemove += _)
+        s.removeStatement()
+      case s: SpinalEnumCraft[_] if s.spinalEnum.elements.size < 2 =>
         s.foreachStatements(toRemove += _)
         s.removeStatement()
       case s => s.walkRemapExpressions(_.simplifyNode)

@@ -137,7 +137,7 @@ public:
     bool sint;
 
     WDataSignalAccess(WData *raw, uint32_t width, bool sint) : 
-      raw(raw), width(width), sint(sint), wordsCount((width+31)/32) {}
+      raw(raw), width(width), wordsCount((width+31)/32), sint(sint) {}
 
     uint64_t getU64_mem(size_t index) {
       WData *mem_el = &(raw[index*wordsCount]);
@@ -395,7 +395,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
 //     VL_THREADED
   def compileVerilator(): Unit = {
-    val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
+    val java_home = System.getProperty("java.home")
+    assert(java_home != "" && java_home != null, "JAVA_HOME need to be set")
+    val jdk = java_home.replace("/jre","").replace("\\jre","")
     val jdkIncludes = if(isWindows){
       new File(s"${workspacePath}\\${workspaceName}").mkdirs()
       FileUtils.copyDirectory(new File(s"$jdk\\include"), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
@@ -406,7 +408,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
     val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
 
-    config.rtlSourcesPaths.filter(_.endsWith(".bin")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
+    config.rtlSourcesPaths.filter(s => s.endsWith(".bin") || s.endsWith(".mem")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
 
 //    --output-split-cfuncs 200
 //    --output-split-ctrace 200
