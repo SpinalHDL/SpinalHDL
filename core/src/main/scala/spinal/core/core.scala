@@ -26,6 +26,7 @@ import scala.annotation.elidable
 import scala.annotation.elidable._
 import scala.annotation.meta.field
 import scala.collection.immutable.Range
+import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 
 
@@ -244,6 +245,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
+    def L(args: Any*): List[Any] ={
+      val ret = ArrayBuffer[Any]()
+      for((s,i) <- sc.parts.zipWithIndex){
+        ret += s
+        if(args.size > i) ret += args(i)
+      }
+      ret.toList
+    }
 
     def Bits(args: Any*): Bits = B(args)
     def UInt(args: Any*): UInt = U(args)
