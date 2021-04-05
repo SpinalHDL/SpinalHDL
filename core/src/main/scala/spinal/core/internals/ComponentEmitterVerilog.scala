@@ -96,7 +96,13 @@ class ComponentEmitterVerilog(
       declarations ++= emitBaseTypeWrap(io, name)
     } else {
       wrapSubInput(io.parent.asInstanceOf[BaseType])
-      name = referencesOverrides(io.parent) + "." + io.getPartialName()
+      var parentName: String = ""
+      referencesOverrides(io.parent) match {
+        case s: String => parentName = s
+        case n: Nameable => parentName = n.getNameElseThrow
+        case _ => throw new Exception(s"Could not determine name of ${io}")
+      }
+      name = parentName + "." + io.getPartialName()
     }
     referencesOverrides(io) = name
   }
