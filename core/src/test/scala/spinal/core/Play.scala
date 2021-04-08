@@ -94,19 +94,20 @@ object Play {
 }
 
 object Play2 extends App{
-  class Thing extends Nameable
-
-  SpinalVerilog(new Component {
-    val miaou = new Thing
-    println(miaou.getName()) //Print miaou
-
-    val logic = new Area{
-      val wuff = new Thing
-      println(wuff.getName()) //Print nothing, as the logic area isn't done yet
-    }
-
-    println(logic.wuff.getName()) //Print logic_wuff
-  })
+  import spinal.core.sim._
+  object Enum extends SpinalEnum{
+    val MIAOU, RAWRR = newElement()
+  }
+  SimConfig.compile(new Component {
+    val a = Enum.RAWRR()
+    val b = U(0x42)
+    val c = out(Enum.RAWRR())
+    val d = out (U(0x42))
+    report(L"miaou $a $b $c $d")
+  }).doSim{ dut =>
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(5)
+  }
 }
 
 
