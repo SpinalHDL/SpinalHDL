@@ -205,20 +205,22 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
-    * Create the memory mapping to read that from address
-    * If that  is bigger than one word it extends the register on followings addresses
+    * Create the memory mapping to read `that` from `address`
+    * If `that` is bigger than one word it extends the register on following addresses.
     */
   def readMultiWord(that: Data, address: BigInt, documentation: String = null): Unit  = {
-
+    // round up
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
     var pos = if(isLittleWordEndianness) 0 else widthOf(that) - (if (widthOf(that) % busDataWidth  == 0)  busDataWidth else widthOf(that) % busDataWidth  )
     for (wordId <- 0 until wordCount) {
-      if (isLittleWordEndianness){
-        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation)
+      // support unaligned access
+      val mapping = SizeMapping(address + wordId * wordAddressInc, wordAddressInc)
+      if (isLittleWordEndianness) {
+        readPrimitive(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), mapping, 0, documentation)
         pos += busDataWidth
-      }else{
-        read(valueBits(pos, Math.min(widthOf(that) - ((wordCount-1) - wordId) * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc, 0, documentation)
+      } else {
+        readPrimitive(valueBits(pos, Math.min(widthOf(that) - ((wordCount - 1) - wordId) * busDataWidth, busDataWidth) bits), mapping, 0, documentation)
         pos -= Math.min(pos, busDataWidth)
       }
     }
@@ -226,14 +228,17 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Create the memory mapping to write that at address.
-    * If `that` is bigger than one word it extends the register on followings addresses
+    * If `that` is bigger than one word it extends the register on following addresses.
     */
   def writeMultiWord(that: Data, address: BigInt, documentation: String = null): Unit = {
+    // round up
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- 0 until wordCount) {
+      // support unaligned access
+      val mapping = SizeMapping(address + wordId * wordAddressInc, wordAddressInc)
       // split `that` into words
-      write(
-        that = new DataWrapper{
+      writePrimitive(
+        that = new DataWrapper {
           override def getBitsWidth: Int = if (isLittleWordEndianness) {
             Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
           } else {
@@ -252,7 +257,7 @@ trait BusSlaveFactory extends Area{
               bitCount = bitCount)
           }
         },
-        address = address + wordId * wordAddressInc, 0, documentation)
+        mapping, 0, documentation)
     }
   }
 
