@@ -36,6 +36,25 @@ object UsbOhci{
   )
 }
 
+object UsbPid{
+  val OUT = Integer.parseInt("0001",2)
+  val IN = Integer.parseInt("1001",2)
+  val SOF = Integer.parseInt("0101",2)
+  val SETUP = Integer.parseInt("1101",2)
+  val DATA0 = Integer.parseInt("0011",2)
+  val DATA1 = Integer.parseInt("1011",2)
+  val DATA2 = Integer.parseInt("0111",2)
+  val MDATA = Integer.parseInt("1111",2)
+  val ACK = Integer.parseInt("0010",2)
+  val NAK = Integer.parseInt("1010",2)
+  val STALL = Integer.parseInt("1110",2)
+  val NYET = Integer.parseInt("0110",2)
+  val PRE = Integer.parseInt("1100",2)
+  val ERR = Integer.parseInt("1100",2)
+  val SPLIT = Integer.parseInt("1000",2)
+  val PING = Integer.parseInt("0100",2)
+}
+
 case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends Component{
   val io = new Bundle {
     val ctrl = slave(Bmb(ctrlParameter))
@@ -46,9 +65,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   
   val unscheduleAll = Event
   unscheduleAll.valid := False
+  unscheduleAll.ready := True
 
   val ioDma = Bmb(UsbOhci.dmaParameter(p))
-  io.dma.cmd << ioDma.cmd.haltWhen(unscheduleAll.valid)
+  io.dma.cmd << ioDma.cmd.haltWhen(unscheduleAll.valid && io.dma.cmd.first)
   io.dma.rsp >> ioDma.rsp
 
 
@@ -57,6 +77,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   ioDma.cmd.data.removeAssignments() := 0
   ioDma.cmd.mask.removeAssignments() := 0
   ioDma.rsp.ready := True
+
   val dmaRspMux = new Area{
     val vec = ioDma.rsp.data.subdivideIn(32 bits)
     val sel = UInt(log2Up(vec.length) bits)
@@ -109,6 +130,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val pendingFull = pendingCounter === ramBurstCapacity
     val pendingEmpty = pendingCounter === 0
+
+    unscheduleAll.ready clearWhen(!pendingEmpty)
   }
 
   // Used as buffer for USB data <> DMA transfers
@@ -152,8 +175,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val ctrl = BmbSlaveFactory(io.ctrl)
 
-  val doSoftReset = RegInit(False)
-  unscheduleAll.valid setWhen(doSoftReset)
+  val doUnschedule = RegInit(False) clearWhen(unscheduleAll.ready)
+  val doSoftReset = RegInit(False) clearWhen(!doUnschedule)
+  unscheduleAll.valid setWhen(doUnschedule)
   
   val softInitTasks = ArrayBuffer[() => Unit]()
   implicit class OhciDataPimper[T <: Data](self : T){
@@ -189,8 +213,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val CLE = ctrl.createReadAndWrite(Bool(), 0x04, 4) softInit (False)
       val BLE = ctrl.createReadAndWrite(Bool(), 0x04, 5) softInit (False)
       val HCFS = ctrl.read(MainState(), 0x04, 6)
-      val IR =  ctrl.createReadAndWrite(Bool(), 0x04, 8) Init(False)
-      val RWC = ctrl.createReadAndWrite(Bool(), 0x04, 9) Init(False)
+      val IR =  ctrl.createReadAndWrite(Bool(), 0x04, 8) init(False)
+      val RWC = ctrl.createReadAndWrite(Bool(), 0x04, 9) init(False)
       val RWE = ctrl.createReadAndWrite(Bool(), 0x04, 10) softInit (False)
 
 
@@ -198,9 +222,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val hcCommandStatus = new Area {
-      ctrl.setOnSet(doSoftReset, 0x08, 0)
-      val HCR = ctrl.createReadAndSetOnSet(Bool(), 0x08, 0) softInit (False)
-      val CLF = ctrl.createReadAndSetOnSet(Bool(), 0x08, 1) softInit (False)
+      val startSoftReset = ctrl.setOnSet(False, 0x08, 0)
+      val HCR = ctrl.read(doSoftReset, 0x08, 0)
+      val CLF = ctrl.createReadAndSetOnSet(doSoftReset, 0x08, 1) softInit (False)
       val BLF = ctrl.createReadAndSetOnSet(Bool(), 0x08, 2) softInit (False)
       val SOC = ctrl.createReadOnly(UInt(2 bits), 0x08, 16) softInit (0)
     }
@@ -285,7 +309,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val hcPeriodicStart = new Area {
-      val PS = hardCd on ctrl.createReadAndWrite(UInt(14 bits), 0x40, 0) softInit (0)
+      val PS = ctrl.createReadAndWrite(UInt(14 bits), 0x40, 0) init (0)
     }
 
     val hcLSThreshold = new Area {
@@ -347,7 +371,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val connected = RegInit(False) setWhen (port.connect) clearWhen (port.disconnect)
       val PSS = ctrl.createReadOnly(Bool(), address, 2) init (False)
-      val PPS = ctrl.createReadOnly(Bool(), address, 8) init (False)
+      val PPS = ctrl.createReadOnly(Bool(), address, 8) init (False) //TODO init port registers on HC reset ?
       val CCS = ctrl.read((connected || DR(portId)) && PPS, address, 0) //MAYBUG DR => always one ???
       val PES = ctrl.createReadOnly(Bool(), address, 1) init (False)
       val POCI = ctrl.read(port.overcurrent, address, 3)
@@ -508,9 +532,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     always{
-      when(isStarted && doSoftReset){
-        exitFsm()
-      }
+      when(unscheduleAll.fire){ killFsm() }
     }
   }
 
@@ -579,9 +601,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     always{
-      when(isStarted && doSoftReset){
-        exitFsm()
-      }
+      when(unscheduleAll.fire){ killFsm() }
     }
   }
 
@@ -630,6 +650,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
         exitFsm()
       }
+    }
+
+    always{
+      when(unscheduleAll.fire){ killFsm() }
     }
   }
 
@@ -680,6 +704,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  val rxPidOk = io.phy.rx.data(3 downto 0) === ~io.phy.rx.data(7 downto 4)
+
   val endpoint = new StateMachineSlave {
     val ED_READ_CMD, ED_READ_RSP, ED_ANALYSE = new State
     val TD_READ_CMD, TD_READ_RSP, TD_ANALYSE, TD_CHECK_TIME = new State
@@ -692,6 +718,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val ABORD = new State
 
     setEntry(ED_READ_CMD)
+
+    always{
+      when(unscheduleAll.fire){ killFsm() }
+    }
 
     val flowType = Reg(FlowType())
 
@@ -848,6 +878,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val INIT, CALC, CMD = new State
       setEntry(INIT)
       disableAutoStart()
+
+      always{
+        when(unscheduleAll.fire){ killFsm() }
+      }
 
       val save = RegInit(False)
       val length = Reg(UInt(p.dmaLengthWidth bits))
@@ -1037,14 +1071,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       token.data := ED.EN ## ED.FA
       switch((ED.D(0) =/= ED.D(1)) ? ED.D | TD.DP) {
         is(B"00") {
-          token.pid := 13
-        } //SETUP
+          token.pid := UsbPid.SETUP
+        }
         is(B"01") {
-          token.pid := 1
-        } //OUT
+          token.pid := UsbPid.OUT
+        }
         is(B"10") {
-          token.pid := 9
-        } //IN
+          token.pid := UsbPid.IN
+        }
       }
       when(token.wantExit) {
         goto(DATA_TX)
@@ -1063,15 +1097,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
 
-    ACK_RX.onEntry {
-      //      dataTx.startFsm()
-    }
+    val rxCc = Reg(UInt(4 bits))
     ACK_RX.whenIsActive {
-      //      dataTx.pid := dataPhase ## B"011"
-      //      when(dataTx.wantExit){
-      //        goto(UPDATE_TD_CMD)
-      //        dmaLogic.save := False
-      //      }
+      when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts
+        goto(UPDATE_TD_CMD)
+        when(!rxPidOk){
+          rxCc := codes.pidCheckFailure
+        } otherwise{
+          switch(io.phy.rx.data(3 downto 0)){
+            is(UsbPid.ACK) { rxCc := codes.noError }
+            is(UsbPid.NAK) { goto(UPDATE_SYNC)}
+            is(UsbPid.STALL) { rxCc := codes.stall  }
+            default( rxCc := codes.pidCheckFailure )
+          }
+        }
+      }
     }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
@@ -1081,7 +1121,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.length := (ED.F ? U(31) | U(15)).resized
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
-      //TODO
+      //TODO manage rxCc
       dmaWriteCtx.save(codes.noError ## U"00" ## True ## !dataPhase, 0, 24)
       dmaWriteCtx.save(currentAddressFull, 1, 0)
       when(tdCompletion) {
@@ -1146,7 +1186,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val allowControl = Reg(Bool)
     val allowPeriodic = Reg(Bool)
     val allowIsochronous = Reg(Bool)
+    val askExit = False
 
+    always{
+      when(unscheduleAll.fire){ killFsm() }
+    }
 
     onStart {
       allowPeriodic := False // Avoid overrun false positive trigger
@@ -1180,7 +1224,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       allowBulk setWhen (reg.hcControl.BLE)
       allowControl setWhen (reg.hcControl.CLE)
 
-      when(frame.limitHit) {
+      when(askExit){
+        exitFsm()
+      } elsewhen(frame.limitHit) {
         goto(WAIT_SOF)
       } elsewhen (allowPeriodic && !periodicDone && !frame.section1) {
         when(!periodicHeadFetched) {
@@ -1275,33 +1321,32 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   }
 
   val hc = new StateMachine {
-    val INIT, RESET, RESUME, OPERATIONAL, SUSPEND = new State
-    setEntry(INIT)
+    val RESET, RESUME, OPERATIONAL, SUSPEND, RESET_TO_OPERATIONAL, RESUME_TO_OPERATIONAL, ANY_TO_RESET, ANY_TO_SUSPEND = new State
+    setEntry(RESET)
 
     reg.hcControl.HCFS := MainState.RESET
 
-    INIT.whenIsActive{
-      when(softResetCtrl.wasSoftReset){
-        goto(SUSPEND)
-      } otherwise {
-        goto(RESET)
-      }
-    }
+
+    io.phy.usbReset := isActive(RESET)
+    io.phy.usbResume := isActive(RESUME)
 
     val error = False
-    io.phy.usbReset := False
     RESET.whenIsActive {
-      io.phy.usbReset := True
       when(reg.hcControl.HCFSWrite.valid) {
         switch(reg.hcControl.HCFSWrite.payload) {
           is(MainState.OPERATIONAL) {
-            goto(OPERATIONAL)
+            goto(RESET_TO_OPERATIONAL)
           }
           default {
             error := True
           }
         }
       }
+    }
+
+    RESET_TO_OPERATIONAL whenIsActive{
+      reg.hcControl.HCFS := MainState.OPERATIONAL
+      goto(OPERATIONAL) //TODO timings
     }
 
     //TODO the Host Controller is responsible for terminating the USB reset or resume signaling
@@ -1313,19 +1358,19 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     OPERATIONAL.whenIsActive {
       reg.hcControl.HCFS := MainState.OPERATIONAL
       frame.run := True
-      when(operational.wantExit) {
-        goto(SUSPEND)
-      }
     }
-    OPERATIONAL.onExit {
-      operational.exitFsm() //TODO may be too brutal XD
-    }
+
 
     RESUME.whenIsActive {
       reg.hcControl.HCFS := MainState.RESUME
       when(reg.hcControl.HCFSWrite.valid && reg.hcControl.HCFSWrite.payload === MainState.OPERATIONAL) {
-        goto(OPERATIONAL)
+        goto(RESUME_TO_OPERATIONAL)
       }
+    }
+
+    RESUME_TO_OPERATIONAL whenIsActive{
+      reg.hcControl.HCFS := MainState.OPERATIONAL
+      goto(OPERATIONAL) //TODO timings
     }
 
     SUSPEND.whenIsActive {
@@ -1336,10 +1381,37 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    always{
-      when(reg.hcControl.HCFSWrite.valid && reg.hcControl.HCFSWrite.payload === MainState.RESET) {
-        reg.hcCommandStatus.HCR := False
+    ANY_TO_RESET onEntry{
+      doUnschedule := True
+    }
+    ANY_TO_RESET whenIsActive{
+      reg.hcControl.HCFS := MainState.RESET
+      when(!doUnschedule){
         goto(RESET)
+      }
+    }
+
+    ANY_TO_SUSPEND onEntry {
+      doUnschedule := True
+    }
+    ANY_TO_SUSPEND whenIsActive{
+      operational.askExit := True
+      reg.hcControl.HCFS := MainState.SUSPEND
+      when(!doUnschedule && !doSoftReset && operational.isStopped){
+        goto(SUSPEND)
+      }
+    }
+
+    always{
+      // Handle HCD asking a usbRESET transition
+      when(reg.hcControl.HCFSWrite.valid && reg.hcControl.HCFSWrite.payload === MainState.RESET) {
+        goto(ANY_TO_RESET)
+      }
+
+      // Handle software reset
+      when(reg.hcCommandStatus.startSoftReset){
+        doSoftReset := True
+        goto(ANY_TO_SUSPEND)
       }
     }
   }

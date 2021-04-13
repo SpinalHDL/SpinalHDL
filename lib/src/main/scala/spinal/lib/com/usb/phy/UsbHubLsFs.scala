@@ -50,12 +50,13 @@ object UsbHubLsFs{
     val suspended = Bool()
     val resume = Bool()
     val usbReset = Bool()
+    val usbResume = Bool()
 
     val ports = Vec(CtrlPort(), portCount)
 
     override def asMaster(): Unit = {
       in(overcurrent)
-      out(lowSpeed, suspended, resume, usbReset)
+      out(lowSpeed, suspended, resume, usbReset, usbResume)
       master(tx)
       slave(rx)
       ports.foreach(master(_))

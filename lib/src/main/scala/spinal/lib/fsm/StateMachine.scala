@@ -139,6 +139,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var transitionCond : Bool = null
   override val wantExit  = False.allowPruning()
   val wantStart = False
+  val wantKill = False
   var autoStart = true
 
   @dontName var parentStateMachine: StateMachineAccessor = null
@@ -240,6 +241,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       else
         forceGoto(entryState)
     }
+    when(wantKill){
+      forceGoto(stateBoot)
+    }
   }
 
   Component.current.addPrePopTask(() => {
@@ -305,6 +309,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   override def exitFsm(): Unit = {
     wantExit := True
     goto(stateBoot)
+  }
+
+  def killFsm() : Unit = {
+    wantKill := True
   }
 
   @dontName implicit val implicitFsm = this

@@ -546,6 +546,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       POWER_OFF whenIsActive{
+        usb.tx.enable := True
+        usb.tx.se0 := True
         when(ctrl.power){
           goto(DISCONNECTED)
         }
