@@ -34,8 +34,10 @@ class SpinalSimUsbHostTester extends FunSuite{
       import utils._
 
       dut.clockDomain.forkSimSpeedPrinter()
+      dut.clockDomain.waitSampling(2)
 
       val malloc = MemoryRegionAllocator(0, 1 << 30)
+
 
       val hcca = HCCA(malloc)
       hcca.save(ram)
@@ -89,11 +91,9 @@ class SpinalSimUsbHostTester extends FunSuite{
 
       for((group, groupId) <- (0 until 448).grouped(ed0.MPS).zipWithIndex) {
         scoreboards(0).pushRef(TockenKey(ed0.FA, ed0.EN, TOCKEN_SETUP), DataPacket(if(groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => ram.readByteAsInt(td0.currentBuffer + byteId)))){
-          println("maou")
           portAgents(0).emitBytes(HANDSHAKE_ACK, List(), false, true)
         }
       }
-
 
       setBulkListFilled()
 
@@ -103,101 +103,6 @@ class SpinalSimUsbHostTester extends FunSuite{
     }
   }
 }
-
-
-//      val td3 = TD(0x7000)
-//      td3.DP = 0
-//      td3.DI = 4
-//      td3.currentBuffer = 0x120000+8
-//      td3.bufferEnd = 0x1201FF+8
-//      td3.nextTD = 0
-//      td3.save(ram)
-//
-//      for((address, i) <- (td3.currentBuffer to td3.bufferEnd).zipWithIndex){
-//        ram.write(address, i.toByte)
-//      }
-//
-//
-//      val ed2 = ED(0x8000)
-//      ed2.D = 0
-//      ed2.MPS = 64
-//      ed2.headP = td3.address
-//      ed2.save(ram)
-//      ctrl.write(ed2.address, hcControlHeadED)
-//
-//
-//
-//      val td2 = TD(0x5000)
-//      td2.DP = 0
-//      td2.DI = 7
-//      td2.currentBuffer = 0x100000+8
-//      td2.bufferEnd = 0x1000FF+8
-//      td2.nextTD = 0
-//      td2.save(ram)
-//
-//      for((address, i) <- (td2.currentBuffer to td2.bufferEnd).zipWithIndex){
-//        ram.write(address, i.toByte)
-//      }
-//
-//
-//      val ed1 = ED(0x6000)
-//      ed1.D = 0
-//      ed1.MPS = 64
-//      ed1.headP = td2.address
-//      ed1.save(ram)
-//
-//
-//
-//
-//      val td1 = TD(0x4000)
-//      td1.DP = 0
-//      td1.DI = 6
-//      td1.currentBuffer = 0x110000+8
-//      td1.bufferEnd = 0x1100FF+8
-//      td1.save(ram)
-//
-//      for((address, i) <- (td1.currentBuffer to td1.bufferEnd).reverse.zipWithIndex){
-//        ram.write(address, i.toByte)
-//      }
-//
-//      val td0 = TD(0x3000)
-//      td0.DP = 0
-//      td0.DI = 5
-//      td0.currentBuffer = 0x100000+8
-//      td0.bufferEnd = 0x1001BF+8
-//      td0.nextTD = td1.address
-//      td0.save(ram)
-//
-//      for((address, i) <- (td0.currentBuffer to td0.bufferEnd).zipWithIndex){
-//        ram.write(address, i.toByte)
-//      }
-//
-//
-//      val ed0 = ED(0x2000)
-//      ed0.D = 0
-//      ed0.MPS = 64
-//      ed0.headP = td0.address
-//      ed0.nextED = ed1.address
-//      ed0.save(ram)
-//      ctrl.write(ed0.address, hcBulkHeadED)
-//
-//
-//
-//
-//
-//
-//      ctrl.write(BLF | CLF, hcCommand)
-//      dut.clockDomain.waitSampling(100)
-////      ctrl.write(USB_OPERATIONAL, hcControl)
-//      ctrl.write(USB_OPERATIONAL | BLE | CLE | PLE | 0x3, hcControl)
-//
-//      dut.clockDomain.waitSampling(100)
-//      sleep(12e-3*1e12)
-
-
-
-
-
 
 
 

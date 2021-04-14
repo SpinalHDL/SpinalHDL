@@ -42,7 +42,7 @@ case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
 
 case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
   val io = new Bundle {
-    val fullSpeed = in Bool()
+    val lowSpeed = in Bool()
 
     val usb = new Bundle {
       val dp = in Bool()
@@ -72,7 +72,7 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
       counter := 0
     }
 
-    val sampleAt = io.fullSpeed ? U(fsRatio/2-1) | U(fsRatio*8/2-1)
+    val sampleAt = io.lowSpeed ? U(fsRatio*8/2-1) | U(fsRatio/2-1)
     val sampleDo = counter === sampleAt
 
     when(frontend.valid & frontend.edge){
@@ -127,6 +127,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       counter := 0
     }
   }
+
 
 
   val txShared = new Area {
@@ -333,16 +334,93 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
     }
   }
 
+  //11.6.1 Receiver
+  val upstreamRx = new StateMachine{
+    val IDLE, SUSPEND = new State
+    setEntry(IDLE)
+    val timer = new Timer(3e-3){
+      val IDLE_EOI = trigger(3e-3)
+    }
+
+    val exitSuspend = txShared.encoder.output.valid //simplified maybe too much
+    timer.clear setWhen (exitSuspend)
+
+    IDLE whenIsActive{
+      when(timer.IDLE_EOI){
+        goto(SUSPEND)
+      }
+    }
+    SUSPEND whenIsActive{
+      when(exitSuspend){
+        goto(IDLE)
+      }
+    }
+  }
+
+  val Rx_Suspend = upstreamRx.isActive(upstreamRx.SUSPEND)
+
+//  val hcOverrides = new StateMachine{
+//    val IDLE, RESET, RESUME, EOP_0, EOP_1 = new State()
+//    setEntry(IDLE)
+//
+//    val tx = new Bundle {
+//      val enable = False
+//      val data = True // ^ lowSpeed
+//      val se0 = False
+//    }
+//
+//    val timer = new Timer(3e-6){
+//      val ONE_BIT = cycles(1)
+//      val TWO_BIT = cycles(2)
+//      this.lowSpeed := True
+//    }
+//
+//    always{
+//      when(io.ctrl.usbResume){ goto (RESUME) }
+//      when(io.ctrl.usbReset){ goto (RESUME) }
+//    }
+//    RESUME whenIsActive{
+//      tx.enable := True
+//      tx.data := False
+//      tx.se0 := False
+//      when(!io.ctrl.usbResume){ goto (EOP_0) }
+//    }
+//
+//    RESET whenIsActive{
+//      tx.enable := True
+//      tx.se0 := True
+//      when(!io.ctrl.usbResume){ goto (IDLE) }
+//    }
+//
+//    EOP_0 onEntry(timer.clear := True)
+//    EOP_0 whenIsActive{
+//      tx.enable := True
+//      tx.se0 := True
+//      when(timer.TWO_BIT){
+//        goto(EOP_1)
+//      }
+//    }
+//
+//    EOP_1 onEntry(timer.clear := True)
+//    EOP_1 whenIsActive{
+//      tx.enable := True
+//      tx.data := True
+//      tx.se0 := False
+//      when(timer.ONE_BIT){
+//        goto(IDLE)
+//      }
+//    }
+//  }
+
 
   io.ctrl.overcurrent := False
 
   io.ctrl.rx.valid := False
   io.ctrl.rx.active := False
   io.ctrl.rx.error := False //TODO
-  io.ctrl.rx.data := 0
+  io.ctrl.rx.data.assignDontCare()
 
   val resumeFromPort = False
-  val resumeFromCtrl = io.ctrl.resume
 
   val ports = for((usb, ctrl) <- (io.usb, io.ctrl.ports).zipped) yield new Area{
 //    val connected = Reg(Bool) init(False) //TODO
@@ -355,10 +433,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
     ctrl.remoteResume := False //TODO
 
     val filter = UsbLsFsPhyFilter(fsRatio)
+    filter.io.lowSpeed := lowSpeed
     filter.io.usb.dp := usb.rx.dp
     filter.io.usb.dm := usb.rx.dm
 
     val rx = new Area{
+      val enablePackets = False
       val timer = new Timer(counterTimeMax = 20e-3 * 1.1) {
         val reset = trigger(10e-3 * 0.9)
         val suspend = trigger(3e-3 * 0.9)
@@ -465,27 +545,27 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         setEntry(IDLE)
 
         val counter = Reg(UInt(3 bits))
-
-//        io.ctrl.rx.valid := False
-//        io.ctrl.rx.active := False
-//        io.ctrl.rx.error := False //TODO
-//        io.ctrl.rx.data := history.value
-
         IDLE.whenIsActive{
+          counter := 0
           when(history.sync.hit){
             goto(PACKET)
-            counter := 0
           }
         }
         PACKET whenIsActive {
           io.ctrl.rx.active := True
+          io.ctrl.rx.data := history.value
           when(destuffer.output.valid){
             counter := counter + 1
             when(counter === 7){
-              io.ctrl.rx.valid := True
+              io.ctrl.rx.valid := enablePackets
             }
           }
-          when(eop.hit){
+          when(eop.hit){ //TODO add error conditions
+            goto(IDLE)
+          }
+        }
+        always{
+          when(txShared.encoder.output.valid){
             goto(IDLE)
           }
         }
@@ -522,14 +602,14 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       usb.tx.data  assignDontCare()
       usb.tx.se0   assignDontCare()
 
-      def Rx_Suspend = io.ctrl.suspended
       def SE0 =  filter.io.filtred.se0
       def K   = !SE0 && filter.io.filtred.d ^ lowSpeed
 
       val resetInProgress = False
+      val lowSpeedEop = Reg(Bool)
 
       always{
-        when(!ctrl.power){
+        when(!ctrl.power || io.ctrl.usbReset){
           goto(POWER_OFF)
         } elsewhen(rx.disconnect.event){
           goto(DISCONNECTED)
@@ -546,7 +626,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       POWER_OFF whenIsActive{
-        usb.tx.enable := True
+        usb.tx.enable := True //Optional on root hub
         usb.tx.se0 := True
         when(ctrl.power){
           goto(DISCONNECTED)
@@ -601,6 +681,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       ENABLED whenIsActive{
+        rx.enablePackets := True
         usb.tx.enable := txShared.encoder.output.valid && !(lowSpeed && !txShared.encoder.output.lowSpeed)
         usb.tx.data := txShared.encoder.output.data ^ lowSpeed
         usb.tx.se0 := txShared.encoder.output.se0
@@ -616,7 +697,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
           goto(SUSPENDED)
         } elsewhen(Rx_Suspend & (SE0 || K)){
           goto(RESTART_E)
-        } elsewhen(resumeFromCtrl){
+        } elsewhen(io.ctrl.usbResume){
           goto(RESUMING)
         }
       }
@@ -636,12 +717,14 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         usb.tx.se0 := False
 
         when(timer.RESUME_EOI){
+          lowSpeedEop := True
           goto(SEND_EOP_0)
         }
       }
 
       SEND_EOP_0 onEntry(timer.clear := True)
       SEND_EOP_0 whenIsActive{
+        timer.lowSpeed setWhen(lowSpeedEop)
         usb.tx.enable := True
         usb.tx.se0 := True
         when(timer.TWO_BIT){
@@ -651,6 +734,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
       SEND_EOP_1 onEntry(timer.clear := True)
       SEND_EOP_1 whenIsActive{
+        timer.lowSpeed setWhen(lowSpeedEop)
         usb.tx.enable := True
         usb.tx.data := !lowSpeed
         usb.tx.se0 := False
@@ -682,6 +766,22 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       rx.disconnect.clear setWhen(List(ENABLED, SUSPENDED, DISABLED).map(!isActive(_)).andR)
+//      when(io.ctrl.resume){
+//        for(usb <- io.usb) {
+//          usb.tx.enable := True
+//          usb.tx.data := True
+//          usb.tx.se0 := False
+//        }
+//      }
+//
+//      when(io.ctrl.usbReset){
+//        for(usb <- io.usb) {
+//          usb.tx.enable := True
+//          usb.tx.se0 := True
+//        }
+//      }
     }
   }
+
+
 }

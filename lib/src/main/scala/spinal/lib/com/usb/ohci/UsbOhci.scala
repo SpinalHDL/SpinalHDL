@@ -173,7 +173,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   io.phy.tx.fragment.assignDontCare()
   io.phy.tx.last.assignDontCare()
 
+  val ctrlHalt = False
   val ctrl = BmbSlaveFactory(io.ctrl)
+  when(ctrlHalt) { ctrl.writeHalt() } //Ensure no race conditions between io.ctrl and HC
 
   val doUnschedule = RegInit(False) clearWhen(unscheduleAll.ready)
   val doSoftReset = RegInit(False) clearWhen(!doUnschedule)
@@ -186,8 +188,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       self
     }
   }
+  implicit class OhciDataPimperBool(self : Bool) extends OhciDataPimper(self){
+    def softInit(value : Boolean) : Bool = {
+      softInitTasks += (() => self := Bool(value))
+      self
+    }
+  }
   afterElaboration{
-    when(doSoftReset){
+    when(doSoftReset || RegNext(False).init(True)){
       softInitTasks.foreach(_())
     }
   }
@@ -429,11 +437,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       suspend.clearWhen(port.suspend.fire)
 
 
-    }
-
-
-    when(hcRhStatus.DRWE && hcControl.HCFS === MainState.SUSPEND && hcRhPortStatus.map(_.CSC.set).orR) {
-      hcControl.HCFS := MainState.RESUME //TODO check / reimplement ?
     }
   }
 
@@ -1097,7 +1100,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
 
-    val rxCc = Reg(UInt(4 bits))
+    val rxCc = Reg(Bits(4 bits))
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts
         goto(UPDATE_TD_CMD)
@@ -1321,21 +1324,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   }
 
   val hc = new StateMachine {
-    val RESET, RESUME, OPERATIONAL, SUSPEND, RESET_TO_OPERATIONAL, RESUME_TO_OPERATIONAL, ANY_TO_RESET, ANY_TO_SUSPEND = new State
+    val RESET, RESUME, OPERATIONAL, SUSPEND, ANY_TO_RESET, ANY_TO_SUSPEND = new State
     setEntry(RESET)
 
     reg.hcControl.HCFS := MainState.RESET
 
 
-    io.phy.usbReset := isActive(RESET)
-    io.phy.usbResume := isActive(RESUME)
+    io.phy.usbReset   := reg.hcControl.HCFS === MainState.RESET
+    io.phy.usbResume  := reg.hcControl.HCFS === MainState.RESUME
 
     val error = False
     RESET.whenIsActive {
       when(reg.hcControl.HCFSWrite.valid) {
         switch(reg.hcControl.HCFSWrite.payload) {
           is(MainState.OPERATIONAL) {
-            goto(RESET_TO_OPERATIONAL)
+            goto(OPERATIONAL)
           }
           default {
             error := True
@@ -1344,12 +1347,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    RESET_TO_OPERATIONAL whenIsActive{
-      reg.hcControl.HCFS := MainState.OPERATIONAL
-      goto(OPERATIONAL) //TODO timings
-    }
 
-    //TODO the Host Controller is responsible for terminating the USB reset or resume signaling
     OPERATIONAL.onEntry {
       operational.startFsm()
       frame.reload := True
@@ -1364,14 +1362,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     RESUME.whenIsActive {
       reg.hcControl.HCFS := MainState.RESUME
       when(reg.hcControl.HCFSWrite.valid && reg.hcControl.HCFSWrite.payload === MainState.OPERATIONAL) {
-        goto(RESUME_TO_OPERATIONAL)
+        goto(OPERATIONAL)
       }
     }
 
-    RESUME_TO_OPERATIONAL whenIsActive{
-      reg.hcControl.HCFS := MainState.OPERATIONAL
-      goto(OPERATIONAL) //TODO timings
-    }
 
     SUSPEND.whenIsActive {
       reg.hcControl.HCFS := MainState.SUSPEND
@@ -1385,19 +1379,22 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       doUnschedule := True
     }
     ANY_TO_RESET whenIsActive{
+      ctrlHalt := True
       reg.hcControl.HCFS := MainState.RESET
       when(!doUnschedule){
         goto(RESET)
       }
     }
 
+    val operationalIsDone = operational.isStopped
     ANY_TO_SUSPEND onEntry {
       doUnschedule := True
     }
     ANY_TO_SUSPEND whenIsActive{
+      ctrlHalt := True
       operational.askExit := True
       reg.hcControl.HCFS := MainState.SUSPEND
-      when(!doUnschedule && !doSoftReset && operational.isStopped){
+      when(!doUnschedule && !doSoftReset && operationalIsDone){
         goto(SUSPEND)
       }
     }

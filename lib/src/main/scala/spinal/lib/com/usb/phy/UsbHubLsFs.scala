@@ -23,6 +23,14 @@ object UsbHubLsFs{
     val remoteResume = Bool()
     val lowSpeed = Bool()
 
+    // HCD messages
+//    val ClearPortEnable = Bool()
+//    val ClearPortEnable = Bool()
+//    val ClearPortEnable = Bool()
+//    val ClearPortEnable = Bool()
+//    val ClearPortEnable = Bool()
+
+
     override def asMaster(): Unit = {
       out(removable, power)
       master(reset, suspend, resume, disable)
@@ -42,21 +50,25 @@ object UsbHubLsFs{
 
   case class Ctrl(portCount : Int) extends Bundle with IMasterSlave{
     val lowSpeed = Bool()
-    val overcurrent = Bool()
     val tx = Stream(Fragment(Bits(8 bits)))
     val rx = CtrlRx()
 
+//    val regs = new Bundle {
+//
+//    }
 
-    val suspended = Bool()
-    val resume = Bool()
+//    val usbSuspend = Bool()
     val usbReset = Bool()
     val usbResume = Bool()
+
+    //hub status
+    val overcurrent = Bool()
 
     val ports = Vec(CtrlPort(), portCount)
 
     override def asMaster(): Unit = {
       in(overcurrent)
-      out(lowSpeed, suspended, resume, usbReset, usbResume)
+      out(lowSpeed, usbReset, usbResume)
       master(tx)
       slave(rx)
       ports.foreach(master(_))
