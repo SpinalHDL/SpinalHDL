@@ -777,6 +777,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val BE = words(3)(0, 32 bits).asUInt
 
       val pageMatch = CBP(12, 20 bits) === BE(12, 20 bits)
+
+      val isIn = DP === 2
     }
 
     val codes = new {
@@ -886,7 +888,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(unscheduleAll.fire){ killFsm() }
       }
 
-      val save = RegInit(False)
+      val save = RegInit(False) //TODO what happen if True outside the expected context ?
       val length = Reg(UInt(p.dmaLengthWidth bits))
       val lengthMax = ~currentAddress.resize(p.dmaLengthWidth)
       val lengthCalc = transactionSize.min(lengthMax).resize(widthOf(lengthMax))
@@ -1053,7 +1055,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         status := Status.FRAME_TIME
         goto(ABORD)
       } otherwise {
-        when(dmaLogic.bufferReady) {
+        when(TD.isIn || dmaLogic.bufferReady) {
           goto(TOKEN)
         }
       }
@@ -1084,7 +1086,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
       when(token.wantExit) {
-        goto(DATA_TX)
+        when(TD.isIn){
+          goto(DATA_RX)
+        } otherwise {
+          goto(DATA_TX)
+        }
       }
     }
 
@@ -1116,6 +1122,17 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
     }
+
+//    DATA_RX.onEntry{
+//      dataRx.startFsm()
+//    }
+//    DATA_RX.whenIsActive {
+//      dataRx.pid := dataPhase ## B"011"
+//      when(dataRx.wantExit) {
+//        goto(ACK_TX)
+//        dmaLogic.save := False
+//      }
+//    }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
     UPDATE_TD_CMD.whenIsActive {

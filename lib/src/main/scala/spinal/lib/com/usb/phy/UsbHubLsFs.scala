@@ -53,15 +53,8 @@ object UsbHubLsFs{
     val tx = Stream(Fragment(Bits(8 bits)))
     val rx = CtrlRx()
 
-//    val regs = new Bundle {
-//
-//    }
-
-//    val usbSuspend = Bool()
     val usbReset = Bool()
     val usbResume = Bool()
-
-    //hub status
     val overcurrent = Bool()
 
     val ports = Vec(CtrlPort(), portCount)
