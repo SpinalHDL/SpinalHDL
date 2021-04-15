@@ -345,4 +345,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
     io
   }
+
+  def onBody[T](body : => T) : T = {
+    dslBody.push()
+    val ret = body
+    dslBody.pop()
+    ret
+  }
 }
