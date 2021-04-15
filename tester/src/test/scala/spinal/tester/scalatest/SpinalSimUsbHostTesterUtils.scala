@@ -138,13 +138,10 @@ class TesterUtils(dut : UsbOhciTbTop) {
   ctrl.write(interval*9/10, hcPeriodicStart)
 }
 
-trait UsbDeviceAgentListener{
-  def reset() : Unit
-  def txData(addr : Int, endp : Int, tocken : Int, pid : Int, data : Seq[Int]) : Unit
-}
 
 
-case class TockenKey(addr: Int, endp: Int, tocken : Int)
+
+case class TockenKey(addr: Int, endp: Int)
 case class DataPacket(pid: Int, data: Seq[Int])
 
 class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
@@ -152,29 +149,39 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
 
   }
 
-  case class RefEntry(packet : DataPacket, onCompletion : () => Unit)
-  val ref = mutable.LinkedHashMap[TockenKey, mutable.Queue[RefEntry]]()
-  override def txData(addr: Int, endp: Int, tocken : Int, pid: Int, data: Seq[Int]) : Unit = {
-    val key = TockenKey(addr, endp, tocken)
+  case class SetupEntry(packet : DataPacket, onCompletion : () => Unit)
+  val setupRef = mutable.LinkedHashMap[TockenKey, mutable.Queue[SetupEntry]]()
+  override def hcToUsb(addr: Int, endp: Int, pid: Int, data: Seq[Int]) : Unit = {
+    val key = TockenKey(addr, endp)
     val packet = DataPacket(pid, data)
-    val ed = ref.get(key).get
+    val ed = setupRef.get(key).get
     val entry = ed.dequeue()
     assert(packet == entry.packet)
     entry.onCompletion()
   }
 
-  def pushRef(key : TockenKey, data : DataPacket)(onCompletion : => Unit) = ref.getOrElseUpdate(key, mutable.Queue[RefEntry]()).enqueue(RefEntry(data, () => onCompletion))
+  case class InEntry(onCompletion : () => Boolean)
+  val inRef = mutable.LinkedHashMap[TockenKey, mutable.Queue[InEntry]]()
+  override def usbToHc(addr: Int, endp: Int) : Boolean = {
+    val key = TockenKey(addr, endp)
+    val ed = inRef.get(key).get
+    val entry = ed.dequeue()
+    entry.onCompletion()
+  }
+
+  def pushHcToUsb(key : TockenKey, data : DataPacket)(onCompletion : => Unit) = setupRef.getOrElseUpdate(key, mutable.Queue[SetupEntry]()).enqueue(SetupEntry(data, () => onCompletion))
+  def pushUsbToHc(key : TockenKey)(onCompletion : => Boolean) = inRef.getOrElseUpdate(key, mutable.Queue[InEntry]()).enqueue(InEntry(() => onCompletion))
 
   io.listener = this
 
-  def assertEmpty = assert(ref.valuesIterator.forall(_.isEmpty))
+  def assertEmpty = assert(setupRef.valuesIterator.forall(_.isEmpty))
 }
 
 
-trait UsbLsFsPhyAbstractIoListener{
+trait UsbDeviceAgentListener{
   def reset() : Unit
-  def keepAlive() : Unit
-  def txPacket(data : Seq[Int]) : Unit
+  def hcToUsb(addr : Int, endp : Int, pid : Int, data : Seq[Int]) : Unit
+  def usbToHc(addr : Int, endp : Int) : Boolean
 }
 
 class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractIoListener{
@@ -188,6 +195,7 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
   object WAIT_RESET
   object ENABLED
   object TX_DATA
+  object TX_ACK
 
   var state : Any = WAIT_RESET
   override def reset() = {
@@ -202,33 +210,36 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
     }
   }
 
-  var txAddr, txEndp, tocken = 0
-  override def txPacket(data: Seq[Int]) = {
-    val pidLow = data(0) & 0xF
-    val pidHigh = (~data(0) >> 4) & 0xF
-    assert(pidLow == pidHigh)
+  var addr, endp = 0
+  override def txPacket(pid : Int, data: Seq[Int]) = {
     state match {
       case ENABLED => {
-        pidLow match {
-          case 5 => { //SOF
-            val fn = data(1) | ((data(2) & 0x3) << 8)
+        addr = data(0) & 0x7F
+        endp = data(0) >> 7 | ((data(1) & 0x3) << 1)
+        pid match {
+          case UsbPid.SOF => { //SOF
+            val fn = data(0) | ((data(1) & 0x3) << 8)
             assert(frameNumber == -1 || frameNumber+1 == fn)
             frameNumber = fn
           }
-          case 13 => { //STEUP
-            tocken = pidLow
-            txAddr = data(1) & 0x7F
-            txEndp = data(1) >> 7 | ((data(2) & 0x3) << 1)
+          case UsbPid.SETUP => { //SETUP
             state = TX_DATA
+          }
+          case UsbPid.IN => {
+            var withAck = false
+            onListener{l => withAck |= l.usbToHc(addr, endp)}
+            if (withAck) state = TX_ACK
           }
         }
       }
       case TX_DATA => {
-        val pidLow = data(0) & 0xF
-        val pidHigh = (~data(0) >> 4) & 0xF
-        println(s"TX $txAddr $txEndp ${data.map(e => f"${e}%02x").mkString(",")}")
-        state = ENABLED //TODO check CRC
-        onListener(_.txData(txAddr, txEndp, tocken, pidLow, data.tail.dropRight(2)))
+        println(s"TX $addr $endp ${data.map(e => f"${e}%02x").mkString(",")}")
+        state = ENABLED
+        onListener(_.hcToUsb(addr, endp, pid, data.dropRight(2)))
+      }
+      case TX_ACK => {
+        assert(pid == UsbPid.ACK && data.size == 0)
+        state = ENABLED
       }
     }
   }
@@ -239,6 +250,11 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
   }
 
   io.listener = this
+}
+trait UsbLsFsPhyAbstractIoListener{
+  def reset() : Unit
+  def keepAlive() : Unit
+  def txPacket(pid : Int, data : Seq[Int]) : Unit
 }
 
 class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cdRatio : Int){
@@ -540,7 +556,11 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
             case _ =>
           }
 
-          onListener(_.txPacket(bytes.drop(1)))
+          val pidLow = bytes(1) & 0xF
+          val pidHigh = (~bytes(1) >> 4) & 0xF
+          assert(pidLow == pidHigh)
+
+          onListener(_.txPacket(pidLow, bytes.drop(2)))
           state = EOP_2
         }
       }

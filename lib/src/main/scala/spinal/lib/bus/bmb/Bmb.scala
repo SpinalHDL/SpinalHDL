@@ -68,6 +68,10 @@ object Bmb{
 
   def apply(access : BmbAccessParameter, invalidation: BmbInvalidationParameter) : Bmb = Bmb(BmbParameter(access, invalidation))
   def apply(access : BmbAccessParameter) : Bmb = Bmb(BmbParameter(access, BmbInvalidationParameter()))
+
+  def transferBeatCountMinusOneBytesAligned(address : UInt, length : UInt, p : BmbParameter) : UInt = {
+    ((U"0" @@ length) + address(p.access.wordRange))(length.high + 1 downto log2Up(p.access.byteCount))
+  }
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)

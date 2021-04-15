@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.com.eth.{Crc, CrcKind}
+import spinal.lib.com.usb.ohci.UsbOhci.dmaParameter
 import spinal.lib.com.usb.phy.UsbHubLsFs
 import spinal.lib.fsm._
 
@@ -31,8 +32,8 @@ object UsbOhci{
     dataWidth = p.dataWidth,
     sourceWidth = 0,
     contextWidth = 0,
-    lengthWidth = 6,
-    alignment = BmbParameter.BurstAlignement.BYTE
+    lengthWidth = p.dmaLengthWidth,
+    alignment = BmbParameter.BurstAlignement.LENGTH
   )
 }
 
@@ -53,6 +54,8 @@ object UsbPid{
   val ERR = Integer.parseInt("1100",2)
   val SPLIT = Integer.parseInt("1000",2)
   val PING = Integer.parseInt("0100",2)
+
+  def tocken(pid : Int) = pid | ((0xF ^ pid) << 4)
 }
 
 case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends Component{
@@ -68,7 +71,26 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   unscheduleAll.ready := True
 
   val ioDma = Bmb(UsbOhci.dmaParameter(p))
-  io.dma.cmd << ioDma.cmd.haltWhen(unscheduleAll.valid && io.dma.cmd.first)
+  // Track the number of inflight memory requests, used to be sure everything is done before continuing
+  val dmaCtx = new Area{
+    val pendingCounter = Reg(UInt(4 bits)) init(0)
+    pendingCounter := pendingCounter + U(ioDma.cmd.lastFire) - U(ioDma.rsp.lastFire)
+
+    val pendingFull = pendingCounter.msb
+    val pendingEmpty = pendingCounter === 0
+
+    val beatCounter = Reg(UInt(p.dmaLengthWidth bits)) init(0)
+    when(ioDma.cmd.fire){
+      beatCounter := beatCounter + 1
+      when(io.dma.cmd.last){
+        beatCounter := 0
+      }
+    }
+
+    unscheduleAll.ready clearWhen(!pendingEmpty)
+  }
+
+  io.dma.cmd << ioDma.cmd.haltWhen(dmaCtx.pendingFull || (unscheduleAll.valid && io.dma.cmd.first))
   io.dma.rsp >> ioDma.rsp
 
 
@@ -122,51 +144,17 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  // Track the number of inflight memory requests, used to be sure everything is done before continuing
-  val ramBurstCapacity = 4
-  val dmaCtx = new Area{
-    val pendingCounter = Reg(UInt(log2Up(ramBurstCapacity+1) bits)) init(0)
-    pendingCounter := pendingCounter + U(ioDma.cmd.lastFire) - U(ioDma.rsp.lastFire)
-
-    val pendingFull = pendingCounter === ramBurstCapacity
-    val pendingEmpty = pendingCounter === 0
-
-    unscheduleAll.ready clearWhen(!pendingEmpty)
-  }
-
   // Used as buffer for USB data <> DMA transfers
-  val dataBuffer = new Area{
-    val ram = Mem(Bits(p.dataWidth bits), ramBurstCapacity * p.dmaLength*8/p.dmaLengthWidth)
+  val fifo = StreamFifo(Bits(p.dataWidth bits), 1024*2*8/p.dataWidth) //ramBurstCapacity * p.dmaLength*8/p.dmaLengthWidth
+  fifo.io.push.valid := False
+  fifo.io.push.payload.assignDontCare()
+  fifo.io.pop.ready := False
+  fifo.io.flush := False
 
-    def counterGen() = new Area{
-      val value = Reg(ram.addressType)
-      val clear, increment = False
-      when(increment){
-        value := value + 1
-      }
-      when(clear){
-        value := 0
-      }
-    }
-
-    val write = new Area{
-      val cmd = ram.writePort
-      val counter = counterGen()
-      cmd.valid := False
-      cmd.address := counter.value
-      cmd.data.assignDontCare()
-    }
-    val read = new Area{
-      val cmd = Stream(ram.addressType)
-      val cmdCtx = Bits(1 + log2Up(p.dataWidth/8) bits)
-      val rsp = ram.streamReadSync(cmd, cmdCtx)
-
-      val counter = counterGen()
-      cmd.valid := False
-      cmd.payload := counter.value
-      cmdCtx.assignDontCare()
-      rsp.ready := False
-    }
+  //Patch some unecessary check in the fifo
+  fifo.rework{
+    fifo.logic.empty.removeAssignments() := False
+    fifo.logic.full.removeAssignments() := False
   }
 
   io.phy.tx.valid := False
@@ -608,6 +596,51 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  //TODO manage errors
+  val dataRx = new StateMachineSlave {
+    val PID, DATA = new State
+    setEntry(PID)
+
+    val pid = Reg(Bits(4 bits))
+    val data = Flow(Bits(8 bits))
+
+    val history = History(io.phy.rx.data, 1 to 2, when = io.phy.rx.valid)
+    val crc16 = Crc(CrcKind.usb.crc16Check, 8)
+    val valids = Reg(Bits(2 bits))
+
+    data.valid := False
+    data.payload := history.last
+
+    crc16.io.input.valid := False
+    crc16.io.input.payload := io.phy.rx.data
+    crc16.io.flush := False
+
+    PID.whenIsActive {
+      valids := 0
+      crc16.io.flush := True
+      when(io.phy.rx.valid){
+        pid := io.phy.rx.data(3 downto 0)
+        goto(DATA)
+      }
+    }
+
+    DATA.whenIsActive {
+      when(!io.phy.rx.active){
+        exitFsm()
+      } elsewhen (io.phy.rx.valid) {
+        crc16.io.input.valid := True
+        valids := valids(0) ## True
+        when(valids.andR){
+          data.valid := True
+        }
+      }
+    }
+
+    always{
+      when(unscheduleAll.fire){ killFsm() }
+    }
+  }
+
 
   val sof = new StateMachineSlave {
     val FRAME_TX, FRAME_NUMBER_CMD, FRAME_NUMBER_RSP = new State
@@ -714,8 +747,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val TD_READ_CMD, TD_READ_RSP, TD_ANALYSE, TD_CHECK_TIME = new State
     val BUFFER_READ = new State
     val TOKEN = new State
-    val DATA_TX, DATA_RX = new State
+    val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
     val ACK_RX, ACK_TX = new State
+    val WAIT_DMA_LOGIC_DONE = new State
     val UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
     val ABORD = new State
@@ -872,6 +906,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val currentAddress = Reg(UInt(14 bits)) //One extra bit to allow overflow comparison
     val currentAddressFull = (currentAddress.msb ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
+    val currentAddressBmb = currentAddressFull & U(currentAddressFull.getWidth bits, default -> true, io.dma.p.access.wordRange -> false)
     val lastAddress = Reg(UInt(13 bits))
     val transferSizeCalc = (U(TD.pageMatch) @@ TD.BE(0, 12 bits)) - TD.CBP(0, 12 bits)
     val transactionSize = lastAddress - currentAddress
@@ -880,7 +915,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val dataDone = zeroLength || currentAddress > lastAddress
 
     val dmaLogic = new StateMachine {
-      val INIT, CALC, CMD = new State
+      val INIT, TO_USB, FROM_USB, VALIDATION, CALC_CMD, READ_CMD, WRITE_CMD = new State
       setEntry(INIT)
       disableAutoStart()
 
@@ -888,141 +923,136 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(unscheduleAll.fire){ killFsm() }
       }
 
-      val save = RegInit(False) //TODO what happen if True outside the expected context ?
+      val validated = False
       val length = Reg(UInt(p.dmaLengthWidth bits))
       val lengthMax = ~currentAddress.resize(p.dmaLengthWidth)
       val lengthCalc = transactionSize.min(lengthMax).resize(widthOf(lengthMax))
-      val predictedWriteCounter = Reg(UInt(log2Up(ramBurstCapacity) bits))
-
-
-      // Implement buffer filling threshold
-      val bufferReady = Reg(Bool)
-      val readRspCounter = Reg(UInt(4 bits))
-      val abord = Event
-      abord.valid := False
-      abord.ready := False
-
-      onStart {
-        bufferReady := False
-      }
-
-      when(ioDma.rsp.fire) {
-        readRspCounter := readRspCounter + 1
-      }
-      when(readRspCounter === readRspCounter.maxValue || (isStopped && dmaCtx.pendingCounter === 0)) {
-        bufferReady := True
-      }
+      val beatCount = Bmb.transferBeatCountMinusOneBytesAligned(currentAddressFull, length, io.dma.p)
+      val lengthBmb = (beatCount @@ U(io.dma.p.access.byteCount-1)).resize(p.dmaLengthWidth)
 
       // Implement internal buffer write
-      when(save && ioDma.rsp.valid) {
-        dataBuffer.write.cmd.valid := True
-        dataBuffer.write.cmd.data := ioDma.rsp.data
-        dataBuffer.write.counter.increment := True
+      when(isStarted && !TD.isIn && ioDma.rsp.valid) {
+        fifo.io.push.valid := True
+        fifo.io.push.payload := ioDma.rsp.data
       }
 
-      //read
-      val readCmdEnable = RegInit(False)
-      val readRspEnable = RegInit(False)
-      val readByteCounter = Reg(UInt(13 bits))
-
-      case class ReadCtx() extends Bundle {
-        val last = Bool()
-        val sel = UInt(log2Up(p.dataWidth / 8) bits)
-      }
-
-      val readCmdCtx, readRspCtx = ReadCtx()
-      readRspCtx.assignFromBits(dataBuffer.read.rsp.linked)
-
-      readCmdCtx.last := readByteCounter === lastAddress
-      readCmdCtx.sel := readByteCounter.resized
-
-      when(readCmdEnable) {
-        when(bufferReady) {
-          dataBuffer.read.cmd.valid := True
-          dataBuffer.read.cmdCtx := readCmdCtx.asBits
-          when(dataBuffer.read.cmd.ready) {
-            readByteCounter := readByteCounter + 1
-            when(readCmdCtx.sel.andR) {
-              dataBuffer.read.counter.increment := True
-            }
-            when(readCmdCtx.last) {
-              dataBuffer.read.cmdCtx(0) := True
-              readCmdEnable := False
-            }
-          }
+      val selWidth = log2Up(p.dataWidth / 8)
+      val byteCtx = new Area{
+        val counter = Reg(UInt(13 bits))
+        val last = counter === lastAddress
+        val sel = counter.resize(selWidth bits)
+        val increment = False
+        when(increment){
+          counter := counter + 1
         }
       }
-
-      when(readRspEnable) {
-        dataTx.data.fragment := dataBuffer.read.rsp.value.subdivideIn(8 bits).read(readRspCtx.sel)
-        dataTx.data.last := readRspCtx.last
-        when(dataBuffer.read.rsp.valid) {
-          dataTx.data.valid := True
-          when(dataTx.data.ready) {
-            dataBuffer.read.rsp.ready := True
-            when(readRspCtx.last) {
-              readRspEnable := False
-            }
-          }
-        }
-      }
-
 
       INIT whenIsActive {
         when(dataDone) {
           exitFsm()
         } otherwise {
-          save := True
-          predictedWriteCounter := 1
-          dataBuffer.write.counter.clear := True
-
-          readCmdEnable := True
-          readRspEnable := True
-          dataBuffer.read.counter.clear := True
-
-          readRspCounter := 0
-
-          goto(CALC)
+          fifo.io.flush := True
+          when(TD.isIn) {
+            goto(FROM_USB)
+          } otherwise {
+            goto(CALC_CMD)
+          }
         }
       }
 
       // Implement ioDma.cmd
-      CALC whenIsActive {
+      CALC_CMD whenIsActive {
         length := lengthCalc
-        when(dataDone || abord.valid) {
-          exitFsm()
-        } otherwise {
+        when(dataDone) {
+          when(TD.isIn){
+            exitFsm()
+          } otherwise {
+            goto(TO_USB)
+          }
+        }otherwise {
           val checkShift = log2Up(p.dmaLength * 8 / p.dataWidth)
-          when(predictedWriteCounter =/= (dataBuffer.read.counter.value >> checkShift) && !dmaCtx.pendingFull) {
-            goto(CMD)
+          when(TD.isIn){
+            goto(WRITE_CMD)
+          } otherwise {
+            goto(READ_CMD)
           }
         }
       }
-      CMD whenIsActive {
+
+      READ_CMD whenIsActive {
         ioDma.cmd.last := True
         ioDma.cmd.setRead()
-        ioDma.cmd.address := currentAddressFull
-        ioDma.cmd.length := length
+        ioDma.cmd.address := currentAddressBmb
+        ioDma.cmd.length := lengthBmb
         ioDma.cmd.valid := True
         when(ioDma.cmd.ready) {
           currentAddress := currentAddress + lengthCalc + 1
-          predictedWriteCounter := predictedWriteCounter + 1
-          goto(CALC)
+          goto(CALC_CMD)
         }
       }
 
-      val abordCounter = Reg(UInt(2 bits))
-      when(abord.valid) {
-        readCmdEnable := False
-        readRspEnable := False
-        dataBuffer.read.rsp.ready := True
-        save := False
-        abordCounter := abordCounter + 1
-        abord.ready := abordCounter === 3
+      val headMask = (0 until (1 << selWidth)).map(_ >= currentAddress(0, selWidth bits)).asBits
+      val lastMask = (0 until (1 << selWidth)).map(_ <= (currentAddress + length)(0, selWidth bits)).asBits
+      val fullMask = B((1 << (1 << selWidth))-1)
+      val beatLast = dmaCtx.beatCounter === beatCount
+      WRITE_CMD whenIsActive{
+        ioDma.cmd.last := beatLast
+        ioDma.cmd.setWrite()
+        ioDma.cmd.address := currentAddressBmb
+        ioDma.cmd.length := lengthBmb
+        ioDma.cmd.valid := True
+        ioDma.cmd.data := fifo.io.pop.payload
+        ioDma.cmd.mask := fullMask & (ioDma.cmd.first ? headMask | fullMask) & (ioDma.cmd.last ? lastMask | fullMask)
+        when(ioDma.cmd.ready) {
+          fifo.io.pop.ready := True
+          when(beatLast) {
+            currentAddress := currentAddress + lengthCalc + 1
+            goto(CALC_CMD)
+          }
+        }
       }
-      when(dataBuffer.read.rsp.valid || this.isStarted || !dmaCtx.pendingEmpty) {
-        abordCounter := 0
+
+      TO_USB whenIsActive{
+        dataTx.data.fragment := fifo.io.pop.payload.subdivideIn(8 bits).read(byteCtx.sel)
+        dataTx.data.last := byteCtx.last
+        dataTx.data.valid := True
+        when(dataTx.data.ready) {
+          byteCtx.increment := True
+          when(byteCtx.sel.andR){
+            fifo.io.pop.ready := True
+          }
+          when(byteCtx.last) {
+            wantExit()
+          }
+        }
       }
+
+      val buffer = Reg(Bits(p.dataWidth bits))
+      val push = RegNext(False) init(False)
+      when(push){
+        fifo.io.push.valid := True
+        fifo.io.push.payload := buffer
+      }
+
+      FROM_USB whenIsActive{
+        when(dataRx.data.valid) { //TODO manage errors ( !active
+          byteCtx.increment := True
+          buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
+          push setWhen (byteCtx.sel.andR)
+          when(byteCtx.last){
+            push := True
+            goto(VALIDATION) //TODO check CRC
+          }
+        }
+      }
+
+      VALIDATION whenIsActive{
+        when(validated){
+          goto(CALC_CMD)
+        }
+      }
+
+      val fsmStopped = this.isStopped
     }
 
     val currentAddressCalc = TD.CBP(0, 12 bits)
@@ -1037,35 +1067,40 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
-      dmaLogic.readByteCounter := currentAddressCalc.resized
+      dmaLogic.byteCtx.counter := currentAddressCalc.resized
       currentAddress := currentAddressCalc.resized
       lastAddress := lastAddressNoSat.min(currentAddressCalc + ED.MPS - 1)
 
       zeroLength := TD.CBP === 0
       dataPhase := TD.T(1) ? TD.T(0) | ED.C
 
-      dmaLogic.startFsm()
-      goto(BUFFER_READ)
+      goto(TD_CHECK_TIME)
     }
 
     val byteCountCalc = lastAddress - currentAddress + 1
 
-    BUFFER_READ.whenIsActive {
+    TD_CHECK_TIME whenIsActive{ //TODO maybe the time check should be done futher (DMA delay stuff)
       when(ED.isFs && (byteCountCalc << 3) >= frame.limitCounter || (ED.isLs && reg.hcLSThreshold.hit)) {
         status := Status.FRAME_TIME
         goto(ABORD)
       } otherwise {
-        when(TD.isIn || dmaLogic.bufferReady) {
+        when(TD.isIn){
           goto(TOKEN)
+        } otherwise {
+          dmaLogic.startFsm()
+          goto(BUFFER_READ)
         }
       }
     }
 
-    ABORD whenIsActive {
-      dmaLogic.abord.valid := True
-      when(dmaLogic.abord.ready) {
-        exitFsm()
+    BUFFER_READ.whenIsActive {
+      when(dmaLogic.isActive(dmaLogic.TO_USB)) {
+        goto(TOKEN)
       }
+    }
+
+    ABORD whenIsActive {
+      exitFsm()
     }
 
 
@@ -1101,7 +1136,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dataTx.pid := dataPhase ## B"011"
       when(dataTx.wantExit) {
         goto(ACK_RX)
-        dmaLogic.save := False
       }
     }
 
@@ -1123,16 +1157,35 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-//    DATA_RX.onEntry{
-//      dataRx.startFsm()
-//    }
-//    DATA_RX.whenIsActive {
-//      dataRx.pid := dataPhase ## B"011"
-//      when(dataRx.wantExit) {
-//        goto(ACK_TX)
-//        dmaLogic.save := False
-//      }
-//    }
+    DATA_RX.onEntry{
+      dataRx.startFsm()
+      dmaLogic.startFsm()
+    }
+    DATA_RX.whenIsActive {
+      when(dataRx.wantExit) {
+        goto(DATA_RX_VALIDATE)
+      }
+    }
+
+    DATA_RX_VALIDATE whenIsActive{
+      dmaLogic.validated := True //TODO
+      goto(ACK_TX)
+    }
+
+    ACK_TX whenIsActive{
+      io.phy.tx.valid := True
+      io.phy.tx.last := True
+      io.phy.tx.fragment := UsbPid.tocken(UsbPid.ACK)
+      when(io.phy.tx.ready){
+        goto(WAIT_DMA_LOGIC_DONE)
+      }
+    }
+
+    WAIT_DMA_LOGIC_DONE whenIsActive{
+      when(dmaLogic.isStopped){
+        goto(UPDATE_TD_CMD)
+      }
+    }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
     UPDATE_TD_CMD.whenIsActive {
@@ -1442,4 +1495,5 @@ TODO
  tx end of packet of zero byte check
  6.5.7 RootHubStatusChange Event
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
+ !! Descheduling during a transmition will break the PHY !!
  */
