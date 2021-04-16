@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim._
+import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.com.usb.ohci._
 import spinal.lib.com.usb.phy._
 import spinal.lib.sim._
@@ -23,6 +24,7 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
 
   val phy = UsbLsFsPhy(p.portCount, p.fsRatio, sim=true)
 
+  val irq = ohci.io.interrupt.toIo
   val ctrl = propagateIo(ohci.io.ctrl)
   val dma = propagateIo(ohci.io.dma)
   ohci.io.phy <> phy.io.ctrl
@@ -57,6 +59,9 @@ class TesterUtils(dut : UsbOhciTbTop) {
   val HANDSHAKE_ACK = 2
   val HANDSHAKE_NACK = 10
   val HANDSHAKE_STALL = 14
+
+
+  val malloc = MemoryRegionAllocator(0, 1 << 30)
 
   implicit class BooleanPimper(self: Boolean) {
     def toInt = if (self) 1 else 0
@@ -97,10 +102,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
     }
   }
 
-  def TD(malloc : MemoryRegionAllocator): TD ={
-    val addr = malloc.allocateAligned(0x10)
-    TD(addr.base.toInt)
-  }
+  //4.3 Transfer Descriptor
   case class TD(address: Int) {
     var CC, EC, T, DI, DP, currentBuffer, nextTD, bufferEnd = 0
     var R = false
@@ -110,6 +112,19 @@ class TesterUtils(dut : UsbOhciTbTop) {
       m.write(address + 0x04, currentBuffer)
       m.write(address + 0x08, nextTD)
       m.write(address + 0x0C, bufferEnd)
+    }
+    def load(m: SparseMemory): this.type = {
+      val flags = m.read(address + 0x00)
+      R = ((flags >> 18) & 0x1) != 0
+      DP = (flags >> 19) & 0x2
+      DI = (flags >> 21) & 0x3
+      T = (flags >> 24) & 0x2
+      EC = (flags >> 26) & 0x2
+      CC = (flags >> 28) & 0xF
+      currentBuffer = m.read(address + 0x04)
+      nextTD = m.read(address + 0x08)
+      bufferEnd = m.read(address + 0x0C)
+      this
     }
   }
 
@@ -125,7 +140,11 @@ class TesterUtils(dut : UsbOhciTbTop) {
   val scoreboards = for(i <- 0 until p.portCount) yield new UsbDeviceScoreboard(devices(i))
 
   dut.clockDomain.forkStimulus(20800)
-  val memory = new BmbMemoryAgent()
+  val memory = new BmbMemoryAgent(){
+    override def writeNotification(address: Long, value: Byte) = {
+      assert(malloc.isAllocated(address))
+    }
+  }
   memory.addPort(dut.dma, 0, dut.clockDomain, true)
   def ram = memory.memory
 

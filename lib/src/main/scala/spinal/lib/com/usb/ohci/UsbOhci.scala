@@ -35,6 +35,50 @@ object UsbOhci{
     lengthWidth = p.dmaLengthWidth,
     alignment = BmbParameter.BurstAlignement.LENGTH
   )
+
+  val HcRevision         = 0x0
+  val HcControl          = 0x4
+  val HcCommandStatus    = 0x8
+  val HcInterruptStatus  = 0xC
+  val HcInterruptEnable  = 0x10
+  val HcInterruptDisable = 0x14
+  val HcHCCA             = 0x18
+  val HcPeriodCurrentED  = 0x1C
+  val HcControlHeadED    = 0x20
+  val HcControlCurrentED = 0x24
+  val HcBulkHeadED       = 0x28
+  val HcBulkCurrentED    = 0x2C
+  val HcDoneHead         = 0x30
+  val HcFmInterval       = 0x34
+  val HcFmRemaining      = 0x38
+  val HcFmNumber         = 0x3C
+  val HcPeriodicStart    = 0x40
+  val HcLSThreshold      = 0x44
+  val HcRhDescriptorA    = 0x48
+  val HcRhDescriptorB    = 0x4C
+  val HcRhStatus         = 0x50
+  val HcRhPortStatus     = 0x54
+
+  val MasterInterruptEnable = 0x80000000l
+  val WritebackDoneHead     = 0x2
+  val StartofFrame          = 0x4
+
+
+  object ConditionCode {
+    val noError = Integer.parseInt("0000",2)
+    val crc = Integer.parseInt("0001",2)
+    val bitStuffing = Integer.parseInt("0010",2)
+    val dataToggleMismatch = Integer.parseInt("0011",2)
+    val stall = Integer.parseInt("0100",2)
+    val deviceNotResponding = Integer.parseInt("0101",2)
+    val pidCheckFailure = Integer.parseInt("0110",2)
+    val unexpectedPid = Integer.parseInt("0111",2)
+    val dataOverrun = Integer.parseInt("1000",2)
+    val dataUnderrun = Integer.parseInt("1001",2)
+    val bufferOverrun = Integer.parseInt("1100",2)
+    val bufferUnderrun = Integer.parseInt("1101",2)
+    val notAccessed = Integer.parseInt("1110",2)
+  }
 }
 
 object UsbPid{
@@ -63,6 +107,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val ctrl = slave(Bmb(ctrlParameter))
     val phy = master(UsbHubLsFs.Ctrl(p.portCount))
     val dma = master(Bmb(UsbOhci.dmaParameter(p)))
+    val interrupt = out Bool()
   }
   io.phy.lowSpeed := False
   
@@ -225,14 +270,16 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val SOC = ctrl.createReadOnly(UInt(2 bits), 0x08, 16) softInit (0)
     }
 
-    def createInterrupt(id: Int) = new Area {
-      val status = ctrl.createReadAndClearOnSet(Bool(), 0x0C, id) softInit (False)
-      val enable = Reg(Bool) softInit(False)
-      ctrl.readAndSetOnSet(enable, 0x10, id)
-      ctrl.readAndClearOnSet(enable, 0x14, id)
-    }
-
     val hcInterrupt = new Area {
+      val unmaskedPending = False
+      def createInterrupt(id: Int) = new Area {
+        val status = ctrl.createReadAndClearOnSet(Bool(), UsbOhci.HcInterruptStatus, id) softInit (False)
+        val enable = Reg(Bool) softInit(False)
+        ctrl.readAndSetOnSet(enable, UsbOhci.HcInterruptEnable, id)
+        ctrl.readAndClearOnSet(enable, UsbOhci.HcInterruptDisable, id)
+        unmaskedPending setWhen(status && enable)
+      }
+
       val MIE = Reg(Bool) softInit(False)
       ctrl.readAndSetOnSet(MIE, 0x10, 31)
       ctrl.readAndClearOnSet(MIE, 0x14, 31)
@@ -244,6 +291,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val FNO = createInterrupt(5)
       val RHSC = createInterrupt(6)
       val OC = createInterrupt(30)
+      //TODO many interrupts aren't wired
+
+      io.interrupt := unmaskedPending && MIE
     }
 
     def mapAddress(zeroWidth: Int, mapping: Int, driverWrite: Boolean) = new Area {
@@ -647,7 +697,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     setEntry(FRAME_TX)
 
     val doInterruptDelay = Reg(Bool)
-    val unmaskedInterruptDelay = Reg(Bool)
 
     onStart {
       token.startFsm()
@@ -656,7 +705,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       token.data := reg.hcFmNumber.FN.asBits.resized
       token.pid := 5
       doInterruptDelay := interruptDelay.done && !reg.hcInterrupt.WDH.status
-      unmaskedInterruptDelay := reg.hcInterrupt.WDH.enable
       when(token.wantExit) {
         goto(FRAME_NUMBER_CMD)
       }
@@ -669,7 +717,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.setWrite()
       dmaWriteCtx.save(U"x0000" @@ reg.hcFmNumber.FN, 0, 0)
       when(doInterruptDelay) {
-        dmaWriteCtx.save(reg.hcDoneHead.DH.address(31 downto 1) ## unmaskedInterruptDelay, 1, 0)
+        dmaWriteCtx.save(reg.hcDoneHead.DH.address(31 downto 1) ## reg.hcInterrupt.unmaskedPending, 1, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(FRAME_NUMBER_RSP)
@@ -789,6 +837,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isFs = !S
       val isLs = S
 
+      def isIsochrone = F
+
       when(isStarted) {
         io.phy.lowSpeed := S
       }
@@ -813,22 +863,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val pageMatch = CBP(12, 20 bits) === BE(12, 20 bits)
 
       val isIn = DP === 2
-    }
-
-    val codes = new {
-      val noError = B"0000"
-      val crc = B"0001"
-      val bitStuffing = B"0010"
-      val dataToggleMismatch = B"0011"
-      val stall = B"0100"
-      val deviceNotResponding = B"0101"
-      val pidCheckFailure = B"0110"
-      val unexpectedPid = B"0111"
-      val dataOverrun = B"1000"
-      val dataUnderrun = B"1001"
-      val bufferOverrun = B"1100"
-      val bufferUnderrun = B"1101"
-      val notAccessed = M"111-"
     }
 
 
@@ -1135,23 +1169,28 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     DATA_TX.whenIsActive {
       dataTx.pid := dataPhase ## B"011"
       when(dataTx.wantExit) {
-        goto(ACK_RX)
+        when(ED.isIsochrone){
+          rxCc := UsbOhci.ConditionCode.noError
+          goto(UPDATE_TD_CMD)
+        } otherwise {
+          goto(ACK_RX)
+        }
       }
     }
 
 
     val rxCc = Reg(Bits(4 bits))
     ACK_RX.whenIsActive {
-      when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts
+      when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
         goto(UPDATE_TD_CMD)
         when(!rxPidOk){
-          rxCc := codes.pidCheckFailure
+          rxCc := UsbOhci.ConditionCode.pidCheckFailure
         } otherwise{
           switch(io.phy.rx.data(3 downto 0)){
-            is(UsbPid.ACK) { rxCc := codes.noError }
+            is(UsbPid.ACK) { rxCc := UsbOhci.ConditionCode.noError }
             is(UsbPid.NAK) { goto(UPDATE_SYNC)}
-            is(UsbPid.STALL) { rxCc := codes.stall  }
-            default( rxCc := codes.pidCheckFailure )
+            is(UsbPid.STALL) { rxCc := UsbOhci.ConditionCode.stall  }
+            default( rxCc := UsbOhci.ConditionCode.pidCheckFailure )
           }
         }
       }
@@ -1168,8 +1207,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     DATA_RX_VALIDATE whenIsActive{
-      dmaLogic.validated := True //TODO
-      goto(ACK_TX)
+      dmaLogic.validated := True //TODO write or not the memory back, check crc check errors
+      when(ED.isIsochrone){
+        goto(WAIT_DMA_LOGIC_DONE)
+      } otherwise {
+        goto(ACK_TX)
+      }
     }
 
     ACK_TX whenIsActive{
@@ -1188,6 +1231,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
+    val tdUpdateAddress = tdCompletion ? U(0) | currentAddressFull
     UPDATE_TD_CMD.whenIsActive {
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
@@ -1195,11 +1239,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
       //TODO manage rxCc
-      dmaWriteCtx.save(codes.noError ## U"00" ## True ## !dataPhase, 0, 24)
-      dmaWriteCtx.save(currentAddressFull, 1, 0)
-      when(tdCompletion) {
+      dmaWriteCtx.save(U(UsbOhci.ConditionCode.noError) ## U"00" ## True ## !dataPhase, 0, 24)
+      dmaWriteCtx.save(tdUpdateAddress, 1, 0)
+      //TODO mange buffer bufferRounding (and interraction with tdCompletion + currentAddress)
+      when(tdCompletion) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
-        reg.hcDoneHead.DH.reg := ED.headP
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_ED_CMD)
@@ -1240,6 +1284,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(tdCompletion) {
           interruptDelay.load.valid := True
           interruptDelay.load.payload := TD.DI
+          reg.hcDoneHead.DH.reg := ED.headP //TODO WritebackDoneHead ?
         }
         exitFsm()
       }
