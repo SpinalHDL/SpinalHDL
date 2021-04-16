@@ -100,6 +100,29 @@ class TesterUtils(dut : UsbOhciTbTop) {
       m.write(address + 0x08, headP | (C.toInt << 1) | (H.toInt << 0))
       m.write(address + 0x0C, nextED)
     }
+
+    def load(m: SparseMemory): this.type = {
+      val w0 = m.readInt(address + 0x00)
+      val w2 = m.readInt(address + 0x08)
+      FA = (w0 >> 0) & 0x3F
+      EN = (w0 >> 7) & 0xF
+      D = (w0 >> 11) & 0x3
+      S = ((w0 >> 13) & 0x1) != 0
+      K = ((w0 >> 14) & 0x1) != 0
+      F = ((w0 >> 15) & 0x1) != 0
+      MPS = (w0 >> 16) & 0x7FF
+      tailP = m.readInt(address + 0x04)
+      headP = w2 & ~0xF
+      C = ((w2 >> 1) & 0x1) != 0
+      H = ((w2 >> 0) & 0x1) != 0
+      nextED = m.readInt(address + 0x0C)
+      this
+    }
+  }
+
+  def TD(malloc : MemoryRegionAllocator): TD ={
+    val addr = malloc.allocateAligned(0x10)
+    TD(addr.base.toInt)
   }
 
   //4.3 Transfer Descriptor
@@ -114,16 +137,16 @@ class TesterUtils(dut : UsbOhciTbTop) {
       m.write(address + 0x0C, bufferEnd)
     }
     def load(m: SparseMemory): this.type = {
-      val flags = m.read(address + 0x00)
+      val flags = m.readInt(address + 0x00)
       R = ((flags >> 18) & 0x1) != 0
-      DP = (flags >> 19) & 0x2
-      DI = (flags >> 21) & 0x3
-      T = (flags >> 24) & 0x2
-      EC = (flags >> 26) & 0x2
+      DP = (flags >> 19) & 0x3
+      DI = (flags >> 21) & 0x7
+      T = (flags >> 24) & 0x3
+      EC = (flags >> 26) & 0x3
       CC = (flags >> 28) & 0xF
-      currentBuffer = m.read(address + 0x04)
-      nextTD = m.read(address + 0x08)
-      bufferEnd = m.read(address + 0x0C)
+      currentBuffer = m.readInt(address + 0x04)
+      nextTD = m.readInt(address + 0x08)
+      bufferEnd = m.readInt(address + 0x0C)
       this
     }
   }

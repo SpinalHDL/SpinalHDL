@@ -1056,7 +1056,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             fifo.io.pop.ready := True
           }
           when(byteCtx.last) {
-            wantExit()
+            report(L"TO_USB_LAST $REPORT_TIME")
+            exitFsm()
           }
         }
       }

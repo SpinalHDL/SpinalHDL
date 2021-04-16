@@ -159,6 +159,9 @@ case class MemoryRegionAllocator(base : Long, size : Long){
   val allocations = mutable.HashSet[SizeMapping]()
   def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
   def free(region : SizeMapping) = allocations.remove(region)
+  def free(address : BigInt) = {
+    allocations.remove(allocations.find(a => a.base <= address && a.base + a.size > address).get)
+  }
   def isAllocated(address : Long) = allocations.exists(a => a.base <= address && a.base + a.size > address)
   def allocate(sizeMax : Long, sizeMin : Long) : SizeMapping = {
     var tryies = 0
