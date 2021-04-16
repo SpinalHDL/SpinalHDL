@@ -538,11 +538,13 @@ class ComponentEmitterVerilog(
               case m: String => m
               case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
+              case `REPORT_TIME` => "%d"
             }).mkString
 
-            val backString = (for (m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match {
+            val backString = (for (m <- assertStatement.message if !m.isInstanceOf[String]) yield m match {
               case m: SpinalEnumCraft[_] => ", " + emitExpression(m) + "_string"
               case m: Expression => ", " + emitExpression(m)
+              case `REPORT_TIME` => ", $time"
             }).mkString
 
             val keyword = assertStatement.kind match {
