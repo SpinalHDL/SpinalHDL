@@ -155,6 +155,9 @@ object InputNormalize {
   }
 }
 
+trait Suffixable {
+  def elements: Seq[(String, Data)]
+}
 
 trait WidthProvider extends ScalaLocated {
   def getWidth: Int

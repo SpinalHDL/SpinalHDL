@@ -1973,6 +1973,14 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
         def finalCheck(bt : BaseType): Unit ={
+          // Hold off until suffix parent is processed
+          if (bt.isSuffix)
+            return
+          if (bt.isInstanceOf[Suffixable]) {
+            if (bt.dlcIsEmpty)
+              return bt.asInstanceOf[Suffixable].elements.filter(_._2.isInstanceOf[BaseType]).foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+          }
+
           val assignedBits = getOrEmpty(bt)
           if ((bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
             if(bt.isComb) {
