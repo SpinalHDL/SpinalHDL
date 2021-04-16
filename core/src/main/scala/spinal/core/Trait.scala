@@ -80,6 +80,7 @@ object WARNING  extends AssertNodeSeverity
 object ERROR    extends AssertNodeSeverity
 object FAILURE  extends AssertNodeSeverity
 
+object REPORT_TIME
 
 /** Min max base function */
 trait MinMaxProvider {

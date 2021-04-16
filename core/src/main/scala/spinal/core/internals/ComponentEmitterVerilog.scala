@@ -531,10 +531,12 @@ class ComponentEmitterVerilog(
             val frontString = (for (m <- assertStatement.message) yield m match {
               case m: String => m
               case m: Expression => "%x"
+              case `REPORT_TIME` => "%d"
             }).mkString
 
-            val backString = (for (m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match {
+            val backString = (for (m <- assertStatement.message if !m.isInstanceOf[String]) yield m match {
               case m: Expression => ", " + emitExpression(m)
+              case `REPORT_TIME` => ", $time"
             }).mkString
 
             val keyword = assertStatement.kind match {
