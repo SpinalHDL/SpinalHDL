@@ -17,7 +17,7 @@ object VivadoFlow {
    * @param vivadoPath      The path to vivado (e.g. /opt/Xilinx/Vivado/2019.2/bin)
    * @param workspacePath   The temporary workspace path (e.g. /tmp/test)
    * @param toplevelPath    The path to top level hdl file
-   * @param family          Xilinx device family (Artix 7, Kintex Ultrascale or Kintex Ultrascale+)
+   * @param family          Xilinx device family (Artix 7, Kintex UltraScale, Kintex UltraScale+ or Virtex UltraScale+)
    * @param device          Xilinx device part
    * @param frequencyTarget Target clock frequency
    * @param processorCount  Number of processor count used
@@ -37,7 +37,7 @@ object VivadoFlow {
     val readRtl = rtl.getRtlPaths().map(file => s"""read_${if(isVhdl(file)) "vhdl" else "verilog"} ${Paths.get(file).getFileName()}""").mkString("\n")
 
     // generate tcl script
-    val tcl = new java.io.FileWriter(Paths.get(workspacePath,"doit.tcl").toFile)
+    val tcl = new java.io.FileWriter(Paths.get(workspacePath, "doit.tcl").toFile)
     tcl.write(
 s"""${readRtl}
 read_xdc doit.xdc
@@ -69,13 +69,13 @@ report_timing"""
         val intFind = "-?(\\d+\\.?)+".r
         val slack = try {
           (family match {
-            case "Artix 7" | "Kintex UltraScale" | "Kintex UltraScale+" =>
+            case "Artix 7" | "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
               intFind.findFirstIn("-?(\\d+.?)+ns  \\(required time - arrival time\\)".r.findFirstIn(report).get).get
           }).toDouble
-        }catch{
+        } catch {
           case e : Exception => -100000.0
         }
-        return 1.0/(targetPeriod.toDouble-slack*1e-9)
+        return 1.0 / (targetPeriod.toDouble - slack * 1e-9)
       }
       override def getArea(): String =  {
         val intFind = "(\\d+,?)+".r
@@ -84,11 +84,11 @@ report_timing"""
             case "Artix 7" =>
               intFind.findFirstIn("Slice LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
               intFind.findFirstIn("Slice Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
-            case "Kintex UltraScale" | "Kintex UltraScale+" =>
+            case "Kintex UltraScale" | "Kintex UltraScale+" | "Virtex UltraScale+" =>
               intFind.findFirstIn("CLB LUTs[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
               intFind.findFirstIn("CLB Registers[ ]*\\|[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
           }
-        }catch{
+        } catch {
           case e : Exception => "???"
         }
         return leArea
