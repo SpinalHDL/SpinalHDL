@@ -204,7 +204,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   //Patch some unecessary check in the fifo
   fifo.rework{
-    fifo.logic.empty.removeAssignments() := False
+//    fifo.logic.empty.removeAssignments() := False //Used against data overflow
     fifo.logic.full.removeAssignments() := False
   }
 
@@ -948,8 +948,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val currentAddressFull = (currentAddress(12) ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
     val currentAddressBmb = currentAddressFull & U(currentAddressFull.getWidth bits, default -> true, io.dma.p.access.wordRange -> false)
     val lastAddress = Reg(UInt(13 bits))
-    val transferSizeCalc = (U(TD.pageMatch) @@ TD.BE(0, 12 bits)) - TD.CBP(0, 12 bits)
-    val transactionSize = lastAddress - currentAddress
+//    val transferSizeCalc = (U(!TD.pageMatch) @@ TD.BE(0, 12 bits)) - TD.CBP(0, 12 bits)
+    val transactionSizeMinusOne = lastAddress - currentAddress
+    val transactionSize = transactionSizeMinusOne + 1
     val zeroLength = Reg(Bool)
     val dataPhase = Reg(Bool)
     val dataDone = zeroLength || currentAddress > lastAddress
@@ -966,9 +967,13 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val validated = False
       val length = Reg(UInt(p.dmaLengthWidth bits))
       val lengthMax = ~currentAddress.resize(p.dmaLengthWidth)
-      val lengthCalc = transactionSize.min(lengthMax).resize(widthOf(lengthMax))
+      val lengthCalc = transactionSizeMinusOne.min(lengthMax).resize(widthOf(lengthMax))
       val beatCount = Bmb.transferBeatCountMinusOneBytesAligned(currentAddressFull, length, io.dma.p)
       val lengthBmb = (beatCount @@ U(io.dma.p.access.byteCount-1)).resize(p.dmaLengthWidth)
+
+      val fromUsbCounter = Reg(UInt(11 bits))
+      val underflow = Reg(Bool)
+      val overflow = Reg(Bool)
 
       // Implement internal buffer write
       when(isStarted && !TD.isIn && ioDma.rsp.valid) {
@@ -988,6 +993,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
 
       INIT whenIsActive {
+        underflow := False
+        overflow := False
         fifo.io.flush := True
         when(TD.isIn) {
           goto(FROM_USB)
@@ -1070,11 +1077,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         fifo.io.push.payload := buffer
       }
 
+      FROM_USB onEntry {
+        fromUsbCounter := 0
+      }
       FROM_USB whenIsActive{
         when(dataRx.wantExit){
+          underflow := TD.isIn && fromUsbCounter < transactionSize
+          overflow  := TD.isIn && !underflow && fromUsbCounter =/= transactionSize
+          when(zeroLength){
+            underflow := False
+            overflow := fromUsbCounter =/= 0
+          }
           goto(VALIDATION) //TODO check CRC
         }
-        when(dataRx.data.valid) { //TODO manage errors ( !active  and zero bytes packets
+        when(dataRx.data.valid) { //TODO manage errors ( !active
+          fromUsbCounter := fromUsbCounter + U(!fromUsbCounter.msb)
           byteCtx.increment := True
           buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
           push setWhen (byteCtx.sel.andR)
@@ -1212,7 +1229,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     DATA_RX_VALIDATE whenIsActive{
       dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
-      when(ED.isIsochrone){
+      when(ED.isIsochrone){ //Skip ACK_TX
         goto(WAIT_DMA_LOGIC_DONE)
       } otherwise {
         goto(ACK_TX)
@@ -1229,12 +1246,16 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     WAIT_DMA_LOGIC_DONE whenIsActive{
+      rxCc := UsbOhci.ConditionCode.noError
+      when(dmaLogic.overflow){ rxCc := UsbOhci.ConditionCode.bufferOverrun }
+      when(dmaLogic.underflow){ rxCc := UsbOhci.ConditionCode.bufferUnderrun }
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_CMD)
       }
     }
 
-    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength) //TODO zeroLength good enough ?
+    val tdUpateCBP = !dmaLogic.overflow
+    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow) //TODO zeroLength good enough ?
     val tdUpdateAddress = tdCompletion ? U(0) | currentAddressFull
     UPDATE_TD_CMD.whenIsActive {
       ioDma.cmd.valid := True
@@ -1243,8 +1264,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
       //TODO manage rxCc
-      dmaWriteCtx.save(U(UsbOhci.ConditionCode.noError) ## U"00" ## True ## !dataPhase, 0, 24)
-      dmaWriteCtx.save(tdUpdateAddress, 1, 0)
+      dmaWriteCtx.save(rxCc ## U"00" ## True ## !dataPhase, 0, 24)
+      when(tdUpateCBP) {
+        dmaWriteCtx.save(tdUpdateAddress, 1, 0)
+      }
       //TODO mange buffer bufferRounding (and interraction with tdCompletion + currentAddress)
       when(tdCompletion) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
@@ -1546,6 +1569,7 @@ TODO
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
  RX zero byte packets
+ what should the HC answer to a IN transaction that goes wrong ? (ACK ?)
 
 
 test :
