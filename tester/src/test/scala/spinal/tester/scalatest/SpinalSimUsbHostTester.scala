@@ -34,10 +34,19 @@ class SpinalSimUsbHostTester extends FunSuite{
       val utils = new TesterUtils(dut)
       import utils._
 
+
+
       val m = memory.memory
+
+      var activity = true
 
       dut.clockDomain.forkSimSpeedPrinter()
       dut.clockDomain.waitSampling(2)
+      forkSimSporadicWave(
+        captures = Seq(
+//          3e-3 -> 12e-3
+        )
+      )
 
 
       val hcca = HCCA(malloc)
@@ -151,34 +160,102 @@ class SpinalSimUsbHostTester extends FunSuite{
       addBulkEd(ed0)
       ed0.save(ram)
 
+      var totalBytes = 0
+      for(tdId <- 0 to 50) {
+        var size = if(Random.nextDouble() < 0.1){
+          Random.nextInt(8192+1)
+        } else if(Random.nextDouble() < 0.05){
+          0
+        }  else if(Random.nextDouble() < 0.05){
+          8192
+        } else {
+          Random.nextInt(256+1)
+        }
+//        size = tdId //XXX
+        totalBytes += size
 
-      for(tdId <- 0 until 2) {
-        val size = 448
-        val td0Buffer = malloc.allocateAligned(size) //TODO should not be aligned
+        var p0, p1, p0Offset = 0
+        var p0Used, p1Used = 0
+        var success = false
+        while(!success){
+          success = true
+          p0 = Random.nextInt(128*1024)*4096
+          p1 = Random.nextInt(128*1024)*4096
+          p0Offset = Random.nextInt((8192-size+1).min(4096))
+//          p0Offset = 0 //XXX
+          p0Used = (4096-p0Offset).min(size)
+          p1Used = size - p0Used
+          if(malloc.isAllocated(p0 + p0Offset, p0Used)) success = false
+          if(p1Used != 0 && malloc.isAllocated(p1, p1Used)) success = false
+        }
+        totalBytes += size
+
+        if(p0Used != 0) malloc.allocateOn(p0 + p0Offset, p0Used)
+        if(p1Used != 0) malloc.allocateOn(p1, p1Used)
+
         val td0 = newTd(ed0)
-        td0.DP = 0
+        td0.DP = Random.nextInt(3)
+//        td0.DP = 2 //XXX
         td0.DI = 5
         td0.T = 2
-        td0.currentBuffer = td0Buffer.base.toInt
-        td0.bufferEnd = td0Buffer.base.toInt + 0x1BF
+        td0.currentBuffer = if(size == 0) 0 else p0 + p0Offset
+        td0.bufferEnd = if(p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
         td0.CC == UsbOhci.ConditionCode.notAccessed
         td0.save(ram)
-        for ((address, i) <- (td0.currentBuffer to td0.bufferEnd).zipWithIndex) {
-          ram.write(address, i.toByte)
+
+//        val refData = (0 until size) //XXX
+        val refData = Array.fill(size)(Random.nextInt(256))
+        if(td0.DP != UsbOhci.DP.IN) for (i <- 0 until size) {
+          val address = if (i < p0Used) p0 + p0Offset + i else p1 + i - p0Used
+          ram.write(address, refData(i).toByte)
         }
-        val groups = (0 until 448).grouped(ed0.MPS).zipWithIndex.toSeq
+
+        var groups : Seq[(Seq[Int], Int)] = (0 until size).grouped(ed0.MPS).zipWithIndex.toSeq
+        if(groups.isEmpty) groups = Seq(Seq[Int]() -> 0)
         for ((group, groupId) <- groups) {
-          scoreboards(0).pushHcToUsb(TockenKey(ed0.FA, ed0.EN), DataPacket(if (groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => ram.readByteAsInt(td0.currentBuffer + byteId)))) {
-            portAgents(0).emitBytes(HANDSHAKE_ACK, List(), false, true)
-            if (group == groups.last._1) {
-              doneChecks(td0.address) = { td =>
-                assert(td.currentBuffer == 0)
-                assert(td.CC == UsbOhci.ConditionCode.noError)
-                malloc.free(td0Buffer)
-                malloc.free(td0.address)
+          td0.DP match {
+            case UsbOhci.DP.SETUP | UsbOhci.DP.OUT =>{
+              val push = if(td0.DP == UsbOhci.DP.SETUP) scoreboards(0).pushSetup _ else scoreboards(0).pushOut _
+              push(TockenKey(ed0.FA, ed0.EN), DataPacket(if (groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => refData(byteId)))) {
+                portAgents(0).emitBytes(HANDSHAKE_ACK, List(), false, true)
+                activity = true
+                if (group == groups.last._1) {
+                  doneChecks(td0.address) = { td =>
+                    assert(td.currentBuffer == 0)
+                    assert(td.CC == UsbOhci.ConditionCode.noError)
+                    if(p0Used != 0) malloc.free(p0 + p0Offset)
+                    if(p1Used != 0) malloc.free(p1)
+                    malloc.free(td0.address)
+                  }
+                }
               }
             }
+            case UsbOhci.DP.IN => {
+              val push =  scoreboards(0).pushIn _
+              push(TockenKey(ed0.FA, ed0.EN)){
+                deviceDelayed(ls=false) {
+                  portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData), true, false)
+                  activity = true
+                  if(group == groups.last._1){
+                    doneChecks(td0.address) = {td =>
+                      assert(td.currentBuffer == 0)
+                      assert(td.CC == UsbOhci.ConditionCode.noError)
+                      for (i <- 0 until size) {
+                        val address = if (i < p0Used) p0 + p0Offset + i else p1 + i - p0Used
+                        assert(m.read(address) == refData(i).toByte, f"${m.read(address)}%x != ${refData(i).toByte}%x")
+                      }
+                      if(p0Used != 0) malloc.free(p0 + p0Offset)
+                      if(p1Used != 0) malloc.free(p1)
+                      println("DONNNNE")
+                    }
+                  }
+                }
+                true
+              }
+            }
+
           }
+
         }
         setBulkListFilled()
       }
@@ -233,11 +310,15 @@ class SpinalSimUsbHostTester extends FunSuite{
 
 
 
-      sleep(12e-3*1e12)
+      while(activity){
+        activity = false
+        sleep(10e-3*1e12)
+      }
 
       scoreboards.foreach(_.assertEmpty)
       assert(ctrl.read(UsbOhci.HcDoneHead) == 0)
       assert(doneChecks.isEmpty)
+      println(totalBytes)
     }
   }
 }
@@ -277,3 +358,5 @@ object UsbHostSynthesisTest {
     Bench(rtls, targets)
   }
 }
+
+

@@ -451,12 +451,9 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       usb.power := ctrl.power
       ctrl.overcurrent := usb.overcurrent
 
+      val waitSync = False
       val decoder = new Area{
-        val state = Reg(Bool) init(True) //TODO reset
-        val clear = False
-        when(clear){
-          state := True
-        }
+        val state = Reg(Bool)
 
         val output = Flow(Bool)
         output.valid := False
@@ -471,10 +468,14 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
             output.payload := True
           }
         }
+
+        when(waitSync){
+          state := False
+        }
       }
 
       val destuffer = new Area{
-        val counter = Reg(UInt(3 bits)) init(0)
+        val counter = Reg(UInt(3 bits))
         val unstuffNext = counter === 6
 
         val output = decoder.output.throwWhen(unstuffNext).stage()
@@ -485,36 +486,20 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
             counter := 0
           }
         }
+
+        when(waitSync){
+          counter := 0
+        }
       }
 
       val history = new Area{
         val updated = CombInit(destuffer.output.valid)
         val value = History(destuffer.output.payload, 0 to 7, when = updated).reverse.asBits
         val sync = new Area {
-          val pattern = 0x80
+          val pattern = 0x2A ^ 0xFF
           val hit = updated && value === pattern
         }
       }
-
-  //    val resume = new Area{
-  //      val minThreshold = io.ctrl.fullSpeed ? U(fsRatio*3) | U(fsRatio*8*3)
-  //      val counter = Reg(UInt(log2Up(fsRatio*8*3+1) bits)) init(0)
-  //      val maxHit = counter === maxThreshold
-  //      val hit = False
-  //
-  //      when(!filter.io.filtred.dp && !filter.io.filtred.dm){
-  //        when(!maxHit) {
-  //          counter := counter + 1
-  //        }
-  //      } otherwise {
-  //        counter := 0
-  //      }
-  //      when(filter.io.filtred.dp === io.ctrl.fullSpeed && filter.io.filtred.dm === !io.ctrl.fullSpeed){
-  //        when(counter >= minThreshold && !maxHit){
-  //          hit := True
-  //        }
-  //      }
-  //    }
 
       val eop = new Area{
         val maxThreshold = lowSpeed ? U(fsRatio*8*3)     | U(fsRatio*3)
@@ -537,15 +522,14 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
       }
 
-      decoder.clear setWhen(eop.hit)
-
-
       val packet = new StateMachine {
         val IDLE, PACKET = new State
         setEntry(IDLE)
 
         val counter = Reg(UInt(3 bits))
+        IDLE.onEntry(waitSync := True)
         IDLE.whenIsActive{
+          waitSync := True
           counter := 0
           when(history.sync.hit){
             goto(PACKET)
@@ -603,7 +587,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       usb.tx.se0   assignDontCare()
 
       def SE0 =  filter.io.filtred.se0
-      def K   = !SE0 && filter.io.filtred.d ^ lowSpeed
+      def K   = !SE0 && (!filter.io.filtred.d ^ lowSpeed)
 
       val resetInProgress = False
       val lowSpeedEop = Reg(Bool)

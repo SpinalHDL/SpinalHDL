@@ -79,6 +79,12 @@ object UsbOhci{
     val bufferUnderrun = Integer.parseInt("1101",2)
     val notAccessed = Integer.parseInt("1110",2)
   }
+
+  object DP{
+    val SETUP = 0
+    val OUT = 1
+    val IN = 2
+  }
 }
 
 object UsbPid{
@@ -939,7 +945,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val currentAddress = Reg(UInt(14 bits)) //One extra bit to allow overflow comparison
-    val currentAddressFull = (currentAddress.msb ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
+    val currentAddressFull = (currentAddress(12) ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
     val currentAddressBmb = currentAddressFull & U(currentAddressFull.getWidth bits, default -> true, io.dma.p.access.wordRange -> false)
     val lastAddress = Reg(UInt(13 bits))
     val transferSizeCalc = (U(TD.pageMatch) @@ TD.BE(0, 12 bits)) - TD.CBP(0, 12 bits)
@@ -982,15 +988,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
 
       INIT whenIsActive {
-        when(dataDone) {
-          exitFsm()
+        fifo.io.flush := True
+        when(TD.isIn) {
+          goto(FROM_USB)
         } otherwise {
-          fifo.io.flush := True
-          when(TD.isIn) {
-            goto(FROM_USB)
-          } otherwise {
-            goto(CALC_CMD)
-          }
+          goto(CALC_CMD)
         }
       }
 
@@ -1056,7 +1058,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             fifo.io.pop.ready := True
           }
           when(byteCtx.last) {
-            report(L"TO_USB_LAST $REPORT_TIME")
             exitFsm()
           }
         }
@@ -1070,13 +1071,15 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
 
       FROM_USB whenIsActive{
-        when(dataRx.data.valid) { //TODO manage errors ( !active
+        when(dataRx.wantExit){
+          goto(VALIDATION) //TODO check CRC
+        }
+        when(dataRx.data.valid) { //TODO manage errors ( !active  and zero bytes packets
           byteCtx.increment := True
           buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
           push setWhen (byteCtx.sel.andR)
           when(byteCtx.last){
             push := True
-            goto(VALIDATION) //TODO check CRC
           }
         }
       }
@@ -1104,7 +1107,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       dmaLogic.byteCtx.counter := currentAddressCalc.resized
       currentAddress := currentAddressCalc.resized
-      lastAddress := lastAddressNoSat.min(currentAddressCalc + ED.MPS - 1)
+      lastAddress := lastAddressNoSat.min(currentAddressCalc +^ ED.MPS - 1)
 
       zeroLength := TD.CBP === 0
       dataPhase := TD.T(1) ? TD.T(0) | ED.C
@@ -1119,7 +1122,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         status := Status.FRAME_TIME
         goto(ABORD)
       } otherwise {
-        when(TD.isIn){
+        when(TD.isIn || zeroLength){
           goto(TOKEN)
         } otherwise {
           dmaLogic.startFsm()
@@ -1208,7 +1211,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     DATA_RX_VALIDATE whenIsActive{
-      dmaLogic.validated := True //TODO write or not the memory back, check crc check errors
+      dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
       when(ED.isIsochrone){
         goto(WAIT_DMA_LOGIC_DONE)
       } otherwise {
@@ -1542,4 +1545,11 @@ TODO
  6.5.7 RootHubStatusChange Event
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
+ RX zero byte packets
+
+
+test :
+ isocrone, interrupt, setup lists
+ isocrone TD
+ all error conditions
  */
