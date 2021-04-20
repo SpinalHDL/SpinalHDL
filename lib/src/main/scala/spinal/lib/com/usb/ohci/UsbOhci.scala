@@ -820,6 +820,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val OK, FRAME_TIME = newElement()
     }
     val status = Reg(Status)
+    val dataPhase = Reg(Bool)
 
     val ED = new Area {
       val address = Reg(UInt(32 bits))
@@ -871,7 +872,17 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isIn = DP === 2
 
 
-      val completion = Reg(Bool)
+      val retire = Reg(Bool)
+
+      val dataPhaseUpdate = Reg(Bool)
+      val DPNext = dataPhaseUpdate ? (True ## (!dataPhase)) | DP
+      val dataPhaseNext = dataPhase ^ dataPhaseUpdate
+
+      val clear = False
+      when(clear){
+        retire := False
+        dataPhaseUpdate := True
+      }
     }
 
 
@@ -926,7 +937,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     TD_READ_CMD.whenIsActive {
-      TD.completion := False
+      TD.clear := True
+
       //Fetch TD
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
@@ -956,7 +968,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val transactionSizeMinusOne = lastAddress - currentAddress
     val transactionSize = transactionSizeMinusOne + 1
     val zeroLength = Reg(Bool)
-    val dataPhase = Reg(Bool)
     val dataDone = zeroLength || currentAddress > lastAddress
 
     val dmaLogic = new StateMachine {
@@ -1213,7 +1224,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           switch(io.phy.rx.data(3 downto 0)){
             is(UsbPid.ACK) { TD.CC := UsbOhci.ConditionCode.noError }
             is(UsbPid.NAK) { goto(UPDATE_SYNC)}
-            is(UsbPid.STALL) { TD.CC := UsbOhci.ConditionCode.stall  }
+            is(UsbPid.STALL) { TD.CC := UsbOhci.ConditionCode.stall; TD.retire := True; TD.dataPhaseUpdate := False }
             default( TD.CC := UsbOhci.ConditionCode.pidCheckFailure )
           }
         }
@@ -1257,11 +1268,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    val tdUpateCBP = !dmaLogic.overflow && !dmaLogic.underflowError
-    val tdUpdateAddress = TD.completion ? U(0) | currentAddressFull
+    val tdUpateCBP = TD.CC === UsbOhci.ConditionCode.noError
+    val tdUpdateAddress = TD.retire ? U(0) | currentAddressFull
 
     UPDATE_TD_PROCESS whenIsActive{
-      TD.completion := currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow
+      TD.retire setWhen(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow)
       goto(UPDATE_TD_CMD)
     }
 
@@ -1272,12 +1283,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
       //TODO manage TD.CC
-      dmaWriteCtx.save(TD.CC ## TD.EC ## True ## !dataPhase, 0, 24)
+      dmaWriteCtx.save(TD.CC ## TD.EC ## TD.DPNext, 0, 24)
       when(tdUpateCBP) {
         dmaWriteCtx.save(tdUpdateAddress, 1, 0)
       }
       //TODO mange buffer bufferRounding (and interraction with TD.completion + currentAddress)
-      when(TD.completion) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
+      when(TD.retire) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
@@ -1293,8 +1304,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === 15 * 8 / p.dataWidth
       ioDma.cmd.setWrite()
       //TODO
-      when(TD.completion) {
-        dmaWriteCtx.save(TD.nextTD ## B"00" ## !dataPhase ## ED.H, 2, 0)
+      when(TD.retire) {
+        dmaWriteCtx.save(TD.nextTD ## B"00" ## TD.dataPhaseNext ## ED.H, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_SYNC)
@@ -1317,7 +1328,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           }
         }
 
-        when(TD.completion) {
+        when(TD.retire) {
           interruptDelay.load.valid := True
           interruptDelay.load.payload := TD.DI
           reg.hcDoneHead.DH.reg := ED.headP //TODO WritebackDoneHead ?
