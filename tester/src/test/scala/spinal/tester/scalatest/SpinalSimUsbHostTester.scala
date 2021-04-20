@@ -161,7 +161,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       ed0.save(ram)
 
       var totalBytes = 0
-      for(tdId <- 0 until 50) { //XXX
+      for(tdId <- 0 until 100) { //XXX
         var size = if(Random.nextDouble() < 0.1){
           Random.nextInt(8192+1)
         } else if(Random.nextDouble() < 0.05){
@@ -171,7 +171,7 @@ class SpinalSimUsbHostTester extends FunSuite{
         } else {
           Random.nextInt(256+1)
         }
-//        size = 96 //XXX
+//        size = 32 //XXX
         totalBytes += size
 
         var p0, p1, p0Offset = 0
@@ -199,16 +199,16 @@ class SpinalSimUsbHostTester extends FunSuite{
         td0.DP = UsbOhci.DP.IN //XXX
         td0.DI = 5
         td0.T = 2
+        td0.R = Random.nextBoolean()
         td0.currentBuffer = if(size == 0) 0 else p0 + p0Offset
         td0.bufferEnd = if(p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
         td0.CC == UsbOhci.ConditionCode.notAccessed
         td0.save(ram)
 
-        var doOverflow = Random.nextDouble() < 0.05
-        doOverflow = true //XXX
-        if(td0.DP != UsbOhci.DP.IN) {
-          doOverflow = false
-        }
+        var doOverflow = td0.DP == UsbOhci.DP.IN && Random.nextDouble() < 0.05
+        var doUnderflow = td0.DP == UsbOhci.DP.IN && !doOverflow && size != 0 && Random.nextDouble() < 0.05
+        doOverflow = false //XXX
+        doUnderflow = size != 0 //XXX
 
 //        val refData = (0 until size) //XXX
         val refData = Array.fill(size)(Random.nextInt(256))
@@ -220,7 +220,8 @@ class SpinalSimUsbHostTester extends FunSuite{
         var groups : Seq[(Seq[Int], Int)] = (0 until size).grouped(ed0.MPS).zipWithIndex.toList
         if(groups.isEmpty) groups = Seq(Seq[Int]() -> 0)
         val overflowAt = if(!doOverflow) Int.MaxValue else groups.randomPick()._2
-        val groupLastId = List(groups.last._2, overflowAt).min
+        val underflowAt = if(!doUnderflow) Int.MaxValue else groups.randomPick()._2
+        val groupLastId = List(groups.last._2, overflowAt, underflowAt).min
 
         for ((group, groupId) <- groups; if groupId <= groupLastId) {
           td0.DP match {
@@ -245,34 +246,52 @@ class SpinalSimUsbHostTester extends FunSuite{
               push(TockenKey(ed0.FA, ed0.EN)){
                 activity = true
                 deviceDelayed(ls=false) {
+                  var finalTransferSize = group.size
                   if(groupId == overflowAt){
                     portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData) ++ List.fill(Random.nextInt(4)+1)(Random.nextInt(256)), true, false)
+                  } else if(groupId == underflowAt){
+                    finalTransferSize = Random.nextInt(group.size)
+                    portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData).take(finalTransferSize), true, false)
                   } else {
                     portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData), true, false)
                   }
                   if (groupId == groupLastId) {
 //                    println("=> " + group.map(refData).map(e => f"$e%02x").mkString(","))
                     doneChecks(td0.address) = {td =>
-                      def checkDataUpTo(up : Int): Unit ={
+                      def checkDataUntil(up : Int): Unit ={
                         for (i <- 0 until up) {
                           val address = byteToAddress(i)
-                          assert(m.read(address) == refData(i).toByte, f"${m.read(address)}%x != ${refData(i).toByte}%x")
+                          assert(m.read(address) == refData(i).toByte, f"[$i] => ${m.read(address)}%x != ${refData(i).toByte}%x")
                         }
                       }
 
+                      ed0.load(m)
                       if(doOverflow){
                         assert(td.CC == UsbOhci.ConditionCode.bufferOverrun)
                         if(size != 0) {
                           assert(td.currentBuffer == byteToAddress(group.head))
-                          checkDataUpTo(group.last+1)
+                          checkDataUntil(group.last+1)
                         } else {
                           assert(td.currentBuffer == 0)
                         }
-
+                      } else if(doUnderflow && !td.R){
+                        assert(td.CC == UsbOhci.ConditionCode.bufferUnderrun)
+                        assert(td.currentBuffer == byteToAddress(group.head))
+                        checkDataUntil(group.head + finalTransferSize)
                       } else {
                         assert(td.CC == UsbOhci.ConditionCode.noError)
                         assert(td.currentBuffer == 0)
-                        checkDataUpTo(size)
+                        if(size != 0) checkDataUntil(group.head + finalTransferSize)
+                      }
+
+                      if(td.CC != UsbOhci.ConditionCode.noError){
+                        assert(ed0.H)
+                        fork{
+                          sleep(Random.nextInt(5)*1e9)
+                          ed0.H = false
+                          ed0.save(m)
+                          setBulkListFilled()
+                        }
                       }
 
                       if(p0Used != 0) malloc.free(p0 + p0Offset)
@@ -293,51 +312,6 @@ class SpinalSimUsbHostTester extends FunSuite{
 
 
 
-
-//      val size = 32
-//      val td0Malloc = malloc.allocateAligned(0x10)
-//      val td0Buffer = malloc.allocateAligned(32) //TODO should not be aligned
-//      val td0 = TD(td0Malloc.base.toInt)
-//      td0.DP = 2
-//      td0.DI = 5
-//      td0.currentBuffer = td0Buffer.base.toInt
-//      td0.bufferEnd = td0Buffer.base.toInt + 0x1F
-//      td0.nextTD = 0
-//      td0.CC == UsbOhci.ConditionCode.notAccessed
-//      td0.save(ram)
-//
-//      val ed0 = ED(malloc)
-//      ed0.D = 0
-//      ed0.FA = 42
-//      ed0.EN = 6
-//      ed0.MPS = 64
-//      ed0.headP = td0.address
-//      ed0.nextED = 0
-//      ed0.save(ram)
-//      ctrl.write(ed0.address, hcBulkHeadED)
-//
-//      val groups = (0 until 32).grouped(ed0.MPS).zipWithIndex.toSeq
-//      for((group, groupId) <- groups) {
-//        scoreboards(0).pushUsbToHc(TockenKey(ed0.FA, ed0.EN)){
-//          deviceDelayed(ls=false) {
-//            portAgents(0).emitBytes(HANDSHAKE_ACK, 0 until 32, true, false)
-//            if(group == groups.last._1){
-//              doneChecks(td0.address) = {td =>
-//                assert(td.currentBuffer == 0)
-//                assert(td.CC == UsbOhci.ConditionCode.noError)
-//                for(i <- 0 until size) {
-//                  val offset = td0.currentBuffer + i //TODO manage pages jump
-//                  assert(memory.memory.read(offset) == i)
-//                }
-//                malloc.free(td0Malloc)
-//                malloc.free(td0Buffer)
-//                println("DONNNNE")
-//              }
-//            }
-//          }
-//          true
-//        }
-//      }
 
 
 

@@ -860,7 +860,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val T = words(0)(24, 2 bits)
       val DI = words(0)(21, 3 bits).asUInt
       val DP = words(0)(19, 2 bits)
-      val R = words(0)(18, 1 bits)
+      val R = words(0)(18)
 
       val CBP = words(1)(0, 32 bits).asUInt
       val nextTD = words(2)(4, 28 bits)
@@ -972,8 +972,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val lengthBmb = (beatCount @@ U(io.dma.p.access.byteCount-1)).resize(p.dmaLengthWidth)
 
       val fromUsbCounter = Reg(UInt(11 bits))
-      val underflow = Reg(Bool)
       val overflow = Reg(Bool)
+      val underflow = Reg(Bool)
+      val underflowError = underflow && !TD.R
 
       // Implement internal buffer write
       when(isStarted && !TD.isIn && ioDma.rsp.valid) {
@@ -1082,8 +1083,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
       FROM_USB whenIsActive{
         when(dataRx.wantExit){
-          underflow := TD.isIn && fromUsbCounter < transactionSize
-          overflow  := TD.isIn && !underflow && fromUsbCounter =/= transactionSize
+          push := byteCtx.sel.orR
+          val u = fromUsbCounter < transactionSize
+          underflow := u
+          overflow  := !u && fromUsbCounter =/= transactionSize
           when(zeroLength){
             underflow := False
             overflow := fromUsbCounter =/= 0
@@ -1095,9 +1098,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           byteCtx.increment := True
           buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
           push setWhen (byteCtx.sel.andR)
-          when(byteCtx.last){
-            push := True
-          }
         }
       }
 
@@ -1191,7 +1191,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dataTx.pid := dataPhase ## B"011"
       when(dataTx.wantExit) {
         when(ED.isIsochrone){
-          rxCc := UsbOhci.ConditionCode.noError
+          TD.CC := UsbOhci.ConditionCode.noError
           goto(UPDATE_TD_CMD)
         } otherwise {
           goto(ACK_RX)
@@ -1199,19 +1199,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-
-    val rxCc = Reg(Bits(4 bits))
+    
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
         goto(UPDATE_TD_CMD)
         when(!rxPidOk){
-          rxCc := UsbOhci.ConditionCode.pidCheckFailure
+          TD.CC := UsbOhci.ConditionCode.pidCheckFailure
         } otherwise{
           switch(io.phy.rx.data(3 downto 0)){
-            is(UsbPid.ACK) { rxCc := UsbOhci.ConditionCode.noError }
+            is(UsbPid.ACK) { TD.CC := UsbOhci.ConditionCode.noError }
             is(UsbPid.NAK) { goto(UPDATE_SYNC)}
-            is(UsbPid.STALL) { rxCc := UsbOhci.ConditionCode.stall  }
-            default( rxCc := UsbOhci.ConditionCode.pidCheckFailure )
+            is(UsbPid.STALL) { TD.CC := UsbOhci.ConditionCode.stall  }
+            default( TD.CC := UsbOhci.ConditionCode.pidCheckFailure )
           }
         }
       }
@@ -1246,16 +1245,16 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     WAIT_DMA_LOGIC_DONE whenIsActive{
-      rxCc := UsbOhci.ConditionCode.noError
-      when(dmaLogic.overflow){ rxCc := UsbOhci.ConditionCode.bufferOverrun }
-      when(dmaLogic.underflow){ rxCc := UsbOhci.ConditionCode.bufferUnderrun }
+      TD.CC := UsbOhci.ConditionCode.noError
+      when(dmaLogic.overflow){ TD.CC := UsbOhci.ConditionCode.bufferOverrun }
+      when(dmaLogic.underflowError){ TD.CC := UsbOhci.ConditionCode.bufferUnderrun }
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_CMD)
       }
     }
 
-    val tdUpateCBP = !dmaLogic.overflow
-    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow) //TODO zeroLength good enough ?
+    val tdUpateCBP = !dmaLogic.overflow && !dmaLogic.underflowError
+    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow) //TODO zeroLength good enough ?
     val tdUpdateAddress = tdCompletion ? U(0) | currentAddressFull
     UPDATE_TD_CMD.whenIsActive {
       ioDma.cmd.valid := True
@@ -1263,8 +1262,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.length := (ED.F ? U(31) | U(15)).resized
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
-      //TODO manage rxCc
-      dmaWriteCtx.save(rxCc ## U"00" ## True ## !dataPhase, 0, 24)
+      //TODO manage TD.CC
+      dmaWriteCtx.save(TD.CC ## U"00" ## True ## !dataPhase, 0, 24)
       when(tdUpateCBP) {
         dmaWriteCtx.save(tdUpdateAddress, 1, 0)
       }
@@ -1275,6 +1274,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_ED_CMD)
       }
+      ED.H := TD.CC =/= UsbOhci.ConditionCode.noError
     }
 
     UPDATE_ED_CMD.whenIsActive {
@@ -1285,7 +1285,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.setWrite()
       //TODO
       when(tdCompletion) {
-        dmaWriteCtx.save(TD.nextTD ## B"00" ## !dataPhase ## False, 2, 0)
+        dmaWriteCtx.save(TD.nextTD ## B"00" ## !dataPhase ## ED.H, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_SYNC)
@@ -1570,6 +1570,8 @@ TODO
  !! Descheduling during a transmition will break the PHY !!
  RX zero byte packets
  what should the HC answer to a IN transaction that goes wrong ? (ACK ?)
+ check what happen if multiple error condition happen (ex overflow + crc error)
+ !! The General TD is retired with a ConditionCode of N O E RROR and the endpoint is not halted!!
 
 
 test :
