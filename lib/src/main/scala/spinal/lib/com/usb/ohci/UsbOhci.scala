@@ -804,7 +804,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
     val ACK_RX, ACK_TX = new State
     val WAIT_DMA_LOGIC_DONE = new State
-    val UPDATE_TD_CMD = new State
+    val UPDATE_TD_PROCESS, UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
     val ABORD = new State
 
@@ -869,6 +869,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val pageMatch = CBP(12, 20 bits) === BE(12, 20 bits)
 
       val isIn = DP === 2
+
+
+      val completion = Reg(Bool)
     }
 
 
@@ -923,6 +926,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     TD_READ_CMD.whenIsActive {
+      TD.completion := False
       //Fetch TD
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
@@ -1192,7 +1196,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(dataTx.wantExit) {
         when(ED.isIsochrone){
           TD.CC := UsbOhci.ConditionCode.noError
-          goto(UPDATE_TD_CMD)
+          goto(UPDATE_TD_PROCESS)
         } otherwise {
           goto(ACK_RX)
         }
@@ -1202,7 +1206,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
-        goto(UPDATE_TD_CMD)
+        goto(UPDATE_TD_PROCESS)
         when(!rxPidOk){
           TD.CC := UsbOhci.ConditionCode.pidCheckFailure
         } otherwise{
@@ -1249,13 +1253,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(dmaLogic.overflow){ TD.CC := UsbOhci.ConditionCode.bufferOverrun }
       when(dmaLogic.underflowError){ TD.CC := UsbOhci.ConditionCode.bufferUnderrun }
       when(dmaLogic.isStopped){
-        goto(UPDATE_TD_CMD)
+        goto(UPDATE_TD_PROCESS)
       }
     }
 
     val tdUpateCBP = !dmaLogic.overflow && !dmaLogic.underflowError
-    val tdCompletion = RegNext(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow) //TODO zeroLength good enough ?
-    val tdUpdateAddress = tdCompletion ? U(0) | currentAddressFull
+    val tdUpdateAddress = TD.completion ? U(0) | currentAddressFull
+
+    UPDATE_TD_PROCESS whenIsActive{
+      TD.completion := currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow
+      goto(UPDATE_TD_CMD)
+    }
+
     UPDATE_TD_CMD.whenIsActive {
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
@@ -1263,12 +1272,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
       //TODO manage TD.CC
-      dmaWriteCtx.save(TD.CC ## U"00" ## True ## !dataPhase, 0, 24)
+      dmaWriteCtx.save(TD.CC ## TD.EC ## True ## !dataPhase, 0, 24)
       when(tdUpateCBP) {
         dmaWriteCtx.save(tdUpdateAddress, 1, 0)
       }
-      //TODO mange buffer bufferRounding (and interraction with tdCompletion + currentAddress)
-      when(tdCompletion) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
+      //TODO mange buffer bufferRounding (and interraction with TD.completion + currentAddress)
+      when(TD.completion) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
@@ -1284,7 +1293,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === 15 * 8 / p.dataWidth
       ioDma.cmd.setWrite()
       //TODO
-      when(tdCompletion) {
+      when(TD.completion) {
         dmaWriteCtx.save(TD.nextTD ## B"00" ## !dataPhase ## ED.H, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
@@ -1308,7 +1317,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           }
         }
 
-        when(tdCompletion) {
+        when(TD.completion) {
           interruptDelay.load.valid := True
           interruptDelay.load.payload := TD.DI
           reg.hcDoneHead.DH.reg := ED.headP //TODO WritebackDoneHead ?
@@ -1572,6 +1581,7 @@ TODO
  what should the HC answer to a IN transaction that goes wrong ? (ACK ?)
  check what happen if multiple error condition happen (ex overflow + crc error)
  !! The General TD is retired with a ConditionCode of N O E RROR and the endpoint is not halted!!
+  Data0 data1 updates in TD and ED ? error handeling too
 
 
 test :
