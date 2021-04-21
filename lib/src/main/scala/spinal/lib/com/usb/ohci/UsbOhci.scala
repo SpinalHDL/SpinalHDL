@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.com.eth.{Crc, CrcKind}
+import spinal.lib.com.usb.UsbTimer
 import spinal.lib.com.usb.ohci.UsbOhci.dmaParameter
 import spinal.lib.com.usb.phy.UsbHubLsFs
 import spinal.lib.fsm._
@@ -64,7 +65,7 @@ object UsbOhci{
   val StartofFrame          = 0x4
 
 
-  object ConditionCode {
+  object CC {
     val noError = Integer.parseInt("0000",2)
     val crc = Integer.parseInt("0001",2)
     val bitStuffing = Integer.parseInt("0010",2)
@@ -116,7 +117,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val interrupt = out Bool()
   }
   io.phy.lowSpeed := False
-  
+
   val unscheduleAll = Event
   unscheduleAll.valid := False
   unscheduleAll.ready := True
@@ -219,7 +220,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   val doUnschedule = RegInit(False) clearWhen(unscheduleAll.ready)
   val doSoftReset = RegInit(False) clearWhen(!doUnschedule)
   unscheduleAll.valid setWhen(doUnschedule)
-  
+
   val softInitTasks = ArrayBuffer[() => Unit]()
   implicit class OhciDataPimper[T <: Data](self : T){
     def softInit(value : T) : T = {
@@ -856,7 +857,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val words = Vec(Reg(Bits(32 bits)), 4)
 
-      val CC = words(0)(28, 4 bits)
+      val CC = words(0)(28, 4 bits) //4.3.3.1 Condition Code Description
       val EC = words(0)(26, 2 bits)
       val T = words(0)(24, 2 bits)
       val DI = words(0)(21, 3 bits).asUInt
@@ -873,16 +874,20 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
 
       val retire = Reg(Bool)
+      val upateCBP = Reg(Bool)
 
       val dataPhaseUpdate = Reg(Bool)
-      val DPNext = dataPhaseUpdate ? (True ## (!dataPhase)) | DP
+      val TNext = dataPhaseUpdate ? (True ## (!dataPhase)) | T
       val dataPhaseNext = dataPhase ^ dataPhaseUpdate
 
       val clear = False
       when(clear){
         retire := False
-        dataPhaseUpdate := True
+        dataPhaseUpdate := False
+        upateCBP := False
       }
+
+//      val isTransmissionError = List(UsbOhci.CC.bitStuffing, UsbOhci.CC.crc, UsbOhci.CC.pidCheckFailure, UsbOhci.CC.deviceNotResponding).map(CC === _).orR
     }
 
 
@@ -1206,7 +1211,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dataTx.pid := dataPhase ## B"011"
       when(dataTx.wantExit) {
         when(ED.isIsochrone){
-          TD.CC := UsbOhci.ConditionCode.noError
+          TD.CC := UsbOhci.CC.noError
           goto(UPDATE_TD_PROCESS)
         } otherwise {
           goto(ACK_RX)
@@ -1214,20 +1219,50 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    
+//    ACK_RX.onEntry(TD.CC := UsbOhci.ConditionCode.n)
+    val timer = new UsbTimer(0.67e-6*24, p.fsRatio){
+      val rxTimeout = cycles(24)
+      lowSpeed := ED.S
+    }
+    val ackRxFired = Reg(Bool)
+    val ackRxActivated = Reg(Bool)
+    val ackRxPidFailure = Reg(Bool)
+    val ackRxPid = Reg(Bits(4 bits))
+    ACK_RX.onEntry{
+      ackRxFired := False
+      ackRxActivated := False
+      ackRxPidFailure := False
+      timer.clear := True
+    }
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
+        ackRxFired := True
+        ackRxPid := io.phy.rx.data(3 downto 0)
+        when(!rxPidOk || ackRxFired){
+          ackRxPidFailure := True
+        }
+      }
+      ackRxActivated setWhen(io.phy.rx.active)
+      when(!io.phy.rx.active && ackRxActivated){
         goto(UPDATE_TD_PROCESS)
-        when(!rxPidOk){
-          TD.CC := UsbOhci.ConditionCode.pidCheckFailure
-        } otherwise{
-          switch(io.phy.rx.data(3 downto 0)){
-            is(UsbPid.ACK) { TD.CC := UsbOhci.ConditionCode.noError }
+        when(!ackRxFired || ackRxPidFailure) {
+          TD.CC := UsbOhci.CC.pidCheckFailure
+        } otherwise {
+          switch(ackRxPid){
+            is(UsbPid.ACK) { TD.CC := UsbOhci.CC.noError }
             is(UsbPid.NAK) { goto(UPDATE_SYNC)}
-            is(UsbPid.STALL) { TD.CC := UsbOhci.ConditionCode.stall; TD.retire := True; TD.dataPhaseUpdate := False }
-            default( TD.CC := UsbOhci.ConditionCode.pidCheckFailure )
+            is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
+            default( TD.CC := UsbOhci.CC.unexpectedPid )
           }
         }
+      }
+
+      when(io.phy.rx.active){
+        timer.clear := True
+      }
+      when(timer.rxTimeout){
+        TD.CC := UsbOhci.CC.deviceNotResponding
+        goto(UPDATE_TD_PROCESS)
       }
     }
 
@@ -1260,19 +1295,35 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     WAIT_DMA_LOGIC_DONE whenIsActive{
-      TD.CC := UsbOhci.ConditionCode.noError
-      when(dmaLogic.overflow){ TD.CC := UsbOhci.ConditionCode.bufferOverrun }
-      when(dmaLogic.underflowError){ TD.CC := UsbOhci.ConditionCode.bufferUnderrun }
+      TD.CC := UsbOhci.CC.noError
+      when(dmaLogic.overflow){ TD.CC := UsbOhci.CC.bufferOverrun }
+      when(dmaLogic.underflowError){ TD.CC := UsbOhci.CC.bufferUnderrun }
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_PROCESS)
       }
     }
 
-    val tdUpateCBP = TD.CC === UsbOhci.ConditionCode.noError
     val tdUpdateAddress = TD.retire ? U(0) | currentAddressFull
-
     UPDATE_TD_PROCESS whenIsActive{
-      TD.retire setWhen(currentAddress > lastAddressNoSat || zeroLength || dmaLogic.overflow || dmaLogic.underflow)
+      import UsbOhci.CC._
+      TD.EC := 0
+      switch(TD.CC){
+        default{ TD.retire := True } //Include stall
+        is(noError) {
+          TD.retire setWhen(dmaLogic.underflow || currentAddress > lastAddressNoSat || zeroLength)
+          TD.dataPhaseUpdate := True
+          TD.upateCBP := True
+        }
+        is(bitStuffing, crc, pidCheckFailure, deviceNotResponding) { //Transmission errors => may repeat
+          TD.EC := (TD.EC.asUInt + 1).asBits
+          when(TD.EC =/= 2){
+            TD.CC := UsbOhci.CC.noError
+          } otherwise {
+            TD.retire := True
+          }
+        }
+      }
+
       goto(UPDATE_TD_CMD)
     }
 
@@ -1283,8 +1334,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
       //TODO manage TD.CC
-      dmaWriteCtx.save(TD.CC ## TD.EC ## TD.DPNext, 0, 24)
-      when(tdUpateCBP) {
+      dmaWriteCtx.save(TD.CC ## TD.EC ## TD.TNext, 0, 24)
+      when(TD.upateCBP) {
         dmaWriteCtx.save(tdUpdateAddress, 1, 0)
       }
       //TODO mange buffer bufferRounding (and interraction with TD.completion + currentAddress)
@@ -1294,7 +1345,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_ED_CMD)
       }
-      ED.H := TD.CC =/= UsbOhci.ConditionCode.noError
+      ED.H := TD.CC =/= UsbOhci.CC.noError
     }
 
     UPDATE_ED_CMD.whenIsActive {

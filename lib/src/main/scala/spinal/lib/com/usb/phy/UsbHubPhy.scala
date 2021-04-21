@@ -2,6 +2,7 @@ package spinal.lib.com.usb.phy
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.com.usb.UsbTimer
 import spinal.lib.fsm._
 import spinal.lib.io.TriState
 
@@ -94,26 +95,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
   }
     val lsRatio = fsRatio*8
 
-  class Timer(counterTimeMax : Double) extends  Area {
-    val lowSpeed = Bool()
-    val counter = Reg(UInt((log2Up(12e6 * fsRatio * counterTimeMax toInt) + 2) bits))
-    val clear = False
-    counter := counter + 1
-    when(clear) {
-      counter := 0
-    }
 
-    def trigger(t: Double): Bool = {
-      val at = (12e6 * fsRatio * t toInt) - 1
-      counter === at
-    }
-
-    def cycles(c: Int): Bool = {
-      val ls = c * lsRatio - 1
-      val fs = c * fsRatio - 1
-      counter === (lowSpeed ? U(ls) | U(fs))
-    }
-  }
 
   class Timeout(time : Double) extends  Area {
     val at = (12e6 * fsRatio * time toInt) - 1
@@ -131,7 +113,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
 
   val txShared = new Area {
-    val timer = new Timer(counterTimeMax = 20e-3 * 1.1) {
+    val timer = new UsbTimer(counterTimeMax = 20e-3 * 1.1, fsRatio) {
       val oneCycle = cycles(1)
       val twoCycle = cycles(2)
       val fourCycle = cycles(4)
@@ -338,7 +320,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
   val upstreamRx = new StateMachine{
     val IDLE, SUSPEND = new State
     setEntry(IDLE)
-    val timer = new Timer(3e-3){
+    val timer = new UsbTimer(3e-3, fsRatio){
       val IDLE_EOI = trigger(3e-3)
     }
 
@@ -369,7 +351,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 //      val se0 = False
 //    }
 //
-//    val timer = new Timer(3e-6){
+//    val timer = new UsbTimer(3e-6, fsRatio){
 //      val ONE_BIT = cycles(1)
 //      val TWO_BIT = cycles(2)
 //      this.lowSpeed := True
@@ -439,7 +421,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
     val rx = new Area{
       val enablePackets = False
-      val timer = new Timer(counterTimeMax = 20e-3 * 1.1) {
+      val timer = new UsbTimer(counterTimeMax = 20e-3 * 1.1, fsRatio) {
         val reset = trigger(10e-3 * 0.9)
         val suspend = trigger(3e-3 * 0.9)
         val resume = trigger(20e-3 * 0.9)
@@ -565,7 +547,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       val POWER_OFF, DISCONNECTED, DISABLED, RESETTING, RESETTING_DELAY, RESETTING_SYNC, ENABLED, SUSPENDED, RESUMING, SEND_EOP_0, SEND_EOP_1, RESTART_S, RESTART_E  = new State
       setEntry(POWER_OFF)
 
-      val timer = new Timer(50e-3){
+      val timer = new UsbTimer(50e-3, fsRatio){
         val DISCONNECTED_EOI = trigger(500e-6)
         val RESET_DELAY = trigger(50e-6)
         val RESET_EOI = trigger(if(sim)3e-3 else 50e-3)
