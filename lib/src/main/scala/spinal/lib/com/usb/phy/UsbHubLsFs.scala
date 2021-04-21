@@ -41,9 +41,9 @@ object UsbHubLsFs{
 
   case class CtrlRx() extends Bundle with IMasterSlave {
     val valid = Bool()
-    val error = Bool()
     val active = Bool()
     val data = Bits(8 bits)
+    val stuffingError = Bool()
 
     override def asMaster(): Unit = out(this)
   }

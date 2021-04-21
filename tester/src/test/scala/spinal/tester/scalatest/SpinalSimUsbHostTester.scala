@@ -45,7 +45,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       forkSimSporadicWave(
         captures = Seq(
           3e-3 -> 6e-3
-//          110e-3 -> 50e-3
+//          30e-3 -> 50e-3
         )
       )
 
@@ -171,7 +171,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
 
       var totalBytes = 0
-      for(tdId <- 0 until 100) { //XXX
+      for(tdId <- 0 until 500) { //XXX
         var size = if(Random.nextDouble() < 0.1){
           Random.nextInt(8192+1)
         } else if(Random.nextDouble() < 0.05){
@@ -206,7 +206,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
         val td0 = newTd(ed0)
         td0.DP = Random.nextInt(3)
-//        td0.DP = UsbOhci.DP.IN //XXX
+//        td0.DP = UsbOhci.DP.OUT //XXX
         td0.DI = 5
         td0.T = 2
         td0.R = Random.nextBoolean()
@@ -273,14 +273,22 @@ class SpinalSimUsbHostTester extends FunSuite{
                   portAgents(0).emitBytes(HANDSHAKE_NACK, List(), false, true)
                 }
                 errorCounter = errorCount
-              } else if(doTransmissionError && Random.nextDouble() < 0.5){ //deviceNotResponding
+              } else if(doTransmissionError && Random.nextDouble() < 0.5){ //XXX
                 errorCounter = errorCount + 1
                 val retire = errorCounter == 3
+
                 push{
+                  val expectedCc = Random.nextInt(5) match { //XXX Random.nextInt(???)
+                    case 0 => UsbOhci.CC.deviceNotResponding
+                    case 1 => portAgents(0).emitBytes(List(HANDSHAKE_ACK), false, true); UsbOhci.CC.pidCheckFailure
+                    case 2 => portAgents(0).emitBytes(HANDSHAKE_NACK, List(42), false, true); UsbOhci.CC.pidCheckFailure
+                    case 3 => portAgents(0).emitBytes(DATA0, List(), false, true); UsbOhci.CC.unexpectedPid
+                    case 4 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, stuffingError = true); UsbOhci.CC.bitStuffing
+                  }
                   if(retire){
                     doneChecks(td0.address) = { td =>
                       ed0.load(m)
-                      assert(td.CC == UsbOhci.CC.deviceNotResponding)
+                      assert(td.CC == expectedCc)
                       assert(td.currentBuffer == groupAddressHead)
                       assert(ed0.H)
                       assert(td.EC == 3)

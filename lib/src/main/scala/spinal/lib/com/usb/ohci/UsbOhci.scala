@@ -670,6 +670,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val crc16 = Crc(CrcKind.usb.crc16Check, 8)
     val valids = Reg(Bits(2 bits))
     val notResponding = Reg(Bool)
+    val stuffingError = Reg(Bool) //TODO use me
 
     data.valid := False
     data.payload := history.last
@@ -681,6 +682,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     PID.onEntry{
       rxTimer.clear := True
       notResponding := False
+      stuffingError := False
     }
     PID.whenIsActive {
       valids := 0
@@ -704,9 +706,17 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     always{
-      when(isStarted && rxTimer.rxTimeout){
-        notResponding := True
-        exitFsm()
+      when(isStarted) {
+        when(io.phy.rx.valid){
+          when(io.phy.rx.stuffingError){
+            stuffingError := True
+            exitFsm()
+          }
+        }
+        when(rxTimer.rxTimeout) {
+          notResponding := True
+          exitFsm()
+        }
       }
       when(unscheduleAll.fire){ killFsm() }
     }
@@ -1238,17 +1248,20 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val ackRxFired = Reg(Bool)
     val ackRxActivated = Reg(Bool)
     val ackRxPidFailure = Reg(Bool)
+    val ackRxStuffing = Reg(Bool)
     val ackRxPid = Reg(Bits(4 bits))
     ACK_RX.onEntry{
       ackRxFired := False
       ackRxActivated := False
       ackRxPidFailure := False
+      ackRxStuffing := False
       rxTimer.clear := True
     }
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
         ackRxFired := True
         ackRxPid := io.phy.rx.data(3 downto 0)
+        ackRxStuffing setWhen(io.phy.rx.stuffingError)
         when(!rxPidOk || ackRxFired){
           ackRxPidFailure := True
         }
@@ -1256,7 +1269,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ackRxActivated setWhen(io.phy.rx.active)
       when(!io.phy.rx.active && ackRxActivated){
         goto(UPDATE_TD_PROCESS)
-        when(!ackRxFired || ackRxPidFailure) {
+        when(!ackRxFired) {
+          TD.CC := UsbOhci.CC.pidCheckFailure
+        } elsewhen(ackRxStuffing){
+          TD.CC := UsbOhci.CC.bitStuffing
+        } elsewhen(ackRxPidFailure) {
           TD.CC := UsbOhci.CC.pidCheckFailure
         } otherwise {
           switch(ackRxPid){
@@ -1306,7 +1323,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       TD.CC := UsbOhci.CC.noError
       when(dmaLogic.overflow){ TD.CC := UsbOhci.CC.bufferOverrun }
       when(dmaLogic.underflowError){ TD.CC := UsbOhci.CC.bufferUnderrun }
-      when(TD.isIn && dataRx.notResponding){ TD.CC := UsbOhci.CC.deviceNotResponding }
+      when(TD.isIn) {
+        when(dataRx.notResponding) { TD.CC := UsbOhci.CC.deviceNotResponding }
+        when(dataRx.stuffingError) { TD.CC := UsbOhci.CC.bitStuffing }
+      }
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_PROCESS)
       }
@@ -1323,7 +1343,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           TD.dataPhaseUpdate := True
           TD.upateCBP := True
         }
-        is(bitStuffing, crc, pidCheckFailure, deviceNotResponding) { //Transmission errors => may repeat
+        is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid) { //Transmission errors => may repeat
           TD.EC := (TD.EC.asUInt + 1).asBits
           when(TD.EC =/= 2){
             TD.CC := UsbOhci.CC.noError
@@ -1653,6 +1673,7 @@ TODO
  check what happen if multiple error condition happen (ex overflow + crc error)
  !! The General TD is retired with a ConditionCode of N O E RROR and the endpoint is not halted!!
   Data0 data1 updates in TD and ED ? error handeling too
+  phy rx statemachine not hanging on absance of EOF
 
 
 test :

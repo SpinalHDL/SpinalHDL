@@ -399,7 +399,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
   io.ctrl.rx.valid := False
   io.ctrl.rx.active := False
-  io.ctrl.rx.error := False //TODO
+  io.ctrl.rx.stuffingError := False
   io.ctrl.rx.data.assignDontCare()
 
   val resumeFromPort = False
@@ -433,6 +433,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       usb.power := ctrl.power
       ctrl.overcurrent := usb.overcurrent
 
+      val stuffingError = Reg(Bool)
+
       val waitSync = False
       val decoder = new Area{
         val state = Reg(Bool)
@@ -460,12 +462,13 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         val counter = Reg(UInt(3 bits))
         val unstuffNext = counter === 6
 
-        val output = decoder.output.throwWhen(unstuffNext).stage()
+        val output = decoder.output.throwWhen(unstuffNext)
 
         when(decoder.output.valid){
           counter := counter + 1
           when(!decoder.output.payload || unstuffNext){
             counter := 0
+            stuffingError setWhen(decoder.output.payload)
           }
         }
 
@@ -513,6 +516,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         IDLE.whenIsActive{
           waitSync := True
           counter := 0
+          stuffingError := False
           when(history.sync.hit){
             goto(PACKET)
           }
@@ -520,6 +524,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         PACKET whenIsActive {
           io.ctrl.rx.active := True
           io.ctrl.rx.data := history.value
+          io.ctrl.rx.stuffingError := stuffingError
           when(destuffer.output.valid){
             counter := counter + 1
             when(counter === 7){
