@@ -653,6 +653,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
+  val rxTimer = new UsbTimer(0.67e-6*24, p.fsRatio){
+    val rxTimeout = cycles(24)
+    clear setWhen(io.phy.rx.active)
+  }
+
   //TODO manage errors
   val dataRx = new StateMachineSlave {
     val PID, DATA = new State
@@ -664,6 +669,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val history = History(io.phy.rx.data, 1 to 2, when = io.phy.rx.valid)
     val crc16 = Crc(CrcKind.usb.crc16Check, 8)
     val valids = Reg(Bits(2 bits))
+    val notResponding = Reg(Bool)
 
     data.valid := False
     data.payload := history.last
@@ -672,6 +678,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     crc16.io.input.payload := io.phy.rx.data
     crc16.io.flush := False
 
+    PID.onEntry{
+      rxTimer.clear := True
+      notResponding := False
+    }
     PID.whenIsActive {
       valids := 0
       crc16.io.flush := True
@@ -694,6 +704,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     always{
+      when(isStarted && rxTimer.rxTimeout){
+        notResponding := True
+        exitFsm()
+      }
       when(unscheduleAll.fire){ killFsm() }
     }
   }
@@ -850,6 +864,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(isStarted) {
         io.phy.lowSpeed := S
       }
+
+      rxTimer.lowSpeed := S
     }
 
     val TD = new Area {
@@ -1219,11 +1235,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-//    ACK_RX.onEntry(TD.CC := UsbOhci.ConditionCode.n)
-    val timer = new UsbTimer(0.67e-6*24, p.fsRatio){
-      val rxTimeout = cycles(24)
-      lowSpeed := ED.S
-    }
     val ackRxFired = Reg(Bool)
     val ackRxActivated = Reg(Bool)
     val ackRxPidFailure = Reg(Bool)
@@ -1232,7 +1243,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ackRxFired := False
       ackRxActivated := False
       ackRxPidFailure := False
-      timer.clear := True
+      rxTimer.clear := True
     }
     ACK_RX.whenIsActive {
       when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
@@ -1257,10 +1268,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
-      when(io.phy.rx.active){
-        timer.clear := True
-      }
-      when(timer.rxTimeout){
+      when(rxTimer.rxTimeout){
         TD.CC := UsbOhci.CC.deviceNotResponding
         goto(UPDATE_TD_PROCESS)
       }
@@ -1278,7 +1286,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     DATA_RX_VALIDATE whenIsActive{
       dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
-      when(ED.isIsochrone){ //Skip ACK_TX
+      when(ED.isIsochrone || dataRx.notResponding ){ //Skip ACK_TX
         goto(WAIT_DMA_LOGIC_DONE)
       } otherwise {
         goto(ACK_TX)
@@ -1298,6 +1306,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       TD.CC := UsbOhci.CC.noError
       when(dmaLogic.overflow){ TD.CC := UsbOhci.CC.bufferOverrun }
       when(dmaLogic.underflowError){ TD.CC := UsbOhci.CC.bufferUnderrun }
+      when(TD.isIn && dataRx.notResponding){ TD.CC := UsbOhci.CC.deviceNotResponding }
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_PROCESS)
       }

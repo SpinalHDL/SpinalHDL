@@ -206,7 +206,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
         val td0 = newTd(ed0)
         td0.DP = Random.nextInt(3)
-//        td0.DP = UsbOhci.DP.OUT //XXX
+//        td0.DP = UsbOhci.DP.IN //XXX
         td0.DI = 5
         td0.T = 2
         td0.R = Random.nextBoolean()
@@ -237,7 +237,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 //        doOverflow = false //XXX
 //        doUnderflow = size != 0 //XXX
 //        doStall = false //XXX
-//        doTransmissionError = false //XXX
+//        doTransmissionError = true //XXX
 
 //        val refData = (0 until size) //XXX
         val refData = Array.fill(size)(Random.nextInt(256))
@@ -261,12 +261,13 @@ class SpinalSimUsbHostTester extends FunSuite{
           val groupLast = groupId == groups.size-1
           val errorCount = errorCounter
           val groupAddressHead = if(size == 0) 0 else byteToAddress(group.head)
+          errorCounter = 0
+
           td0.DP match {
             case UsbOhci.DP.SETUP | UsbOhci.DP.OUT => {
               val pushInterface = if(td0.DP == UsbOhci.DP.SETUP) scoreboards(0).pushSetup _ else scoreboards(0).pushOut _
               def push(body : => Unit) = pushInterface(TockenKey(ed0.FA, ed0.EN), DataPacket(if (groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => refData(byteId)))){activity = true; body}
 
-              errorCounter = 0
               if(Random.nextDouble() < 0.05){ //doNack
                 push{
                   portAgents(0).emitBytes(HANDSHAKE_NACK, List(), false, true)
@@ -371,6 +372,25 @@ class SpinalSimUsbHostTester extends FunSuite{
                   true
                 }
                 continue = false
+              } else if(doTransmissionError && Random.nextDouble() < 0.5){
+                errorCounter = errorCount + 1
+                val retire = errorCounter == 3
+                push{
+                  if(retire){
+                    doneChecks(td0.address) = { td =>
+                      ed0.load(m)
+                      assert(td.CC == UsbOhci.CC.deviceNotResponding)
+                      assert(td.currentBuffer == groupAddressHead)
+                      if(size != 0) checkDataUntil(group.head)
+                      assert(ed0.H)
+                      tdCompletion()
+                    }
+                  }
+                  false
+                }
+                if(retire){
+                  continue = false
+                }
               } else {
                 push {
                   deviceDelayed(ls = false) {
@@ -381,7 +401,6 @@ class SpinalSimUsbHostTester extends FunSuite{
                         assert(td.CC == UsbOhci.CC.noError)
                         assert(td.currentBuffer == 0)
                         if (size != 0) checkDataUntil(group.head + group.size)
-
                         tdCompletion()
                       }
                     }
