@@ -6,7 +6,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
-import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter}
+import spinal.lib.bus.bmb.{BmbAccessParameter, BmbParameter, BmbSourceParameter}
 import spinal.lib.com.usb._
 import spinal.lib.com.usb.ohci._
 import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy}
@@ -34,8 +34,6 @@ class SpinalSimUsbHostTester extends FunSuite{
       val utils = new TesterUtils(dut)
       import utils._
 
-
-
       val m = memory.memory
 
       var activity = true
@@ -45,7 +43,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       forkSimSporadicWave(
         captures = Seq(
           3e-3 -> 6e-3
-//          30e-3 -> 50e-3
+//          320e-3 -> 50e-3
         )
       )
 
@@ -174,13 +172,9 @@ class SpinalSimUsbHostTester extends FunSuite{
         dataPhase += 1
         dataPhase %= 2
       }
-      def dataPhasePid = dataPhase match {
-        case 0 => UsbPid.DATA0
-        case 1 => UsbPid.DATA1
-      }
 
       var totalBytes = 0
-      for(tdId <- 0 until 500) { //XXX
+      for(tdId <- 0 until 100) { //XXX
         var size = if(Random.nextDouble() < 0.1){
           Random.nextInt(8192+1)
         } else if(Random.nextDouble() < 0.05){
@@ -214,8 +208,11 @@ class SpinalSimUsbHostTester extends FunSuite{
         if(p1Used != 0) malloc.allocateOn(p1, p1Used)
 
         val td0 = newTd(ed0)
+        if(td0.address == 0x04107a20){
+          println("MIAOU")
+        }
         td0.DP = Random.nextInt(3)
-//        td0.DP = UsbOhci.DP.OUT //XXX
+//        td0.DP = UsbOhci.DP.IN //XXX
         td0.DI = 5
         td0.T = 0
         if(Random.nextDouble() < 0.5){
@@ -246,13 +243,15 @@ class SpinalSimUsbHostTester extends FunSuite{
 
         var doOverflow = td0.DP == UsbOhci.DP.IN && Random.nextDouble() < 0.05
         var doUnderflow = td0.DP == UsbOhci.DP.IN && !doOverflow && size != 0 && Random.nextDouble() < 0.05
-        var doStall = td0.DP != UsbOhci.DP.IN && Random.nextDouble() < 0.05
+        var doDataToggleMismatch = td0.DP == UsbOhci.DP.IN && Random.nextDouble() < 0.05
+        var doStall = Random.nextDouble() < 0.05
         var doTransmissionError = Random.nextDouble() < 0.05
 
-        doOverflow = false //XXX
-        doUnderflow = false //XXX
-        doStall = false //XXX
-        doTransmissionError = false //XXX
+//        doOverflow = false //XXX
+//        doUnderflow = false //XXX
+//        doStall = false //XXX
+//        doTransmissionError = false //XXX
+//        doDataToggleMismatch = false
 
 //        val refData = (0 until size) //XXX
         val refData = Array.fill(size)(Random.nextInt(256))
@@ -278,6 +277,21 @@ class SpinalSimUsbHostTester extends FunSuite{
           val groupAddressHead = if(size == 0) 0 else byteToAddress(group.head)
           errorCounter = 0
 
+          val dataPhasePid = dataPhase match {
+            case 0 => UsbPid.DATA0
+            case 1 => UsbPid.DATA1
+          }
+          val dataPhasePidWrong = dataPhase match {
+            case 0 => UsbPid.DATA1
+            case 1 => UsbPid.DATA0
+          }
+
+          if(td0.address == 0x04107a20){
+            println("MIAOU")
+          }
+          if(td0.address == 0x1716e510){
+            println("RAWRR")
+          }
           td0.DP match {
             case UsbOhci.DP.SETUP | UsbOhci.DP.OUT => {
               val pushInterface = if(td0.DP == UsbOhci.DP.SETUP) scoreboards(0).pushSetup _ else scoreboards(0).pushOut _
@@ -354,7 +368,59 @@ class SpinalSimUsbHostTester extends FunSuite{
 
               def push(body : => Boolean) =  scoreboards(0).pushIn(TockenKey(ed0.FA, ed0.EN)){ activity = true; body }
 
-              if(doOverflow && groupId == disruptAt){
+              if(Random.nextDouble() < 0.05){ //doNak
+                push{
+                  deviceDelayed(ls = false) {
+                    portAgents(0).emitBytes(UsbPid.NAK, Nil, false, false)
+                  }
+                  false
+                }
+                errorCounter = errorCount
+              } else if(doTransmissionError && Random.nextDouble() < 0.05){ //XXX
+                errorCounter = errorCount + 1
+                val retire = errorCounter == 3
+                push{
+                  val expectedCc = 0 match { //XXX
+//                  val expectedCc = Random.nextInt(6) match {
+                    case 0 => UsbOhci.CC.deviceNotResponding
+                    case 1 => portAgents(0).emitBytes(12 +: group.map(refData), true, false); UsbOhci.CC.pidCheckFailure
+//                    case 2 => portAgents(0).emitBytes(HANDSHAKE_NACK, List(42), false, true); UsbOhci.CC.pidCheckFailure
+//                    case 3 => portAgents(0).emitBytes(List(), false, true); UsbOhci.CC.pidCheckFailure
+//                    case 4 => portAgents(0).emitBytes(UsbPid.PING, group.map(refData), true, false); UsbOhci.CC.unexpectedPid
+//                    case 5 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, stuffingError = true); UsbOhci.CC.bitStuffing
+                  }
+
+                  if(retire){
+                    doneChecks(td0.address) = { td =>
+                      ed0.load(m)
+                      assert(td.CC == expectedCc)
+                      assert(td.currentBuffer == groupAddressHead)
+                      if(size != 0) checkDataUntil(group.head)
+                      assert(ed0.H)
+                      tdCompletion()
+                    }
+                  }
+                  false
+                }
+                if(retire){
+                  continue = false
+                }
+              } else if(doStall && disruptAt == groupId){ //stall
+                push{
+                  deviceDelayed(ls = false) {
+                    portAgents(0).emitBytes(UsbPid.STALL, Nil, false, false)
+                    doneChecks(td0.address) = { td =>
+                      ed0.load(m)
+                      assert(td.CC == UsbOhci.CC.stall)
+                      assert(td.currentBuffer == groupAddressHead)
+                      assert(ed0.H)
+                      tdCompletion()
+                    }
+                  }
+                  false
+                }
+                continue = false
+              }else if(doOverflow && groupId == disruptAt){
                 push {
                   deviceDelayed(ls = false) {
                     portAgents(0).emitBytes(dataPhasePid, group.map(refData) ++ List.fill(Random.nextInt(4) + 1)(Random.nextInt(256)), true, false)
@@ -396,26 +462,24 @@ class SpinalSimUsbHostTester extends FunSuite{
                   }
                   true
                 }
+                if(td0.R) dataPhaseIncrement()
                 continue = false
-              } else if(doTransmissionError && Random.nextDouble() < 0.5){
-                errorCounter = errorCount + 1
-                val retire = errorCounter == 3
-                push{
-                  if(retire){
+              } else if(doDataToggleMismatch && groupId == disruptAt) {
+                push {
+                  deviceDelayed(ls = false) {
+                    portAgents(0).emitBytes(dataPhasePidWrong, group.map(refData), true, false)
                     doneChecks(td0.address) = { td =>
                       ed0.load(m)
-                      assert(td.CC == UsbOhci.CC.deviceNotResponding)
+                      assert(td.CC == UsbOhci.CC.dataToggleMismatch)
                       assert(td.currentBuffer == groupAddressHead)
-                      if(size != 0) checkDataUntil(group.head)
+                      if (size != 0) checkDataUntil(group.head)
                       assert(ed0.H)
                       tdCompletion()
                     }
                   }
                   false
                 }
-                if(retire){
-                  continue = false
-                }
+                continue = false
               } else {
                 push {
                   deviceDelayed(ls = false) {

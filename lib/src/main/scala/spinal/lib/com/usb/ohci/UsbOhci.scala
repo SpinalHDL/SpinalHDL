@@ -658,6 +658,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     clear setWhen(io.phy.rx.active)
   }
 
+  val rxPidOk = io.phy.rx.data(3 downto 0) === ~io.phy.rx.data(7 downto 4)
+
   //TODO manage errors
   val dataRx = new StateMachineSlave {
     val PID, DATA = new State
@@ -671,6 +673,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val valids = Reg(Bits(2 bits))
     val notResponding = Reg(Bool)
     val stuffingError = Reg(Bool) //TODO use me
+    val pidError = Reg(Bool)
 
     data.valid := False
     data.payload := history.last
@@ -683,12 +686,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       rxTimer.clear := True
       notResponding := False
       stuffingError := False
+      pidError := False
     }
     PID.whenIsActive {
       valids := 0
       crc16.io.flush := True
       when(io.phy.rx.valid){
         pid := io.phy.rx.data(3 downto 0)
+        pidError := !rxPidOk
         goto(DATA)
       }
     }
@@ -819,7 +824,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  val rxPidOk = io.phy.rx.data(3 downto 0) === ~io.phy.rx.data(7 downto 4)
 
   val endpoint = new StateMachineSlave {
     val ED_READ_CMD, ED_READ_RSP, ED_ANALYSE = new State
@@ -828,7 +832,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val TOKEN = new State
     val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
     val ACK_RX, ACK_TX = new State
-    val WAIT_DMA_LOGIC_DONE = new State
+    val DATA_RX_WAIT_DMA = new State
     val UPDATE_TD_PROCESS, UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
     val ABORD = new State
@@ -901,16 +905,21 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val retire = Reg(Bool)
       val upateCBP = Reg(Bool)
+      val noUpdate = Reg(Bool)
+
 
       val dataPhaseUpdate = Reg(Bool)
       val TNext = dataPhaseUpdate ? (True ## (!dataPhase)) | T
       val dataPhaseNext = dataPhase ^ dataPhaseUpdate
+      val dataPid = dataPhase ? B(UsbPid.DATA1) | B(UsbPid.DATA0)
+      val dataPidWrong = dataPhase ? B(UsbPid.DATA0) | B(UsbPid.DATA1)
 
       val clear = False
       when(clear){
         retire := False
         dataPhaseUpdate := False
         upateCBP := False
+        noUpdate := False
       }
 
 //      val isTransmissionError = List(UsbOhci.CC.bitStuffing, UsbOhci.CC.crc, UsbOhci.CC.pidCheckFailure, UsbOhci.CC.deviceNotResponding).map(CC === _).orR
@@ -1303,10 +1312,33 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     DATA_RX_VALIDATE whenIsActive{
       dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
-      when(ED.isIsochrone || dataRx.notResponding ){ //Skip ACK_TX
-        goto(WAIT_DMA_LOGIC_DONE)
+
+      goto(DATA_RX_WAIT_DMA)
+
+      TD.CC := UsbOhci.CC.noError
+      when(dataRx.notResponding) {
+        TD.CC := UsbOhci.CC.deviceNotResponding
+      } elsewhen(dataRx.stuffingError) {
+        TD.CC := UsbOhci.CC.bitStuffing
+      } elsewhen(dataRx.pidError){
+        TD.CC := UsbOhci.CC.pidCheckFailure
       } otherwise {
-        goto(ACK_TX)
+        switch(dataRx.pid){
+          is(UsbPid.NAK) { TD.noUpdate := True } //TODO do not take NAK on isocronus transfer ? Also, likely other places to fix
+          is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
+          is(TD.dataPid){
+            when(!ED.isIsochrone) {
+              goto(ACK_TX)
+            }
+            when(dmaLogic.underflowError){
+              TD.CC := UsbOhci.CC.bufferUnderrun
+            } elsewhen(dmaLogic.overflow){
+              TD.CC := UsbOhci.CC.bufferOverrun
+            }
+          }
+          is(TD.dataPidWrong){ TD.CC := UsbOhci.CC.dataToggleMismatch }
+          default{TD.CC := UsbOhci.CC.unexpectedPid }
+        }
       }
     }
 
@@ -1315,18 +1347,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       io.phy.tx.last := True
       io.phy.tx.fragment := UsbPid.tocken(UsbPid.ACK)
       when(io.phy.tx.ready){
-        goto(WAIT_DMA_LOGIC_DONE)
+        goto(DATA_RX_WAIT_DMA)
       }
     }
 
-    WAIT_DMA_LOGIC_DONE whenIsActive{
-      TD.CC := UsbOhci.CC.noError
-      when(dmaLogic.overflow){ TD.CC := UsbOhci.CC.bufferOverrun }
-      when(dmaLogic.underflowError){ TD.CC := UsbOhci.CC.bufferUnderrun }
-      when(TD.isIn) {
-        when(dataRx.notResponding) { TD.CC := UsbOhci.CC.deviceNotResponding }
-        when(dataRx.stuffingError) { TD.CC := UsbOhci.CC.bitStuffing }
-      }
+    DATA_RX_WAIT_DMA whenIsActive{
       when(dmaLogic.isStopped){
         goto(UPDATE_TD_PROCESS)
       }
@@ -1354,6 +1379,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
 
       goto(UPDATE_TD_CMD)
+      when(TD.noUpdate){
+        goto(UPDATE_SYNC)
+        TD.retire := False
+      }
     }
 
     UPDATE_TD_CMD.whenIsActive {
