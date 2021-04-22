@@ -169,6 +169,15 @@ class SpinalSimUsbHostTester extends FunSuite{
       ed0.save(ram)
 
 
+      var dataPhase = 0
+      def dataPhaseIncrement() = {
+        dataPhase += 1
+        dataPhase %= 2
+      }
+      def dataPhasePid = dataPhase match {
+        case 0 => UsbPid.DATA0
+        case 1 => UsbPid.DATA1
+      }
 
       var totalBytes = 0
       for(tdId <- 0 until 500) { //XXX
@@ -208,12 +217,18 @@ class SpinalSimUsbHostTester extends FunSuite{
         td0.DP = Random.nextInt(3)
 //        td0.DP = UsbOhci.DP.OUT //XXX
         td0.DI = 5
-        td0.T = 2
+        td0.T = 0
+        if(Random.nextDouble() < 0.5){
+          dataPhase = Random.nextInt(2)
+          td0.T = 2 | dataPhase
+        }
         td0.R = Random.nextBoolean()
         td0.currentBuffer = if(size == 0) 0 else p0 + p0Offset
         td0.bufferEnd = if(p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
         td0.CC == UsbOhci.CC.notAccessed
         td0.save(ram)
+
+
 
 
         def tdCompletion() {
@@ -234,10 +249,10 @@ class SpinalSimUsbHostTester extends FunSuite{
         var doStall = td0.DP != UsbOhci.DP.IN && Random.nextDouble() < 0.05
         var doTransmissionError = Random.nextDouble() < 0.05
 
-//        doOverflow = false //XXX
-//        doUnderflow = size != 0 //XXX
-//        doStall = false //XXX
-//        doTransmissionError = true //XXX
+        doOverflow = false //XXX
+        doUnderflow = false //XXX
+        doStall = false //XXX
+        doTransmissionError = false //XXX
 
 //        val refData = (0 until size) //XXX
         val refData = Array.fill(size)(Random.nextInt(256))
@@ -266,7 +281,7 @@ class SpinalSimUsbHostTester extends FunSuite{
           td0.DP match {
             case UsbOhci.DP.SETUP | UsbOhci.DP.OUT => {
               val pushInterface = if(td0.DP == UsbOhci.DP.SETUP) scoreboards(0).pushSetup _ else scoreboards(0).pushOut _
-              def push(body : => Unit) = pushInterface(TockenKey(ed0.FA, ed0.EN), DataPacket(if (groupId % 2 == 0) DATA0 else DATA1, group.map(byteId => refData(byteId)))){activity = true; body}
+              def push(body : => Unit) = pushInterface(TockenKey(ed0.FA, ed0.EN), DataPacket(dataPhasePid, group.map(byteId => refData(byteId)))){activity = true; body}
 
               if(Random.nextDouble() < 0.05){ //doNack
                 push{
@@ -278,12 +293,13 @@ class SpinalSimUsbHostTester extends FunSuite{
                 val retire = errorCounter == 3
 
                 push{
-                  val expectedCc = Random.nextInt(5) match { //XXX Random.nextInt(???)
+                  val expectedCc = Random.nextInt(6) match { //XXX Random.nextInt(???)
                     case 0 => UsbOhci.CC.deviceNotResponding
                     case 1 => portAgents(0).emitBytes(List(HANDSHAKE_ACK), false, true); UsbOhci.CC.pidCheckFailure
                     case 2 => portAgents(0).emitBytes(HANDSHAKE_NACK, List(42), false, true); UsbOhci.CC.pidCheckFailure
-                    case 3 => portAgents(0).emitBytes(DATA0, List(), false, true); UsbOhci.CC.unexpectedPid
-                    case 4 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, stuffingError = true); UsbOhci.CC.bitStuffing
+                    case 3 => portAgents(0).emitBytes(List(), false, true); UsbOhci.CC.pidCheckFailure
+                    case 4 => portAgents(0).emitBytes(DATA0, List(), false, true); UsbOhci.CC.unexpectedPid
+                    case 5 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, stuffingError = true); UsbOhci.CC.bitStuffing
                   }
                   if(retire){
                     doneChecks(td0.address) = { td =>
@@ -325,6 +341,7 @@ class SpinalSimUsbHostTester extends FunSuite{
                   }
                 }
                 groupIdCounter += 1
+                dataPhaseIncrement()
               }
             }
             case UsbOhci.DP.IN => {
@@ -340,7 +357,7 @@ class SpinalSimUsbHostTester extends FunSuite{
               if(doOverflow && groupId == disruptAt){
                 push {
                   deviceDelayed(ls = false) {
-                    portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData) ++ List.fill(Random.nextInt(4) + 1)(Random.nextInt(256)), true, false)
+                    portAgents(0).emitBytes(dataPhasePid, group.map(refData) ++ List.fill(Random.nextInt(4) + 1)(Random.nextInt(256)), true, false)
                     doneChecks(td0.address) = { td =>
                       ed0.load(m)
                       assert(td.CC == UsbOhci.CC.bufferOverrun)
@@ -361,7 +378,7 @@ class SpinalSimUsbHostTester extends FunSuite{
                 push {
                   deviceDelayed(ls = false) {
                     val finalTransferSize = Random.nextInt(group.size)
-                    portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData).take(finalTransferSize), true, false)
+                    portAgents(0).emitBytes(dataPhasePid, group.map(refData).take(finalTransferSize), true, false)
                     doneChecks(td0.address) = { td =>
                       ed0.load(m)
                       if (!td0.R) {
@@ -402,7 +419,7 @@ class SpinalSimUsbHostTester extends FunSuite{
               } else {
                 push {
                   deviceDelayed(ls = false) {
-                    portAgents(0).emitBytes(HANDSHAKE_ACK, group.map(refData), true, false)
+                    portAgents(0).emitBytes(dataPhasePid, group.map(refData), true, false)
                     if (groupLast) {
                       doneChecks(td0.address) = { td =>
                         ed0.load(m)
@@ -416,6 +433,7 @@ class SpinalSimUsbHostTester extends FunSuite{
                   true
                 }
                 groupIdCounter += 1
+                dataPhaseIncrement()
               }
             }
 
