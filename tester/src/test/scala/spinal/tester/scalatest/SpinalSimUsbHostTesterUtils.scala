@@ -407,14 +407,21 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     emitBytes(head +: data, crc16, turnaround)
   }
 
-  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, stuffingError : Boolean = false) : Unit = {
+  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, stuffingError : Boolean = false, crcError : Boolean = false) : Unit = {
     var buf = data
     if(crc16){
-      val crc = calcCrc(data, 0x8005, 16, false)
+      val crc = calcCrc(data.tail, 0x8005, 16, false)
       buf = buf ++ List(crc & 0xFF, crc >> 8)
     }
+
     buf = 0x80 +: buf
-    val booleans = bytesToBoolean(buf)
+    var booleans = bytesToBoolean(buf)
+    if(crcError){
+//      do {
+      val bit = Random.nextInt(booleans.size - 16) + 16
+      booleans(bit) ^= true
+//      } while(calcCrc(buf.tail,0x8005, 16, true) == 0x800D)
+    }
     val stuffed = encodeStuffing(booleans).toArray
     if(stuffingError) {
       val patchAt = if(stuffed.size <= 16) 8 else 8+Random.nextInt(stuffed.size-16)

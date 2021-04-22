@@ -662,8 +662,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   //TODO manage errors
   val dataRx = new StateMachineSlave {
-    val PID, DATA = new State
-    setEntry(PID)
+    val IDLE, PID, DATA = new State
+    setEntry(IDLE)
 
     val pid = Reg(Bits(4 bits))
     val data = Flow(Bits(8 bits))
@@ -674,6 +674,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val notResponding = Reg(Bool)
     val stuffingError = Reg(Bool) //TODO use me
     val pidError = Reg(Bool)
+    val crcError = Reg(Bool)
 
     data.valid := False
     data.payload := history.last
@@ -682,24 +683,40 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     crc16.io.input.payload := io.phy.rx.data
     crc16.io.flush := False
 
-    PID.onEntry{
+    IDLE onEntry {
       rxTimer.clear := True
       notResponding := False
       stuffingError := False
       pidError := False
+      crcError := False
     }
+    IDLE whenIsActive{
+      when(io.phy.rx.active) {
+        goto(PID)
+      }elsewhen(rxTimer.rxTimeout) {
+        notResponding := True
+        exitFsm()
+      }
+    }
+
     PID.whenIsActive {
       valids := 0
       crc16.io.flush := True
+      pidError := True
       when(io.phy.rx.valid){
         pid := io.phy.rx.data(3 downto 0)
         pidError := !rxPidOk
         goto(DATA)
+      } elsewhen(!io.phy.rx.active){
+        exitFsm()
       }
     }
 
     DATA.whenIsActive {
       when(!io.phy.rx.active){
+        when(!valids.andR || crc16.io.result =/= 0x800D){
+          crcError := True
+        }
         exitFsm()
       } elsewhen (io.phy.rx.valid) {
         crc16.io.input.valid := True
@@ -715,12 +732,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(io.phy.rx.valid){
           when(io.phy.rx.stuffingError){
             stuffingError := True
-            exitFsm()
           }
-        }
-        when(rxTimer.rxTimeout) {
-          notResponding := True
-          exitFsm()
         }
       }
       when(unscheduleAll.fire){ killFsm() }
@@ -1314,7 +1326,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
 
       goto(DATA_RX_WAIT_DMA)
-
       TD.CC := UsbOhci.CC.noError
       when(dataRx.notResponding) {
         TD.CC := UsbOhci.CC.deviceNotResponding
@@ -1327,13 +1338,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           is(UsbPid.NAK) { TD.noUpdate := True } //TODO do not take NAK on isocronus transfer ? Also, likely other places to fix
           is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
           is(TD.dataPid){
-            when(!ED.isIsochrone) {
-              goto(ACK_TX)
-            }
-            when(dmaLogic.underflowError){
-              TD.CC := UsbOhci.CC.bufferUnderrun
-            } elsewhen(dmaLogic.overflow){
-              TD.CC := UsbOhci.CC.bufferOverrun
+            when(dataRx.crcError){
+              TD.CC := UsbOhci.CC.crc
+            } otherwise{
+              when(dmaLogic.underflowError){
+                TD.CC := UsbOhci.CC.dataUnderrun
+              } elsewhen(dmaLogic.overflow){
+                TD.CC := UsbOhci.CC.dataOverrun
+              } otherwise {
+                when(!ED.isIsochrone) {
+                  goto(ACK_TX)
+                }
+              }
             }
           }
           is(TD.dataPidWrong){ TD.CC := UsbOhci.CC.dataToggleMismatch }
@@ -1703,7 +1719,7 @@ TODO
  !! The General TD is retired with a ConditionCode of N O E RROR and the endpoint is not halted!!
   Data0 data1 updates in TD and ED ? error handeling too
   phy rx statemachine not hanging on absance of EOF
-
+  DataIn to handshake is to fast. Should give 2 bit time ?
 
 test :
  isocrone, interrupt, setup lists
