@@ -407,7 +407,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     emitBytes(head +: data, crc16, turnaround)
   }
 
-  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, stuffingError : Boolean = false, crcError : Boolean = false) : Unit = {
+  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, stuffingError : Boolean = false, crcError : Boolean = false, eopError : Boolean = false) : Unit = {
     var buf = data
     if(crc16){
       val crc = calcCrc(data.tail, 0x8005, 16, false)
@@ -433,7 +433,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
 
     def rec(data : List[Boolean]): Unit ={
       if(data.isEmpty){
-        emitEop(Random.nextBoolean())
+        emitEop(Random.nextBoolean(), eopError)
       } else {
         rx.enable = true
         rx.dm = !lowSpeed ^ data.head
@@ -456,14 +456,18 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     bitTime()
   }
 
-  def emitEop(extraBit : Boolean): Unit ={
+  def emitEop(extraBit : Boolean, error : Boolean): Unit ={
     if(extraBit){
       rx.enable = true
       rx.dm = Random.nextBoolean()
       rx.dp = !rx.dm
       delayed(randomBitTime()){
-        emitEop(false)
+        emitEop(false, error)
       }
+    } else if(error) {
+      rx.enable = false
+      rx.dm = false
+      rx.dp = false
     } else {
       rx.enable = true
       rx.dm = false

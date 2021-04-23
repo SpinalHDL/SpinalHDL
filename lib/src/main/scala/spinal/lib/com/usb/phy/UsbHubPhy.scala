@@ -421,11 +421,11 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
     val rx = new Area{
       val enablePackets = False
-      val timer = new UsbTimer(counterTimeMax = 20e-3 * 1.1, fsRatio) {
-        val reset = trigger(10e-3 * 0.9)
-        val suspend = trigger(3e-3 * 0.9)
-        val resume = trigger(20e-3 * 0.9)
-      }
+//      val timer = new UsbTimer(counterTimeMax = 20e-3 * 1.1, fsRatio) {
+//        val reset = trigger(10e-3 * 0.9)
+//        val suspend = trigger(3e-3 * 0.9)
+//        val resume = trigger(20e-3 * 0.9)
+//      }
 
       val j = filter.io.filtred.dp === !lowSpeed && filter.io.filtred.dm ===  lowSpeed
       val k = filter.io.filtred.dp ===  lowSpeed && filter.io.filtred.dm === !lowSpeed
@@ -508,7 +508,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       val packet = new StateMachine {
-        val IDLE, PACKET = new State
+        val IDLE, PACKET, ERRORED = new State
         setEntry(IDLE)
 
         val counter = Reg(UInt(3 bits))
@@ -529,13 +529,40 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
             counter := counter + 1
             when(counter === 7){
               io.ctrl.rx.valid := enablePackets
+              when(stuffingError){
+                goto(ERRORED)
+              }
             }
           }
-          when(eop.hit){ //TODO add error conditions
-            goto(IDLE)
+        }
+
+        //Ensure that all activities on the bus are done before released the FSM
+        val errorTimeout = new UsbTimer(20.0*0.667e-6,fsRatio){
+          lowSpeed := ls
+          val trigger = cycles(20)
+          val p,n = Reg(Bool)
+
+          ERRORED.onEntry{
+            clear := True
+          }
+          ERRORED whenIsActive{
+            io.ctrl.rx.active := True
+            p := filter.io.filtred.dp
+            n := filter.io.filtred.dm
+            when(p =/= filter.io.filtred.dp || n =/= filter.io.filtred.dm){
+              clear := True
+            }
+            when(trigger){
+              goto(IDLE)
+            }
           }
         }
+
+        
         always{
+          when(eop.hit){
+            goto(IDLE)
+          }
           when(txShared.encoder.output.valid){
             goto(IDLE)
           }

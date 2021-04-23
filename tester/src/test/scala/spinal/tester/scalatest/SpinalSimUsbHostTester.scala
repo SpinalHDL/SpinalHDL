@@ -300,13 +300,15 @@ class SpinalSimUsbHostTester extends FunSuite{
                 val retire = errorCounter == 3
 
                 push{
-                  val expectedCc = Random.nextInt(6) match { //XXX Random.nextInt(???)
+//                  val expectedCc = 6 match {
+                  val expectedCc = Random.nextInt(7) match { //XXX
                     case 0 => UsbOhci.CC.deviceNotResponding
                     case 1 => portAgents(0).emitBytes(List(HANDSHAKE_ACK), false, true); UsbOhci.CC.pidCheckFailure
                     case 2 => portAgents(0).emitBytes(HANDSHAKE_NACK, List(42), false, true); UsbOhci.CC.pidCheckFailure
                     case 3 => portAgents(0).emitBytes(List(), false, true); UsbOhci.CC.pidCheckFailure
                     case 4 => portAgents(0).emitBytes(DATA0, List(), false, true); UsbOhci.CC.unexpectedPid
                     case 5 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, stuffingError = true); UsbOhci.CC.bitStuffing
+                    case 6 => portAgents(0).emitBytes(List(Random.nextInt(256)), false, true, eopError = true); UsbOhci.CC.bitStuffing
                   }
                   if(retire){
                     doneChecks(td0.address) = { td =>
@@ -374,13 +376,14 @@ class SpinalSimUsbHostTester extends FunSuite{
                 val retire = errorCounter == 3
                 push{
 //                  val expectedCc = 5 match { //XXX
-                  val expectedCc = Random.nextInt(6) match {
+                  val expectedCc = Random.nextInt(7) match {
                     case 0 => UsbOhci.CC.deviceNotResponding
                     case 1 => deviceDelayed(ls = false) { portAgents(0).emitBytes(12 +: group.map(refData), true, false) }; UsbOhci.CC.pidCheckFailure
                     case 2 => deviceDelayed(ls = false) { portAgents(0).emitBytes(List(), false, true)}; UsbOhci.CC.pidCheckFailure
                     case 3 => deviceDelayed(ls = false) { portAgents(0).emitBytes(UsbPid.PING, group.map(refData), true, false)}; UsbOhci.CC.unexpectedPid
                     case 4 => deviceDelayed(ls = false) { portAgents(0).emitBytes((dataPhasePid | (~dataPhasePid << 4)) +: group.map(refData), true, false, stuffingError = true)}; UsbOhci.CC.bitStuffing
                     case 5 => deviceDelayed(ls = false) { portAgents(0).emitBytes((dataPhasePid | (~dataPhasePid << 4)) +: group.map(refData), true, false, crcError = true)}; UsbOhci.CC.crc
+                    case 6 => deviceDelayed(ls = false) { portAgents(0).emitBytes((dataPhasePid | (~dataPhasePid << 4)) +: group.map(refData), true, false, eopError = true)}; UsbOhci.CC.bitStuffing
                   }
 
                   if(retire){
