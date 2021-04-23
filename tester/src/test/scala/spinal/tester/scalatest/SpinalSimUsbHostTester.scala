@@ -42,7 +42,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-          3e-3 -> 9e-3
+          3e-3 -> 15e-3
 //          140e-3 -> 50e-3
         )
       )
@@ -152,7 +152,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
 
       var totalBytes = 0
-      val edCount = 40 //XXX
+      val edCount = 10 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
@@ -243,6 +243,10 @@ class SpinalSimUsbHostTester extends FunSuite{
             td0.save(ram)
 
 
+            val stimWaitCompletion = Random.nextDouble() < 0.3
+            val completionMutex = SimMutex()
+
+            if(stimWaitCompletion) completionMutex.lock()
             def tdCompletion() {
               td0.load(m)
               if (td0.CC != UsbOhci.CC.noError) {
@@ -254,6 +258,12 @@ class SpinalSimUsbHostTester extends FunSuite{
               if (p1Used != 0) malloc.free(p1)
               malloc.free(td0.address)
               println("DONNNNE")
+              if(stimWaitCompletion){
+                delayed(Random.nextDouble()*2e9 toInt){
+                  completionMutex.unlock()
+                  println("unlock at " + simTime())
+                }
+              }
             }
 
             var doOverflow = td0.DP == UsbOhci.DP.IN && Random.nextDouble() < 0.05
@@ -541,6 +551,9 @@ class SpinalSimUsbHostTester extends FunSuite{
               }
             }
             listRefilled()
+
+            completionMutex.lock()
+            completionMutex.unlock()
           }
         }
       }
