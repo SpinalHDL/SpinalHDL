@@ -228,7 +228,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
     }
 
     val frame = new StateMachine {
-      val IDLE, PREAMBLE_SYNC, PREAMBLE_PID, PREAMBLE_DELAY, SYNC, DATA, EOP_0, EOP_1, EOP_2 = new State
+      val IDLE, TAKE_LINE, PREAMBLE_SYNC, PREAMBLE_PID, PREAMBLE_DELAY, SYNC, DATA, EOP_0, EOP_1, EOP_2 = new State
       setEntry(IDLE)
 
       val busy = this.isStarted
@@ -249,6 +249,18 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         timer.clear := True
         wasLowSpeed := io.ctrl.lowSpeed
         when(io.ctrl.tx.valid) {
+          goto(TAKE_LINE)
+        }
+      }
+
+      //Avoid special signal reflection of the first bit of the frame
+      TAKE_LINE whenIsActive{
+        encoder.output.valid    := True
+        encoder.output.data     := True
+        encoder.output.lowSpeed := False
+        timer.lowSpeed := False
+        when(timer.oneCycle) {
+          timer.clear := True
           when(io.ctrl.lowSpeed) {
             goto(PREAMBLE_SYNC)
           } otherwise {

@@ -556,8 +556,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
           phase = 1
           if(txSe0){
             state = TX_SE0
-          } else {
-            assert(txK)
+          } else if(txK){
             state = TX_K
           }
         }
