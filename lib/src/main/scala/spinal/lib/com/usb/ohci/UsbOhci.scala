@@ -655,6 +655,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val rxTimer = new UsbTimer(0.67e-6*24, p.fsRatio){
     val rxTimeout = cycles(24)
+    val ackTx = cycles(2)
     clear setWhen(io.phy.rx.active)
   }
 
@@ -843,7 +844,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val BUFFER_READ = new State
     val TOKEN = new State
     val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
-    val ACK_RX, ACK_TX = new State
+    val ACK_RX, ACK_TX_0, ACK_TX_1 = new State
     val DATA_RX_WAIT_DMA = new State
     val UPDATE_TD_PROCESS, UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
@@ -1347,7 +1348,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
                 TD.CC := UsbOhci.CC.dataOverrun
               } otherwise {
                 when(!ED.isIsochrone) {
-                  goto(ACK_TX)
+                  goto(ACK_TX_0)
                 }
               }
             }
@@ -1358,7 +1359,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    ACK_TX whenIsActive{
+    ACK_TX_0 whenIsActive {
+      when(rxTimer.ackTx){
+        goto(ACK_TX_1)
+      }
+    }
+    ACK_TX_1 whenIsActive{
       io.phy.tx.valid := True
       io.phy.tx.last := True
       io.phy.tx.fragment := UsbPid.tocken(UsbPid.ACK)
@@ -1703,23 +1709,15 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
 /*
 TODO
- READ
  notAccessed
  rx timeout ?
  suspend / resume
  time budget for low speed over high speed packet
  protect port exiting reset in the middle of something else
- tx end of packet of zero byte check
  6.5.7 RootHubStatusChange Event
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
- RX zero byte packets
- what should the HC answer to a IN transaction that goes wrong ? (ACK ?)
- check what happen if multiple error condition happen (ex overflow + crc error)
- !! The General TD is retired with a ConditionCode of N O E RROR and the endpoint is not halted!!
-  Data0 data1 updates in TD and ED ? error handeling too
   phy rx statemachine not hanging on absance of EOF
-  DataIn to handshake is to fast. Should give 2 bit time ?
 
 test :
  isocrone, interrupt, setup lists
