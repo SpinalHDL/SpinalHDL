@@ -283,7 +283,7 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
         }
       }
       case TX_DATA => {
-        println(s"TX $addr $endp ${data.map(e => f"${e}%02x").mkString(",")}")
+//        println(s"TX $addr $endp ${data.map(e => f"${e}%02x").mkString(",")}")
         state = ENABLED
         onListener(_.hcToUsb(addr, endp, tockenPid, pid, data.dropRight(2)))
       }

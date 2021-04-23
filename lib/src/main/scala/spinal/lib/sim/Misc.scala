@@ -143,7 +143,7 @@ case class SparseMemory(){
     return value
   }
   def writeInt(address : Long, data : Int) : Unit = {
-    for(i <- 0 until 4) write(address + i, data >> 8*i)
+    for(i <- 0 until 4) write(address + i, (data >> 8*i).toByte)
   }
 
   def loadBin(offset : Long, file : String): Unit ={

@@ -124,8 +124,8 @@ class SpinalSimUsbHostTester extends FunSuite{
         td
       }
 
-      val bulksEd, controlsEd = ArrayBuffer[ED]()
-      def edTargetConcflicting(ed : ED) = (bulksEd ++ controlsEd).exists(e => e.FA == ed.FA && e.EN == ed.EN)
+      val bulksEd, controlsEd, interruptsEd = ArrayBuffer[ED]()
+      def edTargetConcflicting(ed : ED) = (bulksEd ++ controlsEd ++ interruptsEd).exists(e => e.FA == ed.FA && e.EN == ed.EN)
 
       def addBulkEd(ed : ED): Unit = {
         if(bulksEd.isEmpty){
@@ -150,14 +150,25 @@ class SpinalSimUsbHostTester extends FunSuite{
         }
       }
 
+      //Cluncky but functional
+      def addInterruptEd(ed : ED, rate : Int, phase : Int): Unit = {
+        ed.nextED = m.readInt(hcca.address + phase*4)
+        for(i <- phase until 32 by rate){
+          val head = hcca.address + i*4
+          m.writeInt(head, ed.address)
+        }
+        interruptsEd += ed
+      }
+
 
       var totalBytes = 0
-      val edCount = 10 //XXX
+      val edCount = 40 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
-        var edKind = List(CONTROL, BULK).randomPick()
-//        edKind = BULK //XXX
+        val INTERRUPT = 2
+        var edKind = List(CONTROL, BULK, INTERRUPT).randomPick()
+//        edKind = INTERRUPT //XXX
         val ed0 = ED(malloc)
         do {
           ed0.F = false
@@ -170,6 +181,7 @@ class SpinalSimUsbHostTester extends FunSuite{
         edKind match {
           case BULK => addBulkEd(ed0)
           case CONTROL => addControlEd(ed0)
+          case INTERRUPT => addInterruptEd(ed0, rate = 4, phase = Random.nextInt(4))
         }
         ed0.save(ram)
 
@@ -184,6 +196,7 @@ class SpinalSimUsbHostTester extends FunSuite{
         def listRefilled(): Unit = edKind match {
           case BULK => setBulkListFilled()
           case CONTROL => setControlListFilled()
+          case INTERRUPT =>
         }
         def unhaltEndpoint(ed: ED): Unit = fork{
           sleep(Random.nextInt(5)*1e9)
@@ -193,12 +206,12 @@ class SpinalSimUsbHostTester extends FunSuite{
         }
 
         fork {
-          for (tdId <- 0 until 10) { //XXX
-            var size = if (Random.nextDouble() < 0.1) {
+          for (tdId <- 0 until 20) { //XXX
+            var size = if (edKind != INTERRUPT && Random.nextDouble() < 0.1) {
               Random.nextInt(8192 + 1)
             } else if (Random.nextDouble() < 0.05) {
               0
-            } else if (Random.nextDouble() < 0.05) {
+            } else if (edKind != INTERRUPT && Random.nextDouble() < 0.05) {
               8192
             } else {
               Random.nextInt(256 + 1)
@@ -292,7 +305,7 @@ class SpinalSimUsbHostTester extends FunSuite{
             var errorCounter = 0
             var groupIdCounter = 0
             var continue = true
-
+//            println(s"!! ${ed0.EN} ${ed0.FA}")
 
             while (continue && groupIdCounter < groups.size) {
               val groupId = groupIdCounter
@@ -566,7 +579,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
       while(activity){
         activity = false
-        sleep(10e-3*1e12)
+        sleep(14e-3*1e12)
       }
 
       dut.clockDomain.waitSampling()

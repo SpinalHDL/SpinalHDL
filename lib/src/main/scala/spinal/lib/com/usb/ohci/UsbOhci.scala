@@ -1079,7 +1079,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           when(TD.isIn){
             exitFsm()
           } otherwise {
-            goto(TO_USB)
+            when(dmaCtx.pendingEmpty) {
+              goto(TO_USB)
+            }
           }
         }otherwise {
           val checkShift = log2Up(p.dmaLength * 8 / p.dataWidth)
@@ -1718,6 +1720,7 @@ TODO
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
  The host must provide at least two bit times of J after the SE0 of an EOP and the start of a new packet (T IPD )
+ IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
 
 test :
  isocrone, interrupt, setup lists
