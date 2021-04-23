@@ -1717,7 +1717,7 @@ TODO
  6.5.7 RootHubStatusChange Event
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
-  phy rx statemachine not hanging on absance of EOF
+ The host must provide at least two bit times of J after the SE0 of an EOP and the start of a new packet (T IPD )
 
 test :
  isocrone, interrupt, setup lists

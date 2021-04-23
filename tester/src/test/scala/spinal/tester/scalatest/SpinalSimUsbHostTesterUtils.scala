@@ -104,7 +104,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
     def load(m: SparseMemory): this.type = {
       val w0 = m.readInt(address + 0x00)
       val w2 = m.readInt(address + 0x08)
-      FA = (w0 >> 0) & 0x3F
+      FA = (w0 >> 0) & 0x7F
       EN = (w0 >> 7) & 0xF
       D = (w0 >> 11) & 0x3
       S = ((w0 >> 13) & 0x1) != 0
@@ -157,6 +157,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
   def setPortReset(portId : Int) = ctrl.write(1 << 4, hcRhPortStatus(portId))
   def waitPortReset(portId : Int) = while((ctrl.read(hcRhPortStatus(portId)) & (1 << 4)) != 0) {dut.clockDomain.waitSampling(Random.nextInt(10))}
   def setBulkListFilled() = ctrl.write(BLF, hcCommand)
+  def setControlListFilled() = ctrl.write(CLF, hcCommand)
 
   val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.clockDomain, p.fsRatio))
   val devices = for(i <- 0 until p.portCount) yield new UsbDeviceAgent(portAgents(i))
@@ -263,7 +264,7 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
     state match {
       case ENABLED => {
         addr = data(0) & 0x7F
-        endp = data(0) >> 7 | ((data(1) & 0x3) << 1)
+        endp = data(0) >> 7 | ((data(1) & 0x7) << 1)
         tockenPid = pid
         pid match {
           case UsbPid.SOF => { //SOF
@@ -284,7 +285,7 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
       case TX_DATA => {
         println(s"TX $addr $endp ${data.map(e => f"${e}%02x").mkString(",")}")
         state = ENABLED
-        onListener(_.hcToUsb(addr, endp,tockenPid, pid, data.dropRight(2)))
+        onListener(_.hcToUsb(addr, endp, tockenPid, pid, data.dropRight(2)))
       }
       case TX_ACK => {
         assert(pid == UsbPid.ACK && data.size == 0)
