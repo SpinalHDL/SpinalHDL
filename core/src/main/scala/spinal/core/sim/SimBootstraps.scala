@@ -79,7 +79,7 @@ object SpinalVerilatorBackend {
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
-        case mem: Mem[_] => new BitsDataType(mem.width)
+        case mem: Mem[_] => new BitsDataType(mem.width).setMem()
       })
 
       bt.algoInt = signalId
@@ -102,7 +102,7 @@ object SpinalVerilatorBackend {
             case None => addSignal(mem)
             case Some(tag) => {
               for(mapping <- tag.mapping){
-                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width).setMem())
                 signal.id = signalId
                 vconfig.signals += signal
                 signalId += 1
