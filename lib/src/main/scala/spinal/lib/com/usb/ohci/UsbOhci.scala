@@ -885,6 +885,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val tdEmpty = tailP === headP
       val isFs = !S
       val isLs = S
+      val isoOut = D(0)
 
       def isIsochrone = F
 
@@ -896,6 +897,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val TD = new Area {
+      assert(p.dataWidth <= 128)
       val address = ED.headP << 4
 
       val words = Vec(Reg(Bits(32 bits)), 4)
@@ -911,10 +913,22 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val nextTD = words(2)(4, 28 bits)
       val BE = words(3)(0, 32 bits).asUInt
 
-      val pageMatch = CBP(12, 20 bits) === BE(12, 20 bits)
+      //Isochrone specifics
+      val FC = words(0)(24, 3 bits).asUInt
+      val SF = words(0)(0, 16 bits).asUInt
+      val BP0 = words(1)(12, 20 bits)
+      val isoRelativeFrameNumber = reg.hcFmNumber.FN - SF
+      val tooEarly = isoRelativeFrameNumber.msb
+      val isoFrameNumber = isoRelativeFrameNumber(FC.range)
+      val isoLast = isoRelativeFrameNumber(FC.range) === FC
+      val isoBase, isoBaseNext = Reg(UInt(13 bits))
+      val isoZero = isoBase === isoBaseNext
 
-      val isIn = DP === 2
+      val isSinglePage = CBP(12, 20 bits) === BE(12, 20 bits)
+      val firstOffset = ED.isIsochrone ? isoBase | CBP(0, 12 bits)
+      val lastOffset = ED.isIsochrone ? (isoBaseNext-U(isoFrameNumber =/= 7)) | (U(!isSinglePage) @@ BE(0, 12 bits))
 
+      val allowRounding = !ED.isIsochrone && R
 
       val retire = Reg(Bool)
       val upateCBP = Reg(Bool)
@@ -934,10 +948,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         upateCBP := False
         noUpdate := False
       }
-
-//      val isTransmissionError = List(UsbOhci.CC.bitStuffing, UsbOhci.CC.crc, UsbOhci.CC.pidCheckFailure, UsbOhci.CC.deviceNotResponding).map(CC === _).orR
     }
 
+    val tockenType = (ED.D(0) =/= ED.D(1)) ? ED.D | TD.DP
+    val isIn = tockenType === 2
 
     val applyNextED = False
     when(applyNextED) {
@@ -995,7 +1009,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       //Fetch TD
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
-      ioDma.cmd.length := (ED.F ? U(31) | U(15)).resized
+      ioDma.cmd.length := (ED.isIsochrone ? U(31) | U(15)).resized
       ioDma.cmd.last := True
       ioDma.cmd.setRead()
       when(ioDma.cmd.ready) {
@@ -1008,6 +1022,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dmaReadCtx.load(TD.words(1), 1, 0)
       dmaReadCtx.load(TD.words(2), 2, 0)
       dmaReadCtx.load(TD.words(3), 3, 0)
+
+      //Manage isochrone address loading
+      for(i <- 0 until 8){
+        when(TD.isoFrameNumber === i) { dmaReadCtx.load(TD.isoBase, i/2, (i%2)*16) }
+        if(i != 7) dmaReadCtx.load(TD.isoBaseNext, (i+1)/2, ((i+1)%2)*16)
+      }
+      when(TD.isoFrameNumber === 7){ TD.isoBaseNext := U(!TD.isSinglePage ## TD.BE(11 downto 0)) }
+
       when(ioDma.rsp.lastFire) {
         goto(TD_ANALYSE)
       }
@@ -1017,7 +1039,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val currentAddressFull = (currentAddress(12) ? TD.BE(31 downto 12) | TD.CBP(31 downto 12)) @@ currentAddress(11 downto 0)
     val currentAddressBmb = currentAddressFull & U(currentAddressFull.getWidth bits, default -> true, io.dma.p.access.wordRange -> false)
     val lastAddress = Reg(UInt(13 bits))
-//    val transferSizeCalc = (U(!TD.pageMatch) @@ TD.BE(0, 12 bits)) - TD.CBP(0, 12 bits)
     val transactionSizeMinusOne = lastAddress - currentAddress
     val transactionSize = transactionSizeMinusOne + 1
     val zeroLength = Reg(Bool)
@@ -1042,10 +1063,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val fromUsbCounter = Reg(UInt(11 bits))
       val overflow = Reg(Bool)
       val underflow = Reg(Bool)
-      val underflowError = underflow && !TD.R
+      val underflowError = underflow && !TD.allowRounding
 
       // Implement internal buffer write
-      when(isStarted && !TD.isIn && ioDma.rsp.valid) {
+      when(isStarted && !isIn && ioDma.rsp.valid) {
         fifo.io.push.valid := True
         fifo.io.push.payload := ioDma.rsp.data
       }
@@ -1065,7 +1086,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         underflow := False
         overflow := False
         fifo.io.flush := True
-        when(TD.isIn) {
+        when(isIn) {
           goto(FROM_USB)
         } otherwise {
           goto(CALC_CMD)
@@ -1076,7 +1097,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       CALC_CMD whenIsActive {
         length := lengthCalc
         when(dataDone) {
-          when(TD.isIn){
+          when(isIn){
             exitFsm()
           } otherwise {
             when(dmaCtx.pendingEmpty) {
@@ -1085,7 +1106,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           }
         }otherwise {
           val checkShift = log2Up(p.dmaLength * 8 / p.dataWidth)
-          when(TD.isIn){
+          when(isIn){
             goto(WRITE_CMD)
           } otherwise {
             goto(READ_CMD)
@@ -1180,8 +1201,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val fsmStopped = this.isStopped
     }
 
-    val currentAddressCalc = TD.CBP(0, 12 bits)
-    val lastAddressNoSat = (U(!TD.pageMatch) @@ TD.BE(0, 12 bits))
+
     TD_ANALYSE.whenIsActive {
       switch(flowType) {
         is(FlowType.CONTROL) {
@@ -1192,12 +1212,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
-      dmaLogic.byteCtx.counter := currentAddressCalc.resized
-      currentAddress := currentAddressCalc.resized
-      lastAddress := lastAddressNoSat.min(currentAddressCalc +^ ED.MPS - 1)
+      dmaLogic.byteCtx.counter := TD.firstOffset.resized
+      currentAddress := TD.firstOffset.resized
+      lastAddress := (ED.isIsochrone ? TD.lastOffset | TD.lastOffset.min(TD.firstOffset +^ ED.MPS - 1)).resized
 
-      zeroLength := TD.CBP === 0
-      dataPhase := TD.T(1) ? TD.T(0) | ED.C
+      zeroLength := ED.isIsochrone ?  TD.isoZero | TD.CBP === 0
+      dataPhase := ED.isIsochrone ? False | (TD.T(1) ? TD.T(0) | ED.C)
 
       goto(TD_CHECK_TIME)
     }
@@ -1209,7 +1229,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         status := Status.FRAME_TIME
         goto(ABORD)
       } otherwise {
-        when(TD.isIn || zeroLength){
+        when(isIn || zeroLength){
           goto(TOKEN)
         } otherwise {
           dmaLogic.startFsm()
@@ -1234,7 +1254,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
     TOKEN.whenIsActive {
       token.data := ED.EN ## ED.FA
-      switch((ED.D(0) =/= ED.D(1)) ? ED.D | TD.DP) {
+      switch(tockenType) {
         is(B"00") {
           token.pid := UsbPid.SETUP
         }
@@ -1246,7 +1266,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
       when(token.wantExit) {
-        when(TD.isIn){
+        when(isIn){
           goto(DATA_RX)
         } otherwise {
           goto(DATA_TX)
@@ -1337,26 +1357,37 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       } elsewhen(dataRx.pidError){
         TD.CC := UsbOhci.CC.pidCheckFailure
       } otherwise {
-        switch(dataRx.pid){
-          is(UsbPid.NAK) { TD.noUpdate := True } //TODO do not take NAK on isocronus transfer ? Also, likely other places to fix
-          is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
-          is(TD.dataPid){
-            when(dataRx.crcError){
-              TD.CC := UsbOhci.CC.crc
-            } otherwise{
-              when(dmaLogic.underflowError){
-                TD.CC := UsbOhci.CC.dataUnderrun
-              } elsewhen(dmaLogic.overflow){
-                TD.CC := UsbOhci.CC.dataOverrun
-              } otherwise {
-                when(!ED.isIsochrone) {
-                  goto(ACK_TX_0)
-                }
+        val pidOk = False
+        when(ED.isIsochrone){
+          switch(dataRx.pid){
+            is(UsbPid.STALL, UsbPid.NAK) { TD.CC := UsbOhci.CC.stall } //Do not totaly follow the spec later for side effects
+            is(UsbPid.DATA0, UsbPid.DATA1){ pidOk := True }
+            default{TD.CC := UsbOhci.CC.unexpectedPid }
+          }
+        } otherwise {
+          switch(dataRx.pid){
+            is(UsbPid.NAK) { TD.noUpdate := True }
+            is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
+            is(TD.dataPid){ pidOk := True }
+            is(TD.dataPidWrong){ TD.CC := UsbOhci.CC.dataToggleMismatch }
+            default{TD.CC := UsbOhci.CC.unexpectedPid }
+          }
+        }
+
+        when(pidOk){
+          when(dataRx.crcError){
+            TD.CC := UsbOhci.CC.crc
+          } otherwise{
+            when(dmaLogic.underflowError){
+              TD.CC := UsbOhci.CC.dataUnderrun
+            } elsewhen(dmaLogic.overflow){
+              TD.CC := UsbOhci.CC.dataOverrun
+            } otherwise {
+              when(!ED.isIsochrone) {
+                goto(ACK_TX_0)
               }
             }
           }
-          is(TD.dataPidWrong){ TD.CC := UsbOhci.CC.dataToggleMismatch }
-          default{TD.CC := UsbOhci.CC.unexpectedPid }
         }
       }
     }
@@ -1385,27 +1416,32 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     UPDATE_TD_PROCESS whenIsActive{
       import UsbOhci.CC._
       TD.EC := 0
-      switch(TD.CC){
-        default{ TD.retire := True } //Include stall
-        is(noError) {
-          TD.retire setWhen(dmaLogic.underflow || currentAddress > lastAddressNoSat || zeroLength)
-          TD.dataPhaseUpdate := True
-          TD.upateCBP := True
-        }
-        is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid) { //Transmission errors => may repeat
-          TD.EC := (TD.EC.asUInt + 1).asBits
-          when(TD.EC =/= 2){
-            TD.CC := UsbOhci.CC.noError
-          } otherwise {
+
+      when(!ED.isIsochrone) {
+        switch(TD.CC) { //Include stall
+          default {
             TD.retire := True
           }
+          is(noError) {
+            TD.retire setWhen (dmaLogic.underflow || currentAddress > TD.lastOffset || zeroLength)
+            TD.dataPhaseUpdate := True
+            TD.upateCBP := True
+          }
+          is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid) { //Transmission errors => may repeat
+            TD.EC := (TD.EC.asUInt + 1).asBits
+            when(TD.EC =/= 2) {
+              TD.CC := UsbOhci.CC.noError
+            } otherwise {
+              TD.retire := True
+            }
+          }
         }
-      }
 
-      goto(UPDATE_TD_CMD)
-      when(TD.noUpdate){
-        goto(UPDATE_SYNC)
-        TD.retire := False
+        goto(UPDATE_TD_CMD)
+        when(TD.noUpdate) {
+          goto(UPDATE_SYNC)
+          TD.retire := False
+        }
       }
     }
 
@@ -1413,14 +1449,27 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.valid := True
       ioDma.cmd.address := TD.address
       ioDma.cmd.length := (ED.F ? U(31) | U(15)).resized
-      ioDma.cmd.last := dmaWriteCtx.counter === (ED.F ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
+      ioDma.cmd.last := dmaWriteCtx.counter === (ED.isIsochrone ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
-      //TODO manage TD.CC
-      dmaWriteCtx.save(TD.CC ## TD.EC ## TD.TNext, 0, 24)
-      when(TD.upateCBP) {
-        dmaWriteCtx.save(tdUpdateAddress, 1, 0)
+
+      when(ED.isIsochrone){ //TODO ISO 4.3.2.3.5.3 Time Errors
+        when(TD.isoLast) {
+          dmaWriteCtx.save(TD.CC ## TD.words(0)(27) ## TD.FC, 0, 24)
+        }
+        val count = (ED.isoOut ? U(0) | currentAddress - TD.isoBase).resize(12 bits)
+        val PSW = TD.CC ## count
+        for(i <- 0 until 8){
+          when(TD.isoFrameNumber === i) {
+            dmaWriteCtx.save(PSW, i / 2, (i % 2) * 16)
+          }
+        }
+      } otherwise {
+        dmaWriteCtx.save(TD.CC ## TD.EC ## TD.TNext, 0, 24)
+        when(TD.upateCBP) {
+          dmaWriteCtx.save(tdUpdateAddress, 1, 0)
+        }
       }
-      //TODO mange buffer bufferRounding (and interraction with TD.completion + currentAddress)
+
       when(TD.retire) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
       }

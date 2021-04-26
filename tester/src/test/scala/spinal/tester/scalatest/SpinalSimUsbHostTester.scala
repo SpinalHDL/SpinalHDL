@@ -160,28 +160,52 @@ class SpinalSimUsbHostTester extends FunSuite{
         interruptsEd += ed
       }
 
+      def addIsochronous(ed : ED): Unit ={
+        for(i <- 0 until 32){
+          var ptr = hcca.address + i*4
+          var next = 0
+          var skip = false
+          //Walk from hcca(i) to its last element before the insertion
+          do{
+            next = m.readInt(ptr)
+            if(next == ed.address){
+              skip = true
+            }
+            next += 0xC
+          } while(next != 0 && !skip)
+          if(!skip){
+            m.writeInt(next, ed.address)
+          }
+        }
+      }
+
 
       var totalBytes = 0
-      val edCount = 40 //XXX
+      val edCount = 20 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
         val INTERRUPT = 2
-        var edKind = List(CONTROL, BULK, INTERRUPT).randomPick()
-//        edKind = INTERRUPT //XXX
+        val ISOCHRONOUS = 3
+//        var edKind = List(CONTROL, BULK, INTERRUPT, ISOCHRONOUS).randomPick()
+        var edKind = List(CONTROL, BULK, INTERRUPT).randomPick()  //XXX
+//        edKind = ISOCHRONOUS //XXX
+        def isIso = edKind == ISOCHRONOUS
         val ed0 = ED(malloc)
         do {
-          ed0.F = false
-          ed0.D = 0
+          ed0.F = isIso
+          ed0.D = if(isIso) 1 + Random.nextInt(2) else 0
           ed0.FA = Random.nextInt(128)
           ed0.EN = Random.nextInt(16)
-          ed0.MPS = 64
+          ed0.MPS = 64 //TODO randomize
         } while(edTargetConcflicting(ed0))
+        def isIsoOut = ed0.D == 1
         initED(ed0)
         edKind match {
           case BULK => addBulkEd(ed0)
           case CONTROL => addControlEd(ed0)
           case INTERRUPT => addInterruptEd(ed0, rate = 4, phase = Random.nextInt(4))
+          case ISOCHRONOUS => addIsochronous(ed0)
         }
         ed0.save(ram)
 
