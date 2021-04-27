@@ -95,19 +95,17 @@ object Play {
 
 object Play2 extends App{
   import spinal.core.sim._
-  object Enum extends SpinalEnum{
-    val MIAOU, RAWRR = newElement()
-  }
-  SimConfig.compile(new Component {
-    val a = Enum.RAWRR()
-    val b = U(0x42)
-    val c = out(Enum.RAWRR())
-    val d = out (U(0x42))
-    report(L"miaou $a $b $c $d")
-  }).doSim{ dut =>
-    dut.clockDomain.forkStimulus(10)
-    dut.clockDomain.waitSampling(5)
-  }
+  SpinalVerilog(new Component{
+
+    val a,b = Bool
+    val c = Bits(4 bits)
+    (a,b,c) := B"111100"
+    val x = (a,b,c).asBits
+
+    val e,f,g = Bool()
+    (e,f,g) := B(a,b,c).resized
+
+  })
 }
 
 
