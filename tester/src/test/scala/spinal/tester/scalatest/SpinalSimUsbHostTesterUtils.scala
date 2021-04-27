@@ -151,6 +151,36 @@ class TesterUtils(dut : UsbOhciTbTop) {
     }
   }
 
+  def TDI(malloc : MemoryRegionAllocator): TDI ={
+    val addr = malloc.allocateAligned(0x20)
+    TDI(addr.base.toInt)
+  }
+  case class TDI(address: Int) {
+    var CC, FC, DI, SF, currentBuffer, nextTD, bufferEnd = 0
+    val offsets = Array.fill(8)(0)
+
+    def save(m: SparseMemory): Unit = {
+      m.write(address + 0x00, (CC << 28)  | (FC << 24) | (DI << 21) | (SF << 0))
+      m.write(address + 0x04, currentBuffer)
+      m.write(address + 0x08, nextTD)
+      m.write(address + 0x0C, bufferEnd)
+      for(i <- 0 until 8 by 2) m.write(address + 0x10 + i * 2, offsets(i) | (offsets(i+1) << 16))
+    }
+
+    def load(m: SparseMemory): this.type = {
+      val flags = m.readInt(address + 0x00)
+      SF = (flags >> 0) & 0xFFFF
+      DI = (flags >> 21) & 0x7
+      FC = (flags >> 24) & 0x7
+      CC = (flags >> 28) & 0xF
+      currentBuffer = m.readInt(address + 0x04)
+      nextTD = m.readInt(address + 0x08)
+      bufferEnd = m.readInt(address + 0x0C)
+      for(i <- 0 until 8 by 2) offsets(i) = m.readInt(address + 0x10 + i * 2) & 0xFFFF
+      this
+    }
+  }
+
 
   def getCurrentConnectStatus(portId : Int) = (ctrl.read(hcRhPortStatus(portId)) & 1) != 0
   def waitConnected(portId : Int) = while(!getCurrentConnectStatus(portId)){dut.clockDomain.waitSampling(Random.nextInt(10))}

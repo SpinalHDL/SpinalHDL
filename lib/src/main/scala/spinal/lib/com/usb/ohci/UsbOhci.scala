@@ -1,6 +1,7 @@
 package spinal.lib.com.usb.ohci
 
 import spinal.core._
+import spinal.core.sim.SimPublic
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.com.eth.{Crc, CrcKind}
@@ -358,7 +359,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     val hcFmNumber = new Area {
-      val FN = ctrl.createReadOnly(UInt(16 bits), 0x3C, 0) softInit (0)
+      val FN = ctrl.createReadOnly(UInt(16 bits), 0x3C, 0) addTag(SimPublic) softInit (0)
     }
 
     val hcPeriodicStart = new Area {
@@ -922,7 +923,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isoFrameNumber = isoRelativeFrameNumber(FC.range)
       val isoLast = isoRelativeFrameNumber(FC.range) === FC
       val isoBase, isoBaseNext = Reg(UInt(13 bits))
-      val isoZero = isoBase === isoBaseNext
+      val isoZero = isoBase === isoBaseNext || isoFrameNumber === 7 && isoBase > isoBaseNext
 
       val isSinglePage = CBP(12, 20 bits) === BE(12, 20 bits)
       val firstOffset = ED.isIsochrone ? isoBase | CBP(0, 12 bits)
@@ -1025,8 +1026,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       //Manage isochrone address loading
       for(i <- 0 until 8){
-        when(TD.isoFrameNumber === i) { dmaReadCtx.load(TD.isoBase, i/2, (i%2)*16) }
-        if(i != 7) dmaReadCtx.load(TD.isoBaseNext, (i+1)/2, ((i+1)%2)*16)
+        when(TD.isoFrameNumber === i) {
+          dmaReadCtx.load(TD.isoBase, 4+i/2, (i%2)*16)
+          if(i != 7) dmaReadCtx.load(TD.isoBaseNext, 4+(i+1)/2, ((i+1)%2)*16)
+        }
       }
       when(TD.isoFrameNumber === 7){ TD.isoBaseNext := U(!TD.isSinglePage ## TD.BE(11 downto 0)) }
 
@@ -1220,6 +1223,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       dataPhase := ED.isIsochrone ? False | (TD.T(1) ? TD.T(0) | ED.C)
 
       goto(TD_CHECK_TIME)
+
+      when(ED.isIsochrone && TD.tooEarly){
+        goto(UPDATE_SYNC)
+      }
     }
 
     val byteCountCalc = lastAddress - currentAddress + 1
@@ -1415,9 +1422,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val tdUpdateAddress = TD.retire ? U(0) | currentAddressFull
     UPDATE_TD_PROCESS whenIsActive{
       import UsbOhci.CC._
-      TD.EC := 0
 
-      when(!ED.isIsochrone) {
+      goto(UPDATE_TD_CMD)
+      when(ED.isIsochrone) {
+        TD.retire setWhen(TD.isoLast)
+      } otherwise  {
+        TD.EC := 0
         switch(TD.CC) { //Include stall
           default {
             TD.retire := True
@@ -1437,7 +1447,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           }
         }
 
-        goto(UPDATE_TD_CMD)
         when(TD.noUpdate) {
           goto(UPDATE_SYNC)
           TD.retire := False
@@ -1460,7 +1469,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         val PSW = TD.CC ## count
         for(i <- 0 until 8){
           when(TD.isoFrameNumber === i) {
-            dmaWriteCtx.save(PSW, i / 2, (i % 2) * 16)
+            dmaWriteCtx.save(PSW, 4 + i / 2, (i % 2) * 16)
           }
         }
       } otherwise {
@@ -1496,18 +1505,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     UPDATE_SYNC.whenIsActive {
       when(dmaCtx.pendingEmpty) {
-        switch(flowType) { //TODO
-          is(FlowType.BULK) {
-            reg.hcBulkCurrentED.BCED.reg := ED.nextED
-            priority.tick := True
-          }
-          is(FlowType.CONTROL) {
-            reg.hcControlCurrentED.CCED.reg := ED.nextED
-            priority.tick := True
-          }
-          is(FlowType.PERIODIC) {
-            reg.hcPeriodCurrentED.PCED.reg := ED.nextED
-          }
+        applyNextED := True
+        when(flowType =/= FlowType.PERIODIC){
+          priority.tick := True
         }
 
         when(TD.retire) {
