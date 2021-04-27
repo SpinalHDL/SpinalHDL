@@ -108,6 +108,24 @@ object Play2 extends App{
   })
 }
 
+object Play43 extends App{
+  import spinal.core.sim._
+  SimConfig.compile(new Component{
+    val counter = Reg(UInt(8 bits)) init(0)
+    when(counter =/= 100){
+      counter := counter + 1
+    }
+    when(counter === 80){
+      report(L"miaou 0x$counter")
+    }
+  }).doSim{dut =>
+    println("hello")
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(10000000)
+    println("goodbye")
+  }
+}
+
 
 //object Play2 extends App{
 //  class Toplevel extends Component{

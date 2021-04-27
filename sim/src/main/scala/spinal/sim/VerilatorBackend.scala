@@ -445,6 +445,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11
        | -LDFLAGS -std=c++11
+       | --autoflush  
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500
