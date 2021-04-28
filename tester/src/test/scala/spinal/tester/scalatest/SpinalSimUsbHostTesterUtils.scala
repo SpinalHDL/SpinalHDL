@@ -205,7 +205,8 @@ class TesterUtils(dut : UsbOhciTbTop) {
   val ctrl = BmbDriver(dut.ctrl, dut.clockDomain)
   dut.clockDomain.waitSampling(10)
 
-  val interval = 12000
+  val slowDownFactor = 1.35 //Used to ensure the testbench can run a few isochrone transactions
+  val interval = 12000*slowDownFactor toInt
   val intervalWithOverhead = (((interval - 210) * 6) / 7)
   ctrl.write((interval-1) | intervalWithOverhead << 16, hcFmInterval)
   ctrl.write(interval*9/10, hcPeriodicStart)

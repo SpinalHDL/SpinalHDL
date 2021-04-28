@@ -42,8 +42,8 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-          3e-3 -> 10e-3
-//          140e-3 -> 50e-3
+          3e-3 -> 15e-3
+//          450e-3 -> 500e-3
         )
       )
 
@@ -152,8 +152,8 @@ class SpinalSimUsbHostTester extends FunSuite{
       }
 
 
-      val bulksEd, controlsEd, interruptsEd = ArrayBuffer[ED]()
-      def edTargetConcflicting(ed : ED) = (bulksEd ++ controlsEd ++ interruptsEd).exists(e => e.FA == ed.FA && e.EN == ed.EN)
+      val bulksEd, controlsEd, interruptsEd, isochonousEd = ArrayBuffer[ED]()
+      def edTargetConcflicting(ed : ED) = (bulksEd ++ controlsEd ++ interruptsEd ++ isochonousEd).exists(e => e.FA == ed.FA && e.EN == ed.EN)
 
       def addBulkEd(ed : ED): Unit = {
         if(bulksEd.isEmpty){
@@ -179,15 +179,18 @@ class SpinalSimUsbHostTester extends FunSuite{
       }
 
       //Cluncky but functional
+      val interruptsOccupancy = Array.fill(32)(0)
       def addInterruptEd(ed : ED, rate : Int, phase : Int): Unit = {
         ed.nextED = m.readInt(hcca.address + phase*4)
         for(i <- phase until 32 by rate){
           val head = hcca.address + i*4
           m.writeInt(head, ed.address)
+          interruptsOccupancy(i) += ed.MPS + 5 + 4 + 2
         }
         interruptsEd += ed
       }
 
+      val isoOccupancy = Array.fill(0x10000)(0)
       def addIsochronous(ed : ED): Unit ={
         for(i <- 0 until 32){
           var ptr = hcca.address + i*4
@@ -208,37 +211,37 @@ class SpinalSimUsbHostTester extends FunSuite{
             m.writeInt(ptr, ed.address)
           }
         }
+        isochonousEd += ed
       }
-
 
       def currentFrameNumber = dut.ohci.reg.hcFmNumber.FN.toInt
       var totalBytes = 0
-      val edCount = 1 //XXX
+      val edCount = 20 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
         val INTERRUPT = 2
         val ISOCHRONOUS = 3
         var edKind = List(CONTROL, BULK, INTERRUPT, ISOCHRONOUS).randomPick()
-//        var edKind = List(CONTROL, BULK, INTERRUPT).randomPick()  //XXX
-        edKind = ISOCHRONOUS //XXX
+//        var edKind = List(CONTROL, BULK, ISOCHRONOUS).randomPick()  //XXX
+//        edKind = ISOCHRONOUS //XXX
         def isIso = edKind == ISOCHRONOUS
         val ed0 = ED(malloc)
         do {
           ed0.F = isIso
-//          ed0.D = if(isIso) 1 + Random.nextInt(2) else 0
+          ed0.D = if(isIso) 1 + Random.nextInt(2) else 0
 //          ed0.D = if(isIso) 1  else 0 //XXX
-          ed0.D = 2 //XXX
+//          ed0.D = 2 //XXX
           ed0.FA = Random.nextInt(128)
           ed0.EN = Random.nextInt(16)
-          ed0.MPS = 64 //TODO randomize
+          ed0.MPS = 16 + Random.nextInt(if(isIso) 8 else 48)
         } while(edTargetConcflicting(ed0))
         def isIsoOut : Boolean = ed0.D == 1
         initED(ed0, isIso)
         edKind match {
           case BULK => addBulkEd(ed0)
           case CONTROL => addControlEd(ed0)
-          case INTERRUPT => addInterruptEd(ed0, rate = 4, phase = Random.nextInt(4))
+          case INTERRUPT => addInterruptEd(ed0, rate = 4, phase = interruptsEd.size % 4)
           case ISOCHRONOUS => addIsochronous(ed0)
         }
         ed0.save(ram)
@@ -265,7 +268,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
         fork {
           var busyUntilFrame = currentFrameNumber + 1
-          for (tdId <- 0 until 40) { //XXX
+          for (tdId <- 0 until 10) { //XXX
             var size = if (edKind != INTERRUPT && Random.nextDouble() < 0.1) {
               Random.nextInt(8192 + 1)
             } else if (Random.nextDouble() < 0.05) {
@@ -305,8 +308,8 @@ class SpinalSimUsbHostTester extends FunSuite{
               val td = newTdi(ed0)
               td.CC = UsbOhci.CC.notAccessed
               td.DI = 3
-              td.SF =  busyUntilFrame + Random.nextInt(3)
-              td.currentBuffer = if (size == 0) 0 else p0 + p0Offset
+              td.SF = (busyUntilFrame + Random.nextInt(3)) & 0xFFFF
+              td.currentBuffer = p0 + p0Offset
               td.bufferEnd = if (p1Used != 0) p1 + p1Used - 1 else p0 + p0Offset + p0Used - 1
               do {
                 td.FC = Random.nextInt(8) max((size+1022)/1023-1)
@@ -327,13 +330,38 @@ class SpinalSimUsbHostTester extends FunSuite{
                 }
                 if (td.FC != 7) td.offsets(td.FC + 1) = offset
               } while((0 to td.FC).map(td.offsets(_)).exists(_ >= 8192))
+
+              val isoOverhead = 1+4+4
+              var scheduleOverrun = false
+              do{
+//                println("\n")
+                scheduleOverrun = (0 to td.FC).exists{i =>
+                  val frameId = (td.SF + i) & 0xFFFF
+//                  println(isoOccupancy(frameId) + groups(i).size)
+                  interruptsOccupancy(frameId & 0x1F) +  isoOccupancy(frameId) + groups(i).size + isoOverhead> 1023+64+64+64+64+64
+                }
+                if(scheduleOverrun) td.SF = (td.SF + 1 + Random.nextInt(2)) & 0xFFFF
+              } while(scheduleOverrun)
+
               td.save(ram)
+
               busyUntilFrame = td.SF + td.FC + 1
               busyUntilFrame &= 0xFFFF
 
-              println(f"${td.address}%08x => ${groups.map(_.size).mkString(", ")}")
+              for (i <- 0 until td.SF - currentFrameNumber) {
+                isoOccupancy((currentFrameNumber+i) & 0xFFFF) += 1
+              }
+              for (i <- 0 to td.FC) {
+                val frameId = (td.SF + i) & 0xFFFF
+                isoOccupancy(frameId) += groups(i).size + isoOverhead
+              }
+
+
+              val reportName = f"${td.address}%08x => ${groups.map(_.size).mkString(", ")}"
+              println(reportName)
               val stimWaitCompletion = Random.nextDouble() < 0.3
               val completionMutex = SimMutex()
+              var pendingCompletion = 0
 
               if (stimWaitCompletion) completionMutex.lock()
 
@@ -342,6 +370,13 @@ class SpinalSimUsbHostTester extends FunSuite{
                 if (p1Used != 0) malloc.free(p1)
                 malloc.free(td.address)
                 println("DONNNNE")
+                for (i <- 0 until td.SF - currentFrameNumber) {
+                  isoOccupancy((currentFrameNumber+i) & 0xFFFF) -= 1
+                }
+                for (i <- 0 to td.FC) {
+                  val frameId = (td.SF + i) & 0xFFFF
+                  isoOccupancy(frameId) -= groups(i).size + isoOverhead
+                }
                 if (stimWaitCompletion) {
                   delayed(Random.nextDouble() * 2e9 toInt) {
                     completionMutex.unlock()
@@ -355,6 +390,11 @@ class SpinalSimUsbHostTester extends FunSuite{
                 val address = byteToAddress(i)
                 ram.write(address, refData(i).toByte)
               }
+              val refCc = Array.fill(groups.size)(UsbOhci.CC.noError)
+
+              var doTransmitionError = Random.nextDouble() < 0.4
+
+//              doTransmitionError = true //XXX
 
               var groupIdCounter = 0
               var continue = true
@@ -381,31 +421,58 @@ class SpinalSimUsbHostTester extends FunSuite{
                   groupIdCounter += 1
                 } else { // ISO IN
                   def push(body: => Unit) = scoreboards(0).pushIn(TockenKey(ed0.FA, ed0.EN)) {
-                    activity = true;
+                    activity = true
+                    assert(currentFrameNumber-td.SF == groupId)
                     body
                     false
                   }
-                  def checkDataUntil(up: Int): Unit = {
-                    for (i <- 0 until up) {
-                      val address = byteToAddress(i)
-                      assert(m.read(address) == refData(i).toByte, f"[$i] => ${m.read(address)}%x != ${refData(i).toByte}%x")
-                    }
-                  }
 
-                  push {
-                    deviceDelayed(ls = false) {
-                      portAgents(0).emitBytes(UsbPid.DATA0, group.map(refData), true, false)
-                      if (groupLast) {
-                        doneChecksIso(td.address) = { td =>
-                          ed0.load(m)
-                          assert(td.CC == UsbOhci.CC.noError)
-                          for(i <- 0 until groups.size) assert(td.offsets(i) == groups(i).size)
-                          if (size != 0) checkDataUntil(group.head + group.size)
-                          tdCompletion()
+                  def lastCheck(): Unit ={
+                    if (groupLast) {
+                      doneChecksIso(td.address) = { td =>
+                        println(s"Check ${reportName}")
+                        ed0.load(m)
+                        assert(td.CC == UsbOhci.CC.noError)
+                        for(i <- 0 until groups.size) {
+                          val cc = (td.offsets(i) >> 12) & 0xF
+                          val bytes = td.offsets(i) & 0xFFF
+                          assert(cc == refCc(i))
+                          if(refCc(i) == UsbOhci.CC.noError) {
+                            assert(bytes == groups(i).size)
+                            for (i <- groups(i)) {
+                              val address = byteToAddress(i)
+                              assert(m.read(address) == refData(i).toByte, f"[$i] => ${m.read(address)}%x != ${refData(i).toByte}%x")
+                            }
+                          }
                         }
+                        tdCompletion()
                       }
                     }
                   }
+                  if(doTransmitionError && Random.nextDouble() < 0.5){//XXX
+                    push {
+                      val expectedCc = Random.nextInt(7) match {
+//                      val expectedCc = 0 match { //XXX
+                        case 0 => UsbOhci.CC.deviceNotResponding
+                        case 1 => deviceDelayed(ls = false) { portAgents(0).emitBytes(12 +: group.map(refData), true, false) }; UsbOhci.CC.pidCheckFailure
+                        case 2 => deviceDelayed(ls = false) { portAgents(0).emitBytes(List(), false, true) }; UsbOhci.CC.pidCheckFailure
+                        case 3 => deviceDelayed(ls = false) { portAgents(0).emitBytes(UsbPid.PING, group.map(refData), true, false) }; UsbOhci.CC.unexpectedPid
+                        case 4 => deviceDelayed(ls = false) { portAgents(0).emitBytes((DATA0 | (~DATA0 << 4)) +: group.map(refData), true, false, stuffingError = true)};UsbOhci.CC.bitStuffing
+                        case 5 => deviceDelayed(ls = false) { portAgents(0).emitBytes((DATA0 | (~DATA0 << 4)) +: group.map(refData), true, false, crcError = true) }; UsbOhci.CC.crc
+                        case 6 => deviceDelayed(ls = false) { portAgents(0).emitBytes((DATA0 | (~DATA0 << 4)) +: group.map(refData), true, false, eopError = true) }; UsbOhci.CC.bitStuffing
+                      }
+                      refCc(groupId) = expectedCc
+                      lastCheck()
+                    }
+                  } else {
+                    push {
+                      deviceDelayed(ls = false) {
+                        portAgents(0).emitBytes(if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1, group.map(refData), true, false)
+                        lastCheck()
+                      }
+                    }
+                  }
+
                   groupIdCounter += 1
                 }
               }

@@ -923,7 +923,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isoFrameNumber = isoRelativeFrameNumber(FC.range)
       val isoLast = isoRelativeFrameNumber(FC.range) === FC
       val isoBase, isoBaseNext = Reg(UInt(13 bits))
-      val isoZero = isoBase === isoBaseNext || isoFrameNumber === 7 && isoBase > isoBaseNext
+      val isoZero = (isoFrameNumber === 7) ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext)
 
       val isSinglePage = CBP(12, 20 bits) === BE(12, 20 bits)
       val firstOffset = ED.isIsochrone ? isoBase | CBP(0, 12 bits)
@@ -1232,9 +1232,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val byteCountCalc = lastAddress - currentAddress + 1
 
     TD_CHECK_TIME whenIsActive{ //TODO maybe the time check should be done futher (DMA delay stuff)
-      when(ED.isFs && (byteCountCalc << 3) >= frame.limitCounter || (ED.isLs && reg.hcLSThreshold.hit)) {
+      when(ED.isFs && ((byteCountCalc << 3) >= frame.limitCounter && !zeroLength) || (ED.isLs && reg.hcLSThreshold.hit)) {
         status := Status.FRAME_TIME
-        goto(ABORD)
+        goto(ABORD) //TODO mange time failure for periodic stuff
       } otherwise {
         when(isIn || zeroLength){
           goto(TOKEN)
@@ -1463,7 +1463,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       when(ED.isIsochrone){ //TODO ISO 4.3.2.3.5.3 Time Errors
         when(TD.isoLast) {
-          dmaWriteCtx.save(TD.CC ## TD.words(0)(27) ## TD.FC, 0, 24)
+          dmaWriteCtx.save(U(UsbOhci.CC.noError, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
         }
         val count = (ED.isoOut ? U(0) | currentAddress - TD.isoBase).resize(12 bits)
         val PSW = TD.CC ## count
@@ -1485,7 +1485,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(ioDma.cmd.ready && ioDma.cmd.last) {
         goto(UPDATE_ED_CMD)
       }
-      ED.H := TD.CC =/= UsbOhci.CC.noError
+      ED.H := !ED.isIsochrone && TD.CC =/= UsbOhci.CC.noError
     }
 
     UPDATE_ED_CMD.whenIsActive {
@@ -1770,9 +1770,9 @@ TODO
  !! Descheduling during a transmition will break the PHY !!
  The host must provide at least two bit times of J after the SE0 of an EOP and the start of a new packet (T IPD )
  IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
+ Protect HC against periodic scheduling overrun and skiped TD, including when the skiped one is the last transaction (no TD update). Also if the td is overdue, it should also go check the next TD !!
 
 test :
- isocrone, interrupt, setup lists
- isocrone TD
  all error conditions
+ low speed
  */
