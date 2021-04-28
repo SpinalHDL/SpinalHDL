@@ -923,11 +923,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isoFrameNumber = isoRelativeFrameNumber(FC.range)
       val isoLast = isoRelativeFrameNumber(FC.range) === FC
       val isoBase, isoBaseNext = Reg(UInt(13 bits))
-      val isoZero = (isoFrameNumber === 7) ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext)
+      val isoZero = isoLast ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext)
 
       val isSinglePage = CBP(12, 20 bits) === BE(12, 20 bits)
       val firstOffset = ED.isIsochrone ? isoBase | CBP(0, 12 bits)
-      val lastOffset = ED.isIsochrone ? (isoBaseNext-U(isoFrameNumber =/= 7)) | (U(!isSinglePage) @@ BE(0, 12 bits))
+      val lastOffset = ED.isIsochrone ? (isoBaseNext-U(!isoLast)) | (U(!isSinglePage) @@ BE(0, 12 bits))
 
       val allowRounding = !ED.isIsochrone && R
 
@@ -1031,7 +1031,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           if(i != 7) dmaReadCtx.load(TD.isoBaseNext, 4+(i+1)/2, ((i+1)%2)*16)
         }
       }
-      when(TD.isoFrameNumber === 7){ TD.isoBaseNext := U(!TD.isSinglePage ## TD.BE(11 downto 0)) }
+      when(TD.isoLast){ TD.isoBaseNext := U(!TD.isSinglePage ## TD.BE(11 downto 0)) }
 
       when(ioDma.rsp.lastFire) {
         goto(TD_ANALYSE)

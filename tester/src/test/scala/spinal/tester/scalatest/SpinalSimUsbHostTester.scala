@@ -328,7 +328,6 @@ class SpinalSimUsbHostTester extends FunSuite{
                   offset += tSize
                   byteId += tSize
                 }
-                if (td.FC != 7) td.offsets(td.FC + 1) = offset
               } while((0 to td.FC).map(td.offsets(_)).exists(_ >= 8192))
 
               val isoOverhead = 1+4+4
@@ -848,7 +847,7 @@ object UsbHostSynthesisTest {
 
     val rtls = List(rawrrr)
 
-    val targets = XilinxStdTargets().take(1)
+    val targets = XilinxStdTargets().take(2)
 
     Bench(rtls, targets)
   }
