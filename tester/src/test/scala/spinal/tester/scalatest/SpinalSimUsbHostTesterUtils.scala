@@ -176,7 +176,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
       currentBuffer = m.readInt(address + 0x04)
       nextTD = m.readInt(address + 0x08)
       bufferEnd = m.readInt(address + 0x0C)
-      for(i <- 0 until 8 by 2) offsets(i) = m.readInt(address + 0x10 + i * 2) & 0xFFFF
+      for(i <- 0 until 8) offsets(i) = m.readInt(address + 0x10 + i * 2) & 0xFFFF
       this
     }
   }
