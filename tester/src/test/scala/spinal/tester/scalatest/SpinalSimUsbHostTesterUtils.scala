@@ -265,6 +265,7 @@ trait UsbDeviceAgentListener{
 
 class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractIoListener{
   var lowSpeed = false
+  var connected = false
   var frameNumber = -1
 
   var listener : UsbDeviceAgentListener = null
@@ -328,6 +329,7 @@ class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractI
   def connect(lowSpeed : Boolean): Unit ={
     this.lowSpeed = lowSpeed
     io.connect(lowSpeed)
+    connected = true
   }
 
   io.listener = this
