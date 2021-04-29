@@ -917,11 +917,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       //Isochrone specifics
       val FC = words(0)(24, 3 bits).asUInt
       val SF = words(0)(0, 16 bits).asUInt
-      val BP0 = words(1)(12, 20 bits)
       val isoRelativeFrameNumber = reg.hcFmNumber.FN - SF
       val tooEarly = isoRelativeFrameNumber.msb
       val isoFrameNumber = isoRelativeFrameNumber(FC.range)
-      val isoLast = isoRelativeFrameNumber(FC.range) === FC
+      val isoOverrun = !tooEarly && isoRelativeFrameNumber > FC
+      val isoOverrunReg = RegNext(isoOverrun)
+      val isoLast = !isoOverrun && !tooEarly && isoFrameNumber === FC
       val isoBase, isoBaseNext = Reg(UInt(13 bits))
       val isoZero = isoLast ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext)
 
@@ -1224,15 +1225,23 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       goto(TD_CHECK_TIME)
 
-      when(ED.isIsochrone && TD.tooEarly){
-        goto(UPDATE_SYNC)
+      when(ED.isIsochrone){
+        when(TD.tooEarly) {
+          goto(UPDATE_SYNC)
+        }
+        when(TD.isoOverrun) {
+          TD.retire := True
+          goto(UPDATE_TD_CMD) //TODO untested yet
+        }
       }
     }
 
     val byteCountCalc = lastAddress - currentAddress + 1
+    val fsTimeCheck = zeroLength ? (frame.limitCounter === 0) | ((byteCountCalc << 3) >= frame.limitCounter)
+    val timeCheck = (ED.isFs && fsTimeCheck) || (ED.isLs && reg.hcLSThreshold.hit)
 
     TD_CHECK_TIME whenIsActive{ //TODO maybe the time check should be done futher (DMA delay stuff)
-      when(ED.isFs && ((byteCountCalc << 3) >= frame.limitCounter && !zeroLength) || (ED.isLs && reg.hcLSThreshold.hit)) {
+      when(timeCheck) {
         status := Status.FRAME_TIME
         goto(ABORD) //TODO mange time failure for periodic stuff
       } otherwise {
@@ -1247,6 +1256,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     BUFFER_READ.whenIsActive {
       when(dmaLogic.isActive(dmaLogic.TO_USB)) {
+        when(timeCheck){
+          status := Status.FRAME_TIME
+          dmaLogic.killFsm()
+          goto(ABORD)
+        }
         goto(TOKEN)
       }
     }
@@ -1462,14 +1476,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.setWrite()
 
       when(ED.isIsochrone){ //TODO ISO 4.3.2.3.5.3 Time Errors
-        when(TD.isoLast) {
-          dmaWriteCtx.save(U(UsbOhci.CC.noError, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
-        }
-        val count = (ED.isoOut ? U(0) | currentAddress - TD.isoBase).resize(12 bits)
-        val PSW = TD.CC ## count
-        for(i <- 0 until 8){
-          when(TD.isoFrameNumber === i) {
-            dmaWriteCtx.save(PSW, 4 + i / 2, (i % 2) * 16)
+        when(TD.isoOverrunReg) {
+          dmaWriteCtx.save(U(UsbOhci.CC.dataOverrun, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
+        } otherwise {
+          when(TD.isoLast) {
+            dmaWriteCtx.save(U(UsbOhci.CC.noError, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
+          }
+          val count = (ED.isoOut ? U(0) | currentAddress - TD.isoBase).resize(12 bits)
+          val PSW = TD.CC ## count
+          for(i <- 0 until 8){
+            when(TD.isoFrameNumber === i) {
+              dmaWriteCtx.save(PSW, 4 + i / 2, (i % 2) * 16)
+            }
           }
         }
       } otherwise {
@@ -1505,7 +1523,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     UPDATE_SYNC.whenIsActive {
       when(dmaCtx.pendingEmpty) {
-        applyNextED := True
+        when(!(ED.isIsochrone && TD.isoOverrun)) {
+          applyNextED := True
+        }
         when(flowType =/= FlowType.PERIODIC){
           priority.tick := True
         }
