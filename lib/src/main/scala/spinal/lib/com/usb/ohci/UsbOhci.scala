@@ -431,7 +431,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val connected = RegInit(False) setWhen (port.connect) clearWhen (port.disconnect)
       val PSS = ctrl.createReadOnly(Bool(), address, 2) init (False)
-      val PPS = ctrl.createReadOnly(Bool(), address, 8) init (False) //TODO init port registers on HC reset ?
+      val PPS = ctrl.createReadOnly(Bool(), address, 8) init (False)
       val CCS = ctrl.read((connected || DR(portId)) && PPS, address, 0) //MAYBUG DR => always one ???
       val PES = ctrl.createReadOnly(Bool(), address, 1) init (False)
       val POCI = ctrl.read(port.overcurrent, address, 3)
@@ -478,7 +478,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       PSSC.clear setWhen (PRSC.set)
 
       //      port.enable := PES
-      port.disable.valid := clearPortEnable //TODO
+      port.disable.valid := clearPortEnable
       port.removable := DR(portId)
       port.power := PPS //PPCM(portId)
       port.resume.valid := resume
@@ -670,7 +670,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val rxPidOk = io.phy.rx.data(3 downto 0) === ~io.phy.rx.data(7 downto 4)
 
-  //TODO manage errors
   val dataRx = new StateMachineSlave {
     val IDLE, PID, DATA = new State
     setEntry(IDLE)
@@ -682,7 +681,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val crc16 = Crc(CrcKind.usb.crc16Check, 8)
     val valids = Reg(Bits(2 bits))
     val notResponding = Reg(Bool)
-    val stuffingError = Reg(Bool) //TODO use me
+    val stuffingError = Reg(Bool)
     val pidError = Reg(Bool)
     val crcError = Reg(Bool)
 
@@ -810,8 +809,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val bulk = Reg(Bool)
     val counter = Reg(UInt(2 bits))
 
-    val tick = False //TODO
-    val skip = False //TODO
+    val tick = False
+    val skip = False
     when(tick) {
       counter := counter + 1
       when(bulk || counter === reg.hcControl.CBSR) {
@@ -1197,9 +1196,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             underflow := False
             overflow := fromUsbCounter =/= 0
           }
-          goto(VALIDATION) //TODO check CRC
+          goto(VALIDATION)
         }
-        when(dataRx.data.valid) { //TODO manage errors ( !active
+        when(dataRx.data.valid) {
           fromUsbCounter := fromUsbCounter + U(!fromUsbCounter.msb)
           byteCtx.increment := True
           buffer.subdivideIn(8 bits)(byteCtx.sel) := dataRx.data.payload
@@ -1242,7 +1241,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
         when(TD.isoOverrun) {
           TD.retire := True
-          goto(UPDATE_TD_CMD) //TODO untested yet
+          goto(UPDATE_TD_CMD) //TODO untested yet (periodic iso schedule overrun
         }
       }
     }
@@ -1251,10 +1250,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val fsTimeCheck = zeroLength ? (frame.limitCounter === 0) | ((byteCountCalc << 3) >= frame.limitCounter)
     val timeCheck = (ED.isFs && fsTimeCheck) || (ED.isLs && reg.hcLSThreshold.hit)
 
-    TD_CHECK_TIME whenIsActive{ //TODO maybe the time check should be done futher (DMA delay stuff)
+    TD_CHECK_TIME whenIsActive{
       when(timeCheck) {
         status := Status.FRAME_TIME
-        goto(ABORD) //TODO mange time failure for periodic stuff
+        goto(ABORD)
       } otherwise {
         when(isIn || zeroLength){
           goto(TOKEN)
@@ -1334,7 +1333,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       rxTimer.clear := True
     }
     ACK_RX.whenIsActive {
-      when(io.phy.rx.valid){ //TODO manage errors, rx.errors and timeouts, warning isochronus skip this state
+      when(io.phy.rx.valid){
         ackRxFired := True
         ackRxPid := io.phy.rx.data(3 downto 0)
         ackRxStuffing setWhen(io.phy.rx.stuffingError)
@@ -1378,7 +1377,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     DATA_RX_VALIDATE whenIsActive{
-      dmaLogic.validated := True //TODO write or not the memory back, check crc check errors, proper length
+      dmaLogic.validated := True
 
       goto(DATA_RX_WAIT_DMA)
       TD.CC := UsbOhci.CC.noError
@@ -1486,7 +1485,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.last := dmaWriteCtx.counter === (ED.isIsochrone ? U(31 * 8 / p.dataWidth) | U(15 * 8 / p.dataWidth))
       ioDma.cmd.setWrite()
 
-      when(ED.isIsochrone){ //TODO ISO 4.3.2.3.5.3 Time Errors
+      when(ED.isIsochrone){
         when(TD.isoOverrunReg) {
           dmaWriteCtx.save(U(UsbOhci.CC.dataOverrun, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
         } otherwise {
@@ -1508,7 +1507,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         }
       }
 
-      when(TD.retire) { //TODO 4.3.1.3.5 Transfer Completion, warning also in UPDATE_SYNC reg.hcDoneHead.DH.reg update
+      when(TD.retire) {
         dmaWriteCtx.save(reg.hcDoneHead.DH.address, 2, 0)
       }
       when(ioDma.cmd.ready && ioDma.cmd.last) {
@@ -1523,7 +1522,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       ioDma.cmd.length := 15
       ioDma.cmd.last := dmaWriteCtx.counter === 15 * 8 / p.dataWidth
       ioDma.cmd.setWrite()
-      //TODO
       when(TD.retire) {
         dmaWriteCtx.save(TD.nextTD ## B"00" ## TD.dataPhaseNext ## ED.H, 2, 0)
       }
@@ -1544,7 +1542,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(TD.retire) {
           interruptDelay.load.valid := True
           interruptDelay.load.payload := TD.DI
-          reg.hcDoneHead.DH.reg := ED.headP //TODO WritebackDoneHead ?
+          reg.hcDoneHead.DH.reg := ED.headP
         }
         exitFsm()
       }
@@ -1791,18 +1789,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
 /*
 TODO
- notAccessed
- rx timeout ?
  suspend / resume
- time budget for low speed over high speed packet
  protect port exiting reset in the middle of something else
  6.5.7 RootHubStatusChange Event
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
- The host must provide at least two bit times of J after the SE0 of an EOP and the start of a new packet (T IPD )
  IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
 
 test :
- all error conditions
- low speed
  */
