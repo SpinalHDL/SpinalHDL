@@ -1749,9 +1749,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     SUSPEND.whenIsActive {
       reg.hcControl.HCFS := MainState.SUSPEND
+
       when(reg.hcRhStatus.DRWE && reg.hcRhPortStatus.map(_.CSC.reg).orR) {
         reg.hcInterrupt.RD.status := True
         goto(RESUME)
+      } elsewhen(reg.hcControl.HCFSWrite.valid && reg.hcControl.HCFSWrite.payload === MainState.OPERATIONAL) {
+        goto(OPERATIONAL)
       }
     }
 
