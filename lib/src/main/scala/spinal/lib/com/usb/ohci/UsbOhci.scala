@@ -116,6 +116,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val phy = master(UsbHubLsFs.Ctrl(p.portCount))
     val dma = master(Bmb(UsbOhci.dmaParameter(p)))
     val interrupt = out Bool()
+    val interruptBios = out Bool()
   }
   io.phy.lowSpeed := False
 
@@ -266,7 +267,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val RWC = ctrl.createReadAndWrite(Bool(), 0x04, 9) init(False)
       val RWE = ctrl.createReadAndWrite(Bool(), 0x04, 10) softInit (False)
 
-
       val HCFSWrite = ctrl.createAndDriveFlow(MainState(), 0x04, 6)
     }
 
@@ -275,17 +275,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val HCR = ctrl.read(doSoftReset, 0x08, 0)
       val CLF = ctrl.createReadAndSetOnSet(doSoftReset, 0x08, 1) softInit (False)
       val BLF = ctrl.createReadAndSetOnSet(Bool(), 0x08, 2) softInit (False)
+      val OCR = ctrl.createReadAndSetOnSet(Bool(), 0x08, 3) softInit (False)
       val SOC = ctrl.createReadOnly(UInt(2 bits), 0x08, 16) softInit (0)
     }
 
     val hcInterrupt = new Area {
       val unmaskedPending = False
-      def createInterrupt(id: Int) = new Area {
+      def createInterrupt(id: Int, smi : Boolean = false) = new Area {
         val status = ctrl.createReadAndClearOnSet(Bool(), UsbOhci.HcInterruptStatus, id) softInit (False)
         val enable = Reg(Bool) softInit(False)
         ctrl.readAndSetOnSet(enable, UsbOhci.HcInterruptEnable, id)
         ctrl.readAndClearOnSet(enable, UsbOhci.HcInterruptDisable, id)
-        unmaskedPending setWhen(status && enable)
+        if(!smi) unmaskedPending setWhen(status && enable)
       }
 
       val MIE = Reg(Bool) softInit(False)
@@ -298,10 +299,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val UE = createInterrupt(4)
       val FNO = createInterrupt(5)
       val RHSC = createInterrupt(6)
-      val OC = createInterrupt(30)
-      //TODO many interrupts aren't wired
+      val OC = createInterrupt(30, smi = true)
+      OC.status.setWhen(hcCommandStatus.OCR)
 
-      io.interrupt := unmaskedPending && MIE
+      val doIrq = unmaskedPending && MIE
+      io.interrupt := doIrq && !hcControl.IR
+      io.interruptBios := doIrq && hcControl.IR || OC.status && OC.enable
     }
 
     def mapAddress(zeroWidth: Int, mapping: Int, driverWrite: Boolean) = new Area {
@@ -387,7 +390,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val PPCM = ctrl.createReadAndWrite(Bits(p.portCount bits), 0x4C, 17) softInit (Cat(p.portsConfig.map(_.powerControlMask).map(Bool(_))))
     }
 
-    val hcRhStatus = new Area {
+    val hcRhStatus = new Area { //TODO events to RHSC
       val OCI = ctrl.read(io.phy.overcurrent, 0x50, 1)
       val DRWE = ctrl.createReadOnly(Bool, 0x50, 15) softInit (False)
       val CCIC = ctrl.createReadAndClearOnSet(Bool, 0x50, 17) softInit (False) setWhen (OCI.edge(False))
@@ -412,6 +415,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         val set = Bool()
         val clear = False
         val reg = ctrl.createReadOnly(Bool(), address, bitId) softInit (False) clearWhen (clear) setWhen (set)
+        hcInterrupt.RHSC.status setWhen(set)
         ctrl.setOnSet(clear, address, bitId)
       }
 
