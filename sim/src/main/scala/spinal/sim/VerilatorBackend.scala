@@ -225,13 +225,22 @@ public:
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
-${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
-      yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
+${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
+      val typePrefix = if(signal.dataType.width <= 8) "CData"
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width > 64) "(WData*)" else "" } top.${signal.path.mkString("->")} ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
-  signalInits.mkString("")}
+      else "WData"
+      val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
+      val signalReference = s"top.${signal.path.mkString("->")}"
+      val memPatch = if(signal.dataType.isMem) "[0]" else ""
+
+      s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+
+    }
+
+      signalInits.mkString("")
+    }
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
@@ -436,6 +445,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11
        | -LDFLAGS -std=c++11
+       | --autoflush  
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500

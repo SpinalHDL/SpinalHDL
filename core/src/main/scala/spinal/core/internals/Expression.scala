@@ -1370,6 +1370,15 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
 class BitsBitAccessFixed extends BitVectorBitAccessFixed {
   override def getTypeObject  = TypeBool
   override def opName: String = "Bits(Int)"
+
+  override def simplifyNode = source match{
+    case source : BitVectorRangedAccessFixed => {
+      bitId = bitId + source.lo
+      this.source = source.source
+      this
+    }
+    case _ => this
+  }
 }
 
 /** UInt access with a fix index */

@@ -2317,6 +2317,7 @@ object SpinalVhdlBoot{
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
     phases += new PhaseSimplifyNodes(pc)
 
     phases += new PhaseCompletSwitchCases()
@@ -2439,6 +2440,7 @@ object SpinalVerilogBoot{
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
     phases += new PhaseSimplifyNodes(pc)
 
     phases += new PhaseCompletSwitchCases()

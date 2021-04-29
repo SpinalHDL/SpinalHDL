@@ -100,19 +100,36 @@ object Play {
 }
 
 object Play2 extends App{
-  class Thing extends Nameable
+  import spinal.core.sim._
+  SpinalVerilog(new Component{
 
-  SpinalVerilog(new Component {
-    val miaou = new Thing
-    println(miaou.getName()) //Print miaou
+    val a,b = Bool
+    val c = Bits(4 bits)
+    (a,b,c) := B"111100"
+    val x = (a,b,c).asBits
 
-    val logic = new Area{
-      val wuff = new Thing
-      println(wuff.getName()) //Print nothing, as the logic area isn't done yet
-    }
+    val e,f,g = Bool()
+    (e,f,g) := B(a,b,c).resized
 
-    println(logic.wuff.getName()) //Print logic_wuff
   })
+}
+
+object Play43 extends App{
+  import spinal.core.sim._
+  SimConfig.compile(new Component{
+    val counter = Reg(UInt(8 bits)) init(0)
+    when(counter =/= 100){
+      counter := counter + 1
+    }
+    when(counter === 80){
+      report(L"miaou 0x$counter")
+    }
+  }).doSim{dut =>
+    println("hello")
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(10000000)
+    println("goodbye")
+  }
 }
 
 

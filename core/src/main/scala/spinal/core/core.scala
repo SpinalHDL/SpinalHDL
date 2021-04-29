@@ -449,4 +449,37 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   def report(message: String,   severity: AssertNodeSeverity) = assert(False, message, severity)
   def report(message: Seq[Any], severity: AssertNodeSeverity) = assert(False, message, severity)
+
+
+  class TuplePimperBase(product: Product){
+    def elements = product.productIterator.asInstanceOf[Iterator[Data]]
+    def := (right : Bits): Unit ={
+      val leftWidth = elements.map(_.getBitsWidth).sum
+      var rightOp = right
+      if(right.hasTag(tagAutoResize)){
+        rightOp = right.resize(leftWidth bits)
+      }
+      assert(rightOp.getWidth == leftWidth, s"Width missmatch (${right.getWidth} != $leftWidth")
+      var offset = 0
+      for(e <- elements.toList.reverse){
+        e.assignFromBits(rightOp(offset, e.getBitsWidth bits))
+        offset += e.getBitsWidth
+      }
+    }
+
+    def asBits = {
+      Cat(elements.toList.reverse)
+    }
+  }
+
+  implicit class Tuple2Pimper(pimped : Tuple2[Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple3Pimper(pimped : Tuple3[Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple4Pimper(pimped : Tuple4[Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple5Pimper(pimped : Tuple5[Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple6Pimper(pimped : Tuple6[Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple7Pimper(pimped : Tuple7[Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple8Pimper(pimped : Tuple8[Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple9Pimper(pimped : Tuple9[Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple10Pimper(pimped : Tuple10[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple11Pimper(pimped : Tuple11[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
 }

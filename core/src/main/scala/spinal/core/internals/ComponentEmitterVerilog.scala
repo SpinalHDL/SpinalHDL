@@ -96,7 +96,13 @@ class ComponentEmitterVerilog(
       declarations ++= emitBaseTypeWrap(io, name)
     } else {
       wrapSubInput(io.parent.asInstanceOf[BaseType])
-      name = referencesOverrides(io.parent) + "." + io.getPartialName()
+      var parentName: String = ""
+      referencesOverrides(io.parent) match {
+        case s: String => parentName = s
+        case n: Nameable => parentName = n.getNameElseThrow
+        case _ => throw new Exception(s"Could not determine name of ${io}")
+      }
+      name = parentName + "." + io.getPartialName()
     }
     referencesOverrides(io) = name
   }
@@ -530,11 +536,13 @@ class ComponentEmitterVerilog(
 
             val frontString = (for (m <- assertStatement.message) yield m match {
               case m: String => m
+              case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
               case `REPORT_TIME` => "%d"
             }).mkString
 
             val backString = (for (m <- assertStatement.message if !m.isInstanceOf[String]) yield m match {
+              case m: SpinalEnumCraft[_] => ", " + emitExpression(m) + "_string"
               case m: Expression => ", " + emitExpression(m)
               case `REPORT_TIME` => ", $time"
             }).mkString
