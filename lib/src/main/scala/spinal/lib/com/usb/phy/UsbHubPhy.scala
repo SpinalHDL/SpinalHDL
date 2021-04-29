@@ -68,8 +68,9 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
   val timer = new Area{
     val clear = False
     val counter = Reg(UInt(log2Up(fsRatio*8) bits))
+    val counterLimit = io.lowSpeed ? U(fsRatio*8-1) | U(fsRatio-1)
     counter := counter + 1
-    when(counter === fsRatio-1 || clear){
+    when(counter === counterLimit  || clear){
       counter := 0
     }
 
@@ -119,6 +120,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       val fourCycle = cycles(4)
 
       lowSpeed := False
+    }
+
+    val rxToTxDelay = new UsbTimer(0.667e-6*2, fsRatio){
+      lowSpeed.setAsReg()
+      val twoCycle = cycles(2)
+      val active = RegInit(False) clearWhen(twoCycle)
     }
 
     val encoder = new Area {
@@ -248,7 +255,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       IDLE whenIsActive {
         timer.clear := True
         wasLowSpeed := io.ctrl.lowSpeed
-        when(io.ctrl.tx.valid) {
+        when(io.ctrl.tx.valid && !rxToTxDelay.active) {
           goto(TAKE_LINE)
         }
       }
@@ -418,16 +425,15 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
   val ports = for((usb, ctrl) <- (io.usb, io.ctrl.ports).zipped) yield new Area{
 //    val connected = Reg(Bool) init(False) //TODO
-    val lowSpeed = Reg(Bool)
-    val ls = lowSpeed
+    val portLowSpeed = Reg(Bool)
 //    val enable = Reg(Bool)
 
 //    ctrl.connected := connected
-    ctrl.lowSpeed := lowSpeed
+    ctrl.lowSpeed := portLowSpeed
     ctrl.remoteResume := False //TODO
 
     val filter = UsbLsFsPhyFilter(fsRatio)
-    filter.io.lowSpeed := lowSpeed
+    filter.io.lowSpeed := io.ctrl.lowSpeed
     filter.io.usb.dp := usb.rx.dp
     filter.io.usb.dm := usb.rx.dm
 
@@ -439,8 +445,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 //        val resume = trigger(20e-3 * 0.9)
 //      }
 
-      val j = filter.io.filtred.dp === !lowSpeed && filter.io.filtred.dm ===  lowSpeed
-      val k = filter.io.filtred.dp ===  lowSpeed && filter.io.filtred.dm === !lowSpeed
+      val j = filter.io.filtred.dp === !portLowSpeed && filter.io.filtred.dm ===  portLowSpeed
+      val k = filter.io.filtred.dp ===  portLowSpeed && filter.io.filtred.dm === !portLowSpeed
 
       usb.power := ctrl.power
       ctrl.overcurrent := usb.overcurrent
@@ -457,7 +463,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
         when(filter.io.filtred.sample){
           output.valid := True
-          when(state ^ filter.io.filtred.d ^ lowSpeed){
+          when(state ^ filter.io.filtred.d ^ portLowSpeed){
             output.payload := False
             state := !state
           } otherwise {
@@ -499,8 +505,8 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
 
       val eop = new Area{
-        val maxThreshold = lowSpeed ? U(fsRatio*8*3)     | U(fsRatio*3)
-        val minThreshold = lowSpeed ? U(fsRatio*8*2*2/3) | U(fsRatio*2*2/3)
+        val maxThreshold = io.ctrl.lowSpeed ? U(fsRatio*8*3)     | U(fsRatio*3)
+        val minThreshold = io.ctrl.lowSpeed ? U(fsRatio*8*2*2/3) | U(fsRatio*2*2/3)
         val counter = Reg(UInt(log2Up(fsRatio*8*3+1) bits)) init(0)
         val maxHit = counter === maxThreshold
         val hit = False
@@ -550,7 +556,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
         //Ensure that all activities on the bus are done before released the FSM
         val errorTimeout = new UsbTimer(20.0*0.667e-6,fsRatio){
-          lowSpeed := ls
+          lowSpeed := io.ctrl.lowSpeed
           val trigger = cycles(20)
           val p,n = Reg(Bool)
 
@@ -570,9 +576,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
           }
         }
 
-        
+
         always{
           when(eop.hit){
+            txShared.rxToTxDelay.clear := True
+            txShared.rxToTxDelay.active := True
+            txShared.rxToTxDelay.lowSpeed := io.ctrl.lowSpeed
             goto(IDLE)
           }
           when(txShared.encoder.output.valid){
@@ -599,7 +608,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         val RESTART_EOI = trigger(100e-6)
         val ONE_BIT = cycles(1)
         val TWO_BIT = cycles(2)
-        this.lowSpeed := ls
+        this.lowSpeed := portLowSpeed
       }
 
       ctrl.disable.ready := True //TODO
@@ -613,7 +622,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       usb.tx.se0   assignDontCare()
 
       def SE0 =  filter.io.filtred.se0
-      def K   = !SE0 && (!filter.io.filtred.d ^ lowSpeed)
+      def K   = !SE0 && (!filter.io.filtred.d ^ portLowSpeed)
 
       val resetInProgress = False
       val lowSpeedEop = Reg(Bool)
@@ -628,7 +637,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         } elsewhen(ctrl.reset.valid){
           when(!resetInProgress) {
             when(filter.io.filtred.dm =/= filter.io.filtred.dp) {
-              lowSpeed := !filter.io.filtred.d
+              portLowSpeed := !filter.io.filtred.d
               goto(RESETTING)
             } //TODO otherwise set C_PORT_ENABLE
           }
@@ -692,11 +701,11 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
       ENABLED whenIsActive{
         rx.enablePackets := True
-        usb.tx.enable := txShared.encoder.output.valid && !(lowSpeed && !txShared.encoder.output.lowSpeed)
-        usb.tx.data := txShared.encoder.output.data ^ lowSpeed
+        usb.tx.enable := txShared.encoder.output.valid && !(portLowSpeed && !txShared.encoder.output.lowSpeed)
+        usb.tx.data := txShared.encoder.output.data ^ portLowSpeed
         usb.tx.se0 := txShared.encoder.output.se0
 
-        when(lowSpeed && txShared.lowSpeedSof.overrideEncoder){
+        when(portLowSpeed && txShared.lowSpeedSof.overrideEncoder){
           usb.tx.enable := txShared.lowSpeedSof.valid
           usb.tx.data   := txShared.lowSpeedSof.data
           usb.tx.se0    := txShared.lowSpeedSof.se0
@@ -723,7 +732,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       RESUMING onEntry {timer.clear := True}
       RESUMING whenIsActive{
         usb.tx.enable := True
-        usb.tx.data := lowSpeed
+        usb.tx.data := portLowSpeed
         usb.tx.se0 := False
 
         when(timer.RESUME_EOI){
@@ -746,7 +755,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       SEND_EOP_1 whenIsActive{
         timer.lowSpeed setWhen(lowSpeedEop)
         usb.tx.enable := True
-        usb.tx.data := !lowSpeed
+        usb.tx.data := !portLowSpeed
         usb.tx.se0 := False
         when(timer.ONE_BIT){
           goto(ENABLED)

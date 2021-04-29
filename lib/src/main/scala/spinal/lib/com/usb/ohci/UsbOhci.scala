@@ -996,7 +996,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
 
     ED_ANALYSE.whenIsActive {
-      when(ED.H || ED.S || ED.tdEmpty) { //Skip
+      when(ED.H || ED.K || ED.tdEmpty) { //Skip
         applyNextED := True
         exitFsm()
       } otherwise {

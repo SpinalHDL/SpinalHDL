@@ -436,12 +436,12 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     }
   }
 
-  def emitBytes(pid : Int, data : Seq[Int], crc16 : Boolean, turnaround : Boolean) : Unit = {
+  def emitBytes(pid : Int, data : Seq[Int], crc16 : Boolean, turnaround : Boolean, ls : Boolean) : Unit = {
     val head = (pid | (~pid << 4)) & 0xFF
-    emitBytes(head +: data, crc16, turnaround)
+    emitBytes(head +: data, crc16, turnaround, ls)
   }
 
-  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, stuffingError : Boolean = false, crcError : Boolean = false, eopError : Boolean = false) : Unit = {
+  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, ls : Boolean, stuffingError : Boolean = false, crcError : Boolean = false, eopError : Boolean = false) : Unit = {
     var buf = data
     if(crc16){
       val crc = calcCrc(data.tail, 0x8005, 16, false)
@@ -467,36 +467,36 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
 
     def rec(data : List[Boolean]): Unit ={
       if(data.isEmpty){
-        emitEop(Random.nextBoolean(), eopError)
+        emitEop(Random.nextBoolean(), eopError, ls)
       } else {
         rx.enable = true
         rx.dm = !lowSpeed ^ data.head
         rx.dp =  lowSpeed ^ data.head
-        delayed(randomBitTime()){
+        delayed(randomBitTime(ls)){
           rec(data.tail)
         }
       }
     }
-    delayed(if(turnaround) bitTime()*2 else 0){//TODO better delay for better testing
+    delayed(if(turnaround) bitTime(ls)*2 else 0){//TODO better delay for better testing
       rec(toggled)
     }
   }
 
-  def bitTime(): Long ={
-    if(lowSpeed) 666666 else 83333
+  def bitTime(ls : Boolean): Long ={
+    if(ls) 666666 else 83333
   }
 
-  def randomBitTime(): Long ={
-    bitTime()
+  def randomBitTime(ls : Boolean): Long ={
+    bitTime(ls)
   }
 
-  def emitEop(extraBit : Boolean, error : Boolean): Unit ={
+  def emitEop(extraBit : Boolean, error : Boolean, ls : Boolean): Unit ={
     if(extraBit){
       rx.enable = true
       rx.dm = Random.nextBoolean()
       rx.dp = !rx.dm
-      delayed(randomBitTime()){
-        emitEop(false, error)
+      delayed(randomBitTime(ls)){
+        emitEop(false, error, ls)
       }
     } else if(error) {
       rx.enable = false
@@ -506,11 +506,11 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       rx.enable = true
       rx.dm = false
       rx.dp = false
-      delayed(randomBitTime() + randomBitTime()){
+      delayed(randomBitTime(ls) + randomBitTime(ls)){
         rx.enable = true
         rx.dm =  lowSpeed
         rx.dp = !lowSpeed
-        delayed(randomBitTime()){
+        delayed(randomBitTime(ls)){
           rx.enable = false
         }
       }
@@ -555,6 +555,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     ret
   }
 
+  var gotPreamble = false
   cd.onSamplings{
     val txEnable = usb.tx.enable.toBoolean
     val txSe0 = usb.tx.se0.toBoolean
@@ -633,6 +634,13 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
             log("EOP")
           } else {
             packetBits += txJ
+            //Handle lowspeed frame PRE on high speed links
+            if(packetBits.size == 17 && decodeBytes(decodePacketToggle(packetBits.take(16))) == List(0x80, 0x3C)){
+              packetBits.clear()
+              state = ENABLED
+              gotPreamble = true
+              cdBitRatio *= 8
+            }
           }
         }
       }
@@ -668,6 +676,10 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
         assert(txEnable && !txSe0 && txJ)
         if(bitEvent){
           state = ENABLED
+          if(gotPreamble) {
+            gotPreamble = false
+            cdBitRatio /= 8
+          }
         }
       }
     }
