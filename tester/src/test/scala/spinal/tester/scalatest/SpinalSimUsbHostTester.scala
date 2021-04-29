@@ -26,7 +26,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       noOverCurrentProtection = true,
       powerOnToPowerGoodTime = 10,
       fsRatio = 4,
-      dataWidth = 32,
+      dataWidth = 64,
       portsConfig = List.fill(4)(OhciPortParameter())
     )
 

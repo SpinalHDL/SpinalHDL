@@ -1679,8 +1679,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
+    dmaRspMux.sel := reg.hcFmNumber.FN.resized
     PERIODIC_HEAD_RSP.whenIsActive {
-      dmaRspMux.sel := reg.hcFmNumber.FN.resized
       when(ioDma.rsp.valid) {
         periodicHeadFetched := True
         reg.hcPeriodCurrentED.PCED.load(dmaRspMux.data)
