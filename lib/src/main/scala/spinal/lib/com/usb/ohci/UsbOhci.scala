@@ -38,6 +38,13 @@ object UsbOhci{
     alignment = BmbParameter.BurstAlignement.LENGTH
   )
 
+  def ctrlCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
+    accessSource,
+    addressWidth = ctrlAddressWidth,
+    dataWidth = 32
+  )
+  def ctrlAddressWidth = 12
+
   val HcRevision         = 0x0
   val HcControl          = 0x4
   val HcCommandStatus    = 0x8
