@@ -42,7 +42,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-          3e-3 -> 15e-3
+          0e-3 -> 15e-3
 //          10e-3 -> 50e-3
         )
       )

@@ -360,6 +360,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val hcFmNumber = new Area {
       val FN = ctrl.createReadOnly(UInt(16 bits), 0x3C, 0) addTag(SimPublic) softInit (0)
+      val overflow = Reg(Bool) init(False)
+      val FNp1 = FN + 1
     }
 
     val hcPeriodicStart = new Area {
@@ -506,6 +508,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val limitHit = limitCounter === 0
     val decrementTimer = Reg(UInt(3 bits))
 
+
     val decrementTimerOverflow = decrementTimer === 6
     decrementTimer := decrementTimer + 1
     when(decrementTimerOverflow) {
@@ -525,7 +528,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     when(reload) {
       reg.hcFmRemaining.FR := reg.hcFmInterval.FI
       reg.hcFmRemaining.FRT := reg.hcFmInterval.FIT
-      reg.hcFmNumber.FN := reg.hcFmNumber.FN + 1
+      reg.hcFmNumber.FN := reg.hcFmNumber.FNp1
+      reg.hcFmNumber.overflow setWhen(reg.hcFmNumber.FNp1.msb ^ reg.hcFmNumber.FN.msb)
       limitCounter := reg.hcFmInterval.FSMPS
       decrementTimer := 0
     }
@@ -773,9 +777,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         goto(FRAME_NUMBER_RSP)
       }
     }
+
     FRAME_NUMBER_RSP.whenIsActive {
       when(ioDma.rsp.valid) {
         reg.hcInterrupt.SF.status := True
+        reg.hcInterrupt.FNO.status setWhen(reg.hcFmNumber.overflow)
+        reg.hcFmNumber.overflow := False
         interruptDelay.tick := True
         when(doInterruptDelay) {
           reg.hcInterrupt.WDH.status := True
@@ -1790,7 +1797,6 @@ TODO
  !! Descheduling during a transmition will break the PHY !!
  The host must provide at least two bit times of J after the SE0 of an EOP and the start of a new packet (T IPD )
  IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
- Protect HC against periodic scheduling overrun and skiped TD, including when the skiped one is the last transaction (no TD update). Also if the td is overdue, it should also go check the next TD !!
 
 test :
  all error conditions
