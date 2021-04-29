@@ -88,21 +88,15 @@ class SpinalSimUsbHostTester extends FunSuite{
         }
       }
 
-      val p0 = fork {
-        devices(0).connect(lowSpeed = false)
-        waitConnected(0)
-        setPortReset(0)
-        waitPortReset(0)
+      val ports = for(i <- 0 until 4) yield fork{
+        devices(i).connect(lowSpeed = i%2 == 1)
+        waitConnected(i)
+        setPortReset(i)
+        waitPortReset(i)
       }
 
-      val p1 = fork {
-        devices(1).connect(lowSpeed = false)
-        waitConnected(1)
-        setPortReset(1)
-        waitPortReset(1)
-      }
-      p0.join()
-      p1.join()
+      ports.foreach(_.join())
+
 
       def connectedFs = devices.filter(e => e.connected && !e.lowSpeed)
 

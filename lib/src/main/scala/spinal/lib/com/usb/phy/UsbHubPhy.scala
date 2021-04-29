@@ -699,11 +699,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
       }
 
+      val forceJ = portLowSpeed && !txShared.encoder.output.lowSpeed
       ENABLED whenIsActive{
         rx.enablePackets := True
-        usb.tx.enable := txShared.encoder.output.valid && !(portLowSpeed && !txShared.encoder.output.lowSpeed)
-        usb.tx.data := txShared.encoder.output.data ^ portLowSpeed
-        usb.tx.se0 := txShared.encoder.output.se0
+        usb.tx.enable := txShared.encoder.output.valid
+        usb.tx.data := (txShared.encoder.output.data || forceJ) ^ portLowSpeed
+        usb.tx.se0 := (txShared.encoder.output.se0 && !forceJ)
 
         when(portLowSpeed && txShared.lowSpeedSof.overrideEncoder){
           usb.tx.enable := txShared.lowSpeedSof.valid
