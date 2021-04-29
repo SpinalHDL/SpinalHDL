@@ -14,6 +14,13 @@ case class UsbPhyFsNativeIo() extends Bundle with IMasterSlave {
   override def asMaster(): Unit = {
     master(dp,dm)
   }
+
+  def stage() : UsbPhyFsNativeIo = {
+    val ret = UsbPhyFsNativeIo().setCompositeName(this, "stage", true)
+    ret.dp << dp.stage()
+    ret.dm << dm.stage()
+    ret
+  }
 }
 
 
@@ -38,6 +45,17 @@ case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
     in(rx)
     in(overcurrent)
     out(power)
+  }
+
+  def toNativeIo() : UsbPhyFsNativeIo = {
+    val ret = UsbPhyFsNativeIo().setCompositeName(this, "native", true)
+    ret.dp.writeEnable := tx.enable
+    ret.dm.writeEnable := tx.enable
+    ret.dp.write := !tx.se0 && tx.data
+    ret.dm.write := !tx.se0 && !tx.data
+    rx.dp := ret.dp.read
+    rx.dm := ret.dm.read
+    ret
   }
 }
 
