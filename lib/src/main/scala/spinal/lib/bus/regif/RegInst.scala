@@ -21,7 +21,7 @@ object Section{
 }
 
 
-case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) {
+case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends RamDescr {
   private var Rerror: Boolean = false
   def readErrorTag = Rerror
 
@@ -38,13 +38,24 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) {
   val hitDoRead  = hitRead && busif.doRead
   val hitDoWrite = hitWrite && busif.doWrite
 
+  // RamDescr implementation
+  def getName()        : String = name
+  def getDoc()         : String = ""
 }
 
-class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) {
+class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
 
+  // FifoDescr implementation
+  def getName()        : String = name
+  def getAddr()        : Long   = addr
+  def getDoc()         : String = doc
+
+  def accept(vs : BusIfVisitor) = {
+      vs.visit(this)
+  }
 }
 
-case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif){
+case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
     spareNumbers match {
@@ -117,6 +128,16 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   def reserved(bc: BitCount): Bits = {
     field(bc, AccessType.NA)(SymbolName("reserved"))
   }
+
+  // RegDescr implementation
+  def getName()        : String           = name
+  def getAddr()        : Long             = addr
+  def getDoc()         : String           = doc
+  def getFieldDescrs() : List[FieldDescr] = getFields
+
+  def accept(vs : BusIfVisitor) = {
+      vs.visit(this)
+  }
 }
 
 abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
@@ -134,6 +155,18 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
 
   def readBits: Bits = {
     fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
+  }
+
+  def eventR() : Bool = {
+    val event = Reg(Bool) init(False)
+    event := hitDoRead
+    event
+  }
+
+  def eventW() : Bool = {
+    val event = Reg(Bool) init(False)
+    event := hitDoWrite
+    event
   }
 
   protected def RO(bc: BitCount): Bits = Bits(bc)
@@ -296,4 +329,6 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   protected def NA(bc: BitCount): Bits = {
     Bits(bc).clearAll()
   }
+
+  def accept(vs : BusIfVisitor)
 }
