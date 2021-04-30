@@ -434,13 +434,13 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val setPortPower = ctrl.setOnSet(False, address, 8)
       val clearPortPower = ctrl.setOnSet(False, address, 9)
 
-      val resume, reset, suspend = RegInit(False)
+      val resume, reset, suspend = Reg(Bool) softInit(False)
 
       val connected = RegInit(False) setWhen (port.connect) clearWhen (port.disconnect)
-      val PSS = ctrl.createReadOnly(Bool(), address, 2) init (False)
-      val PPS = ctrl.createReadOnly(Bool(), address, 8) init (False)
+      val PSS = ctrl.createReadOnly(Bool(), address, 2) softInit (False)
+      val PPS = ctrl.createReadOnly(Bool(), address, 8) softInit (False)
       val CCS = ctrl.read((connected || DR(portId)) && PPS, address, 0) //MAYBUG DR => always one ???
-      val PES = ctrl.createReadOnly(Bool(), address, 1) init (False)
+      val PES = ctrl.createReadOnly(Bool(), address, 1) softInit  (False)
       val POCI = ctrl.read(port.overcurrent, address, 3)
       val PRS = ctrl.read(reset, address, 4)
       val LSDA = ctrl.read(port.lowSpeed, address, 9)
