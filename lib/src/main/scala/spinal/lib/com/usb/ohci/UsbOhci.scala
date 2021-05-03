@@ -1406,8 +1406,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           switch(dataRx.pid){
             is(UsbPid.NAK) { TD.noUpdate := True }
             is(UsbPid.STALL) { TD.CC := UsbOhci.CC.stall }
-            is(TD.dataPid){ pidOk := True }
-            is(TD.dataPidWrong){ TD.CC := UsbOhci.CC.dataToggleMismatch }
+            is(UsbPid.DATA0, UsbPid.DATA1){
+              when(dataRx.pid === TD.dataPidWrong) {
+                TD.CC := UsbOhci.CC.dataToggleMismatch
+                goto(ACK_TX_0)
+              } otherwise {
+                pidOk := True
+              }
+            }
             default{TD.CC := UsbOhci.CC.unexpectedPid }
           }
         }
@@ -1468,7 +1474,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             TD.dataPhaseUpdate := True
             TD.upateCBP := True
           }
-          is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid) { //Transmission errors => may repeat
+          is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid, dataToggleMismatch) { //Transmission errors => may repeat
             TD.EC := (TD.EC.asUInt + 1).asBits
             when(TD.EC =/= 2) {
               TD.CC := UsbOhci.CC.noError
