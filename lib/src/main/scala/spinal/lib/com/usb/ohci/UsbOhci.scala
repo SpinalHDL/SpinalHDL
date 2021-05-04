@@ -1426,10 +1426,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
               TD.CC := UsbOhci.CC.dataUnderrun
             } elsewhen(dmaLogic.overflow){
               TD.CC := UsbOhci.CC.dataOverrun
-            } otherwise {
-              when(!ED.isIsochrone) {
-                goto(ACK_TX_0)
-              }
+            }
+            when(!ED.isIsochrone) {
+              goto(ACK_TX_0)
             }
           }
         }
@@ -1473,6 +1472,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             TD.retire setWhen (dmaLogic.underflow || currentAddress > TD.lastOffset || zeroLength)
             TD.dataPhaseUpdate := True
             TD.upateCBP := True
+          }
+          is(dataUnderrun, dataOverrun){
+            TD.retire := True
+            TD.dataPhaseUpdate := True
           }
           is(bitStuffing, crc, pidCheckFailure, deviceNotResponding, unexpectedPid, dataToggleMismatch) { //Transmission errors => may repeat
             TD.EC := (TD.EC.asUInt + 1).asBits
@@ -1811,6 +1814,7 @@ TODO
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
  IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
+ !! implement 4.3.2.3.5.2 Sequence Errors !!! isochronus transfers
 
 test :
  */

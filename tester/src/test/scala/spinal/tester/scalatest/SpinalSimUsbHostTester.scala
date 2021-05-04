@@ -722,7 +722,7 @@ class SpinalSimUsbHostTester extends FunSuite{
                       }
                       continue = false
                     } else if (doOverflow && groupId == disruptAt) {
-                      push(false) {
+                      push(true) {
                         deviceDelayed {
                           agent.emitBytes(dataPhasePid, group.map(refData) ++ List.fill(Random.nextInt(4) + 1)(Random.nextInt(256)), true, false, ls=ed0.S)
                           doneChecks(td0.address) = { td =>
@@ -739,9 +739,10 @@ class SpinalSimUsbHostTester extends FunSuite{
                           }
                         }
                       }
+                      dataPhaseIncrement()
                       continue = false
                     } else if (doUnderflow && groupId == disruptAt) {
-                      push(td0.R) {
+                      push(true) {
                         deviceDelayed {
                           val finalTransferSize = Random.nextInt(group.size)
                           agent.emitBytes(dataPhasePid, group.map(refData).take(finalTransferSize), true, false, ls=ed0.S)
@@ -761,7 +762,7 @@ class SpinalSimUsbHostTester extends FunSuite{
                           }
                         }
                       }
-                      if (td0.R) dataPhaseIncrement()
+                      dataPhaseIncrement()
                       continue = false
                     } else {
                       push(true) {
