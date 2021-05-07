@@ -17,7 +17,7 @@ case class OhciPortParameter(removable : Boolean = true, powerControlMask : Bool
 case class UsbOhciParameter(noPowerSwitching : Boolean,
                             powerSwitchingMode : Boolean,
                             noOverCurrentProtection : Boolean,
-//                            overCurrentProtectionMode : Boolean,
+                            //                            overCurrentProtectionMode : Boolean,
                             powerOnToPowerGoodTime : Int,
                             fsRatio : Int,
                             dataWidth : Int,
@@ -214,7 +214,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   //Patch some unecessary check in the fifo
   fifo.rework{
-//    fifo.logic.empty.removeAssignments() := False //Used against data overflow
+    //    fifo.logic.empty.removeAssignments() := False //Used against data overflow
     fifo.logic.full.removeAssignments() := False
   }
 
@@ -1142,7 +1142,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         ioDma.cmd.length := lengthBmb
         ioDma.cmd.valid := True
         when(ioDma.cmd.ready) {
-          currentAddress := currentAddress + lengthCalc + 1
+          currentAddress := currentAddress + length + 1
           goto(CALC_CMD)
         }
       }
@@ -1162,7 +1162,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(ioDma.cmd.ready) {
           fifo.io.pop.ready := True
           when(beatLast) {
-            currentAddress := currentAddress + lengthCalc + 1
+            currentAddress := currentAddress + length + 1
             goto(CALC_CMD)
           }
         }
@@ -1203,6 +1203,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             underflow := False
             overflow := fromUsbCounter =/= 0
           }
+          when(u){
+            lastAddress := (currentAddress + fromUsbCounter - 1).resized
+          }
           goto(VALIDATION)
         }
         when(dataRx.data.valid) {
@@ -1214,7 +1217,9 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
 
       VALIDATION whenIsActive{
-        when(validated){
+        when(fromUsbCounter === 0){
+          exitFsm()
+        } elsewhen(validated){
           goto(CALC_CMD)
         }
       }
@@ -1273,12 +1278,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     BUFFER_READ.whenIsActive {
       when(dmaLogic.isActive(dmaLogic.TO_USB)) {
+        goto(TOKEN)
         when(timeCheck){
           status := Status.FRAME_TIME
           dmaLogic.killFsm()
           goto(ABORD)
         }
-        goto(TOKEN)
       }
     }
 
@@ -1455,7 +1460,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    val tdUpdateAddress = TD.retire ? U(0) | currentAddressFull
+    val tdUpdateAddress = (TD.retire && !(isIn && (TD.CC === UsbOhci.CC.noError || TD.CC === UsbOhci.CC.dataUnderrun) && dmaLogic.underflow)) ? U(0) | currentAddressFull
+//    val tdUpdateAddress = TD.retire ? U(0) | currentAddressFull
     UPDATE_TD_PROCESS whenIsActive{
       import UsbOhci.CC._
 
@@ -1473,7 +1479,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
             TD.dataPhaseUpdate := True
             TD.upateCBP := True
           }
-          is(dataUnderrun, dataOverrun){
+          is(dataUnderrun){
+            TD.retire := True
+            TD.dataPhaseUpdate := True
+            TD.upateCBP := True
+          }
+          is(dataOverrun){
             TD.retire := True
             TD.dataPhaseUpdate := True
           }
@@ -1814,7 +1825,6 @@ TODO
  Likewise, the Root Hub must wait 5 ms after the Host Controller enters U SB S USPEND before generating a local wakeup event and forcing a transition to U SB R ESUME
  !! Descheduling during a transmition will break the PHY !!
  IE => Setting this bit is guaranteed to take effect in the next Frame (not the current Frame).
- !! implement 4.3.2.3.5.2 Sequence Errors !!! isochronus transfers
 
 test :
  */
