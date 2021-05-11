@@ -132,17 +132,17 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
 
   val txShared = new Area {
-    val timer = new UsbTimer(counterTimeMax = 20e-3 * 1.1, fsRatio) {
+    val timer = new UsbTimer(counterTimeMax = 0.667e-6 * 8, fsRatio) {
       val oneCycle = cycles(1)
       val twoCycle = cycles(2)
-      val fourCycle = cycles(4)
+      val fourCycle = cycles(5)
 
       lowSpeed := False
     }
 
-    val rxToTxDelay = new UsbTimer(0.667e-6*2, fsRatio){
+    val rxToTxDelay = new UsbTimer(0.667e-6*4, fsRatio){
       lowSpeed.setAsReg()
-      val twoCycle = cycles(2)
+      val twoCycle = cycles(4)
       val active = RegInit(False) clearWhen(twoCycle)
     }
 
@@ -345,7 +345,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
       }
       EOP_2 whenIsActive {
         timer.lowSpeed := wasLowSpeed
-        when(timer.oneCycle) {
+        when(timer.twoCycle) {
           timer.clear := True
           goto(IDLE)
         }
