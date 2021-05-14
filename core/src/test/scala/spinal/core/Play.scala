@@ -126,6 +126,41 @@ object Play43 extends App{
   }
 }
 
+object playBB extends App{
+  class MyBlackBox extends BlackBox {
+    val io = new Bundle {
+      val din = in Bits (8 bit)
+      val dout = out Bits (8 bit)
+    }
+
+    io.dout := io.din
+  }
+
+  class Bypass extends Component {
+    val io = new Bundle {
+      val din = in Bits (8 bit)
+      val dout = out Bits (8 bit)
+    }
+
+    io.dout := io.din
+  }
+
+  class Top extends Component{
+    val io = new Bundle{
+      val din = in Bits(8 bit)
+      val dout = out Bits(8 bit)
+    }
+
+    val uut1 = new MyBlackBox
+    val uut2 = new Bypass
+
+    uut1.io.din := io.din
+    uut2.io.din := io.din
+
+    io.dout := uut1.io.dout | uut2.io.dout
+  }
+  SpinalConfig(globalPrefix = "jj_").generateVerilog(new Top)
+}
 
 //object Play2 extends App{
 //  class Toplevel extends Component{
