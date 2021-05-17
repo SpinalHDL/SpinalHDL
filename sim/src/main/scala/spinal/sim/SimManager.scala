@@ -238,8 +238,8 @@ class SimManager(val raw : SimRaw) {
   }
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
-    Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
     val initialAffinity = Affinity.getAffinity
+    Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
     try {
 //      simContinue = true
       var forceDeltaCycle = false
