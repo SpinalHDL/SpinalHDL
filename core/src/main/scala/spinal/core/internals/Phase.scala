@@ -909,7 +909,12 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       if(c != topLevel) {
         if (c.definitionName == null) {
-          c.definitionName = privateNamespaceName + classNameOf(c)
+          val pre = c match {
+            case t: BlackBox => ""
+            case _ => config.globalPrefix
+          }
+          val privateNsN = (if(config.privateNamespace) topLevel.definitionName + "_" else "")
+          c.definitionName = pre + privateNsN + classNameOf(c)
         }
       }
       if (c.definitionName == "") {
