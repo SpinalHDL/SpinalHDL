@@ -87,9 +87,15 @@ class RGB(val v : String) extends Bundle {
 
 object Play {
   def main(args: Array[String]): Unit = {
-    println("START")
-    new RGB(668)
-    println("DONE2a")
+    SpinalVerilog(new Component{
+      val a = Bool()
+      val b = UInt(2 bits)
+      val c = Bits(5 bits)
+
+      val raw = B"00001011"
+
+//      Vec(a,b,c).assignFromBits(raw)
+    })
   }
 }
 

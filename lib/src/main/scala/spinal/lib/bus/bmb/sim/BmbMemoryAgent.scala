@@ -20,7 +20,7 @@ class BmbMemoryAgent(val memorySize : BigInt = 0) {
   def getByteAsInt(address : Long) = getByte(address).toInt & 0xFF
   def getByte(address : Long) = memory.read(address)
   def setByte(address : Long, value : Byte) = memory.write(address, value)
-  def writeNotification(address : Long, value : Byte) = memory.write(address, value)
+  def writeNotification(address : Long, value : Byte) = {}//memory.write(address, value)
 
   def addPort(bus : Bmb,
               busAddress : Long,

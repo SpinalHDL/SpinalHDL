@@ -783,4 +783,29 @@ package object sim {
       }
     }
   }
+
+
+  def forkSimSporadicWave(captures : Seq[(Double, Double)], enableTime : Double = 1e-7, disableTime : Double = 1e-4, timeUnit : Double = 1e12): Unit ={
+    fork{
+      for((at, until) <- captures) {
+        val duration = until-at
+        assert(duration >= 0)
+        while (simTime() < at * timeUnit) {
+          disableSimWave()
+          sleep(disableTime * timeUnit)
+          enableSimWave()
+          sleep(enableTime * timeUnit)
+        }
+        println("\n\n********************")
+        sleep(duration * timeUnit)
+        println("********************\n\n")
+      }
+      while(true) {
+        disableSimWave()
+        sleep(disableTime * timeUnit)
+        enableSimWave()
+        sleep(  enableTime * timeUnit)
+      }
+    }
+  }
 }
