@@ -4,10 +4,11 @@ import spinal.core._
 import spinal.core.sim.SimPublic
 import spinal.lib._
 import spinal.lib.bus.bmb._
+import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneToBmb}
 import spinal.lib.com.eth.{Crc, CrcKind}
 import spinal.lib.com.usb.UsbTimer
 import spinal.lib.com.usb.ohci.UsbOhci.dmaParameter
-import spinal.lib.com.usb.phy.UsbHubLsFs
+import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy, UsbLsFsPhyAbstractIo, UsbPhyFsNativeIo}
 import spinal.lib.fsm._
 
 import scala.collection.mutable.ArrayBuffer
@@ -1815,6 +1816,62 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
   }
+}
+
+object UsbOhciWishbone extends App{
+  val p = UsbOhciParameter(
+    noPowerSwitching = false,
+    powerSwitchingMode = false,
+    noOverCurrentProtection = false,
+    powerOnToPowerGoodTime = 10,
+    fsRatio = 4,
+    dataWidth = 32,
+    portsConfig = List.fill(1)(OhciPortParameter())
+  )
+  SpinalVerilog(UsbOhciWishbone(p))
+}
+
+case class UsbOhciWishbone(p : UsbOhciParameter) extends Component {
+  val ctrlParameter = WishboneConfig(
+    addressWidth = 10,
+    dataWidth = 32,
+    selWidth = 4
+  )
+
+  val dmaParameter = BmbToWishbone.getWishboneConfig(UsbOhci.dmaParameter(p).access)
+
+  val io = new Bundle {
+    val dma = master(Wishbone(dmaParameter))
+    val ctrl = slave(Wishbone(ctrlParameter))
+    val interrupt = out Bool()
+//    val usb = Vec(master(UsbLsFsPhyAbstractIo()), p.portCount)
+    val usb = Vec(master(UsbPhyFsNativeIo()), p.portCount)
+  }
+
+  val dmaBridge = BmbToWishbone(UsbOhci.dmaParameter(p))
+  dmaBridge.io.output <> io.dma
+
+  val ctrlBridge = WishboneToBmb(ctrlParameter)
+  ctrlBridge.io.input <> io.ctrl
+
+  val ohci = UsbOhci(p, BmbParameter(
+    addressWidth = 12,
+    dataWidth = 32,
+    sourceWidth = 0,
+    contextWidth = 0,
+    lengthWidth = 2
+  ))
+  ohci.io.dma <> dmaBridge.io.input
+  ohci.io.ctrl <> ctrlBridge.io.output
+  ohci.io.interrupt <> io.interrupt
+
+  val phy = UsbLsFsPhy(p.portCount, p.fsRatio)
+  phy.io.ctrl <> ohci.io.phy
+//  phy.io.usb  <> io.usb
+  phy.io.usb.map(e => e.overcurrent := False)
+  val native = phy.io.usb.map(_.toNativeIo())
+  val buffer = native.map(_.stage())
+  io.usb <> Vec(buffer.map(e => e.stage()))
 }
 
 /*
