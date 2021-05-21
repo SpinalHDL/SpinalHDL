@@ -1824,11 +1824,11 @@ object UsbOhciWishbone extends App{
     powerSwitchingMode = false,
     noOverCurrentProtection = false,
     powerOnToPowerGoodTime = 10,
-    fsRatio = 4,
+    fsRatio = 8,
     dataWidth = 32,
     portsConfig = List.fill(1)(OhciPortParameter())
   )
-  SpinalVerilog(UsbOhciWishbone(p))
+  SpinalConfig(globalPrefix = "UsbOhciWishbone_").generateVerilog(UsbOhciWishbone(p).setDefinitionName("UsbOhciWishbone"))
 }
 
 case class UsbOhciWishbone(p : UsbOhciParameter) extends Component {
