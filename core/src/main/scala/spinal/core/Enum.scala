@@ -82,6 +82,7 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
+  @dontName var encodingMap = Map[BigInt, SpinalEnumElement[this.type]]()
 
   def apply() = craft()
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
@@ -89,7 +90,13 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
   def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
     val ret = new SpinalEnumCraft[this.type](this)
-    if(enumEncoding != `inferred`) ret.fixEncoding(enumEncoding)
+    if(enumEncoding != `inferred`){
+      ret.fixEncoding(enumEncoding)
+      for(elem <- elements){
+        val value = enumEncoding.getValue(elem)
+        encodingMap += (value -> elem)
+      }
+    }
     ret
   }
 
@@ -275,7 +282,7 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   def getWidth(enum: SpinalEnum): Int
   /** Return the value of the encoding */
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
-  def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T]
+  def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.encodingMap(element)
 
   def isNative: Boolean
 }
@@ -359,7 +366,6 @@ object SpinalEnumEncoding{
     override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.map(getValue(_)).max)
     override def isNative: Boolean = false
     override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = spec(element.position)
-    override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
   }
 
   def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X], BigInt]): SpinalEnumEncoding = list(spec).setName(name)
@@ -376,7 +382,6 @@ object SpinalEnumEncoding{
       override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
-      override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
     }
   }
 }
