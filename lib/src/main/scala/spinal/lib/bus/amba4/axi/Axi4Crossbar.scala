@@ -121,157 +121,218 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         onThat.setCompositeName(bus.component,bus.getName() + "_" + name)
     }
 
-    val decoders = for(master <- masters) yield master match {
-      case master : Axi4ReadOnly => new Area{
-        val slaves = slavesConfigs.filter{
-          case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }.toSeq
+    val portMapMasters = mutable.HashMap[Axi4Bus, Axi4Bus]()
+    val portMapSlaves = mutable.HashMap[Axi4Bus, Axi4Bus]()
 
-        val decoder = Axi4ReadOnlyDecoder(
-          axiConfig = master.config,
-          decodings = slaves.map(_._2.mapping)
-        )
-        applyName(master,"decoder",decoder)
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
-        readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
+    new Component {
+      definitionName = "Axi4Crossbar"
+      setName("Axi4Crossbar")
+
+      val io = new Bundle {
+        portMapMasters ++= (for ((master, id) <- masters.zipWithIndex) yield master match {
+          case master: Axi4ReadOnly => {
+            val port = slave(Axi4ReadOnly(master.config))
+            port.setName("axi_m_ro_%d".format(id))
+            (master, port)
+          }
+          case master: Axi4WriteOnly => {
+            val port = slave(Axi4WriteOnly(master.config))
+            port.setName("axi_m_wo_%d".format(id))
+            (master, port)
+          }
+          case master: Axi4Shared => {
+            val port = slave(Axi4Shared(master.config))
+            port.setName("axi_m_%d".format(id))
+            (master, port)
+          }
+        })
+
+        portMapSlaves ++= (for (((slave, _), id) <- slavesConfigs.toSeq.sortBy(_._1.asInstanceOf[Bundle].getInstanceCounter).zipWithIndex) yield slave match {
+          case slave: Axi4ReadOnly => {
+            val port = master(Axi4ReadOnly(slave.config))
+            port.setName("axi_s_ro_%d".format(id))
+            (slave, port)
+          }
+          case slave: Axi4WriteOnly => {
+            val port = master(Axi4WriteOnly(slave.config))
+            port.setName("axi_s_wo_%d".format(id))
+            (slave, port)
+          }
+          case slave: Axi4Shared => {
+            val port = master(Axi4Shared(slave.config))
+            port.setName("axi_s_%d".format(id))
+            (slave, port)
+          }
+        })
       }
-      case master : Axi4WriteOnly => new Area{
-        val slaves = slavesConfigs.filter{
-          case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }.toSeq
-        val decoder = Axi4WriteOnlyDecoder(
-          axiConfig = master.config,
-          decodings = slaves.map(_._2.mapping),
-          lowLatency = lowLatency
-        )
-        applyName(master,"decoder",decoder)
 
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
-        writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
+      val decoders = for (master <- masters) yield master match {
+        case master: Axi4ReadOnly => new Area {
+          val slaves = slavesConfigs.filter {
+            case (slave, config) => config.connections.exists(connection => connection.master == master)
+          }.toSeq
+
+          val decoder = Axi4ReadOnlyDecoder(
+            axiConfig = master.config,
+            decodings = slaves.map(_._2.mapping)
+          )
+          val masterPort = portMapMasters(master).asInstanceOf[Axi4ReadOnly]
+          applyName(masterPort, "decoder", decoder)
+          masterToDecodedSlave(master) = (slaves.map(_._1), decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
+          readOnlyBridger.getOrElse[(Axi4ReadOnly, Axi4ReadOnly) => Unit](masterPort, _ >> _).apply(masterPort, decoder.io.input)
+        }
+        case master: Axi4WriteOnly => new Area {
+          val slaves = slavesConfigs.filter {
+            case (slave, config) => config.connections.exists(connection => connection.master == master)
+          }.toSeq
+          val decoder = Axi4WriteOnlyDecoder(
+            axiConfig = master.config,
+            decodings = slaves.map(_._2.mapping),
+            lowLatency = lowLatency
+          )
+          val masterPort = portMapMasters(master).asInstanceOf[Axi4WriteOnly]
+          applyName(masterPort, "decoder", decoder)
+          masterToDecodedSlave(master) = (slaves.map(_._1), decoder.io.outputs.map(decoderToArbiterLink)).zipped.toMap
+          writeOnlyBridger.getOrElse[(Axi4WriteOnly, Axi4WriteOnly) => Unit](masterPort, _ >> _).apply(masterPort, decoder.io.input)
+        }
+        case master: Axi4Shared => new Area {
+          val slaves = slavesConfigs.filter {
+            case (slave, config) => config.connections.exists(connection => connection.master == master)
+          }.toSeq
+          val readOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4ReadOnly])
+          val writeOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4WriteOnly])
+          val sharedSlaves = slaves.filter(_._1.isInstanceOf[Axi4Shared])
+          val decoder = Axi4SharedDecoder(
+            axiConfig = master.config,
+            readDecodings = readOnlySlaves.map(_._2.mapping),
+            writeDecodings = writeOnlySlaves.map(_._2.mapping),
+            sharedDecodings = sharedSlaves.map(_._2.mapping),
+            lowLatency = lowLatency
+          )
+          val masterPort = portMapMasters(master).asInstanceOf[Axi4Shared]
+          applyName(masterPort, "decoder", decoder)
+          masterToDecodedSlave(master) = (
+            readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
+              -> List(decoder.io.readOutputs.map(decoderToArbiterLink).toSeq, decoder.io.writeOutputs.map(decoderToArbiterLink).toSeq, decoder.io.sharedOutputs.map(decoderToArbiterLink).toSeq).flatten
+            ).zipped.toMap
+
+          sharedBridger.getOrElse[(Axi4Shared, Axi4Shared) => Unit](masterPort, _ >> _).apply(masterPort, decoder.io.input)
+        }
       }
-      case master : Axi4Shared => new Area{
-        val slaves = slavesConfigs.filter{
-          case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }.toSeq
-        val readOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4ReadOnly])
-        val writeOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4WriteOnly])
-        val sharedSlaves = slaves.filter(_._1.isInstanceOf[Axi4Shared])
-        val decoder = Axi4SharedDecoder(
-          axiConfig = master.config,
-          readDecodings = readOnlySlaves.map(_._2.mapping),
-          writeDecodings = writeOnlySlaves.map(_._2.mapping),
-          sharedDecodings = sharedSlaves.map(_._2.mapping),
-          lowLatency = lowLatency
-        )
-        applyName(master,"decoder",decoder)
 
-        masterToDecodedSlave(master) = (
-          readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
-            -> List(decoder.io.readOutputs.map(decoderToArbiterLink).toSeq , decoder.io.writeOutputs.map(decoderToArbiterLink).toSeq , decoder.io.sharedOutputs.map(decoderToArbiterLink).toSeq).flatten
-        ).zipped.toMap
 
-        sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
+      //    for((master,pair) <- masterToDecodedSlave){
+      //      val newList = for((slave, interconnect) <- pair) yield{
+      //        val pipeplined = cloneOf(interconnect)
+      //        (slave -> interconnect)
+      //      }
+      //      masterToDecodedSlave(master) = newList.toMap
+      //    }
+
+
+      val arbiters = for ((slave, config) <- slavesConfigs.toSeq.sortBy(_._1.asInstanceOf[Bundle].getInstanceCounter)) yield slave match {
+        case slave: Axi4ReadOnly => new Area {
+          val readConnections = config.connections
+          val slavePort = portMapSlaves(slave).asInstanceOf[Axi4ReadOnly]
+          readConnections.size match {
+            case 0 => PendingError(s"$slave has no master}")
+            case 1 if readConnections.head.master.isInstanceOf[Axi4ReadOnly] => readConnections.head.master match {
+              case m: Axi4ReadOnly => slavePort << masterToDecodedSlave(m)(slave).asInstanceOf[Axi4ReadOnly]
+              //            case m : Axi4Shared => slave << m.toAxi4ReadOnly()
+            }
+            case _ => new Area {
+              val arbiter = Axi4ReadOnlyArbiter(
+                outputConfig = slave.config,
+                inputsCount = readConnections.length
+              )
+              applyName(slavePort, "arbiter", arbiter)
+              for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
+                if (!masterToDecodedSlave(master.master)(slave).isInstanceOf[Axi4ReadOnly])
+                  println("???")
+                input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
+              }
+              readOnlyBridger.getOrElse[(Axi4ReadOnly, Axi4ReadOnly) => Unit](slavePort, _ >> _).apply(arbiter.io.output, slavePort)
+            }
+          }
+        }
+        case slave: Axi4WriteOnly => {
+          val writeConnections = config.connections
+          val slavePort = portMapSlaves(slave).asInstanceOf[Axi4WriteOnly]
+          config.connections.size match {
+            case 0 => PendingError(s"$slave has no master}")
+            case 1 if writeConnections.head.master.isInstanceOf[Axi4WriteOnly] => writeConnections.head.master match {
+              case m: Axi4WriteOnly => slavePort << masterToDecodedSlave(m)(slave).asInstanceOf[Axi4WriteOnly]
+              //            case m : Axi4Shared => slave << m.toAxi4WriteOnly()
+            }
+            case _ => new Area {
+              val arbiter = Axi4WriteOnlyArbiter(
+                outputConfig = slave.config,
+                inputsCount = writeConnections.length,
+                routeBufferSize = 4
+              )
+              applyName(slavePort, "arbiter", arbiter)
+              for ((input, master) <- (arbiter.io.inputs, writeConnections).zipped) {
+                input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
+              }
+              writeOnlyBridger.getOrElse[(Axi4WriteOnly, Axi4WriteOnly) => Unit](slavePort, _ >> _).apply(arbiter.io.output, slavePort)
+            }
+          }
+        }
+        case slave: Axi4Shared => {
+          val connections = config.connections
+          val readConnections = connections.filter(_.master.isInstanceOf[Axi4ReadOnly])
+          val writeConnections = connections.filter(_.master.isInstanceOf[Axi4WriteOnly])
+          val sharedConnections = connections.filter(_.master.isInstanceOf[Axi4Shared])
+          val slavePort = portMapSlaves(slave).asInstanceOf[Axi4Shared]
+          //        if(readConnections.size + sharedConnections.size == 0){
+          //          PendingError(s"$slave has no master able to read it}")
+          //          return
+          //        }
+
+          //        if(writeConnections.size + sharedConnections.size == 0){
+          //          PendingError(s"$slave has no master able to write it}")
+          //          return
+          //        }
+
+          if (readConnections.size == 0 && writeConnections.size == 0 && sharedConnections.size == 0) {
+            slavePort << sharedConnections.head.master.asInstanceOf[Axi4Shared]
+          } else {
+            new Area {
+              val arbiter = Axi4SharedArbiter(
+                outputConfig = slave.config,
+                readInputsCount = readConnections.size,
+                writeInputsCount = writeConnections.size,
+                sharedInputsCount = sharedConnections.size,
+                routeBufferSize = 4
+              )
+              applyName(slavePort, "arbiter", arbiter)
+
+              for ((input, master) <- (arbiter.io.readInputs, readConnections).zipped) {
+                input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
+              }
+              for ((input, master) <- (arbiter.io.writeInputs, writeConnections).zipped) {
+                input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
+              }
+              for ((input, master) <- (arbiter.io.sharedInputs, sharedConnections).zipped) {
+                input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4Shared]
+              }
+              sharedBridger.getOrElse[(Axi4Shared, Axi4Shared) => Unit](slavePort, _ >> _).apply(arbiter.io.output, slavePort)
+            }
+          }
+        }
       }
     }
 
+    for ((master, port) <- portMapMasters) master match {
+      case master: Axi4ReadOnly  => master >> port.asInstanceOf[Axi4ReadOnly]
+      case master: Axi4WriteOnly => master >> port.asInstanceOf[Axi4WriteOnly]
+      case master: Axi4Shared    => master >> port.asInstanceOf[Axi4Shared]
+    }
 
-//    for((master,pair) <- masterToDecodedSlave){
-//      val newList = for((slave, interconnect) <- pair) yield{
-//        val pipeplined = cloneOf(interconnect)
-//        (slave -> interconnect)
-//      }
-//      masterToDecodedSlave(master) = newList.toMap
-//    }
-
-
-
-    val arbiters = for((slave,config) <- slavesConfigs.toSeq.sortBy(_._1.asInstanceOf[Bundle].getInstanceCounter)) yield slave match {
-      case slave : Axi4ReadOnly => new Area{
-        val readConnections = config.connections
-        readConnections.size match {
-          case 0 => PendingError(s"$slave has no master}")
-          case 1 if readConnections.head.master.isInstanceOf[Axi4ReadOnly] => readConnections.head.master match {
-            case m : Axi4ReadOnly => slave << masterToDecodedSlave(m)(slave).asInstanceOf[Axi4ReadOnly]
-//            case m : Axi4Shared => slave << m.toAxi4ReadOnly()
-          }
-          case _ => new Area {
-            val arbiter = Axi4ReadOnlyArbiter(
-              outputConfig = slave.config,
-              inputsCount = readConnections.length
-            )
-            applyName(slave,"arbiter",arbiter)
-            for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
-              if(!masterToDecodedSlave(master.master)(slave).isInstanceOf[Axi4ReadOnly])
-                println("???")
-              input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
-            }
-            readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
-          }
-        }
-      }
-      case slave : Axi4WriteOnly => {
-        val writeConnections = config.connections
-        config.connections.size match {
-          case 0 => PendingError(s"$slave has no master}")
-          case 1 if writeConnections.head.master.isInstanceOf[Axi4WriteOnly] => writeConnections.head.master match {
-            case m : Axi4WriteOnly => slave << masterToDecodedSlave(m)(slave).asInstanceOf[Axi4WriteOnly]
-//            case m : Axi4Shared => slave << m.toAxi4WriteOnly()
-          }
-          case _ => new Area {
-            val arbiter = Axi4WriteOnlyArbiter(
-              outputConfig = slave.config,
-              inputsCount = writeConnections.length,
-              routeBufferSize = 4
-            )
-            applyName(slave,"arbiter",arbiter)
-            for ((input, master) <- (arbiter.io.inputs, writeConnections).zipped) {
-              input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
-            }
-            writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
-          }
-        }
-      }
-      case slave : Axi4Shared => {
-        val connections = config.connections
-        val readConnections = connections.filter(_.master.isInstanceOf[Axi4ReadOnly])
-        val writeConnections = connections.filter(_.master.isInstanceOf[Axi4WriteOnly])
-        val sharedConnections = connections.filter(_.master.isInstanceOf[Axi4Shared])
-//        if(readConnections.size + sharedConnections.size == 0){
-//          PendingError(s"$slave has no master able to read it}")
-//          return
-//        }
-
-//        if(writeConnections.size + sharedConnections.size == 0){
-//          PendingError(s"$slave has no master able to write it}")
-//          return
-//        }
-
-        if(readConnections.size == 0 && writeConnections.size == 0 && sharedConnections.size == 0){
-          slave << sharedConnections.head.master.asInstanceOf[Axi4Shared]
-        }else{
-          new Area {
-            val arbiter = Axi4SharedArbiter(
-              outputConfig = slave.config,
-              readInputsCount = readConnections.size,
-              writeInputsCount = writeConnections.size,
-              sharedInputsCount = sharedConnections.size,
-              routeBufferSize = 4
-            )
-            applyName(slave,"arbiter",arbiter)
-
-            for ((input, master) <- (arbiter.io.readInputs, readConnections).zipped) {
-              input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
-            }
-            for ((input, master) <- (arbiter.io.writeInputs, writeConnections).zipped) {
-              input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
-            }
-            for ((input, master) <- (arbiter.io.sharedInputs, sharedConnections).zipped) {
-              input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4Shared]
-            }
-            sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
-          }
-        }
-      }
+    for ((slave, port) <- portMapSlaves) slave match {
+      case slave: Axi4ReadOnly  => slave << port.asInstanceOf[Axi4ReadOnly]
+      case slave: Axi4WriteOnly => slave << port.asInstanceOf[Axi4WriteOnly]
+      case slave: Axi4Shared    => slave << port.asInstanceOf[Axi4Shared]
     }
   }
 }
