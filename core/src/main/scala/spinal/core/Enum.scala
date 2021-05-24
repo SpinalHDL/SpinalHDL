@@ -371,12 +371,13 @@ object SpinalEnumEncoding{
 
     return new SpinalEnumEncoding {
       val width = log2Up(spec.values.foldLeft(BigInt(0))((a, b) => if(a > b) a else b) + 1)
+      val specInv = spec.map(_.swap)
       override def getWidth(enum: SpinalEnum): Int = width
       override def isNative: Boolean = false
       override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
-      override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
+      override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = specInv(element).asInstanceOf[SpinalEnumElement[T]]
     }
   }
 }
