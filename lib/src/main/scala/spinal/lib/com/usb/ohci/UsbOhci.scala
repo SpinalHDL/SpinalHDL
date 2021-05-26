@@ -8,6 +8,7 @@ import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneToBmb}
 import spinal.lib.com.eth.{Crc, CrcKind}
 import spinal.lib.com.usb.UsbTimer
 import spinal.lib.com.usb.ohci.UsbOhci.dmaParameter
+import spinal.lib.com.usb.phy.UsbHubLsFs.CtrlCc
 import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy, UsbLsFsPhyAbstractIo, UsbPhyFsNativeIo}
 import spinal.lib.fsm._
 
@@ -877,7 +878,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val endpoint = new StateMachineSlave {
     val ED_READ_CMD, ED_READ_RSP, ED_ANALYSE = new State
-    val TD_READ_CMD, TD_READ_RSP, TD_ANALYSE, TD_CHECK_TIME = new State
+    val TD_READ_CMD, TD_READ_RSP, TD_READ_DELAY, TD_ANALYSE, TD_CHECK_TIME = new State
     val BUFFER_READ = new State
     val TOKEN = new State
     val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
@@ -953,6 +954,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       //Isochrone specifics
       val FC = words(0)(24, 3 bits).asUInt
       val SF = words(0)(0, 16 bits).asUInt
+
       val isoRelativeFrameNumber = reg.hcFmNumber.FN - SF
       val tooEarly = isoRelativeFrameNumber.msb
       val isoFrameNumber = isoRelativeFrameNumber(FC.range)
@@ -960,11 +962,14 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val isoOverrunReg = RegNext(isoOverrun)
       val isoLast = !isoOverrun && !tooEarly && isoFrameNumber === FC
       val isoBase, isoBaseNext = Reg(UInt(13 bits))
-      val isoZero = isoLast ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext)
+      val isoZero = RegNext(isoLast ? (isoBase > isoBaseNext) | (isoBase === isoBaseNext))
+
+      val isoLastReg = RegNext(isoLast)
+      val tooEarlyReg = RegNext(tooEarly)
 
       val isSinglePage = CBP(12, 20 bits) === BE(12, 20 bits)
       val firstOffset = ED.isIsochrone ? isoBase | CBP(0, 12 bits)
-      val lastOffset = ED.isIsochrone ? (isoBaseNext-U(!isoLast)) | (U(!isSinglePage) @@ BE(0, 12 bits))
+      val lastOffset = RegNext(ED.isIsochrone ? (isoBaseNext-U(!isoLast)) | (U(!isSinglePage) @@ BE(0, 12 bits)))
 
       val allowRounding = !ED.isIsochrone && R
 
@@ -1071,8 +1076,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       when(TD.isoLast){ TD.isoBaseNext := U(!TD.isSinglePage ## TD.BE(11 downto 0)) }
 
       when(ioDma.rsp.lastFire) {
-        goto(TD_ANALYSE)
+        goto(TD_READ_DELAY)
       }
+    }
+
+    TD_READ_DELAY whenIsActive{
+      goto(TD_ANALYSE)
     }
 
     val currentAddress = Reg(UInt(14 bits)) //One extra bit to allow overflow comparison
@@ -1267,10 +1276,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       goto(TD_CHECK_TIME)
 
       when(ED.isIsochrone){
-        when(TD.tooEarly) {
+        when(TD.tooEarlyReg) {
           goto(UPDATE_SYNC)
         }
-        when(TD.isoOverrun) {
+        when(TD.isoOverrunReg) {
           TD.retire := True
           goto(UPDATE_TD_CMD) //TODO untested yet (periodic iso schedule overrun
         }
@@ -1491,7 +1500,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       goto(UPDATE_TD_CMD)
       when(ED.isIsochrone) {
-        TD.retire setWhen(TD.isoLast)
+        TD.retire setWhen(TD.isoLastReg)
       } otherwise  {
         TD.EC := 0
         switch(TD.CC) { //Include stall
@@ -1540,7 +1549,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
         when(TD.isoOverrunReg) {
           dmaWriteCtx.save(U(UsbOhci.CC.dataOverrun, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
         } otherwise {
-          when(TD.isoLast) {
+          when(TD.isoLastReg) {
             dmaWriteCtx.save(U(UsbOhci.CC.noError, 4 bits) ## TD.words(0)(27) ## TD.FC, 0, 24)
           }
           val count = (ED.isoOut ? U(0) | currentAddress - TD.isoBase).resize(12 bits)
@@ -1583,7 +1592,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     UPDATE_SYNC.whenIsActive {
       when(dmaCtx.pendingEmpty) {
-        when(!(ED.isIsochrone && TD.isoOverrun)) {
+        when(!(ED.isIsochrone && TD.isoOverrunReg)) {
           applyNextED := True
         }
         when(flowType =/= FlowType.PERIODIC){
@@ -1850,10 +1859,15 @@ object UsbOhciWishbone extends App{
     portsConfig = List.fill(1)(OhciPortParameter())
   )
   val fsRatio = 8
-  SpinalConfig(globalPrefix = "UsbOhciWishbone_").generateVerilog(UsbOhciWishbone(p).setDefinitionName("UsbOhciWishbone"))
+  SpinalConfig(globalPrefix = "UsbOhciWishbone_").generateVerilog(
+    UsbOhciWishbone(
+      p,
+      ClockDomain.external("ctrl"),
+      ClockDomain.external("phy", frequency = FixedFrequency(48 MHz))
+    ).setDefinitionName("UsbOhciWishbone"))
 }
 
-case class UsbOhciWishbone(p : UsbOhciParameter) extends Component {
+case class UsbOhciWishbone(p : UsbOhciParameter, frontCd : ClockDomain, backCd : ClockDomain) extends Component {
   val ctrlParameter = WishboneConfig(
     addressWidth = 10,
     dataWidth = 32,
@@ -1866,34 +1880,40 @@ case class UsbOhciWishbone(p : UsbOhciParameter) extends Component {
     val dma = master(Wishbone(dmaParameter))
     val ctrl = slave(Wishbone(ctrlParameter))
     val interrupt = out Bool()
-//    val usb = Vec(master(UsbLsFsPhyAbstractIo()), p.portCount)
     val usb = Vec(master(UsbPhyFsNativeIo()), p.portCount)
   }
 
-  val dmaBridge = BmbToWishbone(UsbOhci.dmaParameter(p))
-  dmaBridge.io.output <> io.dma
+  val front = frontCd on new Area {
+    val dmaBridge = BmbToWishbone(UsbOhci.dmaParameter(p))
+    dmaBridge.io.output <> io.dma
 
-  val ctrlBridge = WishboneToBmb(ctrlParameter)
-  ctrlBridge.io.input <> io.ctrl
+    val ctrlBridge = WishboneToBmb(ctrlParameter)
+    ctrlBridge.io.input <> io.ctrl
 
-  val ohci = UsbOhci(p, BmbParameter(
-    addressWidth = 12,
-    dataWidth = 32,
-    sourceWidth = 0,
-    contextWidth = 0,
-    lengthWidth = 2
-  ))
-  ohci.io.dma <> dmaBridge.io.input
-  ohci.io.ctrl <> ctrlBridge.io.output
-  ohci.io.interrupt <> io.interrupt
+    val ohci = UsbOhci(p, BmbParameter(
+      addressWidth = 12,
+      dataWidth = 32,
+      sourceWidth = 0,
+      contextWidth = 0,
+      lengthWidth = 2
+    ))
+    ohci.io.dma <> dmaBridge.io.input
+    ohci.io.ctrl <> ctrlBridge.io.output
+    ohci.io.interrupt <> io.interrupt
+  }
 
-  val phy = UsbLsFsPhy(p.portCount)
-  phy.io.ctrl <> ohci.io.phy
-//  phy.io.usb  <> io.usb
-  phy.io.usb.map(e => e.overcurrent := False)
-  val native = phy.io.usb.map(_.toNativeIo())
-  val buffer = native.map(_.stage())
-  io.usb <> Vec(buffer.map(e => e.stage()))
+  val back = backCd on new Area {
+    val phy = UsbLsFsPhy(p.portCount)
+    //  phy.io.usb  <> io.usb
+    phy.io.usb.map(e => e.overcurrent := False)
+    val native = phy.io.usb.map(_.toNativeIo())
+    val buffer = native.map(_.stage())
+    io.usb <> Vec(buffer.map(e => e.stage()))
+  }
+
+  val cc = CtrlCc(p.portCount, frontCd, backCd)
+  cc.input <> front.ohci.io.phy
+  cc.output <> back.phy.io.ctrl
 }
 
 /*
