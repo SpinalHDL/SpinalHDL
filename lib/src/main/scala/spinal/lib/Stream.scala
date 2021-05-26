@@ -202,6 +202,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cc.io.output
   }
 
+  def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggleWithoutBuffer(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
+
   /**
    * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
    * @return A tuple with the resulting stream that duplicates the items and the counter, indicating how many
@@ -1220,6 +1227,53 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
     }
 
     io.output << stream.m2sPipe()
+  }
+}
+
+
+class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+  val io = new Bundle {
+    val input = slave Stream (dataType())
+    val output = master Stream (dataType())
+  }
+
+  val outHitSignal = Bool
+
+  val pushArea = new ClockingArea(inputClock) {
+    val hit = BufferCC(outHitSignal, False)
+    val target = RegInit(False)
+    val busy = RegInit(False)
+    val data = RegNext(io.input.payload)
+    io.input.ready := False
+    when(!busy){
+      when(io.input.valid) {
+        target := !target
+        busy := True
+      }
+    } otherwise {
+      when(hit === target) {
+        io.input.ready := True
+        busy := False
+      }
+    }
+  }
+
+
+  val popArea = new ClockingArea(outputClock) {
+    val target = BufferCC(pushArea.target, False, 3)
+    val hit = RegInit(False)
+    outHitSignal := hit
+
+    val stream = cloneOf(io.input)
+    stream.valid := (target =/= hit)
+    stream.payload := RegNext(pushArea.data).addTag(crossClockDomain)
+    stream.payload
+
+    when(stream.fire) {
+      hit := target
+    }
+
+    io.output << stream
   }
 }
 
