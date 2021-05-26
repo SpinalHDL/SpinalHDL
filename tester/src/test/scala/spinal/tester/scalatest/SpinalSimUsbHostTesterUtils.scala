@@ -24,8 +24,8 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
     lengthWidth = 2
   ))
 
-  val phyCd = ClockDomain.external("phyCd")
-  val phy = phyCd(UsbLsFsPhy(p.portCount, p.fsRatio, sim=true))
+  val phyCd = ClockDomain.external("phyCd", frequency = FixedFrequency(48 MHz))
+  val phy = phyCd(UsbLsFsPhy(p.portCount, sim=true))
 
   val irq = ohci.io.interrupt.toIo
   val ctrl = propagateIo(ohci.io.ctrl)
@@ -195,7 +195,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
   def setBulkListFilled() = ctrl.write(BLF, hcCommand)
   def setControlListFilled() = ctrl.write(CLF, hcCommand)
 
-  val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.phyCd, p.fsRatio))
+  val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.phyCd, dut.phy.fsRatio))
   val devices = for(i <- 0 until p.portCount) yield new UsbDeviceAgent(portAgents(i))
   val scoreboards = for(i <- 0 until p.portCount) yield new UsbDeviceScoreboard(devices(i))
 

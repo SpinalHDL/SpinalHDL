@@ -38,7 +38,7 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
   def createPhyDefault() = new Area{
     val usb = Handle(logic.io.usb)
-    val logic = Handle(UsbLsFsPhy(parameter.portCount, parameter.fsRatio, sim=false))
+    val logic = Handle(UsbLsFsPhy(parameter.portCount, sim=false))
 
     Handle{
       val ctrlCd = UsbOhciGenerator.this.logic.clockDomain

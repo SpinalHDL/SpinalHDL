@@ -25,7 +25,6 @@ class SpinalSimUsbHostTester extends FunSuite{
       powerSwitchingMode = true,
       noOverCurrentProtection = true,
       powerOnToPowerGoodTime = 10,
-      fsRatio = 4,
       dataWidth = 64,
       portsConfig = List.fill(4)(OhciPortParameter())
     )
@@ -43,7 +42,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-          0e-3 -> 15e-3
+//          30e-3 -> 50e-3
 //            400e-3 -> 750e-3
         )
       )
@@ -568,7 +567,7 @@ class SpinalSimUsbHostTester extends FunSuite{
               var doTransmissionError = Random.nextDouble() < 0.05
 
 //                            doOverflow = false //XXX
-//                            doUnderflow = true //XXX
+//                            doUnderflow = false //XXX
 //                            doStall = false //XXX
 //                            doTransmissionError = false //XXX
 
@@ -859,7 +858,6 @@ object UsbHostSynthesisTest {
           powerSwitchingMode = false,
           noOverCurrentProtection = false,
           powerOnToPowerGoodTime = 10,
-          fsRatio = 4,
           dataWidth = 32,
           portsConfig = List.fill(1)(OhciPortParameter())
         )

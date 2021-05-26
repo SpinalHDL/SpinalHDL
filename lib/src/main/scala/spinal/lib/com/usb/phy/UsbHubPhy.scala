@@ -60,6 +60,8 @@ case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
 }
 
 case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
+  assert(fsRatio >= 4)
+
   val io = new Bundle {
     val lowSpeed = in Bool()
 
@@ -75,12 +77,12 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
     }
   }
   val frontend = new Area{
-    val valid = io.usb.dp =/= io.usb.dm
+//    val valid = io.usb.dp =/= io.usb.dm
     val dp = io.usb.dp
     val dm = io.usb.dm
     val value = dp
-    val valueOld = RegNextWhen(value, valid)
-    val edge = value ^ valueOld
+//    val valueOld = RegNextWhen(value, valid)
+//    val edge = value ^ valueOld
   }
 
   val timer = new Area{
@@ -92,10 +94,10 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
       counter := 0
     }
 
-    val sampleAt = io.lowSpeed ? U(fsRatio*8/2-1) | U(fsRatio/2-1)
-    val sampleDo = counter === sampleAt
+    val sampleAt = io.lowSpeed ? U(fsRatio*8/2-2) | U(fsRatio/2-2)
+    val sampleDo = counter === sampleAt && !clear
 
-    when(frontend.valid & frontend.edge){
+    when(frontend.dp.edge() || frontend.dm.edge()){
       clear := True
     }
   }
@@ -107,12 +109,16 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
   io.filtred.se0 := !frontend.dp && !frontend.dm
 }
 
-case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) extends Component {
+case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component {
+  val fsRatioExact = (ClockDomain.current.frequency.getValue.toDouble/12e6)
+  val fsRatio = fsRatioExact.round.toInt
+  assert(((fsRatio-fsRatioExact)/fsRatioExact).abs < 0.01)
+
   val io = new Bundle {
     val ctrl = slave(UsbHubLsFs.Ctrl(portCount))
     val usb = Vec(master(UsbLsFsPhyAbstractIo()), portCount)
   }
-    val lsRatio = fsRatio*8
+  val lsRatio = fsRatio*8
 
 
 
@@ -385,60 +391,6 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
   }
 
   val Rx_Suspend = upstreamRx.isActive(upstreamRx.SUSPEND)
-
-//  val hcOverrides = new StateMachine{
-//    val IDLE, RESET, RESUME, EOP_0, EOP_1 = new State()
-//    setEntry(IDLE)
-//
-//    val tx = new Bundle {
-//      val enable = False
-//      val data = True // ^ lowSpeed
-//      val se0 = False
-//    }
-//
-//    val timer = new UsbTimer(3e-6, fsRatio){
-//      val ONE_BIT = cycles(1)
-//      val TWO_BIT = cycles(2)
-//      this.lowSpeed := True
-//    }
-//
-//    always{
-//      when(io.ctrl.usbResume){ goto (RESUME) }
-//      when(io.ctrl.usbReset){ goto (RESUME) }
-//    }
-//    RESUME whenIsActive{
-//      tx.enable := True
-//      tx.data := False
-//      tx.se0 := False
-//      when(!io.ctrl.usbResume){ goto (EOP_0) }
-//    }
-//
-//    RESET whenIsActive{
-//      tx.enable := True
-//      tx.se0 := True
-//      when(!io.ctrl.usbResume){ goto (IDLE) }
-//    }
-//
-//    EOP_0 onEntry(timer.clear := True)
-//    EOP_0 whenIsActive{
-//      tx.enable := True
-//      tx.se0 := True
-//      when(timer.TWO_BIT){
-//        goto(EOP_1)
-//      }
-//    }
-//
-//    EOP_1 onEntry(timer.clear := True)
-//    EOP_1 whenIsActive{
-//      tx.enable := True
-//      tx.data := True
-//      tx.se0 := False
-//      when(timer.ONE_BIT){
-//        goto(IDLE)
-//      }
-//    }
-//  }
-
 
   io.ctrl.overcurrent := False
 

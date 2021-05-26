@@ -20,7 +20,6 @@ case class UsbOhciParameter(noPowerSwitching : Boolean,
                             noOverCurrentProtection : Boolean,
                             //                            overCurrentProtectionMode : Boolean,
                             powerOnToPowerGoodTime : Int,
-                            fsRatio : Int,
                             dataWidth : Int,
                             portsConfig : Seq[OhciPortParameter],
                             dmaLengthWidth : Int = 6){
@@ -673,7 +672,23 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  val rxTimer = new UsbTimer(0.67e-6*24, ClockDomain.current.frequency.getValue.toDouble/12e6){
+  val rxTimer = new Area {
+    val lowSpeed = Bool()
+    val counter = Reg(UInt(log2Up(24*8) bits))
+    val clear = False
+    when(io.phy.tick) {
+      counter := counter + 1
+    }
+    when(clear) {
+      counter := 0
+    }
+
+    def cycles(c: Int): Bool = {
+      val ls = c * 8 - 1
+      val fs = c - 1
+      counter === (lowSpeed ? U(ls) | U(fs))
+    }
+
     val rxTimeout = cycles(24)
     val ackTx = cycles(2)
     clear setWhen(io.phy.rx.active)
@@ -1831,10 +1846,10 @@ object UsbOhciWishbone extends App{
     powerSwitchingMode = false,
     noOverCurrentProtection = false,
     powerOnToPowerGoodTime = 10,
-    fsRatio = 8,
     dataWidth = 32,
     portsConfig = List.fill(1)(OhciPortParameter())
   )
+  val fsRatio = 8
   SpinalConfig(globalPrefix = "UsbOhciWishbone_").generateVerilog(UsbOhciWishbone(p).setDefinitionName("UsbOhciWishbone"))
 }
 
@@ -1872,7 +1887,7 @@ case class UsbOhciWishbone(p : UsbOhciParameter) extends Component {
   ohci.io.ctrl <> ctrlBridge.io.output
   ohci.io.interrupt <> io.interrupt
 
-  val phy = UsbLsFsPhy(p.portCount, p.fsRatio)
+  val phy = UsbLsFsPhy(p.portCount)
   phy.io.ctrl <> ohci.io.phy
 //  phy.io.usb  <> io.usb
   phy.io.usb.map(e => e.overcurrent := False)
