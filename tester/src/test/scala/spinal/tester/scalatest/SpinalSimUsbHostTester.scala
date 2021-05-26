@@ -42,7 +42,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-//          30e-3 -> 50e-3
+//          10e-3 -> 700e-3
 //            400e-3 -> 750e-3
         )
       )
@@ -258,11 +258,13 @@ class SpinalSimUsbHostTester extends FunSuite{
           case CONTROL => setControlListFilled()
           case INTERRUPT =>
         }
-        def unhaltEndpoint(ed: ED): Unit = fork{
-          sleep(Random.nextInt(5)*1e9)
+        def unhaltEndpoint(ed: ED): Unit = {
           ed.H = false
           ed.save(m)
-          listRefilled()
+          fork{
+            sleep(Random.nextInt(5)*1e9)
+            listRefilled()
+          }
         }
         def deviceDelayed(body : => Unit){
           delayed(4*83333*(if(ed0.S) 8 else 1)) {body} //TODO improve
@@ -831,7 +833,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
       while(activity){
         activity = false
-        sleep(14e-3*1e12)
+        sleep(15e-3*1e12)
       }
 
       dut.clockDomain.waitSampling()
