@@ -58,6 +58,10 @@ package object sim {
   def setBigInt[T <: Data](mem : Mem[T], address : Long, data : BigInt): Unit = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to write to an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -79,6 +83,10 @@ package object sim {
   def getBigInt[T <: Data](mem : Mem[T], address : Long): BigInt = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to read from an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
