@@ -81,6 +81,12 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     ret
   }
 
+  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain) : Flow[T] = {
+    val cc = new FlowCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     payload := that.payload
@@ -180,7 +186,7 @@ object FlowCCByToggle {
   }
 }
 
-class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
     val output = master Flow (dataType)
