@@ -6,6 +6,7 @@ import spinal.lib.bus.bmb._
 import spinal.lib.bus.bmb.sim._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.com.usb.ohci._
+import spinal.lib.com.usb.phy.UsbHubLsFs.CtrlCc
 import spinal.lib.com.usb.phy._
 import spinal.lib.com.usb.sim.{UsbDeviceAgent, UsbDeviceAgentListener, UsbLsFsPhyAbstractIoAgent, UsbLsFsPhyAbstractIoListener}
 import spinal.lib.sim._
@@ -23,12 +24,16 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
     lengthWidth = 2
   ))
 
-  val phy = UsbLsFsPhy(p.portCount, p.fsRatio, sim=true)
+  val phyCd = ClockDomain.external("phyCd")
+  val phy = phyCd(UsbLsFsPhy(p.portCount, p.fsRatio, sim=true))
 
   val irq = ohci.io.interrupt.toIo
   val ctrl = propagateIo(ohci.io.ctrl)
   val dma = propagateIo(ohci.io.dma)
-  ohci.io.phy <> phy.io.ctrl
+//  ohci.io.phy <> phy.io.ctrl
+  val phyCc = CtrlCc(p.portCount, ClockDomain.current, phyCd)
+  phyCc.input <> ohci.io.phy
+  phyCc.output <> phy.io.ctrl
   val usb = propagateIo(phy.io.usb)
 }
 
@@ -190,11 +195,12 @@ class TesterUtils(dut : UsbOhciTbTop) {
   def setBulkListFilled() = ctrl.write(BLF, hcCommand)
   def setControlListFilled() = ctrl.write(CLF, hcCommand)
 
-  val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.clockDomain, p.fsRatio))
+  val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.phyCd, p.fsRatio))
   val devices = for(i <- 0 until p.portCount) yield new UsbDeviceAgent(portAgents(i))
   val scoreboards = for(i <- 0 until p.portCount) yield new UsbDeviceScoreboard(devices(i))
 
-  dut.clockDomain.forkStimulus(20800)
+  dut.clockDomain.forkStimulus(10000)
+  dut.phyCd.forkStimulus(20800)
   val memory = new BmbMemoryAgent(){
     override def writeNotification(address: Long, value: Byte) = {
       assert(malloc.isAllocated(address))

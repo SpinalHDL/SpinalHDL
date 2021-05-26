@@ -131,6 +131,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
 
 
+  val tickTimer = new Area {
+    val counter = CounterFreeRun(fsRatio)
+    val tick = counter.willOverflow === True
+    io.ctrl.tick := tick
+  }
+
   val txShared = new Area {
     val timer = new UsbTimer(counterTimeMax = 0.667e-6 * 8, fsRatio) {
       val oneCycle = cycles(1)
@@ -323,6 +329,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
       }
 
+      io.ctrl.txEop := False
       EOP_0 whenIsActive {
         encoder.output.valid := True
         encoder.output.se0 := True
@@ -330,6 +337,7 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         timer.lowSpeed := wasLowSpeed
         when(timer.twoCycle) {
           timer.clear := True
+          io.ctrl.txEop := True
           goto(EOP_1)
         }
       }
@@ -434,10 +442,10 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
 
   io.ctrl.overcurrent := False
 
-  io.ctrl.rx.valid := False
+  io.ctrl.rx.flow.valid := False
   io.ctrl.rx.active := False
-  io.ctrl.rx.stuffingError := False
-  io.ctrl.rx.data.assignDontCare()
+  io.ctrl.rx.flow.stuffingError := False
+  io.ctrl.rx.flow.data.assignDontCare()
 
   val resumeFromPort = False
 
@@ -559,12 +567,12 @@ case class UsbLsFsPhy(portCount : Int, fsRatio : Int, sim : Boolean = false) ext
         }
         PACKET whenIsActive {
           io.ctrl.rx.active := True
-          io.ctrl.rx.data := history.value
-          io.ctrl.rx.stuffingError := stuffingError
+          io.ctrl.rx.flow.data := history.value
+          io.ctrl.rx.flow.stuffingError := stuffingError
           when(destuffer.output.valid){
             counter := counter + 1
             when(counter === 7){
-              io.ctrl.rx.valid := enablePackets
+              io.ctrl.rx.flow.valid := enablePackets
               when(stuffingError){
                 goto(ERRORED)
               }

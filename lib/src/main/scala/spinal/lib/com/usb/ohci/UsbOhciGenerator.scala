@@ -41,14 +41,22 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
     val logic = Handle(UsbLsFsPhy(parameter.portCount, parameter.fsRatio, sim=false))
 
     Handle{
-      UsbOhciGenerator.this.logic.io.phy <> logic.io.ctrl
+      val ctrlCd = UsbOhciGenerator.this.logic.clockDomain
+      val phyCd = logic.clockDomain
+      if(ctrlCd == phyCd) {
+        UsbOhciGenerator.this.logic.io.phy <> logic.io.ctrl
+      } else {
+        UsbOhciGenerator.this.logic.io.phy.cc(ctrlCd, phyCd) <> logic.io.ctrl
+      }
     }
 
     def createInferableIo() = Handle{
-      usb.get.map(e => e.overcurrent := False)
-      val native = usb.get.map(_.toNativeIo())
-      val buffer = native.map(_.stage())
-      Vec(buffer.map(e => master(e.stage())))
+      logic.clockDomain {
+        usb.get.map(e => e.overcurrent := False)
+        val native = usb.get.map(_.toNativeIo())
+        val buffer = native.map(_.stage())
+        Vec(buffer.map(e => master(e.stage())))
+      }
     }
 
     def createSimIo() = Handle {

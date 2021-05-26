@@ -500,15 +500,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  val bitTimer = new Area {
-    val reload = False
-    val counter = CounterFreeRun(p.fsRatio)
-    val tick = counter.willOverflow === True
-    when(reload) {
-      counter.clear()
-    }
-  }
-
   // Track the progress of the current frame (1 ms)
   val frame = new Area {
     val run = False
@@ -527,7 +518,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       decrementTimer := 0
     }
 
-    when(run && bitTimer.tick) {
+    when(run && io.phy.tick) {
       reg.hcFmRemaining.FR := reg.hcFmRemaining.FR - 1
       when(!limitHit && !decrementTimerOverflow) {
         limitCounter := limitCounter - 1
@@ -552,7 +543,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val pid = Bits(4 bits).assignDontCare()
     val data = Bits(11 bits).assignDontCare()
 
-    val INIT, PID, B1, B2 = new State
+    val INIT, PID, B1, B2, EOP = new State
     setEntry(INIT)
 
 
@@ -592,6 +583,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       io.phy.tx.fragment := crc5.io.result ## data(8, 3 bits)
       io.phy.tx.last := True
       when(io.phy.tx.ready) {
+        goto(EOP)
+      }
+    }
+
+    EOP.whenIsActive{
+      when(io.phy.txEop) {
         exitFsm()
       }
     }
@@ -606,7 +603,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val pid = Bits(4 bits).assignDontCare()
     val data = Stream(Fragment(Bits(8 bits)))
 
-    val PID, DATA, CRC_0, CRC_1 = new State
+    val PID, DATA, CRC_0, CRC_1, EOP = new State
     setEntry(PID)
 
     val crc16 = Crc(CrcKind.usb.crc16, 8)
@@ -661,6 +658,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       io.phy.tx.fragment := crc16.io.result(15 downto 8)
       io.phy.tx.last := True
       when(io.phy.tx.ready) {
+        goto(EOP)
+      }
+    }
+
+    EOP.whenIsActive{
+      when(io.phy.txEop){
         exitFsm()
       }
     }
@@ -670,13 +673,13 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     }
   }
 
-  val rxTimer = new UsbTimer(0.67e-6*24, p.fsRatio){
+  val rxTimer = new UsbTimer(0.67e-6*24, ClockDomain.current.frequency.getValue.toDouble/12e6){
     val rxTimeout = cycles(24)
     val ackTx = cycles(2)
     clear setWhen(io.phy.rx.active)
   }
 
-  val rxPidOk = io.phy.rx.data(3 downto 0) === ~io.phy.rx.data(7 downto 4)
+  val rxPidOk = io.phy.rx.flow.data(3 downto 0) === ~io.phy.rx.flow.data(7 downto 4)
 
   val dataRx = new StateMachineSlave {
     val IDLE, PID, DATA = new State
@@ -685,7 +688,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val pid = Reg(Bits(4 bits))
     val data = Flow(Bits(8 bits))
 
-    val history = History(io.phy.rx.data, 1 to 2, when = io.phy.rx.valid)
+    val history = History(io.phy.rx.flow.data, 1 to 2, when = io.phy.rx.flow.valid)
     val crc16 = Crc(CrcKind.usb.crc16Check, 8)
     val valids = Reg(Bits(2 bits))
     val notResponding = Reg(Bool)
@@ -697,7 +700,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     data.payload := history.last
 
     crc16.io.input.valid := False
-    crc16.io.input.payload := io.phy.rx.data
+    crc16.io.input.payload := io.phy.rx.flow.data
     crc16.io.flush := False
 
     IDLE onEntry {
@@ -710,7 +713,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     IDLE whenIsActive{
       when(io.phy.rx.active) {
         goto(PID)
-      }elsewhen(rxTimer.rxTimeout) {
+      } elsewhen(rxTimer.rxTimeout) {
         notResponding := True
         exitFsm()
       }
@@ -720,8 +723,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       valids := 0
       crc16.io.flush := True
       pidError := True
-      when(io.phy.rx.valid){
-        pid := io.phy.rx.data(3 downto 0)
+      when(io.phy.rx.flow.valid){
+        pid := io.phy.rx.flow.data(3 downto 0)
         pidError := !rxPidOk
         goto(DATA)
       } elsewhen(!io.phy.rx.active){
@@ -735,7 +738,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
           crcError := True
         }
         exitFsm()
-      } elsewhen (io.phy.rx.valid) {
+      } elsewhen (io.phy.rx.flow.valid) {
         crc16.io.input.valid := True
         valids := valids(0) ## True
         when(valids.andR){
@@ -746,8 +749,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     always{
       when(isStarted) {
-        when(io.phy.rx.valid){
-          when(io.phy.rx.stuffingError){
+        when(io.phy.rx.flow.valid){
+          when(io.phy.rx.flow.stuffingError){
             stuffingError := True
           }
         }
@@ -863,7 +866,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val BUFFER_READ = new State
     val TOKEN = new State
     val DATA_TX, DATA_RX, DATA_RX_VALIDATE = new State
-    val ACK_RX, ACK_TX_0, ACK_TX_1 = new State
+    val ACK_RX, ACK_TX_0, ACK_TX_1, ACK_TX_EOP = new State
     val DATA_RX_WAIT_DMA = new State
     val UPDATE_TD_PROCESS, UPDATE_TD_CMD = new State
     val UPDATE_ED_CMD, UPDATE_SYNC = new State
@@ -1346,10 +1349,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       rxTimer.clear := True
     }
     ACK_RX.whenIsActive {
-      when(io.phy.rx.valid){
+      when(io.phy.rx.flow.valid){
         ackRxFired := True
-        ackRxPid := io.phy.rx.data(3 downto 0)
-        ackRxStuffing setWhen(io.phy.rx.stuffingError)
+        ackRxPid := io.phy.rx.flow.data(3 downto 0)
+        ackRxStuffing setWhen(io.phy.rx.flow.stuffingError)
         when(!rxPidOk || ackRxFired){
           ackRxPidFailure := True
         }
@@ -1451,6 +1454,11 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       io.phy.tx.last := True
       io.phy.tx.fragment := UsbPid.tocken(UsbPid.ACK)
       when(io.phy.tx.ready){
+        goto(ACK_TX_EOP)
+      }
+    }
+    ACK_TX_EOP whenIsActive{
+      when(io.phy.txEop) {
         goto(DATA_RX_WAIT_DMA)
       }
     }
@@ -1752,7 +1760,6 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     OPERATIONAL.onEntry {
       operational.startFsm()
       frame.reload := True
-      bitTimer.reload := True
     }
     OPERATIONAL.whenIsActive {
       reg.hcControl.HCFS := MainState.OPERATIONAL

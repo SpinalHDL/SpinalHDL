@@ -30,7 +30,8 @@ class SpinalSimUsbHostTester extends FunSuite{
       portsConfig = List.fill(4)(OhciPortParameter())
     )
 
-    SimConfig.withFstWave.compile(new UsbOhciTbTop(p)).doSim(seed = 42){dut =>
+    val cdCfg = ClockDomainConfig(resetKind = SYNC)
+    SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = cdCfg, defaultClockDomainFrequency = FixedFrequency(100 MHz))).withFstWave.compile(new UsbOhciTbTop(p)).doSim(seed = 42){dut =>
       val utils = new TesterUtils(dut)
       import utils._
 
@@ -42,7 +43,7 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-//          0e-3 -> 15e-3
+          0e-3 -> 15e-3
 //            400e-3 -> 750e-3
         )
       )
