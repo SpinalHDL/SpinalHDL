@@ -788,8 +788,9 @@ class ComponentEmitterVhdl(
 
     for (attribute <- map.values) {
       val typeString = attribute match {
-        case _: AttributeString => "string"
-        case _: AttributeFlag   => "boolean"
+        case _: AttributeString  => "string"
+        case _: AttributeInteger => "integer"
+        case _: AttributeFlag    => "boolean"
       }
 
       declarations ++= s"  attribute ${attribute.getName} : $typeString;\n"
@@ -1085,8 +1086,9 @@ class ComponentEmitterVhdl(
   def emitAttributes(node: String, attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder, postfix: String): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
-        case attribute: AttributeString => "\"" + attribute.value + "\""
-        case attribute: AttributeFlag   => "true"
+        case attribute: AttributeString  => "\"" + attribute.value + "\""
+        case attribute: AttributeInteger => attribute.value.toString
+        case attribute: AttributeFlag    => "true"
       }
 
       ret ++= s"  attribute ${attribute.getName} of $node$postfix : $vhdlType is $value;\n"
