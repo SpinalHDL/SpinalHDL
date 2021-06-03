@@ -189,7 +189,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     val retFlatten = ret.flatten
     for(i <- 0 until vecTransposed.length){
       val target = retFlatten(i)
-      target.setCompositeName(this, s"mux${i}")
+      target.setCompositeName(this, s"mux${i}", true)
       target match {
         case bv: BitVector => bv.unfixWidth()
         case _             =>
