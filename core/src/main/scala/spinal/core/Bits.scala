@@ -184,7 +184,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node.input = this
     node.size  = width
     node
-  }).setCompositeName(this, s"part_${width-1}to0", true)
+  }).setCompositeName(this, s"${width-1}to0", true)
 
   override def resize(width: BitCount) = resize(width.value)
 
@@ -207,15 +207,47 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     }
   }
 
-  override def apply(bitId: Int): Bool  = newExtract(bitId, new BitsBitAccessFixed)
-  override def apply(bitId: UInt): Bool = newExtract(bitId, new BitsBitAccessFloating)
-  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
-  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
+  override def apply(bitId: Int): Bool  = {
+    val ret = newExtract(bitId, new BitsBitAccessFixed)
+    ret.setCompositeName(this, s"bit${bitId}", true)
+    ret
+  }
+  override def apply(bitId: UInt): Bool = {
+    val ret = newExtract(bitId, new BitsBitAccessFloating)
+    ret.setCompositeName(this, s"mux", true)
+    ret
+  }
+  override def apply(offset: Int, bitCount: BitCount): this.type  = {
+    val ret = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
+    ret.setCompositeName(this, s"${offset+bitCount.value-1}to${offset}", true)
+    ret
+  }
+  override def apply(offset: UInt, bitCount: BitCount): this.type = {
+    val ret = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
+    ret.setCompositeName(this, s"mux", true)
+    ret
+  }
 
-  private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
-  override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
-  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
-  override def getAllTrue: this.type = B((BigInt(1) << this.getWidth) - 1, this.getWidth bits).asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = {
+    val ret = new Bits().asInstanceOf[this.type]
+    ret.setCompositeName(this, true)
+    ret
+  }
+  override def getZero: this.type = {
+    val ret = B(0, this.getWidth bits).asInstanceOf[this.type]
+    ret.setWeakName("ZERO")
+    ret
+  }
+  override def getZeroUnconstrained: this.type = {
+    val ret = B(0).asInstanceOf[this.type]
+    ret.setWeakName("ZERO")
+    ret
+  }
+  override def getAllTrue: this.type = {
+    val ret = B((BigInt(1) << this.getWidth) - 1, this.getWidth bits).asInstanceOf[this.type]
+    ret.setWeakName("ALL_ONES")
+    ret
+  }
   override def setAll(): this.type = {
     this := (BigInt(1) << this.getWidth) - 1
     this.asInstanceOf[this.type]
