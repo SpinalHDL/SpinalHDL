@@ -184,7 +184,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node.input = this
     node.size  = width
     node
-  }).setCompositeName(this, s"part${width-1}_0")
+  }).setCompositeName(this, s"part_${width-1}to0", true)
 
   override def resize(width: BitCount) = resize(width.value)
 

@@ -104,7 +104,9 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
 class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
   for(i <- elements.indices){
     val e = elements(i)._2
-    if(OwnableRef.proposal(e, this)) e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
+    if(OwnableRef.proposal(e, this)) {
+      e.setPartialName(i.toString, Nameable.DATAMODEL_WEAK)
+    }
   }
 
   def range = vec.indices
@@ -170,15 +172,39 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     }
 
 
+    val dimPattern = "(.*)_([0-9]+)dim"r
+    val (vecName, dimId) = this.getName() match {
+      case dimPattern(vecName, dimId) => (vecName, (dimId.toInt + 1).toString)
+      case x:String => (x, "0")
+      case _ => 
+    }
+
     val ret = dataType()
+    ret match {
+      case ret: Vec[_] => {
+        ret.setWeakName(s"${vecName}_${dimId}dim")
+      }
+      case _ => 
+    }
     val retFlatten = ret.flatten
     for(i <- 0 until vecTransposed.length){
       val target = retFlatten(i)
+      target.setCompositeName(this, s"mux${i}")
       target match {
         case bv: BitVector => bv.unfixWidth()
         case _             =>
       }
-      target.assignFrom(target.newMultiplexer(finalAddress, vecTransposed(i)))
+      //target.assignFrom(target.newMultiplexer(finalAddress, vecTransposed(i)))
+      switch (finalAddress) {
+        for (j <- 0 until vecTransposed(i).length - 1) {
+          is (j) {
+            target.assignFrom(vecTransposed(i)(j))
+          }
+        }
+        default {
+          target.assignFrom(vecTransposed(i)(vecTransposed(i).length - 1))
+        }
+      }
     }
     ret
   }
