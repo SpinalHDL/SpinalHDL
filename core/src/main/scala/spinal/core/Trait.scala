@@ -695,6 +695,7 @@ trait SpinalTagReady {
   def addAttribute(attribute: Attribute): this.type = addTag(attribute)
   def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
   def addAttribute(name: String, value: String): this.type = addAttribute(new AttributeString(name, value))
+  def addAttribute(name: String, value: Int): this.type = addAttribute(new AttributeInteger(name, value))
 
   def onEachAttributes(doIt: (Attribute) => Unit): Unit = {
     if(_spinalTags == null) return

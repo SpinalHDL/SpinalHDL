@@ -82,6 +82,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
@@ -93,6 +94,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitCommentAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
