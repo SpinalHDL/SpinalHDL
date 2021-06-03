@@ -362,7 +362,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node.input = this
     node.size  = width
     node
-  })
+  }).setCompositeName(this, s"part${width-1}_0")
 
   override def resize(width: BitCount) = resize(width.value)
 

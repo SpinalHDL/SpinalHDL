@@ -73,7 +73,7 @@ object roundUp {
  * Return a new data with the same data structure as the given parameter (including bit width) 
  */
 object cloneOf {  
-  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
+  def apply[T <: Data](that: T): T = that.clone().setCompositeName(that, true).asInstanceOf[T]
   def apply[T <: Data](that: HardType[T]): T = that()
 }
 
