@@ -627,7 +627,18 @@ class ComponentEmitterVerilog(
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && element.keys.forall(_.isInstanceOf[Literal]))
+            def checkPure(o : Any): Boolean = o match {
+              case l: Literal => true
+              case k: SwitchStatementKeyBool => k.key != null
+              case _ => false
+            }
+            def checkMaskedLiteral(o : Any): Boolean = o match {
+              case k: SwitchStatementKeyBool => k.key != null
+              case _ => false
+            }
+            val hasMaskedLiterals = switchStatement.elements.exists(_.keys.exists((k)=>checkMaskedLiteral(k)))
+            val isPure = switchStatement.elements.forall(_.keys.forall(checkPure(_)))
+
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
               case null => null
@@ -685,9 +696,14 @@ class ComponentEmitterVerilog(
 //                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
                     case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
                     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+                    case e: SwitchStatementKeyBool => emitMaskedLiteral(e.key)
                   }
 
-                  b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  if (!hasMaskedLiterals) {
+                    b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  } else {
+                    b ++= s"${tab}casez(${emitExpression(switchStatement.value)})\n"
+                  }
                   switchStatement.elements.foreach(element => {
                     val hasStuff = nextScope == element.scopeStatement
                     if(hasStuff || switchStatement.defaultScope != null) {
@@ -1270,6 +1286,11 @@ end
     } else {
       s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
     }
+  }
+
+  // emit a masked literal for use in case expression, always emit as as a binary string
+  def emitMaskedLiteral(e: MaskedLiteral): String = {
+    s"${e.getWidth}'b${e.getBitsString(e.getWidth,'?')}"
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
