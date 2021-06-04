@@ -137,14 +137,14 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     * @example {{{ val mySInt = myBits.asSInt }}}
     * @return a SInt data
     */
-  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
+  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt).setCompositeName(this, "S", true)
 
   /**
     * Cast a Bits to an UInt
     * @example {{{ val myUInt = myBits.asUInt }}}
     * @return an UInt data
     */
-  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
+  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt).setCompositeName(this, "U", true)
 
   override def asBits: Bits = {
     val ret = new Bits()
@@ -228,11 +228,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret
   }
 
-  private[core] override def weakClone: this.type = {
-    val ret = new Bits().asInstanceOf[this.type]
-    ret.setCompositeName(this, true)
-    ret
-  }
+  private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = {
     val ret = B(0, this.getWidth bits).asInstanceOf[this.type]
     ret.setWeakName("ZERO")

@@ -333,7 +333,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @example {{{ mySInt := myUInt.asSInt }}}
     * @return a SInt data
     */
-  def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
+  def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt).setCompositeName(this, "S", true)
   /*UInt toSInt add 1 bit 0 at hsb for sign bit*/
   def intoSInt: SInt = this.expand.asSInt
   def expand: UInt = (False ## this.asBits).asUInt
@@ -416,11 +416,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
    ret
   }
 
-  private[core] override def weakClone: this.type = {
-    val ret = new UInt().asInstanceOf[this.type]
-    ret.setCompositeName(this, true)
-    ret
-  }
+  private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
 
   override def getZero: this.type = {
     val ret = U(0, this.getWidth bits).asInstanceOf[this.type]
