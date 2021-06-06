@@ -627,17 +627,17 @@ class ComponentEmitterVerilog(
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            def checkPure(o : Any): Boolean = o match {
+            def checkPure(o : Expression): Boolean = o match {
               case l: Literal => true
               case k: SwitchStatementKeyBool => k.key != null
               case _ => false
             }
-            def checkMaskedLiteral(o : Any): Boolean = o match {
+            def checkMaskedLiteral(o : Expression): Boolean = o match {
               case k: SwitchStatementKeyBool => k.key != null
               case _ => false
             }
-            val hasMaskedLiterals = switchStatement.elements.exists(_.keys.exists((k)=>checkMaskedLiteral(k)))
-            val isPure = switchStatement.elements.forall(_.keys.forall(checkPure(_)))
+            val hasMaskedLiterals = switchStatement.elements.exists(_.keys.exists(checkMaskedLiteral))
+            val isPure = switchStatement.elements.forall(_.keys.forall(checkPure))
 
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
