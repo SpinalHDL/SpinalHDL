@@ -2,9 +2,52 @@ package spinal.lib.bus.bmb
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.bmb.sim.BmbBridgeTester
+import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
-object BmbSyncRemover{
+import scala.util.Random
 
+object BmbSyncRemover extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile{
+    BmbSyncRemover(
+      p = BmbParameter(
+        access = BmbAccessParameter(
+          addressWidth = 16,
+          dataWidth = 32
+        ) .addSources(1, BmbSourceParameter(
+          lengthWidth = 5,
+          contextWidth = 3,
+          canRead =  true,
+          canWrite = true,
+          alignment = BmbParameter.BurstAlignement.BYTE
+        )),
+        invalidation = BmbInvalidationParameter(
+          canSync = true
+        )
+      )
+    )
+  }.doSimUntilVoid("test") { dut =>
+
+    var pendingSync = 0
+    StreamMonitor(dut.io.output.cmd, dut.clockDomain){ p =>
+      if(p.last.toBoolean && p.opcode.toInt == Bmb.Cmd.Opcode.WRITE){
+        pendingSync += 1;
+      }
+    }
+
+    StreamDriver(dut.io.output.sync, dut.clockDomain){ p =>
+      pendingSync != 0
+    }.transactionDelay = () => Random.nextInt(5)
+
+    new BmbBridgeTester(
+      master = dut.io.input,
+      masterCd = dut.clockDomain,
+      slave = dut.io.output,
+      slaveCd = dut.clockDomain,
+      rspCountTarget = 10000
+    )
+  }
 }
 
 //TODO improve that crapy design XD
