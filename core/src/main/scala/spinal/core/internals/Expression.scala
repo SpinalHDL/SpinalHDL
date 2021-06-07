@@ -2108,15 +2108,17 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
 
 
 object SwitchStatementKeyBool{
-  def apply(cond: Expression): SwitchStatementKeyBool = {
+  def apply(cond: Expression, key : MaskedLiteral=null): SwitchStatementKeyBool = {
     val ret  = new SwitchStatementKeyBool
     ret.cond = cond
+    ret.key = key
     ret
   }
 }
 
 class SwitchStatementKeyBool extends Expression {
   var cond : Expression = null
+  var key : MaskedLiteral = null
 
   override def opName: String = "is(b)"
   override def getTypeObject: Any = TypeBool
