@@ -10,8 +10,8 @@ import scala.collection.mutable.StringBuilder
 import spinal.lib.bus.amba4.axilite.AxiLite4
 
 object QSysify{
-  def apply(that : Component) : Unit = {
-    val tool = new QSysify
+  def apply(that : Component, filePath : String = "") : Unit = {
+    val tool = new QSysify(filePath)
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ApbEmitter()
     tool.interfaceEmiters += new Axi4Emitter()
@@ -31,12 +31,12 @@ trait QSysifyInterfaceEmiter{
   def emit(i : Data,builder : StringBuilder) : Boolean
 }
 
-class QSysify{
+class QSysify(filePath : String) {
   val interfaceEmiters = mutable.ArrayBuffer[QSysifyInterfaceEmiter]()
   def emit(that : Component) {
     val name = that.definitionName
     var out: java.io.FileWriter = null
-    out = new java.io.FileWriter(name + "_hw.tcl")
+    out = new java.io.FileWriter(filePath + name + "_hw.tcl")
     val builder = new StringBuilder()
 
     genHeader()
