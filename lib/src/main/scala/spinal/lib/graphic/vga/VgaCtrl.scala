@@ -226,7 +226,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
       waitStartOfFrame := error
     }
     when(!waitStartOfFrame && !error) {
-      when(io.error || resync) {
+      when(io.error || resync || io.frameStart && !that.isFirst) {
         error := True
       }
     }
