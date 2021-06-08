@@ -1,7 +1,7 @@
 package spinal.lib.com.jtag.xilinx
 
 import spinal.core._
-import spinal.lib.blackbox.xilinx.s7.BSCANE2
+import spinal.lib.blackbox.xilinx.s7.{BSCANE2, BUFG}
 import spinal.lib.bus.bmb.{Bmb, BmbInterconnectGenerator}
 import spinal.core.fiber._
 import spinal.lib.master
@@ -15,7 +15,7 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
   }
 
   val bscane2 = BSCANE2(usedId)
-  val jtagClockDomain = ClockDomain(bscane2.TCK)
+  val jtagClockDomain = ClockDomain(BUFG.on(bscane2.TCK))
 
   val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain)
   jtagBridge.io.ctrl << bscane2.toJtagTapInstructionCtrl()
