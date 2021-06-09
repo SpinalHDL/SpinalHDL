@@ -90,7 +90,8 @@ lazy val idslpayload = (project in file("idslpayload"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-idsl-payload",
-    version := SpinalVersion.sim
+    version := SpinalVersion.sim,
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
 
 lazy val idslplugin = (project in file("idslplugin"))
@@ -128,6 +129,7 @@ lazy val core = (project in file("core"))
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
