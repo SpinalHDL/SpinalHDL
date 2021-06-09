@@ -19,7 +19,7 @@ import scala.util.Random
 
 class SpinalSimUsbHostTester extends FunSuite{
 
-  /*test("host")*/{
+  test("host"){
     val p = UsbOhciParameter(
       noPowerSwitching = true,
       powerSwitchingMode = true,
@@ -272,7 +272,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
         fork {
           var busyUntilFrame = currentFrameNumber + 1
-          for (tdId <- 0 until 10) { //XXX
+          for (tdId <- 0 until 5) { //XXX
             var size = if (edKind != INTERRUPT && Random.nextDouble() < 0.1) {
               Random.nextInt(8192 + 1)
             } else if (Random.nextDouble() < 0.05) {

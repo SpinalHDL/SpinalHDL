@@ -102,7 +102,7 @@ trait BusSlaveFactory extends Area{
   /**
    * Byte enable bits, defaulting to all ones
    */
-  def writeByteEnable(): Bits = B(busDataWidth / 8 bits, default -> True)
+  def writeByteEnable(): Bits = null //B(busDataWidth / 8 bits, default -> True)
 
   /**
     * Permanently assign that by the bus write data from bitOffset
@@ -917,14 +917,18 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory {
       for (element <- jobs) element match {
         case element: BusSlaveFactoryWrite =>
           // check byte enable
-          for (i <- (0 until busDataWidth / 8)) {
-            val from = element.bitOffset max i * 8
-            val to = (element.bitOffset + element.that.getBitsWidth) min (i + 1) * 8
-            if (from < to) {
-              when(byteEnable(i)) {
-                element.that.assignFromBits(writeData(from until to), from - element.bitOffset, to - from bits)
+          if(byteEnable != null) {
+            for (i <- (0 until busDataWidth / 8)) {
+              val from = element.bitOffset max i * 8
+              val to = (element.bitOffset + element.that.getBitsWidth) min (i + 1) * 8
+              if (from < to) {
+                when(byteEnable(i)) {
+                  element.that.assignFromBits(writeData(from until to), from - element.bitOffset, to - from bits)
+                }
               }
             }
+          } else {
+            element.that.assignFromBits(writeData(element.bitOffset, element.that.getBitsWidth bits))
           }
 
           elementsOk += element
