@@ -893,7 +893,10 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 }
 
 object classNameOf{
-  def apply(that : Any): String = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+  def apply(that : Any): String = {
+    val name = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+    if(name.nonEmpty) name else "unamed"
+  }
 }
 
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
