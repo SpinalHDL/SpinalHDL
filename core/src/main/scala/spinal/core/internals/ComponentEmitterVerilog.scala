@@ -167,11 +167,25 @@ class ComponentEmitterVerilog(
     //Wrap expression which need it
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
-    for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= emitExpressionWrap(e, name)
-      wrappedExpressionToName(e) = name
+
+    component.dslBody.walkStatements{ s =>
+      val sName = s match {
+        case s : AssignmentStatement => s.dlcParent.getName()
+        case s : WhenStatement => "when"
+        case s : SwitchContext => "switch"
+        case _ => ""
+      }
+      s.walkExpression{ e =>
+        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
+          val name = component.localNamingScope.allocateName(anonymSignalPrefix + "xx_" + sName)
+//          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+          declarations ++= emitExpressionWrap(e, name)
+          wrappedExpressionToName(e) = name
+        }
+      }
     }
+
+
 
     for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
       logics ++= s"  assign ${wrappedExpressionToName(e)} = ${emitExpressionNoWrappeForFirstOne(e)};\n"
@@ -236,8 +250,8 @@ class ComponentEmitterVerilog(
       if(openSubIo.contains(data)) ""
       else {
         val wireName = emitReference(data, false)
-        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
-        wireName + section
+      // val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        wireName// + section  //Section removed as it can be a literal
       }
     }
 
@@ -792,6 +806,7 @@ class ComponentEmitterVerilog(
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x : String               => x
       case x : DeclarationStatement => emitReference(x, false)
+      case x : Literal => emitExpression(x)
     }
     if(sensitive) referenceSetAdd(name)
     name

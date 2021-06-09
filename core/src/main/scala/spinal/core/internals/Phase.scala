@@ -171,8 +171,8 @@ class PhaseContext(val config: SpinalConfig) {
     if (ClockDomainStack.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
-  def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
-    SpinalError()
+  def checkPendingErrors(msg : String) = if(globalData.pendingErrors.nonEmpty)
+    SpinalError(msg)
 
   val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
@@ -188,7 +188,7 @@ class PhaseContext(val config: SpinalConfig) {
       verboseLog.flush()
 
     }
-    checkPendingErrors()
+    checkPendingErrors("Error detected in phase " + classNameOf(phase))
   }
 }
 
@@ -973,14 +973,16 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
+//          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
+          case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
           case _ =>
         }
       })
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
+//          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
+          e.setName("e" + e.position, Nameable.DATAMODEL_WEAK)
         }
       }
     }
@@ -1641,6 +1643,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     }
 
     walkStatements{
+      case s: BaseType => if(s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
       case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
       case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>

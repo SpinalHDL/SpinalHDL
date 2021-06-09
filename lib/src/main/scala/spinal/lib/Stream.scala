@@ -151,7 +151,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   */
   def queue(size: Int): Stream[T] = {
     val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue", true)
-    fifo.setPartialName(this,"fifo")
     fifo.io.push << this
     fifo.io.pop
   }

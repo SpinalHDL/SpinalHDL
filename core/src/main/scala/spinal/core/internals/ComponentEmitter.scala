@@ -95,8 +95,8 @@ abstract class ComponentEmitter {
   }
 
   def isSubComponentInputBinded(data: BaseType) = {
-    if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
-      data.head.source.asInstanceOf[BaseType]
+    if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+      data.head.source
     else
       null
   }

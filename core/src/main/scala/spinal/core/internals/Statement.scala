@@ -170,10 +170,14 @@ class ScopeStatement(var parentStatement: TreeStatement) {
 object Statement{
 
   def isFullToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
-    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) =>
-      true
-    case _ =>
-      false
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case _ => false
+  })
+
+  def isFullToFullStatementOrLit(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case AssignmentStatement(a: DeclarationStatement, b: Literal) => true
+    case _ => false
   })
 
   def isSomethingToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {

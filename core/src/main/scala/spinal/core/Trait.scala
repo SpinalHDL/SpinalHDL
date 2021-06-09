@@ -345,6 +345,7 @@ object Nameable{
   val USER_SET : Byte = 10
   val DATAMODEL_WEAK : Byte = 5
   val USER_WEAK : Byte = 0
+  val REMOVABLE : Byte = -5
 }
 
 
@@ -355,7 +356,7 @@ trait Nameable extends OwnableRef with ContextUser{
   @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
-  private var namePriority: Byte = -1
+  private[core] var namePriority: Byte = -100
 
   protected def getMode = mode
 
@@ -425,6 +426,7 @@ trait Nameable extends OwnableRef with ContextUser{
     case USER_SET => namePriority >= this.namePriority
     case DATAMODEL_STRONG => namePriority > this.namePriority
     case DATAMODEL_WEAK => namePriority > this.namePriority
+    case REMOVABLE => namePriority > this.namePriority
   }
 
   def overrideLocalName(name : String): this.type ={
@@ -481,7 +483,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
   def unsetName(): this.type = {
     mode = Nameable.UNNAMED
-    namePriority = -1
+    namePriority = -100
     this
   }
 

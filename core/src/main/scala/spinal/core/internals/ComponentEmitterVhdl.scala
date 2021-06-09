@@ -739,6 +739,7 @@ class ComponentEmitterVhdl(
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x: String               => x
       case x: DeclarationStatement => emitReference(x,false)
+      case x: Literal => emitExpression(x)
     }
 
     if(sensitive) referenceSetAdd(name)
