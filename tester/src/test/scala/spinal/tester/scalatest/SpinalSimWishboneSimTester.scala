@@ -24,8 +24,8 @@ class SpinalSimWishboneSimTester extends FunSuite{
   var compiled : SimCompiled[wishbonesimplebus] = null
   var compPipe : SimCompiled[wishbonesimplebus] = null
   test("compile") {
-    compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8)))
-    compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8).pipelined))
+    compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8)){val miaou = out(RegNext(False))})
+    compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8).pipelined){ val miaou = out(RegNext(False)) })
   }
 
  test("DriveSingle"){

@@ -81,6 +81,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
 
+  def isLogicLess = dslBody.isEmpty && children.isEmpty
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 

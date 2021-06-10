@@ -1636,15 +1636,16 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     }
 
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
-    topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
+    topLevel.getAllIo.withFilter(bt => !bt.isDirectionLess).foreach(propagate(_, tagVitals))
     walkComponents{
       case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
+    val keepNamed = !pc.config.removePruned
     walkStatements{
-      case s: BaseType => if(s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
-      case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
+      case s: BaseType => if(keepNamed && s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
+      case s: DeclarationStatement => if(keepNamed && s.isNamed) propagate(s, false)
       case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
@@ -1659,6 +1660,18 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         s.removeStatement()
       }
     })
+
+    def removeEmptyChilds(c: Component): Unit ={
+      val keep = ArrayBuffer[Component]()
+      c.children.foreach { child =>
+        removeEmptyChilds(child)
+        if(!child.isLogicLess) keep += child
+      }
+      c.children.clear()
+      c.children ++= keep
+    }
+
+    if(!keepNamed) removeEmptyChilds(topLevel)
   }
 }
 

@@ -51,7 +51,7 @@ class ChecksTester extends FunSuite  {
 
   test("literalWidth"){
     val t = SpinalVhdl(new Component{
-      val a = B"32'h0"
+      val a = out(B"32'h0")
     }).toplevel
 
     assert(widthOf(t.a) == 32)
@@ -289,7 +289,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoOverrides") {
     generationShouldPass(new Component{
-      val a = Bool
+      val a = out Bool()
       a := True
       when(True === True) {
         a := False
@@ -297,7 +297,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldPass(new Component{
-      val a = Bool
+      val a = out Bool()
       when(True === True) {
         a := False
       } otherwise {
@@ -306,12 +306,12 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val a = Bool
+      val a = out Bool()
       a := True
       a := False
     })
     generationShouldFaild(new Component{
-      val a = Bool
+      val a = out Bool()
       a := True
       when(True === True) {
         a := False
@@ -320,7 +320,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val a = Bool
+      val a = out Bool()
       when(True === True) {
         a := False
       }
