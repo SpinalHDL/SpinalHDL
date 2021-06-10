@@ -10,16 +10,15 @@ import scala.collection.mutable.StringBuilder
 import spinal.lib.bus.amba4.axilite.AxiLite4
 
 object QSysify{
-  def apply(that : Component) : Unit = {
-    val tool = new QSysify
+  def apply(that : Component, filePath : String = "") : Unit = {
+    val tool = new QSysify(filePath)
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ApbEmitter()
     tool.interfaceEmiters += new Axi4Emitter()
     tool.interfaceEmiters += new AxiLite4Emitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
     tool.interfaceEmiters += new ResetEmitterEmitter()
-    tool.interfaceEmiters += new InterruptReceiverEmitter()
-    tool.interfaceEmiters += new InterruptSenderEmitter()
+    tool.interfaceEmiters += new InterruptEmitter()
     tool.interfaceEmiters += new ConduitEmitter()
 
     tool.emit(that)
@@ -31,12 +30,12 @@ trait QSysifyInterfaceEmiter{
   def emit(i : Data,builder : StringBuilder) : Boolean
 }
 
-class QSysify{
+class QSysify(filePath : String) {
   val interfaceEmiters = mutable.ArrayBuffer[QSysifyInterfaceEmiter]()
   def emit(that : Component) {
     val name = that.definitionName
     var out: java.io.FileWriter = null
-    out = new java.io.FileWriter(name + "_hw.tcl")
+    out = new java.io.FileWriter(filePath + name + "_hw.tcl")
     val builder = new StringBuilder()
 
     genHeader()
@@ -252,32 +251,31 @@ class ConduitEmitter extends QSysifyInterfaceEmiter{
   }
 }
 
-case class InterruptReceiverTag(addressablePoint : Data,clockDomain : ClockDomain) extends SpinalTag
+case class InterruptTag(clockDomain : ClockDomain, addressablePoint : Data) extends SpinalTag
 
-class InterruptReceiverEmitter extends QSysifyInterfaceEmiter{
+class InterruptEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
-    val tag = i.getTag(classOf[InterruptReceiverTag])
-    if(tag.isEmpty) return false
+    val tag = i.getTag(classOf[InterruptTag])
+    if (tag.isEmpty) return false
     val interfaceName = i.getName()
     val name = i.getName()
-
     builder ++=
       s"""
-|#
-|# connection point $interfaceName
-|#
-|add_interface $interfaceName interrupt start
-|set_interface_property $interfaceName associatedAddressablePoint ${tag.get.addressablePoint.getName()}
-|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName()}
-|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName()}
-|set_interface_property $interfaceName irqScheme INDIVIDUAL_REQUESTS
-|set_interface_property $interfaceName ENABLED true
-|set_interface_property $interfaceName EXPORT_OF ""
-|set_interface_property $interfaceName PORT_NAME_MAP ""
-|set_interface_property $interfaceName SVD_ADDRESS_GROUP ""
-|
-|add_interface_port $interfaceName $name irq Input ${i.getBitsWidth}
-|""".stripMargin
+         |#
+         |# connection point $interfaceName
+         |#
+         |add_interface $interfaceName interrupt ${if (i.isInput) "start" else "end"}
+         |set_interface_property $interfaceName associatedAddressablePoint ${tag.get.addressablePoint.getName()}
+         |set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName()}
+         |set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName()}
+         |set_interface_property $interfaceName irqScheme INDIVIDUAL_REQUESTS
+         |set_interface_property $interfaceName ENABLED true
+         |set_interface_property $interfaceName EXPORT_OF ""
+         |set_interface_property $interfaceName PORT_NAME_MAP ""
+         |set_interface_property $interfaceName SVD_ADDRESS_GROUP ""
+         |
+         |add_interface_port $interfaceName $name irq ${if (i.isInput) "Input" else "Output"} ${i.getBitsWidth}
+         |""".stripMargin
     true
   }
 }
@@ -440,31 +438,6 @@ add_interface_port $name ${e.PREADY.getName()} pready ${slavePinDir} 1
 //add_interface_port streamSinkPort asi_in0_data data Input 32
 //add_interface_port streamSinkPort asi_in0_valid valid Input 1
 //add_interface_port streamSinkPort asi_in0_ready ready Output 1
-
-case class InterruptSenderTag(clockDomain : ClockDomain) extends SpinalTag
-
-class InterruptSenderEmitter extends QSysifyInterfaceEmiter{
-  override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
-    val tag = i.getTag(classOf[InterruptSenderTag])
-    if(tag.isEmpty) return false
-    val interfaceName = i.getName()
-    val name = i.getName()
-
-    builder ++=
-      s"""
-|#
-|# connection point $interfaceName
-|#
-|add_interface $interfaceName interrupt end
-|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName()}
-|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName()}
-|set_interface_property $interfaceName ENABLED true
-|
-|add_interface_port $interfaceName $name irq Output ${i.getBitsWidth}
-|""".stripMargin
-    true
-  }
-}
 
 class Axi4Emitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data,builder : StringBuilder): Boolean = i match {
