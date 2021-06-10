@@ -163,16 +163,15 @@ class ComponentEmitterVerilog(
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
     component.dslBody.walkStatements{ s =>
-      val sName = s match {
-        case s : AssignmentStatement => s.dlcParent.getName()
-        case s : WhenStatement => "when"
-        case s : SwitchContext => "switch"
+      var sName = s match {
+        case s : AssignmentStatement => "_" + s.dlcParent.getName()
+        case s : WhenStatement => "_when"
+        case s : SwitchContext => "_switch"
         case _ => ""
       }
       s.walkExpression{ e =>
         if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + sName)
-//          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
         }

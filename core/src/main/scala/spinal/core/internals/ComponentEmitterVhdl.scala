@@ -160,13 +160,7 @@ class ComponentEmitterVhdl(
 
     for((select, muxes) <- multiplexersPerSelect){
       expressionToWrap += select._1
-      for(mux <- muxes) {
-        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-        declarations ++= s"  signal $name : ${emitType(mux)};\n"
-        wrappedExpressionToName(mux) = name
-//        expressionToWrap ++= mux.inputs
-      }
-
+      expressionToWrap ++= muxes
     }
 
     component.children.foreach(sub => {
@@ -196,13 +190,24 @@ class ComponentEmitterVhdl(
     //Wrap expression which need it
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
-    for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= s"  signal $name : ${emitType(e)};\n"
-      wrappedExpressionToName(e) = name
+    component.dslBody.walkStatements{ s =>
+      var sName = s match {
+        case s : AssignmentStatement => "_" + s.dlcParent.getName()
+        case s : WhenStatement => "_when"
+        case s : SwitchContext => "_switch"
+        case _ => ""
+      }
+
+      s.walkExpression{ e =>
+        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
+          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
+          declarations ++= s"  signal $name : ${emitType(e)};\n"
+          wrappedExpressionToName(e) = name
+        }
+      }
     }
 
-    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
+    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement] && !e.isInstanceOf[Multiplexer]){
       logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
