@@ -149,11 +149,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream
   */
-  def queue(size: Int): Stream[T] = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue", true)
-    fifo.io.push << this
-    fifo.io.pop
-  }
+  def queue(size: Int): Stream[T] = new Composite(this){
+    val fifo = new StreamFifo(payloadType, size)
+    fifo.io.push << self
+  }.fifo.io.pop
 
 /** Connect this to an clock crossing fifo and return its pop stream
   */
@@ -329,26 +328,25 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
+  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = new Composite(this) {
+    val m2sPipe = Stream(payloadType)
 
-    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
-    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
+    val rValid = RegInit(False)
+    val rData = Reg(payloadType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
-    this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
+    self.ready := (Bool(collapsBubble) && !m2sPipe.valid) || m2sPipe.ready
 
-    when(this.ready) {
-      rValid := this.valid
-      rData := this.payload
+    when(self.ready) {
+      rValid := self.valid
+      rData := self.payload
     }
 
     if(flush != null) rValid clearWhen(flush)
 
-    ret.valid := rValid
-    ret.payload := rData
-    ret
-  }
+    m2sPipe.valid := rValid
+    m2sPipe.payload := rData
+  }.m2sPipe
 
   def s2mPipe(): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
