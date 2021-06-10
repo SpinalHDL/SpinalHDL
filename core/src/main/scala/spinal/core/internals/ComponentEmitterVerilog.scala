@@ -144,13 +144,7 @@ class ComponentEmitterVerilog(
 
     for((select, muxes) <- multiplexersPerSelect){
       expressionToWrap += select._1
-      for(mux <- muxes) {
-        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-        declarations ++= theme.maintab + expressionAlign("reg",emitType(mux), name) + ";\n"
-//        declarations ++= s"  reg ${emitType(mux)} $name;\n"
-        wrappedExpressionToName(mux) = name
-        //        expressionToWrap ++= mux.inputs
-      }
+      expressionToWrap ++= muxes
     }
 
     component.children.foreach(sub =>
@@ -177,7 +171,7 @@ class ComponentEmitterVerilog(
       }
       s.walkExpression{ e =>
         if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix + "xx_" + sName)
+          val name = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + sName)
 //          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name
@@ -187,7 +181,7 @@ class ComponentEmitterVerilog(
 
 
 
-    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
+    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement] && !e.isInstanceOf[Multiplexer]){
       logics ++= s"  assign ${wrappedExpressionToName(e)} = ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
