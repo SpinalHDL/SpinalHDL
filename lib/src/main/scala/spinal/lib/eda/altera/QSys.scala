@@ -252,6 +252,13 @@ class ConduitEmitter extends QSysifyInterfaceEmiter{
 }
 
 case class InterruptTag(clockDomain : ClockDomain, addressablePoint : Data) extends SpinalTag
+//To not break old API :
+object InterruptReceiverTag{
+  def apply(addressablePoint : Data, clockDomain : ClockDomain) : InterruptTag = InterruptTag(clockDomain, addressablePoint)
+}
+object InterruptTag{
+  def apply(addressablePoint : Data, clockDomain : ClockDomain) : InterruptTag = InterruptTag(clockDomain, addressablePoint)
+}
 
 class InterruptEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
