@@ -50,9 +50,10 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def emitExpressionWrap(e: Expression, name: String): String = {
 //    s"  wire ${emitType(e)} ${name};\n"
-    if (!e.isInstanceOf[SpinalStruct])
-      theme.maintab + expressionAlign("wire", emitType(e), name) + ";\n"
-    else
+    if (!e.isInstanceOf[SpinalStruct]) {
+      val isReg = e.isInstanceOf[Multiplexer]
+      theme.maintab + expressionAlign(if(isReg) "reg" else "wire", emitType(e), name) + ";\n"
+    } else
       theme.maintab + expressionAlign(e.asInstanceOf[SpinalStruct].getTypeString, "", name) + ";\n"
   }
 
