@@ -295,6 +295,20 @@ class BmbInterconnectGenerator() extends Area{
 
     arbiterAccessRequirements.loadAsync{
       lock.await()
+
+      if(m.accessRequirements.canWrite && m.accessRequirements.canMask && !s.accessCapabilities.canMask) accessBridges += new AccessBridge {
+        println(s"miaou ${m.bus} ${s.bus}")
+        override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide.sourcesTransform(_.copy(canMask = false))
+
+        override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
+          val p = mSide.p.copy(access = mSide.p.access.sourcesTransform(_.copy(canMask = false)))
+          val c = Bmb(p)
+          c.setCompositeName(m.bus, "withoutMask", true)
+          c << mSide
+          c
+        }
+      }
+
       if(m.accessRequirements.dataWidth < s.accessCapabilities.dataWidth) accessBridges += new AccessBridge {
         override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = BmbUpSizerBridge.outputParameterFrom(
           inputParameter = mSide,

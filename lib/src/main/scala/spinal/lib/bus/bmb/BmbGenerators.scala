@@ -225,6 +225,12 @@ class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, 
     )}
     this
   }
+  def withoutMask(): this.type = {
+    accessTranform += { a => a.copy(
+      canMask =  false
+    )}
+    this
+  }
   def peripheral(dataWidth : Int): this.type = {
     this.dataWidth(dataWidth)
     this.unburstify()

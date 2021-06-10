@@ -11,7 +11,8 @@ object BmbSlaveFactory{
     addressWidth = addressWidth,
     dataWidth = dataWidth,
     lengthWidthMax = log2Up(dataWidth/8),
-    alignment = BmbParameter.BurstAlignement.LENGTH
+    alignment = BmbParameter.BurstAlignement.LENGTH,
+    canMask = false
   )
 }
 
