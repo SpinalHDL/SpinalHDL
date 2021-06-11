@@ -2085,6 +2085,32 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
   }
 }
 
+class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
+  override def impl(pc: PhaseContext) : Unit = {
+    import pc._
+
+
+    walkStatements{
+      case dst : BaseType => if (dst.isNamed) {
+        def explore(bt: BaseType, depth : Int): Unit = {
+          bt.foreachStatements{s =>
+            s.walkDrivingExpressions{
+              case src : BaseType => if(src.isUnnamed){
+                src.unsetName()
+                src.setWeakName(globalData.anonymSignalPrefix + "dd_" + dst.getName())
+                explore(src, depth + 1)
+              }
+              case _ =>
+            }
+          }
+
+        }
+        explore(dst, 0)
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
@@ -2353,6 +2379,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 
+    phases += new PhasePropagateNames(pc)
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
@@ -2476,6 +2503,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 
+    phases += new PhasePropagateNames(pc)
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
