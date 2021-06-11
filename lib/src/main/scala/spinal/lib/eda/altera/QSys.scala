@@ -256,6 +256,9 @@ case class InterruptTag(clockDomain : ClockDomain, addressablePoint : Data) exte
 object InterruptReceiverTag{
   def apply(addressablePoint : Data, clockDomain : ClockDomain) : InterruptTag = InterruptTag(clockDomain, addressablePoint)
 }
+object InterruptSenderTag{
+  def apply(addressablePoint : Data, clockDomain : ClockDomain) : InterruptTag = InterruptTag(clockDomain, addressablePoint)
+}
 object InterruptTag{
   def apply(addressablePoint : Data, clockDomain : ClockDomain) : InterruptTag = InterruptTag(clockDomain, addressablePoint)
 }
