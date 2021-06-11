@@ -92,7 +92,7 @@ class ComponentEmitterVerilog(
       return
     var name: String = null
     if (!io.isSuffix) {
-      name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      name = component.localNamingScope.allocateName(io.component.getName() + "_" +  io.getName())
       declarations ++= emitBaseTypeWrap(io, name)
     } else {
       wrapSubInput(io.parent.asInstanceOf[BaseType])
@@ -111,32 +111,35 @@ class ComponentEmitterVerilog(
     definitionAttributes ++= emitSyntaxAttributes(component.definition.instanceAttributes)
 
     for(mem <- mems){
+      var portId  = 0
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
           case e: BaseType =>
           case e           => expressionToWrap += e
         }
 
+        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
           case s: MemReadSync  =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           case s: MemReadAsync =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
           case s: MemReadWrite =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           case s: MemWrite    =>
         }
+        portId += 1
       })
     }
 
     for(output <- outputsToBufferize){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      val name = component.localNamingScope.allocateName(output.getName() + "_read_buffer")
       declarations ++= emitBaseTypeSignal(output, name)
       logics ++= s"  assign ${emitReference(output, false)} = $name;\n"
       referencesOverrides(output) = name
@@ -163,14 +166,15 @@ class ComponentEmitterVerilog(
     expressionToWrap --= wrappedExpressionToName.keysIterator
 
     component.dslBody.walkStatements{ s =>
-      var sName = s match {
-        case s : AssignmentStatement => "_" + s.dlcParent.getName()
-        case s : WhenStatement => "_when"
-        case s : SwitchContext => "_switch"
-        case _ => ""
-      }
-      s.walkExpression{ e =>
+      s.walkDrivingExpressions{ e =>
         if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
+          var sName = s match {
+            case s : AssignmentStatement => "_" + s.dlcParent.getName()
+            case s : WhenStatement => "_when"
+            case s : SwitchContext => "_switch"
+            case s : Nameable => "_" + s.getName()
+            case _ => ""
+          }
           val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
           declarations ++= emitExpressionWrap(e, name)
           wrappedExpressionToName(e) = name

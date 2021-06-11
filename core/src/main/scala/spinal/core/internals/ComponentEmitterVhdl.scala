@@ -110,7 +110,7 @@ class ComponentEmitterVhdl(
       return
     var name: String = null
     if (!io.isSuffix) {
-      name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      name = component.localNamingScope.allocateName(io.component.getName() + "_" +  io.getName())
       declarations ++= s"  signal $name : ${emitDataType(io)};\n"
     } else {
       wrapSubInput(io.parent.asInstanceOf[BaseType])
@@ -127,23 +127,25 @@ class ComponentEmitterVhdl(
 
   def emitArchitecture(): Unit = {
     for(mem <- mems){
+      var portId  = 0
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
           case e: BaseType =>
           case e           => expressionToWrap += e
         }
 
+        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
           case s: MemReadSync =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
           case s: MemReadAsync =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
           case s: MemReadWrite =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
           case s: MemWrite =>
@@ -152,7 +154,7 @@ class ComponentEmitterVhdl(
     }
 
     for(output <- outputsToBufferize){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      val name = component.localNamingScope.allocateName(output.getName() + "_read_buffer")
       declarations ++= s"  signal $name : ${emitDataType(output)}${getBaseTypeSignalInitialisation(output)};\n"
       logics ++= s"  ${emitReference(output, false)} <= $name;\n"
       referencesOverrides(output) = name
@@ -191,15 +193,16 @@ class ComponentEmitterVhdl(
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
     component.dslBody.walkStatements{ s =>
-      var sName = s match {
-        case s : AssignmentStatement => "_" + s.dlcParent.getName()
-        case s : WhenStatement => "_when"
-        case s : SwitchContext => "_switch"
-        case _ => ""
-      }
-
       s.walkExpression{ e =>
         if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
+          var sName = s match {
+            case s : AssignmentStatement => "_" + s.dlcParent.getName()
+            case s : WhenStatement => "_when"
+            case s : SwitchContext => "_switch"
+            case s : Nameable => "_" + s.getName()
+            case _ => ""
+          }
+
           val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
           declarations ++= s"  signal $name : ${emitType(e)};\n"
           wrappedExpressionToName(e) = name
