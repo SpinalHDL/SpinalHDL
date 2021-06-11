@@ -18,8 +18,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 class SpinalSimUsbHostTester extends FunSuite{
-
-  test("host"){
+  val seed = 59
+  /*for(seed <- 55 until 88) */ test("host" + seed){
     val p = UsbOhciParameter(
       noPowerSwitching = true,
       powerSwitchingMode = true,
@@ -30,7 +30,7 @@ class SpinalSimUsbHostTester extends FunSuite{
     )
 
     val cdCfg = ClockDomainConfig(resetKind = SYNC)
-    SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = cdCfg, defaultClockDomainFrequency = FixedFrequency(100 MHz))).withFstWave.compile(new UsbOhciTbTop(p)).doSim(seed = 42){dut =>
+    SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = cdCfg, defaultClockDomainFrequency = FixedFrequency(100 MHz))).withFstWave.compile(new UsbOhciTbTop(p)).doSim(seed = seed){dut =>
       val utils = new TesterUtils(dut)
       import utils._
 
@@ -42,7 +42,8 @@ class SpinalSimUsbHostTester extends FunSuite{
       dut.clockDomain.waitSampling(2)
       forkSimSporadicWave(
         captures = Seq(
-//          10e-3 -> 700e-3
+//          0e-3 -> 30e-3,
+//          0e-3 -> 160e-3
 //            400e-3 -> 750e-3
         )
       )
@@ -210,7 +211,7 @@ class SpinalSimUsbHostTester extends FunSuite{
 
       def currentFrameNumber = dut.ohci.reg.hcFmNumber.FN.toInt
       var totalBytes = 0
-      val edCount = 20 //XXX
+      val edCount = 10 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
@@ -263,6 +264,7 @@ class SpinalSimUsbHostTester extends FunSuite{
           ed.save(m)
           fork{
             sleep(Random.nextInt(5)*1e9)
+            dut.clockDomain.waitSampling()
             listRefilled()
           }
         }
@@ -280,7 +282,11 @@ class SpinalSimUsbHostTester extends FunSuite{
             } else if (edKind != INTERRUPT && Random.nextDouble() < 0.05) {
               8192
             } else {
-              Random.nextInt(256 + 1)
+              if(edKind != INTERRUPT) {
+                Random.nextInt(256 + 1)
+              } else {
+                Random.nextInt(ed0.MPS*4 + 1)
+              }
             }
             if(ed0.S) size /= 8
             if (isIso) size = size.min(1023 * 8)
