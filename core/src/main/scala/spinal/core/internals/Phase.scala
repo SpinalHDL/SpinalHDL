@@ -2097,7 +2097,7 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
             s.walkDrivingExpressions{
               case src : BaseType => if(src.isUnnamed){
                 src.unsetName()
-                src.setWeakName(globalData.anonymSignalPrefix + "dd_" + dst.getName())
+                src.setWeakName(globalData.anonymSignalPrefix + "_" + dst.getName())
                 explore(src, depth + 1)
               }
               case _ =>
