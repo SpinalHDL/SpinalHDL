@@ -11,6 +11,20 @@ case class TriState[T <: Data](dataType : HardType[T]) extends Bundle with IMast
     out(write,writeEnable)
     in(read)
   }
+
+  def stage() = {
+    val ret = TriState(dataType).setCompositeName(this, "stage", true)
+    ret.writeEnable := RegNext(this.writeEnable)
+    ret.write := RegNext(this.write)
+    this.read := RegNext(ret.read)
+    ret
+  }
+
+  def <<(m : TriState[T]) : Unit = {
+    this.writeEnable := m.writeEnable
+    this.write := m.write
+    m.read := this.read
+  }
 }
 
 

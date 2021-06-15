@@ -225,13 +225,22 @@ public:
       timeCheck = 0;
       lastFlushAt = high_resolution_clock::now();
       waveEnabled = true;
-${val signalInits = for((signal, id) <- config.signals.zipWithIndex)
-      yield s"      signalAccess[$id] = new ${if(signal.dataType.width <= 8) "CData"
+${    val signalInits = for((signal, id) <- config.signals.zipWithIndex) yield {
+      val typePrefix = if(signal.dataType.width <= 8) "CData"
       else if(signal.dataType.width <= 16) "SData"
       else if(signal.dataType.width <= 32) "IData"
       else if(signal.dataType.width <= 64) "QData"
-      else "WData"}SignalAccess(${if(signal.dataType.width > 64) "(WData*)" else "" } top.${signal.path.mkString("->")} ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
-  signalInits.mkString("")}
+      else "WData"
+      val enforcedCast = if(signal.dataType.width > 64) "(WData*)" else ""
+      val signalReference = s"top.${signal.path.mkString("->")}"
+      val memPatch = if(signal.dataType.isMem) "[0]" else ""
+
+      s"      signalAccess[$id] = new ${typePrefix}SignalAccess($enforcedCast $signalReference$memPatch ${if(signal.dataType.width > 64) s" , ${signal.dataType.width}, ${if(signal.dataType.isInstanceOf[SIntDataType]) "true" else "false"}" else ""});\n"
+
+    }
+
+      signalInits.mkString("")
+    }
       #ifdef TRACE
       Verilated::traceEverOn(true);
       top.trace(&tfp, 99);
@@ -406,7 +415,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       jdk + "/include"
     }
 
-    val flags   = if(isMac) List("-dynamiclib") else List("-fPIC", "-m64", "-shared", "-Wno-attributes")
+    val arch = System.getProperty("os.arch")
+    val flags   = if(isMac) List("-dynamiclib") else (if(arch == "arm" || arch == "aarch64") List("-fPIC", "-shared", "-Wno-attributes") else List("-fPIC", "-m64", "-shared", "-Wno-attributes"))
 
     config.rtlSourcesPaths.filter(s => s.endsWith(".bin") || s.endsWith(".mem")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(s"./")))
 
@@ -431,11 +441,12 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
-       | -CFLAGS -I$jdkIncludes -CFLAGS -I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}
+       | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}"
        | -CFLAGS -fvisibility=hidden
        | -LDFLAGS -fvisibility=hidden
        | -CFLAGS -std=c++11
        | -LDFLAGS -std=c++11
+       | --autoflush  
        | --output-split 5000
        | --output-split-cfuncs 500
        | --output-split-ctrace 500

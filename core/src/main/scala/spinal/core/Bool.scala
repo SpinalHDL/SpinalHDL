@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
 
 /**
   * Bool factory used for instance by the IODirection to create a in/out Bool
@@ -92,9 +93,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
     * @param cond a Bool condition
     * @return this is assigned to True when cond is True
     */
-  def setWhen(cond: Bool): Bool   = { when(cond){ this := True }; this }
+  def setWhen(cond: Bool)(implicit loc: Location): Bool   = { when(cond){ this := True }; this }
   /** this is assigned to False when cond is True */
-  def clearWhen(cond: Bool): Bool = { when(cond){ this := False }; this }
+  def clearWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := False }; this }
 
   /**
     * Rising edge detection of this with an initial value

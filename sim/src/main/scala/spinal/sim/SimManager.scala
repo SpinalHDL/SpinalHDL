@@ -22,7 +22,7 @@ class SimCallSchedule(val time: Long, val call : ()  => Unit){
 class JvmThreadUnschedule extends Exception
 
 //Reusable thread
-abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffinity : Int) extends Thread{
+abstract class JvmThread(cpuAffinity : Int) extends Thread{
   var body : () => Unit = null
   var unscheduleAsked = false
   val barrier = new CyclicBarrier(2)
@@ -87,7 +87,6 @@ object SimManager{
 
 class SimManager(val raw : SimRaw) {
   val cpuAffinity = SimManager.newCpuAffinity()
-  Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
   val mainThread = Thread.currentThread()
   var threads : SimCallSchedule = null
 
@@ -106,7 +105,7 @@ class SimManager(val raw : SimRaw) {
   val jvmIdleThreads = mutable.Stack[JvmThread]()
   def newJvmThread(body : => Unit) : JvmThread = {
     if(jvmIdleThreads.isEmpty){
-      val newJvmThread = new JvmThread(mainThread, Thread.currentThread(), cpuAffinity){
+      val newJvmThread = new JvmThread(cpuAffinity){
         override def bodyDone(): Unit = {
           jvmBusyThreads.remove(jvmBusyThreads.indexOf(this))
           jvmIdleThreads.push(this)
@@ -239,6 +238,8 @@ class SimManager(val raw : SimRaw) {
   }
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
+    val initialAffinity = Affinity.getAffinity
+    Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
     try {
 //      simContinue = true
       var forceDeltaCycle = false
@@ -316,6 +317,7 @@ class SimManager(val raw : SimRaw) {
         throw e
       }
     } finally {
+      Affinity.setAffinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){

@@ -81,6 +81,19 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     vPolarity  = true
   )
 
+  def setAs_h800_v600_r60: Unit = setAs(
+    hPixels    = 800,
+    hSync      = 128,
+    hFront     = 40,
+    hBack      = 88,
+    hPolarity  = true,
+    vPixels    = 600,
+    vSync      = 4,
+    vFront     = 1,
+    vBack      = 23,
+    vPolarity  = true
+  )
+
 
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : Int) : Unit = {
     require(busCtrl.busDataWidth == 32)
@@ -98,6 +111,53 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
   }
 }
 
+
+object VgaTimingPrint extends App{
+  def show( hPixels : Int,
+            hSync : Int,
+            hFront : Int,
+            hBack : Int,
+            hPolarity : Boolean,
+            vPixels : Int,
+            vSync : Int,
+            vFront : Int,
+            vBack : Int,
+            vPolarity : Boolean): Unit = {
+    val h_syncStart = hSync - 1
+    val h_colorStart = hSync + hBack - 1
+    val h_colorEnd = hSync + hBack + hPixels - 1
+    val h_syncEnd = hSync + hBack + hPixels + hFront - 1
+    val v_syncStart = vSync - 1
+    val v_colorStart = vSync + vBack - 1
+    val v_colorEnd = vSync + vBack + vPixels - 1
+    val v_syncEnd = vSync + vBack + vPixels + vFront - 1
+
+    println(
+      s"""    .hSyncStart  = $h_syncStart,
+         |    .hSyncEnd    = $h_syncEnd,
+         |    .hColorStart = $h_colorStart,
+         |    .hColorEnd   = $h_colorEnd,
+         |    .vSyncStart  = $v_syncStart,
+         |    .vSyncEnd 	 = $v_syncEnd,
+         |    .vColorStart = $v_colorStart,
+         |    .vColorEnd 	 = $v_colorEnd,
+         |    .polarities  = ${(if(hPolarity) 1 else 0) | (if(vPolarity) 2 else 0)},
+         |""".stripMargin)
+  }
+
+  show(
+    hPixels    = 800,
+    hSync      = 128,
+    hFront     = 40,
+    hBack      = 88,
+    hPolarity  = true,
+    vPixels    = 600,
+    vSync      = 4,
+    vFront     = 1,
+    vBack      = 23,
+    vPolarity  = true
+  )
+}
 
 case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
@@ -166,7 +226,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
       waitStartOfFrame := error
     }
     when(!waitStartOfFrame && !error) {
-      when(io.error || resync) {
+      when(io.error || resync || io.frameStart && !that.isFirst) {
         error := True
       }
     }

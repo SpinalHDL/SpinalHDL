@@ -50,7 +50,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
 
   if(outputAccessParameter.canWrite) {
     io.output.cmd.data := io.input.cmd.data
-    io.output.cmd.mask := io.input.cmd.mask
+    if(outputAccessParameter.canMask) io.output.cmd.mask := io.input.cmd.mask
   }
   io.output.cmd.last := True
 

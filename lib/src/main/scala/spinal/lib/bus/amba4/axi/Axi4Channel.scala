@@ -253,6 +253,10 @@ object Axi4Aw{
   def apply(config: Axi4Config) = new Axi4Aw(config)
 
   implicit class StreamPimper(stream : Stream[Axi4Aw]) {
+    def unburstify : Stream[Fragment[Axi4AwUnburstified]] = {
+      Axi4AxUnburstified.unburstify(stream, Axi4AwUnburstified(stream.config))
+    }
+
     def drive(sink: Stream[Axi4Aw]): Unit = Axi4Priv.driveAx(stream,sink)
   }
 }
@@ -262,6 +266,10 @@ object Axi4Aw{
 object Axi4Ar{
   def apply(config: Axi4Config) = new Axi4Ar(config)
   implicit class StreamPimper(stream : Stream[Axi4Ar]){
+    def unburstify : Stream[Fragment[Axi4ArUnburstified]] = {
+      Axi4AxUnburstified.unburstify(stream, Axi4ArUnburstified(stream.config))
+    }
+
     def drive(sink : Stream[Axi4Ar]): Unit = Axi4Priv.driveAx(stream,sink)
   }
 }

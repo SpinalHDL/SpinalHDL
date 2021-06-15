@@ -2,12 +2,13 @@ package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
-import spinal.core.sim._
+import spinal.core.sim.{SimCompiled, _}
 import spinal.sim._
 import spinal.lib._
 import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
+
 import scala.util.Random
 
 class wishbonesimplebus(config : WishboneConfig) extends Component{
@@ -19,8 +20,13 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
   io.busmaster <> io.busslave
 }
 class SpinalSimWishboneSimTester extends FunSuite{
-  val compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8)))
-  val compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8,8).pipelined))
+
+  var compiled : SimCompiled[wishbonesimplebus] = null
+  var compPipe : SimCompiled[wishbonesimplebus] = null
+  test("compile") {
+    compiled = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8)){val miaou = out(RegNext(False))})
+    compPipe = SimConfig.allOptimisation.compile(rtl = new wishbonesimplebus(WishboneConfig(8, 8).pipelined){ val miaou = out(RegNext(False)) })
+  }
 
  test("DriveSingle"){
    compiled.doSim("DriveSingle"){ dut =>

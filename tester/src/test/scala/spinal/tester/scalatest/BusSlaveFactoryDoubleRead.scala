@@ -45,9 +45,10 @@ class BusSlaveFactoryDoubleReadTester extends FunSuite {
   test("BusSlaveFactoryDoubleRead") {
 
     val caught = Assertions.intercept[java.lang.AssertionError](
-      SpinalConfig().generateVhdl(
+      SpinalConfig().generateVerilog {
+        println(DslScopeStack.isEmpty)
         new TestTopLevel.DoubleReadDut()
-      )
+      }
     )
 
     assert(caught.toString.contains("DOUBLE-READ-ERROR"),
@@ -56,9 +57,10 @@ class BusSlaveFactoryDoubleReadTester extends FunSuite {
 
   test("BusSlaveFactoryDoubleWrite") {
     // test that no error is thrown on double write access
-    SpinalConfig().generateVhdl(
+    SpinalConfig().generateVhdl {
+      println(DslScopeStack.isEmpty)
       new TestTopLevel.DoubleWriteDut()
-    )
+    }
   }
 }
 

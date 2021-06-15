@@ -31,7 +31,7 @@ class SpinalSimMacTester extends FunSuite{
 
   test("Crc32"){
 //    println(frameCorrectA.map(v => f"0x$v%02X").mkString(","))
-    SimConfig.compile(Crc(kind = CrcKind.Crc32, dataWidth = 4)).doSim(seed = 42) { dut =>
+    SimConfig.compile(Crc(kind = CrcKind.Crc32, dataWidth = 4)).doSim(seed = Random.nextInt) { dut =>
       dut.clockDomain.forkStimulus(10)
 
 
@@ -65,8 +65,10 @@ class SpinalSimMacTester extends FunSuite{
   test("MacRxPreamble") {
     val frameA = List(0x00, 0x55, 0x55, 0x55, 0xD5, 0x00, 0x21, 0x43, 0x65, 0x87, 0xA9)
     val frameARef = List(0x0, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA)
-    SimConfig.compile(MacRxPreamble(dataWidth = 4)).doSim(seed = 42) { dut =>
+    SimConfig.compile(MacRxPreamble(dataWidth = 4)).doSim(seed = Random.nextInt()) { dut => //-295653402
       dut.clockDomain.forkStimulus(10)
+
+      StreamReadyRandomizer(dut.io.output, dut.clockDomain)
 
       val refs = mutable.Queue[Int]()
 
@@ -84,7 +86,7 @@ class SpinalSimMacTester extends FunSuite{
           dut.io.input.data #= data
           dut.io.input.error #= false
           dut.io.input.last #= transferId == transferCount-1
-          dut.clockDomain.waitSampling()
+          dut.clockDomain.waitSamplingWhere(dut.io.input.ready.toBoolean)
         }
         dut.io.input.valid #= false
         dut.clockDomain.waitSampling(10)
@@ -111,7 +113,7 @@ class SpinalSimMacTester extends FunSuite{
 
 
     val frameOk = hexStringToFrame("33330000 0002000A CD2C1594 86DD600B DD410008 3AFFFE80 00000000 0000FC3B 9A3CE0E2 3955FF02 00000000 00000000 00000000 00028500 CC860000 00005901 A328")
-    SimConfig.compile(MacRxChecker(dataWidth = 4)).doSim(seed = 42) { dut =>
+    SimConfig.compile(MacRxChecker(dataWidth = 4)).doSim(seed = Random.nextInt) { dut =>
       dut.clockDomain.forkStimulus(10)
 
       def drive(frame : Seq[Int]): Unit ={
@@ -150,8 +152,8 @@ class SpinalSimMacTester extends FunSuite{
   }
 
 
-  def testMacEth(aligned : Boolean): Unit = {
-    test(s"MacMii_aligned=$aligned") {
+  def testMacEth(aligned : Boolean, tid : Int = 1): Unit = {
+    test(s"MacMii_aligned=${aligned}_$tid") {
       val header = Seq(0x55, 0x55, 0xD5)
       SimConfig.compile(MacEth(
         p = MacEthParameter(
@@ -166,10 +168,11 @@ class SpinalSimMacTester extends FunSuite{
         ),
         txCd = ClockDomain.external("txCd", withReset = false),
         rxCd = ClockDomain.external("rxCd", withReset = false)
-      )).doSim(seed = 42) { dut =>
+      )).doSim(seed=tid){ dut =>
         dut.clockDomain.forkStimulus(40)
 //        dut.rxCd.forkStimulus(40)
         dut.txCd.forkStimulus(40)
+        SimTimeout(1000000*40)
 
         {
           val clk = dut.rxCd.clockSim
@@ -303,6 +306,7 @@ class SpinalSimMacTester extends FunSuite{
           }
         }
 
+        StreamReadyRandomizer(dut.io.phy.tx, dut.txCd)
         StreamMonitor(dut.io.phy.tx, dut.txCd) { p =>
           assert(popQueue.dequeue() === dut.io.phy.tx.data.toInt)
         }
@@ -331,15 +335,20 @@ class SpinalSimMacTester extends FunSuite{
           drive(frame ++ List.tabulate(4)(i => (crc >> i * 8) & 0xFF))
         }
         waitUntil(phyRxQueue.isEmpty)
-        dut.rxCd.waitSampling(10000)
+        dut.rxCd.waitSampling(20000)
+        onSimEnd{
+          println(task.size + " " + refs.size)
+        }
         assert(task.isEmpty && refs.isEmpty)
         txThread.join()
       }
     }
   }
 
-  testMacEth(true)
-  testMacEth(false)
+  for(i <- 0 until 1) {
+      testMacEth(true,i)
+      testMacEth(false,i)
+  }
 
   test("MacTxBuffer") {
     SimConfig.compile(MacTxBuffer(
@@ -348,7 +357,7 @@ class SpinalSimMacTester extends FunSuite{
       pushWidth = 32,
       popWidth  = 8,
       byteSize  = 16*4
-    )).doSim(seed = 42) { dut =>
+    )).doSim(seed = Random.nextInt) { dut =>
       dut.pushCd.forkStimulus(10)
       dut.popCd.forkStimulus(40)
 

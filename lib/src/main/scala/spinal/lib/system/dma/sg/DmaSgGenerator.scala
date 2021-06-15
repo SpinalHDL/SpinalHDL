@@ -1,6 +1,7 @@
 package spinal.lib.system.dma.sg
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bsb.{Bsb, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.SizeMapping
@@ -10,33 +11,33 @@ import spinal.lib.system.dma.sg.DmaSg.Channel
 import scala.collection.mutable.ArrayBuffer
 
 class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
-                         (implicit interconnect: BmbInterconnectGenerator, bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator{
-  val ctrl = produce(logic.io.ctrl)
-  val write = produce(logic.io.write)
-  val read = produce(logic.io.read)
-  val writeSg = produce(logic.io.sgWrite)
-  val readSg = produce(logic.io.sgRead)
-  val interrupts = produce(logic.io.interrupts)
-  val interrupt = produce(logic.io.interrupts.orR)
+                         (implicit interconnect: BmbInterconnectGenerator, bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area{
+  val ctrl       = Handle(logic.io.ctrl)
+  val write      = Handle(logic.io.write)
+  val read       = Handle(logic.io.read)
+  val writeSg    = Handle(logic.io.sgWrite)
+  val readSg     = Handle(logic.io.sgRead)
+  val interrupts = Handle(logic.io.interrupts)
+  val interrupt  = Handle(logic.io.interrupts.orR)
 
-  val parameter = new Generator{
-    interconnect.dependencies += this
+  val parameter = new Area{
+    interconnect.lock.retain()
 
-    val readAddressWidth = createDependency[Int]
-    val readDataWidth = createDependency[Int]
-    val readLengthWidth = createDependency[Int]
-    val writeAddressWidth = createDependency[Int]
-    val writeDataWidth = createDependency[Int]
-    val writeLengthWidth = createDependency[Int]
-    val pendingWritePerChannel = createDependency[Int]
-    val pendingReadPerChannel = createDependency[Int]
-    val bytePerTransferWidth = createDependency[Int]
-    val sgAddressWidth = createDependency[Int]
-    val sgReadDataWidth = createDependency[Int]
-    val sgWriteDataWidth = createDependency[Int]
-    val layout = createDependency[DmaMemoryLayout]
+    val readAddressWidth        = Handle[Int]
+    val readDataWidth           = Handle[Int]
+    val readLengthWidth         = Handle[Int]
+    val writeAddressWidth       = Handle[Int]
+    val writeDataWidth          = Handle[Int]
+    val writeLengthWidth        = Handle[Int]
+    val pendingWritePerChannel  = Handle[Int]
+    val pendingReadPerChannel   = Handle[Int]
+    val bytePerTransferWidth    = Handle[Int]
+    val sgAddressWidth          = Handle[Int]
+    val sgReadDataWidth         = Handle[Int]
+    val sgWriteDataWidth        = Handle[Int]
+    val layout                  = Handle[DmaMemoryLayout]
 
-    val p = add task DmaSg.Parameter(
+    val p = Handle(DmaSg.Parameter(
       readAddressWidth = readAddressWidth,
       readDataWidth = readDataWidth,
       readLengthWidth = readLengthWidth,
@@ -70,30 +71,29 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
       pendingWritePerChannel = pendingWritePerChannel,
       pendingReadPerChannel = pendingReadPerChannel,
       weightWidth = 2
-    )
+    ))
 
-    add task {
+    Handle {
+      soon(interconnect.lock)
       if(p.canWrite) interconnect.addMaster(
-        accessRequirements = DmaSg.getWriteRequirements(p),
+        accessRequirements = Handle(DmaSg.getWriteRequirements(p)),
         bus = write
       )
       if(p.canRead) interconnect.addMaster(
-        accessRequirements = DmaSg.getReadRequirements(p),
+        accessRequirements = Handle(DmaSg.getReadRequirements(p)),
         bus = read
       )
       if(p.canSgWrite) interconnect.addMaster(
-        accessRequirements = DmaSg.getSgWriteRequirements(p),
+        accessRequirements = Handle(DmaSg.getSgWriteRequirements(p)),
         bus = writeSg
       )
       if(p.canSgRead) interconnect.addMaster(
-        accessRequirements = DmaSg.getSgReadRequirements(p),
+        accessRequirements = Handle(DmaSg.getSgReadRequirements(p)),
         bus = readSg
       )
+      interconnect.lock.release()
     }
   }
-
-  dependencies += parameter.p
-
 
 
   def setBmbParameter(addressWidth : Int, dataWidth : Int, lengthWidth : Int): Unit ={
@@ -133,11 +133,11 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
   val inputs = ArrayBuffer[InputModel]()
   case class InputModel() extends Area{
     val id = inputs.size
-    val byteCount = createDependency[Int]
-    val sourceWidth = createDependency[Int]
-    val sinkWidth = createDependency[Int]
-    val withMask = createDependency[Boolean]
-    val input = produce(logic.io.inputs(id))
+    val byteCount = Handle[Int]
+    val sourceWidth = Handle[Int]
+    val sinkWidth = Handle[Int]
+    val withMask = Handle[Boolean]
+    val input = Handle(logic.io.inputs(id))
 //    val inputModel = bsbInterconnect.addSlave(
 //      bsb = input,
 //      byteCount = byteCount,
@@ -150,40 +150,36 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
 
   val outputs = ArrayBuffer[OutputModel]()
-  case class OutputModel(bsbInterconnect : BsbInterconnectGenerator) extends Generator{
+  case class OutputModel(bsbInterconnect : BsbInterconnectGenerator) extends Area{
     val id = outputs.size
-    val output = DmaSgGenerator.this.produce(logic.io.outputs(id))
+    val output = Handle(logic.io.outputs(id))
     val im = bsbInterconnect.addMaster(bsb = output)
 
     im.sourceWidth.load(0)
     im.withMask.load(true)
 
-    parameter.dependencies += this
-    parameter.dependencies += im.sinkWidth
-    parameter.dependencies += im.byteCount
     outputs += this
   }
 
 
   val channels = ArrayBuffer[ChannelModel]()
-  case class ChannelModel() extends Generator{
+  case class ChannelModel() extends Area{
     val id = channels.size
     channels += this
-    parameter.dependencies += this
 
     val interrupt = DmaSgGenerator.this.interrupts.derivate(_(id))
     def connectInterrupt(ctrl : InterruptCtrlGeneratorI, offsetId : Int): Unit = {
       ctrl.addInterrupt(interrupt, offsetId)
     }
 
-    val memoryToMemory = createDependency[Boolean]
-    val linkedListCapable = createDependency[Boolean]
-    val directCtrlCapable = createDependency[Boolean]
-    val selfRestartCapable = createDependency[Boolean]
-    val progressProbes = createDependency[Boolean]
-    val halfCompletionInterrupt = createDependency[Boolean]
-    val bytePerBurst = createDependency[Option[Int]]
-    val fifoMapping = createDependency[Option[(Int, Int)]]
+    val memoryToMemory = Handle[Boolean]
+    val linkedListCapable = Handle[Boolean]
+    val directCtrlCapable = Handle[Boolean]
+    val selfRestartCapable = Handle[Boolean]
+    val progressProbes = Handle[Boolean]
+    val halfCompletionInterrupt = Handle[Boolean]
+    val bytePerBurst = Handle[Option[Int]]
+    val fifoMapping = Handle[Option[(Int, Int)]]
     //    val inputsPorts = createDependency[Seq[Int]]
     val outputsPorts = ArrayBuffer[OutputModel]()
 
@@ -214,21 +210,21 @@ class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
 //    inputs : Seq[BsbParameter],
 //    channels : Seq[Channel],
 
-  val logic : Handle[DmaSg.Core[Bmb]] = add task DmaSg.Core[Bmb](
+  val logic : Handle[DmaSg.Core[Bmb]] = Handle(DmaSg.Core[Bmb](
     p = parameter.p,
     ctrlType = HardType(Bmb(accessRequirements.toBmbParameter())),
     slaveFactory = BmbSlaveFactory(_)
-  )
+  ))
 
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
   interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(DmaSg.getCtrlCapabilities),
     accessRequirements = accessRequirements,
     bus = ctrl,
-    mapping = ctrlOffset.derivate(SizeMapping(_, 1 << DmaSg.ctrlAddressWidth))
+    mapping = Handle(SizeMapping(ctrlOffset, 1 << DmaSg.ctrlAddressWidth))
   )
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }

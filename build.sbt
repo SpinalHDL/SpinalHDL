@@ -78,8 +78,8 @@ lazy val all = (project in file("."))
 
 
 import sys.process._
-def gitHash = (try {
-  "git rev-parse HEAD".!!
+def gitHash(dir: File) = (try {
+  s"git -C ${dir.toString} rev-parse HEAD".!!
 } catch{
   case e : java.io.IOException => "???"
 }).linesIterator.next()
@@ -90,7 +90,8 @@ lazy val idslpayload = (project in file("idslpayload"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-idsl-payload",
-    version := SpinalVersion.sim
+    version := SpinalVersion.sim,
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
 
 lazy val idslplugin = (project in file("idslplugin"))
@@ -128,11 +129,13 @@ lazy val core = (project in file("core"))
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
     libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
     sourceGenerators in Compile += Def.task {
       val dir = (sourceManaged in Compile).value
+      dir.mkdirs()
       val file = dir / "Info.scala"
       IO.write(file, """package spinal.core
                        |object Info {
@@ -140,7 +143,7 @@ lazy val core = (project in file("core"))
                        |  val name = "%s"
                        |  val gitHash = "%s"
                        |}
-                       |""".stripMargin.format(SpinalVersion.core, name, gitHash))
+                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
       Seq(file)
     }.taskValue
   )

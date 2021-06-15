@@ -24,6 +24,7 @@ import java.io.{BufferedWriter, File, FileWriter}
 
 import scala.collection.mutable.ListBuffer
 import spinal.core._
+import spinal.core.fiber.Engine
 
 import scala.collection.immutable
 import scala.collection.mutable
@@ -166,12 +167,12 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def checkGlobalData(): Unit = {
-    if (GlobalData.get.dslScope.nonEmpty) SpinalError("dslScope stack is not empty :(")
-    if (GlobalData.get.dslClockDomain.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
+    if (DslScopeStack.nonEmpty) SpinalError("dslScope stack is not empty :(")
+    if (ClockDomainStack.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
   }
 
-  def checkPendingErrors() = if(globalData.pendingErrors.nonEmpty)
-    SpinalError()
+  def checkPendingErrors(msg : String) = if(globalData.pendingErrors.nonEmpty)
+    SpinalError(msg)
 
   val verboseLog = if(config.verbose) new java.io.FileWriter("verbose.log") else null
 
@@ -187,7 +188,7 @@ class PhaseContext(val config: SpinalConfig) {
       verboseLog.flush()
 
     }
-    checkPendingErrors()
+    checkPendingErrors("Error detected in phase " + classNameOf(phase))
   }
 }
 
@@ -892,7 +893,10 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
 }
 
 object classNameOf{
-  def apply(that : Any): String = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+  def apply(that : Any): String = {
+    val name = that.getClass.getSimpleName.replace("$",".").split("\\.").head
+    if(name.nonEmpty) name else "unamed"
+  }
 }
 
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
@@ -908,7 +912,12 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       if(c != topLevel) {
         if (c.definitionName == null) {
-          c.definitionName = privateNamespaceName + classNameOf(c)
+          val pre = c match {
+            case t: BlackBox => ""
+            case _ => config.globalPrefix
+          }
+          val privateNsN = (if(config.privateNamespace) topLevel.definitionName + "_" else "")
+          c.definitionName = pre + privateNsN + classNameOf(c)
         }
       }
       if (c.definitionName == "") {
@@ -964,14 +973,16 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
+//          case obj: Nameable => obj.setName(scope.getUnusedName(name), Nameable.DATAMODEL_WEAK)
+          case obj: Nameable => obj.setName(name, Nameable.DATAMODEL_WEAK)
           case _ =>
         }
       })
 
       for (e <- enumDef.elements) {
         if (e.isUnnamed) {
-          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
+//          e.setName(scope.getUnusedName("e" + e.position), Nameable.DATAMODEL_WEAK)
+          e.setName("e" + e.position, Nameable.DATAMODEL_WEAK)
         }
       }
     }
@@ -1625,14 +1636,16 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     }
 
     //Propagate all vital signals (drive toplevel output and blackboxes inputs)
-    topLevel.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
+    topLevel.getAllIo.withFilter(bt => !bt.isDirectionLess).foreach(propagate(_, tagVitals))
     walkComponents{
       case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
+    val keepNamed = !pc.config.removePruned
     walkStatements{
-      case s: DeclarationStatement => if(s.isNamed) propagate(s, false)
+      case s: BaseType => if(keepNamed && s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
+      case s: DeclarationStatement => if(keepNamed && s.isNamed) propagate(s, false)
       case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>
       case s: AssignmentStatement  =>
@@ -1647,6 +1660,18 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         s.removeStatement()
       }
     })
+
+    def removeEmptyChilds(c: Component): Unit ={
+      val keep = ArrayBuffer[Component]()
+      c.children.foreach { child =>
+        removeEmptyChilds(child)
+        if(!child.isLogicLess) keep += child
+      }
+      c.children.clear()
+      c.children ++= keep
+    }
+
+    if(!keepNamed) removeEmptyChilds(topLevel)
   }
 }
 
@@ -1972,6 +1997,14 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
 
         def finalCheck(bt : BaseType): Unit ={
+          // Hold off until suffix parent is processed
+          if (bt.isSuffix)
+            return
+          if (bt.isInstanceOf[Suffixable]) {
+            if (bt.dlcIsEmpty)
+              return bt.asInstanceOf[Suffixable].elements.filter(_._2.isInstanceOf[BaseType]).foreach(e => finalCheck(e._2.asInstanceOf[BaseType]))
+          }
+
           val assignedBits = getOrEmpty(bt)
           if ((bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
             if(bt.isComb) {
@@ -2052,6 +2085,32 @@ class PhaseGetInfoRTL(prunedSignals: mutable.Set[BaseType], unusedSignals: mutab
   }
 }
 
+class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
+  override def impl(pc: PhaseContext) : Unit = {
+    import pc._
+
+
+    walkStatements{
+      case dst : BaseType => if (dst.isNamed) {
+        def explore(bt: BaseType, depth : Int): Unit = {
+          bt.foreachStatements{s =>
+            s.walkDrivingExpressions{
+              case src : BaseType => if(src.isUnnamed){
+                src.unsetName()
+                src.setWeakName(globalData.anonymSignalPrefix + "_" + dst.getName())
+                explore(src, depth + 1)
+              }
+              case _ =>
+            }
+          }
+
+        }
+        explore(dst, 0)
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
@@ -2159,12 +2218,31 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
 
-    defaultClockDomain.push()
-    native //Avoid unconstructable during phase
-    binarySequential
-    binaryOneHot
-    gen
-    defaultClockDomain.pop()
+
+    Engine.create {
+      defaultClockDomain.push()
+      native //Avoid unconstructable during phase
+      binarySequential
+      binaryOneHot
+      gen
+      defaultClockDomain.pop()
+    }
+
+//    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
+//    var hadPrePop = true
+//    while(hadPrePop) {
+//      hadPrePop = false
+//      pc.walkComponents { c =>
+//        assert(c.prePopTasks.isEmpty)
+////        if (c.prePopTasks.nonEmpty) {
+////          c.rework(
+////            c.prePop()
+////          )
+////          hadPrePop = true
+////        }
+//      }
+//    }
+
     pc.checkGlobalData()
   }
 }
@@ -2254,7 +2332,6 @@ object SpinalVhdlBoot{
   def singleShot[T <: Component](config: SpinalConfig)(gen: => T): SpinalReport[T] = ScopeProperty.sandbox{
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
-
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
 
     val prunedSignals   = mutable.Set[BaseType]()
@@ -2290,6 +2367,7 @@ object SpinalVhdlBoot{
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
     phases += new PhaseSimplifyNodes(pc)
 
     phases += new PhaseCompletSwitchCases()
@@ -2301,11 +2379,13 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 
+    phases += new PhasePropagateNames(pc)
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
     phases += new PhaseGetInfoRTL(prunedSignals, unusedSignals, counterRegister, blackboxesSourcesPaths)(pc)
     val report = new SpinalReport[T]()
+    report.globalData = pc.globalData
     phases += new PhaseDummy(SpinalProgress("Generate VHDL"))
     phases += new PhaseVhdl(pc, report)
 
@@ -2377,7 +2457,6 @@ object SpinalVerilogBoot{
   }
 
   def singleShot[T <: Component](config: SpinalConfig)(gen : => T): SpinalReport[T] = ScopeProperty.sandbox{
-
     val pc = new PhaseContext(config)
     pc.globalData.phaseContext = pc
     pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "_zz" else config.anonymSignalPrefix
@@ -2412,6 +2491,7 @@ object SpinalVerilogBoot{
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseRemoveIntermediateUnnameds(false)
     phases += new PhaseSimplifyNodes(pc)
 
     phases += new PhaseCompletSwitchCases()
@@ -2423,6 +2503,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCombinationalLoops()
     phases += new PhaseCheckCrossClock()
 
+    phases += new PhasePropagateNames(pc)
     phases += new PhaseAllocateNames(pc)
     phases += new PhaseDevice(pc)
 
@@ -2431,6 +2512,7 @@ object SpinalVerilogBoot{
     phases += new PhaseDummy(SpinalProgress("Generate Verilog"))
 
     val report = new SpinalReport[T]()
+    report.globalData = pc.globalData
     phases += new PhaseVerilog(pc, report)
 
     for(inserter <-config.phasesInserters){

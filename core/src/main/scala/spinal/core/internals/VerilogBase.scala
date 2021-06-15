@@ -50,7 +50,11 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def emitExpressionWrap(e: Expression, name: String): String = {
 //    s"  wire ${emitType(e)} ${name};\n"
-    theme.maintab + expressionAlign("wire", emitType(e), name) + ";\n"
+    if (!e.isInstanceOf[SpinalStruct]) {
+      val isReg = e.isInstanceOf[Multiplexer]
+      theme.maintab + expressionAlign(if(isReg) "reg" else "wire", emitType(e), name) + ";\n"
+    } else
+      theme.maintab + expressionAlign(e.asInstanceOf[SpinalStruct].getTypeString, "", name) + ";\n"
   }
 
   def emitExpressionWrap(e: Expression, name: String, nature: String): String = {
@@ -79,6 +83,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
@@ -90,6 +95,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitCommentAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
@@ -112,6 +118,10 @@ trait VerilogBase extends VhdlVerilogBase{
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
+  def emitStructType(struct: SpinalStruct): String = {
+    return struct.getTypeString
+  }
+
   def emitType(e: Expression): String = e.getTypeObject match {
     case `TypeBool` => ""
     case `TypeBits` => emitRange(e.asInstanceOf[WidthProvider])
@@ -120,6 +130,7 @@ trait VerilogBase extends VhdlVerilogBase{
     case `TypeEnum` => e match {
       case e : EnumEncoded => emitEnumType(e.getDefinition, e.getEncoding)
     }
+    case `TypeStruct` => emitStructType(e.asInstanceOf[SpinalStruct])
   }
 
   def emitDirection(baseType: BaseType) = baseType.dir match {
