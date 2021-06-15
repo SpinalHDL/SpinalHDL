@@ -33,7 +33,7 @@ object cmdStream_rspFlow extends InstructionBusKind with DataBusKind
 
 case class RiscvCoreConfig(val pcWidth : Int = 32,
                            val addrWidth : Int = 32,
-                           val startAddress : Int = 0,
+                           val startAddress : BigInt = 0,
                            val bypassExecute0 : Boolean = true,
                            val bypassExecute1 : Boolean = true,
                            val bypassWriteBack : Boolean = true,

@@ -56,8 +56,8 @@ class ScopeStatement(var parentStatement: TreeStatement) {
   def isEmpty = head == null
   def nonEmpty = head != null
 
-  def push() = GlobalData.get.dslScope.push(this)
-  def pop()  = GlobalData.get.dslScope.pop()
+  def push() = DslScopeStack.push(this)
+  def pop()  = DslScopeStack.pop()
 
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={
@@ -170,10 +170,14 @@ class ScopeStatement(var parentStatement: TreeStatement) {
 object Statement{
 
   def isFullToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
-    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) =>
-      true
-    case _ =>
-      false
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case _ => false
+  })
+
+  def isFullToFullStatementOrLit(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case AssignmentStatement(a: DeclarationStatement, b: Literal) => true
+    case _ => false
   })
 
   def isSomethingToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
@@ -557,7 +561,7 @@ object AssertStatementHelper{
     val node = AssertStatement(cond, message, severity, kind)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
-      GlobalData.get.dslScope.head.append(node)
+      DslScopeStack.get.append(node)
     }
 
     node
@@ -577,7 +581,7 @@ object AssertStatementKind{
 }
 
 case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind) extends LeafStatement with SpinalTagReady {
-  var clockDomain = globalData.dslClockDomain.head
+  var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)

@@ -52,6 +52,8 @@ case class IFS1P3BX() extends BlackBox{
   val SCLK, PD, SP, D = in Bool()
   val Q = out Bool()
   mapCurrentClockDomain(SCLK)
+  Q := ClockDomain(SCLK)(RegNext(D))
+  spinalSimWhiteBox()
 }
 
 object OFS1P3BX{
@@ -67,6 +69,10 @@ case class OFS1P3BX() extends BlackBox{
   val SCLK, PD, SP, D = in Bool()
   val Q = out Bool()
   mapCurrentClockDomain(SCLK)
+
+  Q := ClockDomain(SCLK)(RegNext(D))
+
+  spinalSimWhiteBox()
 }
 
 
@@ -76,4 +82,6 @@ case class Ulx3sUsrMclk() extends BlackBox{
 
   val USRMCLKI = in Bool()
   val USRMCLKTS = in Bool()
+
+  spinalSimWhiteBox()
 }

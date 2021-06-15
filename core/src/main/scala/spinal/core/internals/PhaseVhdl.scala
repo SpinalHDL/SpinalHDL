@@ -34,30 +34,81 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   override def impl(pc: PhaseContext): Unit = {
     packageName     = pc.privateNamespaceName + packageName
     enumPackageName = pc.privateNamespaceName + enumPackageName
-    val targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
-    report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
-    outFile = new java.io.FileWriter(targetPath)
-    outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
-    emitEnumPackage(outFile)
+    var targetFilePath = ""
 
-    if(pc.config.genVhdlPkg)
-      emitPackage(outFile)
+    if (pc.config.oneFilePerComponent) {
+      val fileList = new java.io.FileWriter(pc.config.targetDirectory + "/" + topLevel.definitionName + ".lst")
 
-    for (c <- sortedComponents) {
-      if (!c.isInBlackBoxTree) {
-//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-        compile(c)
+      // Emit enums
+      targetFilePath = pc.config.targetDirectory + "/" + "pkg_enum.vhd"
+      outFile = new java.io.FileWriter(targetFilePath)
+      outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+      emitEnumPackage(outFile)
+      outFile.flush()
+      outFile.close()
+      report.generatedSourcesPaths += targetFilePath
+      fileList.write(targetFilePath + "\n")
+
+      // Emit utility functions
+      if (pc.config.genVhdlPkg) {
+        targetFilePath = pc.config.targetDirectory + "/" + "pkg_scala2hdl.vhd"
+        outFile = new java.io.FileWriter(targetFilePath)
+        outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+        emitPackage(outFile)
+        outFile.flush()
+        outFile.close()
+        report.generatedSourcesPaths += targetFilePath
+        fileList.write(targetFilePath + "\n")
       }
-    }
 
-    outFile.flush()
-    outFile.close()
+      // Emit each component
+      for (c <- sortedComponents) {
+        val componentContent = compile(c)
+
+        if (!componentContent.contains("replaced by")) {
+          targetFilePath = pc.config.targetDirectory + "/" + (c.definitionName + ".vhd")
+
+          if (!c.isInBlackBoxTree) {
+            outFile = new java.io.FileWriter(targetFilePath)
+            outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+            outFile.write(componentContent)
+            outFile.flush()
+            outFile.close()
+            report.generatedSourcesPaths += targetFilePath
+            fileList.write(targetFilePath + "\n")
+          }
+        }
+      }
+      fileList.flush()
+      fileList.close()
+    } else {
+      // All in one
+      targetFilePath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName)
+      report.generatedSourcesPaths += targetFilePath
+      report.toplevelName = pc.topLevel.definitionName
+      outFile = new java.io.FileWriter(targetFilePath)
+      outFile.write(VhdlVerilogBase.getHeader("--", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
+      emitEnumPackage(outFile)
+
+      if(pc.config.genVhdlPkg)
+        emitPackage(outFile)
+
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          outFile.write(compile(c))
+          outFile.flush()
+        }
+      }
+
+      outFile.flush()
+      outFile.close()
+    }
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
 
-  def compile(component: Component): Unit = {
+  def compile(component: Component): String = {
     val componentBuilderVhdl = new ComponentEmitterVhdl(
       c                         = component,
       vhdlBase                  = this,
@@ -77,12 +128,12 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       componentBuilderVhdl.result
     } else {
       emitedComponentRef.put(component, oldComponent)
-      val str =  s"\n--${component.definitionName} remplaced by ${oldComponent.definitionName}\n\n"
+      val str =  s"\n--${component.definitionName} replaced by ${oldComponent.definitionName}\n\n"
       component.definitionName = oldComponent.definitionName
       str
     }
 
-    outFile.write(text)
+    text
   }
 
   val emitedComponent    = mutable.Map[ComponentEmitterTrace, Component]()

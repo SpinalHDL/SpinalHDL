@@ -223,7 +223,7 @@ class SpinalSimVerilatorIoTest extends FunSuite {
     test(prefix + "testMulticore") {
       import scala.concurrent.ExecutionContext.Implicits.global
 
-      val futures = for (i <- 0 to 15) yield {
+      val futures = for (i <- 0 to 8) yield {
         Future {
           doTest
         }

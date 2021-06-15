@@ -77,6 +77,7 @@ abstract class BlackBox extends Component{
   val librariesUsages = mutable.HashSet[String]();
 
   private var isBb = false
+  var isSpinalSimWb = false
   setBlackBox()
 
   def isBlackBox = isBb
@@ -86,6 +87,10 @@ abstract class BlackBox extends Component{
   }
   def clearBlackBox() = {
     isBb = false
+  }
+
+  def spinalSimWhiteBox() = {
+    isSpinalSimWb = true
   }
 
   def addGeneric(name : String, that : Any) : Unit = that match {

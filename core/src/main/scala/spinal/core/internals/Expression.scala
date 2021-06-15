@@ -1370,6 +1370,15 @@ abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
 class BitsBitAccessFixed extends BitVectorBitAccessFixed {
   override def getTypeObject  = TypeBool
   override def opName: String = "Bits(Int)"
+
+  override def simplifyNode = source match{
+    case source : BitVectorRangedAccessFixed => {
+      bitId = bitId + source.lo
+      this.source = source.source
+      this
+    }
+    case _ => this
+  }
 }
 
 /** UInt access with a fix index */
@@ -1607,6 +1616,30 @@ class SIntRangedAccessFloating extends BitVectorRangedAccessFloating {
   override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new SIntRangedAccessFixed
 }
 
+/**
+  * SuffixExpression
+  */
+class SuffixExpression extends Expression with ScalaLocated {
+  var target: BaseType = null
+
+  override def opName: String = "Prefix.Suffix"
+  override def getTypeObject: Any = TypeStruct
+  override def remapExpressions(func: Expression => Expression): Unit = {}
+  override def foreachExpression(func: Expression => Unit): Unit = {}
+}
+
+object SuffixExpression {
+  def apply(target: Expression): SuffixExpression = {
+    if (!target.isInstanceOf[BaseType])
+      LocatedPendingError(s"INVALID SUFFIX Cannot suffix non-BaseType expression ${target} at")
+
+    val expr = new SuffixExpression
+
+    expr.target = target.asInstanceOf[BaseType]
+
+    expr
+  }
+}
 
 /**
   * Assigned bits
@@ -2075,15 +2108,17 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
 
 
 object SwitchStatementKeyBool{
-  def apply(cond: Expression): SwitchStatementKeyBool = {
+  def apply(cond: Expression, key : MaskedLiteral=null): SwitchStatementKeyBool = {
     val ret  = new SwitchStatementKeyBool
     ret.cond = cond
+    ret.key = key
     ret
   }
 }
 
 class SwitchStatementKeyBool extends Expression {
   var cond : Expression = null
+  var key : MaskedLiteral = null
 
   override def opName: String = "is(b)"
   override def getTypeObject: Any = TypeBool
@@ -2126,7 +2161,7 @@ object BitsLiteral {
     val minimalWidth   = Math.max(poisonBitCount,valueBitCount)
     var bitCount       = specifiedBitCount
 
-    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0) throw new Exception("literal value is negative and cannot be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in Bits($specifiedBitCount bits)")
@@ -2167,7 +2202,7 @@ object UIntLiteral {
     var bitCount       = specifiedBitCount
 
     if (value < 0)
-      throw new Exception("literal value is negative and can be represented")
+      throw new Exception("literal value is negative and cannot be represented")
 
     if (bitCount != -1) {
       if (minimalWidth > bitCount) throw new Exception(s"literal 0x${value.toString(16)} can't fit in UInt($specifiedBitCount bits)")

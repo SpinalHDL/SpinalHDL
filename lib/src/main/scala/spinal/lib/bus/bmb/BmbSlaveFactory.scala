@@ -11,7 +11,8 @@ object BmbSlaveFactory{
     addressWidth = addressWidth,
     dataWidth = dataWidth,
     lengthWidthMax = log2Up(dataWidth/8),
-    alignment = BmbParameter.BurstAlignement.LENGTH
+    alignment = BmbParameter.BurstAlignement.LENGTH,
+    canMask = false
   )
 }
 
@@ -33,8 +34,10 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
   rsp.context := bus.cmd.context
   rsp.source := bus.cmd.source
 
-  def readAddress() : UInt = bus.cmd.address
-  def writeAddress() : UInt = bus.cmd.address
+  override def readAddress() : UInt = bus.cmd.address
+  override def writeAddress() : UInt = bus.cmd.address
+
+  override def writeByteEnable(): Bits = bus.cmd.mask
 
   override def readHalt(): Unit = readHaltTrigger := True
   override def writeHalt(): Unit = writeHaltTrigger := True

@@ -46,6 +46,7 @@ object TypeBits
 object TypeUInt
 object TypeSInt
 object TypeEnum
+object TypeStruct
 
 
 trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{

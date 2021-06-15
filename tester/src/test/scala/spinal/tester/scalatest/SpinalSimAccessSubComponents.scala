@@ -55,6 +55,12 @@ class SpinalSimAccessSubComponents extends FunSuite {
         dut.subInst.subSubInst.miaouVec.simPublic()
         dut.subInst.subSubInst.io.a.simPublic()
         dut.subInst.subSubInst.miaou.simPublic()
+        dut.subInst.subSubInst.miaou.pull()
+        dut.subInst.subSubInst.io.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
         dut
       }
     }

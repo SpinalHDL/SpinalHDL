@@ -91,6 +91,8 @@ object QuartusTest {
   }
 }
 
+object QuartusProject
+
 class QuartusProject(quartusPath: String, workspacePath: String) {
   private def search(file: File, name: String): String = {
     try {
@@ -119,10 +121,11 @@ class QuartusProject(quartusPath: String, workspacePath: String) {
     printf("Area: %s\n\rFMax: %f MHz\n\r", area, fMax/1e6)
   }
 
-  def compile(): Unit = {
+  def compile(): QuartusProject = {
     if (qpfPath != null)
       doCmd(s"""${Paths.get(quartusPath,"quartus_sh")} --flow compile $qpfPath""")
     report()
+    this
   }
 
   def program(): Unit = {

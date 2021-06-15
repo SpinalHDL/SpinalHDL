@@ -5,6 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.core.sim._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -50,6 +51,17 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
 object StreamDriver{
   def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(driver : (T) => Boolean) = new StreamDriver(stream,clockDomain,driver)
 //  def apply[T <: Data](stream : Stream[T], clockDomain: ClockDomain)(driver : (T) => Unit) = new StreamDriver(stream,clockDomain,(x) => {driver(x); true})
+
+  def queue[T <: Data](stream : Stream[T], clockDomain: ClockDomain) = {
+    val cmdQueue = mutable.Queue[(T) => Unit]()
+    val driver = StreamDriver(stream, clockDomain) { p =>
+      if(cmdQueue.isEmpty) false else {
+        cmdQueue.dequeue().apply(p)
+        true
+      }
+    }
+    (driver, cmdQueue)
+  }
 }
 
 class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var driver : (T) => Boolean){

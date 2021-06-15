@@ -13,7 +13,7 @@ case class MachineTimer() extends Component{
   val mapper = Apb3SlaveFactory(io.bus, dontCareReadData = true)
   val counter = Reg(UInt(64 bits)) init(0)
   val cmp = Reg(UInt(64 bits))
-  val interrupt = RegNext(!(counter - cmp).msb)
+  val interrupt = RegNext(counter >= cmp)
   counter := counter + 1
   io.mTimeInterrupt := interrupt
   mapper.readMultiWord(counter, 0x0)

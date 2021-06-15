@@ -20,7 +20,7 @@ class SpinalSimBsbTester extends FunSuite{
         sinkWidth   = 4
       ),
       outputBytes = 8
-    ){val reg = RegNext(False)}) { dut =>
+    ){val reg = out(RegNext(False))}) { dut =>
       dut.clockDomain.forkStimulus(10)
       new BsbBridgeTester(
         input = dut.io.input,

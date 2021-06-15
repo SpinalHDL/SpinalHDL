@@ -1,6 +1,8 @@
 package spinal.sim
 
 abstract class DataType(){
+  var isMem = false
+  def setMem() : this.type = { isMem = true; this }
   def width : Int
   def longToRaw64(that : Long, signal : Signal) : Long
   def raw64ToLong(that : Long, signal : Signal) : Long

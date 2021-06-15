@@ -51,12 +51,12 @@ object BaseType{
   */
 abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignmentStatement] with Expression {
 
-  globalData.currentScope match {
+  DslScopeStack.get match {
     case null =>
     case scope => scope.append(this)
   }
 
-  var clockDomain = globalData.currentClockDomain
+  var clockDomain = ClockDomain.current
 
   /** Type of the base type */
   private var btFlags = 0
@@ -198,7 +198,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
-        globalData.dslScope.head.append(statement(that))
+        DslScopeStack.get.append(statement(that))
       case _ => kind match {
         case `DataAssign` => LocatedPendingError(s"Assignment data type mismatch\n$this := $that")
         case `InitAssign` => LocatedPendingError(s"Register initialisation type mismatch\nReg($this) init($that)")

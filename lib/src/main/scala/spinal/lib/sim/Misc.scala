@@ -134,13 +134,16 @@ case class SparseMemory(){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
 
+
+  def readByteAsInt(address : Long) : Int = read(address).toInt & 0xFF
+
   def readInt(address : Long) : Int = {
     var value = 0
     for(i <- 0 until 4) value |= (read(address + i).toInt & 0xFF) << i*8
     return value
   }
   def writeInt(address : Long, data : Int) : Unit = {
-    for(i <- 0 until 4) write(address + i, data >> 8*i)
+    for(i <- 0 until 4) write(address + i, (data >> 8*i).toByte)
   }
 
   def loadBin(offset : Long, file : String): Unit ={
@@ -153,9 +156,15 @@ case class SparseMemory(){
 
 
 case class MemoryRegionAllocator(base : Long, size : Long){
+//  case class Allocation(base : Long, size : Long)
   val allocations = mutable.HashSet[SizeMapping]()
   def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
   def free(region : SizeMapping) = allocations.remove(region)
+  def free(address : BigInt) = {
+    allocations.remove(allocations.find(a => a.base <= address && a.base + a.size > address).get)
+  }
+  def isAllocated(address : Long) = allocations.exists(a => a.base <= address && a.base + a.size > address)
+  def isAllocated(address : Long, size : Long) = allocations.exists(a => a.base < address+size && a.base + a.size > address)
   def allocate(sizeMax : Long, sizeMin : Long) : SizeMapping = {
     var tryies = 0
     while(tryies < 10){
@@ -196,5 +205,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
     }
     return null
   }
+
+  def allocateOn(base : Long, size : Long) = allocations += SizeMapping(base, size)
 }
 

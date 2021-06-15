@@ -317,7 +317,7 @@ case class MacTxPadder(dataWidth : Int) extends Component{
   val ok = counter === cycles-1
   val fill = counter =/= 0 && io.input.first
 
-  when(!ok && (counter =/= 0 || io.output.fire)){
+  when(!ok && io.output.fire){
     counter := counter + 1
   }
   when(io.output.lastFire){

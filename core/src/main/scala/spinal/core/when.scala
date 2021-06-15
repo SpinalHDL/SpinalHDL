@@ -21,6 +21,8 @@
 package spinal.core
 
 import spinal.core.internals._
+import spinal.idslplugin.Location
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -37,7 +39,7 @@ object ConditionalContext {
   def isTrue(rootScope: ScopeStatement): Bool ={
     val globalData = GlobalData.get
 
-    if(globalData.dslScope.head == rootScope) return True
+    if(DslScopeStack.get == rootScope) return True
 
     rootScope.push()
 
@@ -51,7 +53,7 @@ object ConditionalContext {
     cond
   }
 
-  def isTrue(): Bool = isTrue(GlobalData.get.dslScope.head.component.dslBody)
+  def isTrue(): Bool = isTrue(DslScopeStack.get.component.dslBody)
 }
 
 
@@ -72,12 +74,13 @@ object ConditionalContext {
   */
 object when {
 
-  def apply(cond: Bool)(block: => Unit): WhenContext = {
-
+//  def apply(cond: Bool)(block: => Unit)(implicit line: sourcecode.Line, file: sourcecode.File): WhenContext = {
+  def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
+    cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
     val whenStatement = new WhenStatement(cond)
     val whenContext   = new WhenContext(whenStatement)
 
-    cond.globalData.dslScope.head.append(whenStatement)
+    DslScopeStack.get.append(whenStatement)
 
     whenStatement.whenTrue.push()
     block
@@ -106,13 +109,13 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
     whenStatement.whenFalse.pop()
   }
 
-  def elsewhen(clause : ElseWhenClause) : WhenContext = protElsewhen(clause.cond)(clause.block)
+  def elsewhen(clause : ElseWhenClause)(implicit loc: Location) : WhenContext = protElsewhen(clause.cond)(clause.block)(loc)
 //  @deprecated("Use `elsewhen` instead of `.elsewhen` (without the prefix `.`)", "1.1.2")
-  def elsewhen(cond: Bool)(block: => Unit): WhenContext = protElsewhen(cond)(block)
-  protected def protElsewhen(cond: Bool)(block: => Unit): WhenContext = {
+  def elsewhen(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = protElsewhen(cond)(block)(loc)
+  protected def protElsewhen(cond: Bool)(block: => Unit)(loc: Location): WhenContext = {
     var newWhenContext: WhenContext = null
     otherwise {
-      newWhenContext = when(cond)(block)
+      newWhenContext = when(cond)(block)(loc)
     }
     newWhenContext
   }
@@ -142,16 +145,17 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
   */
 object switch {
 
-    def apply[T <: BaseType](value: T)(block: => Unit): Unit = {
+    def apply[T <: BaseType](value: T)(block: => Unit)(implicit loc : Location): Unit = {
+      value.setName("switch_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
       val globalData      = value.globalData
       val switchStatement = new SwitchStatement(value)
       val switchContext   = new SwitchContext(switchStatement)
 
-      globalData.switchStack.push(switchContext)
+      SwitchStack.push(switchContext)
       block
-      globalData.switchStack.pop()
+      SwitchStack.pop()
 
-      globalData.dslScope.head.append(switchStatement)
+      DslScopeStack.get.append(switchStatement)
   }
 }
 
@@ -168,7 +172,7 @@ object is {
   def list(values: Iterator[Any])(block: => Unit): Unit = {
 
     val globalData    = GlobalData.get
-    val switchContext = globalData.switchStack.head
+    val switchContext = SwitchStack.get
     val switchElement = new SwitchStatementElement(ArrayBuffer[Expression](), new ScopeStatement(switchContext.statement))
     val switchValue   = switchContext.statement.value
 
@@ -207,9 +211,9 @@ object is {
         }
       case value: SpinalEnumElement[_] => onBaseType(value())
       case key: MaskedLiteral          => switchValue match {
-        case switchValue: Bits => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
-        case switchValue: UInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
-        case switchValue: SInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
+        case switchValue: Bits => switchElement.keys += SwitchStatementKeyBool(switchValue === key, key)
+        case switchValue: UInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key, key)
+        case switchValue: SInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key, key)
         case _                 => SpinalError("The switch is not a Bits, UInt or SInt")
       }
       //    }
@@ -235,8 +239,7 @@ object default {
 
   def apply(block: => Unit): Unit = {
 
-    val globalData    = GlobalData.get
-    val switchContext = globalData.switchStack.head
+    val switchContext = SwitchStack.get
     val defaultScope  =  new ScopeStatement(switchContext.statement)
 
     switchContext.statement.defaultScope = defaultScope

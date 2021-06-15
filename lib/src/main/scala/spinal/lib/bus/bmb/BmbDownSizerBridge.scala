@@ -63,7 +63,7 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
       }
 
       io.output.cmd.data := io.input.cmd.data.subdivideIn(ratio slices)(sel)
-      io.output.cmd.mask := io.input.cmd.mask.subdivideIn(ratio slices)(sel)
+      if(outputParameter.access.canMask) io.output.cmd.mask := io.input.cmd.mask.subdivideIn(ratio slices)(sel)
       io.output.cmd.last := io.input.cmd.last && (io.input.cmd.isRead || sel === (io.input.cmd.address + io.input.cmd.length) (selRange))
       io.input.cmd.ready := io.output.cmd.ready && (sel === sel.maxValue || io.output.cmd.last)
     }

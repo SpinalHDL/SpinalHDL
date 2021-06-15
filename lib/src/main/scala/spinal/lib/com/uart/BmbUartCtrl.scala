@@ -18,7 +18,7 @@ case class BmbUartCtrl(config : UartCtrlMemoryMappedConfig, bmbParameter: BmbPar
   val io = new Bundle{
     val bus =  slave(Bmb(bmbParameter))
     val uart = master(Uart())
-    val interrupt = out Bool
+    val interrupt = out Bool()
   }
 
   val uartCtrl = new UartCtrl(config.uartCtrlConfig)

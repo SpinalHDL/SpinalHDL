@@ -112,7 +112,7 @@ class JtagTapInstructionIdcode[T <: Data](value: Bits) extends Area {
     }
   }
 
-  when(ctrl.reset){
+  when(ctrl.capture){
     shifter := value
   }
 

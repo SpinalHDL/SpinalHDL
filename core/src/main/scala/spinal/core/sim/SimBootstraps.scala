@@ -24,7 +24,7 @@ import java.io.File
 
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -79,7 +79,7 @@ object SpinalVerilatorBackend {
         case bt: UInt               => new UIntDataType(bt.getBitsWidth)
         case bt: SInt               => new SIntDataType(bt.getBitsWidth)
         case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
-        case mem: Mem[_] => new BitsDataType(mem.width)
+        case mem: Mem[_] => new BitsDataType(mem.width).setMem()
       })
 
       bt.algoInt = signalId
@@ -102,7 +102,7 @@ object SpinalVerilatorBackend {
             case None => addSignal(mem)
             case Some(tag) => {
               for(mapping <- tag.mapping){
-                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width))
+                val signal =  new Signal(config.rtl.toplevelName +: mem.getComponents().tail.map(_.getName()) :+ mapping.name, new BitsDataType(mapping.width).setMem())
                 signal.id = signalId
                 vconfig.signals += signal
                 signalId += 1
@@ -213,6 +213,9 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
 object SpinalGhdlBackend {
   def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) = { 
     val vconfig = new GhdlBackendConfig()
+    vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
+    vconfig.runFlags = config.simulatorFlags.mkString(" ")
+
     val signalsCollector = SpinalVpiBackend(config, vconfig)
     new GhdlBackend(vconfig){
       val signals = signalsCollector
@@ -223,6 +226,9 @@ object SpinalGhdlBackend {
 object SpinalIVerilogBackend {
   def apply[T <: Component](config: SpinalIVerilogBackendConfig[T]) = { 
     val vconfig = new IVerilogBackendConfig()
+    vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
+    vconfig.runFlags = config.simulatorFlags.mkString(" ")
+
     val signalsCollector = SpinalVpiBackend(config, vconfig)
     new IVerilogBackend(vconfig){
       val signals = signalsCollector
@@ -386,6 +392,7 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
 
   def doSimApi(name: String = "test", seed: Int = Random.nextInt(2000000000), joinAll: Boolean)(body: T => Unit): Unit = {
     Random.setSeed(seed)
+    GlobalData.set(report.globalData)
 
     val allocatedName = allocateTestName(name)
     val backendSeed   = if(seed == 0) 1 else seed
@@ -574,7 +581,12 @@ case class SpinalSimConfig(
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
-    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId")
+    val config = _spinalConfig.copy(targetDirectory = s"tmp/job_$uniqueId").addTransformationPhase(new PhaseNetlist {
+      override def impl(pc: PhaseContext): Unit = pc.walkComponents{
+        case b : BlackBox if b.isBlackBox && b.isSpinalSimWb => b.clearBlackBox()
+        case _ =>
+      }
+    })
     val report = _backend match {
       case SpinalSimBackendSel.VERILATOR => {
         config.addTransformationPhase(new SwapTagPhase(SimPublic, Verilator.public))

@@ -15,7 +15,7 @@ class SpinalSimDmaSgTester extends FunSuite {
   for((name, p) <- SgDmaTestsParameter(allowSmallerStreams = false)) test(name){
       SgDmaTestsParameter.test(p)
   }
-  for(testId <- 0 until 10){
+  for(testId <- 0 until 5){
     val p = SgDmaTestsParameter.random()
     test(s"random_$testId") {
       SgDmaTestsParameter.test(p)
