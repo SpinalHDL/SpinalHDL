@@ -364,6 +364,7 @@ trait Nameable extends OwnableRef with ContextUser{
 //  private[core] def setMode(mode: Byte)    = this.mode = mode
 //  private[core] def setWeak(weak: Boolean) = this.weak = if (weak) 1 else 0
 
+  def isCompletelyUnnamed: Boolean = getMode == UNNAMED
   def isUnnamed: Boolean = getMode match{
     case UNNAMED               => true
     case ABSOLUTE              => name == null
