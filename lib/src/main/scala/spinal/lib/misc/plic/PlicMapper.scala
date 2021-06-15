@@ -8,28 +8,31 @@ import spinal.lib.bus.misc.{BusSlaveFactory, AllMapping, SingleMapping}
 The PLIC is the Platform Level Interrupt controller as defined by RISCV:
 https://github.com/riscv/riscv-plic-spec/blob/master/riscv-plic.adoc
 
+the spinal doc for this can be found at https://spinalhdl.github.io/SpinalDoc-RTD/SpinalHDL/Libraries/Misc/PLIC/plic_mapper.html
+
  */
 case class PlicMapping(
-  gatewayPriorityOffset : Int,
-  gatewayPendingOffset  : Int,
-  targetEnableOffset    : Int,
-  targetThresholdOffset : Int,
-  targetClaimOffset     : Int,
-  gatewayPriorityShift  : Int,
-  targetThresholdShift  : Int,
-  targetClaimShift      : Int,
-  targetEnableShift     : Int,
-  gatewayPriorityWriteGen : Boolean = true,
-  gatewayPriorityReadGen : Boolean,
-  gatewayPendingReadGen : Boolean,
-  targetThresholdWriteGen : Boolean = true,
-  targetThresholdReadGen : Boolean,
-  targetEnableWriteGen : Boolean = true,
-  targetEnableReadGen : Boolean
+  gatewayPriorityOffset : Int,  // offset for each interrupt source priority (each is a 32bit register)
+  gatewayPendingOffset  : Int,  // offset for each interrupt source pending bit (as an array of bit)
+  targetEnableOffset    : Int,  // offset for each interrupt _PER TARGET_ enable bit (as an array of bit)
+  targetThresholdOffset : Int,  // offset for the target's interrupt priority threshold (one per target) 
+  targetClaimOffset     : Int,  // offset for the target's claim/complete register (one per target)
+  gatewayPriorityShift  : Int,  // shift for 1 bus-width word for the interrupt priority (eg. 32bit => 0x04 => 1<<2 => shift = 2)
+  targetThresholdShift  : Int,  // shift for the target threshold
+  targetClaimShift      : Int,  // shift fot the target claim/complete
+  targetEnableShift     : Int,  // shift for the target enable
+  gatewayPriorityWriteGen : Boolean = true,   // optional generation for write priority for each interrupt source
+  gatewayPriorityReadGen : Boolean,           // optional generation for read priority for each interrupt source
+  gatewayPendingReadGen : Boolean,            // optional generation for read pending bit for each interrupt source
+  targetThresholdWriteGen : Boolean = true,   // optional generation for write threshold for each target  
+  targetThresholdReadGen : Boolean,           // optional generation for read threshold for each target
+  targetEnableWriteGen : Boolean = true,      // optional generation for write enable bit for each target's interrupt
+  targetEnableReadGen : Boolean               // optional generation for read enable bit for each target's interrupt
 )
 
 object PlicMapping{
   // Follows the SiFive PLIC mapping (eg. https://sifive.cdn.prismic.io/sifive/9169d157-0d50-4005-a289-36c684de671b_e31_core_complex_manual_21G1.pdf)
+  // basically a full fledged PLIC
   def sifive = PlicMapping(
     gatewayPriorityOffset =   0x0000,
     gatewayPendingOffset  =   0x1000,
@@ -46,7 +49,11 @@ object PlicMapping{
     targetEnableReadGen = true
   )
 
-
+  // this mapping generates a lighter PLIC, at the cost of some missing optional features:
+  // - no reading the intrerrupt's priority
+  // - no reading the interrupts's pending bit (must use the claim/complete mechanism)
+  // - no reading the target's threshold
+  // the rest of the functionality is generated
   def light = PlicMapping(
     gatewayPriorityOffset =  0x0000,
     gatewayPendingOffset  =  0x1000,
@@ -66,8 +73,14 @@ object PlicMapping{
 
 
 object PlicMapper{
+  // args for PlicMapper:
+  // bus: bus to which this ctrl is attached
+  // mapping: a mapping configuration (see above)
+  // gateways: a sequence of PlicGateway (interrupt sources) to generate the bus access control
+  // targets: the sequence of PlicTargets (eg. multiple cores) to generate the bus access control
   def apply(bus: BusSlaveFactory, mapping: PlicMapping)(gateways : Seq[PlicGateway], targets : Seq[PlicTarget]) = new Area{
     import mapping._
+    
     // for each gateway, generate priority register & pending bit as needed
     val gatewayMapping = for(gateway <- gateways) yield new Area{
       if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Driving priority for gateway ${gateway.getName()}. Inits to 0 (interrupt is disabled)" ) init(0)
