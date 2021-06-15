@@ -132,11 +132,16 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 //    }
 //  }
 
-  def initBigInt(initialContent: Seq[BigInt]): this.type ={
+  def initBigInt(initialContent: Seq[BigInt], allowNegative : Boolean = false): this.type ={
     assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)
+    assert(!(!allowNegative && initialContent.exists(_.signum == -1)), "initBigInt got a negative number to initialise the Mem, while allowNegative isn't set")
     this.initialContent = initialContent.toArray
     if(initialContent != null) for(e <- this.initialContent){
       assert(e.bitLength <= width)
+    }
+    if(allowNegative) {
+      val mask = (BigInt(1) << getWidth)-1
+      this.initialContent = this.initialContent.map(_ & mask)
     }
     this
   }
@@ -275,7 +280,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this.dlcAppend(writePort)
 
 
-    //    if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
+    if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
 //    val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
 //    addressBuffer := address
 //    val dataBuffer = (if(allowMixedWidth) Bits() else Bits(getWidth bits)).dontSimplifyIt()

@@ -4,6 +4,11 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{BusSlaveFactory, AllMapping, SingleMapping}
 
+/*
+The PLIC is the Platform Level Interrupt controller as defined by RISCV:
+https://github.com/riscv/riscv-plic-spec/blob/master/riscv-plic.adoc
+
+ */
 case class PlicMapping(
   gatewayPriorityOffset : Int,
   gatewayPendingOffset  : Int,
@@ -11,7 +16,6 @@ case class PlicMapping(
   targetThresholdOffset : Int,
   targetClaimOffset     : Int,
   gatewayPriorityShift  : Int,
-  gatewayPendingShift    : Int,
   targetThresholdShift  : Int,
   targetClaimShift      : Int,
   targetEnableShift     : Int,
@@ -25,6 +29,7 @@ case class PlicMapping(
 )
 
 object PlicMapping{
+  // Follows the SiFive PLIC mapping (eg. https://sifive.cdn.prismic.io/sifive/9169d157-0d50-4005-a289-36c684de671b_e31_core_complex_manual_21G1.pdf)
   def sifive = PlicMapping(
     gatewayPriorityOffset =   0x0000,
     gatewayPendingOffset  =   0x1000,
@@ -32,7 +37,6 @@ object PlicMapping{
     targetThresholdOffset = 0x200000,
     targetClaimOffset     = 0x200004,
     gatewayPriorityShift  =       2,
-    gatewayPendingShift    =      2,
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
@@ -50,7 +54,6 @@ object PlicMapping{
     targetThresholdOffset =  0xF000,
     targetClaimOffset     =  0xF004,
     gatewayPriorityShift  =       2,
-    gatewayPendingShift   =       2,
     targetThresholdShift  =      12,
     targetClaimShift      =      12,
     targetEnableShift     =       7,
@@ -65,12 +68,14 @@ object PlicMapping{
 object PlicMapper{
   def apply(bus: BusSlaveFactory, mapping: PlicMapping)(gateways : Seq[PlicGateway], targets : Seq[PlicTarget]) = new Area{
     import mapping._
+    // for each gateway, generate priority register & pending bit as needed
     val gatewayMapping = for(gateway <- gateways) yield new Area{
-      if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift)) init(0)
-      if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift))
-      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id << gatewayPendingShift))
+      if(gatewayPriorityWriteGen && !gateway.priority.hasAssignement) bus.drive(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Driving priority for gateway ${gateway.getName()}. Inits to 0 (interrupt is disabled)" ) init(0)
+      if(gatewayPriorityReadGen) bus.read(gateway.priority, address = gatewayPriorityOffset + (gateway.id << gatewayPriorityShift), documentation = s"Read priority for gateway ${gateway.getName()}")
+      if(gatewayPendingReadGen) bus.read(gateway.ip, address = gatewayPendingOffset + (gateway.id/bus.busDataWidth)*bus.busDataWidth/8, bitOffset = gateway.id % bus.busDataWidth, documentation = s"Read Pending bit for gateway " + gateway.getName())
     }
 
+    // claim/complete logic
     val idWidth = log2Up((gateways.map(_.id) ++ Seq(0)).max + 1)
     val claim = Flow(UInt(idWidth bits))
     claim.valid := False
@@ -111,12 +116,13 @@ object PlicMapper{
       coherencyStall.increment()
     }
 
+    // for each target/context, generate threshold and claim/complete registers
     val targetMapping = for((target, targetId) <- targets.zipWithIndex) yield new Area {
       val thresholdOffset = targetThresholdOffset + (targetId << targetThresholdShift)
       val claimOffset = targetClaimOffset + (targetId << targetClaimShift)
-      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset) init (0)
-      if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset)
-      bus.read(target.claim, address = claimOffset)
+      if(targetThresholdWriteGen && !target.threshold.hasAssignement) bus.drive(target.threshold, address = thresholdOffset, documentation = s"Drive target threshold for target ${targetId}. inits to 0") init (0)
+      if(targetThresholdReadGen) bus.read(target.threshold, address = thresholdOffset, documentation = s"Read target threshold for target ${targetId}")
+      bus.read(target.claim, address = claimOffset, documentation = s"Read target claim for target ${targetId} ")
       bus.onRead(claimOffset) {
         claim.valid := True
         claim.payload := target.claim
@@ -130,12 +136,12 @@ object PlicMapper{
         completion.valid := True
         completion.payload := targetCompletion.payload
       }
-
+      // for each gateway/interrupt source, generate the enable bits for each target/context
       for ((gateway, gatewayIndex) <- gateways.zipWithIndex) {
         val address = targetEnableOffset + (targetId << targetEnableShift) + bus.busDataWidth/8 * (gateway.id / bus.busDataWidth)
         val bitOffset = gateway.id % bus.busDataWidth
-        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset) init(False)
-        if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset)
+        if(targetEnableWriteGen && !target.ie(gatewayIndex).hasAssignement) bus.drive(target.ie(gatewayIndex), address, bitOffset, documentation = s"Drive target enable for gateway ${gatewayIndex} for target ${targetId}. inits to 0b0") init(False)
+        if(targetEnableReadGen)  bus.read(target.ie(gatewayIndex),  address, bitOffset, documentation = s"Read target enable for gateway ${gatewayIndex} for target ${targetId}.")
       }
     }
   }

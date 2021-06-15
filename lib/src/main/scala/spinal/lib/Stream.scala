@@ -26,8 +26,8 @@ class EventFactory extends MSFactory {
 }
 
 class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
-  val valid   = Bool
-  val ready   = Bool
+  val valid   = Bool()
+  val ready   = Bool()
   val payload = payloadType()
 
   override def clone: Stream[T] =  Stream(payloadType)
@@ -125,13 +125,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def pipelined(m2s : Boolean = false,
                 s2m : Boolean = false,
                 halfRate : Boolean = false) : Stream[T] = {
-    val ret = Stream(payloadType)
     (m2s, s2m, halfRate) match {
-      case (false,false,false) => this
-      case (true,false,false) => val ret = Stream(payloadType); ret << this.m2sPipe(); ret
-      case (false,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe(); ret
-      case (true,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe().m2sPipe(); ret
-      case (false,false,true) => val ret = Stream(payloadType); ret << this.halfPipe(); ret
+      case (false,false,false) => this.combStage()
+      case (true,false,false) =>  this.m2sPipe()
+      case (false,true,false) =>  this.s2mPipe()
+      case (true,true,false) =>   this.s2mPipe().m2sPipe()
+      case (false,false,true) =>  this.halfPipe()
     }
   }
 
@@ -150,12 +149,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream
   */
-  def queue(size: Int): Stream[T] = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue", true)
-    fifo.setPartialName(this,"fifo")
-    fifo.io.push << this
-    fifo.io.pop
-  }
+  def queue(size: Int): Stream[T] = new Composite(this){
+    val fifo = new StreamFifo(payloadType, size)
+    fifo.io.push << self
+  }.fifo.io.pop
 
 /** Connect this to an clock crossing fifo and return its pop stream
   */
@@ -202,6 +199,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cc.io.input << this
     cc.io.output
   }
+
+  def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggleWithoutBuffer(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
 
   /**
    * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
@@ -324,26 +328,25 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
+  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = new Composite(this) {
+    val m2sPipe = Stream(payloadType)
 
-    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
-    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
+    val rValid = RegInit(False)
+    val rData = Reg(payloadType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
-    this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
+    self.ready := (Bool(collapsBubble) && !m2sPipe.valid) || m2sPipe.ready
 
-    when(this.ready) {
-      rValid := this.valid
-      rData := this.payload
+    when(self.ready) {
+      rValid := self.valid
+      rData := self.payload
     }
 
     if(flush != null) rValid clearWhen(flush)
 
-    ret.valid := rValid
-    ret.payload := rData
-    ret
-  }
+    m2sPipe.valid := rValid
+    m2sPipe.payload := rData
+  }.m2sPipe
 
   def s2mPipe(): Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
@@ -1221,6 +1224,53 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
     }
 
     io.output << stream.m2sPipe()
+  }
+}
+
+
+class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+  val io = new Bundle {
+    val input = slave Stream (dataType())
+    val output = master Stream (dataType())
+  }
+
+  val outHitSignal = Bool
+
+  val pushArea = new ClockingArea(inputClock) {
+    val hit = BufferCC(outHitSignal, False)
+    val target = RegInit(False)
+    val busy = RegInit(False)
+    val data = RegNext(io.input.payload)
+    io.input.ready := False
+    when(!busy){
+      when(io.input.valid) {
+        target := !target
+        busy := True
+      }
+    } otherwise {
+      when(hit === target) {
+        io.input.ready := True
+        busy := False
+      }
+    }
+  }
+
+
+  val popArea = new ClockingArea(outputClock) {
+    val target = BufferCC(pushArea.target, False, 3)
+    val hit = RegInit(False)
+    outHitSignal := hit
+
+    val stream = cloneOf(io.input)
+    stream.valid := (target =/= hit)
+    stream.payload := RegNext(pushArea.data).addTag(crossClockDomain)
+    stream.payload
+
+    when(stream.fire) {
+      hit := target
+    }
+
+    io.output << stream
   }
 }
 

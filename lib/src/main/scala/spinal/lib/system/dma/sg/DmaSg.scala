@@ -1187,7 +1187,7 @@ object DmaSg{
         val completed = Reg(Bool)
         io.sgRead.rsp.ready := True
         when(io.sgRead.rsp.fire){
-          beatCounter := beatCounter + 1
+          beatCounter := (beatCounter + 1).resized
 
           def beatHit(offset : Int) = offset/beatBytes === beatCounter
           def mapChannel[T <: Data](f : ChannelLogic => T, gen : Channel => Boolean, byte : Int, bit : Int){
@@ -1795,7 +1795,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     if(cp.memoryToMemory)        tests += M2M
     if(cp.outputsPorts.nonEmpty) tests += M2S
     if(cp.inputsPorts.nonEmpty)  tests += S2M
-    for (r <- 0 until 500) {
+    for (r <- 0 until 100) {
 //      println(f"Channel $channelId")
       clockDomain.waitSampling(Random.nextInt(100))
       tests.randomPick() match {

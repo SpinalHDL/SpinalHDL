@@ -58,6 +58,10 @@ package object sim {
   def setBigInt[T <: Data](mem : Mem[T], address : Long, data : BigInt): Unit = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to write to an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -79,6 +83,10 @@ package object sim {
   def getBigInt[T <: Data](mem : Mem[T], address : Long): BigInt = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to read from an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -757,7 +765,7 @@ package object sim {
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
     def isSamplingDisable: Boolean       = ! isSamplingEnable
   }
-
+  implicit class SimClockDomainHandlePimper(cd: spinal.core.fiber.Handle[ClockDomain]) extends SimClockDomainPimper(cd.get)
 
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
@@ -780,6 +788,31 @@ package object sim {
         queue.dequeue().resume()
       } else {
         locked = false
+      }
+    }
+  }
+
+
+  def forkSimSporadicWave(captures : Seq[(Double, Double)], enableTime : Double = 1e-7, disableTime : Double = 1e-4, timeUnit : Double = 1e12): Unit ={
+    fork{
+      for((at, until) <- captures) {
+        val duration = until-at
+        assert(duration >= 0)
+        while (simTime() < at * timeUnit) {
+          disableSimWave()
+          sleep(disableTime * timeUnit)
+          enableSimWave()
+          sleep(enableTime * timeUnit)
+        }
+        println("\n\n********************")
+        sleep(duration * timeUnit)
+        println("********************\n\n")
+      }
+      while(true) {
+        disableSimWave()
+        sleep(disableTime * timeUnit)
+        enableSimWave()
+        sleep(  enableTime * timeUnit)
       }
     }
   }

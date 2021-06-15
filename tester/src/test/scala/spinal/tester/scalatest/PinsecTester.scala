@@ -68,7 +68,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     sdramPowerupCounter.component.rework(
       sdramPowerupCounter init(sdramPowerupCounter.maxValue - 100)
     )
-    pinsec.axi.ram.rework{
+    val miaou = pinsec.axi.ram.rework(new Area{
       import pinsec.axi.ram._
 
       val port = ram.writePort
@@ -76,9 +76,13 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
       port.address.setName("ram_port0_address") := 0
       port.data.setName("ram_port0_writeData") := 0
 
-      Bool().setName("ram_port0_enable") := False
-      Bits(4 bits).setName("ram_port0_mask") := 0
-    }
+      val a = Bool().setName("ram_port0_enable")
+      val b = Bits(4 bits).setName("ram_port0_mask")
+      a := False
+      b := 0
+    })
+    miaou.a.pull()
+    miaou.b.pull()
     pinsec
   }
   override def backendConfig(config: SpinalConfig) = config.mode match {

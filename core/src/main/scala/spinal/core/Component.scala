@@ -21,6 +21,7 @@
 
 package spinal.core
 
+import spinal.core.fiber._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -32,22 +33,19 @@ object Component {
   /** Push a new component on the stack */
   def push(c: Component): Unit = {
     if(c != null) {
-      c.globalData.dslScope.push(c.dslBody)
+      DslScopeStack.push(c.dslBody)
     }else
-      GlobalData.get.dslScope.push(null)
+      DslScopeStack.push(null)
   }
 
   /**  Remove component of the stack if it is the same as c */
   def pop(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.dslScope.pop()
+    DslScopeStack.pop()
   }
 
   /** Get the current component on the stack */
-  def current: Component = current(GlobalData.get)
-
-  /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
+  def current: Component = DslScopeStack.headOption match {
     case None        => null
     case Some(scope) => scope.component
   }
@@ -70,6 +68,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
+  if(globalData.toplevel == null) globalData.toplevel = this
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
@@ -82,11 +81,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
 
+  def isLogicLess = dslBody.isEmpty && children.isEmpty
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
+  case class PrePopTask(task : () => Unit, clockDomain: Handle[ClockDomain])
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
@@ -101,6 +102,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
+  def walkComponents(body : Component => Unit) = {
+    body(this)
+    children.foreach(body)
+  }
   /** Reference owner type */
 //  override type RefOwnerType = Component
 
@@ -109,7 +114,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the parent component (null if there is no parent)*/
   def parent: Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  val clockDomain = ClockDomain.current
+  val clockDomain = ClockDomain.currentHandle
 
   var withoutReservedKeywords = false
   def withoutKeywords(): Unit ={
@@ -134,7 +139,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
       for(t <- prePopTasksToDo){
-        t.clockDomain(t.task())
+        ClockDomain.push(t.clockDomain)
+        t.task()
+        ClockDomain.pop()
+
       }
     }
   }
@@ -146,7 +154,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.currentHandle)
+//  def addPrePopTask(task: () => Unit) = Engine.get.onCompletion += task
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */
@@ -313,7 +322,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     prePop()
     scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
-    ClockDomain.pop(this.clockDomain)
+    ClockDomain.pop()
     ret
   }
 
@@ -337,5 +346,12 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     io <> childIo
 
     io
+  }
+
+  def onBody[T](body : => T) : T = {
+    dslBody.push()
+    val ret = body
+    dslBody.pop()
+    ret
   }
 }

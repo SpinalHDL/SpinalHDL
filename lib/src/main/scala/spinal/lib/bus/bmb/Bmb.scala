@@ -68,6 +68,10 @@ object Bmb{
 
   def apply(access : BmbAccessParameter, invalidation: BmbInvalidationParameter) : Bmb = Bmb(BmbParameter(access, invalidation))
   def apply(access : BmbAccessParameter) : Bmb = Bmb(BmbParameter(access, BmbInvalidationParameter()))
+
+  def transferBeatCountMinusOneBytesAligned(address : UInt, length : UInt, p : BmbParameter) : UInt = {
+    ((U"0" @@ length) + address(p.access.wordRange))(length.high + 1 downto log2Up(p.access.byteCount))
+  }
 }
 
 case class BmbMasterParameterIdMapping(range : AddressMapping, maximumPendingTransactionPerId : Int)
@@ -134,9 +138,13 @@ case class BmbAccessParameter(addressWidth : Int,
   assert(dataWidth % 8 == 0)
   assert(isPow2(byteCount))
 
+  var _self = this
   var _aggregated : BmbSourceParameter = null
   def aggregated: BmbSourceParameter ={
-    if(_aggregated == null) _aggregated = BmbSourceParameter.aggregate(sources.values.toSeq)
+    if(_aggregated == null || _self != this) {
+      _aggregated = BmbSourceParameter.aggregate(sources.values.toSeq)
+      _self = this
+    }
     _aggregated
   }
 
@@ -150,6 +158,7 @@ case class BmbAccessParameter(addressWidth : Int,
   def canExclusive = aggregated.canExclusive
   def maximumPendingTransaction = aggregated.maximumPendingTransaction
   def sourceWidth = log2Up(sources.keys.max + 1)
+  def canMask = aggregated.canMask
 
   def sourcesId = sources.map(_._1)
   def byteCount = dataWidth/8
@@ -200,6 +209,7 @@ case class BmbAccessParameter(addressWidth : Int,
     accessLatencyMin           = accessLatencyMin,
     canRead                    = canRead,
     canWrite                   = canWrite,
+    canMask                    = canMask,
     canExclusive               = canExclusive,
     maximumPendingTransaction  = maximumPendingTransaction
   )
@@ -223,6 +233,7 @@ case class BmbAccessCapabilities(addressWidth : Int,
                                  accessLatencyMin : Int = 1,
                                  canRead : Boolean = true,
                                  canWrite : Boolean = true,
+                                 canMask : Boolean = true,
                                  canExclusive : Boolean = false,
                                  maximumPendingTransaction : Int = Int.MaxValue){
 
@@ -237,6 +248,7 @@ case class BmbAccessCapabilities(addressWidth : Int,
     accessLatencyMin          = accessLatencyMin,
     canRead                   = canRead,
     canWrite                  = canWrite,
+    canMask                   = canMask,
     canExclusive              = canExclusive,
     maximumPendingTransaction = maximumPendingTransaction
   )))
@@ -251,6 +263,7 @@ object BmbSourceParameter{
     var accessLatencyMin : Int = Int.MaxValue
     var canRead = false
     var canWrite = false
+    var canMask = false
     var canExclusive = false
     var maximumPendingTransaction : Int = 0
     var withCachedRead = false
@@ -264,6 +277,7 @@ object BmbSourceParameter{
       accessLatencyMin = accessLatencyMin.min(s.accessLatencyMin)
       canRead |= s.canRead
       canWrite |= s.canWrite
+      canMask |= s.canWrite && s.canMask
       canExclusive |= s.canExclusive
       withCachedRead |= s.withCachedRead
       maximumPendingTransaction = maximumPendingTransaction.max(s.maximumPendingTransaction)
@@ -277,6 +291,7 @@ object BmbSourceParameter{
       accessLatencyMin = accessLatencyMin,
       canRead = canRead,
       canWrite = canWrite,
+      canMask = canMask,
       canExclusive = canExclusive,
       withCachedRead = withCachedRead,
       maximumPendingTransaction = maximumPendingTransaction
@@ -290,6 +305,7 @@ case class BmbSourceParameter(contextWidth : Int,
                               accessLatencyMin : Int = 1,
                               canRead : Boolean = true,
                               canWrite : Boolean = true,
+                              canMask : Boolean = true,
                               canExclusive : Boolean = false,
                               withCachedRead : Boolean = false,
                               maximumPendingTransaction : Int = Int.MaxValue)
@@ -358,7 +374,7 @@ case class BmbCmd(p : BmbParameter) extends Bundle{
   val address = UInt(p.access.addressWidth bits)
   val length = UInt(p.access.lengthWidth bits)
   val data = p.access.canWrite generate Bits(p.access.dataWidth bits)
-  val mask = p.access.canWrite generate Bits(p.access.maskWidth bits)
+  val mask = (p.access.canWrite && p.access.canMask) generate Bits(p.access.maskWidth bits)
   val context = Bits(p.access.contextWidth bits)
 
   def isWrite = opcode === Bmb.Cmd.Opcode.WRITE

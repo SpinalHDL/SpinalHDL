@@ -308,29 +308,42 @@ object cloneable {
 
 class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
-  val map  = mutable.Map[String, Int]()
+  val map  = mutable.Set[String]()
+  val overlaps  = mutable.Map[String, Int]()
+
+  assert(duplicationPostfix.isEmpty)
 
   def allocateName(name: String): String = {
     assert(!lock)
     val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 0)
-    map(lowerCase) = count + 1
-    val finalCount =  count + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (finalCount == 0) name else (name + "_" + finalCount + duplicationPostfix)
+    if(!map.contains(lowerCase) &&  (parent == null || !parent.map.contains(lowerCase))) {
+      map += lowerCase
+      return name
+    }
+    var count = overlaps.getOrElseUpdate(lowerCase, 0)
+    while(true){
+      count += 1
+      val alternative = name + "_" + count
+      val alternativeLowCase = alternative.toLowerCase()
+      if(!map.contains(alternativeLowCase) && (parent == null || !parent.map.contains(alternativeLowCase))){
+        map += alternativeLowCase
+        overlaps(lowerCase) = count
+        return alternative
+      }
+    }
+    return null
   }
 
-  def getUnusedName(name: String): String = {
-    val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 0) + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (count == 0) name else (name + "_" + count + duplicationPostfix)
-  }
+//  def getUnusedName(name: String): String = {
+//    allocateName(name)
+//  }
 
 
   def lockName(name: String): Unit = {
     assert(!lock)
     val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 1)
-    map(lowerCase) = count
+//    assert(!map.contains(lowerCase))
+    map += lowerCase
   }
 
   def iWantIt(name: String, errorMessage: => String): Unit = {
@@ -338,7 +351,7 @@ class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
       PendingError(errorMessage)
-    map(lowerCase) = 1
+    map += (lowerCase)
   }
 
   def lockScope(): Unit ={

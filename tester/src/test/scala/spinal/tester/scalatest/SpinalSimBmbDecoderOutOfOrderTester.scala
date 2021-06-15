@@ -35,7 +35,7 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       dut.clockDomain.forkStimulus(2)
 
       val tester = new BmbInterconnectTester()
-      tester.perSourceRspCountTarget = 10000
+      tester.perSourceRspCountTarget = 1000
       tester.addMaster(dut.io.input, dut.clockDomain)
       for(portId <- 0 until dut.mappings.size) tester.addSlave(
         bus          = dut.io.outputs(portId),

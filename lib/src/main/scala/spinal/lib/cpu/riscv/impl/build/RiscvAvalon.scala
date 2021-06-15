@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon._
 import spinal.lib.cpu.riscv.impl._
-import spinal.lib.eda.altera.{InterruptReceiverTag, QSysify, ResetEmitterTag}
+import spinal.lib.eda.altera.{InterruptTag, QSysify, ResetEmitterTag}
 
 import cpu.riscv.impl.extension._
 
@@ -146,7 +146,7 @@ object RiscvAvalon{
     report.toplevel.io.i addTag(ClockDomainTag(report.toplevel.clockDomain))
     report.toplevel.io.d addTag(ClockDomainTag(report.toplevel.clockDomain))
     if(interruptCount != 0)
-      report.toplevel.io.interrupt addTag(InterruptReceiverTag(report.toplevel.io.i,report.toplevel.clockDomain))
+      report.toplevel.io.interrupt addTag InterruptTag(report.toplevel.clockDomain, report.toplevel.io.i)
     if(debug) {
       report.toplevel.io.debugBus addTag(ClockDomainTag(report.toplevel.debugExtension.clockDomain))
       report.toplevel.io.debugResetOut.addTag(ResetEmitterTag(report.toplevel.debugExtension.clockDomain))

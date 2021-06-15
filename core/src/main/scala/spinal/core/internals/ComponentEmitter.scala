@@ -41,7 +41,7 @@ class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val string
     if (this.hashCode() != obj.hashCode()) return false //Collision into hashmap implementation don't check it XD
     obj match {
       case that: ComponentEmitterTrace =>
-        return (this.builders, that.builders).zipped.map(_ == _).reduce(_ && _) && (this.strings, that.strings).zipped.map(_ == _).reduce(_ && _)
+        return (this.builders, that.builders).zipped.map(_ == _).forall(e => e) && (this.strings, that.strings).zipped.map(_ == _).forall(e => e)
     }
   }
 
@@ -95,8 +95,8 @@ abstract class ComponentEmitter {
   }
 
   def isSubComponentInputBinded(data: BaseType) = {
-    if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
-      data.head.source.asInstanceOf[BaseType]
+    if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+      data.head.source
     else
       null
   }

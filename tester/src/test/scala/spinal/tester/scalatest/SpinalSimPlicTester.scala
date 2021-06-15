@@ -135,7 +135,7 @@ class SpinalSimPlicTester extends SpinalSimFunSuite {
             (0 until sourceCount).foreach { sourceId =>
               if (Random.nextFloat() < 0.1) {
                 val gatwayId = idMapping(sourceId)
-                val isPending = apb.read(gatewayPendingOffset + (gatwayId << gatewayPendingShift)) != 0
+                val isPending = ((apb.read(gatewayPendingOffset + (gatwayId/32*4)) >> (gatwayId % 32)) & 1) != 0
                 assert(isPending == sourcesPending(sourceId))
               }
             }
