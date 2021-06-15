@@ -361,12 +361,12 @@ class ComponentEmitterVerilog(
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
-    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")}) begin\n"
+    b ++= s"${tabStr}always @(${referenceSetSorted().mkString(" or ")}) begin\n"
 
     inc
 
     if (asyncReset) {
-      b ++= s"${tabStr}if (${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}) begin\n"
+      b ++= s"${tabStr}if(${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}) begin\n"
       inc
       b ++= initialStatlementsGeneration
       dec
@@ -487,7 +487,7 @@ class ComponentEmitterVerilog(
 
         if (referenceSetSorted().nonEmpty) {
 //          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
-          logics ++= s"  always @ (*) begin\n"
+          logics ++= s"  always @(*) begin\n"
           logics ++= tmp.toString()
           logics ++= "  end\n\n"
         } else {
@@ -515,7 +515,7 @@ class ComponentEmitterVerilog(
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
 //              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
-              logics ++= s"  always @ (*) ${emitReference(node, false)} = $name;\n"
+              logics ++= s"  always @(*) ${emitReference(node, false)} = $name;\n"
           }
         }
     }
@@ -626,7 +626,7 @@ class ComponentEmitterVerilog(
         treeStatement match {
           case treeStatement: WhenStatement =>
             if(scopePtr == treeStatement.whenTrue){
-              b ++= s"${tab}if(${emitExpression(treeStatement.cond)})begin\n"
+              b ++= s"${tab}if(${emitExpression(treeStatement.cond)}) begin\n"
             } else if(lastWhen == treeStatement){
               //              if(scopePtr.sizeIsOne && scopePtr.head.isInstanceOf[WhenStatement]){
               //                b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
@@ -634,7 +634,7 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}end else begin\n"
               //              }
             } else {
-              b ++= s"${tab}if(! ${emitExpression(treeStatement.cond)}) begin\n"
+              b ++= s"${tab}if(!${emitExpression(treeStatement.cond)}) begin\n"
             }
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
@@ -1116,7 +1116,7 @@ end
           }
 
 //          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
-          logics ++= s"  always @ (*) begin\n"
+          logics ++= s"  always @(*) begin\n"
           logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
           logics ++= s"  end\n"
         }
