@@ -200,6 +200,7 @@ class ComponentEmitterVhdl(
             case s : WhenStatement => "_when"
             case s : SwitchContext => "_switch"
             case s : Nameable => "_" + s.getName()
+            case s : MemPortStatement =>  "_" + s.dlcParent.getName() + "_port"
             case _ => ""
           }
 

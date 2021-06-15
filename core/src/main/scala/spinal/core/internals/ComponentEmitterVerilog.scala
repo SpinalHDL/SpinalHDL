@@ -173,6 +173,7 @@ class ComponentEmitterVerilog(
             case s : WhenStatement => "_when"
             case s : SwitchContext => "_switch"
             case s : Nameable => "_" + s.getName()
+            case s : MemPortStatement => "_" + s.dlcParent.getName() + "_port"
             case _ => ""
           }
           val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
@@ -1108,7 +1109,7 @@ end
           b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
         else{
           val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + mem.getName() + "symbol_read")
             declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
             b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
             symboleReadDataName
