@@ -79,7 +79,7 @@ lazy val all = (project in file("."))
 
 import sys.process._
 def gitHash(dir: File) = (try {
-  s"git -C ${dir.toString} rev-parse HEAD".!!
+  s"git -c ${dir.toString} rev-parse HEAD".!!
 } catch{
   case e : java.io.IOException => "???"
 }).linesIterator.next()
