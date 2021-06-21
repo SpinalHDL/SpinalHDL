@@ -26,7 +26,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-v1
+        key: ${{ runner.os }}-pip-v2
         restore-keys: |
           ${{ runner.os }}-pip-
 
@@ -44,7 +44,7 @@ jobs:
       with:
         path: |
           ~/tools
-        key: ${{ runner.os }}-tools_v1y
+        key: ${{ runner.os }}-tools_v2
 
     - name: Setup env
       run: echo "$HOME/tools/bin" >> $GITHUB_PATH
