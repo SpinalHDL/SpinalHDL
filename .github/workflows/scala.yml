@@ -1,10 +1,6 @@
 name: Scala CI
 
-on:
-  push:
-    branches: [ gitaction ]
-  pull_request:
-    branches: [ gitaction ]
+on: [push, pull_request]
 
 jobs:
   build:
