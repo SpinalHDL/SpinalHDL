@@ -45,15 +45,15 @@ jobs:
     - name: Setup env
       run: echo "$HOME/tools/bin" >> $GITHUB_PATH
 
-    - name: Install tools
+    - name: Install cached tools
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
-    - name: Fixup
-      run: source tools.sh && install_packages
+    - name: Install uncached tools
+      run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
     - name: Compile tests
-      run: source tools.sh && purge_cocotb #sbt test:compile
+      run: sbt test:compile
 
     - name: Run tests
-      run: ls #sbt test
+      run: sbt test
