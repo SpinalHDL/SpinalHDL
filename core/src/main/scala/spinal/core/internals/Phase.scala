@@ -1768,6 +1768,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
         var error = false
 
         s match {
+          case s : InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 

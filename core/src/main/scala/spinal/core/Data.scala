@@ -25,6 +25,7 @@ import spinal.core.internals._
 
 object DataAssign
 object InitAssign
+object InitialAssign
 class VarAssignementTag(val from : Data) extends SpinalTag{
   var id = 0
 }
@@ -105,6 +106,16 @@ trait DataPrimitives[T <: Data]{
       Component.pop(c)
     }
     _data
+  }
+}
+
+trait BaseTypePrimitives[T <: BaseType] {
+
+  private[spinal] def _baseType: T = this.asInstanceOf[T]
+
+  def initial(that : T) = {
+    _baseType.initialFrom(that)
+    _baseType
   }
 }
 

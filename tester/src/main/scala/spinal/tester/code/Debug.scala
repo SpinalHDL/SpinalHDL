@@ -69,133 +69,33 @@ object Debug2 extends App{
 ////      x + 1
 ////    }
 //  }
-  SpinalVerilog(new Component{
-//    val input = slave Stream(UInt(8 bits))
-//    val output = master Stream(UInt(8 bits))
-//
-//    output << input.queue(8).m2sPipe()
 
-//    val a,b,c,d = in Bool()
-//
-//    val result = out UInt(8 bits)
-//    result.allowOverride
-//
-//    def miaou(value : Int) = new Composite(result){
-//      val x = U(value, 8 bits)
-//    }.x
-//
-//    def miaou2(value : Int) = new Composite(result, "rawrrr"){
-//      val x = U(value, 8 bits) + self
-//    }.x
-//
-//    def miaou3(value : Int) = new Composite(UInt(8 bits)){
-//      val tmp = U(value, 8 bits)
-//      self := tmp
-//    }.self
-//
-//
-//    def miaou4(value : Int) ={
-//      val tmp = UInt(8 bits)
-//      tmp := value
-//      tmp(1) := a
-//
-//
-//      val tmp2 = UInt(8 bits)
-//      tmp2 := value+tmp
-//      tmp2(1) := b
-//
-//      tmp2
-//    }
-//
-//    result := miaou4(10)
 
-    val digital = slave(TriState(Bool))
-    val pin = inout(Analog(Bool))
-    when(digital.writeEnable){
-      pin := digital.write
-    }
-    digital.read := pin
+  SpinalConfig().includeFormal.generateSystemVerilog(new Component{
+    val rawrrr = in UInt(8 bits)
+    val wuff = out(Reg(UInt(8 bits))) init(0x11)
+    wuff := wuff + rawrrr
 
 
 
-//    val t1 = new Area {
-//      val x = miaou(1)
-//      val y = miaou(2)
-//
-//      miaou(3)
-//    }
-//
-//    val t2 = new Area {
-//      val x = miaou2(4)
-//      val y = miaou2(5)
-//      miaou2(6)
-//    }
-//    val t3 = new Area {
-//      val x = miaou3(7)
-//      val y = miaou3(8)
-//      miaou3(9)
-//    }
-
-//    result := 0
-
-//    when(a){
-//      miaou(4)
-//    }
-//    when(b){
-//      miaou(5)
-//    }
-
-
-    //    val miaou = UInt(8 bits).setCompositeName(input.queue(8))
-//  println(miaou.getName())
-//    val input =  Vec(Bool, 8)
-//    val sel = in UInt(3 bits)
-//    val output = (input(sel))
-
-//    val output = out(Reg(Bool) init(False))
-//    output := False
-
-//    val sub1 = new Component{
-//      val sub2 = new Component{
-//        val a = False
-//        val sub3 = new Component{
-//
-//        }
+//    GenerationFlags.formal {
+//      when(Formal.initstate()) {
+//        assume(clockDomain.isResetActive)
 //      }
 //    }
-//
-//    val rawrrr = (CombInit(sub1.sub2.a.pull()))
 
 
-//    val a,b,c = Bool()
-//
-//    a := False
-//    when(b || c){
-//      a := True
-//    }
+    GenerationFlags.formal {
+//      ClockDomain.current.readResetWire initial(False)
+      rawrrr.initial(0x42)
 
-//    val a = Bool()
-//
-//    a := False
+      assumeInitial(!clockDomain.isResetActive)
+      ClockDomain.current.duringReset {
+        assume(rawrrr === 0)
+        assume(wuff === 3)
+      }
+    }
 
-//    val wuff = in Bool()
-
-//    val bb = new Component{
-//      val miaou = in UInt(8 bits)
-//        setDefinitionName("aaaa")
-//      setName("bbb")
-//    }
-//    bb.miaou := 4
-//    val a,b,c,d = in UInt(8 bits)
-//    val result = out (UInt(8 bits))
-//    result := a + b + c.resize(9 bits)(7 downto 0) + d
-//
-//    when(a+b+c === 0){
-//      result := 42
-//    }
-
-//    when(a+b+c === 0){
-//    }
     setDefinitionName("miaou")
   })
 

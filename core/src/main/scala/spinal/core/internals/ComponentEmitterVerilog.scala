@@ -202,6 +202,7 @@ class ComponentEmitterVerilog(
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
+    emitInitials()
     emitAnalogs()
     emitMuxes()
     emitEnumDebugLogic()
@@ -223,6 +224,21 @@ class ComponentEmitterVerilog(
       case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
       case s                =>
     }
+  }
+
+  def emitInitials() : Unit = {
+    if(initials.isEmpty) return
+    logics ++= "  initial begin\n"
+    emitLeafStatements(initials, 0, c.dslBody, "=", logics , "    ")
+//    initials.foreach{
+//      case s : InitialAssignmentStatement => {
+//        logics ++= s"    ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+//      }
+//      case s : AssertStatement => {
+//        logics ++= emitLeafStatements(Lists)
+//      }
+//    }
+    logics ++= "  end\n"
   }
 
   def emitAnalogs(): Unit ={

@@ -44,7 +44,7 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")

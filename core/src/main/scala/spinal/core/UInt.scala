@@ -48,7 +48,7 @@ trait UIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
-class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
     require(!q.signed, "assign SQ to UInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")
