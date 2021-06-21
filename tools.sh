@@ -50,6 +50,9 @@ purge_cocotb(){
   cd ../../../../../..
 }
 
+install_packages(){
+  sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
+}
 
 install_tools(){
   install_verilator

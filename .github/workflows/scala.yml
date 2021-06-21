@@ -50,10 +50,10 @@ jobs:
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
     - name: Fixup
-      run: source tools.sh && (cd ~/ && install_cocotb) && sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev && purge_cocotb
+      run: source tools.sh && install_packages
 
     - name: Compile tests
-      run: ls #&& sbt test:compile
+      run: sbt test:compile
 
     - name: Run tests
-      run: ls #&& sbt test
+      run: sbt test
