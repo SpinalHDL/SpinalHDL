@@ -18,12 +18,18 @@ jobs:
       with:
         java-version: '11'
         distribution: 'adopt'
-    - name: Setup GHDL
-      # You may pin to the exact commit or the version.
-      # uses: ghdl/setup-ghdl-ci@233774d8c0c5021af4c3686ea405013cb1494fd1
-      uses: ghdl/setup-ghdl-ci@233774d8c0c5021af4c3686ea405013cb1494fd1
+
+    - name: Tools cache
+      id: tools
+      uses: actions/cache@v2
       with:
-        # Select GHDL backend (mcode, llvm or gcc)
-        backend: mcode # optional, default is mcode             
+        path: |
+          ~/tools
+        key: ${{ runner.os }}-tools
+
+    - name: Install tools
+      if: steps.tools.outputs.cache-hit != 'true'
+      run: source tools.sh && cd ~/ && install_tools
+
     - name: Run tests
-      run: sbt compile
+      run: ls ~/tools && verilator --version
