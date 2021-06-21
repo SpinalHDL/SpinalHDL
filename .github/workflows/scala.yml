@@ -22,7 +22,7 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-
+        key: ${{ runner.os }}-pip-v1
         restore-keys: |
           ${{ runner.os }}-pip-
 
@@ -53,7 +53,7 @@ jobs:
       run: source tools.sh && install_packages
 
     - name: Compile tests
-      run: source tools.sh && purge_cocotb #sbt test:compile
+      run: source tools.sh && (cd ~/ && install_cocotb) &&  purge_cocotb #sbt test:compile
 
     - name: Run tests
       run: ls #sbt test
