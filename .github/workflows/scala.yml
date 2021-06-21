@@ -19,6 +19,21 @@ jobs:
         java-version: '11'
         distribution: 'adopt'
 
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Cache SBT
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.ivy2/cache
+          ~/.sbt
+        key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
+
     - name: Tools cache
       id: tools
       uses: actions/cache@v2
@@ -27,16 +42,9 @@ jobs:
           ~/tools
         key: ${{ runner.os }}-tools
 
-    - uses: actions/cache@v2
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
     - name: Install tools
       #if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && cd ~/ && install_tools
 
     - name: Run tests
-      run: ls ~/tools && verilator --version
+      run: export PATH=~/tools/bin:$PATH && ls ~/tools/bin && verilator --version && ghdl --version && iverilog -v
