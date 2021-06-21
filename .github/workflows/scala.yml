@@ -49,8 +49,8 @@ jobs:
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
-  #  - name: Fixup
- #     run: source tools.sh && purge_cocotb
+    - name: Fixup
+      run: source tools.sh && purge_cocotb
 
     - name: Compile tests
       run: ls #&& sbt test:compile
