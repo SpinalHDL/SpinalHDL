@@ -23,6 +23,7 @@ install_ghdl(){
   ../configure --prefix=~/tools
   make -j$(nproc)
   make install
+  cd ..
 }
 
 install_iverilog(){
@@ -34,7 +35,6 @@ install_iverilog(){
   make -j$(nproc)
   make install
   cd ..
-  rm -rf iverilog-10_3
 }
 
 install_cocotb(){
