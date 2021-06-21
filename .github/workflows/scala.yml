@@ -47,7 +47,7 @@ jobs:
 
     - name: Install tools
       if: steps.tools.outputs.cache-hit != 'true'
-      run: source tools.sh && (cd ~/ && install_cocotb) && purge_cocotb
+      run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
   #  - name: Fixup
  #     run: source tools.sh && purge_cocotb

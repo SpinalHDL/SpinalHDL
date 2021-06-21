@@ -56,8 +56,4 @@ install_tools(){
   install_ghdl
   install_iverilog
   install_cocotb
-  echo MIAOUUUUU
-  ls ~/
-  echo rawrrrr
-  ls .
 }
