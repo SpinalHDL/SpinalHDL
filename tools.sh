@@ -40,12 +40,14 @@ install_iverilog(){
 install_cocotb(){
   pip3 install --user cocotb
   sudo apt install -y git make gcc g++ swig python3-dev
+}
+
+purge_cocotb(){
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  export PATH=$(pwd)/ghdl/usr/local/bin:$PATH
-  cd SpinalHDL/tester/src/test/python/spinal/Dummy
+  cd tester/src/test/python/spinal/Dummy
   make TOPLEVEL_LANG=verilog
   make TOPLEVEL_LANG=vhdl
-  cd ../../../../../../..
+  cd ../../../../../..
 }
 
 
@@ -53,7 +55,7 @@ install_tools(){
   install_verilator
   install_ghdl
   install_iverilog
-  #install_cocotb
+  install_cocotb
   echo MIAOUUUUU
   ls ~/
   echo rawrrrr

@@ -7,9 +7,9 @@ on:
     branches: [ gitaction ]
 
 jobs:
-  build:
-
+  enforce-timeout-minutes:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
     - uses: actions/checkout@v2
@@ -42,9 +42,18 @@ jobs:
           ~/tools
         key: ${{ runner.os }}-tools
 
+    - name: Env setup
+      run: export PATH=~/tools/bin:$PATH
+
     - name: Install tools
-      #if: steps.tools.outputs.cache-hit != 'true'
-      run: source tools.sh && cd ~/ && install_tools
+      if: steps.tools.outputs.cache-hit != 'true'
+      run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
+
+    - name: Fixup
+      run: source tools.sh && cd ~/ && (cd ~/ && install_tools)  && purge_cocotb
+
+    - name: Compile tests
+      run: ls #&& sbt test:compile
 
     - name: Run tests
-      run: export PATH=~/tools/bin:$PATH && echo miaou
+      run: ls #&& sbt test
