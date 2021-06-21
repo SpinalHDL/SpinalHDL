@@ -47,4 +47,4 @@ jobs:
       run: source tools.sh && cd ~/ && install_tools
 
     - name: Run tests
-      run: export PATH=~/tools/bin:$PATH && ls ~/tools/bin && verilator --version && ghdl --version && iverilog -v
+      run: export PATH=~/tools/bin:$PATH && echo miaou
