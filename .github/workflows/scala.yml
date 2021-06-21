@@ -7,7 +7,7 @@ on:
     branches: [ gitaction ]
 
 jobs:
-  enforce-timeout-minutes:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -19,7 +19,8 @@ jobs:
         java-version: '11'
         distribution: 'adopt'
 
-    - uses: actions/cache@v2
+    - name: Cache pip
+      uses: actions/cache@v2
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-v1
@@ -49,7 +50,7 @@ jobs:
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
-    - name: Install uncached tools
+    - name: Install uncachesd tools
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
     - name: Compile tests
