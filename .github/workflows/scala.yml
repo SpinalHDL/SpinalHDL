@@ -40,17 +40,17 @@ jobs:
       with:
         path: |
           ~/tools
-        key: ${{ runner.os }}-tools
+        key: ${{ runner.os }}-tools_v1y
 
     - name: Env setup
       run: echo "$HOME/tools/bin" >> $GITHUB_PATH
 
     - name: Install tools
       if: steps.tools.outputs.cache-hit != 'true'
-      run: sudo apt install -y libgnat-9 && source tools.sh && purge_cocotb
-
-    - name: Fixup
       run: source tools.sh && (cd ~/ && install_cocotb) && purge_cocotb
+
+  #  - name: Fixup
+ #     run: source tools.sh && purge_cocotb
 
     - name: Compile tests
       run: ls #&& sbt test:compile
