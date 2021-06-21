@@ -27,6 +27,13 @@ jobs:
           ~/tools
         key: ${{ runner.os }}-tools
 
+    - uses: actions/cache@v2
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install tools
       #if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && cd ~/ && install_tools
