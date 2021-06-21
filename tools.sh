@@ -2,6 +2,9 @@
 
 install_verilator(){
   sudo apt install -y git make autoconf g++ flex bison  # First time prerequisites
+  find /usr/include/ -name "*Flex*"
+  echo aaaaa
+  asdasd
   git clone http://git.veripool.org/git/verilator   # Only first time
   unset VERILATOR_ROOT  # For bash
   cd verilator

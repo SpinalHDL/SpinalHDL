@@ -28,7 +28,7 @@ jobs:
         key: ${{ runner.os }}-tools
 
     - name: Install tools
-      if: steps.tools.outputs.cache-hit != 'true'
+      #if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && cd ~/ && install_tools
 
     - name: Run tests
