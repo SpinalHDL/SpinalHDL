@@ -50,7 +50,7 @@ jobs:
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
     - name: Fixup
-      run: source tools.sh && cd ~/ && (cd ~/ && install_tools)  && purge_cocotb
+      run: source tools.sh && cd ~/ && (cd ~/ && install_cocotb)  && purge_cocotb
 
     - name: Compile tests
       run: ls #&& sbt test:compile
