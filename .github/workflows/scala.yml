@@ -43,14 +43,14 @@ jobs:
         key: ${{ runner.os }}-tools
 
     - name: Env setup
-      run: export PATH=~/tools/bin:$PATH
+      run: echo "$HOME/tools/bin" >> $GITHUB_PATH
 
     - name: Install tools
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
     - name: Fixup
-      run: source tools.sh &&  (cd ~/ && install_cocotb) && purge_cocotb
+      run: source tools.sh && (cd ~/ && install_cocotb) && purge_cocotb
 
     - name: Compile tests
       run: ls #&& sbt test:compile
