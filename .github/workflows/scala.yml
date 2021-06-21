@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 90
 
     steps:
     - uses: actions/checkout@v2
@@ -57,4 +57,4 @@ jobs:
       run: sbt test:compile
 
     - name: Run tests
-      run: sbt test
+      run: sbt "testOnly *StreamTesterCocotbBoot"
