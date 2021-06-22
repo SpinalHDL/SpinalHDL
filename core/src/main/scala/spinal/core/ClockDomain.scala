@@ -50,8 +50,6 @@ case class ClockTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ResetTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 
-trait DummyTrait
-
 
 
 // Default configuration of clock domain is :

@@ -27,7 +27,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 
-
+trait DummyTrait
+object DummyObject extends DummyTrait
 /**
   * Trait used to set the direction of a data
   */
@@ -39,7 +40,7 @@ trait IODirection extends BaseTypeFactory {
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
-  override def Bool() = applyIt(super.Bool())
+  def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
   override def Bits() = applyIt(super.Bits())
   override def UInt() = applyIt(super.UInt())
   override def SInt() = applyIt(super.SInt())
