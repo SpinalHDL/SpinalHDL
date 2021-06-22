@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim.{SpinalSimConfig, _}
@@ -68,7 +68,7 @@ object SpinalSimTester{
   }
 }
 
-class SpinalSimTesterTest extends FunSuite {
+class SpinalSimTesterTest extends AnyFunSuite {
   SpinalSimTester{ env =>
     import env._
 
@@ -78,7 +78,7 @@ class SpinalSimTesterTest extends FunSuite {
   }
 }
 
-class SpinalSimFunSuite extends FunSuite{
+class SpinalSimFunSuite extends AnyFunSuite{
   var tester : SpinalSimTester = null
   def SimConfig = tester.SimConfig
   var durationFactor = 0.0
@@ -102,7 +102,7 @@ class SpinalSimFunSuite extends FunSuite{
   }
 }
 
-class SpinalSimMiscTester extends FunSuite {
+class SpinalSimMiscTester extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null

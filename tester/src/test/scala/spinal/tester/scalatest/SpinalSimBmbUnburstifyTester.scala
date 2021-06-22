@@ -1,11 +1,11 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbLengthFixer, BmbParameter, BmbSourceParameter, BmbUnburstify}
 
-class SpinalSimBmbUnburstifyTester extends FunSuite {
+class SpinalSimBmbUnburstifyTester extends AnyFunSuite {
   test("miaou") {
     SimConfig.compile {
       val c = BmbUnburstify(

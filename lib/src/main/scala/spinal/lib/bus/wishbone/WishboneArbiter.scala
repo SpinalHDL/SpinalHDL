@@ -2,6 +2,7 @@ package spinal.lib.bus.wishbone
 
 import spinal.core._
 import spinal.lib._
+import scala.collection.Seq
 
 /** Factory for [[spinal.lib.bus.wishbone.WishboneArbiter]] instances. */
 object WishboneArbiter{

@@ -25,11 +25,11 @@ class FloatingTester extends Component {
     val in_uint = in UInt(32 bits)
     val out_float = out(Floating32())
     val out_recfloat = out(RecFloating32())
-    val out_uint_bits = out Bits
+    val out_uint_bits = out Bits()
 
     // SInt to Float conversion test
     val in_sint = in SInt(32 bits)
-    val out_sint_bits = out Bits
+    val out_sint_bits = out Bits()
 
     // Float to UInt conversion
     val out_to_UInt = out UInt(32 bits)

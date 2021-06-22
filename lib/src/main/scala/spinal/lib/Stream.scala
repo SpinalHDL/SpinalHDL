@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import scala.collection.Seq
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory

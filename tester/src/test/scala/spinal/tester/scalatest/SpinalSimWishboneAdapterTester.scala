@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -23,7 +23,7 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
   val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
 }
 
-class SpinalSimWishboneAdapterTester extends FunSuite{
+class SpinalSimWishboneAdapterTester extends AnyFunSuite{
   def testBus(confIN:WishboneConfig,confOUT:WishboneConfig,allowAddressResize: Boolean = false,allowDataResize: Boolean = false,allowTagResize: Boolean = false, description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleBusAdapted(confIN,confOUT){val miaou = out(RegNext(False))})
     fixture.doSim(description){ dut =>

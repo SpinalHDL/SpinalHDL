@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -9,6 +9,7 @@ import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
 import scala.util.Random
+import scala.collection.Seq
 
 class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Component{
   val io = new Bundle{
@@ -19,7 +20,7 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
   val arbiter = WishboneArbiter(io.busIN,io.busOUT)
 }
 
-class SpinalSimWishboneArbiterTester extends FunSuite{
+class SpinalSimWishboneArbiterTester extends AnyFunSuite{
   def testArbiter(config : WishboneConfig,size: Int,description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneArbiterComponent(config,size))
     fixture.doSim(description){ dut =>

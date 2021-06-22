@@ -195,7 +195,11 @@ package object sim {
     }
   }
 
-  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+  def forkSensitive(triggers: Data)(block: => Unit): Unit = {
+    forkSensitive2(triggers)(block)
+  }
+
+  def forkSensitive2(triggers: Data*)(block: => Unit): Unit = {
     def value(data: Data) = data.flatten.map(_.toBigInt)
     def currentTriggerValue = triggers.flatMap(value)
 

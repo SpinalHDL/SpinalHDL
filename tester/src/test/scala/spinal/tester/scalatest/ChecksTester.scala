@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 import java.io.File
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.internals.GraphUtils
 import spinal.lib.com.i2c._
@@ -36,7 +36,7 @@ object CheckTester{
   }
 }
 
-class ChecksTester extends FunSuite  {
+class ChecksTester extends AnyFunSuite  {
   import CheckTester._
 
 
@@ -367,7 +367,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoResetFail") {
     generationShouldFaild(new Component{
-      ClockDomain(in Bool) {
+      ClockDomain(in Bool()) {
         val output = out(RegInit(False)).setName("aaa")
       }
     })
@@ -458,7 +458,7 @@ class ChecksTester extends FunSuite  {
 
 }
 
-class RepeatabilityTester extends FunSuite{
+class RepeatabilityTester extends AnyFunSuite{
   var checkOutputHashCounter = 0
   def checkOutputHash(gen : => Component): Unit ={
     checkOutputHashCounter = checkOutputHashCounter + 1
@@ -509,7 +509,7 @@ class RepeatabilityTester extends FunSuite{
   }
 }
 
-class NameingTester extends FunSuite {
+class NameingTester extends AnyFunSuite {
   import CheckTester._
 
 

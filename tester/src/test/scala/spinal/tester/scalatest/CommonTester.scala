@@ -26,7 +26,7 @@ object CommonTester {
 
       val inUIntA = in UInt (8 bit)
       val inUIntB = in UInt (8 bit)
-      val outUIntAdder = out UInt
+      val outUIntAdder = out UInt()
 
       val inAA = in(new BundleAA)
       val inAABits = in Bits (new BundleAA().getBitsWidth bit)

@@ -3,7 +3,6 @@ package spinal.demo.mandelbrot
 import net.liftweb.json.DefaultFormats
 import net.liftweb.json.Extraction._
 import net.liftweb.json.JsonAST._
-import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.lib._
 

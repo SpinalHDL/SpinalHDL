@@ -4,6 +4,7 @@ import java.io.{InputStream, OutputStream}
 import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
 import net.liftweb.json.JsonAST.JValue
+import scala.collection.Seq
 
 trait IByteStreamHal {
   def open: Unit

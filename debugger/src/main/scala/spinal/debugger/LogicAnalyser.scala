@@ -4,7 +4,6 @@ package spinal.debugger
 import net.liftweb.json
 import net.liftweb.json.Extraction._
 import net.liftweb.json.JsonAST._
-import net.liftweb.json.Printer._
 import net.liftweb.json.{DefaultFormats, Formats, TypeInfo}
 import spinal.core._
 import spinal.lib._
@@ -301,7 +300,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   }
 
   val mem = Mem(probeType, 1 << p.memAddressWidth)
-  val memWriteAddress = Reg(mem.addressType) randBoot
+  val memWriteAddress = Reg(mem.addressType).randBoot()
   val memReadAddress = Reg(mem.addressType)
 
 

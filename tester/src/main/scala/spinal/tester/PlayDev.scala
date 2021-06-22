@@ -1229,7 +1229,7 @@ object SimAccessSubSignal {
   import spinal.core.sim._
 
   class TopLevel extends Component {
-    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    val counter = Reg(UInt(8 bits)).init(0).simPublic()
     counter := counter + 1
   }
 

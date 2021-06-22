@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -21,7 +21,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
   val decoder = WishboneDecoder(io.busIN,outs)
 }
 
-class SpinalSimWishboneDecoderTester extends FunSuite{
+class SpinalSimWishboneDecoderTester extends AnyFunSuite{
   def testDecoder(config : WishboneConfig,decodings : Seq[SizeMapping],description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneDecoderComponent(config,decodings){val miaou = out(RegNext(False))})
     fixture.doSim(description){ dut =>

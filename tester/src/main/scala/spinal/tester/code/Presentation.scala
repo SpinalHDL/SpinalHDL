@@ -3,7 +3,6 @@ package spinal.tester.code
 import net.liftweb.json.DefaultFormats
 import net.liftweb.json.Extraction._
 import net.liftweb.json.JsonAST._
-import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
@@ -2041,7 +2040,7 @@ object PlayAdder2{
 
   class Yolo(width : Int) extends Component{
     val myBool = False
-    when(in.Bool.setName("something")){
+    when(in.Bool().setName("something")){
       myBool := True
     }
 

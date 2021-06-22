@@ -20,7 +20,7 @@
 
 package spinal.tester.scalatest
 
-import org.scalatest.{FlatSpec, FunSuite}
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.tester.scalatest.RomTester.{RomTesterSymbols, RomTesterSymbolsSInt}
 object RomTester {
@@ -142,7 +142,7 @@ class RomTesterCocotbBoot3 extends SpinalTesterCocotbBase {
   }
 }
 
-class SpinalSimRomTester extends FunSuite {
+class SpinalSimRomTester extends AnyFunSuite {
   test("test1"){
     import spinal.core.sim._
     import spinal.sim._

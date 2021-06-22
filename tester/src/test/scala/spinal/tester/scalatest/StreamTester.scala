@@ -17,7 +17,7 @@ class StreamTester extends Component {
   val io = new Bundle {
     val slave0 = slave Stream new BundleA(8)
     val master0 = master Stream new BundleA(8)
-    val fifo0_occupancy = out UInt
+    val fifo0_occupancy = out UInt()
   }
 
   val fifo0 = new StreamFifo(new BundleA(8),16)

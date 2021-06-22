@@ -23,8 +23,8 @@ class MultiClockTester extends Component {
 
     val slave0 = slave Stream(new BundleA)
     val master0 = master Stream(new BundleA)
-    val fifo0_pushOccupancy = out UInt
-    val fifo0_popOccupancy = out UInt
+    val fifo0_pushOccupancy = out UInt()
+    val fifo0_popOccupancy = out UInt()
   }
 
   val clockDomainA = ClockDomain(io.clkA,io.resetA)

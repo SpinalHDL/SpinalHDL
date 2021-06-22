@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 object WishboneConnectors{
   def direct(m : Wishbone, s : Wishbone) : Unit = m >> s

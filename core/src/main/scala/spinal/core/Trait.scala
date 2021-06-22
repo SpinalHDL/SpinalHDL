@@ -41,9 +41,9 @@ trait IODirection extends BaseTypeFactory {
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
   def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
-  override def Bits() = applyIt(super.Bits())
-  override def UInt() = applyIt(super.UInt())
-  override def SInt() = applyIt(super.SInt())
+  override def Bits(u: Unit = null) = applyIt(super.Bits())
+  override def UInt(u: Unit = null) = applyIt(super.UInt())
+  override def SInt(u: Unit = null) = applyIt(super.SInt())
   override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
 
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)

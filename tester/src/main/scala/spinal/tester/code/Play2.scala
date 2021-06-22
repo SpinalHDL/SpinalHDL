@@ -623,8 +623,8 @@ object PlayBug43{
 object PlayUnconstrained {
   class Counter extends Component{
     val io = new Bundle{
-      val load = slave  Flow(UInt)
-      val value = out UInt
+      val load = slave  Flow(UInt())
+      val value = out UInt()
     }
     val register = Reg(UInt()) init(0)
     register := register + 1
@@ -637,7 +637,7 @@ object PlayUnconstrained {
   class TopLevel extends Component {
     val io = new Bundle{
       val load = slave Flow(UInt(8 bits))
-      val value = out UInt
+      val value = out UInt()
     }
 
     val counter = new Counter
@@ -1116,7 +1116,7 @@ object PlayNodeWithoutWidth{
   class TopLevel extends Component {
     val a,b,c = in UInt(8 bits)
 
-    val result = out Bits
+    val result = out Bits()
 
 
       result := 0
@@ -1466,7 +1466,7 @@ object PlayHistory {
 
 object PlayRandBoot{
   class TopLevel extends Component {
-    val toto = Reg(UInt(4 bits)) randBoot() dontSimplifyIt()
+    val toto = Reg(UInt(4 bits)).randBoot().dontSimplifyIt()
     toto := 3
 
     val titi = out(Reg(UInt(4 bits)))
