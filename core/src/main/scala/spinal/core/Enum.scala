@@ -301,7 +301,7 @@ object native extends SpinalEnumEncoding{
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
 
   override def isNative = true
-  setWeakName("native")
+  setName("native")
 }
 
 
@@ -314,7 +314,7 @@ object binarySequential extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
   override def isNative = false
-  setWeakName("binary_sequential")
+  setName("binary_sequential")
 }
 
 
@@ -327,7 +327,7 @@ object binaryOneHot extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.bitLength-1)
   override def isNative = false
-  setWeakName("binary_one_hot")
+  setName("binary_one_hot")
 }
 
 
