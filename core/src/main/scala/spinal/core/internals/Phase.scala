@@ -2129,6 +2129,11 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
+      reservedKeyWords.foreach(encodingsScope.allocateName(_))
+      for (el <- enum.elements) {
+        el.setName(encodingsScope.allocateName(el.getName()))
+      }
+      
       if (encoding.isWeak)
         encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else
