@@ -26,13 +26,13 @@ import spinal.core._
 object MemTest {
 
   class BundleAA extends BundleA {
-    val a = Bool
-    val d = Bool
+    val a = Bool()
+    val d = Bool()
     val e = MyEnum()
   }
 
   class BundleA extends Bundle {
-    val b = Bool
+    val b = Bool()
     val c = spinal.core.UInt(8 bit)
   }
 

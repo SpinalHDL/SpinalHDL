@@ -16,8 +16,8 @@ object MyEnum2{
 object Debug {
 
   class BB extends Bundle{
-    val a = Bool
-    val data = Bool
+    val a = Bool()
+    val data = Bool()
   }
   val xx = Stream(new BB())
 
@@ -27,8 +27,8 @@ object Debug {
 
 
     val io = new Bundle {
-      val conds = in Vec(Bool, 8)
-      val outs = out Vec(Bool, 6)
+      val conds = in Vec(Bool(), 8)
+      val outs = out Vec(Bool(), 6)
     }
     val Hello = Vec(Seq('S','Y','S','I','D','0','1',' ').map(c => B(c.toInt,8 bit)))
     val b = UInt()
@@ -37,7 +37,7 @@ object Debug {
     val size = 2
     val conds = Vec(UInt(10 bit), 10)
 
-    val reg0 = Reg(Bool)
+    val reg0 = Reg(Bool())
 
     when(io.conds(0)) {
       reg0 := !reg0
@@ -68,7 +68,7 @@ object Debug {
 
     var memo: Bool = null
     when(io.conds(6)) {
-      memo = Bool
+      memo = Bool()
       memo := io.conds(6)
       when(io.conds(7)) {
         memo := False

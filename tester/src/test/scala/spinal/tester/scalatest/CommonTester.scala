@@ -8,21 +8,21 @@ object CommonTester {
 
   class BundleA extends Bundle {
     val bod = new Bundle {
-      val gggg = Bool
+      val gggg = Bool()
       val aosi = UInt(3 bit)
     }
-    val ahe = Bool
-    val zwg = Bool
+    val ahe = Bool()
+    val zwg = Bool()
   }
 
   class BundleAA extends BundleA {
-    val vsw = Bool
+    val vsw = Bool()
     val lwee = UInt(5 bit)
   }
 
   class CommonTester extends Component {
     val io = new Bundle {
-      val conds = in Vec(Bool,8)
+      val conds = in Vec(Bool(),8)
 
       val inUIntA = in UInt (8 bit)
       val inUIntB = in UInt (8 bit)
@@ -113,7 +113,7 @@ object CommonTester {
     }
 
     class MyBundle2 extends Bundle{
-      val a = Bool
+      val a = Bool()
     }
 
     cloneOf(new MyBundle(True,1))

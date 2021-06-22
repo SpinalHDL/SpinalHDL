@@ -85,7 +85,7 @@ class ChecksTester extends FunSuite  {
   test("checkCombinatorialLoop") {
     generationShouldFaild(new Component{
       val input = in Bits(8 bits)
-      val cond = in Bool
+      val cond = in Bool()
 
       val tempA = Bits(4 bits)
       val output = out Bits(8 bits)
@@ -105,7 +105,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoPartialAssignment") {
     generationShouldPass(new Component{
-      val cond = in Bool
+      val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -121,7 +121,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val cond = in Bool
+      val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -139,7 +139,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkNoMissingDefault") {
     generationShouldPass(new Component{
-      val cond = in Bool
+      val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -157,7 +157,7 @@ class ChecksTester extends FunSuite  {
     })
 
     generationShouldFaild(new Component{
-      val cond = in Bool
+      val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
       when(cond){
@@ -176,16 +176,16 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossing") {
     generationShouldFaild(new Component{
-      val clockA = in Bool
-      val clockB = in Bool
+      val clockA = in Bool()
+      val clockB = in Bool()
 
       val areaA = new ClockingArea(ClockDomain(clockA)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := in(Bool)
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := areaA.reg
         val output = out Bool()
         output := reg
@@ -195,7 +195,7 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossingCheckingCheckSourcesPaths") {
     generationShouldPass(new Component{
-      val clock = in Bool
+      val clock = in Bool()
       val clockA =  Bool
       val clockB =  Bool
 
@@ -212,12 +212,12 @@ class ChecksTester extends FunSuite  {
       sub.cIn := clock
       clockB := sub.cOut
       val areaA = new ClockingArea(ClockDomain(clockA)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := in(Bool)
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := areaA.reg
         val output = out Bool()
         output := reg
@@ -227,8 +227,8 @@ class ChecksTester extends FunSuite  {
 
   test("checkClockCrossingCheckingCheckSourcesPathsFalure") {
     generationShouldFaild(new Component{
-      val clock1 = in Bool
-      val clock2 = in Bool
+      val clock1 = in Bool()
+      val clock2 = in Bool()
       val clockA =  Bool
       val clockB =  Bool
 
@@ -245,12 +245,12 @@ class ChecksTester extends FunSuite  {
       sub.cIn := clock2
       clockB := sub.cOut
       val areaA = new ClockingArea(ClockDomain(clockA)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := in(Bool)
       }
 
       val areaB = new ClockingArea(ClockDomain(clockB)){
-        val reg = Reg(Bool)
+        val reg = Reg(Bool())
         reg := areaA.reg
         val output = out Bool()
         output := reg
@@ -516,20 +516,20 @@ class NameingTester extends FunSuite {
   test("reflectionNaming") {
     val t = SpinalVhdl(new Component{
       val a = new Area{
-        val aa = Bool
+        val aa = Bool()
         val bb = new Area{
-          val aaa = Bool
-          val bbb = Vec(Bool,4)
+          val aaa = Bool()
+          val bbb = Vec(Bool(),4)
           val ccc = Vec(new Bundle{
-            val aaaa = Bool
-            val bbbb = Vec(Bool,8)
-            val cccc = Vec( Vec( Vec(Bool,8),8),8)
+            val aaaa = Bool()
+            val bbbb = Vec(Bool(),8)
+            val cccc = Vec( Vec( Vec(Bool(),8),8),8)
             val dddd = List.fill(4)(Bool)
             val eeee = List.fill(4)(List.fill(4)(Bool))
           },4)
         }
       }
-      val b = Bool
+      val b = Bool()
     }).toplevel
 
     assert(t.b.getName() == "b")

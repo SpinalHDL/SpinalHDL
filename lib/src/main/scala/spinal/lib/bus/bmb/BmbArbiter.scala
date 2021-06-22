@@ -2,7 +2,7 @@ package spinal.lib.bus.bmb
 
 import spinal.core._
 import spinal.lib._
-
+import scala.collection.Seq
 
 
 

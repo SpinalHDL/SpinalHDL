@@ -76,7 +76,7 @@ object Play74 {
 
 object PlayB6 {
   val myBits = Bits()
-  val myBool = Bool
+  val myBool = Bool()
   val yolo =  myBits.asBools.map(_ ^ myBool).asBits()
   val yolo2 = myBits ^ B(myBits.range -> myBool)
   class TopLevel extends Component {
@@ -99,7 +99,7 @@ object PlayB6 {
 object PlayB5 {
 
   class TopLevel extends Component {
-    val myClock = in Bool
+    val myClock = in Bool()
 
     val myClockDomain = ClockDomain(myClock, True)
 
@@ -162,15 +162,15 @@ object PlayBlackBox3 {
     }
 
     val io = new Bundle {
-      val clk = in Bool
+      val clk = in Bool()
 
       val wr = new Bundle {
-        val en = in Bool
+        val en = in Bool()
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = in Bits (_wordWidth bit)
       }
       val rd = new Bundle {
-        val en = in Bool
+        val en = in Bool()
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = out Bits (_wordWidth bit)
       }
@@ -183,12 +183,12 @@ object PlayBlackBox3 {
   class TopLevel extends Component {
     val io = new Bundle {
       val wr = new Bundle {
-        val en = in Bool
+        val en = in Bool()
         val addr = in UInt (log2Up(16) bit)
         val data = in Bits (8 bit)
       }
       val rd = new Bundle {
-        val en = in Bool
+        val en = in Bool()
         val addr = in UInt (log2Up(16) bit)
         val data = out Bits (8 bit)
       }
@@ -215,7 +215,7 @@ object PlayB1 {
 
   class TopLevel extends Component {
     val io = new Bundle() {
-      val cond = in Bool
+      val cond = in Bool()
       val input = in UInt (4 bit)
       val output = out UInt(4 bits)
     }
@@ -289,8 +289,8 @@ object PlayB4 {
   class TopLevel extends Component {
     val address = in UInt(8 bits)
     val writeData = in Bits(8 bits)
-    val chipSelect = in Bool
-    val writeEnable = in Bool
+    val chipSelect = in Bool()
+    val writeEnable = in Bool()
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
@@ -336,7 +336,7 @@ object PlayAssert2 {
 
   class TopLevel extends Component {
     val valid = RegInit(False)
-    val ready = in Bool
+    val ready = in Bool()
 
     when(ready){
       valid := False
@@ -570,8 +570,8 @@ object PlayBug43{
 
   class BootFail extends Component {
     val io = new Bundle {
-      val trig = in Bool
-      val sig = out Bool
+      val trig = in Bool()
+      val sig = out Bool()
     }
 
     io.sig := False
@@ -653,7 +653,7 @@ object PlayUnconstrained {
 object PlayBootReset {
 
   class TopLevel extends Component {
-    val coreClk = in Bool
+    val coreClk = in Bool()
     val coreClockDomain = ClockDomain(coreClk,config = ClockDomainConfig(resetKind = BOOT))
     val core = new ClockingArea(coreClockDomain){
       val input = in UInt (4 bit)
@@ -775,7 +775,7 @@ object PlaySwitch4 {
   class TopLevel extends Component {
     val sel = in (MyEnum())
     val sel2 = in UInt(2 bits)
-    val sel3 = in Bool
+    val sel3 = in Bool()
     val result = out UInt(8 bits)
 
 //    result := 5
@@ -870,7 +870,7 @@ object Play65{
 
 
   class TopLevel extends Component {
-    val sel = in (Vec(Bool,8))
+    val sel = in (Vec(Bool(),8))
     val result = out UInt(8 bits)
     val result2 = out UInt(8 bits)
 
@@ -910,8 +910,8 @@ object PlayResize{
 
 
   class TopLevel extends Component {
-    val cmd = in Vec(Bool,3)
-    val rsp = out Vec(Bool,2)
+    val cmd = in Vec(Bool(),3)
+    val rsp = out Vec(Bool(),2)
     rsp := cmd.asBits.asSInt.resize(2).asBools
 
     for((e,i) <- cmd.zipWithIndex) e.setName(('a' + i).toChar.toString)
@@ -933,8 +933,8 @@ object PlayGenerics{
   class TopLevel extends Component {
 
     val io = new Bundle {
-      val in1  = in Bool
-      val out1 = out Bool
+      val in1  = in Bool()
+      val out1 = out Bool()
     }
 
     val inbuf = alt_inbuf()
@@ -976,8 +976,8 @@ object PlayGenerics{
     }
 
     val io = new Bundle{
-      val i = in Bool
-      val o = out Bool
+      val i = in Bool()
+      val o = out Bool()
     }.setName("")
 
     def i : Bool = io.i
@@ -997,7 +997,7 @@ object PlayCocotb{
 
 
   class TopLevel extends Component {
-    val clear = in Bool
+    val clear = in Bool()
     val incrementBy = in UInt(16 bits)
     val result = out (Reg(UInt(16 bits))) init(0)
     result := result + incrementBy
@@ -1155,8 +1155,8 @@ object PlayI2CIoLayer{
       }
 
       // output sda and scl in order to monitor the i2c bus
-      val sda = out Bool
-      val scl = out Bool
+      val sda = out Bool()
+      val scl = out Bool()
     }
 
     val i2cSlave  = new I2CIoSlave(slaveGeneric)
@@ -1237,7 +1237,7 @@ object PlayEnumName {
 object PlayWidthInferation {
 
   class TopLevel extends Component {
-    val sel = in Bool
+    val sel = in Bool()
     val result = out(Mux(sel,S(1),S(0)) + 1 + 3)
 
   }
@@ -1251,9 +1251,9 @@ object PlaySoftReset {
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val clk = in Bool
-      val resetn = in Bool
-      val softReset = in Bool
+      val clk = in Bool()
+      val resetn = in Bool()
+      val softReset = in Bool()
 
       val result = out UInt(4 bits)
     }
@@ -1504,7 +1504,7 @@ object PlayRename{
 
     io.sink << io.source
 
-    val toto = Reg(Bool).init(False).keep //Force to keep clock and reset in this small example
+    val toto = Reg(Bool()).init(False).keep //Force to keep clock and reset in this small example
   }
 
   def main(args: Array[String]) {
@@ -1526,7 +1526,7 @@ object PlayRename{
 
 object PlayMentorDo{
   case class Packet() extends Bundle{
-    val e1,e2 = Bool
+    val e1,e2 = Bool()
   }
 //  class TopLevel extends Component {
 //    val io = new Bundle{
@@ -1650,7 +1650,7 @@ object PlayImplicitArg{
 object PlayNameRefl{
   class TopLevel extends Component {
     val io = new Bundle{
-      val result = out Bool
+      val result = out Bool()
     }
 
     val toto = io.result
@@ -1669,7 +1669,7 @@ object PlayNameRefl{
 object PlayMinMax{
   class TopLevel extends Component {
     val io = new Bundle{
-      val result = out Bool
+      val result = out Bool()
     }
 
     val toto = io.result
@@ -1740,7 +1740,7 @@ object PlayPwm{
 
 
   class PWMControl(width: Int) extends Bundle{
-    val enable = in Bool
+    val enable = in Bool()
     val period = in UInt(width bits)
     val mode = in(PWMMode)
   }
@@ -1749,15 +1749,15 @@ object PlayPwm{
     val io = new Bundle {
       val control = new PWMControl(width)
       val duty = in UInt(width+1 bits)
-      val output = out Bool
-      val outSync = out Bool
+      val output = out Bool()
+      val outSync = out Bool()
     }
 
     import PWMMode._
 
     val counter = Reg(UInt(width bits)) init (0)
-    val outSyncReg = Reg(Bool)
-    val decrementCounter = Reg(Bool) init(False)
+    val outSyncReg = Reg(Bool())
+    val decrementCounter = Reg(Bool()) init(False)
 
     val PwmCounter = new Area {
       val upDownCount = SInt(width bits)
@@ -1938,7 +1938,7 @@ object PlayNameableIssue3{
 
 object PlayBug54{
   class TopLevel extends Component {
-    val a = in Bool
+    val a = in Bool()
     val fixedWidth = new Area {
       val resultBits = out Bits (8 bits)
       resultBits := B(7 -> false, (6 downto 0) -> a)
@@ -1990,8 +1990,8 @@ object PlayBug5441{
 
 object PlayBug544441{
   class TopLevel extends Component {
-//    val condA = in Bool
-//    val condB = in Bool
+//    val condA = in Bool()
+//    val condB = in Bool()
 //    val result = out Bits(8 bits)
 //    result(3 downto 2) := 0
 //    when(condA){
@@ -2083,8 +2083,8 @@ object Play1adasd {
 
 object Play928267{
   class SPIConfig extends Bundle {
-    val CPOL = in Bool
-    val CPHA = in Bool
+    val CPOL = in Bool()
+    val CPHA = in Bool()
     val Prescale = in UInt(8 bits)
   }
 
@@ -2092,13 +2092,13 @@ object Play928267{
     val io = new Bundle{
       val configIf = new SPIConfig
       val inputData = slave Stream(Bits(8 bits))
-      val sck = out Bool
-      val miso = in Bool
-      val mosi = out Bool
+      val sck = out Bool()
+      val miso = in Bool()
+      val mosi = out Bool()
       val slvsel = out Bits(nEnables bits)
     }
 
-    val sckReg = Reg(Bool) init(False)
+    val sckReg = Reg(Bool()) init(False)
     sckReg := io.configIf.CPOL
 
     val clockGen = new Area {
@@ -2181,7 +2181,7 @@ object PlaySimple{
 
 object PlayRamBB{
   class TopLevel extends Component {
-    val clockB = in Bool
+    val clockB = in Bool()
 
     val rgbConfig = RgbConfig(5,6,5)
     val mem = Mem(Rgb(rgbConfig),1 << 16)
@@ -2202,14 +2202,14 @@ object PlayRamBB{
 //    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
 //
 //    val readSyncPort = slave(mem.readSyncPort)
-//    val readSyncMixedWidthEnable = in Bool
+//    val readSyncMixedWidthEnable = in Bool()
 //    val readSyncMixedWidthAddr = in UInt(17 bits)
 //    val readSyncMixedWidthData = out UInt(8 bits)
 //    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
 //
 
     val readWrite = new Area {
-      val en, wr = in Bool
+      val en, wr = in Bool()
       val addr = in UInt (16 bits)
       val wrData = in(Rgb(rgbConfig))
       val wrMask = in Bits (4 bits)
@@ -2218,7 +2218,7 @@ object PlayRamBB{
     }
 
     val readWriteMixedWidth = new Area {
-      val en, wr = in Bool
+      val en, wr = in Bool()
       val addr = in UInt (18 bits)
       val wrData = in(Bits(4 bits))
       val wrMask = in Bits (4 bits)
@@ -2228,7 +2228,7 @@ object PlayRamBB{
 
     val clockBArea = new ClockingArea(ClockDomain(clockB)){
       val readSyncAddr = in UInt(16 bits)
-      val readSyncEn = in Bool
+      val readSyncEn = in Bool()
 //      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
     }
 
@@ -2249,7 +2249,7 @@ object PlayRamBB{
 
 object PlayProcess{
   class TopLevel extends Component {
-    val a,b,c = in Bool
+    val a,b,c = in Bool()
     val result = out UInt(8 bits)
 
     val combinatorial   =     UInt(8 bits)
@@ -2281,8 +2281,8 @@ object PlayProcess{
 
 object PlayHandshake{
   case class Handshake[T <: Data](dataType : T) extends Bundle{
-    val valid   = Bool
-    val ready   = Bool
+    val valid   = Bool()
+    val ready   = Bool()
     val payload = cloneOf(dataType)  //Make another instance of 'dataType'
 
     def asMaster() : Handshake[T] = {
@@ -2355,12 +2355,12 @@ object PlayMasterSlave{
 
     val PADDR      = UInt(addressWidth bit)
     val PSEL       = Bits(selWidth bits)
-    val PENABLE    = Bool
-    val PREADY     = Bool
-    val PWRITE     = Bool
+    val PENABLE    = Bool()
+    val PREADY     = Bool()
+    val PWRITE     = Bool()
     val PWDATA     = Bits(dataWidth bit)
     val PRDATA     = Bits(dataWidth bit)
-    val PSLVERROR  = if(useSlaveError) Bool else null   //This wire is added to the bundle only when useSlaveError is true
+    val PSLVERROR  = if(useSlaveError) Bool() else null   //This wire is added to the bundle only when useSlaveError is true
 
     override def asMaster(): Unit = {
       out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
@@ -2377,12 +2377,12 @@ object PlayMasterSlave{
   class APB3(val config: APBConfig) extends Bundle with IMasterSlave {
     val PADDR      = UInt(config.addressWidth bit)
     val PSEL       = Bits(config.selWidth bits)
-    val PENABLE    = Bool
-    val PREADY     = Bool
-    val PWRITE     = Bool
+    val PENABLE    = Bool()
+    val PREADY     = Bool()
+    val PWRITE     = Bool()
     val PWDATA     = Bits(config.dataWidth bit)
     val PRDATA     = Bits(config.dataWidth bit)
-    val PSLVERROR  = if(config.useSlaveError) Bool else null
+    val PSLVERROR  = if(config.useSlaveError) Bool() else null
 
     override def asMaster(): Unit = {
       out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
@@ -2393,8 +2393,8 @@ object PlayMasterSlave{
 
 
   class MyBundleBroken extends Bundle{
-    val publicElement = Bool
-    val privateElement = Bool
+    val publicElement = Bool()
+    val privateElement = Bool()
 
     def getPrivateElement() : Bool = {
       return privateElement
@@ -2429,8 +2429,8 @@ object PlayMasterSlave{
 //  }
 
   case class Handshake[T <: Data](dataType : T) extends Bundle{
-    val valid   = Bool
-    val ready   = Bool
+    val valid   = Bool()
+    val ready   = Bool()
     val payload = cloneOf(dataType)  //All data type that i give to the Handshake class should implement the clone method
   }
 
@@ -2462,7 +2462,7 @@ object PlayMasterSlave{
 //    def apply() = new Handshake
 //  }
 //  class Handshake extends Bundle with MasterSlave{
-//    @masterx val valid = Bool
+//    @masterx val valid = Bool()
 //    @masterx val payload = Bits(8 bits)
 //  }
 ////  implicit def masterToHandshake()
@@ -2528,7 +2528,7 @@ object PlayMasterSlave{
 //  }
 //
 //  class TopLevel extends Component {
-//    val cond = in Bool
+//    val cond = in Bool()
 //    val a,b = in UInt(8 bits)
 //    val result = out UInt(8 bits)
 //    val counter = Reg(UInt(8 bits))
@@ -2633,8 +2633,8 @@ object MemTest2 {
   class TopLevel extends Component{
 
     val io = new Bundle{
-      val rw      = in Bool
-      val cs      = in Bool
+      val rw      = in Bool()
+      val cs      = in Bool()
       val dataIn  = in Bits(8 bits)
       val addr    = in UInt(8 bits)
       val dataOut = out Bits(8 bits)
@@ -2666,15 +2666,15 @@ object PlayDualPort{
     val addressWidth = log2Up(wordCount)
     val io = new Bundle {
       val portA = new Bundle {
-        val en = in Bool
-        val wr = in Bool
+        val en = in Bool()
+        val wr = in Bool()
         val addr = in UInt (addressWidth bits)
         val wrData = in Bits (wordWidth bits)
         val rdData = out Bits (wordWidth bits)
       }
       val portB = new Bundle {
-        val en = in Bool
-        val wr = in Bool
+        val en = in Bool()
+        val wr = in Bool()
         val addr = in UInt (addressWidth bits)
         val wrData = in Bits (wordWidth bits)
         val rdData = out Bits (wordWidth bits)
@@ -2786,7 +2786,7 @@ object PlyBusSlaveFactory32{
       rxFifoDepth = 16
     )
   val uart = master(Uart())
-  val interrupt = out Bool
+  val interrupt = out Bool()
 
 
   val uartCtrl = new UartCtrl(uartCtrlConfig.uartCtrlConfig)
@@ -2875,7 +2875,7 @@ object PlayAutoconncetRec{
     x.a(7 downto 1) <> a(7 downto 1)
     x.a(0) <> True
 
-    val c = Bool
+    val c = Bool()
     result := b & x.result
   }
 
@@ -2889,8 +2889,8 @@ object Debug425{
 
     val io = new Bundle{
 
-      val bus_clk = in Bool
-      val bus_rst = in Bool
+      val bus_clk = in Bool()
+      val bus_rst = in Bool()
     }
 
     val axiClockDomain = ClockDomain.external("axi")
@@ -2910,8 +2910,8 @@ object Debug425{
   class TopLevel extends Component{
 
     val io = new Bundle{
-      val user_clk = in Vec(Bool, 7)
-      val user_rstn  = in Vec(Bool, 7)
+      val user_clk = in Vec(Bool(), 7)
+      val user_rstn  = in Vec(Bool(), 7)
 
     }
 
@@ -2972,9 +2972,9 @@ object PlayMuxDyn2{
 object PlayNullPointer{
 
   class TopLevel extends Component{
-    val result = Bool
+    val result = Bool()
 //    result := a & b
-    val a,b = Bool
+    val a,b = Bool()
   }
 
   def main(args: Array[String]) {
@@ -2999,7 +2999,7 @@ object PlayForLoop{
 object PlayCrossHearchy{
 
 //  class TopLevel extends Component{
-//    val a,b = in Bool
+//    val a,b = in Bool()
 //    val result = out Bool()
 //    result := a & b
 //
@@ -3007,14 +3007,14 @@ object PlayCrossHearchy{
 //  }
   class ComponentX extends Component{
 
-    val X = Bool
+    val X = Bool()
 
   }
 
   class ComponentY extends Component{
 
     val componentX = new ComponentX
-    val Y = Bool
+    val Y = Bool()
     componentX.X := Y //This assignment is not legal
 
   }
@@ -3027,8 +3027,8 @@ object PlayCrossHearchy{
 object PlayPll{
   class PLL extends BlackBox{
     val io = new Bundle{
-      val clk_in = in Bool
-      val clk_out = out Vec(Bool,3)
+      val clk_in = in Bool()
+      val clk_out = out Vec(Bool(),3)
     }
 
     noIoPrefix()
@@ -3036,8 +3036,8 @@ object PlayPll{
 
   class TopLevel extends Component{
     val io = new Bundle {
-      val aReset     = in Bool
-      val clk_100Mhz = in Bool
+      val aReset     = in Bool()
+      val clk_100Mhz = in Bool()
     }
     val pllBB = new PLL
     pllBB.io.clk_in := io.clk_100Mhz
@@ -3071,9 +3071,9 @@ object PlayPll{
 object PlayPll2{
   class PLL extends BlackBox{
     val io = new Bundle{
-      val clkIn    = in Bool
-      val clkOut   = out Bool
-      val isLocked = out Bool
+      val clkIn    = in Bool()
+      val clkOut   = out Bool()
+      val isLocked = out Bool()
     }
 
     noIoPrefix()
@@ -3081,8 +3081,8 @@ object PlayPll2{
 
   class TopLevel extends Component{
     val io = new Bundle {
-      val aReset    = in Bool
-      val clk100Mhz = in Bool
+      val aReset    = in Bool()
+      val clk100Mhz = in Bool()
       val result    = out UInt(4 bits)
     }
 
@@ -3137,7 +3137,7 @@ object PlaRamMux{
       val memInstr    = out Bits(cfg.wordSize bits)
 
       // Memory port
-      val memWriteEnable = in Bool
+      val memWriteEnable = in Bool()
       val memAdr         = in UInt(cfg.wordSize bits)
       val memWrite       = in Bits(cfg.wordSize bits)
       val memRead        = out Bits(cfg.wordSize bits)
@@ -3194,8 +3194,8 @@ object PlayAlu{
 
   class TopLevel extends Component{
     val a,b = in Bits(32 bits)
-    val doSub = in Bool
-    val doUnsignedLess = in Bool
+    val doSub = in Bool()
+    val doUnsignedLess = in Bool()
     val addSub = out((a.asSInt + Mux(doSub, ~b, b).asSInt + Mux(doSub,S(1),S(0))).asBits)
 
 

@@ -59,7 +59,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val hits = B(io.output.ports.map(_.address.bank === bankId))
     def portEvent(f : CoreTask => Bool) = (hits & B(io.output.ports.map(f))).orR
 
-    val activeNext = Bool
+    val activeNext = Bool()
     val active = RegNext(activeNext) init(False)
     activeNext := active
     when(portEvent(p => p.precharge) || io.output.prechargeAll){
@@ -201,7 +201,7 @@ case class Tasker(cpa : CoreParameterAggregate) extends Component{
     val valid = RegInit(False)
     val status = Reg(Status())
     val address = Reg(SdramAddress(cpa.pl.sdram))
-    val write = Reg(Bool)
+    val write = Reg(Bool())
     val context = Reg(Bits(backendContextWidth bits))
     val portId = Reg(UInt(log2Up(cpa.cpp.size) bits))
     val offset, offsetLast = Reg(UInt(cpa.stationLengthWidth bits))

@@ -20,10 +20,10 @@ case class alt_outbuf_tri_diffGeneric(io_standard           : String       = "No
 case class alt_outbuf_tri_diff(val generic : alt_outbuf_tri_diffGeneric = alt_outbuf_tri_diffGeneric()) extends BlackBox{
 
   val io = new Bundle{
-    val i    = in  Bool
-    val oe   = in  Bool
-    val o    = out Bool
-    val obar = out Bool
+    val i    = in  Bool()
+    val oe   = in  Bool()
+    val o    = out Bool()
+    val obar = out Bool()
   }.setName("")
 
   def i    : Bool = io.i

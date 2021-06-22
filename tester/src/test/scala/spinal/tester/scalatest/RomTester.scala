@@ -30,7 +30,7 @@ object RomTester {
   }
 
   class DataStruct extends Bundle{
-    val bool = Bool
+    val bool = Bool()
     val bits = Bits(9 bits)
     val uint = UInt(10 bits)
     val sint = SInt(11 bits)

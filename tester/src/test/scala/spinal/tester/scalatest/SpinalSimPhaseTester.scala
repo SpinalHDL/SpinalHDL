@@ -13,7 +13,7 @@ class SpinalSimPhaseTester extends SpinalSimFunSuite{
   test("test1") {
     //    val compiled = SimConfig.withWave.compile(StreamFifo(UInt(8 bits),16))
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
 

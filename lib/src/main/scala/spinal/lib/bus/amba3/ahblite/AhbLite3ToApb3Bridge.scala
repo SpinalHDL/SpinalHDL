@@ -48,7 +48,7 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config, apbConfig: Apb3Config
   }
 
   val phase      = RegInit(IDLE)
-  val write      = Reg(Bool)
+  val write      = Reg(Bool())
   val address    = Reg(ahbConfig.addressType)
   val readedData = Reg(ahbConfig.dataType)
 

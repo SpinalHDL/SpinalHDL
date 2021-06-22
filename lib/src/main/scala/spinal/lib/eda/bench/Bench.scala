@@ -6,6 +6,7 @@ import spinal.sim.SimManager
 import java.util.concurrent.ForkJoinPool
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
+import scala.collection.Seq
 
 /**
  * Created by PIC32F_USER on 16/07/2017.

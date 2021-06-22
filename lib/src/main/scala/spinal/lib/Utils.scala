@@ -27,7 +27,7 @@ import spinal.core._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.ListBuffer
-
+import scala.collection.Seq
 
 
 object UIntToOh {
@@ -56,7 +56,7 @@ object OHToUInt {
     if (boolsSize < 2) return U(0,0 bits)
 
     val retBitCount = log2Up(bools.size)
-    val ret = Vec(Bool,retBitCount)
+    val ret = Vec(Bool(),retBitCount)
 
     for (retBitId <- 0 until retBitCount) {
       var bit: Bool = null
@@ -219,7 +219,7 @@ object toGray {
 
 object fromGray {
   def apply(gray: Bits): UInt = {
-    val ret = List.fill(widthOf(gray)) (Bool)
+    val ret = List.fill(widthOf(gray)) (Bool())
     for (i <- 0 until widthOf(gray) - 1) {
       ret(i) := gray(i) ^ ret(i + 1)
     }

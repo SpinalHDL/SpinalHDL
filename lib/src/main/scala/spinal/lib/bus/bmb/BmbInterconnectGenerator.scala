@@ -8,6 +8,7 @@ import spinal.lib.generator._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 object BmbInterconnectGenerator{
   class ArbitrationKind

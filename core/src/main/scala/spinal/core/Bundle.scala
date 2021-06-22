@@ -33,8 +33,8 @@ import scala.collection.mutable
   *
   * @example {{{
   *     val cmd = new Bundle{
-  *       val init   = in Bool
-  *       val start  = in Bool
+  *       val init   = in Bool()
+  *       val start  = in Bool()
   *       val result = out Bits(32 bits)
   *     }
   * }}}

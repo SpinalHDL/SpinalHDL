@@ -19,8 +19,8 @@ object SerialCheckerTxState extends SpinalEnum {
 
 class SerialCheckerPhysical(bitsWidth: Int) extends Bundle {
   val bits = Bits(bitsWidth bit)
-  val isStart = Bool
-  val isEnd = Bool
+  val isStart = Bool()
+  val isEnd = Bool()
 
   def isBits = !isStart && !isEnd
 
@@ -245,7 +245,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
   val stateMachine = new Area {
     val state = RegInit(eIdle)
-    val overflow = Reg(Bool)
+    val overflow = Reg(Bool())
     when(io.input.fire) {
       when(io.input.isBits) {
         switch(state) {

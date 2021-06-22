@@ -148,11 +148,11 @@ object Debug2 extends App{
 
     //    val miaou = UInt(8 bits).setCompositeName(input.queue(8))
 //  println(miaou.getName())
-//    val input =  Vec(Bool, 8)
+//    val input =  Vec(Bool(), 8)
 //    val sel = in UInt(3 bits)
 //    val output = (input(sel))
 
-//    val output = out(Reg(Bool) init(False))
+//    val output = out(Reg(Bool()) init(False))
 //    output := False
 
 //    val sub1 = new Component{

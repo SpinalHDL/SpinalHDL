@@ -19,7 +19,7 @@ class WishboneSimpleBusAdapted( configIn : WishboneConfig,
     val busIN = slave(Wishbone(configIn))
     val busOUT = master(Wishbone(configOut))
   }
-  val ff = Reg(Bool)
+  val ff = Reg(Bool())
   val adapter = WishboneAdapter(io.busIN,io.busOUT,allowAddressResize,allowDataResize,allowTagResize)
 }
 

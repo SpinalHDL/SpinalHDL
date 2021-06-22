@@ -25,8 +25,8 @@ object C0 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val output = out Bool
+      val a = in Bool()
+      val output = out Bool()
     }
 
     io.output := io.a
@@ -38,10 +38,10 @@ object C1 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in Bool()
+      val b = in Bool()
+      val c = in Bool()
+      val output = out Bool()
     }
 
     io.output := (io.a & io.b) | (!io.c)
@@ -53,10 +53,10 @@ object C2 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in Bool()
+      val b = in Bool()
+      val c = in Bool()
+      val output = out Bool()
     }
 
     io.output := (io.a & io.b) | (!io.c)
@@ -68,10 +68,10 @@ object C3 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val c = in Bool
-      val output = out Bool
+      val a = in Bool()
+      val b = in Bool()
+      val c = in Bool()
+      val output = out Bool()
     }
     val a_and_b = io.a & io.b
     val not_c = !io.c
@@ -90,21 +90,21 @@ object C4 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
+      val a = in Bool()
     }
 
-    val reg1 = Reg(Bool)
-    val reg2 = Reg(Bool) init (False)
-    val reg3 = Reg(Bool)
+    val reg1 = Reg(Bool())
+    val reg2 = Reg(Bool()) init (False)
+    val reg3 = Reg(Bool())
     reg3 := io.a
   }
 
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val coreClk = in Bool
-      val coreReset = in Bool
-      val peripheralClk = in Bool
-      val peripheralReset = in Bool
+      val coreClk = in Bool()
+      val coreReset = in Bool()
+      val peripheralClk = in Bool()
+      val peripheralReset = in Bool()
     }
     val coreClockDomain = ClockDomain(io.coreClk, io.coreReset)
     val peripheralClockDomain = ClockDomain(io.peripheralClk, io.peripheralReset)
@@ -131,17 +131,17 @@ object C5 {
 
   class MySubComponent extends Component {
     val io = new Bundle {
-      val subIn = in Bool
-      val subOut = out Bool
+      val subIn = in Bool()
+      val subOut = out Bool()
     }
     //...
   }
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a = in Bool
-      val b = in Bool
-      val output = out Bool
+      val a = in Bool()
+      val b = in Bool()
+      val output = out Bool()
     }
 
     val compInstance = new MySubComponent
@@ -157,7 +157,7 @@ object C6 {
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val conds = in Vec(Bool, 2)
+      val conds = in Vec(Bool(), 2)
       val output = out UInt (4 bit)
     }
 
@@ -271,20 +271,20 @@ object C9 {
 object C10_1 {
 
   case class Flow[T <: Data](dataType: T) extends Bundle {
-    val valid = Bool
+    val valid = Bool()
     val data: T = cloneOf(dataType)
     //..
   }
 
   case class Stream[T <: Data](dataType: T) extends Bundle {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
     //..
   }
 
   case class Fragment[T <: Data](dataType: T) extends Bundle {
-    val last = Bool
+    val last = Bool()
     val data: T = cloneOf(dataType)
     //..
   }
@@ -381,7 +381,7 @@ object C10_2 {
 object C10_removed {
 
   case class Flow[T <: Data](dataType: T) extends Bundle with IMasterSlave {
-    val valid = Bool
+    val valid = Bool()
     val data: T = cloneOf(dataType)
 
     override def asMaster(): Unit = out(this)
@@ -390,8 +390,8 @@ object C10_removed {
   }
 
   abstract case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
 
     override def asMaster(): Unit = {
@@ -436,7 +436,7 @@ object C10_removed {
 
 object C11 {
 
-  //  val cond = Bool
+  //  val cond = Bool()
   //  val inPort = Stream(Bits(32 bit))
   //  val outPort = Stream(Bits(32 bit))
   //
@@ -513,8 +513,8 @@ object C13 {
 
   abstract class MyComponent extends Component {
     val logicOfA = new Area {
-      val flag = Bool
-      val logic = Bool
+      val flag = Bool()
+      val logic = Bool()
     }
     val fsm = new Area {
 
@@ -596,8 +596,8 @@ object C15 {
   //Transaction's data is a parameterizable type
   //This Stream class is already defined into spinal.lib._   It's just to show as a example
   case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
 
     //Equivalent to SystemVerilog modport
@@ -659,8 +659,8 @@ object C15 {
 
 
 object T1 {
-  val cond                =  in Bool
-  val mySignal            = Bool
+  val cond                =  in Bool()
+  val mySignal            = Bool()
   val myRegister          = Reg(UInt(4 bit))
   val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
 
@@ -675,7 +675,7 @@ object T1 {
 
 object T2 {
 
-  val valid = Bool
+  val valid = Bool()
   val regA = Reg(UInt(4 bit))
 
   def doSomething(value: Int) = {
@@ -697,8 +697,8 @@ object T3a {
   }
 
   case class Stream[T <: Data](dataType: T) extends Bundle {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
   }
 
@@ -708,8 +708,8 @@ object T3a {
 object T3b {
 
   case class Stream[T <: Data](dataType: T) extends Bundle {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
 
     def transferOccure: Bool = valid & ready
@@ -760,8 +760,8 @@ object T4 {
 
 
   case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
-    val valid = Bool
-    val ready = Bool
+    val valid = Bool()
+    val ready = Bool()
     val data: T = cloneOf(dataType)
 
     override def asMaster(): Unit = {
@@ -794,8 +794,8 @@ object T5 {
 
 
   class SubComponent extends Component {
-    val condA, condB = in Bool
-    val result = out Bool
+    val condA, condB = in Bool()
+    val result = out Bool()
     // ...
   }
 
@@ -935,7 +935,7 @@ object t9 {
 
 object t10 {
 
-  val arrayOfBool = Vec(Bool, 5)
+  val arrayOfBool = Vec(Bool(), 5)
   val orOfBool = arrayOfBool.reduce(_ || _)
 
 
@@ -951,7 +951,7 @@ object t10 {
   }
 
 
-  //  val arrayOfArrayOfBool = Vec(Vec(Bool, 5), 10)
+  //  val arrayOfArrayOfBool = Vec(Vec(Bool(), 5), 10)
   //  val orReduce2D = arrayOfArrayOfBool.map(_.reduce(_ || _)).reduce(_ || _)
 
 
@@ -967,8 +967,8 @@ object t11 {
 
 object t12 {
 
-  val coreClk = in Bool
-  val coreReset = in Bool
+  val coreClk = in Bool()
+  val coreReset = in Bool()
   val coreClockDomain = ClockDomain(coreClk, coreReset)
 
   val coreClockedArea = new ClockingArea(coreClockDomain) {
@@ -992,9 +992,9 @@ object t13 {
 
   val lines = new Area {
     class tag extends Bundle {
-      val valid = Bool
+      val valid = Bool()
       val address = UInt(32 bit)
-      val dirty = Bool
+      val dirty = Bool()
 
       def hit(targetAddress: UInt): Bool = valid && address === targetAddress
     }
@@ -1092,9 +1092,9 @@ class AND_Gate extends Component {
     * the VHDL entity of the component
     */
   val io = new Bundle {
-    val a = in Bool
-    val b = in Bool
-    val c = out Bool
+    val a = in Bool()
+    val b = in Bool()
+    val c = out Bool()
   }
 
   // Here we define some asynchronous logic
@@ -1112,8 +1112,8 @@ object AND_Gate {
 
 class CustomClockExample extends Component {
   val io = new Bundle {
-    val clk = in Bool
-    val resetn = in Bool
+    val clk = in Bool()
+    val resetn = in Bool()
     val result = out UInt (4 bits)
   }
 
@@ -1166,10 +1166,10 @@ object ExternalClockExample{
 object RgbToGray{
   class RgbToGray extends Component{
     val io = new Bundle{
-      val clear = in Bool
+      val clear = in Bool()
       val r,g,b = in UInt(8 bits)
 
-      val wr = out Bool
+      val wr = out Bool()
       val address = out UInt(16 bits)
       val data = out UInt(8 bits)
     }
@@ -1215,10 +1215,10 @@ object RgbToGray2{
 
   class RgbToGray extends Component{
     val io = new Bundle{
-      val clear = in Bool
+      val clear = in Bool()
       val r,g,b = in UInt(8 bits)
 
-      val wr      = out Bool
+      val wr      = out Bool()
       val address = out UInt(16 bits)
       val data    = out UInt(8 bits)
     }
@@ -1251,7 +1251,7 @@ object CombinatorialLogic {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond            = in Bool
+      val cond            = in Bool()
       val value           = in UInt (4 bit)
       val withoutProcess  = out UInt(4 bits)
       val withProcess     = out UInt(4 bits)
@@ -1283,7 +1283,7 @@ object CombinatorialLogic {
 object FlipFlop {
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond   = in Bool
+      val cond   = in Bool()
       val value  = in UInt (4 bit)
       val resultA = out UInt(4 bit)
       val resultB = out UInt(4 bit)
@@ -1402,7 +1402,7 @@ object SinFir2{
 
   //  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
   //    val io = new Bundle {
-  //      val square = out Bool
+  //      val square = out Bool()
   //      val sin = out SInt(resolutionWidth bit)
   //      val mixed = out SInt(resolutionWidth bit)
   //      val filtred = out SInt(resolutionWidth bit)
@@ -1432,8 +1432,8 @@ object c99{
 
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val coreClk = in Bool
-      val coreReset = in Bool
+      val coreClk = in Bool()
+      val coreReset = in Bool()
     }
     val coreClockDomain = ClockDomain(
       clock  = io.coreClk,
@@ -1606,8 +1606,8 @@ object c4828{
 
   class MyComponent extends Component {
     val io = new Bundle{
-      val a      = in Bool
-      val result = out Bool
+      val a      = in Bool()
+      val result = out Bool()
     }
     when(io.a){
       io.result := True
@@ -1687,7 +1687,7 @@ object StreamDemo{
 object TimerDemo{
   val apb = Apb3(addressWidth = 8, dataWidth = 32)
   val external = new Bundle{
-    val clear,tick = Bool
+    val clear,tick = Bool()
   }
 
   val prescaler = Prescaler(16)
@@ -1728,12 +1728,12 @@ object DemoMusc564{
   case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     val PADDR      = UInt(config.addressWidth bit)
     val PSEL       = Bits(config.selWidth bits)
-    val PENABLE    = Bool
-    val PREADY     = Bool
-    val PWRITE     = Bool
+    val PENABLE    = Bool()
+    val PREADY     = Bool()
+    val PWRITE     = Bool()
     val PWDATA     = Bits(config.dataWidth bit)
     val PRDATA     = Bits(config.dataWidth bit)
-    val PSLVERROR  = if(config.useSlaveError) Bool else null
+    val PSLVERROR  = if(config.useSlaveError) Bool() else null
 
     override def asMaster(): Unit = {
       out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
@@ -1791,8 +1791,8 @@ object P6364{
   }
   {
     case class Stream[T <: Data](payloadType : HardType[T]) extends Bundle with IMasterSlave{
-      val valid   = Bool
-      val ready   = Bool
+      val valid   = Bool()
+      val ready   = Bool()
       val payload = payloadType()
 
       override def asMaster(): Unit = {
@@ -1830,8 +1830,8 @@ object PlayAxiConnect{
                         idWidth      : Int)
 
   case class Axi4(config: Axi4Config) extends Bundle {
-    val ar_valid = Bool
-    val ar_ready = Bool
+    val ar_valid = Bool()
+    val ar_ready = Bool()
     val ar_addr  = UInt(config.addressWidth bits)
     // ...
   }
@@ -1923,7 +1923,7 @@ object TrololOOP{
 }
 
 object SementicAA{
-  val inc, clear = Bool
+  val inc, clear = Bool()
   val counter = Reg(UInt(8 bits))
 
   when(inc){
@@ -1935,7 +1935,7 @@ object SementicAA{
 }
 
 object SementicAB{
-  val inc, clear = Bool
+  val inc, clear = Bool()
   val counter = Reg(UInt(8 bits))
 
   def setCounter(value : UInt): Unit = {
@@ -1952,7 +1952,7 @@ object SementicAB{
 
 
 object SementicAC{
-  val inc, clear = Bool
+  val inc, clear = Bool()
   val counter = Reg(UInt(8 bits))
 
   def setCounterWhen(cond : Bool,value : UInt): Unit = {
@@ -1966,7 +1966,7 @@ object SementicAC{
 }
 
 object SementicAD{
-  val inc, clear = Bool
+  val inc, clear = Bool()
   val counter = Reg(UInt(8 bits))
 
   def setSomethingWhen(something : UInt,cond : Bool,value : UInt): Unit = {
@@ -2081,7 +2081,7 @@ object PlayAdder2{
     color.assignFromBits(bitsIn)
     bitsOut := color.asBits
 
-    val something,somethingElse = Bool
+    val something,somethingElse = Bool()
 
     val result = UInt(8 bits)
     result := 0
@@ -2135,7 +2135,7 @@ object PlayAdder2{
   }
 
 //  {
-//    val myBool = Bool
+//    val myBool = Bool()
 //    myBool := False
 //    myBool := True
 //    myBool := Bool(4 > 7)

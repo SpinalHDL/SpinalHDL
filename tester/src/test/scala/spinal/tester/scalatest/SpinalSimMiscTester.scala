@@ -14,7 +14,7 @@ import scala.util.Random
 object SpinalSimMiscTester{
   class SpinalSimMiscTesterCounter extends Component{
     val io = new Bundle{
-      val enable = in Bool
+      val enable = in Bool()
       val value = out UInt(8 bits)
     }
 

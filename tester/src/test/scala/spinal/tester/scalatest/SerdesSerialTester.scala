@@ -8,7 +8,7 @@ object SerdesSerialTester {
 
   class BundleA extends Bundle {
     val a = UInt(8 bit)
-    val b = Bool
+    val b = Bool()
   }
 
 }

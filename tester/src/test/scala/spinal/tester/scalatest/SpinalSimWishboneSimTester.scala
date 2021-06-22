@@ -16,7 +16,7 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
     val busmaster = slave(Wishbone(config))
     val busslave = master(Wishbone(config))
   }
-  val ff = Reg(Bool)
+  val ff = Reg(Bool())
   io.busmaster <> io.busslave
 }
 class SpinalSimWishboneSimTester extends FunSuite{

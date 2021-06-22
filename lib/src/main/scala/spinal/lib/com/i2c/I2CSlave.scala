@@ -77,14 +77,14 @@ object I2cSlaveCmdMode extends SpinalEnum {
 
 case class I2cSlaveCmd() extends Bundle {
   val kind = I2cSlaveCmdMode()
-  val data = Bool
+  val data = Bool()
 }
 
 
 case class I2cSlaveRsp() extends Bundle {
-  val valid  = Bool
-  val enable = Bool
-  val data   = Bool
+  val valid  = Bool()
+  val enable = Bool()
+  val data   = Bool()
 }
 
 
@@ -119,8 +119,8 @@ case class I2cSlaveIo(g: I2cSlaveGenerics) extends Bundle {
   val bus    = master(I2cSlaveBus())
 
   val internals = out(new Bundle {
-    val inFrame = Bool
-    val sdaRead, sclRead = Bool
+    val inFrame = Bool()
+    val sdaRead, sclRead = Bool()
   })
 
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics: I2cSlaveMemoryMappedGenerics) = {
@@ -206,8 +206,8 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
 
     // Create a bus RSP buffer
     case class Rsp() extends Bundle{
-      val enable = Bool
-      val data   = Bool
+      val enable = Bool()
+      val data   = Bool()
     }
 
     val rspBufferIn = Stream(Rsp())

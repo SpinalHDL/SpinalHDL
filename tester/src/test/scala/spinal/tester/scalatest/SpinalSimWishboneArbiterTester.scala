@@ -15,7 +15,7 @@ class WishboneArbiterComponent(config : WishboneConfig,size: Int) extends Compon
     val busIN = Vec(slave(Wishbone(config)),size)
     val busOUT = master(Wishbone(config))
   }
-  val ff = Reg(Bool)
+  val ff = Reg(Bool())
   val arbiter = WishboneArbiter(io.busIN,io.busOUT)
 }
 

@@ -7,7 +7,7 @@ import spinal.lib.com.usb.phy._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-
+import scala.collection.Seq
 
 
 trait UsbDeviceAgentListener{

@@ -42,7 +42,7 @@ object Sandbox extends App {
 
 //  class MyComponent extends Component {
 //    val logicA = new Area{
-//      val toggle = Reg(Bool)
+//      val toggle = Reg(Bool())
 //      toggle := !toggle
 //    }
 //  }
@@ -100,7 +100,7 @@ object Sandbox extends App {
 //  }
 
 //  class MyComponent extends Component {
-//    val conditions = in Vec(Bool, 64)
+//    val conditions = in Vec(Bool(), 64)
 //    val result = conditions.reduce(_ || _) // Do a logical or between all the conditions elements
 //  }
 

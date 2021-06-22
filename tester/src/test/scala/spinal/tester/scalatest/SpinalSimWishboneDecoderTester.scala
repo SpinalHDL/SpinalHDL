@@ -16,7 +16,7 @@ class WishboneDecoderComponent(config : WishboneConfig,decodings : Seq[SizeMappi
     val busIN = slave(Wishbone(config))
     val busOUT = Vec(master(Wishbone(config)),decodings.size)
   }
-  val ff = Reg(Bool)
+  val ff = Reg(Bool())
   val outs = io.busOUT zip decodings
   val decoder = WishboneDecoder(io.busIN,outs)
 }

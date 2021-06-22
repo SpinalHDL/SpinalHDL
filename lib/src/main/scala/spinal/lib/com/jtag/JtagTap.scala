@@ -10,10 +10,10 @@ import spinal.lib._
 // define Jtag IO's
 //
 case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
-  val tms = Bool
-  val tdi = Bool
-  val tdo = Bool
-  val tck = if(useTck) Bool else null
+  val tms = Bool()
+  val tdi = Bool()
+  val tdo = Bool()
+  val tck = if(useTck) Bool() else null
 
   def unclocked = {
     val ret = Jtag(false)

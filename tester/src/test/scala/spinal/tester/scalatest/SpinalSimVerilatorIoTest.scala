@@ -31,7 +31,7 @@ object SpinalSimVerilatorIoTest{
 
   class SpinalSimVerilatorIoTestTop extends Component {
     val io = new Bundle {
-      val bool = in Bool
+      val bool = in Bool()
       val u1  = in UInt (1 bits)
       val u8  = in UInt (8 bits)
       val u16 = in UInt (16 bits)

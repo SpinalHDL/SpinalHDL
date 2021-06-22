@@ -57,9 +57,9 @@ object PlayDevErrorReport{
 object PlayDevLatency{
   class TopLevel extends Component {
     val a,b = in Bool()
-    val tmp = Reg(Bool)
-    val tmp2 = Bool
-    val tmp3 = Reg(Bool)
+    val tmp = Reg(Bool())
+    val tmp2 = Bool()
+    val tmp3 = Reg(Bool())
 
 
    // tmp := a
@@ -144,7 +144,7 @@ object PlayDevMemReadWrite{
     val mem = Mem(Bits(8 bits), 64)
     val address = UInt(6 bits)
     val wrData, rdData = Bits(8 bits)
-    val en, wr = Bool
+    val en, wr = Bool()
     rdData := mem.readWriteSync(address,wrData,en,wr)
   }
 
@@ -239,11 +239,11 @@ object PlayDevCombLoop{
 object PlayDevCrossClock{
 
   class TopLevel extends Component {
-    val clockA = in Bool
-    val clockB = in Bool
+    val clockA = in Bool()
+    val clockB = in Bool()
 
     val areaA = new ClockingArea(ClockDomain(clockA)){
-      val reg = Reg(Bool)
+      val reg = Reg(Bool())
       reg := in(Bool)
       val wire = Bool()
       wire := reg
@@ -252,7 +252,7 @@ object PlayDevCrossClock{
     }
 
     val areaB = new ClockingArea(ClockDomain(clockB)){
-      val reg = Reg(Bool)
+      val reg = Reg(Bool())
       reg := areaA.wire2
       val output = out Bool()
       output := reg
@@ -454,7 +454,7 @@ object PlayDevTriplify{
       val a, b, c = in Bool()
       val result = out Bool()
 
-      val tmp = Reg(Bool)
+      val tmp = Reg(Bool())
       when(a){
         tmp := a || c && True
         when(b){
@@ -801,7 +801,7 @@ object PlayDevSynthesis{
 
 
   class TopLevel extends Component {
-    val inputs = in(Vec(Bool, 16))
+    val inputs = in(Vec(Bool(), 16))
     val sel = in(UInt(4 bits))
     val output = out(inputs(sel))
   }
@@ -969,8 +969,8 @@ object PlayDevTest32 extends App{
 object PlayWithIndex extends App {
   class MyTopLevel extends Component{
     val io = new Bundle{
-      val load  = in Bool
-      val din   = in Bool
+      val load  = in Bool()
+      val din   = in Bool()
       val index = in UInt(log2Up(60) bits)
       val value = out UInt(60 bits)
     }
@@ -1038,7 +1038,7 @@ object PlayDeterministicGeneration extends App {
       val io = new Bundle{
         val apb =  slave(cloneOf(ctrl.io.apb))
         val i2c = master(I2c())
-        val interrupt = out Bool
+        val interrupt = out Bool()
       }
 
       io <> ctrl.io
@@ -1082,7 +1082,7 @@ object PlayAssertFormal extends App {
 object PlayErrorImprovment extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out Bool()
     }
     val a = RegInit(False)
     io.state := a
@@ -1106,7 +1106,7 @@ object PlayInitBoot extends App {
 object PlayErrorImprovment2 extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out Bool()
     }
     val a = RegInit(False)
     io.state := a
@@ -1150,7 +1150,7 @@ object PlayErrorReportingImprovmenet extends App {
 object PlayHardType extends App {
   case class A() extends Bundle{
     println("A")
-    val x,y,z = Bool
+    val x,y,z = Bool()
   }
   class MyTopLevel extends Component{
 
@@ -1179,8 +1179,8 @@ object PlayNamingImprovment extends App{
 
   class Sub extends Component{
     val io = new Bundle {
-      val input = in Bool
-      val output = out Bool
+      val input = in Bool()
+      val output = out Bool()
     }
     io.output := io.input
   }
@@ -1504,7 +1504,7 @@ object OutputBug {
     var dut = SimConfig
       .compile(new Component {
         val io = new Bundle {
-          val cond0 = in Bool
+          val cond0 = in Bool()
         }
         val counter = Reg(UInt(8 bits)) init (0)
 

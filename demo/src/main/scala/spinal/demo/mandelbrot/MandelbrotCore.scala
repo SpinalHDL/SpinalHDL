@@ -8,7 +8,7 @@ import spinal.core._
 import spinal.lib._
 
 case class MandelbrotCoreConfig(p: MandelbrotCoreParameters) extends Bundle {
-  val frameTaskFilterEnable = Bool
+  val frameTaskFilterEnable = Bool()
 }
 
 class CmdInterface(p: MandelbrotCoreParameters) extends Component {

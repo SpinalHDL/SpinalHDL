@@ -174,7 +174,7 @@
 //      val done = False
 //      val data = Bool().assignDontCare()
 //      val counter = Reg(UInt(3 bits))
-//      val toggle = Reg(Bool)
+//      val toggle = Reg(Bool())
 //
 //      val clear = False
 //      when(clear) {
@@ -324,7 +324,7 @@
 //    filter.io.usb.dm := io.usb.rx.dm
 //
 //    val decoder = new Area{
-//      val state = Reg(Bool) init(False)
+//      val state = Reg(Bool()) init(False)
 //
 //      val output = Flow(Bool)
 //      output.valid := False

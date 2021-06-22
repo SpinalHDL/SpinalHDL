@@ -45,7 +45,7 @@ case class BRAM(config: BRAMConfig) extends Bundle with IMasterSlave {
 
   assert(config.dataWidth > 0 & config.dataWidth  % 8 == 0, "BRAM : dataWidth must be a multiple of 8")
 
-  val en     = Bool
+  val en     = Bool()
   val we     = Bits(config.dataWidth / 8 bits) // write byte enable
   val addr   = UInt(config.addressWidth bits)
   val wrdata = Bits(config.dataWidth bits)

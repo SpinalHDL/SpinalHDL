@@ -7,7 +7,7 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 object Apb3OverStream {
   case class ApbCmd(config : Apb3Config) extends Bundle{
     val PADDR      = UInt(config.addressWidth bits)
-    val PWRITE     = Bool
+    val PWRITE     = Bool()
     val PWDATA     = Bits(config.dataWidth bits)
   }
 

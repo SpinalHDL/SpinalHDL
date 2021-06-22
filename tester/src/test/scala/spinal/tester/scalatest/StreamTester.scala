@@ -7,7 +7,7 @@ import spinal.lib._
 object StreamTester{
   case class BundleA(aaa : Int) extends Bundle{
     val a = UInt(8 bit)
-    val b = Bool
+    val b = Bool()
   }
 }
 

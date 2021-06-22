@@ -101,8 +101,8 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
   class Context extends Bundle {
     val task = PixelTask(p)
-    val lastPixel = Bool
-    val done = Bool
+    val lastPixel = Bool()
+    val done = Bool()
     val order = UInt(5 bit)
     //Used to reorder result in same oder than input task
     val iteration = UInt(p.iterationWidth bit)

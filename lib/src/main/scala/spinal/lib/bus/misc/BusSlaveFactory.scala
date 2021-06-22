@@ -30,7 +30,7 @@ import spinal.lib._
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-
+import scala.collection.Seq
 
 
 /**

@@ -19,7 +19,7 @@ object IntroHdl{
       val a           = in    Bool
       val b           = in    Bool
       val c            = in    Bool
-      val result   = out Bool
+      val result   = out Bool()
     }
     val a_and_b = io.a & io.b
     val not_c = !io.c
@@ -40,8 +40,8 @@ object PresentationDSL{
   object AST{
     import spinal.core._
 
-    val a,b,c  = Bool
-    val result = Bool
+    val a,b,c  = Bool()
+    val result = Bool()
     result := (a || b) && c
   }
 
@@ -87,7 +87,7 @@ object PresentationDSL{
         //...
       }
     }
-    val something, data, result = Bool
+    val something, data, result = Bool()
     result := False
     when(something){
       result := data
@@ -278,10 +278,10 @@ object PresentationSymbolic{
   import spinal.core._
   import spinal.lib._
   import spinal.lib.bus.amba3.apb._
-//  val x = Reg(Bool)
-//  val x = Reg(Bool) init(False)
-  val a,b,c,d,e = Bool
-//  val x = Reg(Bool)
+//  val x = Reg(Bool())
+//  val x = Reg(Bool()) init(False)
+  val a,b,c,d,e = Bool()
+//  val x = Reg(Bool())
 //  x := a
 //  when(d){
 //    when(e){
@@ -325,9 +325,9 @@ object PresentationSymbolic{
 //  }
   class Pwm(width : Int) extends Component{
     val io = new Bundle{
-      val enable    = in Bool
+      val enable    = in Bool()
       val dutyCycle = in UInt(width bits)
-      val pwm       = out Bool
+      val pwm       = out Bool()
     }
     // ...
   }
@@ -339,7 +339,7 @@ object PresentationSymbolic{
 //        dataWidth = 32
 //      ))
 //      val pop = master(Stream(Bits(packetWidth bits)))
-//      val pwm       = out Bool
+//      val pwm       = out Bool()
 //    }
 //    // ...
 //  }
@@ -349,8 +349,8 @@ object PresentationSymbolic{
 
   case class MemoryPort( addressWidth : Int,
                          dataWidth : Int) extends Bundle with IMasterSlave {
-    val enable    = Bool
-    val rwn       = Bool
+    val enable    = Bool()
+    val rwn       = Bool()
     val address   = Bits(addressWidth bits)
     val writeData = Bits(dataWidth bits)
     val readData  = Bits(dataWidth bits)
@@ -388,7 +388,7 @@ object PresentationSymbolic{
 
   class Toplevel extends Component{
     val io = new Bundle{
-      val pin = out Bool
+      val pin = out Bool()
     }
 
     val subComponent = new SubComponent
@@ -402,12 +402,12 @@ object PresentationSymbolic{
 //
 //  val PADDR      = UInt(config.addressWidth bits)
 //  val PSEL       = Bits(config.selWidth bits)
-//  val PENABLE    = Bool
-//  val PREADY     = Bool
-//  val PWRITE     = Bool
+//  val PENABLE    = Bool()
+//  val PREADY     = Bool()
+//  val PWRITE     = Bool()
 //  val PWDATA     = Bits(config.dataWidth bits)
 //  val PRDATA     = Bits(config.dataWidth bits)
-//  val PSLVERROR  = if(config.useSlaveError) Bool else null
+//  val PSLVERROR  = if(config.useSlaveError) Bool() else null
 //
 //  override def asMaster(): Unit = {
 //    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)
