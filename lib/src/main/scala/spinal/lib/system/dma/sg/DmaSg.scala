@@ -1786,7 +1786,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
     inputs(inputId).reservedSink.remove(sink)
   }
 
-  def log(that : String) = Unit //println(that)
+  def log(that : String) = { }
   val channelAgent = for((channel, channelId) <- p.channels.zipWithIndex) yield fork {
     Thread.currentThread().setName(s"CH $channelId")
     val cp = p.channels(channelId)
@@ -1902,7 +1902,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       }
                     }
                     inputs(inputId).enqueue(packet)
-                    packets.enqueue(mutable.Queue(packet.data.map(_.toByte) :_*))
+                    packets.enqueue(mutable.Queue.from(packet.data.map(_.toByte)))
 //                    println(f"Packet : ${packet.data.size}")
                   }
                 }
@@ -1918,7 +1918,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       packet.data += value
                     }
                     inputs(inputId).enqueue(packet)
-                    packets.enqueue(mutable.Queue(packet.data.map(_.toByte) :_*))
+                    packets.enqueue(mutable.Queue.from(packet.data.map(_.toByte)))
                     log(f"Packet : ${packet.data.size}")
                   }
                 }
@@ -2402,7 +2402,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
   }
 
   def waitCompletion() {
-    channelAgent.foreach(_.join())
+    channelAgent.foreach(e => e.join())
     clockDomain.waitSampling(1000)
   }
 }
