@@ -53,7 +53,7 @@ jobs:
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
     - name: Compile tests
-      run: sbt test:compile
+      run: sbt "+test:compile"
 
     - name: Run tests
-      run: sbt test
+      run: sbt "+test"
