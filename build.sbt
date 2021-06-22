@@ -6,7 +6,7 @@ import sbt.Tests._
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
-  scalaVersion := SpinalVersion.compiler,
+  crossScalaVersions := SpinalVersion.compilers,
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
   javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
   baseDirectory in test := file("/out/"),
@@ -22,12 +22,12 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   },
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
-  libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
+  libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.0.5",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt clean reload publishSigned
@@ -128,7 +128,12 @@ lazy val core = (project in file("core"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+    libraryDependencies += {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 11 => "com.github.scopt" %% "scopt" % "3.4.0"
+        case _                       => "com.github.scopt" %% "scopt" % "3.7.0"
+      }
+    },
     libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
 
     resolvers += Resolver.sonatypeRepo("public"),
@@ -190,7 +195,12 @@ lazy val tester = (project in file("tester"))
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),
 
-    libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+    libraryDependencies += {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, n)) if n <= 11 => "org.scalatest" %% "scalatest" % "2.2.1"
+        case _                       => "org.scalatest" %% "scalatest" % "3.0.1"
+      }
+    },
     publishArtifact := false,
     publishLocal := {}
   )
