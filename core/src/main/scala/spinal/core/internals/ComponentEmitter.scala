@@ -24,7 +24,7 @@ import spinal.core._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val strings: Seq[String]) {
 

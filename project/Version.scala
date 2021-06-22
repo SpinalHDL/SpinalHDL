@@ -1,5 +1,5 @@
 object SpinalVersion {
-  val compilers = List("2.11.12", "2.12.13")
+  val compilers = List(/*"2.11.12", "2.12.13", */"2.13.6")
   val compilerIsRC = false
 
   val isSnapshot = false

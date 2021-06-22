@@ -611,7 +611,7 @@ trait SpinalTagReady {
   def spinalTags: mutable.LinkedHashSet[SpinalTag] = {
     if(_spinalTags == null)
       _spinalTags = new mutable.LinkedHashSet[SpinalTag]{
-        override def initialSize: Int = 4
+//        override def initialSize: Int = 4
       }
     _spinalTags
   }

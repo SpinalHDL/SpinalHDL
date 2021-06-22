@@ -22,6 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import scala.collection.Seq
 
 object DataAssign
 object InitAssign

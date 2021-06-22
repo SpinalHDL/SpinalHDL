@@ -166,7 +166,7 @@ class ComponentEmitterVhdl(
     }
 
     component.children.foreach(sub => {
-      val structSignals = new mutable.MutableList[SpinalStruct]()
+      val structSignals = new mutable.ArrayBuffer[SpinalStruct]()
       sub.getAllIo.foreach(_io => {
         var io = _io
         if (io.isOutput) {
@@ -529,7 +529,7 @@ class ComponentEmitterVhdl(
               localDeclaration ++= s"    return ${varName};\n"
               localDeclaration ++= s"  end function;\n"
 
-              localDeclaration.lines.foreach(line => {
+              localDeclaration.toString().split("\n").foreach(line => {
                 if (line.contains(":=")) {
                   val parts = line.split(":=")
                   declarations ++= parts.head.replace(".", "_") + ":="

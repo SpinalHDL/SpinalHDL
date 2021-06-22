@@ -273,14 +273,14 @@ package object sim {
       val index = Random.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
     def pop() : T = {
       val index = 0
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
   }
