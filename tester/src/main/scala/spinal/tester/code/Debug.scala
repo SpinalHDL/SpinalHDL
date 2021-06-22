@@ -206,3 +206,20 @@ object Debug2 extends App{
 //
 
 
+
+object Debug3 extends App{
+  import spinal.core.sim._
+
+  SimConfig.withIVerilog.compile(new Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := result + 1
+    assert(result =/= 10, "miaou")
+  }).doSim{ dut =>
+    dut.a #= 1
+    dut.b #= 0
+    dut.c #= 0
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(100)
+  }
+}
