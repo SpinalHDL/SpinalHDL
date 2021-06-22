@@ -6,8 +6,8 @@ import sbt.Tests._
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
-//  crossScalaVersions := SpinalVersion.compilers,
-  scalaVersion := SpinalVersion.compilers.last,
+  crossScalaVersions := SpinalVersion.compilers,
+//  scalaVersion := SpinalVersion.compilers(0),
   scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   baseDirectory in test := file("/out/"),
@@ -129,12 +129,7 @@ lazy val core = (project in file("core"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 11 => "com.github.scopt" %% "scopt" % "3.4.0"
-        case _                       => "com.github.scopt" %% "scopt" % "3.7.1"
-      }
-    },
+    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
     libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
 
     resolvers += Resolver.sonatypeRepo("public"),
@@ -196,12 +191,7 @@ lazy val tester = (project in file("tester"))
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),
 
-    libraryDependencies += {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n <= 11 => "org.scalatest" %% "scalatest" % "2.2.1"
-        case _                       => "org.scalatest" %% "scalatest" % "3.2.5"
-      }
-    },
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     publishArtifact := false,
     publishLocal := {}
   )

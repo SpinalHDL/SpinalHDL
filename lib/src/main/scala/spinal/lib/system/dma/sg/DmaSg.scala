@@ -1902,7 +1902,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       }
                     }
                     inputs(inputId).enqueue(packet)
-                    packets.enqueue(mutable.Queue.from(packet.data.map(_.toByte)))
+                    packets.enqueue(mutable.Queue.empty ++= (packet.data.map(_.toByte)))
 //                    println(f"Packet : ${packet.data.size}")
                   }
                 }
@@ -1918,7 +1918,7 @@ abstract class DmaSgTester(p : DmaSg.Parameter,
                       packet.data += value
                     }
                     inputs(inputId).enqueue(packet)
-                    packets.enqueue(mutable.Queue.from(packet.data.map(_.toByte)))
+                    packets.enqueue(mutable.Queue.empty ++= (packet.data.map(_.toByte)))
                     log(f"Packet : ${packet.data.size}")
                   }
                 }
