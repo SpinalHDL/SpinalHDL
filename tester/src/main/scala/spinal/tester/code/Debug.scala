@@ -86,14 +86,17 @@ object Debug2 extends App{
 
 
     GenerationFlags.formal {
-//      ClockDomain.current.readResetWire initial(False)
-      rawrrr.initial(0x42)
-
-      assumeInitial(!clockDomain.isResetActive)
-      ClockDomain.current.duringReset {
-        assume(rawrrr === 0)
-        assume(wuff === 3)
+      ClockDomain.current.withoutReset(){
+        assert(wuff === 0)
       }
+//      ClockDomain.current.readResetWire initial(False)
+//      rawrrr.initial(0x42)
+//
+//      assumeInitial(!clockDomain.isResetActive)
+//      ClockDomain.current.duringReset {
+//        assume(rawrrr === 0)
+//        assume(wuff === 3)
+//      }
     }
 
     setDefinitionName("miaou")
@@ -104,5 +107,39 @@ object Debug2 extends App{
 //object MyEnum extends  spinal.core.MacroTest.mkObject("asd")
 //
 //
+
+
+
+import spinal.core._
+
+class Test extends Component {
+  val io = new Bundle {
+    val input = in Vec(UInt(10 bits), 2)
+    val output = out UInt(11 bits)
+  }
+
+  io.output := io.input(0) +^ io.input(1)
+
+}
+
+class TestTop extends Component {
+  val io = new Bundle {
+    val A = in UInt(10 bits)
+    val B = in UInt(10 bits)
+    val C = out UInt(11 bits)
+  }
+
+  val adder = new Test
+  adder.io.input(0) := io.A
+  adder.io.input(1) := io.B
+  io.C := adder.io.output
+}
+
+object TestTopMain {
+  def main(args: Array[String]) {
+    SpinalVerilog(new TestTop)
+  }
+}
+
 
 
