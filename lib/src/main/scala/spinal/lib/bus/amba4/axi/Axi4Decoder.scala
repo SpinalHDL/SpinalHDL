@@ -66,7 +66,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterUpDown(
     stateCount = pendingMax+1,
@@ -149,7 +149,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val sharedOutputs = Vec(master(Axi4Shared(axiConfig)),sharedDecodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterMultiRequest(
     log2Up(pendingMax+1),

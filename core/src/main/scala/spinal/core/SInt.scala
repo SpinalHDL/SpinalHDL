@@ -27,7 +27,7 @@ import spinal.core.internals._
   */
 trait SIntFactory{
   /** Create a new SInt */
-  def SInt() = new SInt()
+  def SInt(u: Unit = null) = new SInt()
   /** Create a new SInt of a given width */
   def SInt(width: BitCount): SInt = SInt().setWidth(width.value)
 }

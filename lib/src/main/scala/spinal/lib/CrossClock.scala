@@ -49,8 +49,8 @@ object PulseCCByToggle {
 
 class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
   val io = new Bundle{
-    val pulseIn = in Bool
-    val pulseOut = out Bool
+    val pulseIn = in Bool()
+    val pulseOut = out Bool()
   }
 
   val inArea = new ClockingArea(clockIn) {

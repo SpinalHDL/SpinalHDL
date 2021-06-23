@@ -9,16 +9,16 @@ import spinal.lib.com.uart._
 object PllAAssertSDeassertTester{
   class PLL extends BlackBox{
     val io = new Bundle{
-      val clk_in = in Bool
-      val clk_out = out Bool
+      val clk_in = in Bool()
+      val clk_out = out Bool()
     }
 
     noIoPrefix()
   }
 
   class PllAAssertSDeassertTester extends Component{
-    val aReset     = in Bool
-    val clk_100Mhz = in Bool
+    val aReset     = in Bool()
+    val clk_100Mhz = in Bool()
 
     val pllBB = new PLL
     pllBB.io.clk_in := clk_100Mhz

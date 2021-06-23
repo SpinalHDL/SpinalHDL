@@ -7,6 +7,7 @@ import spinal.lib.eda.microsemi.LiberoFlow
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
+import scala.collection.Seq
 
 trait Target {
   def synthesise(rtl: Rtl, workspace: String): Report

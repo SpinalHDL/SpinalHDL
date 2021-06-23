@@ -18,7 +18,7 @@ case class Floating(exponentSize: Int,
   val exponent = Bits(exponentSize bits)
 
   /** Sign field (true when negative) */
-  val sign = Bool
+  val sign = Bool()
 
   /** Value of the exponent bias for this float configuration */
   def getExponentBias = ((1 << (exponentSize - 1)) - 1)
@@ -143,7 +143,7 @@ case class RecFloating(exponentSize: Int,
   val exponent = Bits(exponentSize bits)
 
   /** Sign field (true when negative) */
-  val sign = Bool
+  val sign = Bool()
 
   /** Value of the recoded exponent corresponding to the smallest exponent */
   def getExponentZero = (1 << (exponentSize - 2)) + 1

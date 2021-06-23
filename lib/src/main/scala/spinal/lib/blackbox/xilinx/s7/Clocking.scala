@@ -121,20 +121,20 @@ case class PLLE2_BASE(
   addGeneric("CLKOUT5_PHASE", clkOut5_Phase )
   addGeneric("CLKOUT5_DUTY_CYCLE", clkOut5_DutyCycle )
 
-  val CLKIN1 = in Bool
-  val CLKFBIN = in Bool
-  val CLKFBOUT = out Bool
+  val CLKIN1 = in Bool()
+  val CLKFBIN = in Bool()
+  val CLKFBOUT = out Bool()
 
-  val RST = in Bool
-  val LOCKED = out Bool
+  val RST = in Bool()
+  val LOCKED = out Bool()
 
-  val CLKOUT0  = out Bool
-  val CLKOUT1  = out Bool
-  val CLKOUT2  = out Bool
-  val CLKOUT3  = out Bool
-  val CLKOUT4  = out Bool
-  val CLKOUT5  = out Bool
-  val PWRDWN = in Bool
+  val CLKOUT0  = out Bool()
+  val CLKOUT1  = out Bool()
+  val CLKOUT2  = out Bool()
+  val CLKOUT3  = out Bool()
+  val CLKOUT4  = out Bool()
+  val CLKOUT5  = out Bool()
+  val PWRDWN = in Bool()
 }
 
 // See UG472 (v1.14), 7 Series Clocking, p. 78 ff

@@ -14,7 +14,7 @@ object DebugTest2 {
       val a, b, c = in UInt (7 bits)
       val result = out UInt (7 bits)
     }
-    val tmp = Bool
+    val tmp = Bool()
     io.result := RegNext(io.a + io.b - io.c)
   }
   def main(args: Array[String]): Unit = {

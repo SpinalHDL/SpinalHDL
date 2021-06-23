@@ -28,6 +28,7 @@ import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.Seq
 
 /**
   * Simulation package
@@ -194,7 +195,11 @@ package object sim {
     }
   }
 
-  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+  def forkSensitive(triggers: Data)(block: => Unit): Unit = {
+    forkSensitive2(triggers)(block)
+  }
+
+  def forkSensitive2(triggers: Data*)(block: => Unit): Unit = {
     def value(data: Data) = data.flatten.map(_.toBigInt)
     def currentTriggerValue = triggers.flatMap(value)
 
@@ -273,14 +278,14 @@ package object sim {
       val index = Random.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
     def pop() : T = {
       val index = 0
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
   }

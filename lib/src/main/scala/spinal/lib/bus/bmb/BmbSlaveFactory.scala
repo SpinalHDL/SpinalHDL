@@ -3,6 +3,7 @@ package spinal.lib.bus.bmb
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, SingleMapping}
+import scala.collection.Seq
 
 object BmbSlaveFactory{
   def getBmbCapabilities(accessSource : BmbAccessCapabilities,

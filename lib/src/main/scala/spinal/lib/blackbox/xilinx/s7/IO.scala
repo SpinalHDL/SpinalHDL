@@ -127,14 +127,14 @@ case class OBUFDS() extends BlackBox{
 case class IOBUFDS() extends BlackBox{
   val I, T = in Bool()
   val O = out Bool()
-  val IO, IOB = inout(Analog(Bool))
+  val IO, IOB = inout(Analog(Bool()))
 }
 
 
 case class IOBUF() extends BlackBox{
   val I, T = in Bool()
   val O = out Bool()
-  val IO = inout(Analog(Bool))
+  val IO = inout(Analog(Bool()))
 
   when(T){
     IO := I

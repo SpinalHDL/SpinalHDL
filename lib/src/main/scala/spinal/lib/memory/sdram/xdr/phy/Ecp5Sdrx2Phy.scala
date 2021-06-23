@@ -7,7 +7,7 @@ import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.SdramLayout
 import spinal.lib.memory.sdram.sdr.SdramInterface
 import spinal.lib.memory.sdram.xdr.{PhyLayout, SdramXdrPhyCtrl}
-
+import scala.collection.Seq
 
 object Ecp5Sdrx2Phy{
   def phyLayout(sl : SdramLayout) = PhyLayout(

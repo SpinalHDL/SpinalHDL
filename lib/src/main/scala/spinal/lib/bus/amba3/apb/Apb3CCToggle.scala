@@ -44,7 +44,7 @@ class Apb3CCToggle(busConfig: Apb3Config, inClk: ClockDomain, outClk: ClockDomai
     val output = master(Apb3(busConfig))
   }
 
-  val outAreaHit       = Bool
+  val outAreaHit       = Bool()
   val outAreaPRDATA    = cloneOf(io.output.PRDATA)
   val outAreaPSLVERROR = if(busConfig.useSlaveError) cloneOf(io.output.PSLVERROR) else null
 
@@ -142,12 +142,12 @@ case class Apb3CC(config : Apb3Config,
 
   case class Cmd() extends Bundle{
     val PADDR      = UInt(config.addressWidth bits)
-    val PWRITE     = Bool
+    val PWRITE     = Bool()
     val PWDATA     = Bits(config.dataWidth bits)
   }
   case class Rsp() extends Bundle{
     val PRDATA     = Bits(config.dataWidth bits)
-    val PSLVERROR  = if(config.useSlaveError) Bool else null
+    val PSLVERROR  = if(config.useSlaveError) Bool() else null
   }
 
   val inputLogic = new ClockingArea(inputClock){

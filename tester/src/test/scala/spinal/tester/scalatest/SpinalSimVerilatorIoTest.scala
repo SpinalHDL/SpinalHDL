@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
@@ -31,7 +31,7 @@ object SpinalSimVerilatorIoTest{
 
   class SpinalSimVerilatorIoTestTop extends Component {
     val io = new Bundle {
-      val bool = in Bool
+      val bool = in Bool()
       val u1  = in UInt (1 bits)
       val u8  = in UInt (8 bits)
       val u16 = in UInt (16 bits)
@@ -68,7 +68,7 @@ object SpinalSimVerilatorIoTest{
   }
 }
 
-class SpinalSimVerilatorIoTest extends FunSuite {
+class SpinalSimVerilatorIoTest extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[SpinalSimVerilatorIoTestTop] = null

@@ -3,6 +3,7 @@ package spinal.lib.bus.avalon
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
+import scala.collection.Seq
 
 object AvalonMMSlaveFactory{
   def getAvalonConfig(addressWidth: Int,

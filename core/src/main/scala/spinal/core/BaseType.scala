@@ -21,7 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
-
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 trait TypeFactory{

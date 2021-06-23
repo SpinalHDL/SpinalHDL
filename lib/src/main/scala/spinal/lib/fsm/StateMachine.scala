@@ -113,7 +113,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     * goto() will only have an effect, if condition is True
     */
   def setTransitionCondition(condition : Bool) {
-    this.transitionCond = Bool
+    this.transitionCond = Bool()
     this.transitionCond := condition
   }
 

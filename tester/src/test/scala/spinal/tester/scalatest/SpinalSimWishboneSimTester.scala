@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim.{SimCompiled, _}
 import spinal.sim._
@@ -16,10 +16,10 @@ class wishbonesimplebus(config : WishboneConfig) extends Component{
     val busmaster = slave(Wishbone(config))
     val busslave = master(Wishbone(config))
   }
-  val ff = Reg(Bool)
+  val ff = Reg(Bool())
   io.busmaster <> io.busslave
 }
-class SpinalSimWishboneSimTester extends FunSuite{
+class SpinalSimWishboneSimTester extends AnyFunSuite{
 
   var compiled : SimCompiled[wishbonesimplebus] = null
   var compPipe : SimCompiled[wishbonesimplebus] = null

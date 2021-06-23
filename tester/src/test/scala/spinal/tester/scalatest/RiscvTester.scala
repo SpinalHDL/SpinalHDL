@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.bench.CoreUut
@@ -10,7 +10,7 @@ import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, BarrelSh
 import language.postfixOps
 
 
-//class RiscvCompilationTester extends FunSuite {
+//class RiscvCompilationTester extends AnyFunSuite {
 //  test("riscv_cached"){
 //    val iCacheConfig = InstructionCacheConfig(
 //      cacheSize = 4096*2,

@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import scala.collection.Seq
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
@@ -561,8 +562,8 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   val locked = RegInit(False).allowUnsetRegToAvoidLatch
 
-  val maskProposal = Vec(Bool,portCount)
-  val maskLocked = Reg(Vec(Bool,portCount))
+  val maskProposal = Vec(Bool(),portCount)
+  val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
@@ -1194,7 +1195,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
     val output = master Stream (dataType())
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
   val pushArea = new ClockingArea(inputClock) {
     val hit = BufferCC(outHitSignal, False)
@@ -1234,7 +1235,7 @@ class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock
     val output = master Stream (dataType())
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
   val pushArea = new ClockingArea(inputClock) {
     val hit = BufferCC(outHitSignal, False)

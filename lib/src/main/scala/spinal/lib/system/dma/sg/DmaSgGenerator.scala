@@ -9,6 +9,7 @@ import spinal.lib.generator._
 import spinal.lib.system.dma.sg.DmaSg.Channel
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 class DmaSgGenerator(ctrlOffset : Handle[BigInt] = Unset)
                          (implicit interconnect: BmbInterconnectGenerator, bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area{

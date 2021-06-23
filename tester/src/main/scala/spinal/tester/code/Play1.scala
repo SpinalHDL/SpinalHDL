@@ -31,19 +31,19 @@ import scala.util.Random
 
 
 trait BundleA extends Bundle {
-  val a = Bool
+  val a = Bool()
 }
 
 trait BundleB extends Bundle {
-  val b = Bool
+  val b = Bool()
 }
 
 trait BundleC extends Bundle {
-  val c = Bool
+  val c = Bool()
 }
 
 trait BundleD extends Bundle {
-  val d = Bool
+  val d = Bool()
 }
 
 class Stage0 extends Bundle with BundleA with BundleB with BundleC
@@ -77,7 +77,7 @@ object Play1 {
 class ComplexBundle extends Bundle {
   val a = Bits(12 bit)
   val b = UInt(50 bit)
-  val c = Bool
+  val c = Bool()
   val d = Vec(Bits(8 bit), 3)
 
 //  override def clone() : this.type = new ComplexBundle
@@ -389,11 +389,11 @@ object PlayUtilities{
 object PlayCheckBundles {
   class TopLevel extends Component{
     case class A() extends Bundle{
-      val a = Bool
+      val a = Bool()
     }
 
     case class B() extends Bundle{
-      val b = Bool
+      val b = Bool()
     }
 
 
@@ -412,7 +412,7 @@ object PlayBetterError {
 
 
   class TopLevel extends Component{
-    val cond = in Bool
+    val cond = in Bool()
     val a,b = in UInt(4 bits)
     val c = in UInt(5 bits)
     val d = in UInt(6 bits)
@@ -706,9 +706,9 @@ object Play6 {
 
   class Comp extends Component {
     val io = new Bundle() {
-      val cond = in Bool
+      val cond = in Bool()
       val input = in UInt (4 bit)
-      val output = out Bool
+      val output = out Bool()
     }
 
     var carry = Bool(false)
@@ -750,7 +750,7 @@ object Play7 {
 
 
   class GrayCounter(n: Int) extends Component {
-    val enable = in Bool
+    val enable = in Bool()
     val gray = out UInt (n bit)
 
     gray := grayCounter(n, enable)
@@ -896,7 +896,7 @@ object PlayDontCare {
 object PlaySymplify {
 
   class TopLevel extends Component {
-    val flush = in Vec(Bool,4)
+    val flush = in Vec(Bool(),4)
     val readyParalel = out Vec(False,4)
     val readySerial = out Vec(False,4)
 
@@ -993,8 +993,8 @@ object PlaySymplify {
 //
 //    val io = new Bundle{
 //
-//      val init     = in Bool
-//      val update   = in Bool
+//      val init     = in Bool()
+//      val update   = in Bool()
 //      val round    = in UInt(log2Up(AESCoreSpec.nbrRound(keyWidth)) bits)
 //
 //      val key      = in Bits(keyWidth)
@@ -1120,8 +1120,8 @@ object PlayBug extends App{
   import spinal.core._
   new SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVerilog(new Component{
     val io=new Bundle{
-      val sig0=out Bool() setAsReg() init(False)
-      val sig1=out Bool () setAsReg() init(False)
+      val sig0=out.Bool().setAsReg() init(False)
+      val sig1=out.Bool().setAsReg() init(False)
     }
     val normalMode=new Area{
       io.sig0:= ~io.sig0
@@ -1574,7 +1574,7 @@ object PlayMul {
     //out(RegNext(RegNext(RegNext(in(UInt(32 bit)))*RegNext(in(UInt(32 bit))))))
 
 
-    val aSigned,bSigned = in Bool
+    val aSigned,bSigned = in Bool()
     val a,b = in Bits(32 bit)
     val outLow = out Bits(32 bit)
     val outHigh = out Bits(32 bit)
@@ -1645,7 +1645,7 @@ object PlayDivide {
   case class DividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
     val quotient = UInt(nWidth bit)
     val remainder = UInt(dWidth bit)
-    val error = Bool
+    val error = Bool()
   }
 
   class Divider(nWidth : Int, dWidth : Int) extends Component{
@@ -1716,8 +1716,8 @@ object PlayDivide {
 
     val a = in SInt(32 bit)
     out(Mux(a.msb,~a,a) + (False ## a.msb).asSInt)
-//    val start = in Bool
-//    val signed = in Bool
+//    val start = in Bool()
+//    val signed = in Bool()
 //    val numerator,denominator = in Bits (32 bit)
 //    val quotient,remainder = out Bits(32 bit)
 //
@@ -1851,7 +1851,7 @@ object PlayStream {
 
 
         val source = slave Stream (new Bundle{
-          val a = Bool
+          val a = Bool()
         })
         val sink = master (source.clone)
 
@@ -2468,7 +2468,7 @@ object PlayCombLoop23 {
 
   class TopLevel extends Component {
 
-    val toto = Bool
+    val toto = Bool()
     val titi = UInt(8 bits)
     val tata = UInt(4 bits)
 
@@ -2499,7 +2499,7 @@ object PlayLiteral {
 //    val out5 = out (U(1 -> False,default -> True))
 
 
-//    val cond = in Bool
+//    val cond = in Bool()
 //    val out8bit = out UInt(8 bit)
 //    out8bit := U(0)
 //    when(cond){
@@ -2636,8 +2636,8 @@ object PlayMaskAssign {
 object PlayClockDomain {
 
   class TopLevel extends Component {
-    val coreClock = Bool
-    val coreReset = Bool
+    val coreClock = Bool()
+    val coreReset = Bool()
     val coreClockDomain = ClockDomain(coreClock,coreReset)
     val coreArea = new ClockingArea(coreClockDomain){
       val coreClockedRegister = Reg(UInt(4 bit))
@@ -2772,8 +2772,8 @@ object PlayAttributes {
     val output2 = out(True).addAttribute("Yolo")
 
     val sub = new SubComponent()
-    val subX = out Bool
-    val suby = out Bool
+    val subX = out Bool()
+    val suby = out Bool()
 
     subX := sub.output
     suby := sub.output2
@@ -2803,8 +2803,8 @@ object PlayError8{
 
   class Sub extends Component {
     val io = new Bundle{
-      val toto = Bool
-      val toto2 = Bool
+      val toto = Bool()
+      val toto2 = Bool()
     }
     io.toto2 := io.toto
   }
@@ -2812,7 +2812,7 @@ object PlayError8{
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val toto = out Bool
+      val toto = out Bool()
     }
     val sub = new Sub
 
@@ -2904,7 +2904,7 @@ object PlayArea {
   class TopLevel extends Component {
     val myArea = new Area{
 //      val cmd = slave Stream(wrap(new Bundle{
-//        val aaa = Bool
+//        val aaa = Bool()
 //        val xxx = new Bundle{
 //          val yyy = UInt(3 bit)
 //        }
@@ -2935,7 +2935,7 @@ object PlayArea {
 
 object PlayMux4 {
   class TopLevel extends Component {
-    val inputs = in Vec(Bool,8)
+    val inputs = in Vec(Bool(),8)
     val select = in UInt(8 bit)
     val output = out(inputs(select))
   }
@@ -2953,7 +2953,7 @@ object PlayFunyMux {
   class TopLevel extends Component {
 
 
-    val sel = in Bool
+    val sel = in Bool()
     val a = in UInt (2 bit)
     val b = in UInt (2 bit)
     val result = sel ? a | b

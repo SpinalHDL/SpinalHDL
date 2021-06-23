@@ -2313,9 +2313,9 @@ object SpinalVhdlBoot{
             |A null pointer access has been detected in the JVM.
             |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
             |For instance :
-            |  val result = Bool
+            |  val result = Bool()
             |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
-            |  val a,b = Bool
+            |  val a,b = Bool()
           """.stripMargin)
         System.out.flush()
         throw e
@@ -2441,9 +2441,9 @@ object SpinalVerilogBoot{
             |A null pointer access has been detected in the JVM.
             |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
             |For instance :
-            |  val result = Bool
+            |  val result = Bool()
             |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
-            |  val a,b = Bool
+            |  val a,b = Bool()
           """.stripMargin)
         System.out.flush()
         throw e

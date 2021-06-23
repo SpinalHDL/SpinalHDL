@@ -3,7 +3,7 @@ package spinal.lib.bus.bmb
 import spinal.core._
 import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib._
-
+import scala.collection.Seq
 
 //TODO no rspNoHit logic when there is a default
 //TODO optimized rspNoHit counter depending BMB parameters
@@ -27,7 +27,7 @@ case class BmbDecoder(p : BmbParameter,
   val logic = if(hasDefault && mappings.size == 1 && !(p.access.canWrite && !capabilities.head.access.canWrite) && !(p.access.canRead && !capabilities.head.access.canRead)){
     io.outputs(0) << io.input
   } else new Area {
-    val hits = Vec(Bool, mappings.size)
+    val hits = Vec(Bool(), mappings.size)
     for (portId <- 0 until mappings.length) yield {
       val slaveBus = io.outputs(portId)
       val memorySpace = mappings(portId)
@@ -159,7 +159,7 @@ case class BmbDecoderPerSource  (p : BmbParameter,
       internalCapabilities :+= p
     }
 
-    val hits = Vec(Bool, internalMapping.size)
+    val hits = Vec(Bool(), internalMapping.size)
     for (portId <- 0 until internalMapping.length) yield {
       val slaveBus = internalOutputs(portId)
       val memorySpace = internalMapping(portId)
@@ -272,7 +272,7 @@ case class BmbDecoderOutOfOrder(p : BmbParameter,
     val (orderingFork, cmdFork) = StreamFork2(io.input.cmd)
     val halt = False
     val lock = RegInit(False) setWhen(io.input.cmd.valid && !halt) clearWhen(io.input.cmd.ready) //Counter act the pessimistic occupancy tracking
-    val hits = Vec(Bool, mappings.size)
+    val hits = Vec(Bool(), mappings.size)
     for (portId <- 0 until mappings.length) yield {
       val slaveBus = io.outputs(portId)
       val memorySpace = mappings(portId)

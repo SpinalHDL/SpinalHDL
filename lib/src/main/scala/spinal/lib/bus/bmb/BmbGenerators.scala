@@ -10,7 +10,7 @@ import spinal.lib.misc.{BmbClint, Clint}
 import spinal.lib.misc.plic.{PlicGateway, PlicGatewayActiveHigh, PlicMapper, PlicMapping, PlicTarget}
 
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 
 

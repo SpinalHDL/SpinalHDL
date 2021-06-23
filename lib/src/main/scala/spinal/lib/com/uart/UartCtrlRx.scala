@@ -78,7 +78,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
     import UartCtrlRxState._
 
     val state   = RegInit(IDLE)
-    val parity  = Reg(Bool)
+    val parity  = Reg(Bool())
     val shifter = Reg(io.read.payload)
     val validReg = RegNext(False) init(False)
     io.read.valid := validReg

@@ -291,13 +291,13 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val unmaskedPending = False
       def createInterrupt(id: Int, smi : Boolean = false) = new Area {
         val status = ctrl.createReadAndClearOnSet(Bool(), UsbOhci.HcInterruptStatus, id) softInit (False)
-        val enable = Reg(Bool) softInit(False)
+        val enable = Reg(Bool()) softInit(False)
         ctrl.readAndSetOnSet(enable, UsbOhci.HcInterruptEnable, id)
         ctrl.readAndClearOnSet(enable, UsbOhci.HcInterruptDisable, id)
         if(!smi) unmaskedPending setWhen(status && enable)
       }
 
-      val MIE = Reg(Bool) softInit(False)
+      val MIE = Reg(Bool()) softInit(False)
       ctrl.readAndSetOnSet(MIE, 0x10, 31)
       ctrl.readAndClearOnSet(MIE, 0x14, 31)
       val SO = createInterrupt(0)
@@ -371,7 +371,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val hcFmNumber = new Area {
       val FN = ctrl.createReadOnly(UInt(16 bits), 0x3C, 0) addTag(SimPublic) softInit (0)
-      val overflow = Reg(Bool) init(False)
+      val overflow = Reg(Bool()) init(False)
       val FNp1 = FN + 1
     }
 
@@ -435,7 +435,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val setPortPower = ctrl.setOnSet(False, address, 8)
       val clearPortPower = ctrl.setOnSet(False, address, 9)
 
-      val resume, reset, suspend = Reg(Bool) softInit(False)
+      val resume, reset, suspend = Reg(Bool()) softInit(False)
 
       val connected = RegInit(False) setWhen (port.connect) clearWhen (port.disconnect)
       val PSS = ctrl.createReadOnly(Bool(), address, 2) softInit (False)
@@ -707,10 +707,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val history = History(io.phy.rx.flow.data, 1 to 2, when = io.phy.rx.flow.valid)
     val crc16 = Crc(CrcKind.usb.crc16Check, 8)
     val valids = Reg(Bits(2 bits))
-    val notResponding = Reg(Bool)
-    val stuffingError = Reg(Bool)
-    val pidError = Reg(Bool)
-    val crcError = Reg(Bool)
+    val notResponding = Reg(Bool())
+    val stuffingError = Reg(Bool())
+    val pidError = Reg(Bool())
+    val crcError = Reg(Bool())
 
     data.valid := False
     data.payload := history.last
@@ -780,7 +780,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val FRAME_TX, FRAME_NUMBER_CMD, FRAME_NUMBER_RSP = new State
     setEntry(FRAME_TX)
 
-    val doInterruptDelay = Reg(Bool)
+    val doInterruptDelay = Reg(Bool())
 
     onStart {
       token.startFsm()
@@ -833,7 +833,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   }
 
   val priority = new Area {
-    val bulk = Reg(Bool)
+    val bulk = Reg(Bool())
     val counter = Reg(UInt(2 bits))
 
     val tick = False
@@ -860,7 +860,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
     val load = Flow(UInt(3 bits))
     load.valid := False
-    load.payload assignDontCare()
+    load.payload.assignDontCare()
 
     when(tick && !done && !disabled) {
       counter := counter - 1
@@ -900,7 +900,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val OK, FRAME_TIME = newElement()
     }
     val status = Reg(Status)
-    val dataPhase = Reg(Bool)
+    val dataPhase = Reg(Bool())
 
     val ED = new Area {
       val address = Reg(UInt(32 bits))
@@ -973,12 +973,12 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
       val allowRounding = !ED.isIsochrone && R
 
-      val retire = Reg(Bool)
-      val upateCBP = Reg(Bool)
-      val noUpdate = Reg(Bool)
+      val retire = Reg(Bool())
+      val upateCBP = Reg(Bool())
+      val noUpdate = Reg(Bool())
 
 
-      val dataPhaseUpdate = Reg(Bool)
+      val dataPhaseUpdate = Reg(Bool())
       val TNext = dataPhaseUpdate ? (True ## (!dataPhase)) | T
       val dataPhaseNext = dataPhase ^ dataPhaseUpdate
       val dataPid = dataPhase ? B(UsbPid.DATA1) | B(UsbPid.DATA0)
@@ -1090,7 +1090,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     val lastAddress = Reg(UInt(13 bits))
     val transactionSizeMinusOne = lastAddress - currentAddress
     val transactionSize = transactionSizeMinusOne + 1
-    val zeroLength = Reg(Bool)
+    val zeroLength = Reg(Bool())
     val dataDone = zeroLength || currentAddress > lastAddress
 
     val dmaLogic = new StateMachine {
@@ -1110,8 +1110,8 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       val lengthBmb = (beatCount @@ U(io.dma.p.access.byteCount-1)).resize(p.dmaLengthWidth)
 
       val fromUsbCounter = Reg(UInt(11 bits))
-      val overflow = Reg(Bool)
-      val underflow = Reg(Bool)
+      val overflow = Reg(Bool())
+      val underflow = Reg(Bool())
       val underflowError = underflow && !TD.allowRounding
 
       // Implement internal buffer write
@@ -1360,10 +1360,10 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
       }
     }
 
-    val ackRxFired = Reg(Bool)
-    val ackRxActivated = Reg(Bool)
-    val ackRxPidFailure = Reg(Bool)
-    val ackRxStuffing = Reg(Bool)
+    val ackRxFired = Reg(Bool())
+    val ackRxActivated = Reg(Bool())
+    val ackRxPidFailure = Reg(Bool())
+    val ackRxStuffing = Reg(Bool())
     val ackRxPid = Reg(Bits(4 bits))
     ACK_RX.onEntry{
       ackRxFired := False
@@ -1615,13 +1615,13 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     setEntry(WAIT_SOF)
 
 
-    val periodicHeadFetched = Reg(Bool)
-    val periodicDone = Reg(Bool)
+    val periodicHeadFetched = Reg(Bool())
+    val periodicDone = Reg(Bool())
 
-    val allowBulk = Reg(Bool)
-    val allowControl = Reg(Bool)
-    val allowPeriodic = Reg(Bool)
-    val allowIsochronous = Reg(Bool)
+    val allowBulk = Reg(Bool())
+    val allowControl = Reg(Bool())
+    val allowPeriodic = Reg(Bool())
+    val allowIsochronous = Reg(Bool())
     val askExit = False
 
     always{

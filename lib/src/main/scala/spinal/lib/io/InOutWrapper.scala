@@ -78,7 +78,7 @@ object InOutWrapper {
   def main(args: Array[String]): Unit = {
     case class D() extends Bundle{
       val x = UInt(2 bits)
-      val y = Bool
+      val y = Bool()
     }
     SpinalVhdl(InOutWrapper(new Component{
       def t = D()

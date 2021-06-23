@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.lib.sim._
 import spinal.core._
@@ -13,7 +13,7 @@ class SpinalSimPhaseTester extends SpinalSimFunSuite{
   test("test1") {
     //    val compiled = SimConfig.withWave.compile(StreamFifo(UInt(8 bits),16))
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
 

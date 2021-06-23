@@ -6,16 +6,16 @@ import spinal.lib.io.{TriStateOutput, TriStateArray, TriState}
 
 
 case class SpiKind() extends Bundle {
-  val cpol = Bool
-  val cpha = Bool
+  val cpol = Bool()
+  val cpha = Bool()
 }
 
 case class SpiMaster(ssWidth : Int = 1,
                      useSclk : Boolean = true) extends Bundle with IMasterSlave{
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
-  val sclk = if(useSclk)Bool else null
-  val mosi = Bool
-  val miso = Bool
+  val sclk = if(useSclk)Bool() else null
+  val mosi = Bool()
+  val miso = Bool()
 
   override def asMaster(): Unit = {
     out(sclk, mosi)
@@ -25,10 +25,10 @@ case class SpiMaster(ssWidth : Int = 1,
 }
 
 case class SpiSlave(useSclk : Boolean = true) extends Bundle with IMasterSlave{
-  val sclk = if(useSclk)Bool else null
-  val mosi = Bool
+  val sclk = if(useSclk)Bool() else null
+  val mosi = Bool()
   val miso = TriStateOutput(Bool)
-  val ss   = Bool
+  val ss   = Bool()
 
   override def asMaster(): Unit = {
     in(sclk, mosi)
@@ -53,7 +53,7 @@ case class SpiHalfDuplexMaster( dataWidth : Int = 2,
                                 ssWidth : Int = 1,
                                 useSclk : Boolean = true) extends Bundle with IMasterSlave{
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
-  val sclk = if(useSclk)Bool else null
+  val sclk = if(useSclk)Bool() else null
   val data = TriStateArray(dataWidth bits)
 
   override def asMaster(): Unit = {

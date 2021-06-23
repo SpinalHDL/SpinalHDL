@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -11,7 +11,7 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor, StreamReadyRandomizer}
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimUsbTester extends FunSuite{
+class SpinalSimUsbTester extends AnyFunSuite{
 //  implicit class UsbLsFsCtrlPimper(self : UsbHubLsFs.Ctrl)(implicit cd : ClockDomain){
 //    def init(): Unit = {
 //      self.tx.kind #= UsbHubLsFs.TxKind.NONE

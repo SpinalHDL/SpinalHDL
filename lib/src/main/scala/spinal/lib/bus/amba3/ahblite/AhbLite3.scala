@@ -53,20 +53,20 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
 
   //  Address and control
   val HADDR     = UInt(config.addressWidth bits)
-  val HWRITE    = Bool
+  val HWRITE    = Bool()
   val HSIZE     = Bits(3 bits)
   val HBURST    = Bits(3 bits)
   val HPROT     = Bits(4 bits)
   val HTRANS    = Bits(2 bits)
-  val HMASTLOCK = Bool
+  val HMASTLOCK = Bool()
 
   //  Data
   val HWDATA    = Bits(config.dataWidth bits)
   val HRDATA    = Bits(config.dataWidth bits)
 
   //  Transfer response
-  val HREADY    = Bool
-  val HRESP     = Bool
+  val HREADY    = Bool()
+  val HRESP     = Bool()
 
   override def asMaster(): Unit = {
     out(HADDR, HWRITE, HSIZE, HBURST, HPROT, HTRANS, HMASTLOCK, HWDATA)
@@ -106,22 +106,22 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave {
 
   //  Address and control
   val HADDR     = UInt(config.addressWidth bits)
-  val HSEL      = Bool
-  val HREADY    = Bool
-  val HWRITE    = Bool
+  val HSEL      = Bool()
+  val HREADY    = Bool()
+  val HWRITE    = Bool()
   val HSIZE     = Bits(3 bits)
   val HBURST    = Bits(3 bits)
   val HPROT     = Bits(4 bits)
   val HTRANS    = Bits(2 bits)
-  val HMASTLOCK = Bool
+  val HMASTLOCK = Bool()
 
   //  Data
   val HWDATA = Bits(config.dataWidth bits)
   val HRDATA = Bits(config.dataWidth bits)
 
   //  Transfer response
-  val HREADYOUT = Bool
-  val HRESP     = Bool
+  val HREADYOUT = Bool()
+  val HRESP     = Bool()
 
   def setOKEY  = HRESP := False
   def setERROR = HRESP := True

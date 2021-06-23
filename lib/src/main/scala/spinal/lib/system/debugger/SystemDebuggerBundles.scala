@@ -10,7 +10,7 @@ import spinal.lib.bus.simple.PipelinedMemoryBus
 
 
 case class SystemDebuggerRsp(c : SystemDebuggerConfig) extends Bundle{
-  val error = Bool
+  val error = Bool()
   val data = Bits(c.memDataWidth bit)
 }
 
@@ -27,7 +27,7 @@ case class SystemDebuggerRemoteBus(c : SystemDebuggerConfig) extends Bundle with
 case class SystemDebuggerMemCmd(c : SystemDebuggerConfig) extends Bundle{
   val address = UInt(c.memAddressWidth bit)
   val data = Bits(c.memDataWidth bit)
-  val wr = Bool
+  val wr = Bool()
   val size = UInt(log2Up(log2Up(c.memDataWidth/8)+1) bit)
 }
 

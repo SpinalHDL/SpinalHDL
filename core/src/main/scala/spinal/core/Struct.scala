@@ -5,6 +5,7 @@ import spinal.idslplugin.ValCallback
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 /**
  * Class representing Verilog Struct and VHDL Record data types.

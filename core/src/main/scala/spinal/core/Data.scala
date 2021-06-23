@@ -22,6 +22,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import scala.collection.Seq
 
 object DataAssign
 object InitAssign
@@ -539,7 +540,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     * Useful for register that doesn't need a reset value in RTL,
     * but need a random value for simulation (avoid x-propagation)
     */
-  def randBoot(): this.type = {
+  def randBoot(u : Unit): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }

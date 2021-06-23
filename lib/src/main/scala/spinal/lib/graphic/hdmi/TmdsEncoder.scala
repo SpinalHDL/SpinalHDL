@@ -26,7 +26,7 @@ case class TmdsEncoder() extends Component{
 
   val ones = io.VD.asBools.map(_.asUInt(4 bits)).reduceBalancedTree(_ + _)
   val XNOR = (ones > 4) || (ones === 4 && io.VD(0) === False)
-  val dw = Vec(Bool, 9)
+  val dw = Vec(Bool(), 9)
   dw(8) := ~XNOR;
   dw(7) := dw(6) ^ io.VD(7) ^ XNOR;
   dw(6) := dw(5) ^ io.VD(6) ^ XNOR;

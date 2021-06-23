@@ -1,7 +1,7 @@
 
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -17,7 +17,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-class SpinalSimUsbHostTester extends FunSuite{
+class SpinalSimUsbHostTester extends AnyFunSuite{
   val seed = 59
   /*for(seed <- 55 until 88) */ test("host" + seed){
     val p = UsbOhciParameter(
@@ -617,10 +617,16 @@ class SpinalSimUsbHostTester extends FunSuite{
                   case UsbOhci.DP.SETUP | UsbOhci.DP.OUT => {
 
                     def push(body: => Unit) = for(portId <- 0 until dut.p.portCount if portAgents(portId).connected && (!portAgents(portId).lowSpeed || ed0.S)){
-                      val pushInterface = if (td0.DP == UsbOhci.DP.SETUP) scoreboards(portId).pushSetup _ else scoreboards(portId).pushOut _
-                      pushInterface(TockenKey(ed0.FA, ed0.EN), DataPacket(dataPhasePid, group.map(byteId => refData(byteId)))) {
-                        activity = true;
-                        if(portAgents(portId) == agent) body
+                      if (td0.DP == UsbOhci.DP.SETUP) {
+                        scoreboards(portId).pushSetup(TockenKey(ed0.FA, ed0.EN), DataPacket(dataPhasePid, group.map(byteId => refData(byteId)))) {
+                          activity = true;
+                          if(portAgents(portId) == agent) body
+                        }
+                      } else {
+                        scoreboards(portId).pushOut(TockenKey(ed0.FA, ed0.EN), DataPacket(dataPhasePid, group.map(byteId => refData(byteId)))) {
+                          activity = true;
+                          if(portAgents(portId) == agent) body
+                        }
                       }
                     }
 

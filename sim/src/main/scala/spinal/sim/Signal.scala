@@ -1,4 +1,5 @@
 package spinal.sim
+import scala.collection.Seq
 
 abstract class DataType(){
   var isMem = false

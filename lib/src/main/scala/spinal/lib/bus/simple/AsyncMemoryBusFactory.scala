@@ -22,7 +22,7 @@ package spinal.lib.bus.simple
 
 import spinal.core._
 import spinal.lib.bus.misc._
-
+import scala.collection.Seq
 
 class AsyncMemoryBusFactory(bus: AsyncMemoryBus, incAddress: Int = 0) extends BusSlaveFactoryDelayed {
 

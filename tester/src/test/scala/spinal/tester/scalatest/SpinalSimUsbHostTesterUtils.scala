@@ -14,6 +14,7 @@ import spinal.lib.sim._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.Seq
 
 class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   val ohci = UsbOhci(p, BmbParameter(
@@ -229,6 +230,8 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
   override def reset() = {
 
   }
+
+
 
   case class SetupEntry(tockenPid : Int, packet : DataPacket, onCompletion : () => Unit)
   val setupOutRef = mutable.LinkedHashMap[TockenKey, mutable.Queue[SetupEntry]]()

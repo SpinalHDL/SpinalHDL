@@ -30,7 +30,7 @@ import spinal.lib._
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
-
+import scala.collection.Seq
 
 
 /**
@@ -649,7 +649,7 @@ trait BusSlaveFactory extends Area{
       port.valid := True
     }
     // replicate data to `mem.width` bits
-    port.data.assignFromBits(Cat(Seq.fill(mem.width / busDataWidth)(data): _*))
+    port.data.assignFromBits(Cat(Seq.fill(mem.width / busDataWidth)(data)))
 
     // generate mask
     val maskWidth = mem.width / busDataWidth
