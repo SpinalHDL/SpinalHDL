@@ -592,21 +592,15 @@ object LatencyAnalysis {
           return false
         }
         case that : MemReadSync =>
-          that.foreachDrivingExpression(input => {
-            if(walk(input))
-              return true
-          })
+          that.foreachDrivingExpression(input => pendingQueues(1) += input)
           pendingQueues(1) += that.mem
           return false
         case that : MemReadWrite =>
-          that.foreachDrivingExpression(input => {
-            if(walk(input))
-              return true
-          })
+          that.foreachDrivingExpression{input =>
+            val lat = if(input == that.data || input == that.mask) 2 else 1
+            pendingQueues(lat) += input
+          }
           pendingQueues(1) += that.mem
-          that.foreachDrivingExpression(input => {
-            pendingQueues(2) += input
-          })
           return false
         case that : MemReadAsync =>
           that.foreachDrivingExpression(input => {

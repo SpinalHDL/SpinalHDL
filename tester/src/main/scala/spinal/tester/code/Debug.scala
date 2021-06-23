@@ -160,3 +160,15 @@ object Debug3 extends App{
     dut.clockDomain.waitSampling(100)
   }
 }
+
+
+object Debug4 extends App{
+  SpinalVerilog(new Component{
+    val mem = Mem(UInt(8 bits), 16) initBigInt(List.fill(16)(BigInt(0)))
+
+    val a = slave(mem.writePort)
+    val b = slave(mem.readSyncPort)
+    println(LatencyAnalysis(a.data, b.rsp))
+    println(LatencyAnalysis(b.cmd.payload, b.rsp))
+  })
+}
