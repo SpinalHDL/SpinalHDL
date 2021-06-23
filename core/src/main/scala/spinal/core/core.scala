@@ -431,18 +431,19 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
+  def assumeInitial(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL)
 
-  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME)
-  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER)
+  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED)
+  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
   def report(message: String)   = assert(False, message, NOTE)
   def report(message: Seq[Any]) = assert(False, message, NOTE)

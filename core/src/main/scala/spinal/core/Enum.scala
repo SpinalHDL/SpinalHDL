@@ -108,7 +108,7 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 /**
   * Hardware representation of an enumeration
   */
-class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with InferableEnumEncodingImpl with DataPrimitives[SpinalEnumCraft[T]] {
+class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with InferableEnumEncodingImpl  with BaseTypePrimitives[SpinalEnumCraft[T]]  with DataPrimitives[SpinalEnumCraft[T]] {
 
   override def getTypeObject: Any = TypeEnum
 

@@ -45,7 +45,7 @@ trait BitsFactory {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
   */
-class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
+class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[Bits] with BitwiseOp[Bits]{
 
   override def getTypeObject  = TypeBits
 

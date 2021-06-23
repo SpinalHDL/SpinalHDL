@@ -45,7 +45,7 @@ trait BoolFactory {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
-class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
+class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[Bool]  with BitwiseOp[Bool]{
 
   override def getTypeObject = TypeBool
 

@@ -334,6 +334,14 @@ case class ClockDomain(clock       : Bool,
 
   def on [T](block : => T) : T = apply(block)
 
+  def withoutReset() = GlobalData.get.userDatabase.getOrElseUpdate(this -> "withoutReset", copy(reset = null, softReset = null)).asInstanceOf[ClockDomain]
+
+  def duringReset(body : => Unit): Unit ={
+    when(ClockDomain.current.isResetActive) {
+      ClockDomain.current.withoutReset() on body
+    }
+  }
+
   /** Slow down the current clock to factor time */
   def newClockDomainSlowedBy(factor: BigInt): ClockDomain = factor match {
     case x if x == 1 => this.copy()
