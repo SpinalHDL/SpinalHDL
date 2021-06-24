@@ -85,3 +85,21 @@ case class Ulx3sUsrMclk() extends BlackBox{
 
   spinalSimWhiteBox()
 }
+
+
+
+object DCCA{
+  def on(that : Bool) : Bool = {
+    val dcca = DCCA()
+    dcca.setCompositeName(that, "DCCA")
+    dcca.CLKI := that
+    dcca.CE := True
+    dcca.CLKO
+  }
+}
+case class DCCA() extends BlackBox{
+  val CLKI, CE = in Bool()
+  val CLKO = out Bool()
+
+  CLKO := CLKI
+}
