@@ -76,7 +76,8 @@ object when {
 
 //  def apply(cond: Bool)(block: => Unit)(implicit line: sourcecode.Line, file: sourcecode.File): WhenContext = {
   def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
-    cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
+    if(cond.dlcIsEmpty || !cond.head.source.isInstanceOf[Operator.Formal.InitState])
+      cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
     val whenStatement = new WhenStatement(cond)
     val whenContext   = new WhenContext(whenStatement)
 
