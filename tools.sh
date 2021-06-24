@@ -17,7 +17,7 @@ install_verilator(){
 install_ghdl(){
   sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
   git clone https://github.com/ghdl/ghdl ghdl-build && cd ghdl-build
-  git reset --hard "0316f95368837dc163173e7ca52f37ecd8d3591d"
+  git reset --hard "v1.0.0"
   mkdir build
   cd build
   ../configure --prefix=~/tools
