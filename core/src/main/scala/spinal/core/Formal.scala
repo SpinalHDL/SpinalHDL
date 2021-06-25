@@ -3,7 +3,17 @@ package spinal.core
 import spinal.core.internals.Operator
 
 object Formal {
-  def past[T <: Data](that : T, delay : Int) : T = that.formalPast(delay)
+
+  //that.formalPast(delay) replacement
+  def past[T <: Data](that : T, delay : Int) : T = {
+    require(delay >= 0,"Negative cycleCount is not allowed in Delay")
+    var ptr = that
+    for(i <- 0 until delay) {
+      ptr = RegNext(ptr)
+      ptr.unsetName().setCompositeName(that, "past_" + (i + 1), true)
+    }
+    ptr
+  }
   def past[T <: Data](that : T) : T = past(that, 1)
 
   def rose(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Rose)
