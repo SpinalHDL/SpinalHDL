@@ -332,43 +332,30 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
-    val rValid = RegInit(False)
-    val rData = Reg(payloadType)
+    val rValid = RegNextWhen(self.valid, self.ready) init(False)
+    val rData = RegNextWhen(self.payload, self.ready)
+
     if (crossClockData) rData.addTag(crossClockDomain)
+    if (flush != null) rValid clearWhen(flush)
 
-    self.ready := (Bool(collapsBubble) && !m2sPipe.valid) || m2sPipe.ready
-
-    when(self.ready) {
-      rValid := self.valid
-      rData := self.payload
-    }
-
-    if(flush != null) rValid clearWhen(flush)
+    self.ready := m2sPipe.ready
+    if (collapsBubble) self.ready setWhen(!m2sPipe.valid)
 
     m2sPipe.valid := rValid
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
+  def s2mPipe(): Stream[T] = new Composite(this) {
+    val s2mPipe = Stream(payloadType)
 
-    val rValid = RegInit(False).setCompositeName(this, "s2mPipe_rValid", true)
-    val rBits = Reg(payloadType).setCompositeName(this, "s2mPipe_rData", true)
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-    ret.valid := this.valid || rValid
-    this.ready := !rValid
-    ret.payload := Mux(rValid, rBits, this.payload)
+    self.ready := !rValid
 
-    when(ret.ready) {
-      rValid := False
-    }
-
-    when(this.ready && (!ret.ready)) {
-      rValid := this.valid
-      rBits := this.payload
-    }
-    ret
-  }
+    s2mPipe.valid := self.valid || rValid
+    s2mPipe.payload := Mux(rValid, rData, self.payload)
+  }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
     stagesCount match {
@@ -377,40 +364,30 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def validPipe() : Stream[T] = {
-    val sink = Stream(payloadType)
-    val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
-    sink.valid := validReg
-    sink.payload := this.payload
-    this.ready := sink.ready && validReg
-    sink
-  }
+  def validPipe() : Stream[T] = new Composite(this) {
+    val validPipe = Stream(payloadType)
+
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(validPipe.fire)
+
+    self.ready := validPipe.fire
+
+    validPipe.valid := rValid
+    validPipe.payload := self.payload
+  }.validPipe
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "halfPipe", weak = true)
+  def halfPipe(): Stream[T] = new Composite(this) {
+    val halfPipe = Stream(payloadType)
 
-    val regs = new Area {
-      val valid = RegInit(False)
-      val ready = RegInit(True)
-      val payload = Reg(payloadType)
-    }.setCompositeName(ret, "regs")
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-    when(!regs.valid){
-      regs.valid := this.valid
-      regs.ready := !this.valid
-      regs.payload := this.payload
-    } otherwise {
-      regs.valid := !ret.ready
-      regs.ready := ret.ready
-    }
+    self.ready := !rValid
 
-    ret.valid := regs.valid
-    ret.payload := regs.payload
-    this.ready := regs.ready
-    ret
-  }
+    halfPipe.valid := rValid
+    halfPipe.payload := rData
+  }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
   */
