@@ -354,6 +354,7 @@ object Spinal{
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
       case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
       case `SystemVerilog` => SpinalVerilogBoot(configPatched)(gen)
+      case null => throw new Exception("Please specify mode in SpinalConfig (mode=[Verilog, SystemVerilog, VHDL])")
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
