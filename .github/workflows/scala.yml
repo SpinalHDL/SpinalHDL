@@ -56,4 +56,4 @@ jobs:
       run: sbt "+test:compile"
 
     - name: Run tests
-      run: sbt "+test"
+      run: sbt "++2.11.12; test"
