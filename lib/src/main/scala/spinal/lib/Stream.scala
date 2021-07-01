@@ -1166,7 +1166,7 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain, withOutputBuffer : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1201,7 +1201,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
       hit := !hit
     }
 
-    io.output << stream.m2sPipe()
+    io.output << stream.pipelined(m2s = withOutputBuffer)
   }
 }
 
