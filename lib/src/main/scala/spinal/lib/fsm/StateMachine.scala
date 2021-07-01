@@ -330,6 +330,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   def onStart(body : => Unit) = stateBoot.onExit(body)
   def isStarted = !isActive(stateBoot)
   def isStopped = isActive(stateBoot)
+  def isRunning = isStarted
 }
 
 

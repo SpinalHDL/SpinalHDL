@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneToBmb}
 import spinal.lib.com.eth.{Crc, CrcKind}
-import spinal.lib.com.usb.UsbTimer
+import spinal.lib.com.usb.{UsbDataRxFsm, UsbDataTxFsm, UsbTimer, UsbTokenTxFsm}
 import spinal.lib.com.usb.ohci.UsbOhci.dmaParameter
 import spinal.lib.com.usb.phy.UsbHubLsFs.CtrlCc
 import spinal.lib.com.usb.phy.{UsbHubLsFs, UsbLsFsPhy, UsbLsFsPhyAbstractIo, UsbPhyFsNativeIo}
@@ -115,7 +115,8 @@ object UsbPid{
   val SPLIT = Integer.parseInt("1000",2)
   val PING = Integer.parseInt("0100",2)
 
-  def tocken(pid : Int) = pid | ((0xF ^ pid) << 4)
+  def token(pid : Int) = pid | ((0xF ^ pid) << 4)
+  def token(pid : Bits) = ~pid ## pid
 }
 
 case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends Component{
@@ -539,135 +540,16 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
   }
 
   // FSM to emit tocken
-  val token = new StateMachineSlave {
-    val pid = Bits(4 bits).assignDontCare()
-    val data = Bits(11 bits).assignDontCare()
-
-    val INIT, PID, B1, B2, EOP = new State
-    setEntry(INIT)
-
-
-    val crc5 = Crc(CrcKind.usb.crc5, 11)
-    crc5.io.flush := False
-    onStart {
-      crc5.io.flush := True
-    }
-
-    crc5.io.input.valid := False
-    crc5.io.input.payload := data
-    INIT.whenIsActive {
-      crc5.io.input.valid := True
-      goto(PID)
-    }
-
-    PID.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.last := False
-      io.phy.tx.fragment := ~pid ## pid
-      when(io.phy.tx.ready) {
-        goto(B1)
-      }
-    }
-
-    B1.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.last := False
-      io.phy.tx.fragment := data(0, 8 bits)
-      when(io.phy.tx.ready) {
-        goto(B2)
-      }
-    }
-
-    B2.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.fragment := crc5.io.result ## data(8, 3 bits)
-      io.phy.tx.last := True
-      when(io.phy.tx.ready) {
-        goto(EOP)
-      }
-    }
-
-    EOP.whenIsActive{
-      when(io.phy.txEop) {
-        exitFsm()
-      }
-    }
-
+  val token = new UsbTokenTxFsm(tx = io.phy.tx,
+    eop = io.phy.txEop) {
     always{
       when(unscheduleAll.fire){ killFsm() }
     }
   }
 
   // FSM to emit a data packet (from dma)
-  val dataTx = new StateMachineSlave {
-    val pid = Bits(4 bits).assignDontCare()
-    val data = Stream(Fragment(Bits(8 bits)))
-
-    val PID, DATA, CRC_0, CRC_1, EOP = new State
-    setEntry(PID)
-
-    val crc16 = Crc(CrcKind.usb.crc16, 8)
-
-
-    data.valid := False
-    data.payload.assignDontCare()
-    data.ready := False
-
-    crc16.io.input.valid := data.fire
-    crc16.io.input.payload := data.fragment
-    crc16.io.flush := False
-
-
-    PID.whenIsActive {
-      crc16.io.flush := True
-      io.phy.tx.valid := True
-      io.phy.tx.last := False
-      io.phy.tx.fragment := ~pid ## pid
-      when(io.phy.tx.ready) {
-        when(data.valid) {
-          goto(DATA)
-        } otherwise {
-          goto(CRC_0)
-        }
-      }
-    }
-
-    DATA.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.last := False
-      io.phy.tx.fragment := data.fragment
-      when(io.phy.tx.ready) {
-        data.ready := True
-        when(data.last) {
-          goto(CRC_0)
-        }
-      }
-    }
-
-    CRC_0.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.fragment := crc16.io.result(7 downto 0)
-      io.phy.tx.last := False
-      when(io.phy.tx.ready) {
-        goto(CRC_1)
-      }
-    }
-
-    CRC_1.whenIsActive {
-      io.phy.tx.valid := True
-      io.phy.tx.fragment := crc16.io.result(15 downto 8)
-      io.phy.tx.last := True
-      when(io.phy.tx.ready) {
-        goto(EOP)
-      }
-    }
-
-    EOP.whenIsActive{
-      when(io.phy.txEop){
-        exitFsm()
-      }
-    }
-
+  val dataTx = new UsbDataTxFsm(tx = io.phy.tx,
+                                eop = io.phy.txEop) {
     always{
       when(unscheduleAll.fire){ killFsm() }
     }
@@ -697,84 +579,18 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
 
   val rxPidOk = io.phy.rx.flow.data(3 downto 0) === ~io.phy.rx.flow.data(7 downto 4)
 
-  val dataRx = new StateMachineSlave {
-    val IDLE, PID, DATA = new State
-    setEntry(IDLE)
 
-    val pid = Reg(Bits(4 bits))
-    val data = Flow(Bits(8 bits))
-
-    val history = History(io.phy.rx.flow.data, 1 to 2, when = io.phy.rx.flow.valid)
-    val crc16 = Crc(CrcKind.usb.crc16Check, 8)
-    val valids = Reg(Bits(2 bits))
-    val notResponding = Reg(Bool())
-    val stuffingError = Reg(Bool())
-    val pidError = Reg(Bool())
-    val crcError = Reg(Bool())
-
-    data.valid := False
-    data.payload := history.last
-
-    crc16.io.input.valid := False
-    crc16.io.input.payload := io.phy.rx.flow.data
-    crc16.io.flush := False
-
-    IDLE onEntry {
-      rxTimer.clear := True
-      notResponding := False
-      stuffingError := False
-      pidError := False
-      crcError := False
-    }
-    IDLE whenIsActive{
-      when(io.phy.rx.active) {
-        goto(PID)
-      } elsewhen(rxTimer.rxTimeout) {
-        notResponding := True
-        exitFsm()
-      }
-    }
-
-    PID.whenIsActive {
-      valids := 0
-      crc16.io.flush := True
-      pidError := True
-      when(io.phy.rx.flow.valid){
-        pid := io.phy.rx.flow.data(3 downto 0)
-        pidError := !rxPidOk
-        goto(DATA)
-      } elsewhen(!io.phy.rx.active){
-        exitFsm()
-      }
-    }
-
-    DATA.whenIsActive {
-      when(!io.phy.rx.active){
-        when(!valids.andR || crc16.io.result =/= 0x800D){
-          crcError := True
-        }
-        exitFsm()
-      } elsewhen (io.phy.rx.flow.valid) {
-        crc16.io.input.valid := True
-        valids := valids(0) ## True
-        when(valids.andR){
-          data.valid := True
-        }
-      }
-    }
-
+  val dataRx = new UsbDataRxFsm(
+    rx       = io.phy.rx.flow.translateWith(io.phy.rx.flow.data),
+    rxActive     = io.phy.rx.active,
+    rxStuffing   = io.phy.rx.flow.valid && io.phy.rx.flow.stuffingError,
+    timeoutClear = rxTimer.clear,
+    timeoutEvent = rxTimer.rxTimeout
+  ){
     always{
-      when(isStarted) {
-        when(io.phy.rx.flow.valid){
-          when(io.phy.rx.flow.stuffingError){
-            stuffingError := True
-          }
-        }
-      }
       when(unscheduleAll.fire){ killFsm() }
     }
   }
-
 
   val sof = new StateMachineSlave {
     val FRAME_TX, FRAME_NUMBER_CMD, FRAME_NUMBER_RSP = new State
@@ -1476,7 +1292,7 @@ case class UsbOhci(p : UsbOhciParameter, ctrlParameter : BmbParameter) extends C
     ACK_TX_1 whenIsActive{
       io.phy.tx.valid := True
       io.phy.tx.last := True
-      io.phy.tx.fragment := UsbPid.tocken(UsbPid.ACK)
+      io.phy.tx.fragment := UsbPid.token(UsbPid.ACK)
       when(io.phy.tx.ready){
         goto(ACK_TX_EOP)
       }
