@@ -109,16 +109,17 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
     writePort.payload := internal.writeCmd.payload
   }
 
+  val descAlign = 4
   val ep = new Area {
     val word = Reg(Bits(32 bits))
 
-    val head = word(0, p.addressWidth >> 5 bits).asUInt
-    val maxPacketSize = word(16 - 5, 10 bits).asUInt
+    val head = word(0, p.addressWidth >> descAlign bits).asUInt
+    val maxPacketSize = word(16 - descAlign, 10 bits).asUInt
     val enable = word(31)
     val stall = word(30)
     val nack = word(29)
     val toggle = word(28)
-    val headByte = head << 5
+    val headByte = head << descAlign
   }
 
   val desc = new Area {
@@ -127,7 +128,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
     val offset = words(0)(0, p.lengthWidth bits)
     val code = words(0)(16, 4 bits)
 
-    val next = words(1)(0, p.addressWidth-5 bits)
+    val next = words(1)(0, p.addressWidth-descAlign bits)
     val length = words(1)(16, p.lengthWidth bits)
 
     val direction = words(2)(16)
@@ -140,7 +141,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
       offset := B(U(offset) + 1)
     }
 
-    val currentByte = (ep.headByte | 0x10) + U(offset)
+    assert(descAlign == 4)
+    val currentByte = (ep.head + (U(offset) >> descAlign) + 1) @@ U(offset.resize(descAlign))
     val full = offset === length
   }
 
