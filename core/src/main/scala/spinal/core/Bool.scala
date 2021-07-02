@@ -96,6 +96,19 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def clearWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := False }; this }
 
   /**
+   * this is assigned to True when cond is True and the current value of this is False. Useful for
+   * coding a simple boolean state machine. riseWhen() is typically paired with fallWhen() but also works
+   * together with setWhen() and clearWhen().
+   *
+   * @example{{{ val active = RegInit(False) riseWhen(request) fallWhen(acknowledge) }}}
+   * @param cond a Bool condition
+   * @return this is rising when cond is True
+   * */
+  def riseWhen(cond: Bool)(implicit loc: Location): Bool = setWhen((!this) && cond)
+  /** this is assigned to False when cond is True and the current value of this is True. see riseWhen() */
+  def fallWhen(cond: Bool)(implicit loc: Location): Bool = clearWhen((this) && cond)
+
+  /**
     * Rising edge detection of this with an initial value
     * @example{{{ val res = myBool.rise(False) }}}
     * @param initAt the initial value
