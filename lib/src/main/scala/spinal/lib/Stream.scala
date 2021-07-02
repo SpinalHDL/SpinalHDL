@@ -329,11 +329,11 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
     val rValid = RegNextWhen(self.valid, self.ready) init(False)
-    val rData = RegNextWhen(self.payload, self.ready)
+    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
 
     if (crossClockData) rData.addTag(crossClockDomain)
     if (flush != null) rValid clearWhen(flush)
@@ -1201,11 +1201,11 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
       hit := !hit
     }
 
-    io.output << stream.pipelined(m2s = withOutputBuffer)
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
   }
 }
 
-
+// withOutputBuffer => no output buffer, but be careful about the metastability on the data
 class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())

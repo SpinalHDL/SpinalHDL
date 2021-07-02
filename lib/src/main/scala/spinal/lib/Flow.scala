@@ -213,7 +213,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, 
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.output <-< flow
+    io.output << flow.m2sPipe(holdPayload = true)
   }
 
   if(inputClock.hasResetSignal){
