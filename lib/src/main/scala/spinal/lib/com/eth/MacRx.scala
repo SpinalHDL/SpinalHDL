@@ -197,19 +197,25 @@ case class MacRxBuffer(pushCd : ClockDomain,
   val ram = Mem(Bits(popWidth bits), byteSize*8/popWidth)
   val ptrWidth = ram.addressWidth + 1
 
-  val popToPushGray = Bits(ptrWidth bits)
-  val pushToPopGray = Bits(ptrWidth bits)
+  val popToPush = new StreamCCByToggle(UInt(ptrWidth bits), popCd, pushCd, withOutputBuffer = false)
+  val pushToPop = new StreamCCByToggle(UInt(ptrWidth bits), pushCd, popCd, withOutputBuffer = false)
 
-  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
-  def isEmpty(a: Bits, b: Bits) = a === b
+  popToPush.io.input.valid := True
+  popToPush rework { popToPush.pushArea.data init(0) }
+
+  pushToPop.io.input.valid := True
+  pushToPop rework { pushToPop.pushArea.data init(0) }
+
+  def isFull(a: UInt, b: UInt) = a.msb =/= b.msb && a(ptrWidth - 2 downto 0) === b(ptrWidth - 2 downto 0)
+  def isEmpty(a: UInt, b: UInt) = a === b
 
   val lengthWidth = log2Up(byteSize*8)
 
   val push = pushCd on new Area{
     val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
     val currentPtrPlusOne = currentPtr + 1
-    val popPtrGray  = BufferCC(popToPushGray, init = B(0, ptrWidth bits))
-    pushToPopGray := RegNext(toGray(oldPtr)) init(0)
+    val popPtr  = popToPush.io.output.toFlow.toReg(0)
+    pushToPop.io.input.payload := oldPtr
 
     val ratio = popWidth/pushWidth
     val buffer = Reg(Bits(popWidth-pushWidth bits))
@@ -240,7 +246,7 @@ case class MacRxBuffer(pushCd : ClockDomain,
     }
 
 
-    val full = isFull(toGray(currentPtrPlusOne), popPtrGray)
+    val full = isFull(currentPtrPlusOne, popPtr)
     when(doWrite){
       when(full){
         drop := True
@@ -283,12 +289,11 @@ case class MacRxBuffer(pushCd : ClockDomain,
 
   val pop = popCd on new Area{
     val currentPtr = Reg(UInt(ptrWidth bits)) init(0)
-    val pushPtrGray  = BufferCC(pushToPopGray, init = B(0, ptrWidth bits))
-    val popPtrGray = toGray(currentPtr)
-    popToPushGray := RegNext(popPtrGray) init(0)
+    val pushPtr = pushToPop.io.output.toFlow.toReg(0)
+    popToPush.io.input.payload := currentPtr
 
     val cmd = Stream(ram.addressType())
-    cmd.valid := !isEmpty(popPtrGray, pushPtrGray)
+    cmd.valid := !isEmpty(currentPtr, pushPtr)
     cmd.payload := currentPtr.resized
 
     io.pop.stream << ram.streamReadSync(cmd)
