@@ -36,7 +36,15 @@ object UsbDeviceCtrl {
     override def asMaster(): Unit = out(this)
   }
 
-  def Tx() = Stream(Fragment(Bits(8 bits)))
+  case class Tx() extends Bundle with IMasterSlave {
+    val stream = Stream(Fragment(Bits(8 bits)))
+    val eop = Bool()
+
+    override def asMaster(): Unit = {
+      master(stream)
+      in(eop)
+    }
+  }
 
   case class PhyIo() extends Bundle with IMasterSlave {
     val tx = Tx()
@@ -56,11 +64,11 @@ object UsbDeviceCtrl {
   }
 }
 
-case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) extends Component {
+case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter) extends Component {
   import UsbDeviceCtrl._
 
   val io = new Bundle {
-    val ctrl = slave(Bmb(bmbParamter))
+    val ctrl = slave(Bmb(bmbParameter))
     val phy = master(PhyIo())
   }
 
@@ -94,6 +102,14 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
         writeCmd.valid := enable
         writeCmd.address := byteAddress >> 2
         writeCmd.data.subdivideIn(8 bits).foreach(_ := data)
+        writeCmd.mask := UIntToOh(byteAddress(1 downto 0), 4)
+      }
+
+      def doWrite(byteAddress : UInt, data : Bits, mask : Bits, enable : Bool): Unit ={
+        writeCmd.valid := enable
+        writeCmd.address := byteAddress >> 2
+        writeCmd.data := data
+        writeCmd.mask := mask
       }
 
 
@@ -109,47 +125,10 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
     writePort.payload := internal.writeCmd.payload
   }
 
-  val descAlign = 4
-  val ep = new Area {
-    val word = Reg(Bits(32 bits))
-
-    val head = word(0, p.addressWidth >> descAlign bits).asUInt
-    val maxPacketSize = word(16 - descAlign, 10 bits).asUInt
-    val enable = word(31)
-    val stall = word(30)
-    val nack = word(29)
-    val toggle = word(28)
-    val headByte = head << descAlign
-  }
-
-  val desc = new Area {
-    val words = Vec(Reg(Bits(32 bits)), 3)
-
-    val offset = words(0)(0, p.lengthWidth bits)
-    val code = words(0)(16, 4 bits)
-
-    val next = words(1)(0, p.addressWidth-descAlign bits)
-    val length = words(1)(16, p.lengthWidth bits)
-
-    val direction = words(2)(16)
-    val interrupt = words(2)(17)
-    val withZeroLengthEnd = words(2)(18)
-    val frame = words(2)(0, 12 bits)
-
-    val offsetIncrement = False
-    when(offsetIncrement){
-      offset := B(U(offset) + 1)
-    }
-
-    assert(descAlign == 4)
-    val currentByte = (ep.head + (U(offset) >> descAlign) + 1) @@ U(offset.resize(descAlign))
-    val full = offset === length
-  }
-
 
   val transferFull = desc.full || byteCounter.full
 
-  val rxShared = new Area {
+  val rxTimer = new Area {
     val counter = Reg(UInt(log2Up(16) bits))
     val clear = False
     when(io.phy.tick) {
@@ -164,7 +143,6 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
 
     val timeout = cycles(24)
     val turnover = cycles(2)
-    val pidOk = io.phy.rx.flow.payload(3 downto 0) === ~io.phy.rx.flow.payload(7 downto 4)
   }
 
   val byteCounter = new Area{
@@ -180,37 +158,93 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
     rx           = io.phy.rx.flow,
     rxActive     = io.phy.rx.active,
     rxStuffing   = io.phy.rx.stuffingError,
-    timeoutClear = rxShared.clear,
-    timeoutEvent = rxShared.timeout
+    timeoutClear = rxTimer.clear,
+    timeoutEvent = rxTimer.timeout
   )
 
   val dataRx = new UsbDataRxFsm(
     rx           = io.phy.rx.flow,
     rxActive     = io.phy.rx.active,
     rxStuffing   = io.phy.rx.stuffingError,
-    timeoutClear = rxShared.clear,
-    timeoutEvent = rxShared.timeout
+    timeoutClear = rxTimer.clear,
+    timeoutEvent = rxTimer.timeout
   )
 
-  val dataTx = new UsbDataTxFsm(tx = io.phy.tx,
-                                eop = null) {
+  val dataTx = new UsbDataTxFsm(tx = io.phy.tx.stream,
+                                eop = io.phy.tx.eop) {
 
+    val input = Stream(Fragment(Bits(8 bits)))
+    data << input.halfPipe().stage()
+    when(data.valid && isStopped){
+      startFsm()
+    }
   }
+
+  val descAlign = 4
+  val ep = new Area {
+    def addressByte = token.endpoint << 2
+    def addressWord = token.endpoint
+
+    val word = Reg(Bits(32 bits))
+
+    val head = word(4, p.addressWidth >> descAlign bits).asUInt
+    val enable = word(0)
+    val stall = word(1)
+    val nack = word(2)
+    val dataPhase = word(3)
+    val maxPacketSize = word(22, 10 bits).asUInt
+    val headByte = head << descAlign
+  }
+
+  val desc = new Area {
+    def addressByte = ep.headByte
+    def addressWord = ep.head << (descAlign-2)
+
+    val words = Vec(Reg(Bits(32 bits)), 3)
+
+    val offset = words(0)(0, p.lengthWidth bits)
+    val code = words(0)(16, 4 bits)
+
+    val next = words(1)(0, p.addressWidth-descAlign bits).asUInt
+    val length = words(1)(16, p.lengthWidth bits)
+
+    val direction = words(2)(16)
+    val interrupt = words(2)(17)
+    val withZeroLengthEnd = words(2)(18)
+    val frame = words(2)(0, 12 bits)
+
+    val offsetIncrement = False
+    when(offsetIncrement){
+      offset := B(U(offset) + 1)
+    }
+
+    assert(descAlign == 4)
+    val currentByte = (ep.head + (U(offset) >> descAlign) + 1) @@ U(offset.resize(descAlign))
+    val full = offset === length
+    val dataPhaseMatch = ep.dataPhase ? (dataRx.pid === UsbPid.DATA1) | (dataRx.pid === UsbPid.DATA0)
+  }
+
+
+
 
   val active = new StateMachineSlave{
     val IDLE = new State
     val TOCKEN = new StateFsm(token)
-    val ADDRESS_HIT, EP_STATUS_READ, EP_STATUS_ANALYSE = new State
-    val EP_DESC_READ_0, EP_DESC_READ_1, EP_DESC_READ_2 = new State
-    val EP_DESC_ANALYSE = new State
+    val ADDRESS_HIT = new State
+    val EP_READ, EP_ANALYSE = new State
+    val DESC_READ_0, DESC_READ_1, DESC_READ_2 = new State
+    val DESC_ANALYSE = new State
     val DATA_RX, DATA_RX_ANALYSE = new State
     val HANDSHAKE_TX_0, HANDSHAKE_TX_1 = new State
-    val EP_DESC_UPDATE = new State
-    val EP_UPDATE = new State
+    val DATA_TX_0, DATA_TX_1 = new State
+    val HANDSHAKE_RX_0, HANDSHAKE_RX_1 = new State
+    val UPDATE_SETUP, UPDATE_DESC, UPDATE_EP = new State
 
     val handshakePid = Reg(Bits(4 bits))
+    val completion = Reg(Bool())
 
     IDLE whenIsActive{
+      completion := False
       when(io.phy.rx.active){
         goto(TOCKEN)
       }
@@ -222,43 +256,43 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
 
     ADDRESS_HIT whenIsActive{
       when(token.ok && token.address === regs.address){
-        memory.internal.doRead(token.endpoint)
+        memory.internal.doRead(ep.addressWord)
         when(token.pid === UsbPid.SETUP || token.pid === UsbPid.OUT){
           dataRx.startFsm()
         }
-        goto(EP_STATUS_READ)
+        goto(EP_READ)
       } otherwise {
         goto(IDLE)
       }
     }
 
-    EP_STATUS_READ whenIsActive{
+    EP_READ whenIsActive{
       ep.word := memory.internal.readRsp.payload
-      goto(EP_STATUS_ANALYSE)
+      goto(EP_ANALYSE)
     }
 
-    EP_STATUS_ANALYSE whenIsActive{
-      memory.internal.doRead(ep.headByte)
-      goto(EP_DESC_READ_0)
+    EP_ANALYSE whenIsActive{
+      memory.internal.doRead(desc.addressByte)
+      goto(DESC_READ_0)
     }
 
-    EP_DESC_READ_0 whenIsActive{
+    DESC_READ_0 whenIsActive{
       desc.words(0) := memory.internal.readRsp.payload
-      memory.internal.doRead(ep.headByte | 4)
-      goto(EP_DESC_READ_1)
+      memory.internal.doRead(desc.addressByte | 4)
+      goto(DESC_READ_1)
     }
-    EP_DESC_READ_1 whenIsActive{
+    DESC_READ_1 whenIsActive{
       desc.words(1) := memory.internal.readRsp.payload
-      memory.internal.doRead(ep.headByte | 8)
-      goto(EP_DESC_READ_1)
+      memory.internal.doRead(desc.addressByte | 8)
+      goto(DESC_READ_1)
     }
 
-    EP_DESC_READ_2 whenIsActive{
+    DESC_READ_2 whenIsActive{
       desc.words(2) := memory.internal.readRsp.payload
-      goto(EP_DESC_ANALYSE)
+      goto(DESC_ANALYSE)
     }
 
-    EP_DESC_ANALYSE whenIsActive{
+    DESC_ANALYSE whenIsActive{
       byteCounter.clear := True
       switch(token.pid){
         is(UsbPid.SETUP, UsbPid.OUT){
@@ -272,7 +306,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
           when(!desc.direction){
             goto(IDLE) //TODO ERROR
           } otherwise {
-
+            goto(DATA_TX_0)
           }
         }
         default {
@@ -280,10 +314,55 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
         }
       }
     }
-    
+
+    dataTx.pid := ep.dataPhase ## B"011"
+    DATA_TX_0 whenIsActive{
+      when(!transferFull){
+        when(dataTx.input.ready) {
+          memory.internal.doRead(desc.currentByte)
+          byteCounter.increment := True
+          desc.offsetIncrement := True
+          goto(DATA_TX_1)
+        }
+      } otherwise {
+        when(io.phy.tx.eop) {
+          goto(HANDSHAKE_RX_0)
+        }
+      }
+    }
+
+    DATA_TX_1 whenIsActive{
+      dataTx.input.valid := True
+      dataTx.input.last := transferFull
+      dataTx.input.fragment := memory.internal.readRsp.payload
+      goto(DATA_TX_0)
+    }
+
+    HANDSHAKE_RX_0 onEntry{
+      rxTimer.clear := True
+    }
+    HANDSHAKE_RX_0 whenIsActive{
+      when(io.phy.rx.flow.valid){
+        //TODO
+        goto(HANDSHAKE_RX_1)
+      }
+      when(rxTimer.timeout){
+        //TODO
+      }
+    }
+
+    HANDSHAKE_RX_1 whenIsActive{
+      when(!io.phy.rx.active){
+        goto(UPDATE_SETUP)
+      }
+      when(io.phy.rx.flow.valid){
+        //TODO
+      }
+    }
+
     DATA_RX whenIsActive{
       when(dataRx.data.valid){
-        memory.internal.doWrite(desc.currentByte, dataRx.data.payload, transferFull)
+        memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull)
         when(transferFull){
           goto(IDLE) //TODO error
         } otherwise  {
@@ -305,25 +384,37 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParamter : BmbParameter) 
     }
 
     HANDSHAKE_TX_0 whenIsActive {
-      when(rxShared.turnover){
+      when(rxTimer.turnover){
         goto(HANDSHAKE_TX_1)
       }
     }
     HANDSHAKE_TX_1 whenIsActive{
-      io.phy.tx.valid := True
-      io.phy.tx.last := True
-      io.phy.tx.fragment := UsbPid.token(handshakePid)
-      when(io.phy.tx.ready){
-        goto(EP_DESC_UPDATE)
+      io.phy.tx.stream.valid := True
+      io.phy.tx.stream.last := True
+      io.phy.tx.stream.fragment := UsbPid.token(handshakePid)
+      when(io.phy.tx.stream.ready){
+        goto(UPDATE_SETUP)
       }
     }
-
-    EP_DESC_UPDATE whenIsActive{
-
+    
+    UPDATE_SETUP whenIsActive{
+      goto(UPDATE_DESC) //TODO
     }
 
-    EP_UPDATE whenIsActive{
+    UPDATE_DESC whenIsActive{
+      memory.internal.writeCmd.valid    := True
+      memory.internal.writeCmd.address  := desc.addressWord
+      memory.internal.writeCmd.mask     := 0xF
+      memory.internal.writeCmd.data(0, p.lengthWidth bits) := desc.offset
+      memory.internal.writeCmd.data(16, 4 bits) := 0 //TODO
+    }
 
+    UPDATE_EP whenIsActive{
+      memory.internal.writeCmd.valid    := True
+      memory.internal.writeCmd.address  := ep.addressWord
+      memory.internal.writeCmd.mask     := 0x3
+      memory.internal.writeCmd.data(0, 4 bits) := B(ep.dataPhase, ep.nack, ep.stall, ep.enable)
+      memory.internal.writeCmd.data(4, p.addressWidth bits) := B(completion ? desc.next | ep.head)
     }
   }
 
