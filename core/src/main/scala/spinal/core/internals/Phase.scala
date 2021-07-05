@@ -2232,7 +2232,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binaryOneHot
       gen
       defaultClockDomain.pop()
-      assert(DslScopeStack.isEmpty, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin.")
+      assert(DslScopeStack.isEmpty, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
     }
 
 //    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
