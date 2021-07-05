@@ -202,7 +202,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggleWithoutBuffer(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
@@ -1166,7 +1166,11 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain, withOutputBuffer : Boolean = true) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], 
+                                  inputClock: ClockDomain, 
+                                  outputClock: ClockDomain, 
+                                  withOutputBuffer : Boolean = true,
+                                  withInputWait : Boolean = false) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1176,12 +1180,19 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
 
   val pushArea = inputClock on new Area {
     val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False) toggleWhen(io.input.fire)
-    val data = RegNextWhen(io.input.payload, io.input.fire)
+    val accept = False
+    val target = RegInit(False) toggleWhen(accept)
+    val data = RegNextWhen(io.input.payload, accept)
 
-    io.input.ready := (hit === target)
+    if (!withInputWait) {
+      accept := io.input.fire
+      io.input.ready := (hit === target)
+    } else {
+      val busy = RegInit(False) setWhen(accept) clearWhen(io.input.ready)
+      accept := (!busy) && io.input.valid
+      io.input.ready := busy && (hit === target)
+    }
   }
-
 
   val popArea = outputClock on new Area {
     val stream = cloneOf(io.input)
@@ -1191,57 +1202,15 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
     outHitSignal := hit
 
     stream.valid := (target =/= hit)
-    stream.payload := pushArea.data
+
+    if (!withInputWait) {
+      stream.payload := pushArea.data
+    } else {
+      stream.payload := RegNext(pushArea.data)
+    }
     stream.payload.addTag(crossClockDomain)
 
     io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
-  }
-}
-
-// withOutputBuffer => no output buffer, but be careful about the metastability on the data
-class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
-  val io = new Bundle {
-    val input = slave Stream (dataType())
-    val output = master Stream (dataType())
-  }
-
-  val outHitSignal = Bool()
-
-  val pushArea = new ClockingArea(inputClock) {
-    val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False)
-    val busy = RegInit(False)
-    val data = RegNext(io.input.payload)
-    io.input.ready := False
-    when(!busy){
-      when(io.input.valid) {
-        target := !target
-        busy := True
-      }
-    } otherwise {
-      when(hit === target) {
-        io.input.ready := True
-        busy := False
-      }
-    }
-  }
-
-
-  val popArea = new ClockingArea(outputClock) {
-    val target = BufferCC(pushArea.target, False, 3)
-    val hit = RegInit(False)
-    outHitSignal := hit
-
-    val stream = cloneOf(io.input)
-    stream.valid := (target =/= hit)
-    stream.payload := RegNext(pushArea.data).addTag(crossClockDomain)
-    stream.payload
-
-    when(stream.fire) {
-      hit := target
-    }
-
-    io.output << stream
   }
 }
 
