@@ -1174,32 +1174,25 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain
 
   val outHitSignal = Bool()
 
-  val pushArea = new ClockingArea(inputClock) {
+  val pushArea = inputClock on new Area {
     val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False)
-    val data = Reg(io.input.payload)
-    io.input.ready := False
-    when(io.input.valid && hit === target) {
-      target := !target
-      data := io.input.payload
-      io.input.ready := True
-    }
+    val target = RegInit(False) toggleWhen(io.input.fire)
+    val data = RegNextWhen(io.input.payload, io.input.fire)
+
+    io.input.ready := (hit === target)
   }
 
 
-  val popArea = new ClockingArea(outputClock) {
+  val popArea = outputClock on new Area {
+    val stream = cloneOf(io.input)
+
     val target = BufferCC(pushArea.target, False)
-    val hit = RegInit(False)
+    val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 
-    val stream = cloneOf(io.input)
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)
-
-    when(stream.fire) {
-      hit := !hit
-    }
 
     io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
   }
