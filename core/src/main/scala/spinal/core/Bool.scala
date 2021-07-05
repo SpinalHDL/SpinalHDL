@@ -114,7 +114,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
    * @param cond a Bool condition
    * @return this is inverted when cond is True
    */
-  def toggleWhen(cond: Bool)(implicit loc: Location): Bool = { this := this ^ cond; this }
+  def toggleWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := !this }; this }
 
   /**
     * Rising edge detection of this with an initial value
