@@ -32,8 +32,8 @@ import scala.collection.Seq
 
 class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
 
-  override def readHalt  = {}
-  override def writeHalt = {}
+  override def readHalt()  = {}
+  override def writeHalt() = {}
 
   override def readAddress()  = bus.HADDR
   override def writeAddress() = bus.HADDR
