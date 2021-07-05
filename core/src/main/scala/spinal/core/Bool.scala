@@ -109,6 +109,14 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def fallWhen(cond: Bool)(implicit loc: Location): Bool = clearWhen((this) && cond)
 
   /**
+   * this is inverted when cond is True
+   * @example{{{ mybool.toggleWhen(request) }}}
+   * @param cond a Bool condition
+   * @return this is inverted when cond is True
+   */
+  def toggleWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := !this }; this }
+
+  /**
     * Rising edge detection of this with an initial value
     * @example{{{ val res = myBool.rise(False) }}}
     * @param initAt the initial value
