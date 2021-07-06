@@ -202,7 +202,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
@@ -1180,7 +1180,7 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
 
   val pushArea = inputClock on new Area {
     val hit = BufferCC(outHitSignal, False)
-    val accept = False
+    val accept = Bool()
     val target = RegInit(False) toggleWhen(accept)
     val data = RegNextWhen(io.input.payload, accept)
 
