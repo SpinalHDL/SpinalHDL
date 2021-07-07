@@ -36,8 +36,8 @@ import spinal.lib.bus.misc._
   */
 class BRAMSlaveFactory(bus: BRAM, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
 
-  override def readHalt  = {}
-  override def writeHalt = {}
+  override def readHalt()  = {}
+  override def writeHalt() = {}
 
   override def readAddress()  = bus.addr
   override def writeAddress() = bus.addr
