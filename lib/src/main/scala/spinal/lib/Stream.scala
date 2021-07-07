@@ -250,19 +250,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Return True when a transaction is present on the bus but the ready signal is low
     */
-  def isStall : Bool = valid && !ready
+  def isStall : Bool = (valid && !ready).setCompositeName(this, "isStall", true)
 
   /** Return True when a transaction has appeared (first cycle)
     */
-  def isNew : Bool = valid && !(RegNext(isStall) init(False))
+  def isNew : Bool = (valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true)
 
   /** Return True when a transaction occurs on the bus (valid && ready)
   */
-  override def fire: Bool = valid & ready
+  override def fire: Bool = (valid & ready).setCompositeName(this, "fire", true)
 
 /** Return True when the bus is ready, but no data is present
   */
-  def isFree: Bool = !valid || ready
+  def isFree: Bool = (!valid || ready).setCompositeName(this, "isFree", true)
   
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
