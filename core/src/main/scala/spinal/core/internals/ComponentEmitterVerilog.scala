@@ -657,7 +657,7 @@ class ComponentEmitterVerilog(
           case switchStatement : SwitchStatement =>
             def checkPure(o : Expression): Boolean = o match {
               case l: Literal => true
-              case k: SwitchStatementKeyBool => k.key != null
+              //case k: SwitchStatementKeyBool => k.key != null   //Commenting that line disable maskedliteral detection
               case _ => false
             }
             def checkMaskedLiteral(o : Expression): Boolean = o match {
