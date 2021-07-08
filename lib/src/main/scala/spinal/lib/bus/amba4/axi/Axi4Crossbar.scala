@@ -132,17 +132,17 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         portMapMasters ++= (for ((master, id) <- masters.zipWithIndex) yield master match {
           case master: Axi4ReadOnly => {
             val port = slave(Axi4ReadOnly(master.config))
-            port.setName("axi_m_ro_%d".format(id))
+            port.setName(master.getName())
             (master, port)
           }
           case master: Axi4WriteOnly => {
             val port = slave(Axi4WriteOnly(master.config))
-            port.setName("axi_m_wo_%d".format(id))
+            port.setName(master.getName())
             (master, port)
           }
           case master: Axi4Shared => {
             val port = slave(Axi4Shared(master.config))
-            port.setName("axi_m_%d".format(id))
+            port.setName(master.getName())
             (master, port)
           }
         })
@@ -150,17 +150,17 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         portMapSlaves ++= (for (((slave, _), id) <- slavesConfigs.toSeq.sortBy(_._1.asInstanceOf[Bundle].getInstanceCounter).zipWithIndex) yield slave match {
           case slave: Axi4ReadOnly => {
             val port = master(Axi4ReadOnly(slave.config))
-            port.setName("axi_s_ro_%d".format(id))
+            port.setName(slave.getName())
             (slave, port)
           }
           case slave: Axi4WriteOnly => {
             val port = master(Axi4WriteOnly(slave.config))
-            port.setName("axi_s_wo_%d".format(id))
+            port.setName(slave.getName())
             (slave, port)
           }
           case slave: Axi4Shared => {
             val port = master(Axi4Shared(slave.config))
-            port.setName("axi_s_%d".format(id))
+            port.setName(slave.getName())
             (slave, port)
           }
         })
