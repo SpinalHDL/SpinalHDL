@@ -779,8 +779,8 @@ package object sim {
     val queue = mutable.Queue[SimThread]()
     var locked = false
     def lock(){
-      val t = simThread
       if(locked) {
+        val t = simThread
         queue.enqueue(t)
         t.suspend()
       } else {

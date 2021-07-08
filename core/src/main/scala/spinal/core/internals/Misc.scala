@@ -277,4 +277,13 @@ object GraphUtils{
 
 class BooleanPimped(pimped : Boolean){
   def generate[T](block : => T) : T = if(pimped) block else null.asInstanceOf[T]
+  def toInt = if(pimped) 1 else 0
+}
+
+
+class IntPimped(pimped : Int){
+  def toBoolean = pimped match {
+    case 0 => false
+    case 1 => true
+  }
 }

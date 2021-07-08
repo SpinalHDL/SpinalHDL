@@ -414,7 +414,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
 
-  implicit def BooleanPimped[T <: Data](that : Boolean) = new BooleanPimped(that)
+  implicit def BooleanPimped(that : Boolean) = new BooleanPimped(that)
+  implicit def IntPimped(that : Int) = new IntPimped(that)
 
 
   //For backward compatibility
