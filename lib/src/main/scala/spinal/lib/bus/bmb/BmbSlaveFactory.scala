@@ -43,6 +43,9 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
   override def readHalt(): Unit = readHaltTrigger := True
   override def writeHalt(): Unit = writeHaltTrigger := True
 
+  override def readFire(): Bool  = bus.cmd.fire
+  override def writeFire(): Bool = bus.cmd.fire
+
   override def build(): Unit = {
     super.doNonStopWrite(bus.cmd.data)
 

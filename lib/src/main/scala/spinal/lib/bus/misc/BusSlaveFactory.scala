@@ -96,6 +96,9 @@ trait BusSlaveFactory extends Area{
   def readHalt(): Unit
   def writeHalt(): Unit
 
+  def readFire(): Bool  = ???
+  def writeFire(): Bool = ???
+
   def readAddress(): UInt
   def writeAddress(): UInt
 
