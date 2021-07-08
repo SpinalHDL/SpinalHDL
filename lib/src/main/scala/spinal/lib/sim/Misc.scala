@@ -221,5 +221,6 @@ case class MemoryRegionAllocator(base : Long, size : Long){
   }
 
   def allocateOn(base : Long, size : Long) = allocations += SizeMapping(base, size)
+  def freeSize = size - allocations.foldLeft(0)(_ + _.size.toInt)
 }
 

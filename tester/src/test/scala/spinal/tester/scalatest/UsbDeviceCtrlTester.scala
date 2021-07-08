@@ -156,8 +156,8 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       //TODO
-      val transferPerEndpoint = 5
-      val endpointCount = 5
+      val transferPerEndpoint = 10
+      val endpointCount = 16
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
@@ -167,6 +167,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
         def newDescriptor(size : Int) = {
           val m = alloc.allocateAligned(12+size, 16)
+          println(s"MEMORY FREE : ${alloc.freeSize}")
           val d = new Descriptor(m.base.toInt)
           descQueues(endpointId) += d
           d
@@ -179,6 +180,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         }
 
         def push(desc : Descriptor): Unit ={
+          println(s"push at ${simTime()}")
           if(descs.nonEmpty){
             descs.last.next = desc.address >> 4
             descs.last.writeW1()
@@ -198,11 +200,15 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
         ctrl.write((maxPacketSize << 22) | 1, endpointId*4)
 
+        val endpointThread = simThread
         for(_ <- 0 until transferPerEndpoint) {
           var phase = UsbPid.DATA0
 
           def phaseToggle() = phase = if (phase == UsbPid.DATA0) UsbPid.DATA1 else UsbPid.DATA0
-
+          def frameCurrentUpdate(): Unit ={
+            frameCurrent = frameCurrent.max(frameCounter + 1)
+            if (Random.nextDouble() < 0.3) frameCurrent += Random.nextInt(4) + 1
+          }
           val length = Random.nextInt(maxPacketSize*4)
           var left = length
           var notEnough = true
@@ -211,6 +217,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             val descLength = (maxPacketSize * (1 + Random.nextInt(4))) min left
             val desc = newDescriptor(descLength)
             var descOffset = 0
+            val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
 
             desc.offset = descOffset
             desc.code = 0xF
@@ -240,8 +247,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
               left -= packetLength
 
               lock.lock()
-              frameCurrent = frameCurrent.max(frameCounter + 1)
-              if (Random.nextDouble() < 0.3) frameCurrent += Random.nextInt(4) + 1
+              frameCurrentUpdate()
 
               val dataRef = data.slice(descOffsetCpy, descOffsetCpy + packetLength)
               if(!desc.direction) {
@@ -279,11 +285,40 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                 notEnough = false
               }
             }
-
             desc.addCheck{
               assert(desc.code == 0)
               freeDescriptor(desc)
+
+              if(sleepOnCompletion){
+                for(i <- 0 to Random.nextInt(3)) {
+                  lock.lock()
+                  frameCurrentUpdate()
+                  schedule(frameCurrent) {
+                    println("MASDASDASD")
+                    Random.nextInt(2) match {
+                      case 0 => {
+                        usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
+                        usbAgent.assertRxNak()
+                      }
+                      case 1 => {
+                        val pid = if(Random.nextBoolean()) UsbPid.SETUP else UsbPid.OUT
+                        val phase = if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1
+                        usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone() }
+                        usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill(Random.nextInt(65))(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false); usbAgent.waitDone()
+                        usbAgent.assertRxNak()
+                    }
+                  }
+                  lock.unlock()
+                }
+                lock.lock()
+                frameCurrentUpdate()
+                schedule(frameCurrent) {
+                  endpointThread.resume()
+                }
+                lock.unlock()
+              }
             }
+            if(sleepOnCompletion) endpointThread.suspend()
           }
         }
 

@@ -296,9 +296,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     val handshakePid = Reg(Bits(4 bits))
     val completion = Reg(Bool())
+    val noUpdate = Reg(Bool())
 
     IDLE whenIsActive{
       completion := False
+      noUpdate  := False
       when(io.phy.rx.active){
         goto(TOCKEN)
       }
@@ -339,7 +341,24 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     EP_ANALYSE whenIsActive{
       memory.internal.doRead(desc.addressByte)
-      goto(DESC_READ_0)
+      when(ep.head === 0){
+        handshakePid := UsbPid.NAK
+        switch(token.pid){
+          is(UsbPid.SETUP, UsbPid.OUT){
+            noUpdate := True
+            goto(DATA_RX)
+          }
+          is(UsbPid.IN){
+            noUpdate := True
+            goto(HANDSHAKE_TX_0)
+          }
+          default {
+            goto(IDLE) //TODO ERROR
+          }
+        }
+      } otherwise {
+        goto(DESC_READ_0)
+      }
     }
 
     DESC_READ_0 whenIsActive{
@@ -433,9 +452,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     DATA_RX whenIsActive{
       when(dataRx.data.valid){
-        memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull)
-        when(transferFull){
-          goto(IDLE) //TODO error
+        memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull && !noUpdate)
+        when(transferFull){ //TODO noUpdate ?
+          /*goto(IDLE)*/ //TODO error
         } otherwise  {
           byteCounter.increment := True
           desc.offsetIncrement := True
@@ -449,7 +468,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     DATA_RX_ANALYSE whenIsActive{
       when(False) { //TODO error handeling / pid toggle
       } otherwise {
-        handshakePid := UsbPid.ACK //TODO
+        when(!noUpdate){
+          handshakePid := UsbPid.ACK //TODO
+        }
         goto(HANDSHAKE_TX_0)
       }
     }
@@ -474,7 +495,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
       completion setWhen(desc.full) //TODO
 
-      goto(UPDATE_DESC) //TODO
+      when(noUpdate) {
+        goto(IDLE) //TODO
+      } otherwise {
+        goto(UPDATE_DESC) //TODO
+      }
     }
 
     UPDATE_DESC whenIsActive{
@@ -496,7 +521,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.internal.writeCmd.address  := ep.addressWord
       memory.internal.writeCmd.mask     := 0x3
       memory.internal.writeCmd.data(0, 4 bits) := B(ep.dataPhase, ep.nack, ep.stall, ep.enable)
-      memory.internal.writeCmd.data(4, p.addressWidth-descAlign bits) := B(completion ? desc.next | ep.head)
+      memory.internal.writeCmd.data(4, 12 bits) := B(completion ? desc.next | ep.head).resized
 
       when(completion && desc.interrupt){
         regs.interrupts(0, 16 bits)(token.endpoint) := True

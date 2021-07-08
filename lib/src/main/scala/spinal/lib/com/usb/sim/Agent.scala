@@ -272,6 +272,11 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     (rxPid, rxBytes)
   }
 
+  def assertRxNak(): Unit ={
+    val (pid, payload) = rxBlocking()
+    assert(pid == UsbPid.NAK && payload.isEmpty)
+  }
+
   var gotPreamble = false
   cd.onSamplings{
     val txEnable = usb.tx.enable.toBoolean
