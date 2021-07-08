@@ -8,6 +8,7 @@ import spinal.lib.bus.bmb.sim.BmbDriver
 import spinal.lib.com.usb.ohci.UsbPid
 import spinal.lib.com.usb.phy.UsbDevicePhyNative
 import spinal.lib.com.usb.sim.UsbLsFsPhyAbstractIoAgent
+import spinal.lib.com.usb.udc.UsbDeviceCtrl.{Regs, Status}
 import spinal.lib.com.usb.udc.{UsbDeviceCtrl, UsbDeviceCtrlParameter}
 import spinal.lib.sim.MemoryRegionAllocator
 
@@ -295,19 +296,38 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                   frameCurrentUpdate()
                   schedule(frameCurrent) {
                     println("MASDASDASD")
+                    val doStall = Random.nextBoolean()
+
+                    if(doStall) {
+                      ctrl.write(endpointId | 0x10, Regs.HALT)
+                      while((ctrl.read(Regs.HALT) & 0x20) == 0){}
+                      val status = ctrl.read(endpointId*4)
+                      ctrl.write(status | (1 << Status.STALL), endpointId*4)
+                      ctrl.write(0, Regs.HALT)
+                    }
+
+                    def assertHandshake() = if(doStall) usbAgent.assertRxStall() else usbAgent.assertRxNak()
+
                     Random.nextInt(2) match {
                       case 0 => {
                         usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
-                        usbAgent.assertRxNak()
+                        assertHandshake()
                       }
                       case 1 => {
                         val pid = if(Random.nextBoolean()) UsbPid.SETUP else UsbPid.OUT
                         val phase = if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1
-                        usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone() }
+                        usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
                         usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill(Random.nextInt(65))(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false); usbAgent.waitDone()
-                        usbAgent.assertRxNak()
+                        assertHandshake()
+                      }
+                    }
+                    if(doStall) {
+                      val status = ctrl.read(endpointId*4)
+                      ctrl.write(status & ~(1 << Status.STALL), endpointId*4)
                     }
                   }
+
+
                   lock.unlock()
                 }
                 lock.lock()

@@ -74,11 +74,15 @@ object UsbDeviceCtrl {
     dataWidth = 32
   )
 
+  object Status{
+    val STALL = 1
+  }
 
   object Regs{
     val FRAME = 0x10000
     val ADDRESS = 0x10004
     val INTERRUPT = 0x10008
+    val HALT = 0x1000C
   }
   object Code{
     val NONE = 0xF
@@ -110,6 +114,12 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val frame = Reg(UInt(11 bits))
     val address = Reg(Bits(7 bits))
     val interrupts = Reg(Bits(16 bits)) init(0)
+    val halt = new Area{
+      val id = Reg(UInt(log2Up(p.epCount) bits))
+      val enable = RegInit(False)
+      val effective = RegInit(False)
+      val hit = Bool()
+    }
   }
 
   val memory = new Area{
@@ -198,6 +208,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     timeoutClear = rxTimer.clear,
     timeoutEvent = rxTimer.timeout
   )
+  regs.halt.hit := regs.halt.enable && regs.halt.id === token.endpoint
 
   val dataRx = new UsbDataRxFsm(
     rx           = io.phy.rx.flow,
@@ -232,7 +243,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     val head = word(4, p.addressWidth - descAlign bits).asUInt
     val enable = word(0)
-    val stall = word(1)
+    val stall = word(Status.STALL)
     val nack = word(2)
     val dataPhase = word(3)
     val maxPacketSize = word(22, 10 bits).asUInt
@@ -301,6 +312,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     IDLE whenIsActive{
       completion := False
       noUpdate  := False
+      regs.halt.effective setWhen(!regs.halt.hit)
+
       when(io.phy.rx.active){
         goto(TOCKEN)
       }
@@ -341,8 +354,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     EP_ANALYSE whenIsActive{
       memory.internal.doRead(desc.addressByte)
-      when(ep.head === 0){
-        handshakePid := UsbPid.NAK
+      when(ep.head === 0 || ep.stall || regs.halt.hit){
+        handshakePid := ((ep.stall && !regs.halt.hit) ? B(UsbPid.STALL) | B(UsbPid.NAK)).resized
         switch(token.pid){
           is(UsbPid.SETUP, UsbPid.OUT){
             noUpdate := True
@@ -569,6 +582,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     ctrl.write(regs.address, Regs.ADDRESS)
     ctrl.read(regs.interrupts, Regs.INTERRUPT)
     ctrl.clearOnSet(regs.interrupts, Regs.INTERRUPT)
+    ctrl.write(regs.halt.id, Regs.HALT, 0)
+    ctrl.write(regs.halt.enable, Regs.HALT, 4)
+    ctrl.readAndWrite(regs.halt.effective, Regs.HALT, 5)
 
     val memoryMapping = MaskMapping(0x10000, 0x00000)
     val readBuffer = memory.external.readRsp.toReg
