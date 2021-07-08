@@ -936,7 +936,7 @@ object DmaSg{
 //        val sel = arbiter.sel.halfPipe()
         def channel[T <: Data](f: ChannelLogic => T) = Vec(channels.map(f))(sel.channel)
 
-        val bytesInBurstP1 = sel.bytesInBurst + 1
+        val bytesInBurstP1 = sel.bytesInBurst +^ 1
         val addressNext = sel.address + bytesInBurstP1
         val bytesLeftNext = sel.bytesLeft -^ bytesInBurstP1
         val isFinalCmd = bytesLeftNext.msb
