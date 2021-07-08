@@ -38,6 +38,7 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
   def createPhyDefault() = new Area{
     val usb = Handle(logic.io.usb)
+    val management = Handle(logic.io.management)
     val logic = Handle(UsbLsFsPhy(parameter.portCount, sim=false))
 
     Handle{
@@ -52,7 +53,7 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
     def createInferableIo() = Handle{
       logic.clockDomain {
-        usb.get.map(e => e.overcurrent := False)
+        management.get.map(e => e.overcurrent := False)
         val native = usb.get.map(_.toNativeIo())
         val buffer = native.map(_.stage())
         Vec(buffer.map(e => master(e.stage())))
@@ -60,7 +61,7 @@ class UsbOhciGenerator(ctrlOffset : Handle[BigInt] = Unset)
     }
 
     def createSimIo() = Handle {
-      usb.toIo
+      (usb.toIo, management.toIo)
     }
   }
 }

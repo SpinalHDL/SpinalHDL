@@ -1,16 +1,19 @@
 package spinal.lib.com.usb.udc
 
 import spinal.core._
+import spinal.lib
 import spinal.lib._
-import spinal.lib.bus.bmb.{Bmb, BmbParameter}
+import spinal.lib.bus.bmb._
+import spinal.lib.bus.misc.MaskMapping
 import spinal.lib.com.eth.{Crc, CrcKind}
 import spinal.lib.com.usb._
-import spinal.lib.com.usb.ohci.UsbPid
+import spinal.lib.com.usb.ohci.{OhciPortParameter, UsbOhci, UsbOhciParameter, UsbPid}
+import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 
 case class UsbDeviceCtrlParameter(addressWidth : Int,
-                                  epCount : Int){
-  def lengthWidth = (addressWidth + 1) max 16
+                                  epCount : Int = 16){
+  def lengthWidth = (addressWidth + 1) min 16
 }
 /*
 Add descriptor =>
@@ -62,6 +65,25 @@ object UsbDeviceCtrl {
       slave(rx)
     }
   }
+
+
+  val ctrlAddressWidth = 17
+  def ctrlCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
+    accessSource,
+    addressWidth = ctrlAddressWidth,
+    dataWidth = 32
+  )
+
+
+  object Regs{
+    val FRAME = 0x10000
+    val ADDRESS = 0x10004
+    val INTERRUPT = 0x10008
+  }
+  object Code{
+    val NONE = 0xF
+    val DONE = 0x0
+  }
 }
 
 case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter) extends Component {
@@ -70,7 +92,14 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   val io = new Bundle {
     val ctrl = slave(Bmb(bmbParameter))
     val phy = master(PhyIo())
+    val interrupt = out Bool()
   }
+
+  io.phy.resumeIt := False
+  io.phy.tx.stream.valid := False
+  io.phy.tx.stream.payload.assignDontCare()
+
+  val ctrl = BmbSlaveFactory(io.ctrl)
 
   val done = new Area {
     val pendings = Reg(Bits(p.epCount bits))
@@ -78,20 +107,24 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   }
 
   val regs = new Area {
-    val frame = Reg(UInt(12 bits))
+    val frame = Reg(UInt(11 bits))
     val address = Reg(Bits(7 bits))
+    val interrupts = Reg(Bits(16 bits)) init(0)
   }
 
   val memory = new Area{
-    val ram = Mem(Bits(32 bits), 1 << p.addressWidth)
+    val ram = Mem(Bits(32 bits), 1 << p.addressWidth-2)
 
     val readPort = ram.readSyncPort
     val writePort = ram.writePortWithMask
+    writePort.mask.setWidth(4)
 
     val internal = new Area{
+      val writeCmd = cloneOf(writePort)
       val readCmd = cloneOf(readPort.cmd)
       val readRsp = readCmd.stage().translateWith(readPort.rsp)
-      val writeCmd = cloneOf(writePort)
+
+      writeCmd.mask.setWidth(4)
 
       def doRead(byteAddress : UInt): Unit ={
         readCmd.valid := True
@@ -115,18 +148,31 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
       readCmd.valid := False
       readCmd.payload.assignDontCare()
+      writeCmd.valid := False
+      writeCmd.payload.assignDontCare()
+    }
+
+    val external = new Area{
+      val halt = False
+      val writeCmd = Stream(writePort.payloadType)
+      val readCmd = Stream(readPort.cmd.payloadType)
+      val readRsp = readCmd.toFlowFire.stage.translateWith(readPort.rsp)
+
+      val writeCmdHalted = writeCmd.haltWhen(halt)
+
+      writeCmd.mask.setWidth(4)
     }
 
 
-    readPort.cmd.valid := internal.readCmd.valid
-    readPort.cmd.payload := internal.readCmd.payload
+    readPort.cmd.valid := internal.readCmd.valid || external.readCmd.valid
+    readPort.cmd.payload := internal.readCmd.valid ? internal.readCmd.payload | external.readCmd.payload
+    external.readCmd.ready := !internal.readCmd.valid
 
-    writePort.valid := internal.writeCmd.valid
-    writePort.payload := internal.writeCmd.payload
+    writePort.valid := internal.writeCmd.valid || external.writeCmdHalted.valid
+    writePort.payload := internal.writeCmd.valid ? internal.writeCmd.payload | external.writeCmdHalted.payload
+    external.writeCmdHalted.ready := !internal.writeCmd.valid
   }
 
-
-  val transferFull = desc.full || byteCounter.full
 
   val rxTimer = new Area {
     val counter = Reg(UInt(log2Up(16) bits))
@@ -143,15 +189,6 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     val timeout = cycles(24)
     val turnover = cycles(2)
-  }
-
-  val byteCounter = new Area{
-    val value = Reg(UInt(10 bits))
-    val clear, increment = False
-    val full = value === ep.maxPacketSize
-
-    when(increment){ value := value + 1 }
-    when(clear){ value := 0 }
   }
 
   val token = new UsbTokenRxFsm(
@@ -173,7 +210,12 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   val dataTx = new UsbDataTxFsm(tx = io.phy.tx.stream,
                                 eop = io.phy.tx.eop) {
 
-    val input = Stream(Fragment(Bits(8 bits)))
+    val input = Stream(Fragment(Bits(8 bits))) //Allow sparse transactions
+    input.valid := False
+    input.payload.assignDontCare()
+
+    data.valid.removeAssignments()
+    data.payload.removeAssignments()
     data << input.halfPipe().stage()
     when(data.valid && isStopped){
       startFsm()
@@ -182,12 +224,12 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
   val descAlign = 4
   val ep = new Area {
-    def addressByte = token.endpoint << 2
-    def addressWord = token.endpoint
+    def addressByte = addressWord << 2
+    def addressWord = token.endpoint.resize(p.addressWidth-2)
 
     val word = Reg(Bits(32 bits))
 
-    val head = word(4, p.addressWidth >> descAlign bits).asUInt
+    val head = word(4, p.addressWidth - descAlign bits).asUInt
     val enable = word(0)
     val stall = word(1)
     val nack = word(2)
@@ -219,11 +261,20 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     assert(descAlign == 4)
-    val currentByte = (ep.head + (U(offset) >> descAlign) + 1) @@ U(offset.resize(descAlign))
+    val currentByte = ((ep.head @@ U"1100") + U(offset)).resize(p.addressWidth)
     val full = offset === length
     val dataPhaseMatch = ep.dataPhase ? (dataRx.pid === UsbPid.DATA1) | (dataRx.pid === UsbPid.DATA0)
   }
 
+  val byteCounter = new Area{
+    val value = Reg(UInt(10 bits))
+    val clear, increment = False
+    val full = value === ep.maxPacketSize
+
+    when(increment){ value := value + 1 }
+    when(clear){ value := 0 }
+  }
+  val transferFull = desc.full || byteCounter.full
 
 
 
@@ -240,6 +291,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val HANDSHAKE_RX_0, HANDSHAKE_RX_1 = new State
     val UPDATE_SETUP, UPDATE_DESC, UPDATE_EP = new State
 
+    setEntry(IDLE)
+
     val handshakePid = Reg(Bits(4 bits))
     val completion = Reg(Bool())
 
@@ -255,15 +308,27 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     ADDRESS_HIT whenIsActive{
-      when(token.ok && token.address === regs.address){
-        memory.internal.doRead(ep.addressWord)
-        when(token.pid === UsbPid.SETUP || token.pid === UsbPid.OUT){
-          dataRx.startFsm()
+      switch(token.pid){
+        is(UsbPid.SOF){
+          regs.frame := U(token.data)
+          goto(IDLE)
         }
-        goto(EP_READ)
-      } otherwise {
-        goto(IDLE)
+        is(UsbPid.SETUP,UsbPid.OUT, UsbPid.IN){
+          when(token.ok && token.address === regs.address){
+            memory.internal.doRead(ep.addressByte)
+            when(token.pid === UsbPid.SETUP || token.pid === UsbPid.OUT){
+              dataRx.startFsm()
+            }
+            goto(EP_READ)
+          } otherwise {
+            goto(IDLE)
+          }
+        }
+        default{
+          goto(IDLE)
+        }
       }
+
     }
 
     EP_READ whenIsActive{
@@ -284,7 +349,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     DESC_READ_1 whenIsActive{
       desc.words(1) := memory.internal.readRsp.payload
       memory.internal.doRead(desc.addressByte | 8)
-      goto(DESC_READ_1)
+      goto(DESC_READ_2)
     }
 
     DESC_READ_2 whenIsActive{
@@ -316,7 +381,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     dataTx.pid := ep.dataPhase ## B"011"
+    val byteSel = Reg(UInt(2 bits))
     DATA_TX_0 whenIsActive{
+      byteSel := byteCounter.value.resized
       when(!transferFull){
         when(dataTx.input.ready) {
           memory.internal.doRead(desc.currentByte)
@@ -334,7 +401,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     DATA_TX_1 whenIsActive{
       dataTx.input.valid := True
       dataTx.input.last := transferFull
-      dataTx.input.fragment := memory.internal.readRsp.payload
+      dataTx.input.fragment := memory.internal.readRsp.payload.subdivideIn(8 bits)(byteSel)
       goto(DATA_TX_0)
     }
 
@@ -376,7 +443,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     DATA_RX_ANALYSE whenIsActive{
-      when(???) { //TODO error handeling / pid toggle
+      when(False) { //TODO error handeling / pid toggle
       } otherwise {
         handshakePid := UsbPid.ACK //TODO
         goto(HANDSHAKE_TX_0)
@@ -398,23 +465,39 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
     
     UPDATE_SETUP whenIsActive{
+      memory.external.halt := True
+      memory.internal.doRead(desc.addressByte | 4) //Fetch the next descriptor in a atomic manner to ease the software tail insertion
+
+      completion setWhen(desc.full) //TODO
+
       goto(UPDATE_DESC) //TODO
     }
 
     UPDATE_DESC whenIsActive{
+      memory.external.halt := True
+      desc.words(1) := memory.internal.readRsp.payload
+
       memory.internal.writeCmd.valid    := True
       memory.internal.writeCmd.address  := desc.addressWord
       memory.internal.writeCmd.mask     := 0xF
       memory.internal.writeCmd.data(0, p.lengthWidth bits) := desc.offset
-      memory.internal.writeCmd.data(16, 4 bits) := 0 //TODO
+      memory.internal.writeCmd.data(16, 4 bits) := (completion ? B(0) | B(15))
+
+      goto(UPDATE_EP)
     }
 
     UPDATE_EP whenIsActive{
+      memory.external.halt := True
       memory.internal.writeCmd.valid    := True
       memory.internal.writeCmd.address  := ep.addressWord
       memory.internal.writeCmd.mask     := 0x3
       memory.internal.writeCmd.data(0, 4 bits) := B(ep.dataPhase, ep.nack, ep.stall, ep.enable)
-      memory.internal.writeCmd.data(4, p.addressWidth bits) := B(completion ? desc.next | ep.head)
+      memory.internal.writeCmd.data(4, p.addressWidth-descAlign bits) := B(completion ? desc.next | ep.head)
+
+      when(completion && desc.interrupt){
+        regs.interrupts(0, 16 bits)(token.endpoint) := True
+      }
+      goto(IDLE)
     }
   }
 
@@ -436,8 +519,12 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     ACTIVE_INIT whenIsActive{
       regs.address := 0
       when(!io.phy.reset){
-
+        goto(ACTIVE)
       }
+    }
+
+    ACTIVE onEntry {
+      active.startFsm() //TODO stop fsm on exit ?
     }
     ACTIVE whenIsActive{
       when(io.phy.reset){
@@ -445,4 +532,109 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       }
     }
   }
+
+  import UsbDeviceCtrl.Regs
+
+  val mapping = new Area {
+    ctrl.read(regs.frame   , Regs.FRAME)
+    ctrl.write(regs.address, Regs.ADDRESS)
+    ctrl.read(regs.interrupts, Regs.INTERRUPT)
+    ctrl.clearOnSet(regs.interrupts, Regs.INTERRUPT)
+
+    val memoryMapping = MaskMapping(0x10000, 0x00000)
+    val readBuffer = memory.external.readRsp.toReg
+    val readState = RegInit(U"00")
+    val writeState = RegInit(U"0")
+    memory.external.readCmd.valid := False
+    memory.external.readCmd.payload := (ctrl.readAddress() >> 2).resized
+    memory.external.writeCmd.valid := False
+    memory.external.writeCmd.address := (ctrl.writeAddress() >> 2).resized
+    memory.external.writeCmd.mask := 0xF
+    ctrl.nonStopWrite(memory.external.writeCmd.data)
+    ctrl.readPrimitive(readBuffer, memoryMapping, 0, null)
+
+    ctrl.onReadPrimitive(memoryMapping, haltSensitive = false, documentation = null) {
+      switch(readState){
+        is(0){
+          ctrl.readHalt()
+          memory.external.readCmd.valid := True
+          when(memory.external.readCmd.ready) {
+            readState := 1
+          }
+        }
+        is(1){
+          ctrl.readHalt()
+          when(memory.external.readRsp.fire) {
+            readState := 2
+          }
+        }
+      }
+    }
+    ctrl.onWritePrimitive(memoryMapping, haltSensitive = false, documentation = null){
+      switch(writeState){
+        is(0){
+          ctrl.writeHalt()
+          memory.external.writeCmd.valid := True
+          when(memory.external.writeCmd.ready){
+            writeState := 1
+          }
+        }
+      }
+    }
+
+    ctrl.onReadPrimitive(memoryMapping, haltSensitive = true, documentation = null) {
+      readState := 0
+    }
+    ctrl.onWritePrimitive(memoryMapping, haltSensitive = true, documentation = null){
+      writeState := 0
+    }
+  }
+
+
+  io.interrupt := regs.interrupts.orR
 }
+
+
+object UsbDeviceCtrlGen extends App {
+  SpinalVerilog(new UsbDeviceCtrl(
+    p = UsbDeviceCtrlParameter(
+      addressWidth = 16
+    ),
+    bmbParameter = BmbParameter(
+      addressWidth = 17,
+      dataWidth = 32,
+      sourceWidth = 0,
+      contextWidth = 0,
+      lengthWidth = 2
+    )
+  ))
+}
+
+object UsbDeviceCtrlSynt extends App{
+  val rawrrr = new Rtl {
+    override def getName(): String = "UsbDeviceCtrl"
+    override def getRtlPath(): String = "UsbDeviceCtrl.v"
+    SpinalVerilog(new UsbDeviceCtrl(
+      p = UsbDeviceCtrlParameter(
+        addressWidth = 16
+      ),
+      bmbParameter = BmbParameter(
+        addressWidth = 17,
+        dataWidth = 32,
+        sourceWidth = 0,
+        contextWidth = 0,
+        lengthWidth = 2
+      )
+    ))
+  }
+
+
+  val rtls = List(rawrrr)
+
+  val targets = XilinxStdTargets().take(2)
+
+  Bench(rtls, targets)
+}
+
+
+

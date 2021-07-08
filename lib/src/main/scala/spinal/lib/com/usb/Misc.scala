@@ -180,8 +180,9 @@ class UsbTokenRxFsm(rx: Flow[Bits],
   setEntry(PID)
 
   val pid = Reg(Bits(4 bits))
-  val address = Reg(Bits(7 bits))
-  val endpoint = Reg(UInt(4 bits))
+  val data = Reg(Bits(11 bits))
+  val address = data(0, 7 bits)
+  val endpoint = U(data(7, 4 bits))
 
   val ok = Reg(Bool())
 
@@ -209,7 +210,7 @@ class UsbTokenRxFsm(rx: Flow[Bits],
 
   DATA_0 whenIsActive{
     when(rx.valid){
-      (endpoint(0), address) := rx.payload
+      data(0, 8 bits) := rx.payload
       crc5.io.input.valid := True
       goto(DATA_1)
     }
@@ -217,7 +218,7 @@ class UsbTokenRxFsm(rx: Flow[Bits],
 
   DATA_1 whenIsActive{
     when(rx.valid){
-      endpoint(3 downto 1) := rx.payload(2 downto 0).asUInt
+      data(8, 3 bits) := rx.payload(2 downto 0)
       crc5.io.input.valid := True
       goto(CHECK)
     }
@@ -225,7 +226,7 @@ class UsbTokenRxFsm(rx: Flow[Bits],
 
   CHECK whenIsActive{
     when(!rxActive){
-      when(crc5.io.result =/= 0x0C){
+      when(crc5.io.result === 0x0C){
         ok := True
       }
       exitFsm()

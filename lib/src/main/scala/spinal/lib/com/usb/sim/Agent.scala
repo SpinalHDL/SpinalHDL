@@ -4,91 +4,11 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.com.usb.ohci.UsbPid
 import spinal.lib.com.usb.phy._
+import spinal.sim.SimThread
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
-import scala.collection.Seq
-
-
-trait UsbDeviceAgentListener{
-  def reset() : Unit
-  def hcToUsb(addr : Int, endp : Int, tockenPid : Int, dataPid : Int, data : Seq[Int]) : Unit
-  def usbToHc(addr : Int, endp : Int) : Boolean
-}
-
-class UsbDeviceAgent(io : UsbLsFsPhyAbstractIoAgent) extends UsbLsFsPhyAbstractIoListener{
-  var lowSpeed = false
-  var connected = false
-  var frameNumber = -1
-
-  var listener : UsbDeviceAgentListener = null
-  def onListener(body : UsbDeviceAgentListener => Unit) = if(listener != null) body(listener)
-
-
-  object WAIT_RESET
-  object ENABLED
-  object TX_DATA
-  object TX_ACK
-
-  var allowSporadicReset = false
-  var state : Any = WAIT_RESET
-  override def reset() = {
-    assert(allowSporadicReset || state == WAIT_RESET)
-    state = ENABLED
-    onListener(_.reset())
-  }
-
-  override def keepAlive() = {
-    state match {
-      case ENABLED =>
-    }
-  }
-
-  var addr, endp = 0
-  var tockenPid = 0
-  override def txPacket(pid : Int, data: Seq[Int]) = {
-    state match {
-      case ENABLED => {
-        addr = data(0) & 0x7F
-        endp = data(0) >> 7 | ((data(1) & 0x7) << 1)
-        tockenPid = pid
-        pid match {
-          case UsbPid.SOF => { //SOF
-            val fn = data(0) | ((data(1) & 0x3) << 8)
-            assert(frameNumber == -1 || ((frameNumber+1) & 0x3FF) == fn)
-            frameNumber = fn
-          }
-          case UsbPid.SETUP | UsbPid.OUT => {
-            state = TX_DATA
-          }
-          case UsbPid.IN => {
-            var withAck = false
-            onListener{l => withAck |= l.usbToHc(addr, endp)}
-            if (withAck) state = TX_ACK
-          }
-        }
-      }
-      case TX_DATA => {
-        //        println(s"TX $addr $endp ${data.map(e => f"${e}%02x").mkString(",")}")
-        state = ENABLED
-        onListener(_.hcToUsb(addr, endp, tockenPid, pid, data.dropRight(2)))
-      }
-      case TX_ACK => {
-        assert(pid == UsbPid.ACK && data.size == 0)
-        state = ENABLED
-      }
-    }
-  }
-
-  def connect(lowSpeed : Boolean): Unit ={
-    this.lowSpeed = lowSpeed
-    io.connect(lowSpeed)
-    connected = true
-  }
-
-  io.listener = this
-}
-
+import scala.collection.{Seq, mutable}
 
 
 
@@ -110,7 +30,6 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
 
   usb.rx.dp #= false
   usb.rx.dm #= false
-  usb.overcurrent #= false
 
   class State
   object DISCONNECTED extends State
@@ -178,11 +97,12 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     ret
   }
 
-  def calcCrc(that : Seq[Int], poly : Int, width : Int, check : Boolean): Int ={
+  def calcCrc(that : Seq[Int], poly : Int, width : Int, check : Boolean, bitCount : Int = -1): Int ={
     def getBit(id : Int) = (that(id/8) >> ((id % 8))) & 1
     val mask = ((1l << width)-1).toInt
     var crc = -1
-    for(bitId <- 0 until that.size*8){
+    val bitCountPatched = if(bitCount < 0) that.size*8 else bitCount
+    for(bitId <- 0 until bitCountPatched){
       val bit = getBit(bitId) ^ ((crc >> (width-1)) & 1)
       crc = (crc << 1) ^ ((if(bit == 1) poly else 0))
     }
@@ -199,11 +119,16 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     emitBytes(head +: data, crc16, turnaround, ls)
   }
 
-  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, ls : Boolean, stuffingError : Boolean = false, crcError : Boolean = false, eopError : Boolean = false, errorAt : Int = -1) : Unit = {
+  def emitBytes(data : Seq[Int], crc16 : Boolean, turnaround : Boolean, ls : Boolean, stuffingError : Boolean = false, crcError : Boolean = false, eopError : Boolean = false, errorAt : Int = -1, crc5 : Boolean = false) : Unit = {
     var buf = data
     if(crc16){
       val crc = calcCrc(data.tail, 0x8005, 16, false)
       buf = buf ++ List(crc & 0xFF, crc >> 8)
+    }
+
+    if(crc5){
+      val crc = calcCrc(data.tail, 5, 5, false, bitCount = 11)
+      buf = buf.dropRight(1) :+ (crc*8 | buf.last%8)
     }
 
     buf = 0x80 +: buf
@@ -248,6 +173,18 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     bitTime(ls)
   }
 
+  val doneQueue = mutable.Queue[SimThread]()
+  def waitDone(): Unit ={
+    val t = simThread
+    doneQueue += t
+    t.suspend()
+  }
+  def doneNotify(): Unit ={
+    val l = doneQueue.toList
+    doneQueue.clear()
+    l.foreach(_.resume())
+  }
+
   def emitEop(extraBit : Boolean, error : Boolean, ls : Boolean): Unit ={
     if(extraBit){
       rx.enable = true
@@ -270,8 +207,19 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
         rx.dp = !lowSpeed
         delayed(randomBitTime(ls)){
           rx.enable = false
+          doneNotify()
         }
       }
+    }
+  }
+
+  def emitReset(): Unit ={
+    rx.enable = true
+    rx.dm = false
+    rx.dp = false
+    delayed(100e-6*1e12 toLong){
+      rx.enable = false
+      doneNotify()
     }
   }
 
@@ -311,6 +259,17 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       ret += value
     }
     ret
+  }
+
+
+  val rxBlocked = mutable.Queue[SimThread]()
+  var rxPid = 0
+  var rxBytes : Seq[Int] = null
+  def rxBlocking(): (Int, Seq[Int]) ={
+    val t = simThread
+    rxBlocked += t
+    t.suspend()
+    (rxPid, rxBytes)
   }
 
   var gotPreamble = false
@@ -427,6 +386,11 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
           assert(pidLow == pidHigh)
 
           onListener(_.txPacket(pidLow, bytes.drop(2)))
+          rxPid = pidLow
+          rxBytes = bytes.drop(2)
+          rxBlocked.foreach(_.resume())
+          rxBlocked.clear()
+
           state = EOP_2
         }
       }
