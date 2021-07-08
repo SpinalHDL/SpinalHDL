@@ -387,7 +387,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
 
           onListener(_.txPacket(pidLow, bytes.drop(2)))
           rxPid = pidLow
-          rxBytes = bytes.drop(2)
+          rxBytes = bytes.drop(2).dropRight(2)
           rxBlocked.foreach(_.resume())
           rxBlocked.clear()
 

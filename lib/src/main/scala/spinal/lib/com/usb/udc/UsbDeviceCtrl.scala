@@ -210,6 +210,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   val dataTx = new UsbDataTxFsm(tx = io.phy.tx.stream,
                                 eop = io.phy.tx.eop) {
 
+    val startNull = False
     val input = Stream(Fragment(Bits(8 bits))) //Allow sparse transactions
     input.valid := False
     input.payload.assignDontCare()
@@ -217,7 +218,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     data.valid.removeAssignments()
     data.payload.removeAssignments()
     data << input.halfPipe().stage()
-    when(data.valid && isStopped){
+    when(data.valid && isStopped || startNull){
       startFsm()
     }
   }
@@ -371,6 +372,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
           when(!desc.direction){
             goto(IDLE) //TODO ERROR
           } otherwise {
+            when(desc.full){
+              dataTx.startNull := True
+            }
             goto(DATA_TX_0)
           }
         }
@@ -383,7 +387,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     dataTx.pid := ep.dataPhase ## B"011"
     val byteSel = Reg(UInt(2 bits))
     DATA_TX_0 whenIsActive{
-      byteSel := byteCounter.value.resized
+      byteSel := U(desc.offset).resized
       when(!transferFull){
         when(dataTx.input.ready) {
           memory.internal.doRead(desc.currentByte)
@@ -616,7 +620,7 @@ object UsbDeviceCtrlSynt extends App{
     override def getRtlPath(): String = "UsbDeviceCtrl.v"
     SpinalVerilog(new UsbDeviceCtrl(
       p = UsbDeviceCtrlParameter(
-        addressWidth = 16
+        addressWidth = 12
       ),
       bmbParameter = BmbParameter(
         addressWidth = 17,

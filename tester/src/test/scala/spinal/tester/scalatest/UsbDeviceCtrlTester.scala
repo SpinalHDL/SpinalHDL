@@ -155,8 +155,9 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         }
       }
 
-      val transferPerEndpoint = 8
-      val endpointCount = 8
+      //TODO
+      val transferPerEndpoint = 5
+      val endpointCount = 5
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
@@ -215,8 +216,8 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             desc.code = 0xF
             desc.next = 0
             desc.length = descLength
-            desc.direction = false
-            desc.interrupt = true
+            desc.direction = Random.nextBoolean()
+            desc.interrupt = true //TODO
             desc.withZeroLengthEnd = desc.length == left && left % maxPacketSize == 0
             desc.frame = 0
 
@@ -224,9 +225,9 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
             val data = List.fill(descLength)(Random.nextInt(256))
             def dataAt(idx : Int) = if(idx < data.length) data(idx) else 0
-            if(!desc.direction) {
+            if(desc.direction) {
               for (i <- 0 until descLength + 3 by 4) {
-                ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + i)
+                ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + 12 + i)
               }
             }
 
@@ -259,10 +260,18 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                   phaseToggle()
                   println(s"bye ${simTime()}")
                 }
-                lock.unlock()
               } else {
-
+              schedule(frameCurrent) {
+                  usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                  usbAgent.waitDone()
+                  val (pid, payload) = usbAgent.rxBlocking()
+                  assert(payload == dataRef)
+                  usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                  usbAgent.waitDone()
+                  phaseToggle()
+                }
               }
+              lock.unlock()
 
 
               descOffset += packetLength
