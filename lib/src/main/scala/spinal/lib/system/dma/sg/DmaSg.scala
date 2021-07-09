@@ -972,9 +972,7 @@ object DmaSg{
         }
 
 
-        val toggle = RegInit(False)
-        toggle := toggle ^ sel.fire
-
+        val toggle = RegInit(False) toggleWhen(sel.fire)
 
         def address = sel.address
 
