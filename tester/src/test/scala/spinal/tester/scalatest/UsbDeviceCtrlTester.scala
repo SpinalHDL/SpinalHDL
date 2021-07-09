@@ -96,13 +96,13 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         var length = 0
         var direction = false
         var interrupt = false
-        var withZeroLengthEnd = false
+        var completionOnFull = false
         var frame = 0
 
         def write(): Unit ={
           ctrl.write((offset << 0) | (code << 16), address + 0)
           ctrl.write((next << 0) | (length << 16), address + 4)
-          ctrl.write((frame << 0) | (direction.toInt << 16) | (interrupt.toInt << 17) | (withZeroLengthEnd.toInt << 18), address + 8)
+          ctrl.write((frame << 0) | (direction.toInt << 16) | (interrupt.toInt << 17) | (completionOnFull.toInt << 18), address + 8)
         }
 
         def writeW1(): Unit ={
@@ -219,6 +219,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             val desc = newDescriptor(descLength)
             var descOffset = 0
             val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
+            var descNotDone = true
 
             desc.offset = descOffset
             desc.code = 0xF
@@ -226,7 +227,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             desc.length = descLength
             desc.direction = Random.nextBoolean()
             desc.interrupt = true //TODO
-            desc.withZeroLengthEnd = desc.length == left && left % maxPacketSize == 0
+            desc.completionOnFull = desc.length != left
             desc.frame = 0
 
             println(s"Descriptor at ${desc.address}")
@@ -234,7 +235,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             val data = List.fill(descLength)(Random.nextInt(256))
             def dataAt(idx : Int) = if(idx < data.length) data(idx) else 0
             if(desc.direction) {
-              for (i <- 0 until descLength + 3 by 4) {
+              for (i <- 0 until descLength by 4) {
                 ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + 12 + i)
               }
             }
@@ -242,48 +243,62 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
             desc.write()
             push(desc)
 
-            while ((descOffset == 0 || descOffset != descLength) && notEnough) {
+            if(desc.address == 10048){
+              println("MIAOU")
+            }
+
+            while (descNotDone) {
               val descOffsetCpy = descOffset
               val packetLength = left min maxPacketSize
-              left -= packetLength
+              val withError = Random.nextDouble() < 0.2
+              val dataRef = data.slice(descOffsetCpy, descOffsetCpy + packetLength)
 
-              lock.lock()
               frameCurrentUpdate()
 
-              val dataRef = data.slice(descOffsetCpy, descOffsetCpy + packetLength)
-              if(!desc.direction) {
-                desc.addCheck {
-                  val dataDut = desc.readData(descOffsetCpy, packetLength)
-                  assert(dataDut == dataRef)
-                }
-                schedule(frameCurrent) {
-                  println(s"Hi ${simTime()}")
-                  usbAgent.emitBytes(List(UsbPid.SETUP | (~UsbPid.SETUP << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                  usbAgent.waitDone()
-                  usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
-                  usbAgent.waitDone()
-                  val (pid, payload) = usbAgent.rxBlocking()
-                  assert(pid == UsbPid.ACK && payload.isEmpty)
-                  phaseToggle()
-                  println(s"bye ${simTime()}")
-                }
+              if(withError){
+
               } else {
-              schedule(frameCurrent) {
-                  usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                  usbAgent.waitDone()
-                  val (pid, payload) = usbAgent.rxBlocking()
-                  assert(payload == dataRef)
-                  usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
-                  usbAgent.waitDone()
-                  phaseToggle()
+                if (!desc.direction) {
+                  desc.addCheck {
+                    val dataDut = desc.readData(descOffsetCpy, packetLength)
+                    assert(dataDut == dataRef)
+                  }
+                  schedule(frameCurrent) {
+                    println(s"SETUP/OUT ${simTime()} ${desc.address} $packetLength")
+                    usbAgent.emitBytes(List(UsbPid.SETUP | (~UsbPid.SETUP << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                    usbAgent.waitDone()
+                    usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+                    usbAgent.waitDone()
+                    val (pid, payload) = usbAgent.rxBlocking()
+                    assert(pid == UsbPid.ACK && payload.isEmpty)
+                    phaseToggle()
+                    println(s"bye ${simTime()}")
+                  }
+                } else {
+                  schedule(frameCurrent) {
+                    if(desc.address == 10048){
+                      println(s"MIAOU2 $descOffsetCpy $dataRef ")
+                    }
+                    println(s"IN ${simTime()} ${desc.address} $packetLength")
+                    usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                    usbAgent.waitDone()
+                    val (pid, payload) = usbAgent.rxBlocking()
+                    assert(payload == dataRef)
+                    usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                    usbAgent.waitDone()
+                    phaseToggle()
+                  }
                 }
-              }
-              lock.unlock()
 
-
-              descOffset += packetLength
-              if(packetLength != maxPacketSize){
-                notEnough = false
+                left -= packetLength
+                descOffset += packetLength
+                if (packetLength != maxPacketSize) {
+                  notEnough = false
+                  descNotDone = false
+                }
+                if(desc.completionOnFull && descOffset == descLength){
+                  descNotDone = false
+                }
               }
             }
             desc.addCheck{
@@ -292,7 +307,6 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
               if(sleepOnCompletion){
                 for(i <- 0 to Random.nextInt(3)) {
-                  lock.lock()
                   frameCurrentUpdate()
                   schedule(frameCurrent) {
                     println("MASDASDASD")
@@ -326,16 +340,11 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                       ctrl.write(status & ~(1 << Status.STALL), endpointId*4)
                     }
                   }
-
-
-                  lock.unlock()
                 }
-                lock.lock()
                 frameCurrentUpdate()
                 schedule(frameCurrent) {
                   endpointThread.resume()
                 }
-                lock.unlock()
               }
             }
             if(sleepOnCompletion) endpointThread.suspend()

@@ -264,7 +264,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     val direction = words(2)(16)
     val interrupt = words(2)(17)
-    val withZeroLengthEnd = words(2)(18)
+    val completionOnFull = words(2)(18)
     val frame = words(2)(0, 12 bits)
 
     val offsetIncrement = False
@@ -308,6 +308,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val handshakePid = Reg(Bits(4 bits))
     val completion = Reg(Bool())
     val noUpdate = Reg(Bool())
+
+    regs.halt.effective setWhen(isStopped)
 
     IDLE whenIsActive{
       completion := False
@@ -506,7 +508,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.external.halt := True
       memory.internal.doRead(desc.addressByte | 4) //Fetch the next descriptor in a atomic manner to ease the software tail insertion
 
-      completion setWhen(desc.full) //TODO
+      completion setWhen(!byteCounter.full || desc.completionOnFull && desc.full) //TODO
 
       when(noUpdate) {
         goto(IDLE) //TODO
