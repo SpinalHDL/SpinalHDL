@@ -208,7 +208,7 @@ case class MemoryRegionAllocator(base : Long, size : Long){
 
   def allocateAligned(size : Long, align : Long) : SizeMapping = {
     var tryies = 0
-    while(tryies < 10){
+    while(tryies < 50){
 
       val region = SizeMapping(sizeRand() + base & ~(align-1), size)
       if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {

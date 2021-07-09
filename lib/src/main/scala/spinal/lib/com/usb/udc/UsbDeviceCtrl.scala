@@ -246,6 +246,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val stall = word(Status.STALL)
     val nack = word(2)
     val dataPhase = word(3)
+    val isochronous = word(16)
     val maxPacketSize = word(22, 10 bits).asUInt
     val headByte = head << descAlign
   }
@@ -309,12 +310,12 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val completion = Reg(Bool())
     val noUpdate = Reg(Bool())
 
-    regs.halt.effective setWhen(isStopped)
+    regs.halt.effective setWhen(isStopped || isActive(IDLE) || isActive(TOCKEN) || !regs.halt.hit)
 
     IDLE whenIsActive{
       completion := False
       noUpdate  := False
-      regs.halt.effective setWhen(!regs.halt.hit)
+      regs.halt.effective
 
       when(io.phy.rx.active){
         goto(TOCKEN)
@@ -365,7 +366,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
           }
           is(UsbPid.IN){
             noUpdate := True
-            goto(HANDSHAKE_TX_0)
+            when(ep.isochronous){
+              goto(IDLE) //TODO ??
+            } otherwise {
+              goto(HANDSHAKE_TX_0)
+            }
           }
           default {
             goto(IDLE) //TODO ERROR
@@ -431,7 +436,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         }
       } otherwise {
         when(io.phy.tx.eop) {
-          goto(HANDSHAKE_RX_0)
+          when(ep.isochronous) {
+            goto(UPDATE_SETUP)
+          } otherwise {
+            goto(HANDSHAKE_RX_0)
+          }
         }
       }
     }
@@ -486,7 +495,11 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         when(!noUpdate){
           handshakePid := UsbPid.ACK //TODO
         }
-        goto(HANDSHAKE_TX_0)
+        when(ep.isochronous){
+          goto(UPDATE_SETUP)
+        } otherwise {
+          goto(HANDSHAKE_TX_0)
+        }
       }
     }
 

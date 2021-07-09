@@ -110,7 +110,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         }
 
         def read(): Unit ={
-          val v = ctrl.read(0).toInt
+          val v = ctrl.read(address + 0).toInt
           offset = v & 0xFFFF
           code = (v >> 16) & 0xF
         }
@@ -163,6 +163,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
         var descs = mutable.Queue[Descriptor]()
+        val isochronous = Random.nextDouble() < 0.3 //TODO
 
 
 
@@ -199,7 +200,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
 
 
-        ctrl.write((maxPacketSize << 22) | 1, endpointId*4)
+        ctrl.write((maxPacketSize << 22) | (isochronous.toInt << 16) | 1, endpointId*4)
 
         val endpointThread = simThread
         for(_ <- 0 until transferPerEndpoint) {
@@ -269,8 +270,10 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                     usbAgent.waitDone()
                     usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                     usbAgent.waitDone()
-                    val (pid, payload) = usbAgent.rxBlocking()
-                    assert(pid == UsbPid.ACK && payload.isEmpty)
+                    if(!isochronous) {
+                      val (pid, payload) = usbAgent.rxBlocking()
+                      assert(pid == UsbPid.ACK && payload.isEmpty)
+                    }
                     phaseToggle()
                     println(s"bye ${simTime()}")
                   }
@@ -284,8 +287,10 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                     usbAgent.waitDone()
                     val (pid, payload) = usbAgent.rxBlocking()
                     assert(payload == dataRef)
-                    usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
-                    usbAgent.waitDone()
+                    if(!isochronous) {
+                      usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                      usbAgent.waitDone()
+                    }
                     phaseToggle()
                   }
                 }
@@ -325,14 +330,14 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                     Random.nextInt(2) match {
                       case 0 => {
                         usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
-                        assertHandshake()
+                        if(!isochronous) assertHandshake()
                       }
                       case 1 => {
                         val pid = if(Random.nextBoolean()) UsbPid.SETUP else UsbPid.OUT
                         val phase = if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1
                         usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
                         usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill(Random.nextInt(65))(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false); usbAgent.waitDone()
-                        assertHandshake()
+                        if(!isochronous) assertHandshake()
                       }
                     }
                     if(doStall) {
