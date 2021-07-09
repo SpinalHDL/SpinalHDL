@@ -545,9 +545,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       completion setWhen(!byteCounter.full || desc.completionOnFull && desc.full)
 
       when(noUpdate) {
-        goto(IDLE) //TODO
+        goto(IDLE)
       } otherwise {
-        goto(UPDATE_DESC) //TODO
+        goto(UPDATE_DESC)
       }
     }
 

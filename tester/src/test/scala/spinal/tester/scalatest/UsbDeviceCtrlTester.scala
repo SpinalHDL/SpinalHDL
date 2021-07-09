@@ -316,7 +316,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                         usbAgent.emitBytes(List(phase | (phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                       case 3 => // crc error
                         usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false, crcError = true)
-                      case 4 => // more than maxPacketLength
+                      case 4 => // to much data
                         usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill((maxPacketSize min (descLength-descOffsetCpy))+Random.nextInt(5) + 1)(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false)
 
                     }
