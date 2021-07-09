@@ -511,7 +511,7 @@ package object sim {
       }
     }
 
-    def waitEdge(): Unit = waitRisingEdge(1)
+    def waitEdge(): Unit = waitEdge(1)
     def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
