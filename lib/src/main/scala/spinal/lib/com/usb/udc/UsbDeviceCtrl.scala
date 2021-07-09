@@ -266,6 +266,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val direction = words(2)(16)
     val interrupt = words(2)(17)
     val completionOnFull = words(2)(18)
+    val setup = words(2)(19)
     val frame = words(2)(0, 12 bits)
 
     val offsetIncrement = False
@@ -293,7 +294,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
   val active = new StateMachineSlave{
     val IDLE = new State
-    val TOCKEN = new StateFsm(token)
+    val TOKEN = new StateFsm(token)
     val ADDRESS_HIT = new State
     val EP_READ, EP_ANALYSE = new State
     val DESC_READ_0, DESC_READ_1, DESC_READ_2 = new State
@@ -310,44 +311,46 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val completion = Reg(Bool())
     val noUpdate = Reg(Bool())
 
-    regs.halt.effective setWhen(isStopped || isActive(IDLE) || isActive(TOCKEN) || !regs.halt.hit)
+    regs.halt.effective setWhen(isStopped || isActive(IDLE) || isActive(TOKEN) || !regs.halt.hit)
 
     IDLE whenIsActive{
       completion := False
       noUpdate  := False
-      regs.halt.effective
 
       when(io.phy.rx.active){
-        goto(TOCKEN)
+        goto(TOKEN)
       }
     }
 
-    TOCKEN whenCompleted{
+    TOKEN whenCompleted{
       goto(ADDRESS_HIT)
     }
 
     ADDRESS_HIT whenIsActive{
-      switch(token.pid){
-        is(UsbPid.SOF){
-          regs.frame := U(token.data)
-          goto(IDLE)
-        }
-        is(UsbPid.SETUP,UsbPid.OUT, UsbPid.IN){
-          when(token.ok && token.address === regs.address){
-            memory.internal.doRead(ep.addressByte)
-            when(token.pid === UsbPid.SETUP || token.pid === UsbPid.OUT){
-              dataRx.startFsm()
+      when(!token.ok){
+        goto(IDLE)
+      } otherwise {
+        switch(token.pid) {
+          is(UsbPid.SOF) {
+            regs.frame := U(token.data)
+            goto(IDLE)
+          }
+          is(UsbPid.SETUP, UsbPid.OUT, UsbPid.IN) {
+            when(token.ok && token.address === regs.address) {
+              memory.internal.doRead(ep.addressByte)
+              when(token.pid === UsbPid.SETUP || token.pid === UsbPid.OUT) {
+                dataRx.startFsm()
+              }
+              goto(EP_READ)
+            } otherwise {
+              goto(IDLE)
             }
-            goto(EP_READ)
-          } otherwise {
+          }
+          default {
             goto(IDLE)
           }
         }
-        default{
-          goto(IDLE)
-        }
       }
-
     }
 
     EP_READ whenIsActive{
@@ -401,15 +404,15 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       byteCounter.clear := True
       switch(token.pid){
         is(UsbPid.SETUP, UsbPid.OUT){
-          when(desc.direction){
-            goto(IDLE) //TODO ERROR
+          when(desc.direction || desc.setup =/= token.pid.msb){
+            goto(IDLE)
           } otherwise {
             goto(DATA_RX)
           }
         }
         is(UsbPid.IN){
           when(!desc.direction){
-            goto(IDLE) //TODO ERROR
+            goto(IDLE)
           } otherwise {
             when(desc.full){
               dataTx.startNull := True
@@ -418,7 +421,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
           }
         }
         default {
-          goto(IDLE) //TODO ERROR
+          goto(IDLE)
         }
       }
     }
@@ -457,11 +460,16 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
     HANDSHAKE_RX_0 whenIsActive{
       when(io.phy.rx.flow.valid){
-        //TODO
-        goto(HANDSHAKE_RX_1)
+        when(io.phy.rx.flow.payload(3 downto 0) =/= ~io.phy.rx.flow.payload(7 downto 4)){
+          goto(IDLE)
+        } elsewhen(io.phy.rx.flow.payload(3 downto 0) =/= UsbPid.ACK){
+          goto(IDLE)
+        } otherwise {
+          goto(HANDSHAKE_RX_1)
+        }
       }
-      when(rxTimer.timeout){
-        //TODO
+      when(rxTimer.timeout || io.phy.rx.active.fall()){
+        goto(IDLE)
       }
     }
 
@@ -470,14 +478,14 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         goto(UPDATE_SETUP)
       }
       when(io.phy.rx.flow.valid){
-        //TODO
+        goto(IDLE)
       }
     }
 
     DATA_RX whenIsActive{
       when(dataRx.data.valid){
         memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull && !noUpdate)
-        when(transferFull){ //TODO noUpdate ?
+        when(transferFull){ //TODO noUpdate ? carefull, not messup things when there is no descriptor here
           /*goto(IDLE)*/ //TODO error
         } otherwise  {
           byteCounter.increment := True
@@ -490,15 +498,24 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     DATA_RX_ANALYSE whenIsActive{
-      when(False) { //TODO error handeling / pid toggle
+      when(dataRx.hasError) {
+        goto(IDLE)
       } otherwise {
         when(!noUpdate){
           handshakePid := UsbPid.ACK //TODO
         }
-        when(ep.isochronous){
-          goto(UPDATE_SETUP)
+        when(dataRx.pid(2 downto 0) =/= B"011"){
+          goto(IDLE)
         } otherwise {
-          goto(HANDSHAKE_TX_0)
+          when(!ep.stall && dataRx.pid.msb =/= ep.dataPhase) {
+            noUpdate := True
+            handshakePid := UsbPid.ACK //Ensure that a wrong data phase is ACKED (even in the case there is no descriptor)
+          }
+          when(ep.isochronous) {
+            goto(UPDATE_SETUP)
+          } otherwise {
+            goto(HANDSHAKE_TX_0)
+          }
         }
       }
     }
@@ -548,7 +565,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.internal.writeCmd.valid    := True
       memory.internal.writeCmd.address  := ep.addressWord
       memory.internal.writeCmd.mask     := 0x3
-      memory.internal.writeCmd.data(0, 4 bits) := B(ep.dataPhase, ep.nack, ep.stall, ep.enable)
+      memory.internal.writeCmd.data(0, 4 bits) := B(!ep.dataPhase, ep.nack, ep.stall, ep.enable)
       memory.internal.writeCmd.data(4, 12 bits) := B(completion ? desc.next | ep.head).resized
 
       when(completion && desc.interrupt){

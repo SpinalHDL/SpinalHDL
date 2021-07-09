@@ -280,6 +280,10 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     val (pid, payload) = rxBlocking()
     assert(pid == UsbPid.STALL && payload.isEmpty)
   }
+  def assertRxAck(): Unit ={
+    val (pid, payload) = rxBlocking()
+    assert(pid == UsbPid.ACK && payload.isEmpty)
+  }
 
   var gotPreamble = false
   cd.onSamplings{

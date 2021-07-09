@@ -28,6 +28,7 @@ class UsbDataRxFsm(rx : Flow[Bits],
   val stuffingError = Reg(Bool())
   val pidError = Reg(Bool())
   val crcError = Reg(Bool())
+  def hasError = List(notResponding, stuffingError, pidError, crcError).orR
 
   data.valid := False
   data.payload := history.last

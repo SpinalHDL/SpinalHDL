@@ -1,7 +1,7 @@
 package spinal.lib.com.usb.ohci
 
 import spinal.core._
-import spinal.core.sim.SimPublic
+import spinal.core.sim.{SimPublic, SimSeqPimper}
 import spinal.lib._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneToBmb}
@@ -115,6 +115,9 @@ object UsbPid{
   val SPLIT = Integer.parseInt("1000",2)
   val PING = Integer.parseInt("0100",2)
 
+  val all = List(OUT, IN, SOF, SETUP, DATA0, DATA1, DATA2, MDATA, ACK, NAK, STALL, NYET, PRE, ERR, SPLIT, PING)
+
+  def anyBut(pid : Int) = all.filter(_ != pid).randomPick()
   def token(pid : Int) = pid | ((0xF ^ pid) << 4)
   def token(pid : Bits) = ~pid ## pid
 }
