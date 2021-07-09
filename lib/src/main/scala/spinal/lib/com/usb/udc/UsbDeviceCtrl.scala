@@ -482,11 +482,15 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       }
     }
 
+    val dataRxOverrun = Reg(Bool())
+    DATA_RX onEntry{
+      dataRxOverrun := False
+    }
     DATA_RX whenIsActive{
       when(dataRx.data.valid){
         memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull && !noUpdate)
-        when(transferFull){ //TODO noUpdate ? carefull, not messup things when there is no descriptor here
-          /*goto(IDLE)*/ //TODO error
+        when(transferFull && !noUpdate){ //TODO noUpdate ? carefull, not messup things when there is no descriptor here
+          dataRxOverrun := True
         } otherwise  {
           byteCounter.increment := True
           desc.offsetIncrement := True
@@ -498,7 +502,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     DATA_RX_ANALYSE whenIsActive{
-      when(dataRx.hasError) {
+      when(dataRx.hasError || dataRxOverrun) {
         goto(IDLE)
       } otherwise {
         when(!noUpdate){

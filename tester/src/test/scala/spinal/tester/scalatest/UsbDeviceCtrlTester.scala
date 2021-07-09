@@ -159,7 +159,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
       //TODO
       val transferPerEndpoint = 200
-      val endpointCount = 1
+      val endpointCount = 16
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
@@ -217,28 +217,31 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
           var notEnough = true
 
           while (notEnough) {
-            val descLength = (maxPacketSize * (1 + Random.nextInt(4))) min left
+            var descLength = (maxPacketSize * (1 + Random.nextInt(4)))
+            val direction = Random.nextBoolean()
+            if(direction) descLength = descLength min left
             val desc = newDescriptor(descLength)
             var descOffset = 0
             val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
             var descNotDone = true
+            val descUsefullLength =  descLength min left
 
             desc.offset = descOffset
             desc.code = 0xF
             desc.next = 0
             desc.length = descLength
-            desc.direction = Random.nextBoolean()
+            desc.direction = direction
             desc.interrupt = true //TODO
-            desc.completionOnFull = desc.length != left
+            desc.completionOnFull = descLength < left
             desc.frame = 0
             desc.setup = Random.nextBoolean()
 
             println(s"Descriptor at ${desc.address}")
 
-            val data = List.fill(descLength)(Random.nextInt(256))
+            val data = List.fill(descUsefullLength)(Random.nextInt(256))
             def dataAt(idx : Int) = if(idx < data.length) data(idx) else 0
             if(desc.direction) {
-              for (i <- 0 until descLength by 4) {
+              for (i <- 0 until descUsefullLength by 4) {
                 ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + 12 + i)
               }
             }
@@ -296,7 +299,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                     usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                     usbAgent.waitDone()
                   } else { //todo test more or less data
-//                    2 match {
+//                    4 match {
                     Random.nextInt(4) match { //todo
                       case 0 => // wrong PID
                         val pidWrong = UsbPid.all.filter(e => (e & 7) != 3).randomPick(); usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
@@ -313,6 +316,9 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                         usbAgent.emitBytes(List(phase | (phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                       case 3 => // crc error
                         usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false, crcError = true)
+                      case 4 => // more than maxPacketLength
+                        usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill((maxPacketSize min (descLength-descOffsetCpy))+Random.nextInt(5) + 1)(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false)
+
                     }
                     usbAgent.waitDone()
                     return
