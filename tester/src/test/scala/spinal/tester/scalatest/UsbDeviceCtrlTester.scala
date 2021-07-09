@@ -177,7 +177,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
           d
         }
 
-        def freeDescriptor(desc : Descriptor) = { //TODO use me
+        def freeDescriptor(desc : Descriptor) = {
           alloc.free(desc.address)
           assert(descs.head == desc)
           descs.dequeue()
@@ -298,9 +298,9 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                   if(!dataError) {
                     usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                     usbAgent.waitDone()
-                  } else { //todo test more or less data
+                  } else {
 //                    4 match {
-                    Random.nextInt(4) match { //todo
+                    Random.nextInt(5) match { //todo
                       case 0 => // wrong PID
                         val pidWrong = UsbPid.all.filter(e => (e & 7) != 3).randomPick(); usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
                       case 1 => // wrong phase

@@ -370,13 +370,13 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
           is(UsbPid.IN){
             noUpdate := True
             when(ep.isochronous){
-              goto(IDLE) //TODO ??
+              goto(IDLE)
             } otherwise {
               goto(HANDSHAKE_TX_0)
             }
           }
           default {
-            goto(IDLE) //TODO ERROR
+            goto(IDLE)
           }
         }
       } otherwise {
@@ -489,7 +489,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     DATA_RX whenIsActive{
       when(dataRx.data.valid){
         memory.internal.doWrite(desc.currentByte, dataRx.data.payload, !transferFull && !noUpdate)
-        when(transferFull && !noUpdate){ //TODO noUpdate ? carefull, not messup things when there is no descriptor here
+        when(transferFull && !noUpdate){
           dataRxOverrun := True
         } otherwise  {
           byteCounter.increment := True
@@ -506,7 +506,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         goto(IDLE)
       } otherwise {
         when(!noUpdate){
-          handshakePid := UsbPid.ACK //TODO
+          handshakePid := UsbPid.ACK
         }
         when(dataRx.pid(2 downto 0) =/= B"011"){
           goto(IDLE)
@@ -542,7 +542,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.external.halt := True
       memory.internal.doRead(desc.addressByte | 4) //Fetch the next descriptor in a atomic manner to ease the software tail insertion
 
-      completion setWhen(!byteCounter.full || desc.completionOnFull && desc.full) //TODO
+      completion setWhen(!byteCounter.full || desc.completionOnFull && desc.full)
 
       when(noUpdate) {
         goto(IDLE) //TODO
