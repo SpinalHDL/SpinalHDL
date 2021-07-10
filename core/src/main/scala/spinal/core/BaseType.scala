@@ -21,7 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
-
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 trait TypeFactory{
@@ -112,6 +112,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   def hasAssignement : Boolean = !this.dlcIsEmpty
 
+  def initialFrom(that: AnyRef, target: AnyRef = this) = {
+    compositAssignFrom(that,target,InitialAssign)
+  }
+
+
   /** Don't remove/simplify this data during rtl generation */
   private[core] var dontSimplify = false
 
@@ -194,6 +199,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
         if(!isReg)
           LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
         InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
+      case `InitialAssign` => InitialAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
 
     that match {

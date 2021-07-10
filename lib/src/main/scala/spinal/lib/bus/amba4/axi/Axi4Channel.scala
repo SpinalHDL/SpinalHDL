@@ -46,7 +46,7 @@ class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
 class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth){
-  val write = Bool
+  val write = Bool()
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 }
 
@@ -59,7 +59,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val strb = if(config.useStrb) Bits(config.bytePerWord bits) else null
   val user = if(config.useWUser) Bits(config.wUserWidth bits)     else null
-  val last = if(config.useLast)  Bool                            else null
+  val last = if(config.useLast)  Bool()                            else null
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
@@ -96,7 +96,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
-  val last = if(config.useLast)  Bool                       else null
+  val last = if(config.useLast)  Bool()                       else null
   val user = if(config.useRUser) Bits(config.rUserWidth bits) else null
 
   import Axi4.resp._
@@ -132,7 +132,7 @@ class Axi4AxUnburstified(val config : Axi4Config, userWidth : Int) extends Bundl
 object Axi4AxUnburstified{
   def unburstify[X <: Axi4Ax,Y <: Axi4AxUnburstified](stream : Stream[X], outPayloadType : Y) : Stream[Fragment[Y]] = {
     case class State() extends Bundle{
-      val busy = Bool
+      val busy = Bool()
       val len = UInt(8 bits)
       val beat = UInt(8 bits)
       val transaction = cloneOf(outPayloadType)
@@ -141,7 +141,7 @@ object Axi4AxUnburstified{
     }
     val area = new Area {
       val result = Stream Fragment (cloneOf(outPayloadType))
-      val doResult = Bool
+      val doResult = Bool()
       val addrIncrRange = (Math.min(11, stream.payload.config.addressWidth - 1) downto 0)
 
       val buffer = new Area{
@@ -202,7 +202,7 @@ class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiC
   override def clone: this.type = new Axi4AwUnburstified(axiConfig).asInstanceOf[this.type]
 }
 class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig, axiConfig.arwUserWidth){
-  val write = Bool
+  val write = Bool()
   override def clone: this.type = new Axi4ArwUnburstified(axiConfig).asInstanceOf[this.type]
 }
 

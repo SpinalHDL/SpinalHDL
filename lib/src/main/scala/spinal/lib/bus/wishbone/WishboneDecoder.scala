@@ -4,6 +4,7 @@ package spinal.lib.bus.wishbone
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
+import scala.collection.Seq
 
 /** Factory for [[spinal.lib.bus.wishbone.WishboneDecoder]] instances. */
 object WishboneDecoder{

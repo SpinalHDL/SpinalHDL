@@ -79,7 +79,7 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
   val instruction     = Bool // 0-> 0x32 / 1-> 0x38
   val tdo             = Bool(false)
   val state           = asJtagTapState(io)
-  val lastInstruction = Reg(Bool) init(False)
+  val lastInstruction = Reg(Bool()) init(False)
   
   when(io.JCE1.rise){
     lastInstruction := False
@@ -165,8 +165,8 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
 //
 class SimpleJtagTap extends Component {
   val io = new Bundle {
-    val clk     = in  Bool
-    val rst     = in  Bool
+    val clk     = in  Bool()
+    val rst     = in  Bool()
     val switchs = in  Bits(8 bit)
     val leds    = out Bits(8 bit)
   }

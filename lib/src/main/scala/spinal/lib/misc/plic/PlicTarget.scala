@@ -3,12 +3,12 @@ package spinal.lib.misc.plic
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
-
+import scala.collection.Seq
 
 
 case class PlicTarget(gateways : Seq[PlicGateway], priorityWidth : Int) extends Area{
   assert(gateways.map(_.id).distinct.length == gateways.length, "PLIC gatways have duplicated ID")
-  val ie = Vec.fill(gateways.length)(Bool)
+  val ie = Vec.fill(gateways.length)(Bool())
   val threshold = UInt(priorityWidth bits)
   val idWidth = log2Up((gateways.map(_.id) ++ Seq(0)).max + 1)
 
@@ -22,7 +22,7 @@ case class PlicTarget(gateways : Seq[PlicGateway], priorityWidth : Int) extends 
   case class Request() extends Bundle{
     val priority = UInt(priorityWidth bits)
     val id = UInt(idWidth bits)
-    val valid = Bool
+    val valid = Bool()
   }
 
   val requests = Request(U(0),U(0), True) +: gateways.zipWithIndex.sortBy(_._1.id).map(g =>

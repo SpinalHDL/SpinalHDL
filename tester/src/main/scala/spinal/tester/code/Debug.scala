@@ -69,133 +69,57 @@ object Debug2 extends App{
 ////      x + 1
 ////    }
 //  }
-  SpinalVerilog(new Component{
-//    val input = slave Stream(UInt(8 bits))
-//    val output = master Stream(UInt(8 bits))
-//
-//    output << input.queue(8).m2sPipe()
 
-//    val a,b,c,d = in Bool()
-//
-//    val result = out UInt(8 bits)
-//    result.allowOverride
-//
-//    def miaou(value : Int) = new Composite(result){
-//      val x = U(value, 8 bits)
-//    }.x
-//
-//    def miaou2(value : Int) = new Composite(result, "rawrrr"){
-//      val x = U(value, 8 bits) + self
-//    }.x
-//
-//    def miaou3(value : Int) = new Composite(UInt(8 bits)){
-//      val tmp = U(value, 8 bits)
-//      self := tmp
-//    }.self
-//
-//
-//    def miaou4(value : Int) ={
-//      val tmp = UInt(8 bits)
-//      tmp := value
-//      tmp(1) := a
-//
-//
-//      val tmp2 = UInt(8 bits)
-//      tmp2 := value+tmp
-//      tmp2(1) := b
-//
-//      tmp2
-//    }
-//
-//    result := miaou4(10)
 
-    val digital = slave(TriState(Bool))
-    val pin = inout(Analog(Bool))
-    when(digital.writeEnable){
-      pin := digital.write
+  SpinalConfig().includeFormal.generateSystemVerilog(new Component{
+
+    val a = slave(Stream(UInt( 8 bits)))
+    val b = master(Stream(UInt( 8 bits)))
+
+    a >> b
+
+
+    val x = out Bool()
+    x := False
+    when(b.fire){
+      x := True
     }
-    digital.read := pin
-
-
-
-//    val t1 = new Area {
-//      val x = miaou(1)
-//      val y = miaou(2)
+//    val a = in Bits(8 bits)
+//    val x = out UInt(6 bits)
+//    val y, z = out Bool()
 //
-//      miaou(3)
-//    }
 //
-//    val t2 = new Area {
-//      val x = miaou2(4)
-//      val y = miaou2(5)
-//      miaou2(6)
-//    }
-//    val t3 = new Area {
-//      val x = miaou3(7)
-//      val y = miaou3(8)
-//      miaou3(9)
-//    }
-
-//    result := 0
-
-//    when(a){
-//      miaou(4)
-//    }
-//    when(b){
-//      miaou(5)
-//    }
+//    (x,y,z) := a
 
 
-    //    val miaou = UInt(8 bits).setCompositeName(input.queue(8))
-//  println(miaou.getName())
-//    val input =  Vec(Bool, 8)
-//    val sel = in UInt(3 bits)
-//    val output = (input(sel))
 
-//    val output = out(Reg(Bool) init(False))
-//    output := False
+//    val rawrrr = in UInt(8 bits)
+//    val wuff = out(Reg(UInt(8 bits))) init(0x11)
+//    wuff := wuff + rawrrr
 
-//    val sub1 = new Component{
-//      val sub2 = new Component{
-//        val a = False
-//        val sub3 = new Component{
-//
-//        }
+
+
+//    GenerationFlags.formal {
+//      when(Formal.initstate()) {
+//        assume(clockDomain.isResetActive)
 //      }
 //    }
-//
-//    val rawrrr = (CombInit(sub1.sub2.a.pull()))
 
 
-//    val a,b,c = Bool()
+//    GenerationFlags.formal {
+//      ClockDomain.current.withoutReset(){
+//        assert(wuff === 0)
+//      }
+//      ClockDomain.current.readResetWire initial(False)
+//      rawrrr.initial(0x42)
 //
-//    a := False
-//    when(b || c){
-//      a := True
+//      assumeInitial(!clockDomain.isResetActive)
+//      ClockDomain.current.duringReset {
+//        assume(rawrrr === 0)
+//        assume(wuff === 3)
+//      }
 //    }
 
-//    val a = Bool()
-//
-//    a := False
-
-//    val wuff = in Bool()
-
-//    val bb = new Component{
-//      val miaou = in UInt(8 bits)
-//        setDefinitionName("aaaa")
-//      setName("bbb")
-//    }
-//    bb.miaou := 4
-//    val a,b,c,d = in UInt(8 bits)
-//    val result = out (UInt(8 bits))
-//    result := a + b + c.resize(9 bits)(7 downto 0) + d
-//
-//    when(a+b+c === 0){
-//      result := 42
-//    }
-
-//    when(a+b+c === 0){
-//    }
     setDefinitionName("miaou")
   })
 
@@ -206,3 +130,178 @@ object Debug2 extends App{
 //
 
 
+
+import spinal.core._
+
+class Test extends Component {
+  val io = new Bundle {
+    val input = in Vec(UInt(10 bits), 2)
+    val output = out UInt(11 bits)
+  }
+
+  io.output := io.input(0) +^ io.input(1)
+
+}
+
+class TestTop extends Component {
+  val io = new Bundle {
+    val A = in UInt(10 bits)
+    val B = in UInt(10 bits)
+    val C = out UInt(11 bits)
+  }
+
+  val adder = new Test
+  adder.io.input(0) := io.A
+  adder.io.input(1) := io.B
+  io.C := adder.io.output
+}
+
+object TestTopMain {
+  def main(args: Array[String]) {
+    SpinalVerilog(new TestTop)
+  }
+}
+
+
+
+
+object Debug3 extends App{
+  import spinal.core.sim._
+
+  SimConfig.withIVerilog.compile(new Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := result + 1
+    assert(result =/= 10, "miaou")
+  }).doSim{ dut =>
+    dut.a #= 1
+    dut.b #= 0
+    dut.c #= 0
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(100)
+  }
+}
+
+
+object Debug4 extends App{
+  SpinalVerilog(new Component{
+    val mem = Mem(UInt(8 bits), 16) initBigInt(List.fill(16)(BigInt(0)))
+
+    val a = slave(mem.writePort)
+    val b = slave(mem.readSyncPort)
+    println(LatencyAnalysis(a.data, b.rsp))
+    println(LatencyAnalysis(b.cmd.payload, b.rsp))
+  })
+}
+
+
+class TopLevel extends Component {
+  val io = new Bundle {
+    val ready = in Bool()
+    val valid = out Bool()
+  }
+  val valid = RegInit(False)
+
+  when(io.ready) {
+    valid := False
+  }
+  io.valid <> valid
+  // some logic
+
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+
+  GenerationFlags.formal {
+//    assumeInitial(clockDomain.isResetActive)
+//    assert(!(valid.fall && !io.ready))
+//
+//    ClockDomain.current.duringReset {
+//      assume(io.ready === False)
+//    }
+    when(initstate()) {
+      assume(clockDomain.isResetActive)
+      assume(io.ready === False)
+    }.otherwise {
+      assert(!(valid.fall && !io.ready))
+    }
+  }
+}
+
+
+object MyToplevelSystemVerilogWithFormal {
+  def main(args: Array[String]) {
+    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind=SYNC, resetActiveLevel=HIGH))
+    config.includeFormal.generateSystemVerilog(new TopLevel())
+  }
+}
+
+
+
+import spinal.core._
+import spinal.core.sim._
+import spinal.lib.bus.amba4.axi._
+
+
+class Test22 extends Component {
+  val axiConf = Axi4Config(
+    addressWidth = 32,
+    dataWidth = 32,
+    useId = false,
+    useRegion = false,
+    useBurst = false,
+    useLock = false,
+    useCache = false,
+    useSize = false,
+    useQos = false,
+    useLen = false,
+    useLast = true,
+    useResp = false,
+    useProt = false,
+    useStrb = true
+  )
+
+  val axi = Axi4ReadOnly(axiConf)
+  axi.readCmd.valid := True
+  axi.readCmd.addr := 0x00000012
+  axi.readRsp.ready := True
+
+  val ram = Axi4SharedOnChipRam(
+    byteCount = 4 KiB,
+    dataWidth = 32,
+    idWidth = 4
+  )
+
+  val axiCrossbar = Axi4CrossbarFactory()
+//  axiCrossbar.lowLatency = true
+  axiCrossbar.addSlaves(
+    ram.io.axi       -> (0x00000000L, 4 KiB)
+  )
+  axiCrossbar.addConnections(
+    axi -> List(ram.io.axi)
+  )
+
+  axiCrossbar.build()
+}
+
+object Test {
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+    SimConfig.withWave.addSimulatorFlag("-Wno-CASEOVERLAP").compile(new Test22).doSim { dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for (_ <- 0 to 100) {
+        dut.clockDomain.waitSampling()
+      }
+    }
+  }
+}
+
+object Test4141 {
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(Axi4SharedOnChipRam(
+      byteCount = 4 KiB,
+      dataWidth = 32,
+      idWidth = 4
+    ))
+  }
+}

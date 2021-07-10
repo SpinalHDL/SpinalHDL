@@ -28,9 +28,9 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
     val byteCounter = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
     val size = Reg(UInt(3 bits))
     val outputValid = RegInit(False) clearWhen(io.output.writeData.ready)
-    val outputLast = Reg(Bool)
+    val outputLast = Reg(Bool())
     val busy = RegInit(False)
-    val incrementByteCounter, alwaysFire = Reg(Bool)
+    val incrementByteCounter, alwaysFire = Reg(Bool())
     val byteCounterNext = (U"0" @@ byteCounter) + (U"1" << size).resized
     val dataBuffer = Reg(Bits(outputConfig.dataWidth bits))
     val maskBuffer = Reg(Bits(outputConfig.bytePerWord bits)) init(0)

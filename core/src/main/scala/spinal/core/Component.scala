@@ -58,8 +58,8 @@ object Component {
   * @example {{{
   *         class MyAndGate extends Component {
   *           val io = new Bundle{
-  *             val a,b = in Bool
-  *             val res = out Bool
+  *             val a,b = in Bool()
+  *             val res = out Bool()
   *           }
   *           io.res := io.a & io.b
   *         }

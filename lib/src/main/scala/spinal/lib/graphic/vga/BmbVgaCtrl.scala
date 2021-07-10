@@ -44,7 +44,7 @@ case class BmbVgaCtrl(p : BmbVgaCtrlParameter,
 
   val ctrl = BmbSlaveFactory(io.ctrl)
 
-  val run = ctrl.createReadAndWrite(Bool,0x00) init(False)
+  val run = ctrl.createReadAndWrite(Bool(),0x00) init(False)
 
   val vga = new ClockingArea(vgaCd) {
     val input = io.input.toStreamFragment(omitMask = true) //TODO

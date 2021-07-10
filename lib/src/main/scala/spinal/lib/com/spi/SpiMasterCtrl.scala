@@ -32,11 +32,11 @@ object SpiMasterCtrlCmdMode extends SpinalEnum(binarySequential){
 
 case class SpiMasterCtrlCmdData(generics : SpiMasterCtrlGenerics) extends Bundle{
   val data = Bits(generics.dataWidth bits)
-  val read = Bool
+  val read = Bool()
 }
 
 case class SpiMasterCtrlCmdSs(generics : SpiMasterCtrlGenerics) extends Bundle{
-  val enable = Bool
+  val enable = Bool()
   val index = UInt(log2Up(generics.ssWidth) bits)
 }
 

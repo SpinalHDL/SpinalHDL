@@ -24,13 +24,11 @@ import spinal.core.internals._
 import spinal.idslplugin.Location
 
 /**
-  * Bool factory used for instance by the IODirection to create a in/out Bool
+  * Bool factory used for instance by the IODirection to create a in/out Bool()
   */
 trait BoolFactory {
   /** Create a new Bool */
-  def Bool(): Bool = new Bool
-  /** Create a new Bool initialized with a boolean value */
-  def Bool(value: Boolean): Bool = BoolLiteral(value, Bool().setAsTypeNode())
+//  def Bool(): Bool = new Bool
 }
 
 
@@ -45,7 +43,7 @@ trait BoolFactory {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
-class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
+class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[Bool]  with BitwiseOp[Bool]{
 
   override def getTypeObject = TypeBool
 
@@ -96,6 +94,27 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def setWhen(cond: Bool)(implicit loc: Location): Bool   = { when(cond){ this := True }; this }
   /** this is assigned to False when cond is True */
   def clearWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := False }; this }
+
+  /**
+   * this is assigned to True when cond is True and the current value of this is False. Useful for
+   * coding a simple boolean state machine. riseWhen() is typically paired with fallWhen() but also works
+   * together with setWhen() and clearWhen().
+   *
+   * @example{{{ val active = RegInit(False) riseWhen(request) fallWhen(acknowledge) }}}
+   * @param cond a Bool condition
+   * @return this is rising when cond is True
+   * */
+  def riseWhen(cond: Bool)(implicit loc: Location): Bool = setWhen((!this) && cond)
+  /** this is assigned to False when cond is True and the current value of this is True. see riseWhen() */
+  def fallWhen(cond: Bool)(implicit loc: Location): Bool = clearWhen((this) && cond)
+
+  /**
+   * this is inverted when cond is True
+   * @example{{{ mybool.toggleWhen(request) }}}
+   * @param cond a Bool condition
+   * @return this is inverted when cond is True
+   */
+  def toggleWhen(cond: Bool)(implicit loc: Location): Bool = { when(cond){ this := !this }; this }
 
   /**
     * Rising edge detection of this with an initial value

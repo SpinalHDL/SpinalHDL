@@ -84,7 +84,7 @@ case class UsbOhciWishbone(p : UsbOhciParameter, frontCd : ClockDomain, backCd :
   val back = backCd on new Area {
     val phy = UsbLsFsPhy(p.portCount)
     //  phy.io.usb  <> io.usb
-    phy.io.usb.map(e => e.overcurrent := False)
+    phy.io.management.map(e => e.overcurrent := False)
     val native = phy.io.usb.map(_.toNativeIo())
     val buffer = native.map(_.stage())
     io.usb <> Vec(buffer.map(e => e.stage()))

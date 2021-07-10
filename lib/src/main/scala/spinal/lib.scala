@@ -3,6 +3,7 @@ package spinal
 import spinal.core._
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.generator.Export
+import scala.collection.Seq
 
 import scala.collection.Iterable
 

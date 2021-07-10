@@ -18,7 +18,7 @@ class FlowFactory extends MSFactory{
 object Flow extends FlowFactory
 
 class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T]{
-  val valid = Bool
+  val valid = Bool()
   val payload : T = payloadType()
 
   override def clone: Flow[T] = Flow(payloadType).asInstanceOf[this.type]
@@ -192,10 +192,10 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, 
     val output = master Flow (dataType)
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
   val inputArea = new ClockingArea(inputClock) {
-    val target = Reg(Bool)
+    val target = Reg(Bool())
     val data = Reg(io.input.payload)
     when(io.input.valid) {
       target := !target
@@ -213,7 +213,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, 
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.output <-< flow
+    io.output << flow.m2sPipe(holdPayload = true)
   }
 
   if(inputClock.hasResetSignal){

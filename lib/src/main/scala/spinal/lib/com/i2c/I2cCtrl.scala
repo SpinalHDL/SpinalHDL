@@ -35,9 +35,9 @@ import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 object I2cCtrl {
 
   case class I2cAddress() extends Bundle {
-    val enable  = Bool
+    val enable  = Bool()
     val value   = Bits(10 bits)
-    val is10Bit = Bool
+    val is10Bit = Bool()
   }
 
   /*
@@ -217,7 +217,7 @@ object I2cCtrl {
     val rxAck = new Area {
       val listen = RegInit(False)
       val valid  = RegInit(False)
-      val value  = Reg(Bool)
+      val value  = Reg(Bool())
 
       busCtrlWithOffset.write(listen, address = 0x0C, bitOffset = 9)
       busCtrlWithOffset.read(valid,   address = 0x0C, bitOffset = 8)
@@ -233,7 +233,7 @@ object I2cCtrl {
       val enable       = RegInit(False)
       val value        = Reg(Bits(8 bits))
       val forceDisable = False
-      val disableOnDataConflict = Reg(Bool)
+      val disableOnDataConflict = Reg(Bool())
 
       busCtrlWithOffset.write(0x00, 0 -> value, 10 -> repeat, 11 -> disableOnDataConflict)
       busCtrlWithOffset.readAndWrite(valid,  address = 0x00, bitOffset = 8)
@@ -245,9 +245,9 @@ object I2cCtrl {
       val valid    = RegInit(True)
       val repeat   = RegInit(True)
       val enable   = RegInit(False)
-      val value    = Reg(Bool)
+      val value    = Reg(Bool())
       val forceAck = False
-      val disableOnDataConflict = Reg(Bool)
+      val disableOnDataConflict = Reg(Bool())
 
       busCtrlWithOffset.write(0x04, 0 -> value, 10 -> repeat, 11 -> disableOnDataConflict)
       busCtrlWithOffset.readAndWrite(valid,  address = 0x04, bitOffset = 8)
@@ -339,7 +339,7 @@ object I2cCtrl {
         }
 
 
-        val inFrameLate = Reg(Bool) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
+        val inFrameLate = Reg(Bool()) setWhen(!internals.sclRead) clearWhen(!internals.inFrame) //Allow to catch up a start sequance until SCL is low
         val IDLE: State = new State with EntryPoint {
           whenIsActive {
             when(internals.inFrame.fall(False)){

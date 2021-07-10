@@ -29,9 +29,9 @@ case class AsyncMemoryBusConfig(dataWidth: Int, addrWidth: Int)
 
 case class AsyncMemoryBus(config: AsyncMemoryBusConfig) extends Bundle with IMasterSlave {
 
-  val valid      = Bool
-  val rwn        = Bool
-  val ready      = Bool
+  val valid      = Bool()
+  val rwn        = Bool()
+  val ready      = Bool()
   val address    = UInt(config.addrWidth bits)
   val writeData  = Bits(config.dataWidth bits)
   val readData   = Bits(config.dataWidth bits)

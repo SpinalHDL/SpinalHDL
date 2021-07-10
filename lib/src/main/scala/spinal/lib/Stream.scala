@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import scala.collection.Seq
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
@@ -201,7 +202,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val cc = new StreamCCByToggleWithoutBuffer(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
@@ -249,19 +250,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Return True when a transaction is present on the bus but the ready signal is low
     */
-  def isStall : Bool = valid && !ready
+  def isStall : Bool = (valid && !ready).setCompositeName(this, "isStall", true)
 
   /** Return True when a transaction has appeared (first cycle)
     */
-  def isNew : Bool = valid && !(RegNext(isStall) init(False))
+  def isNew : Bool = (valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true)
 
   /** Return True when a transaction occurs on the bus (valid && ready)
   */
-  override def fire: Bool = valid & ready
+  override def fire: Bool = (valid & ready).setCompositeName(this, "fire", true)
 
 /** Return True when the bus is ready, but no data is present
   */
-  def isFree: Bool = !valid || ready
+  def isFree: Bool = (!valid || ready).setCompositeName(this, "isFree", true)
   
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
@@ -328,46 +329,33 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = new Composite(this) {
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
     val m2sPipe = Stream(payloadType)
 
-    val rValid = RegInit(False)
-    val rData = Reg(payloadType)
+    val rValid = RegNextWhen(self.valid, self.ready) init(False)
+    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+
     if (crossClockData) rData.addTag(crossClockDomain)
+    if (flush != null) rValid clearWhen(flush)
 
-    self.ready := (Bool(collapsBubble) && !m2sPipe.valid) || m2sPipe.ready
-
-    when(self.ready) {
-      rValid := self.valid
-      rData := self.payload
-    }
-
-    if(flush != null) rValid clearWhen(flush)
+    self.ready := m2sPipe.ready
+    if (collapsBubble) self.ready setWhen(!m2sPipe.valid)
 
     m2sPipe.valid := rValid
     m2sPipe.payload := rData
   }.m2sPipe
 
-  def s2mPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
+  def s2mPipe(): Stream[T] = new Composite(this) {
+    val s2mPipe = Stream(payloadType)
 
-    val rValid = RegInit(False).setCompositeName(this, "s2mPipe_rValid", true)
-    val rBits = Reg(payloadType).setCompositeName(this, "s2mPipe_rData", true)
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-    ret.valid := this.valid || rValid
-    this.ready := !rValid
-    ret.payload := Mux(rValid, rBits, this.payload)
+    self.ready := !rValid
 
-    when(ret.ready) {
-      rValid := False
-    }
-
-    when(this.ready && (!ret.ready)) {
-      rValid := this.valid
-      rBits := this.payload
-    }
-    ret
-  }
+    s2mPipe.valid := self.valid || rValid
+    s2mPipe.payload := Mux(rValid, rData, self.payload)
+  }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
     stagesCount match {
@@ -376,40 +364,30 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def validPipe() : Stream[T] = {
-    val sink = Stream(payloadType)
-    val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
-    sink.valid := validReg
-    sink.payload := this.payload
-    this.ready := sink.ready && validReg
-    sink
-  }
+  def validPipe() : Stream[T] = new Composite(this) {
+    val validPipe = Stream(payloadType)
+
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(validPipe.fire)
+
+    self.ready := validPipe.fire
+
+    validPipe.valid := rValid
+    validPipe.payload := self.payload
+  }.validPipe
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "halfPipe", weak = true)
+  def halfPipe(): Stream[T] = new Composite(this) {
+    val halfPipe = Stream(payloadType)
 
-    val regs = new Area {
-      val valid = RegInit(False)
-      val ready = RegInit(True)
-      val payload = Reg(payloadType)
-    }.setCompositeName(ret, "regs")
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-    when(!regs.valid){
-      regs.valid := this.valid
-      regs.ready := !this.valid
-      regs.payload := this.payload
-    } otherwise {
-      regs.valid := !ret.ready
-      regs.ready := ret.ready
-    }
+    self.ready := !rValid
 
-    ret.valid := regs.valid
-    ret.payload := regs.payload
-    this.ready := regs.ready
-    ret
-  }
+    halfPipe.valid := rValid
+    halfPipe.payload := rData
+  }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
   */
@@ -561,8 +539,8 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   val locked = RegInit(False).allowUnsetRegToAvoidLatch
 
-  val maskProposal = Vec(Bool,portCount)
-  val maskLocked = Reg(Vec(Bool,portCount))
+  val maskProposal = Vec(Bool(),portCount)
+  val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
@@ -1188,89 +1166,47 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], 
+                                  inputClock: ClockDomain, 
+                                  outputClock: ClockDomain, 
+                                  withOutputBuffer : Boolean = true,
+                                  withInputWait : Boolean = false) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
-  val pushArea = new ClockingArea(inputClock) {
+  val pushArea = inputClock on new Area {
     val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False)
-    val data = Reg(io.input.payload)
-    io.input.ready := False
-    when(io.input.valid && hit === target) {
-      target := !target
-      data := io.input.payload
-      io.input.ready := True
+    val accept = Bool()
+    val target = RegInit(False) toggleWhen(accept)
+    val data = RegNextWhen(io.input.payload, accept)
+
+    if (!withInputWait) {
+      accept := io.input.fire
+      io.input.ready := (hit === target)
+    } else {
+      val busy = RegInit(False) setWhen(accept) clearWhen(io.input.ready)
+      accept := (!busy) && io.input.valid
+      io.input.ready := busy && (hit === target)
     }
   }
 
+  val popArea = outputClock on new Area {
+    val stream = cloneOf(io.input)
 
-  val popArea = new ClockingArea(outputClock) {
     val target = BufferCC(pushArea.target, False)
-    val hit = RegInit(False)
+    val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 
-    val stream = cloneOf(io.input)
     stream.valid := (target =/= hit)
+
     stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)
 
-    when(stream.fire) {
-      hit := !hit
-    }
-
-    io.output << stream.m2sPipe()
-  }
-}
-
-
-class StreamCCByToggleWithoutBuffer[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
-  val io = new Bundle {
-    val input = slave Stream (dataType())
-    val output = master Stream (dataType())
-  }
-
-  val outHitSignal = Bool
-
-  val pushArea = new ClockingArea(inputClock) {
-    val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False)
-    val busy = RegInit(False)
-    val data = RegNext(io.input.payload)
-    io.input.ready := False
-    when(!busy){
-      when(io.input.valid) {
-        target := !target
-        busy := True
-      }
-    } otherwise {
-      when(hit === target) {
-        io.input.ready := True
-        busy := False
-      }
-    }
-  }
-
-
-  val popArea = new ClockingArea(outputClock) {
-    val target = BufferCC(pushArea.target, False, 3)
-    val hit = RegInit(False)
-    outHitSignal := hit
-
-    val stream = cloneOf(io.input)
-    stream.valid := (target =/= hit)
-    stream.payload := RegNext(pushArea.data).addTag(crossClockDomain)
-    stream.payload
-
-    when(stream.fire) {
-      hit := target
-    }
-
-    io.output << stream
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
   }
 }
 

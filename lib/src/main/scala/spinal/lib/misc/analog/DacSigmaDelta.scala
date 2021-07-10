@@ -123,7 +123,7 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
 //    val toSigmaDelta = UIntToSigmaDeltaSecondOrder(p.channelWidth)
 //      toSigmaDelta.io.input <> S(sampler.state(channelId))
 
-    val buffer = Reg(Bool)
+    val buffer = Reg(Bool())
     buffer := toSigmaDelta.io.output && io.channelCount =/= 0
 
     io.outputs(channelId) := buffer

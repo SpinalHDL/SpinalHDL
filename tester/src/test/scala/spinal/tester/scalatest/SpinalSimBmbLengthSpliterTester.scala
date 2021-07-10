@@ -1,11 +1,11 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim.SimConfig
 import spinal.lib.bus.bmb.sim.BmbBridgeTester
 import spinal.lib.bus.bmb.{BmbAccessParameter, BmbAlignedSpliter, BmbParameter, BmbSourceParameter}
 
-class SpinalSimBmbLengthSpliterTester extends FunSuite {
+class SpinalSimBmbLengthSpliterTester extends AnyFunSuite {
   for(w <- List(false, true); r <- List(false, true);   if w || r) {
     val header = "_" + (if (w) "w" else "") + (if (r) "r" else "")
     test("bypass" + header) {

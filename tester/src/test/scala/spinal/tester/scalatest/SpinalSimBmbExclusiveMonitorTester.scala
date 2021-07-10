@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.lib.Fragment
 import spinal.lib.bus.amba3.apb.Apb3Config
@@ -22,7 +22,7 @@ private object MODIFY
 private object WRITE_CMD
 private object WRITE_RSP
 
-class SpinalSimBmbExclusiveMonitorTester extends FunSuite{
+class SpinalSimBmbExclusiveMonitorTester extends AnyFunSuite{
   test("miaou") {
     SimConfig.compile(
       new BmbExclusiveMonitor(

@@ -58,10 +58,10 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   /////////////////////
   // MINIMAL SIGNALS //
   /////////////////////
-  val CYC       = Bool
-  val STB       = Bool
-  val ACK       = Bool
-  val WE        = Bool
+  val CYC       = Bool()
+  val STB       = Bool()
+  val ACK       = Bool()
+  val WE        = Bool()
   val ADR       = UInt(config.addressWidth bits)
   val DAT_MISO  = Bits(config.dataWidth bits)
   val DAT_MOSI  = Bits(config.dataWidth bits)

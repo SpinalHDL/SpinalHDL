@@ -21,7 +21,7 @@
 package spinal.lib.bus.misc
 
 import spinal.core._
-
+import scala.collection.Seq
 
 object AddressMapping{
   def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {

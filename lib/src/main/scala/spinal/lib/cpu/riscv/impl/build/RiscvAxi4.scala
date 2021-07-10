@@ -31,8 +31,8 @@ class RiscvAxi4(coreConfig : RiscvCoreConfig,iCacheConfig : InstructionCacheConf
     val i = master(Axi4ReadOnly(iConfig))
     val d = master(Axi4Shared(dConfig))
     val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
-    val debugResetIn = if(debug) in Bool else null
-    val debugResetOut = if(debug) out Bool else null
+    val debugResetIn = if(debug) in Bool() else null
+    val debugResetOut = if(debug) out Bool() else null
     val debugBus = if(debug) slave(Apb3(RiscvAxi4.getDebugApbConfig())) else null
   }
 

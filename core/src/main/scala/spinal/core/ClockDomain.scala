@@ -50,8 +50,6 @@ case class ClockTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ResetTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 
-trait DummyTrait
-
 
 
 // Default configuration of clock domain is :
@@ -333,6 +331,14 @@ case class ClockDomain(clock       : Bool,
   }
 
   def on [T](block : => T) : T = apply(block)
+
+  def withoutReset() = GlobalData.get.userDatabase.getOrElseUpdate(this -> "withoutReset", copy(reset = null, softReset = null)).asInstanceOf[ClockDomain]
+
+  def duringReset(body : => Unit): Unit ={
+    when(ClockDomain.current.isResetActive) {
+      ClockDomain.current.withoutReset() on body
+    }
+  }
 
   /** Slow down the current clock to factor time */
   def newClockDomainSlowedBy(factor: BigInt): ClockDomain = factor match {

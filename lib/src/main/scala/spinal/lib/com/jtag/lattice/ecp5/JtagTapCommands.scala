@@ -41,7 +41,7 @@ class JtaggShifter(dataWidth: Int, ctrl: JtagTapInstructionCtrl, readable: Boole
     
     val lateshift = RegNext(ctrl.shift && ctrl.enable)
     val holdTdi = RegNextWhen(ctrl.tdi, lateshift)
-    val shiftedOnce = readable generate Reg(Bool) init(False)
+    val shiftedOnce = readable generate Reg(Bool()) init(False)
 
     val msb = lateshift ? ctrl.tdi | holdTdi
     val value = msb ## shifter

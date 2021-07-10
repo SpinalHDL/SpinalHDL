@@ -1,11 +1,11 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 
 import scala.sys.process._
 
-abstract class SpinalTesterGhdlBase extends FunSuite  {
+abstract class SpinalTesterGhdlBase extends AnyFunSuite  {
 
   var withWaveform = false
   var elaborateMustFail = false

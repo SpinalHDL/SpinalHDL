@@ -1214,6 +1214,13 @@ abstract class BinaryMultiplexer extends Modifier {
     func(whenTrue)
     func(whenFalse)
   }
+
+  override def simplifyNode = {
+    cond match {
+      case lit : BoolLiteral if !lit.hasPoison() => if(lit.value) whenTrue else whenFalse
+      case _ => this
+    }
+  }
 }
 
 /**

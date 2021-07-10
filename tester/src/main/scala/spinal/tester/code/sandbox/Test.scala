@@ -42,7 +42,7 @@ object Sandbox extends App {
 
 //  class MyComponent extends Component {
 //    val logicA = new Area{
-//      val toggle = Reg(Bool)
+//      val toggle = Reg(Bool())
 //      toggle := !toggle
 //    }
 //  }
@@ -100,13 +100,49 @@ object Sandbox extends App {
 //  }
 
 //  class MyComponent extends Component {
-//    val conditions = in Vec(Bool, 64)
+//    val conditions = in Vec(Bool(), 64)
 //    val result = conditions.reduce(_ || _) // Do a logical or between all the conditions elements
 //  }
 
-  class MyComponent extends Component {
-    val a,b,c,d = in UInt(8 bits)
-    val result = a + b + c + d
+//  class MyComponent extends Component {
+//    val a,b,c,d = in UInt(8 bits)
+//    val result = a + b + c + d
+//  }
+
+//  class MyComponent extends Component {
+//    val value = in UInt(8 bits)
+//    val isZero = out(Bool())
+//    val counter = out(Reg(UInt(8 bits)))
+//
+//    isZero := False
+//    when(value === 0){
+//      isZero := True
+//      counter := counter + 1
+//    }
+//  }
+
+
+//  class MyComponent extends Component {
+//    val enable = in Bool()
+//    val value = out UInt(8 bits)
+//
+//    def count(cond : Bool): UInt ={
+//      val ret = Reg(UInt(8 bits))
+//      when(cond){
+//        ret := ret + 1
+//      }
+//      return ret
+//    }
+//
+//    value := count(enable)
+//  }
+
+
+  class MyComponent extends Component{
+    val a, b, c, d = Bool()
+    b.setName("rawrr") // Force name
+    c.setName("rawrr", weak = true) // Propose a name, will not be applied if a stronger name is already applied
+    d.setCompositeName(b, postfix = "wuff") // Force toto to be named as b.getName() + _wuff"
   }
 
   SpinalVerilog(new MyComponent)

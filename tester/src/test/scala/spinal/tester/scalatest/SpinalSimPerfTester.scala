@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
@@ -23,7 +23,7 @@ object SpinalSimPerfTester {
 
 }
 
-class SpinalSimPerfTester extends FunSuite {
+class SpinalSimPerfTester extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
 

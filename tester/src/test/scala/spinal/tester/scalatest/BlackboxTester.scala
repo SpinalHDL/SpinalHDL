@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+
 import spinal.core._
 import spinal.lib._
 
@@ -11,7 +11,7 @@ object BlackboxTester {
   class BlackBoxToTest(val generic : BBGenerics) extends BlackBox {
     import generic._
     val io = new Bundle {
-      val clockPin,resetPin = in Bool
+      val clockPin,resetPin = in Bool()
 
       val inA = in UInt(aWidth bits)
       val inB = in UInt(bWidth bits)

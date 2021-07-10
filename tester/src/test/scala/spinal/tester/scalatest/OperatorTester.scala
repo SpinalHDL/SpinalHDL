@@ -38,7 +38,7 @@ object OperatorTester {
     val bits4 = in Bits(4 bits)
     val bits8 = in Bits(8 bits)
     val bits32 = in Bits(32 bits)
-    val boolA,boolB,boolC = in Bool
+    val boolA,boolB,boolC = in Bool()
     val uint4NotZero = in UInt(4 bits)
     val uint8NotZero = in UInt(8 bits)
     val sint4NotZero = in SInt(4 bits)

@@ -3,6 +3,7 @@ package spinal.lib.bus.bmb
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, SingleMapping}
+import scala.collection.Seq
 
 object BmbSlaveFactory{
   def getBmbCapabilities(accessSource : BmbAccessCapabilities,
@@ -41,6 +42,9 @@ case class BmbSlaveFactory(bus: Bmb) extends BusSlaveFactoryDelayed{
 
   override def readHalt(): Unit = readHaltTrigger := True
   override def writeHalt(): Unit = writeHaltTrigger := True
+
+  override def readFire(): Bool  = bus.cmd.fire
+  override def writeFire(): Bool = bus.cmd.fire
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.cmd.data)

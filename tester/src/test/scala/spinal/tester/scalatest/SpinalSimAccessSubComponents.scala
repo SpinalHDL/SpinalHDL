@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.{FlatSpec, FunSuite}
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -44,7 +44,7 @@ object SpinalSimAccessSubComponents {
 
 }
 
-class SpinalSimAccessSubComponents extends FunSuite {
+class SpinalSimAccessSubComponents extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
 

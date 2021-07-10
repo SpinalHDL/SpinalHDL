@@ -68,7 +68,7 @@ case class RtlPhy(pl : PhyLayout) extends Component{
   }
 
   val banks = for(bankId <- 0 until sl.bankCount) yield new Area {
-    val active = Reg(Bool) init (False)
+    val active = Reg(Bool()) init (False)
     val row = Reg(UInt(sl.rowWidth bits))
   }
 

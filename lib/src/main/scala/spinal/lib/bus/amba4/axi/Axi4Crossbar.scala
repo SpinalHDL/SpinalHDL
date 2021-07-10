@@ -6,6 +6,7 @@ import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 case class Axi4CrossbarSlaveConnection(master : Axi4Bus/*,priority : Int*/)
 case class Axi4CrossbarSlaveConfig(mapping : SizeMapping){

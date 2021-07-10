@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib.{StreamFifoMultiChannelSharedSpace, master, slave}
@@ -16,7 +16,7 @@ import scala.util.Random
 
 
 
-class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
+class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
   def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
     val p = BmbParameter(
       addressWidth = 20,
@@ -92,7 +92,7 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
 }
 
 
-class SpinalSimBmbDecoderInOrderTester extends FunSuite {
+class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
   test("t1") {
     val p = BmbParameter(
       addressWidth = 20,
@@ -122,7 +122,7 @@ class SpinalSimBmbDecoderInOrderTester extends FunSuite {
   }
 }
 
-class SpinalSimBmbDecoderInOrderPerSourceTester extends FunSuite {
+class SpinalSimBmbDecoderInOrderPerSourceTester extends AnyFunSuite {
   test("t1") {
     val p = BmbParameter(
       addressWidth = 20,

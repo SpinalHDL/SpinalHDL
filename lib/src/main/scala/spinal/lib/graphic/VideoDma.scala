@@ -56,8 +56,8 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   import g._
   require(dataWidth >= widthOf(g.frameFragmentType))
   val io = new Bundle{
-    val start = in Bool
-    val busy  = out Bool
+    val start = in Bool()
+    val busy  = out Bool()
 
     val base  = in UInt(addressWidth bits) //base and size are in burst count, not in word, nor in byte
     val size  = in UInt(sizeWidth bits)
@@ -79,7 +79,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   )
 
   val toManyPendingCmd = pendingMemCmd > pendingRequetMax-1
-  val toManyPendingRsp = Bool
+  val toManyPendingRsp = Bool()
 
   val isActive = RegInit(False)
   val cmdActive = RegInit(False)

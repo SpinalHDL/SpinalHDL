@@ -3,9 +3,9 @@ package spinal.tester.bug
 import spinal.core._
 import spinal.lib._
 case class comms_engine_control() extends Bundle with IMasterSlave{
-  val enable = Bool
+  val enable = Bool()
   val buffer_num = Bits(4 bits)
-  val busy = Bool
+  val busy = Bool()
   val address = Bits(4 bits)
   override def asMaster() : Unit = {
     out(enable,buffer_num)

@@ -275,12 +275,14 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
           elaborationFlags,
           toplevelName,
           s"--vpi=${pwd + "/" + vpiModulePath}",
-          runFlags).mkString(" "), 
+          runFlags).mkString(" "),
         new File(workspacePath),
         "PATH" -> pathStr).! (new Logger())
 
-      if (retCode != 0) iface.set_crashed(retCode)
-      assert(retCode == 0, s"Simulation of $toplevelName failed")
+        if (retCode != 0) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
       }
     }
     )
@@ -452,11 +454,14 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                 toplevelName + ".vvp",
                                 runFlags).mkString(" "), 
                               new File(workspacePath)).! (new Logger())
-      if (retCode != 0) iface.set_crashed(retCode)
-      assert(retCode == 0, s"Simulation of $toplevelName failed")
+        if (retCode != 0) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
       }
     })
 
+//    thread.setUncaughtExceptionHandler(new VpiThreadExceptionHandler)
     thread.setDaemon(true)
     thread.start()
     thread

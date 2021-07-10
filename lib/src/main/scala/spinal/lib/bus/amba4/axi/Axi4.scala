@@ -258,8 +258,8 @@ object Axi4{
       val wrapCaseWidth = log2Up(wrapCaseMax + 1)
       val wrapCase = validSize.resize(wrapCaseWidth) + len.mux(
         M"----1---" -> U"11",
-        M"-----1--" -> U"10",
-        M"------1-" -> U"01",
+        M"----01--" -> U"10",
+        M"----001-" -> U"01",
         default -> U"00"
       )
       switch(burst) {

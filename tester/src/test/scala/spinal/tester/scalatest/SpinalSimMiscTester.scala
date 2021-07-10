@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim.{SpinalSimConfig, _}
@@ -14,7 +14,7 @@ import scala.util.Random
 object SpinalSimMiscTester{
   class SpinalSimMiscTesterCounter extends Component{
     val io = new Bundle{
-      val enable = in Bool
+      val enable = in Bool()
       val value = out UInt(8 bits)
     }
 
@@ -68,7 +68,7 @@ object SpinalSimTester{
   }
 }
 
-class SpinalSimTesterTest extends FunSuite {
+class SpinalSimTesterTest extends AnyFunSuite {
   SpinalSimTester{ env =>
     import env._
 
@@ -78,7 +78,7 @@ class SpinalSimTesterTest extends FunSuite {
   }
 }
 
-class SpinalSimFunSuite extends FunSuite{
+class SpinalSimFunSuite extends AnyFunSuite{
   var tester : SpinalSimTester = null
   def SimConfig = tester.SimConfig
   var durationFactor = 0.0
@@ -102,7 +102,7 @@ class SpinalSimFunSuite extends FunSuite{
   }
 }
 
-class SpinalSimMiscTester extends FunSuite {
+class SpinalSimMiscTester extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[tester.scalatest.SpinalSimMiscTester.SpinalSimMiscTesterCounter] = null
@@ -135,6 +135,7 @@ class SpinalSimMiscTester extends FunSuite {
 
     def doStdtest(name: String): Unit = {
       test(prefix + name) {
+        println("Starting test " + prefix + name)
         compiled.doSim("testStd")(dut => {
           dut.clockDomain.forkStimulus(10)
 
@@ -148,11 +149,13 @@ class SpinalSimMiscTester extends FunSuite {
             assert(dut.io.value.toInt == counterModel)
           }
         })
+        println("done")
       }
     }
 
     def doStdTestUnnamed(name: String): Unit = {
       test(prefix + name) {
+        println("Starting test " + name)
         compiled.doSim(dut => {
           dut.clockDomain.forkStimulus(10)
 
@@ -166,6 +169,7 @@ class SpinalSimMiscTester extends FunSuite {
             assert(dut.io.value.toInt == counterModel)
           }
         })
+        println("done")
       }
     }
 
@@ -368,7 +372,7 @@ class SpinalSimMiscTester extends FunSuite {
       try {
         SimConfig.doSim(new Component {
           val a = in UInt (8 bits)
-          spinal.core.assert(a =/= 42, FAILURE)
+          spinal.core.assert(a =/= 42, "rawrr", FAILURE)
         }) { dut =>
           dut.clockDomain.forkStimulus(10)
           while (i < 50) {
@@ -378,8 +382,11 @@ class SpinalSimMiscTester extends FunSuite {
           }
           throw new Exception()
         }
+        println("miaou")
       } catch {
-        case e: Exception =>
+        case e: Throwable => {
+          println(e)
+        }
       }
       assert(i == 43)
     }

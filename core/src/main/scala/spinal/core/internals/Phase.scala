@@ -1768,6 +1768,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
         var error = false
 
         s match {
+          case s : InitialAssignmentStatement =>
           case s: AssignmentStatement =>
             val bt = s.finalTarget
 
@@ -2129,6 +2130,11 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
+      reservedKeyWords.foreach(encodingsScope.allocateName(_))
+      for (el <- enum.elements) {
+        el.setName(encodingsScope.allocateName(el.getName()))
+      }
+      
       if (encoding.isWeak)
         encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else
@@ -2226,6 +2232,7 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
       binaryOneHot
       gen
       defaultClockDomain.pop()
+      assert(DslScopeStack.isEmpty, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
     }
 
 //    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update
@@ -2307,9 +2314,9 @@ object SpinalVhdlBoot{
             |A null pointer access has been detected in the JVM.
             |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
             |For instance :
-            |  val result = Bool
+            |  val result = Bool()
             |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
-            |  val a,b = Bool
+            |  val a,b = Bool()
           """.stripMargin)
         System.out.flush()
         throw e
@@ -2435,9 +2442,9 @@ object SpinalVerilogBoot{
             |A null pointer access has been detected in the JVM.
             |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
             |For instance :
-            |  val result = Bool
+            |  val result = Bool()
             |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
-            |  val a,b = Bool
+            |  val a,b = Bool()
           """.stripMargin)
         System.out.flush()
         throw e

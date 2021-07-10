@@ -27,7 +27,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 import spinal.core.internals._
 
-
+trait DummyTrait
+object DummyObject extends DummyTrait
 /**
   * Trait used to set the direction of a data
   */
@@ -39,10 +40,10 @@ trait IODirection extends BaseTypeFactory {
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
-  override def Bool() = applyIt(super.Bool())
-  override def Bits() = applyIt(super.Bits())
-  override def UInt() = applyIt(super.UInt())
-  override def SInt() = applyIt(super.SInt())
+  def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
+  override def Bits(u: Unit = null) = applyIt(super.Bits())
+  override def UInt(u: Unit = null) = applyIt(super.UInt())
+  override def SInt(u: Unit = null) = applyIt(super.SInt())
   override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
 
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
@@ -103,6 +104,8 @@ object GlobalData {
     it.set(new GlobalData(config))
     get
   }
+
+
 }
 
 
@@ -611,7 +614,7 @@ trait SpinalTagReady {
   def spinalTags: mutable.LinkedHashSet[SpinalTag] = {
     if(_spinalTags == null)
       _spinalTags = new mutable.LinkedHashSet[SpinalTag]{
-        override def initialSize: Int = 4
+//        override def initialSize: Int = 4
       }
     _spinalTags
   }

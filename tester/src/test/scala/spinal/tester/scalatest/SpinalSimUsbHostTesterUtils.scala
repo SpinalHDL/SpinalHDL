@@ -14,6 +14,7 @@ import spinal.lib.sim._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.Seq
 
 class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   val ohci = UsbOhci(p, BmbParameter(
@@ -35,6 +36,7 @@ class UsbOhciTbTop(val p : UsbOhciParameter) extends Component {
   phyCc.input <> ohci.io.phy
   phyCc.output <> phy.io.ctrl
   val usb = propagateIo(phy.io.usb)
+  val management = propagateIo(phy.io.management)
 }
 
 class TesterUtils(dut : UsbOhciTbTop) {
@@ -69,9 +71,6 @@ class TesterUtils(dut : UsbOhciTbTop) {
 
   val malloc = MemoryRegionAllocator(0, 1 << 30)
 
-  implicit class BooleanPimper(self: Boolean) {
-    def toInt = if (self) 1 else 0
-  }
 
   def HCCA(malloc : MemoryRegionAllocator): HCCA ={
     val addr = malloc.allocateAligned(0x100)
@@ -195,6 +194,7 @@ class TesterUtils(dut : UsbOhciTbTop) {
   def setBulkListFilled() = ctrl.write(BLF, hcCommand)
   def setControlListFilled() = ctrl.write(CLF, hcCommand)
 
+  dut.management.foreach(_.overcurrent #= false)
   val portAgents = dut.usb.map(new UsbLsFsPhyAbstractIoAgent(_, dut.phyCd, dut.phy.fsRatio))
   val devices = for(i <- 0 until p.portCount) yield new UsbDeviceAgent(portAgents(i))
   val scoreboards = for(i <- 0 until p.portCount) yield new UsbDeviceScoreboard(devices(i))
@@ -229,6 +229,8 @@ class UsbDeviceScoreboard(io : UsbDeviceAgent) extends UsbDeviceAgentListener{
   override def reset() = {
 
   }
+
+
 
   case class SetupEntry(tockenPid : Int, packet : DataPacket, onCompletion : () => Unit)
   val setupOutRef = mutable.LinkedHashMap[TockenKey, mutable.Queue[SetupEntry]]()

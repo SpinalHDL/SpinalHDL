@@ -23,7 +23,15 @@ case class UsbPhyFsNativeIo() extends Bundle with IMasterSlave {
   }
 }
 
+case class UsbHostManagementIo() extends Bundle with IMasterSlave {
+  val overcurrent = Bool()
+  val power = Bool()
 
+  override def asMaster(): Unit = {
+    in(overcurrent)
+    out(power)
+  }
+}
 
 case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
   val tx = new Bundle {
@@ -34,17 +42,12 @@ case class UsbLsFsPhyAbstractIo() extends Bundle with IMasterSlave {
   val rx = new Bundle {
     val dp = Bool()
     val dm = Bool()
-//    val rcv = Bool()
   }
 
-  val overcurrent = Bool()
-  val power = Bool()
 
   override def asMaster(): Unit = {
     out(tx)
     in(rx)
-    in(overcurrent)
-    out(power)
   }
 
   def toNativeIo() : UsbPhyFsNativeIo = {
@@ -77,12 +80,9 @@ case class UsbLsFsPhyFilter(fsRatio : Int) extends Component {
     }
   }
   val frontend = new Area{
-//    val valid = io.usb.dp =/= io.usb.dm
     val dp = io.usb.dp
     val dm = io.usb.dm
     val value = dp
-//    val valueOld = RegNextWhen(value, valid)
-//    val edge = value ^ valueOld
   }
 
   val timer = new Area{
@@ -117,6 +117,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
   val io = new Bundle {
     val ctrl = slave(UsbHubLsFs.Ctrl(portCount))
     val usb = Vec(master(UsbLsFsPhyAbstractIo()), portCount)
+    val management = Vec(master(UsbHostManagementIo()), portCount)
   }
   val lsRatio = fsRatio*8
 
@@ -173,7 +174,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       }
 
       val counter = Reg(UInt(3 bits))
-      val state = Reg(Bool)
+      val state = Reg(Bool())
 
       when(input.valid) {
         output.valid := input.valid
@@ -218,7 +219,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       val input = new Area{
         val valid = False
         val ready = False
-        val data = Bits(8 bits) assignDontCare()
+        val data = Bits(8 bits).assignDontCare()
         val lowSpeed = Bool().assignDontCare()
       }
 
@@ -271,7 +272,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       val busy = this.isStarted
 
 
-      val wasLowSpeed = Reg(Bool)
+      val wasLowSpeed = Reg(Bool())
 
       def doByte(current : State, value : Bits, lowSpeed : Bool, next : State): Unit = current.whenIsActive{
         serialiser.input.valid := True
@@ -401,10 +402,10 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
 
   val resumeFromPort = False
 
-  val ports = for((usb, ctrl) <- (io.usb, io.ctrl.ports).zipped) yield new Area{
-//    val connected = Reg(Bool) init(False) //TODO
-    val portLowSpeed = Reg(Bool)
-//    val enable = Reg(Bool)
+  val ports = for((usb, ctrl, management) <- (io.usb, io.ctrl.ports, io.management).zipped) yield new Area{
+//    val connected = Reg(Bool()) init(False) //TODO
+    val portLowSpeed = Reg(Bool())
+//    val enable = Reg(Bool())
 
 //    ctrl.connected := connected
     ctrl.lowSpeed := portLowSpeed
@@ -426,14 +427,14 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       val j = filter.io.filtred.dp === !portLowSpeed && filter.io.filtred.dm ===  portLowSpeed
       val k = filter.io.filtred.dp ===  portLowSpeed && filter.io.filtred.dm === !portLowSpeed
 
-      usb.power := ctrl.power
-      ctrl.overcurrent := usb.overcurrent
+      management.power := ctrl.power
+      ctrl.overcurrent := management.overcurrent
 
-      val stuffingError = Reg(Bool)
+      val stuffingError = Reg(Bool())
 
       val waitSync = False
       val decoder = new Area{
-        val state = Reg(Bool)
+        val state = Reg(Bool())
 
         val output = Flow(Bool)
         output.valid := False
@@ -536,7 +537,7 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
         val errorTimeout = new UsbTimer(20.0*0.667e-6,fsRatio){
           lowSpeed := io.ctrl.lowSpeed
           val trigger = cycles(20)
-          val p,n = Reg(Bool)
+          val p,n = Reg(Bool())
 
           ERRORED.onEntry{
             clear := True
@@ -596,14 +597,14 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
       ctrl.connect := False
 
       usb.tx.enable := False
-      usb.tx.data  assignDontCare()
-      usb.tx.se0   assignDontCare()
+      usb.tx.data.assignDontCare()
+      usb.tx.se0.assignDontCare()
 
       def SE0 =  filter.io.filtred.se0
       def K   = !SE0 && (!filter.io.filtred.d ^ portLowSpeed)
 
       val resetInProgress = False
-      val lowSpeedEop = Reg(Bool)
+      val lowSpeedEop = Reg(Bool())
 
       always{
         when(!ctrl.power || io.ctrl.usbReset){
