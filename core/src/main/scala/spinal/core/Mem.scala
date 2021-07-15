@@ -47,6 +47,9 @@ object readFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "readFirst"
 }
 
+object noChange extends ReadUnderWritePolicy {
+  override def readUnderWriteString: String = "noChange"
+}
 
 object auto extends  MemTechnologyKind{
   override def technologyKind: String = "auto"
