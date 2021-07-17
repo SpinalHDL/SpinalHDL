@@ -1,0 +1,156 @@
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.5
+- Timestamp :  Tue November 5 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+      
+- FileName	:	prim_sim.vhd
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+- FileName	:	prim_syn.v
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+- FileName	:	prim_syn.vhd
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.4
+- Timestamp :  Mon September 23 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model PLL:
+       Deleted model PLL.
+      
+- FileName	:	prim_sim.vhd
+      1) Model PLL:
+       Deleted model PLL.
+
+- FileName	:	prim_syn.v
+      1) Model PLL:
+       Deleted model PLL.
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL:
+       Deleted model PLL.
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.3
+- Timestamp :  Thu August 1 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+      
+- FileName	:	prim_sim.vhd
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+- FileName	:	prim_syn.v
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+- FileName	:	prim_syn.vhd
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.2
+- Timestamp :  Thu July 25 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model TLVDS_IOBUF:
+       Deleted model TLVDS_IOBUF.
+      
+- FileName	:	prim_sim.vhd
+      1) Model TLVDS_IOBUF:
+       Deleted model TLVDS_IOBUF.
+
+- FileName	:	prim_syn.v
+      1) Model TLVDS_IOBUF:
+       Deleted model TLVDS_IOBUF.
+
+- FileName	:	prim_syn.vhd
+      1) Model TLVDS_IOBUF:
+       Deleted model TLVDS_IOBUF.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.1
+- Timestamp :  Mon July 22 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model MIPI_IBUF,MIPI_IBUF_HS,MIPI_IBUF_LP,MIPI_OBUF:
+       Added mipi input and output;
+      2) Model I3C_IOBUF:
+       Added IOBUF for I3C mode.
+      
+- FileName	:	prim_sim.vhd
+      1) Model MIPI_IBUF,MIPI_IBUF_HS,MIPI_IBUF_LP,MIPI_OBUF:
+       Added mipi input and output;
+      2) Model I3C_IOBUF:
+       Added IOBUF for I3C mode.
+
+- FileName	:	prim_syn.v
+      1) Model MIPI_IBUF,MIPI_IBUF_HS,MIPI_IBUF_LP,MIPI_OBUF:
+       Added mipi input and output;
+      2) Model I3C_IOBUF:
+       Added IOBUF for I3C mode.
+
+- FileName	:	prim_syn.vhd
+      1) Model MIPI_IBUF,MIPI_IBUF_HS,MIPI_IBUF_LP,MIPI_OBUF:
+       Added mipi input and output;
+      2) Model I3C_IOBUF:
+       Added IOBUF for I3C mode.
+
+
+
+
+
+
+
+
+

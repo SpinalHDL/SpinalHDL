@@ -43,7 +43,8 @@ class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveF
 
 
   override def build(): Unit = {
-
+    
+    super.doNonStopWrite(bus.HWDATA)
     val askWrite    = bus.HSEL & bus.HTRANS === 2 & bus.HWRITE
     val askRead     = bus.HSEL & bus.HTRANS === 2 & !bus.HWRITE
     val doWrite     = RegNext(askWrite, False )

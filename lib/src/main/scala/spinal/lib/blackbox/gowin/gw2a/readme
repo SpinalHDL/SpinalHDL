@@ -1,0 +1,1167 @@
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.9.4
+- Timestamp :  Fri January 10 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model PLL,OSC:
+        Add "GW2A-18C" and "GW2AR-18C" settings for parameter DEVICE.
+
+- FileName	:	prim_sim.vhd
+      1) Model PLL,OSC:
+        Add "GW2A-18C" and "GW2AR-18C" settings for parameter DEVICE.
+
+- FileName	:	prim_syn.v
+      1) Model PLL,OSC:
+        Add "GW2A-18C" and "GW2AR-18C" settings for parameter DEVICE.
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL,OSC:
+        Add "GW2A-18C" and "GW2AR-18C" settings for parameter DEVICE.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.9.3
+- Timestamp :  Mon December 30 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model PLL,OSC:
+        Add "GW2A-55C" setting for parameter DEVICE.
+
+- FileName	:	prim_sim.vhd
+      1) Model PLL,OSC:
+        Add "GW2A-55C" setting for parameter DEVICE.
+
+- FileName	:	prim_syn.v
+      1) Model PLL,OSC:
+        Add "GW2A-55C" setting for parameter DEVICE.
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL,OSC:
+        Add "GW2A-55C" setting for parameter DEVICE.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.9.2
+- Timestamp :  Tue November 5 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+      
+- FileName	:	prim_sim.vhd
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+- FileName	:	prim_syn.v
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+- FileName	:	prim_syn.vhd
+      1) Model pROM,pROMX9:
+       Added new primitives, which are different from the original rROM/rROMX9 module in that the signal BLKSEL and parameter BLK_SEL are removed.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.9.1
+- Timestamp :  Thu August 1 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+      
+- FileName	:	prim_sim.vhd
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+- FileName	:	prim_syn.v
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+- FileName	:	prim_syn.vhd
+      1) Model SDPB,SDPX9B,DPB,DPX9B:
+       Added SDPB,SDPX9B,DPB,DPX9B models,which update BLKSELA/BLKSELB signals and BLK_SEL_0/BLK_SEL_1 parameters.
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.9.0
+- Timestamp :  Fri June 28 11:00:30 2019
+
+- FileName	:	prim_sim.v
+      1) Model rSDP,rSDPX9,rROM,rROMX9:
+       Added new primitives, which are different from the original SDP/SDPX9/ROM/ROMX9 module in that the WRE signal is removed.
+      
+- FileName	:	prim_sim.vhd
+      1) Model rSDP,rSDPX9,rROM,rROMX9:
+       Added new primitives, which are different from the original SDP/SDPX9/ROM/ROMX9 module in that the WRE signal is removed.
+
+- FileName	:	prim_syn.v
+      1) Model rSDP,rSDPX9,rROM,rROMX9:
+       Added new primitives, which are different from the original SDP/SDPX9/ROM/ROMX9 module in that the WRE signal is removed.
+
+- FileName	:	prim_syn.vhd
+      1) Model rSDP,rSDPX9,rROM,rROMX9:
+       Added new primitives, which are different from the original SDP/SDPX9/ROM/ROMX9 module in that the WRE signal is removed.
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.6
+- Timestamp :  Fri  August 3 11:00:30 2018
+
+- FileName	:	prim_sim.v
+      1) Model MULTALU36X18,MULTADDALU18X18,MULTALU18X18,ALU54D:
+       Updated ACCLOAD logic implementation;
+
+- FileName	:	prim_sim.vhd
+      1) Model MULTALU36X18,MULTADDALU18X18,MULTALU18X18,ALU54D:
+       Updated ACCLOAD logic implementation;
+
+- FileName	:	prim_syn.v
+      1) Model MULTALU36X18,MULTADDALU18X18,MULTALU18X18,ALU54D:
+       Updated ACCLOAD logic implementation;
+
+- FileName	:	prim_syn.vhd
+      1) Model MULTALU36X18,MULTADDALU18X18,MULTALU18X18,ALU54D:
+       Updated ACCLOAD logic implementation;
+
+
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.5
+- Timestamp :  Fri  May 25 11:00:30 2018
+
+- FileName	:	prim_sim.v
+      1) Model DHCEN:
+       Added model DHCEN;
+
+- FileName	:	prim_sim.vhd
+      1) Model DHCEN:
+       Added model DHCEN;
+
+- FileName	:	prim_syn.v
+      1) Model DHCEN:
+       Added model DHCEN;
+
+- FileName	:	prim_syn.vhd
+      1) Model DHCEN:
+       Added model DHCEN;
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.4
+- Timestamp :  Fri December 29 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model PLL:
+        Updated IDIV,FBDIV,ODIV dynamic control logic;
+
+- FileName	:	prim_sim.vhd
+      1) Model PLL:
+        Updated IDIV,FBDIV,ODIV dynamic control logic;
+
+- FileName	:	prim_syn.v
+      1) Model PLL:
+        Updated IDIV,FBDIV,ODIV dynamic control logic;
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL:
+        Updated IDIV,FBDIV,ODIV dynamic control logic;
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.3
+- Timestamp :  Thu September 21 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model PLL,OSC:
+        Updated parameter DEVICE setting;
+
+- FileName	:	prim_sim.vhd
+      1) Model PLL,OSC:
+        Updated parameter DEVICE setting;
+
+- FileName	:	prim_syn.v
+      1) Model PLL,OSC:
+        Updated parameter DEVICE setting;
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL,OSC:
+        Updated parameter DEVICE setting;
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.2
+- Timestamp :  Fri July 21 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model PLL:
+        Added signal ODSEL and parameter DYN_ODIV_SEL;
+
+- FileName	:	prim_sim.vhd
+      1) Model PLL:
+        Added signal ODSEL and parameter DYN_ODIV_SEL;
+
+- FileName	:	prim_syn.v
+      1) Model PLL:
+        Added signal ODSEL and parameter DYN_ODIV_SEL;
+
+- FileName	:	prim_syn.vhd
+      1) Model PLL:
+        Added signal ODSEL and parameter DYN_ODIV_SEL.
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.1
+- Timestamp :  Wed July 19 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model DLLDLY:
+        Updated parameter DLY_ADJ;
+
+- FileName	:	prim_sim.vhd
+      1) Model DLLDLY:
+        Updated parameter DLY_ADJ;
+
+- FileName	:	prim_syn.v
+      1) Model DLLDLY:
+        Updated parameter DLY_ADJ;
+
+- FileName	:	prim_syn.vhd
+      1) Model DLLDLY:
+        Updated parameter DLY_ADJ;
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.8.0
+- Timestamp :  Fri July 7 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model ODDR_MEM,OSER4,OSER4_MEM,OSER8,OSER8_MEM:
+        Added parameter TXCLK_POL and HWL;
+      2) Model ODDR,ODDRC:
+        Added signal TX,Q1 and parameter TXCLK_POL;
+
+- FileName	:	prim_sim.vhd
+      1) Model ODDR_MEM,OSER4,OSER4_MEM,OSER8,OSER8_MEM:
+        Added parameter TXCLK_POL and HWL;
+      2) Model ODDR,ODDRC:
+        Added signal TX,Q1 and parameter TXCLK_POL;
+
+- FileName	:	prim_syn.v
+      1) Model ODDR_MEM,OSER4,OSER4_MEM,OSER8,OSER8_MEM:
+        Added parameter TXCLK_POL and HWL;
+      2) Model ODDR,ODDRC:
+        Added signal TX,Q1 and parameter TXCLK_POL;
+
+- FileName	:	prim_syn.vhd
+      1) Model ODDR_MEM,OSER4,OSER4_MEM,OSER8,OSER8_MEM:
+        Added parameter TXCLK_POL and HWL;
+      2) Model ODDR,ODDRC:
+        Added signal TX,Q1 and parameter TXCLK_POL;
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.9
+- Timestamp :  Thu July 4 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model ROM16:
+        Changed port I0,I1,I2,I3 to AD[3:0];
+      2) Model DSPs:
+        Changed port and parameter names;
+       
+- FileName	:	prim_sim.vhd
+      1) Model ROM16:
+        Changed port I0,I1,I2,I3 to AD[3:0];
+      2) Model DSPs:
+        Changed port and parameter names;
+
+- FileName	:	prim_syn.v
+      1) Model ROM16:
+        Changed port I0,I1,I2,I3 to AD[3:0];
+      2) Model DSPs:
+        Changed port and parameter names;
+      
+- FileName	:	prim_syn.vhd
+      1) Model ROM16:
+        Changed port I0,I1,I2,I3 to AD[3:0];
+      2) Model DSPs:
+        Changed port and parameter names;
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.8
+- Timestamp :  Wed June 28 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model OSC:
+        Added parameter DEVICE;
+      2) Model PLL
+        Changed parameter DEVICE_FAMILY to DEVICE;
+      3) Model DQS
+        Added parameter HWL and updated the DQS_MODE parameter setting;
+
+       
+- FileName	:	prim_sim.vhd
+      1) Model OSC:
+        Added parameter DEVICE;
+      2) Model PLL
+        Changed parameter DEVICE_FAMILY to DEVICE;
+      3) Model DQS
+        Added parameter HWL and updated the DQS_MODE parameter setting;
+
+
+- FileName	:	prim_syn.v
+      1) Model OSC:
+        Added parameter DEVICE;
+      2) Model PLL
+        Changed parameter DEVICE_FAMILY to DEVICE;
+      3) Model DQS
+        Added parameter HWL and updated the DQS_MODE parameter setting;
+
+      
+- FileName	:	prim_syn.vhd
+      1) Model OSC:
+        Added parameter DEVICE;
+      2) Model PLL
+        Changed parameter DEVICE_FAMILY to DEVICE;
+      3) Model DQS
+        Added parameter HWL and updated the DQS_MODE parameter setting.
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.7
+- Timestamp :  Wed June 14 11:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Deleted model JTAG;
+       
+- FileName	:	prim_sim.vhd
+      1) Deleted model JTAG;
+
+- FileName	:	prim_syn.v
+      1) Deleted model JTAG;
+      
+- FileName	:	prim_syn.vhd
+      1) Deleted model JTAG;
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.6
+- Timestamp :  Tue April 25 14:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model RAM16*:
+          Change DI,DO,AD single bit to bus;
+      2) Model IDDR_MEM,IDES4_MEM,IDES8_MEM:
+          Change WADDR,RADDR single bit to bus;
+      3) Change primitive port format according to certain rules;
+      4) Change DSP primitive
+
+- FileName	:	prim_sim.vhd
+      1) Model RAM16*:
+          Change DI,DO,AD single bit to bus;
+      2) Model IDDR_MEM,IDES4_MEM,IDES8_MEM:
+          Change WADDR,RADDR single bit to bus;
+      3) Change primitive port format according to certain rules;
+      4) Change DSP primitive
+
+- FileName	:	prim_syn.v
+      1) Model RAM16*:
+          Change DI,DO,AD single bit to bus;
+      2) Model IDDR_MEM,IDES4_MEM,IDES8_MEM:
+          Change WADDR,RADDR single bit to bus;
+      3) Change primitive port format according to certain rules;
+      4) Change DSP primitive
+
+- FileName	:	prim_syn.vhd
+      1) Model RAM16*:
+          Change DI,DO,AD single bit to bus;
+      2) Model IDDR_MEM,IDES4_MEM,IDES8_MEM:
+          Change WADDR,RADDR single bit to bus;
+      3) Change primitive port format according to certain rules;
+      4) Change DSP primitive
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.5
+- Timestamp :  Mon April 24 08:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Changed model name to IVIDEO, OVIDEO:
+
+ 
+- FileName	:	prim_sim.vhd    
+      1) Changed model name to IVIDEO, OVIDEO:
+
+- FileName	:	prim_syn.v    
+      1) Changed model name to IVIDEO, OVIDEO:
+
+- FileName	:	prim_syn.vhd    
+      1) Changed model name to IVIDEO, OVIDEO:
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.3
+- Timestamp :  Thu March 16 14:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model ODDR_MEM,OSER4_MEM,OSER8_MEM:
+          Added paramter TCLK_SOURCE;
+ 
+- FileName	:	prim_sim.vhd    
+      1) Model ODDR_MEM,OSER4_MEM,OSER8_MEM:
+          Added paramter TCLK_SOURCE;
+
+- FileName	:	prim_syn.v    
+      1) Model ODDR_MEM,OSER4_MEM,OSER8_MEM:
+          Added paramter TCLK_SOURCE;
+
+- FileName	:	prim_syn.vhd    
+      1) Model ODDR_MEM,OSER4_MEM,OSER8_MEM:
+          Added paramter TCLK_SOURCE;
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.2
+- Timestamp :  Mon February 13 14:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model PLL:
+          Updated FDLY logic implementation;
+ 
+- FileName	:	prim_sim.vhd    
+      1) Model PLL:
+          Updated FDLY logic implementation;
+
+- FileName	:	prim_syn.v    
+      1) Model PLL:
+          Updated FDLY logic implementation;
+
+- FileName	:	prim_syn.vhd    
+      1) Model PLL:
+          Updated FDLY logic implementation;
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.1
+- Timestamp :  Wed February 8 14:00:30 2017
+
+- FileName	:	prim_sim.v
+      1) Model SP,SPX9,SDP,SDPX9,DP,DPX9:
+          Change BYTE_ENABLE function from static parameter to dynamic Signal AD[3:0];
+ 
+- FileName	:	prim_sim.vhd    
+      1) Model SP,SPX9,SDP,SDPX9,DP,DPX9:
+          Change BYTE_ENABLE function from static parameter to dynamic Signal AD[3:0];
+
+- FileName	:	prim_syn.v    
+      1) Model SP,SPX9,SDP,SDPX9,DP,DPX9:
+          Change BYTE_ENABLE function from static parameter to dynamic Signal AD[3:0];
+
+- FileName	:	prim_syn.vhd    
+      1) Model SP,SPX9,SDP,SDPX9,DP,DPX9:
+          Change BYTE_ENABLE function from static parameter to dynamic Signal AD[3:0];
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.7.0
+- Timestamp :  Wed December 14 12:00:30 2016
+
+- FileName	:	prim_sim.v
+      1) Model PLL:
+          Change 6-bits CLKIN to 1-bit;
+          Deleted port INSEL,parameter IN_SEL and DYN_IN_SEL;
+          Change section of parameter CLKFB_SEL to "internal"/"external";
+      2) Model DLL:
+         Deleted port HCLKIN and parameter CLKINSEL;
+
+- FileName	:	prim_sim.vhd    
+      1) Model PLL:
+          Change 6-bits CLKIN to 1-bit;
+          Deleted port INSEL,parameter IN_SEL and DYN_IN_SEL;
+          Change section of parameter CLKFB_SEL to "internal"/"external";
+      2) Model DLL:
+         Deleted port HCLKIN and parameter CLKINSEL;
+
+- FileName	:	prim_syn.v    
+      1) Model PLL:
+          Change 6-bits CLKIN to 1-bit;
+          Deleted port INSEL,parameter IN_SEL and DYN_IN_SEL;
+          Change section of parameter CLKFB_SEL to "internal"/"external";
+      2) Model DLL:
+         Deleted port HCLKIN and parameter CLKINSEL;
+
+- FileName	:	prim_syn.vhd    
+      1) Model PLL:
+          Change 6-bits CLKIN to 1-bit;
+          Deleted port INSEL,parameter IN_SEL and DYN_IN_SEL;
+          Change section of parameter CLKFB_SEL to "internal"/"external";
+      2) Model DLL:
+         Deleted port HCLKIN and parameter CLKINSEL;
+
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.6
+- Timestamp :  Tue September 13 14:00:30 2016
+
+- FileName	:	prim_sim.v
+      1) Model PADDMULT,GWDSPMACRO:
+          Added the model PADDMULT and GWDSPMACRO;
+
+- FileName	:	prim_sim.vhd    
+      1) Model PADDMULT,GWDSPMACRO:
+          Added the model PADDMULT and GWDSPMACRO;
+
+- FileName	:	prim_syn.v    
+      1) Model PADDMULT,GWDSPMACRO:
+          Added the model PADDMULT and GWDSPMACRO;
+
+- FileName	:	prim_syn.vhd    
+      1) Model PADDMULT,GWDSPMACRO:
+          Added the model PADDMULT and GWDSPMACRO;
+
+
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.5
+- Timestamp :  Mon September 5 14:00:30 2016
+
+- FileName	:	prim_sim.v
+      1) Model CLKDIV:
+          Change signal SEL35 to CALIB;
+
+- FileName	:	prim_sim.vhd    
+      1) Model CLKDIV:
+          Change signal SEL35 to CALIB;
+
+- FileName	:	prim_syn.v    
+      1) Model CLKDIV:
+          Change signal SEL35 to CALIB;
+
+- FileName	:	prim_syn.vhd    
+      1) Model CLKDIV:
+          Change signal SEL35 to CALIB;
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.4
+- Timestamp :  Mon August 22 14:00:30 2016
+
+- FileName	:	prim_sim.v
+      1) Model MAC18X18D and MAC9X9D:
+          Change MOUT and LDI bit width of MAC18X18D from 54 to 53;
+          Change MOUT and LDI bit width of MAC9X9D from 27 to 25;
+
+- FileName	:	prim_sim.vhd    
+      1) Model MAC18X18D and MAC9X9D:
+          Change MOUT and LDI bit width of MAC18X18D from 54 to 53;
+          Change MOUT and LDI bit width of MAC9X9D from 27 to 25;
+
+- FileName	:	prim_syn.v    
+      1) Model MAC18X18D and MAC9X9D:
+          Change MOUT and LDI bit width of MAC18X18D from 54 to 53;
+          Change MOUT and LDI bit width of MAC9X9D from 27 to 25;
+
+- FileName	:	prim_syn.vhd    
+      1) Model MAC18X18D and MAC9X9D:
+          Change MOUT and LDI bit width of MAC18X18D from 54 to 53;
+          Change MOUT and LDI bit width of MAC9X9D from 27 to 25;
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.3
+- Timestamp :  Thu August 18 14:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model LVDS_*:
+          Deleted module LVDS_IBUF,LVDS_OBUF,LVDS_TBUF and LVDS_IOBUF;
+      2) Model LVDS25_*:
+          Change model LVDS25_* to TLVDS_*;
+      3) Model ELVDS_*:
+          Added module ELVDS_IBUF,ELVDS_OBUF,ELVDS_TBUF and ELVDS_IOBUF;
+
+- FileName	:	prim_sim.vhd    
+      1) Model LVDS_*:
+          Deleted module LVDS_IBUF,LVDS_OBUF,LVDS_TBUF and LVDS_IOBUF;
+      2) Model LVDS25_*:
+          Change model LVDS25_* to TLVDS_*;
+      3) Model ELVDS_*:
+          Added module ELVDS_IBUF,ELVDS_OBUF,ELVDS_TBUF and ELVDS_IOBUF;
+
+- FileName	:	prim_syn.v    
+      1) Model LVDS_*:
+          Deleted module LVDS_IBUF,LVDS_OBUF,LVDS_TBUF and LVDS_IOBUF;
+      2) Model LVDS25_*:
+          Change model LVDS25_* to TLVDS_*;
+      3) Model ELVDS_*:
+          Added module ELVDS_IBUF,ELVDS_OBUF,ELVDS_TBUF and ELVDS_IOBUF;
+
+- FileName	:	prim_syn.vhd    
+      1) Model LVDS_*:
+          Deleted module LVDS_IBUF,LVDS_OBUF,LVDS_TBUF and LVDS_IOBUF;
+      2) Model LVDS25_*:
+          Change model LVDS25_* to TLVDS_*;
+      3) Model ELVDS_*:
+          Added module ELVDS_IBUF,ELVDS_OBUF,ELVDS_TBUF and ELVDS_IOBUF;
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.2
+- Timestamp :  Mon July 25 16:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to OEN;
+      2) Model B-SRAMs:
+          Added the paramter RESET_MODE and synchronous implementation;
+      3) Model MULT18X18D,MULT9X9D,MULT18X18S,MULT9X9S:
+          Added the port MROA and MROB as mult input out_reg;
+      4) model PADD18,PADD9:
+          Updated the FB_IN_MUX parameter options.
+
+- FileName	:	prim_sim.vhd    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to OEN;
+      2) Model B-SRAMs:
+          Added the paramter RESET_MODE and synchronous implementation;
+      3) Model MULT18X18D,MULT9X9D,MULT18X18S,MULT9X9S:
+          Added the port MROA and MROB as mult input out_reg;
+      4) model PADD18,PADD9:
+          Updated the FB_IN_MUX parameter options.
+
+- FileName	:	prim_syn.v    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to OEN;
+      2) Model B-SRAMs:
+          Added the paramter RESET_MODE;
+      3) Model MULT18X18D,MULT9X9D,MULT18X18S,MULT9X9S:
+          Added the port MROA and MROB as mult input out_reg;
+      4) model PADD18,PADD9:
+          Updated the FB_IN_MUX parameter options.
+
+- FileName	:	prim_syn.vhd    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to OEN;
+      2) Model B-SRAMs:
+          Added the paramter RESET_MODE;
+      3) Model MULT18X18D,MULT9X9D,MULT18X18S,MULT9X9S:
+          Added the port MROA and MROB as mult input out_reg;
+      4) model PADD18,PADD9:
+          Updated the FB_IN_MUX parameter options.
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.1
+- Timestamp :  Wed July 06 09:00:30 2016
+
+- FileName	:	prim_syn.v    
+      1) Model GSR:
+          Added the attribute syn_noprune of GSR;
+
+- FileName	:	prim_syn.vhd    
+      1) Model GSR:
+          Added the attribute syn_noprune of GSR;
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.6.0
+- Timestamp :  Mon May 23 16:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to active low;
+      2) Model PADD18,PADD9:
+          Changed the trigger mode of registers to rising edge.
+          
+
+- FileName	:	prim_sim.vhd    
+      1) Model TBUF,IOBUF:
+          Changed the OE signal of model *_TBUF and *_IOBUF to active low;
+      2) Model PADD18,PADD9:
+          Changed the trigger mode of registers to rising edge.
+
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.5.3
+- Timestamp :  Fri May 6 16:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model DCS,DQCE:
+          Added model DCS and DQCE;
+
+- FileName	:	prim_sim.vhd    
+      1) Model DCS,DQCE:
+          Added model DCS and DQCE;
+
+- FileName	:	prim_syn.v    
+      1) Model DCS,DQCE:
+          Added model DCS and DQCE;
+
+- FileName	:	prim_syn.vhd
+      1) Model DCS,DQCE:
+          Added model DCS and DQCE;
+
+
+
+-----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.5.2
+- Timestamp :  Fri April 15 10:00:30 2016
+
+
+- FileName	:	prim_sim.v    
+      1) Model LVDS:
+          Deleted model LVDS33_*,LVDS*_BUFG and LVDS*_BUFS;
+
+
+- FileName	:	prim_sim.vhd    
+      1) Model LVDS:
+          Deleted model LVDS33_*,LVDS*_BUFG and LVDS*_BUFS;
+
+- FileName	:	prim_syn.v    
+      1. Model LVDS:
+          1) Deleted model LVDS33_*,LVDS*_BUFG and LVDS*_BUFS;
+          2) Deleted the "O" which is attribute black_box_pad_pin in model LVDS_IOBUF and LVDS25_IOBUF;
+
+- FileName	:	prim_syn.vhd
+      1. Model LVDS:
+          1)Deleted model LVDS33_*,LVDS*_BUFG and LVDS*_BUFS;
+          2)Deleted the "O" which is attribute black_box_pad_pin in model LVDS_IOBUF and LVDS25_IOBUF.
+
+
+
+
+---------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.5.1
+- Timestamp :  Fri April 1 10:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model OSC:
+          Deleted port RESET;
+
+- FileName	:	prim_sim.vhd    
+      1) Model OSC:
+          Deleted port RESET;
+
+- FileName	:	prim_syn.v    
+      1) Model OSC:
+          Deleted port RESET;
+
+- FileName	:	prim_syn.vhd    
+      1) Model OSC:
+          Deleted port RESET;
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.5
+- Timestamp :  Tue March 22 10:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model IDES4,IDES4_MEM,IDES8,IDES8_MEM,IDES10:
+          Added port CALIB and the implement;
+
+- FileName	:	prim_sim.vhd    
+      1) Model IDES4,IDES4_MEM,IDES8,IDES8_MEM,IDES10:
+          Added port CALIB and the implement;
+
+- FileName	:	prim_syn.v    
+      1) Model IDES4,IDES4_MEM,IDES8,IDES8_MEM,IDES10:
+          Added port CALIB;
+
+- FileName	:	prim_syn.vhd    
+      1) Model IDES4,IDES4_MEM,IDES8,IDES8_MEM,IDES10:
+          Added port CALIB;
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.6
+- Timestamp :  Wed February 24 10:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1. Model iologic:
+          Deleted the CE signal in iologic models;
+      2. Model IDDRs/ODDRs
+          1) Deleted IDDRR,IDDRS,IDDRP,ODDRR,ODDRS,ODDRP models;
+          2) Added IDDR,ODDR models;
+      3. Model DLLDLY
+          Added model DLLDLY;
+
+- FileName	:	prim_sim.vhd    
+      1. Model iologic:
+          Deleted the CE signal in iologic models;
+      2. Model IDDRs/ODDRs
+          1) Deleted IDDRR,IDDRS,IDDRP,ODDRR,ODDRS,ODDRP models;
+          2) Added IDDR,ODDR models;
+      3. Model DLLDLY
+          Added model DLLDLY;
+
+- FileName	:	prim_syn.v    
+      1. Model iologic:
+          Deleted the CE signal in iologic models;
+      2. Model IDDRs/ODDRs
+          1) Deleted IDDRR,IDDRS,IDDRP,ODDRR,ODDRS,ODDRP models;
+          2) Added IDDR,ODDR models;
+      3. Model DLLDLY
+          Added model DLLDLY;
+
+
+- FileName	:	prim_syn.vhd    
+      1. Model iologic:
+          Deleted the CE signal in iologic models;
+      2. Model IDDRs/ODDRs
+          1) Deleted IDDRR,IDDRS,IDDRP,ODDRR,ODDRS,ODDRP models;
+          2) Added IDDR,ODDR models;
+      3. Model DLLDLY
+          Added model DLLDLY;
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.5
+- Timestamp :  Thu January 21 10:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model PLL:
+          Updated CLKFB_SEL parameter setting;
+
+- FileName	:	prim_sim.vhd    
+      1) Model PLL:
+          Updated CLKFB_SEL parameter setting;
+
+- FileName	:	prim_syn.v    
+      1) Model PLL:
+          Updated CLKFB_SEL parameter setting;
+
+- FileName	:	prim_syn.vhd    
+      1) Model PLL:
+          Updated CLKFB_SEL parameter setting;
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.4
+- Timestamp :  Tue January 19 16:00:30 2016
+
+- FileName	:	prim_syn.v    
+      1) Model IDDR,ODDR:
+          Deleted attribute black_box_pad_pin;   
+                      
+- FileName	:	prim_syn.vhd    
+      1) Model IDDR,ODDR:
+          Deleted attribute black_box_pad_pin;    
+        
+
+ 
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.3
+- Timestamp :  Mon January 11 14:00:30 2016
+
+- FileName	:	prim_sim.v    
+      1) Model OSC:
+          Updated module OSC;
+
+- FileName	:	prim_sim.vhd    
+      1) Model OSC:
+          Updated module OSC;
+
+- FileName	:	prim_syn.v    
+      1) Model OSC:
+          Updated module OSC;                    
+
+- FileName	:	prim_syn.vhd    
+      1) Model OSC:
+          Updated module OSC;
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.2
+- Timestamp :   Mon December 21 16:00:30 2015
+
+- FileName	:	prim_tsim.v    
+      1) Added module PLL and CLKDIV;
+      2) Changed timescale from 1ns/100ps to 1ns/1ps;
+
+- FileName	:	prim_sim.v    
+      1) Changed timescale from 1ns/100ps to 1ns/1ps;
+
+- FileName	:	prim_syn.v    
+      1) Changed timescale from 1ns/100ps to 1ns/1ps;
+
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.2
+- Timestamp :   Tue December 15 14:00:30 2015
+
+- FileName	:	prim_sim.v    
+      1) Model DQS:
+          Added module DQS;
+
+- FileName	:	prim_sim.vhd    
+      1) Model DQS:
+          Added module DQS;
+
+- FileName	:	prim_syn.v    
+      1) Model DQS:
+          Added module DQS;                    
+
+- FileName	:	prim_syn.vhd    
+      1) Model DQS:
+          Added module DQS;
+           
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.1
+- Timestamp :  Fri November 6 9:00:30 2015
+
+- FileName	:	prim_sim.v    
+      1) Model PLL:
+          Added parameter FCLKIN,ODIV_SEL,CLKOUT_DLY_STEP,CLKOUTP_DLY_STEP;
+      2) Model SP,SPX9,SDP,SDPX9,DP and DPX9:
+          Updated byte_enable logic implementation and paramter;
+
+- FileName	:	prim_sim.vhd    
+      1) Model PLL:
+          Added parameter FCLKIN,ODIV_SEL,CLKOUT_DLY_STEP,CLKOUTP_DLY_STEP;
+      2) Model SP,SPX9,SDP,SDPX9,DP and DPX9:
+          Updated byte_enable logic paramter;
+
+- FileName	:	prim_syn.v    
+      1) Model PLL:
+          Added parameter FCLKIN,ODIV_SEL,CLKOUT_DLY_STEP,CLKOUTP_DLY_STEP;
+      2) Model SP,SPX9,SDP,SDPX9,DP and DPX9:
+          Updated byte_enable logic paramter;
+                    
+
+- FileName	:	prim_syn.vhd    
+      1) Model PLL:
+          Added parameter FCLKIN,ODIV_SEL,CLKOUT_DLY_STEP,CLKOUTP_DLY_STEP;
+      2) Model SP,SPX9,SDP,SDPX9,DP and DPX9:
+          Updated byte_enable logic paramter;
+           
+
+
+----------------------------------------------------------------------------
+
+- Vendor	:	GoWin
+- Version	:   1.0.0
+- Timestamp :  Thu October 15 09:00:30 2015
+
+- FileName	:	prim_sim.v    
+    -> Description: GW2A Simulation library in verilog language
+    1)GW2A55
+    -> Support primitives: 
+        --> 54720 LUTs(LUT1~LUT8), 140 B-SRAMs, 1710 S-SRAMs, 6 PLLs, 4 DLLs, 10 DSPs, LVDS
+    2)GW2A18
+    -> Support primitives: 
+        --> 20736 LUTs(LUT1~LUT8), 40.5kb S-SRAM, 46 B-SRAMs, 12 DSPs, LVDS, 4 DLL, 4 PLL
+
+- FileName	:	prim_sim.vhd
+    -> Description: GW2A Simulation library in VHDL language
+    1)GW2A55
+    -> Support primitives: 
+        --> 54720 LUTs(LUT1~LUT8), 140 B-SRAMs, 1710 S-SRAMs, 6 PLLs, 4 DLLs, 10 DSPs, LVDS
+    2)GW2A18
+    -> Support primitives: 
+        --> 20736 LUTs(LUT1~LUT8), 648 S-SRAM, 46 B-SRAMs,12 DSPs, LVDS, 4 DLL, 4 PLL
+
+
+- FileName	:	prim_syn.v    
+    -> Description: GW2A Synthesis library in verilog language
+
+- FileName	:	prim_syn.vhd   
+    -> Description: GW2A Synthesis library in VHDL language
+ 
+
+
