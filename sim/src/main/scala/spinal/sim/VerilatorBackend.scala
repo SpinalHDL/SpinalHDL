@@ -509,11 +509,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     // skip verilator compilation if nothing changed (hashes equal)
     if (hash == previousHash) {
       val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-      val backupDir = new File(s"${cachePath}/${workspaceName}")
+      val cacheDir = new File(s"${cachePath}/${workspaceName}")
 
-      if (backupDir.exists()) {
+      if (cacheDir.exists()) {
         FileUtils.deleteQuietly(workspaceDir)
-        FileUtils.moveDirectory(backupDir, workspaceDir)
+        FileUtils.moveDirectory(cacheDir, workspaceDir)
 
         println("[info] Verilator options and sources unchanged, using cached binaries")
         return
