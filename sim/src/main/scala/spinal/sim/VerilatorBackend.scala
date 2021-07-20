@@ -5,11 +5,16 @@ import java.io.{File, PrintWriter}
 import javax.tools.JavaFileObject
 import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
+import java.security.MessageDigest
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 import sys.process._
+
+import scala.io.Source
+import java.io.BufferedInputStream
+import java.io.FileInputStream
 
 class VerilatorBackendConfig{
   var signals                = ArrayBuffer[Signal]()
@@ -17,6 +22,7 @@ class VerilatorBackendConfig{
   val rtlSourcesPaths        = ArrayBuffer[String]()
   val rtlIncludeDirs         = ArrayBuffer[String]()
   var toplevelName: String   = null
+  var cachePath: String      = null
   var workspacePath: String  = null
   var workspaceName: String  = null
   var vcdPath: String        = null
@@ -31,10 +37,16 @@ class VerilatorBackendConfig{
 class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   import Backend._
 
+  val cachePath      = config.cachePath
   val workspaceName  = config.workspaceName
   val workspacePath  = config.workspacePath
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
+
+  def prepareCache(): Unit = {
+    (new File(cachePath)).mkdirs()
+    assert((new File(cachePath)).isDirectory(), s"${cachePath} could not be created or is not a directory")
+  }
 
   def clean(): Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
@@ -437,6 +449,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
 
 
+    val verilatorInputFiles = config.rtlSourcesPaths.filter(e =>  e.endsWith(".v") ||
+                                                                  e.endsWith(".sv") ||
+                                                                  e.endsWith(".h"))
+                                                    .map(new File(_).getAbsolutePath)
+
     val verilatorScript = s""" set -e ;
        | ${if(isWindows)"verilator_bin.exe" else "verilator"}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
@@ -460,14 +477,52 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | $rtlIncludeDirsArgs
-       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
-                                                  e.endsWith(".sv") || 
-                                                  e.endsWith(".h"))
-                                     .map(new File(_).getAbsolutePath)
-                                     .map('"' + _.replace("\\","/") + '"')
-                                     .mkString(" ")}
+       | -cc ${verilatorInputFiles.map('"' + _.replace("\\","/") + '"').mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
+
+
+    // calculate hash of verilator options and source file contents
+
+    val md = MessageDigest.getInstance("SHA-1")
+    md.update(verilatorScript.getBytes())
+
+    verilatorInputFiles.foreach { filename =>
+      val bis = new BufferedInputStream(new FileInputStream(filename))
+      val buf = new Array[Byte](1024)
+
+      Iterator.continually(bis.read(buf, 0, buf.length))
+        .takeWhile(_ >= 0)
+        .foreach(md.update(buf, 0, _))
+
+      bis.close()
+    }
+
+    val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
+
+    val previousHashFilename = s"${cachePath}/filesHash.txt"
+    val previousHash = (new File(previousHashFilename)).exists() match {
+      case true => Source.fromFile(previousHashFilename).getLines().next().trim()
+      case false => null
+    }
+
+    // skip verilator compilation if nothing changed (hashed equal)
+    if (hash == previousHash) {
+      val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+      val backupDir = new File(s"${cachePath}/${workspaceName}")
+
+      if (backupDir.exists()) {
+        FileUtils.deleteQuietly(workspaceDir)
+        FileUtils.moveDirectory(backupDir, workspaceDir)
+
+        println("[info] Verilator options and sources unchanged, using cached binaries")
+        return
+      }
+    }
+
+    val previousHashFile = new PrintWriter(new File(previousHashFilename))
+    previousHashFile.write(hash + "\n")
+    previousHashFile.close()
 
     var lastTime = System.currentTimeMillis()
     
@@ -548,10 +603,23 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     }
   }
 
+  def copyOutputToCache(): Unit = {
+    val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+    val cacheDir = new File(s"${cachePath}/${workspaceName}")
+
+    FileUtils.deleteQuietly(cacheDir)
+
+    if (workspaceDir.exists()) {
+      FileUtils.copyDirectory(workspaceDir, cacheDir)
+    }
+  }
+
+  prepareCache()
   clean()
   checks()
   compileVerilator()
   compileJava()
+  copyOutputToCache()
 
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
   val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]

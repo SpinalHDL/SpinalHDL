@@ -36,6 +36,7 @@ import sys.process._
 case class SpinalVerilatorBackendConfig[T <: Component](
                                                          rtl               : SpinalReport[T],
                                                          waveFormat        : WaveFormat = WaveFormat.NONE,
+                                                         cachePath         : String = null,
                                                          workspacePath     : String = "./",
                                                          workspaceName     : String = null,
                                                          vcdPath           : String = null,
@@ -59,6 +60,7 @@ object SpinalVerilatorBackend {
     vconfig.toplevelName      = rtl.toplevelName
     vconfig.vcdPath           = vcdPath
     vconfig.vcdPrefix         = vcdPrefix
+    vconfig.cachePath         = cachePath
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
     vconfig.waveFormat        = waveFormat match {
@@ -625,6 +627,7 @@ case class SpinalSimConfig(
         val vConfig = SpinalVerilatorBackendConfig[T](
           rtl = report,
           waveFormat = _waveFormat,
+          cachePath = s"${_workspacePath}/.cache/${_workspaceName}",
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           vcdPath = s"${_workspacePath}/${_workspaceName}",
           vcdPrefix = null,
