@@ -94,7 +94,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
-  val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
+  val userCache = mutable.Map[Any, Any]()
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null

@@ -133,10 +133,12 @@ class HardType[T <: Data](t : => T){
 }
 
 
-object signalCache {
-  def apply[T <: Data](key: Object, subKey: Object)(factory: => T): T = {
-    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-    cache.getOrElseUpdate(subKey, factory).asInstanceOf[T]
+object signalCache{
+  def apply[T <: Data](key: Any)(factory: => T): T = {
+    Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+  def apply[T <: Data](key: Any, subKey: Any)(factory: => T): T = {
+    apply((key, subKey))(factory)
   }
 }
 
