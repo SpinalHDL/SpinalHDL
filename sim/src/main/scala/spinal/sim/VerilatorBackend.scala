@@ -506,7 +506,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       case false => null
     }
 
-    // skip verilator compilation if nothing changed (hashed equal)
+    // skip verilator compilation if nothing changed (hashes equal)
     if (hash == previousHash) {
       val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
       val backupDir = new File(s"${cachePath}/${workspaceName}")
