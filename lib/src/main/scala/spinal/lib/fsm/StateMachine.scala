@@ -143,7 +143,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var autoStart = true
 
   @dontName var parentStateMachine: StateMachineAccessor = null
-  @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()
+  @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
   @dontName val states   = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State, enumDefinition.E]()
   @dontName var entryState: State = null
