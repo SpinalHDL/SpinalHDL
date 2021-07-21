@@ -454,8 +454,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
                                                                   e.endsWith(".h"))
                                                     .map(new File(_).getAbsolutePath)
 
+    val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
     val verilatorScript = s""" set -e ;
-       | ${if(isWindows)"verilator_bin.exe" else "verilator"}
+       | ${verilatorBinFilename}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
        | ${flags.map("-LDFLAGS " + _).mkString(" ")}
        | -CFLAGS -I"$jdkIncludes" -CFLAGS -I"$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}"
@@ -482,10 +483,14 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
-    // calculate hash of verilator options and source file contents
+    // calculate hash of verilator version+options and source file contents
 
     val md = MessageDigest.getInstance("SHA-1")
     md.update(verilatorScript.getBytes())
+
+    val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
+    val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
+    md.update(verilatorVersion.getBytes())
 
     verilatorInputFiles.foreach { filename =>
       val bis = new BufferedInputStream(new FileInputStream(filename))
