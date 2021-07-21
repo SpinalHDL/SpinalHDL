@@ -56,7 +56,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   val clockDivider = new Area {
     val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
     val tick = counter === 0
-    val tickReg = RegNext(tick)
+    val tickReg = RegNext(tick) init(False)
 
     counter := counter - 1
     when(tick) {
