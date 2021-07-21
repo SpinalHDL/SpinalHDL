@@ -524,7 +524,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
         if (cacheDir.exists()) {
           FileUtils.deleteQuietly(workspaceDir)
-          FileUtils.moveDirectory(cacheDir, workspaceDir)
+          FileUtils.copyDirectory(cacheDir, workspaceDir)
 
           println("[info] Verilator options and sources unchanged, using cached binaries")
           return
@@ -558,6 +558,16 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
 
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
+
+    if (cacheEnabled) {
+      // update cache
+
+      val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+      val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
+
+      FileUtils.deleteQuietly(workspaceCacheDir)
+      FileUtils.copyDirectory(workspaceDir, workspaceCacheDir)
+    }
   }
 
   def compileJava(): Unit = {
@@ -615,27 +625,11 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     }
   }
 
-  def copyOutputToCache(): Unit = {
-    if (!cacheEnabled) {
-      return
-    }
-
-    val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-    val cacheDir = new File(s"${cachePath}/${workspaceName}")
-
-    FileUtils.deleteQuietly(cacheDir)
-
-    if (workspaceDir.exists()) {
-      FileUtils.copyDirectory(workspaceDir, cacheDir)
-    }
-  }
-
   prepareCache()
   clean()
   checks()
   compileVerilator()
   compileJava()
-  copyOutputToCache()
 
   val nativeImpl = DynamicCompiler.getClass(s"wrapper_${workspaceName}.VerilatorNative", s"${workspacePath}/${workspaceName}")
   val nativeInstance: IVerilatorNative = nativeImpl.newInstance().asInstanceOf[IVerilatorNative]
