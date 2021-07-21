@@ -56,6 +56,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   val clockDivider = new Area {
     val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
     val tick = counter === 0
+    val tickReg = RegNext(tick)
 
     counter := counter - 1
     when(tick) {
@@ -63,8 +64,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     }
   }
 
-  tx.io.samplingTick := clockDivider.tick
-  rx.io.samplingTick := clockDivider.tick
+  tx.io.samplingTick := clockDivider.tickReg
+  rx.io.samplingTick := clockDivider.tickReg
 
   tx.io.configFrame := io.config.frame
   rx.io.configFrame := io.config.frame
