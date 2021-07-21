@@ -472,7 +472,8 @@ case class SpinalSimConfig(
                             var _additionalIncludeDir : ArrayBuffer[String] = ArrayBuffer[String](),
                             var _waveFormat        : WaveFormat = WaveFormat.NONE,
                             var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
-                            var _withCoverage      : Boolean = false
+                            var _withCoverage      : Boolean = false,
+                            var _disableCache      : Boolean = false
 ){
 
 
@@ -563,6 +564,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def disableCache: this.type = {
+    _disableCache = true
+    this
+  }
+
   def doSim[T <: Component](report: SpinalReport[T])(body: T => Unit): Unit = compile(report).doSim(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String)(body: T => Unit): Unit = compile(report).doSim(name)(body)
   def doSim[T <: Component](report: SpinalReport[T], name: String, seed: Int)(body: T => Unit): Unit = compile(report).doSim(name, seed)(body)
@@ -627,7 +633,7 @@ case class SpinalSimConfig(
         val vConfig = SpinalVerilatorBackendConfig[T](
           rtl = report,
           waveFormat = _waveFormat,
-          cachePath = s"${_workspacePath}/.cache/${_workspaceName}",
+          cachePath = if (!_disableCache) s"${_workspacePath}/.cache/${_workspaceName}" else null,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           vcdPath = s"${_workspacePath}/${_workspaceName}",
           vcdPrefix = null,
