@@ -235,11 +235,13 @@ class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, 
     this.dataWidth(dataWidth)
     this.unburstify()
   }
-  def asPeripheralDecoder(dataWidth : Int) = {
+  def asPeripheralDecoder(dataWidth : Int) : BmbImplicitPeripheralDecoder = {
     peripheral(dataWidth)
-    BmbImplicitPeripheralDecoder(bmb)
+    asPeripheralDecoder()
   }
-  def asPeripheralDecoder() = {
+
+  def asPeripheralDecoder() : BmbImplicitPeripheralDecoder = {
+    interconnect.masters(bmb).withPeripheralDecoder()
     BmbImplicitPeripheralDecoder(bmb)
   }
 

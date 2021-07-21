@@ -42,6 +42,7 @@ class BmbInterconnectGenerator() extends Area{
     val DECODER_SMALL = 0
     val DECODER_OUT_OF_ORDER = 1
     val DECODER_SMALL_PER_SOURCE = 2
+    val DECODER_PERIPHERALS = 3
     var decoderKind = DECODER_SMALL
 
     def withOutOfOrderDecoder(): Unit ={
@@ -50,7 +51,9 @@ class BmbInterconnectGenerator() extends Area{
     def withPerSourceDecoder(): Unit ={
       decoderKind = DECODER_SMALL_PER_SOURCE
     }
-
+    def withPeripheralDecoder() : Unit = {
+      decoderKind = DECODER_PERIPHERALS
+    }
     def addConnection(c : ConnectionModel): Unit ={
       connections += c
       decoderGen.soon(c.decoderAccessRequirements)
@@ -79,7 +82,7 @@ class BmbInterconnectGenerator() extends Area{
               canRead = c.s.accessCapabilities.canRead,
               canWrite = c.s.accessCapabilities.canWrite,
               contextWidth = decoderKind match {
-                case DECODER_SMALL => source.contextWidth
+                case DECODER_SMALL | DECODER_PERIPHERALS => source.contextWidth
                 case DECODER_SMALL_PER_SOURCE => source.contextWidth
                 case DECODER_OUT_OF_ORDER => 0
               }
@@ -90,8 +93,17 @@ class BmbInterconnectGenerator() extends Area{
             connections.foreach(c => soon(c.decoder))
             lock.await()
             decoderKind match {
-              case DECODER_SMALL => new Area {
-                val decoder = BmbDecoder(bus.p, connections.map(_.mapping.get), connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)))
+              case DECODER_SMALL | DECODER_PERIPHERALS => new Area {
+                val perif = decoderKind == DECODER_PERIPHERALS
+                val decoder = BmbDecoder(
+                  bus.p,
+                  connections.map(_.mapping.get),
+                  connections.map(c => BmbParameter(c.decoderAccessRequirements.get, invalidationRequirements.get)),
+                  pendingMax = if(perif) 8 else 64,
+                  pipelinedDecoder  = perif,
+                  pipelinedHalfPipe  = perif
+                )
+
                 decoder.setCompositeName(bus, "decoder")
                 connector(bus, decoder.io.input)
                 for ((connection, decoderOutput) <- (connections, decoder.io.outputs).zipped) {
@@ -298,7 +310,6 @@ class BmbInterconnectGenerator() extends Area{
       lock.await()
 
       if(m.accessRequirements.canWrite && m.accessRequirements.canMask && !s.accessCapabilities.canMask) accessBridges += new AccessBridge {
-        println(s"miaou ${m.bus} ${s.bus}")
         override def accessParameter(mSide: BmbAccessParameter): BmbAccessParameter = mSide.sourcesTransform(_.copy(canMask = false))
 
         override def logic(mSide: Bmb): Bmb = m.generatorClockDomain.get{
