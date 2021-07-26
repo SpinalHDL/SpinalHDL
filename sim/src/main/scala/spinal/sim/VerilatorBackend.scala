@@ -15,6 +15,7 @@ import sys.process._
 import scala.io.Source
 import java.io.BufferedInputStream
 import java.io.FileInputStream
+import java.io.FileFilter
 
 class VerilatorBackendConfig{
   var signals                = ArrayBuffer[Signal]()
@@ -488,6 +489,10 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
+    var useCache = false
+    val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+    val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
+
     if (cacheEnabled) {
       // calculate hash of verilator version+options and source file contents
 
@@ -519,21 +524,15 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
       // skip verilator compilation if nothing changed (hashes equal)
       if (hash == previousHash) {
-        val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-        val cacheDir = new File(s"${cachePath}/${workspaceName}")
-
-        if (cacheDir.exists()) {
-          FileUtils.deleteQuietly(workspaceDir)
-          FileUtils.copyDirectory(cacheDir, workspaceDir)
-
+        if (workspaceCacheDir.exists()) {
           println("[info] Verilator options and sources unchanged, using cached binaries")
-          return
+          useCache = true
         }
+      } else {
+        val previousHashFile = new PrintWriter(new File(previousHashFilename))
+        previousHashFile.write(hash + "\n")
+        previousHashFile.close()
       }
-
-      val previousHashFile = new PrintWriter(new File(previousHashFilename))
-      previousHashFile.write(hash + "\n")
-      previousHashFile.close()
     }
 
     var lastTime = System.currentTimeMillis()
@@ -549,24 +548,35 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     verilatorScriptFile.write(verilatorScript)
     verilatorScriptFile.close
 
-    val shCommand = if(isWindows) "sh.exe" else "sh"
-    assert(Process(Seq(shCommand, "verilatorScript.sh"), 
-                   new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    // invoke verilator or copy cached files depending on whether cache is not used or used
+    if (!useCache) {
+      val shCommand = if(isWindows) "sh.exe" else "sh"
+      assert(Process(Seq(shCommand, "verilatorScript.sh"),
+                     new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+    } else {
+      FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
+    }
     
     genWrapperCpp()
     val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
-    assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    if (!useCache) {
+      assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    } else {
+      // do not remake Vtoplevel__ALL.a
+      assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+    }
 
     FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
 
     if (cacheEnabled) {
       // update cache
 
-      val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-      val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
-
       FileUtils.deleteQuietly(workspaceCacheDir)
-      FileUtils.copyDirectory(workspaceDir, workspaceCacheDir)
+
+      // copy only needed files to save disk space
+      FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
+        def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
+      })
     }
   }
 
