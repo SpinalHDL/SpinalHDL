@@ -7,6 +7,7 @@ import net.openhft.affinity.impl.VanillaCpuLayout
 import org.apache.commons.io.FileUtils
 import java.security.MessageDigest
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
@@ -35,6 +36,10 @@ class VerilatorBackendConfig{
 }
 
 
+object VerilatorBackend {
+  private val cachePathLockMap = mutable.HashMap[String, Object]()
+}
+
 class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   import Backend._
 
@@ -45,13 +50,30 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
+  def cacheSynchronized(function: => Unit): Unit = {
+    if (cacheEnabled) {
+      var lock: Object = null
+      VerilatorBackend.cachePathLockMap.synchronized {
+        lock = VerilatorBackend.cachePathLockMap.getOrElseUpdate(cachePath, new Object())
+      }
+
+      lock.synchronized {
+        function
+      }
+    } else {
+      function
+    }
+  }
+
   def prepareCache(): Unit = {
     if (!cacheEnabled) {
       return
     }
 
-    (new File(cachePath)).mkdirs()
-    assert((new File(cachePath)).isDirectory(), s"${cachePath} could not be created or is not a directory")
+    cacheSynchronized {
+      (new File(cachePath)).mkdirs()
+      assert((new File(cachePath)).isDirectory(), s"${cachePath} could not be created or is not a directory")
+    }
   }
 
   def clean(): Unit = {
@@ -456,6 +478,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
 
 
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
+
+    // when changing the verilator script, the hash generation (below) must also be updated
     val verilatorScript = s""" set -e ;
        | ${verilatorBinFilename}
        | ${flags.map("-CFLAGS " + _).mkString(" ")}
@@ -489,94 +513,126 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
-    var useCache = false
-    val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-    val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
+    cacheSynchronized {
+      var useCache = false
+      val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+      val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
 
-    if (cacheEnabled) {
-      // calculate hash of verilator version+options and source file contents
+      if (cacheEnabled) {
+        // calculate hash of verilator version+options and source file contents
 
-      val md = MessageDigest.getInstance("SHA-1")
-      md.update(verilatorScript.getBytes())
+        val md = MessageDigest.getInstance("SHA-1")
 
-      val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
-      val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
-      md.update(verilatorVersion.getBytes())
+        md.update(cachePath.getBytes())
+        md.update(0.toByte)
+        md.update(flags.mkString(" ").getBytes())
+        md.update(0.toByte)
+        md.update(config.waveDepth.toString().getBytes())
+        md.update(0.toByte)
+        md.update(config.optimisationLevel.toString().getBytes())
+        md.update(0.toByte)
+        md.update(waveArgs.getBytes())
+        md.update(0.toByte)
+        md.update(covArgs.getBytes())
+        md.update(0.toByte)
+        md.update(config.toplevelName.getBytes())
+        md.update(0.toByte)
+        md.update(config.simulatorFlags.mkString(" ").getBytes())
+        md.update(0.toByte)
 
-      config.rtlSourcesPaths.foreach { filename =>
-        val bis = new BufferedInputStream(new FileInputStream((new File(filename)).getAbsolutePath()))
-        val buf = new Array[Byte](1024)
+        val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
+        val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
+        md.update(verilatorVersion.getBytes())
 
-        Iterator.continually(bis.read(buf, 0, buf.length))
-          .takeWhile(_ >= 0)
-          .foreach(md.update(buf, 0, _))
+        def hashFile(md: MessageDigest, file: File) = {
+          val bis = new BufferedInputStream(new FileInputStream(file))
+          val buf = new Array[Byte](1024)
 
-        bis.close()
-      }
+          Iterator.continually(bis.read(buf, 0, buf.length))
+            .takeWhile(_ >= 0)
+            .foreach(md.update(buf, 0, _))
 
-      val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
-
-      val previousHashFilename = s"${cachePath}/filesHash.txt"
-      val previousHash = (new File(previousHashFilename)).exists() match {
-        case true => Source.fromFile(previousHashFilename).getLines().next().trim()
-        case false => null
-      }
-
-      // skip verilator compilation if nothing changed (hashes equal)
-      if (hash == previousHash) {
-        if (workspaceCacheDir.exists()) {
-          println("[info] Verilator options and sources unchanged, using cached binaries")
-          useCache = true
+          bis.close()
         }
-      } else {
-        val previousHashFile = new PrintWriter(new File(previousHashFilename))
-        previousHashFile.write(hash + "\n")
-        previousHashFile.close()
+
+        config.rtlIncludeDirs.foreach { dirname =>
+          FileUtils.listFiles(new File(dirname), null, true).asScala.foreach { file =>
+            hashFile(md, file)
+            md.update(0.toByte)
+          }
+
+          md.update(0.toByte)
+        }
+
+        config.rtlSourcesPaths.foreach { filename =>
+          hashFile(md, new File(filename))
+          md.update(0.toByte)
+        }
+
+        val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
+
+        val previousHashFilename = s"${cachePath}/filesHash.txt"
+        val previousHash = (new File(previousHashFilename)).exists() match {
+          case true => Source.fromFile(previousHashFilename).getLines().next().trim()
+          case false => null
+        }
+
+        // skip verilator compilation if nothing changed (hashes equal)
+        if (hash == previousHash) {
+          if (workspaceCacheDir.exists()) {
+            println("[info] Verilator options and sources unchanged, using cached binaries")
+            useCache = true
+          }
+        } else {
+          val previousHashFile = new PrintWriter(new File(previousHashFilename))
+          previousHashFile.write(hash + "\n")
+          previousHashFile.close()
+        }
       }
-    }
 
-    var lastTime = System.currentTimeMillis()
-    
-    def bench(msg : String): Unit ={
-      val newTime = System.currentTimeMillis()
-      val sec = (newTime-lastTime)*1e-3
-      println(msg + " " + sec)
-      lastTime = newTime
-    }
-    
-    val verilatorScriptFile = new PrintWriter(new File(workspacePath + "/verilatorScript.sh"))
-    verilatorScriptFile.write(verilatorScript)
-    verilatorScriptFile.close
+      var lastTime = System.currentTimeMillis()
 
-    // invoke verilator or copy cached files depending on whether cache is not used or used
-    if (!useCache) {
-      val shCommand = if(isWindows) "sh.exe" else "sh"
-      assert(Process(Seq(shCommand, "verilatorScript.sh"),
-                     new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
-    } else {
-      FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
-    }
-    
-    genWrapperCpp()
-    val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
-    if (!useCache) {
-      assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
-    } else {
-      // do not remake Vtoplevel__ALL.a
-      assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
-    }
+      def bench(msg : String): Unit ={
+        val newTime = System.currentTimeMillis()
+        val sec = (newTime-lastTime)*1e-3
+        println(msg + " " + sec)
+        lastTime = newTime
+      }
 
-    FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
+      val verilatorScriptFile = new PrintWriter(new File(workspacePath + "/verilatorScript.sh"))
+      verilatorScriptFile.write(verilatorScript)
+      verilatorScriptFile.close
 
-    if (cacheEnabled) {
-      // update cache
+      // invoke verilator or copy cached files depending on whether cache is not used or used
+      if (!useCache) {
+        val shCommand = if(isWindows) "sh.exe" else "sh"
+        assert(Process(Seq(shCommand, "verilatorScript.sh"),
+                       new File(workspacePath)).! (new Logger()) == 0, "Verilator invocation failed")
+      } else {
+        FileUtils.copyDirectory(workspaceCacheDir, workspaceDir)
+      }
 
-      FileUtils.deleteQuietly(workspaceCacheDir)
+      genWrapperCpp()
+      val threadCount = if(isWindows || isMac) Runtime.getRuntime().availableProcessors() else VanillaCpuLayout.fromCpuInfo().cpus()
+      if (!useCache) {
+        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+      } else {
+        // do not remake Vtoplevel__ALL.a
+        assert(s"make -j$threadCount VM_PARALLEL_BUILDS=1 -C ${workspacePath}/${workspaceName} -f V${config.toplevelName}.mk -o V${config.toplevelName}__ALL.a V${config.toplevelName} CURDIR=${workspacePath}/${workspaceName}".!  (new Logger()) == 0, "Verilator C++ model compilation failed")
+      }
 
-      // copy only needed files to save disk space
-      FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
-        def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
-      })
+      FileUtils.copyFile(new File(s"${workspacePath}/${workspaceName}/V${config.toplevelName}${if(isWindows) ".exe" else ""}") , new File(s"${workspacePath}/${workspaceName}/${workspaceName}_$uniqueId.${if(isWindows) "dll" else (if(isMac) "dylib" else "so")}"))
+
+      if (cacheEnabled) {
+        // update cache
+
+        FileUtils.deleteQuietly(workspaceCacheDir)
+
+        // copy only needed files to save disk space
+        FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
+          def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
+        })
+      }
     }
   }
 
