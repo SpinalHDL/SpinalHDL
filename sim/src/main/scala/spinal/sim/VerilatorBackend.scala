@@ -454,11 +454,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     val rtlIncludeDirsArgs = config.rtlIncludeDirs.map(e => s"-I${new File(e).getAbsolutePath}").mkString(" ")
 
 
-    val verilatorInputFiles = config.rtlSourcesPaths.filter(e =>  e.endsWith(".v") ||
-                                                                  e.endsWith(".sv") ||
-                                                                  e.endsWith(".h"))
-                                                    .map(new File(_).getAbsolutePath)
-
     val verilatorBinFilename = if(isWindows) "verilator_bin.exe" else "verilator"
     val verilatorScript = s""" set -e ;
        | ${verilatorBinFilename}
@@ -483,7 +478,12 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | --Mdir ${workspaceName}
        | --top-module ${config.toplevelName}
        | $rtlIncludeDirsArgs
-       | -cc ${verilatorInputFiles.map('"' + _.replace("\\","/") + '"').mkString(" ")}
+       | -cc ${config.rtlSourcesPaths.filter(e => e.endsWith(".v") || 
+                                                  e.endsWith(".sv") || 
+                                                  e.endsWith(".h"))
+                                     .map(new File(_).getAbsolutePath)
+                                     .map('"' + _.replace("\\","/") + '"')
+                                     .mkString(" ")}
        | --exe $workspaceName/$wrapperCppName
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
@@ -498,8 +498,8 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
       md.update(verilatorVersion.getBytes())
 
-      verilatorInputFiles.foreach { filename =>
-        val bis = new BufferedInputStream(new FileInputStream(filename))
+      config.rtlSourcesPaths.foreach { filename =>
+        val bis = new BufferedInputStream(new FileInputStream((new File(filename)).getAbsolutePath()))
         val buf = new Array[Byte](1024)
 
         Iterator.continually(bis.read(buf, 0, buf.length))
