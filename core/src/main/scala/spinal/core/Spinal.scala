@@ -21,12 +21,13 @@
 package spinal.core
 
 
-import java.io.{BufferedWriter, File, FileWriter}
+import org.apache.commons.io.FileUtils
 
+import java.io.{BufferedWriter, File, FileWriter}
 import spinal.core.internals._
+
 import java.text.SimpleDateFormat
 import java.util.Date
-
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import scala.io.Source
@@ -349,6 +350,8 @@ object Spinal{
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
+
+    FileUtils.forceMkdir(new File(config.targetDirectory))
 
     val report = configPatched.mode match {
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
