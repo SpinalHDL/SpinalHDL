@@ -13,7 +13,7 @@ import spinal.lib.fsm._
 
 case class UsbDeviceCtrlParameter(addressWidth : Int,
                                   epCount : Int = 16){
-  def lengthWidth = (addressWidth + 1) min 16
+  def lengthWidth = (addressWidth + 1) min 15
 }
 /*
 Add descriptor =>
@@ -53,6 +53,7 @@ object UsbDeviceCtrl {
     val tx = Tx()
     val rx = Rx()
 
+    val pullup = Bool()
     val reset, resume = Bool()
     val tick = Bool()
     val power = Bool()
@@ -60,14 +61,39 @@ object UsbDeviceCtrl {
 
     override def asMaster(): Unit = {
       in(tick, reset, resume, power)
-      out(resumeIt)
+      out(resumeIt, pullup)
       master(tx)
       slave(rx)
     }
+
+    def cc(cdFrom : ClockDomain, cdTo : ClockDomain) : PhyIo = {
+      val c = PhyCc(cdFrom, cdTo).setCompositeName(this, "cc")
+      c.input <> this
+      c.output
+    }
+  }
+
+  case class PhyCc(cdInput : ClockDomain, cdOutput : ClockDomain) extends Component {
+    val input = slave(PhyIo())
+    val output = master(PhyIo())
+
+    output.tx.stream << cdOutput(input.tx.stream.ccToggle(cdInput, cdOutput).stage())
+    input.tx.eop := PulseCCByToggle(output.tx.eop, cdOutput, cdInput)
+
+    input.rx.flow << output.rx.flow.ccToggle(cdOutput, cdInput)
+    input.rx.active := cdInput(BufferCC(output.rx.active))
+    input.rx.stuffingError := cdInput(BufferCC(output.rx.stuffingError))
+
+    output.pullup := cdOutput(BufferCC(input.pullup))
+    output.resumeIt := cdOutput(BufferCC(input.resumeIt))
+    input.tick := PulseCCByToggle(output.tick, cdOutput, cdInput)
+    input.reset := PulseCCByToggle(output.reset, cdOutput, cdInput)
+    input.resume := PulseCCByToggle(output.resume, cdOutput, cdInput)
+    input.power := cdInput(BufferCC(output.power))
   }
 
 
-  val ctrlAddressWidth = 17
+  val ctrlAddressWidth = 16
   def ctrlCapabilities(accessSource : BmbAccessCapabilities) = BmbSlaveFactory.getBmbCapabilities(
     accessSource,
     addressWidth = ctrlAddressWidth,
@@ -79,10 +105,11 @@ object UsbDeviceCtrl {
   }
 
   object Regs{
-    val FRAME = 0x10000
-    val ADDRESS = 0x10004
-    val INTERRUPT = 0x10008
-    val HALT = 0x1000C
+    val FRAME = 0xFF00
+    val ADDRESS = 0xFF04
+    val INTERRUPT = 0xFF08
+    val HALT = 0xFF0C
+    val CONFIG = 0xFF10
   }
   object Code{
     val NONE = 0xF
@@ -120,6 +147,8 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       val effective = RegInit(False)
       val hit = Bool()
     }
+    val pullup = Reg(Bool) init(False)
+    io.phy.pullup := pullup
   }
 
   val memory = new Area{
@@ -621,8 +650,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     ctrl.write(regs.halt.id, Regs.HALT, 0)
     ctrl.write(regs.halt.enable, Regs.HALT, 4)
     ctrl.readAndWrite(regs.halt.effective, Regs.HALT, 5)
+    ctrl.write(regs.pullup, Regs.CONFIG, 0)
 
-    val memoryMapping = MaskMapping(0x10000, 0x00000)
+    val memoryMapping = MaskMapping(0x8000, 0x0000)
     val readBuffer = memory.external.readRsp.toReg
     val readState = RegInit(U"00")
     val writeState = RegInit(U"0")

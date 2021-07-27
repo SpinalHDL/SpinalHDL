@@ -6,12 +6,18 @@ import spinal.lib.com.usb.UsbTimer
 import spinal.lib.com.usb.udc.UsbDeviceCtrl.PhyIo
 import spinal.lib.fsm.{State, StateMachine}
 
-case class UsbDevicePhyNative(fsRatio : Int, sim : Boolean = false) extends Component{
+case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
   val io = new Bundle {
     val ctrl = slave(PhyIo())
     val usb = master(UsbLsFsPhyAbstractIo())
     val power = in Bool()
+    val pullup = out Bool()
   }
+
+  val fsRatioExact = (ClockDomain.current.frequency.getValue.toDouble/12e6)
+  val fsRatio = fsRatioExact.round.toInt
+
+  io.pullup := io.ctrl.pullup
 
   val timer = new UsbTimer(counterTimeMax = 0.084e-6 * 8, fsRatio) {
     val oneCycle = cycles(1)
