@@ -62,13 +62,14 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     else {
       val fileList = new java.io.FileWriter(pc.config.targetDirectory + topLevel.definitionName + ".lst")
       // dump Enum define to define.v instead attach that on every .v file
-      val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
-      val defineFile = new java.io.FileWriter(defineFileName)
-      emitEnumPackage(defineFile)
-      defineFile.flush()
-      defineFile.close()
-      fileList.write(defineFileName.replace("//", "/") + "\n")
-
+      if(!enums.isEmpty)
+        val defineFileName = pc.config.targetDirectory + "/enumdefine" + (if(pc.config.isSystemVerilog) ".sv" else ".v")
+        val defineFile = new java.io.FileWriter(defineFileName)
+        emitEnumPackage(defineFile)
+        defineFile.flush()
+        defineFile.close()
+        fileList.write(defineFileName.replace("//", "/") + "\n")
+      }
       for (c <- sortedComponents) {
         val moduleContent = compile(c)()
 
