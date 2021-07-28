@@ -272,6 +272,12 @@ class SpinalReport[T <: Component]() {
     this
   }
 
+  def printRtl() : this.type = {
+    for(f <- generatedSourcesPaths){
+      println(scala.io.Source.fromFile(f).mkString)
+    }
+    this
+  }
 
   def mergeRTLSource(fileName: String = null): Unit = {
 
