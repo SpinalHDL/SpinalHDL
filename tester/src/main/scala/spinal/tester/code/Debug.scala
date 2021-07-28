@@ -48,42 +48,35 @@ object Debug {
 }
 
 
-object Debug2 extends App{
 
-//  class Miaou extends Bundle{
-//
-//
-//    def fifo2() = new Composite{
-//      val x = 4
-//    }.x
-//
-//    def fifo1(): Unit = new Area {
-//      val x = UInt(8 bits)
-//
-//      this.setCompositeName(Miaou.this)
-//      x + 1
-//    }
-////    def fifo(): Unit = composite(this) {
-////      val x = UInt(8 bits)
-////
-////      x + 1
-////    }
-//  }
+
+object Debug2 extends App{
 
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
 
-    val a = slave(Stream(UInt( 8 bits)))
-    val b = master(Stream(UInt( 8 bits)))
+    class Miaou(val a : UInt = UInt(32 bits), b : Bool = Bool()) extends Bundle
 
-    a >> b
+    val x = new Miaou()
+    val y = new Miaou(42, False)
+//    val z = x.copy(42, False)
 
+//    val a,b = in Bits(8 bits)
+//
+//    val x, y = OHToUInt(a)
+//    val z = OHToUInt(b)
 
-    val x = out Bool()
-    x := False
-    when(b.fire){
-      x := True
-    }
+//    val a = slave(Stream(UInt( 8 bits)))
+//    val b = master(Stream(UInt( 8 bits)))
+//
+//    a >> b
+//
+//
+//    val x = out Bool()
+//    x := False
+//    when(b.fire){
+//      x := True
+//    }
 //    val a = in Bits(8 bits)
 //    val x = out UInt(6 bits)
 //    val y, z = out Bool()
@@ -303,5 +296,52 @@ object Test4141 {
       dataWidth = 32,
       idWidth = 4
     ))
+  }
+}
+
+
+// generate some logic so verilator has some work to do
+case class Foo(a: Int, b: Int) extends Component {
+  val io = new Bundle {
+    val output = out UInt(a bits)
+  }
+
+  var tmp = U(0, a bits)
+
+  for (_ <- 0 until b) {
+    val reg = Reg(UInt(a bits)) init(0)
+    reg := reg + 1
+
+    tmp = tmp + reg
+  }
+
+  io.output := tmp
+}
+
+
+object Foo {
+  def main(args: Array[String]): Unit = {
+    {
+      val cfg = SimConfig.addSimulatorFlag("--threads 1")
+      val compiled = cfg.compile(Foo(a = 2048, b = 10 - 1))
+      compiled.doSim(seed = 0) { dut =>
+        dut.clockDomain.forkStimulus(10)
+
+        // just wait for 2000 clock cycles
+        dut.clockDomain.waitSampling(200000)
+      }
+    }
+    {
+      val cfg = SimConfig.addSimulatorFlag("--threads 1")
+      val compiled = cfg.compile(Foo(a = 2048, b = 10 - 1))
+      compiled.doSim(seed = 0) { dut =>
+        dut.clockDomain.forkStimulus(10)
+
+        // just wait for 2000 clock cycles
+        dut.clockDomain.waitSampling(200000)
+      }
+    }
+//    test()  // fast, < 50 ms
+//    test()  // very slow, ~ 15 s
   }
 }
