@@ -214,6 +214,8 @@ case class BmbAccessParameter(addressWidth : Int,
     canWrite                   = canWrite,
     canMask                    = canMask,
     canExclusive               = canExclusive,
+    canInvalidate              = canInvalidate,
+    canSync                    = canSync,
     maximumPendingTransaction  = maximumPendingTransaction
   )
 
@@ -238,7 +240,9 @@ case class BmbAccessCapabilities(addressWidth : Int,
                                  canWrite : Boolean = true,
                                  canMask : Boolean = true,
                                  canExclusive : Boolean = false,
-                                 maximumPendingTransaction : Int = Int.MaxValue){
+                                 maximumPendingTransaction : Int = Int.MaxValue,
+                                 canInvalidate : Boolean = false,
+                                 canSync : Boolean = false){
 
   def toBmbParameter = BmbParameter(BmbAccessParameter(
     addressWidth              = addressWidth,
@@ -253,7 +257,9 @@ case class BmbAccessCapabilities(addressWidth : Int,
     canWrite                  = canWrite,
     canMask                   = canMask,
     canExclusive              = canExclusive,
-    maximumPendingTransaction = maximumPendingTransaction
+    maximumPendingTransaction = maximumPendingTransaction,
+    canInvalidate             = canInvalidate,
+    canSync                   = canSync
   )))
 }
 

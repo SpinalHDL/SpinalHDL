@@ -420,7 +420,7 @@ class BmbInterconnectGenerator() extends Area{
             c.io.output
           }
 
-          override def accessParameter(mSide: BmbAccessParameter) = mSide.sourcesTransform(_.copy(canSync = true))
+          override def accessParameter(mSide: BmbAccessParameter) = BmbSyncRemover.outputConfig(mSide)
         }
       }
 
