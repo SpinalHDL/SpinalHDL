@@ -7,54 +7,17 @@ import spinal.lib.sim.{StreamDriver, StreamMonitor}
 
 import scala.util.Random
 
-object BmbSyncRemover extends App{
-  import spinal.core.sim._
-  SimConfig.withWave.compile{
-    BmbSyncRemover(
-      p = BmbParameter(
-        access = BmbAccessParameter(
-          addressWidth = 16,
-          dataWidth = 32
-        ) .addSources(1, BmbSourceParameter(
-          lengthWidth = 5,
-          contextWidth = 3,
-          canRead =  true,
-          canWrite = true,
-          alignment = BmbParameter.BurstAlignement.BYTE
-        )),
-        invalidation = BmbInvalidationParameter(
-          canSync = true
-        )
-      )
-    )
-  }.doSimUntilVoid("test") { dut =>
 
-    var pendingSync = 0
-    StreamMonitor(dut.io.output.cmd, dut.clockDomain){ p =>
-      if(p.last.toBoolean && p.opcode.toInt == Bmb.Cmd.Opcode.WRITE){
-        pendingSync += 1;
-      }
-    }
 
-    StreamDriver(dut.io.output.sync, dut.clockDomain){ p =>
-      pendingSync != 0
-    }.transactionDelay = () => Random.nextInt(5)
-
-    new BmbBridgeTester(
-      master = dut.io.input,
-      masterCd = dut.clockDomain,
-      slave = dut.io.output,
-      slaveCd = dut.clockDomain,
-      rspCountTarget = 10000
-    )
-  }
+object BmbSyncRemover{
+  def outputConfig(p : BmbAccessParameter) = p.sourcesTransform(_.copy(canSync = true))
 }
 
 //TODO improve that crapy design XD
 case class BmbSyncRemover(p : BmbParameter,rspQueueSize : Int = 8, pendingMax : Int = 16) extends Component{
   val io = new Bundle{
-    val input = slave(Bmb(p.copy(invalidation = p.invalidation.copy(canSync = false))))
-    val output = master(Bmb(p))
+    val input = slave(Bmb(p))
+    val output = master(Bmb(BmbSyncRemover.outputConfig(p.access)))
   }
   assert(p.access.sources.size == 1)
 
@@ -78,4 +41,45 @@ case class BmbSyncRemover(p : BmbParameter,rspQueueSize : Int = 8, pendingMax : 
   rspIsWrite.ready := rspBuffered.lastFire
 
   io.output.sync.ready := True
+}
+
+
+object BmbSyncRemoverTester extends App{
+  import spinal.core.sim._
+  SimConfig.withWave.compile{
+    BmbSyncRemover(
+      p = BmbParameter(
+        access = BmbAccessParameter(
+          addressWidth = 16,
+          dataWidth = 32
+        ) .addSources(1, BmbSourceParameter(
+          lengthWidth = 5,
+          contextWidth = 3,
+          canRead =  true,
+          canWrite = true,
+          alignment = BmbParameter.BurstAlignement.BYTE
+        ))
+      )
+    )
+  }.doSimUntilVoid("test") { dut =>
+
+    var pendingSync = 0
+    StreamMonitor(dut.io.output.cmd, dut.clockDomain){ p =>
+      if(p.last.toBoolean && p.opcode.toInt == Bmb.Cmd.Opcode.WRITE){
+        pendingSync += 1;
+      }
+    }
+
+    StreamDriver(dut.io.output.sync, dut.clockDomain){ p =>
+      pendingSync != 0
+    }.transactionDelay = () => Random.nextInt(5)
+
+    new BmbBridgeTester(
+      master = dut.io.input,
+      masterCd = dut.clockDomain,
+      slave = dut.io.output,
+      slaveCd = dut.clockDomain,
+      rspCountTarget = 10000
+    )
+  }
 }

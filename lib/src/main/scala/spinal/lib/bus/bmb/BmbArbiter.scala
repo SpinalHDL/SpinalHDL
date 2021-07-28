@@ -56,9 +56,9 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
     io.output.rsp.ready := io.inputs.map(_.rsp.ready).read(rspSel)
   }
 
-  val invalidate = (portCount > 1 && outputParameter.invalidation.canInvalidate) generate new Area {
+  val invalidate = (portCount > 1 && outputParameter.access.canInvalidate) generate new Area {
     assert(pendingInvMax != 0)
-    val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsParameter(inputId).invalidation.canInvalidate) yield (io.inputs(inputId), inputId)).unzip
+    val (inputs, inputsIndex) = (for(inputId <- 0 until portCount if inputsParameter(inputId).access.canInvalidate) yield (io.inputs(inputId), inputId)).unzip
 
     val invCounter = CounterUpDown(
       stateCount = 2 << log2Up(pendingInvMax),
@@ -86,7 +86,7 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
     io.output.ack.valid := logics.map(_.ackCounter =/= 0).toSeq.andR
   }
 
-  val sync = (portCount > 1 && outputParameter.invalidation.canSync) generate new Area{
+  val sync = (portCount > 1 && outputParameter.access.canSync) generate new Area{
     val syncSel = io.output.sync.source(sourceRouteRange)
     for((input, index) <- io.inputs.zipWithIndex){
       input.sync.valid := io.output.sync.valid && syncSel === index
