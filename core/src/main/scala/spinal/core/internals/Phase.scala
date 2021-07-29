@@ -1644,7 +1644,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
 
     val keepNamed = !pc.config.removePruned
     walkStatements{
-      case s: BaseType => if(keepNamed && s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
+      case s: BaseType => if((keepNamed || s.hasTag(noSpinalPrune)) && s.isNamed && (s.namePriority >= Nameable.USER_WEAK || s.isVital)) propagate(s, false)
       case s: DeclarationStatement => if(keepNamed && s.isNamed) propagate(s, false)
       case s: AssertStatement      => if(s.kind == AssertStatementKind.ASSERT || pc.config.isSystemVerilog) propagate(s, false)
       case s: TreeStatement        =>

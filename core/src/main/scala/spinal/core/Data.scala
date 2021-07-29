@@ -424,6 +424,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
+  def noSpinalPrune() : this.type = {
+    this.addTag(spinal.core.noSpinalPrune)
+    this
+  }
+
   /** Allow a data to be overrided */
   def allowOverride: this.type = {
     addTag(allowAssignmentOverride)
