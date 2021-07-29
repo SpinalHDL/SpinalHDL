@@ -24,6 +24,7 @@ class VerilatorBackendConfig{
   val rtlSourcesPaths        = ArrayBuffer[String]()
   val rtlIncludeDirs         = ArrayBuffer[String]()
   var toplevelName: String   = null
+  var maxCacheEntries: Int   = 100
   var cachePath: String      = null
   var workspacePath: String  = null
   var workspaceName: String  = null
@@ -37,6 +38,7 @@ class VerilatorBackendConfig{
 
 
 object VerilatorBackend {
+  private val cacheGlobalLock = new Object()
   private val cachePathLockMap = mutable.HashMap[String, Object]()
 }
 
@@ -45,19 +47,15 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
 
   val cachePath      = config.cachePath
   val cacheEnabled   = cachePath != null
+  val maxCacheEntries = config.maxCacheEntries
   val workspaceName  = config.workspaceName
   val workspacePath  = config.workspacePath
   val wrapperCppName = s"V${config.toplevelName}__spinalWrapper.cpp"
   val wrapperCppPath = new File(s"${workspacePath}/${workspaceName}/$wrapperCppName").getAbsolutePath
 
-  def cacheSynchronized(function: => Unit): Unit = {
+  def cacheGlobalSynchronized(function: => Unit) = {
     if (cacheEnabled) {
-      var lock: Object = null
-      VerilatorBackend.cachePathLockMap.synchronized {
-        lock = VerilatorBackend.cachePathLockMap.getOrElseUpdate(cachePath, new Object())
-      }
-
-      lock.synchronized {
+      VerilatorBackend.cacheGlobalLock.synchronized {
         function
       }
     } else {
@@ -65,14 +63,18 @@ class VerilatorBackend(val config: VerilatorBackendConfig) extends Backend {
     }
   }
 
-  def prepareCache(): Unit = {
-    if (!cacheEnabled) {
-      return
-    }
+  def cacheSynchronized(cacheFile: File)(function: => Unit): Unit = {
+    if (cacheEnabled) {
+      var lock: Object = null
+      VerilatorBackend.cachePathLockMap.synchronized {
+        lock = VerilatorBackend.cachePathLockMap.getOrElseUpdate(cacheFile.getCanonicalPath(), new Object())
+      }
 
-    cacheSynchronized {
-      (new File(cachePath)).mkdirs()
-      assert((new File(cachePath)).isDirectory(), s"${cachePath} could not be created or is not a directory")
+      lock.synchronized {
+        function
+      }
+    } else {
+      function
     }
   }
 
@@ -513,80 +515,98 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
        | ${config.simulatorFlags.mkString(" ")}""".stripMargin.replace("\n", "")
 
 
-    cacheSynchronized {
+    val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
+    var workspaceCacheDir: File = null
+    var hashCacheDir: File = null
+
+    if (cacheEnabled) {
+      // calculate hash of verilator version+options and source file contents
+
+      val md = MessageDigest.getInstance("SHA-1")
+
+      md.update(cachePath.getBytes())
+      md.update(0.toByte)
+      md.update(flags.mkString(" ").getBytes())
+      md.update(0.toByte)
+      md.update(config.waveDepth.toString().getBytes())
+      md.update(0.toByte)
+      md.update(config.optimisationLevel.toString().getBytes())
+      md.update(0.toByte)
+      md.update(waveArgs.getBytes())
+      md.update(0.toByte)
+      md.update(covArgs.getBytes())
+      md.update(0.toByte)
+      md.update(config.toplevelName.getBytes())
+      md.update(0.toByte)
+      md.update(config.simulatorFlags.mkString(" ").getBytes())
+      md.update(0.toByte)
+
+      val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
+      val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
+      md.update(verilatorVersion.getBytes())
+
+      def hashFile(md: MessageDigest, file: File) = {
+        val bis = new BufferedInputStream(new FileInputStream(file))
+        val buf = new Array[Byte](1024)
+
+        Iterator.continually(bis.read(buf, 0, buf.length))
+          .takeWhile(_ >= 0)
+          .foreach(md.update(buf, 0, _))
+
+        bis.close()
+      }
+
+      config.rtlIncludeDirs.foreach { dirname =>
+        FileUtils.listFiles(new File(dirname), null, true).asScala.foreach { file =>
+          hashFile(md, file)
+          md.update(0.toByte)
+        }
+
+        md.update(0.toByte)
+      }
+
+      config.rtlSourcesPaths.foreach { filename =>
+        hashFile(md, new File(filename))
+        md.update(0.toByte)
+      }
+
+      val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
+      workspaceCacheDir = new File(s"${cachePath}/${hash}/${workspaceName}")
+      hashCacheDir = new File(s"${cachePath}/${hash}")
+
+      cacheGlobalSynchronized {
+        // remove old cache entries
+
+        val cacheDir = new File(cachePath)
+        if (cacheDir.isDirectory()) {
+          if (maxCacheEntries > 0) {
+            val cacheEntriesArr = cacheDir.listFiles().filter(_.isDirectory())
+            cacheEntriesArr.sortInPlaceWith(_.lastModified() < _.lastModified())
+
+            val cacheEntries = cacheEntriesArr.toBuffer
+            val cacheEntryFound = workspaceCacheDir.isDirectory()
+
+            while (cacheEntries.length > maxCacheEntries || (!cacheEntryFound && cacheEntries.length >= maxCacheEntries)) {
+              if (cacheEntries(0).getCanonicalPath() != hashCacheDir.getCanonicalPath()) {
+                cacheSynchronized(cacheEntries(0)) {
+                  FileUtils.deleteQuietly(cacheEntries(0))
+                }
+              }
+
+              cacheEntries.remove(0)
+            }
+          }
+        }
+      }
+    }
+
+    cacheSynchronized(hashCacheDir) {
       var useCache = false
-      val workspaceDir = new File(s"${workspacePath}/${workspaceName}")
-      val workspaceCacheDir = new File(s"${cachePath}/${workspaceName}")
 
       if (cacheEnabled) {
-        // calculate hash of verilator version+options and source file contents
-
-        val md = MessageDigest.getInstance("SHA-1")
-
-        md.update(cachePath.getBytes())
-        md.update(0.toByte)
-        md.update(flags.mkString(" ").getBytes())
-        md.update(0.toByte)
-        md.update(config.waveDepth.toString().getBytes())
-        md.update(0.toByte)
-        md.update(config.optimisationLevel.toString().getBytes())
-        md.update(0.toByte)
-        md.update(waveArgs.getBytes())
-        md.update(0.toByte)
-        md.update(covArgs.getBytes())
-        md.update(0.toByte)
-        md.update(config.toplevelName.getBytes())
-        md.update(0.toByte)
-        md.update(config.simulatorFlags.mkString(" ").getBytes())
-        md.update(0.toByte)
-
-        val verilatorVersionProcess = Process(Seq(verilatorBinFilename, "--version"), new File(workspacePath))
-        val verilatorVersion = verilatorVersionProcess.lineStream.mkString("\n")    // blocks and throws an exception if exit status != 0
-        md.update(verilatorVersion.getBytes())
-
-        def hashFile(md: MessageDigest, file: File) = {
-          val bis = new BufferedInputStream(new FileInputStream(file))
-          val buf = new Array[Byte](1024)
-
-          Iterator.continually(bis.read(buf, 0, buf.length))
-            .takeWhile(_ >= 0)
-            .foreach(md.update(buf, 0, _))
-
-          bis.close()
-        }
-
-        config.rtlIncludeDirs.foreach { dirname =>
-          FileUtils.listFiles(new File(dirname), null, true).asScala.foreach { file =>
-            hashFile(md, file)
-            md.update(0.toByte)
-          }
-
-          md.update(0.toByte)
-        }
-
-        config.rtlSourcesPaths.foreach { filename =>
-          hashFile(md, new File(filename))
-          md.update(0.toByte)
-        }
-
-        val hash = md.digest().map(x => (x & 0xFF).toHexString.padTo(2, '0')).mkString("")
-
-        val previousHashFilename = s"${cachePath}/filesHash.txt"
-        val previousHash = (new File(previousHashFilename)).exists() match {
-          case true => Source.fromFile(previousHashFilename).getLines().next().trim()
-          case false => null
-        }
-
-        // skip verilator compilation if nothing changed (hashes equal)
-        if (hash == previousHash) {
-          if (workspaceCacheDir.exists()) {
-            println("[info] Verilator options and sources unchanged, using cached binaries")
-            useCache = true
-          }
-        } else {
-          val previousHashFile = new PrintWriter(new File(previousHashFilename))
-          previousHashFile.write(hash + "\n")
-          previousHashFile.close()
+        if (workspaceCacheDir.isDirectory()) {
+          println("[info] Found cached verilator binaries")
+          useCache = true
         }
       }
 
@@ -626,12 +646,16 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
       if (cacheEnabled) {
         // update cache
 
-        FileUtils.deleteQuietly(workspaceCacheDir)
+        if (!useCache) {
+          FileUtils.deleteQuietly(workspaceCacheDir)
 
-        // copy only needed files to save disk space
-        FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
-          def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
-        })
+          // copy only needed files to save disk space
+          FileUtils.copyDirectory(workspaceDir, workspaceCacheDir, new FileFilter() {
+            def accept(file: File): Boolean = file.getName() == s"V${config.toplevelName}__ALL.a" || file.getName().endsWith(".mk") || file.getName().endsWith(".h")
+          })
+        }
+
+        FileUtils.touch(hashCacheDir)
       }
     }
   }
@@ -691,7 +715,6 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     }
   }
 
-  prepareCache()
   clean()
   checks()
   compileVerilator()

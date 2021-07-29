@@ -36,6 +36,7 @@ import sys.process._
 case class SpinalVerilatorBackendConfig[T <: Component](
                                                          rtl               : SpinalReport[T],
                                                          waveFormat        : WaveFormat = WaveFormat.NONE,
+                                                         maxCacheEntries   : Int = 100,
                                                          cachePath         : String = null,
                                                          workspacePath     : String = "./",
                                                          workspaceName     : String = null,
@@ -60,6 +61,7 @@ object SpinalVerilatorBackend {
     vconfig.toplevelName      = rtl.toplevelName
     vconfig.vcdPath           = vcdPath
     vconfig.vcdPrefix         = vcdPrefix
+    vconfig.maxCacheEntries   = maxCacheEntries
     vconfig.cachePath         = cachePath
     vconfig.workspaceName     = workspaceName
     vconfig.workspacePath     = workspacePath
@@ -473,6 +475,7 @@ case class SpinalSimConfig(
                             var _waveFormat        : WaveFormat = WaveFormat.NONE,
                             var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
                             var _withCoverage      : Boolean = false,
+                            var _maxCacheEntries   : Int = 100,
                             var _disableCache      : Boolean = false
 ){
 
@@ -564,6 +567,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def maxCacheEntries(count: Int): this.type = {
+    _maxCacheEntries = count
+    this
+  }
+
   def disableCache: this.type = {
     _disableCache = true
     this
@@ -615,7 +623,6 @@ case class SpinalSimConfig(
     if (_workspaceName == null)
       _workspaceName = s"${report.toplevelName}"
 
-    val cacheWorkspaceName = _workspaceName
     _workspaceName = SimWorkspace.allocateWorkspace(_workspacePath, _workspaceName)
 
     println(f"[Progress] Simulation workspace in ${new File(s"${_workspacePath}/${_workspaceName}").getAbsolutePath}")
@@ -634,7 +641,8 @@ case class SpinalSimConfig(
         val vConfig = SpinalVerilatorBackendConfig[T](
           rtl = report,
           waveFormat = _waveFormat,
-          cachePath = if (!_disableCache) s"${_workspacePath}/.cache/${cacheWorkspaceName}" else null,
+          maxCacheEntries = _maxCacheEntries,
+          cachePath = if (!_disableCache) s"${_workspacePath}/.cache" else null,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           vcdPath = s"${_workspacePath}/${_workspaceName}",
           vcdPrefix = null,
