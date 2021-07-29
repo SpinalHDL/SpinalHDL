@@ -764,8 +764,6 @@ object tagTruncated                  extends SpinalTag{
   override def canSymplifyHost: Boolean = true
 }
 class IfDefTag(val cond : String)       extends SpinalTag
-object noSpinalPrune extends SpinalTag
-
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
