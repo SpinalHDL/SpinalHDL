@@ -476,6 +476,7 @@ case class SpinalSimConfig(
                             var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
                             var _withCoverage      : Boolean = false,
                             var _maxCacheEntries   : Int = 100,
+                            var _cachePath         : String = null,   // null => workspacePath + "/.cache"
                             var _disableCache      : Boolean = false
 ){
 
@@ -572,6 +573,11 @@ case class SpinalSimConfig(
     this
   }
 
+  def cachePath(path: String): this.type = {
+    _cachePath = path
+    this
+  }
+
   def disableCache: this.type = {
     _disableCache = true
     this
@@ -642,7 +648,7 @@ case class SpinalSimConfig(
           rtl = report,
           waveFormat = _waveFormat,
           maxCacheEntries = _maxCacheEntries,
-          cachePath = if (!_disableCache) s"${_workspacePath}/.cache" else null,
+          cachePath = if (!_disableCache) (if (_cachePath != null) _cachePath else s"${_workspacePath}/.cache") else null,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           vcdPath = s"${_workspacePath}/${_workspaceName}",
           vcdPrefix = null,
