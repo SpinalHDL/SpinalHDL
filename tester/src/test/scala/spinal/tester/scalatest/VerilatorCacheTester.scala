@@ -71,15 +71,16 @@ object VerilatorCacheTester {
 class VerilatorCacheTester extends AnyFunSuite {
   import VerilatorCacheTester._
 
+  val cacheDir = new File(SimConfig._workspacePath + "/.cache_cachetest")
+
   def deleteCache(): Unit = {
-    val cacheDir = new File(SimConfig._workspacePath + "/.cache")
     if (cacheDir.exists()) {
       FileUtils.forceDelete(cacheDir)
     }
   }
 
   def testComponentA(verilatorCacheUsedChecker: VerilatorCacheUsedChecker, n: Int, x: BigInt, shouldUseCache: Boolean, disableCache: Boolean = false, maxCacheEntries: Int = -1, waveDepth: Int = -1): Long = {
-    var cfg = SimConfig
+    var cfg = SimConfig.cachePath(cacheDir.getAbsolutePath())
     if (disableCache) cfg = cfg.disableCache
     if (maxCacheEntries >= 0) cfg = cfg.maxCacheEntries(maxCacheEntries)
     if (waveDepth >= 0) cfg = cfg.withWave(waveDepth)
