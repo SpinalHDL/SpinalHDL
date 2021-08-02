@@ -580,8 +580,9 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
         val cacheDir = new File(cachePath)
         if (cacheDir.isDirectory()) {
           if (maxCacheEntries > 0) {
-            val cacheEntriesArr = cacheDir.listFiles().filter(_.isDirectory())
-            cacheEntriesArr.sortInPlaceWith(_.lastModified() < _.lastModified())
+            val cacheEntriesArr = cacheDir.listFiles()
+              .filter(_.isDirectory())
+              .sortWith(_.lastModified() < _.lastModified())
 
             val cacheEntries = cacheEntriesArr.toBuffer
             val cacheEntryFound = workspaceCacheDir.isDirectory()
