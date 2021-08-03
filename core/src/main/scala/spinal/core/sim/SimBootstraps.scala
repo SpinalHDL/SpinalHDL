@@ -578,6 +578,10 @@ case class SpinalSimConfig(
   def doSimUntilVoid[T <: Component](rtl: => T, name: String, seed: Int)(body: T => Unit): Unit = compile(rtl).doSimUntilVoid(name,seed)(body)
 
   def compile[T <: Component](rtl: => T) : SimCompiled[T] = {
+    this.copy().compileCloned(rtl)
+  }
+
+  def compileCloned[T <: Component](rtl: => T) : SimCompiled[T] = {
     val uniqueId = SimWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
