@@ -1127,17 +1127,12 @@ end
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
           b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
         else{
-          val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + mem.getName() + "symbol_read")
-            declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
-            b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
-            symboleReadDataName
+          val symWidth = mem.getMemSymbolWidth()
+          for (i <- 0 until symbolCount) {
+            val upLim = symWidth * (i + 1) - 1
+            val downLim = symWidth * i
+            b ++= s"$tab${emitExpression(target)}[$upLim:$downLim] <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
           }
-
-//          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
-          logics ++= s"  always @(*) begin\n"
-          logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
-          logics ++= s"  end\n"
         }
         //          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
       }
@@ -1172,8 +1167,9 @@ end
             emitClockedProcess((tab, b) => {
               val symbolCount = memReadWrite.mem.getMemSymbolCount()
               b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-              emitWrite(b, memReadWrite.mem,  if (memReadWrite.writeEnable != null) emitExpression(memReadWrite.writeEnable) else null.asInstanceOf[String], memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "  ")
-              b ++= s"${tab}  if(~|${emitExpression(memReadWrite.writeEnable)}) begin\n"
+              b ++= s"${tab}  if(${emitExpression(memReadWrite.writeEnable)}) begin\n"
+              emitWrite(b, memReadWrite.mem, null, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "    ")
+              b ++= s"${tab}  end else begin\n"
               emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "    ")
               b ++= s"${tab}  end\n"
               b ++= s"${tab}end\n"
