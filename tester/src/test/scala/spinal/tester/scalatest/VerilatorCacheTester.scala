@@ -6,6 +6,8 @@ import spinal.core.sim._
 
 import java.io.File
 import org.apache.commons.io.FileUtils
+import spinal.lib.Delay
+
 import java.io.PrintStream
 
 
@@ -13,9 +15,13 @@ object VerilatorCacheTester {
   case class ComponentA(n: Int, x: BigInt) extends Component {
     val io = new Bundle {
       val x = out Bits(n bits)
+      val something = in Bits(n bits)
+      val dummy = out Bits(n bits)
     }
 
     io.x := x
+
+    io.dummy := Delay(io.something, 4000)
   }
 
 
