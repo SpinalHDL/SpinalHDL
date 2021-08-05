@@ -45,77 +45,85 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
     }
   }
 
-  def createReg(name: String, doc: String) = {
+  def createEntry(name: String, doc: String) = {
     checkName(name)
-    val ret = new RegEntry(name, nxtAddr, doc, this)
+    val ret = new Entry(name, nxtAddr, doc, this)
     entries += ret
     nxtAddr += wordAddressInc
     ret
   }
 
-  def createReadOnlyReg(name: String, doc: String) = {
-    checkName(name)
-    val ret = new ReadOnlyEntry(name, nxtAddr, doc, this)
-    entries += ret
-    nxtAddr += wordAddressInc
-    ret
-  }
+  // def createReg(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new RegEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
 
-  def createWriteOnlyReg(name: String, doc: String) = {
-    checkName(name)
-    val ret = new WriteOnlyRegEntry(name, nxtAddr, doc, this)
-    entries += ret
-    nxtAddr += wordAddressInc
-    ret
-  }
+  // def createReadOnlyReg(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new ReadOnlyEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
 
-  def createReadStream(name: String, doc: String) = {
-    checkName(name)
-    val ret = new ReadStreamEntry(name, nxtAddr, doc, this)
-    entries += ret
-    nxtAddr += wordAddressInc
-    ret
-  }
+  // def createWriteOnlyReg(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new WriteOnlyRegEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
 
-  def createWriteStream(name: String, doc: String) = {
-    checkName(name)
-    val ret = new WriteStreamEntry(name, nxtAddr, doc, this)
-    entries += ret
-    nxtAddr += wordAddressInc
-    ret
-  }
+  // def createReadStream(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new ReadStreamEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
 
-  def createClearReg(name: String, doc: String) = {
-    checkName(name)
-    val ret = new ClearRegEntry(name, nxtAddr, doc, this)
-    entries += ret
-    nxtAddr += wordAddressInc
-    ret
-  }
+  // def createWriteStream(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new WriteStreamEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
+
+  // def createClearReg(name: String, doc: String) = {
+  //   checkName(name)
+  //   val ret = new ClearRegEntry(name, nxtAddr, doc, this)
+  //   entries += ret
+  //   nxtAddr += wordAddressInc
+  //   ret
+  // }
 
   def assignWriteData(that : Data) = {
     that.assignFromBits(writeData)
   }
 
-  def createIrqRegs(name : String, triggers : Bool*): Bool = {
-    triggers.size match {
-      case 0 => SpinalError("There are no trigger signals.")
-      case x if x > busDataWidth => SpinalError(s"Trigger signal number exceed bus width ${busDataWidth}")
-      case _ =>
-    }
-    val ENS    = createReg(s"${name}_enable", "IRQ enable register")
-    val MASKS  = createReg(s"${name}_mask", "IRQ mask register")
-    val STATUS = createClearReg(s"${name}_status", "IRQ status register")
-    val intWithMask = new ListBuffer[Bool]()
-    triggers.foreach(trigger => {
-      val en   = ENS.newField("enable", 1 bits, doc= "irq enable")(0)
-      val mask = MASKS.newField("mask", 1 bits, doc= "irq mask")(0)
-      val stat = STATUS.newField("status", 1 bits, doc= "irq status")(0)
-      when(trigger && en) {stat.set()}
-      intWithMask +=  mask && stat
-    })
-    intWithMask.foldLeft(False)(_||_)
-  }
+  // def createIrqRegs(name : String, triggers : Bool*): Bool = {
+  //   triggers.size match {
+  //     case 0 => SpinalError("There are no trigger signals.")
+  //     case x if x > busDataWidth => SpinalError(s"Trigger signal number exceed bus width ${busDataWidth}")
+  //     case _ =>
+  //   }
+  //   val ENS    = createReg(s"${name}_enable", "IRQ enable register")
+  //   val MASKS  = createReg(s"${name}_mask", "IRQ mask register")
+  //   val STATUS = createClearReg(s"${name}_status", "IRQ status register")
+  //   val intWithMask = new ListBuffer[Bool]()
+  //   triggers.foreach(trigger => {
+  //     val en   = ENS.newField("enable", 1 bits, doc= "irq enable")(0)
+  //     val mask = MASKS.newField("mask", 1 bits, doc= "irq mask")(0)
+  //     val stat = STATUS.newField("status", 1 bits, doc= "irq status")(0)
+  //     when(trigger && en) {stat.set()}
+  //     intWithMask +=  mask && stat
+  //   })
+  //   intWithMask.foldLeft(False)(_||_)
+  // }
 
   def realignAddress(addr : Long) = {
     assert(addr >= nxtAddr, s"Address must be ${nxtAddr} or greater.")
@@ -139,7 +147,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
         entries.foreach{(reg: Entry) =>
           reg.finish
           is(reg.getAddress){
-            reg.onReadReqIntern()
+            reg.onReadReq()
           }
         }
         default{
@@ -151,7 +159,7 @@ trait MMSlaveFactory extends MMSlaveFactoryBase {
       switch (writeAddress()) {
         entries.foreach{(reg: Entry) =>
           is(reg.getAddress){
-            reg.onWriteReqIntern()
+            reg.onWriteReq()
           }
         }
         default{
