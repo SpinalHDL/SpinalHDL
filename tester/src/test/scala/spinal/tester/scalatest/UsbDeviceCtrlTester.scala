@@ -68,6 +68,8 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         ctrl.write(0, i*4)
       }
       ctrl.write(deviceAddress, UsbDeviceCtrl.Regs.ADDRESS)
+      ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
+      ctrl.write(0x5, UsbDeviceCtrl.Regs.CONFIG)
       assert(dut.ctrl.regs.address.toInt == deviceAddress)
 
       dut.power #= true
@@ -156,6 +158,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                   descQueues(descriptorId).dequeue()
                 }
               }
+              case 16 => println("USB RESET")
             }
             mask &= ~(1 << int)
           }

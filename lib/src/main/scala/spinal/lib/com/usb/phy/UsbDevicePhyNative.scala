@@ -344,6 +344,7 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
       val factor = if(sim) 0.005 else 1.0
       val resume = trigger(20e-3*factor)
       val reset = trigger(10e-3*factor)
+      val suspend = trigger(3e-3*factor)
       lowSpeed := False
     }
 
@@ -357,6 +358,7 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
       val currentIsReset = current === 0
       val reset = RegInit(False) setWhen(timerLong.reset && currentIsReset) clearWhen(!currentIsReset)
       io.ctrl.reset := reset
+      io.ctrl.disconnect := False
     }
   }
 

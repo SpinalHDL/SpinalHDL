@@ -55,6 +55,13 @@ object Debug2 extends App{
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
 
+    case class Wuff(val a : Int) extends Bundle{
+      println(a)
+    }
+
+    val miaou = Wuff(1)
+    val miaou2 = miaou.copy(2)
+
     class Miaou(val a : UInt = UInt(32 bits), b : Bool = Bool()) extends Bundle
 
     val x = new Miaou()
@@ -321,27 +328,72 @@ case class Foo(a: Int, b: Int) extends Component {
 
 object Foo {
   def main(args: Array[String]): Unit = {
-    {
-      val cfg = SimConfig.addSimulatorFlag("--threads 1")
+
+
+    val cfg = SimConfig.withFstWave.addSimulatorFlag("--threads 1")
+    for(i <- 0 until 6){
       val compiled = cfg.compile(Foo(a = 2048, b = 10 - 1))
       compiled.doSim(seed = 0) { dut =>
         dut.clockDomain.forkStimulus(10)
-
-        // just wait for 2000 clock cycles
         dut.clockDomain.waitSampling(200000)
       }
     }
-    {
-      val cfg = SimConfig.addSimulatorFlag("--threads 1")
-      val compiled = cfg.compile(Foo(a = 2048, b = 10 - 1))
-      compiled.doSim(seed = 0) { dut =>
-        dut.clockDomain.forkStimulus(10)
 
-        // just wait for 2000 clock cycles
-        dut.clockDomain.waitSampling(200000)
-      }
-    }
-//    test()  // fast, < 50 ms
-//    test()  // very slow, ~ 15 s
+
   }
+}
+
+object Foo32 extends App{
+  class Sub extends Component{
+//    val io = new Bundle{
+//      val x = in Bits(32 bit)
+//      val y = out Bits(32 bit)
+//    }
+
+//    val miaou = Bits(32 bit).noSpinalPrune()
+
+//    val dout = (out Bits(32 bit)) noSpinalPrune()
+  }
+  class Top extends Component{
+//    val io = new Bundle{
+//      val din = in Bits(32 bit)
+//      val dout = (out Bits(32 bit)) noSpinalPrune()
+//    }
+//
+//    val notused1, notused2 = Bits(32 bit)
+//    val dut = new Sub()
+//
+//    dut.io.x  := notused1
+//    notused2 := dut.io.y
+//    io.dout := io.din
+
+//    val miaou = Bits(32 bit).keep()
+//
+//    val sub = new Sub()
+
+    val io = new Bundle {
+      val xx = Some(in Bool())
+    }
+    println(io.flatten.mkString(","))
+  }
+
+
+  class TestIO(a: Boolean = false) extends Bundle {
+    val z = Bool
+    val more = if (a) Some(Bool) else None
+  }
+
+  class Test extends Component {
+    val io = new Bundle {
+      val b = out Bool()
+      val t = in(new TestIO(true))
+    }
+    val ret = io.t.more match {
+      case Some(v: Bool) => v && io.t.z
+      case None => io.t.z
+    }
+    io.b := ret
+  }
+
+  SpinalConfig(removePruned = false).generateVerilog(new Test).printRtl()
 }

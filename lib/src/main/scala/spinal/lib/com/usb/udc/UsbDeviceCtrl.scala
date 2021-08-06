@@ -54,13 +54,13 @@ object UsbDeviceCtrl {
     val rx = Rx()
 
     val pullup = Bool()
-    val reset, resume = Bool()
+    val reset, resume, disconnect = Bool()
     val tick = Bool()
     val power = Bool()
     val resumeIt = Bool()
 
     override def asMaster(): Unit = {
-      in(tick, reset, resume, power)
+      in(tick, reset, resume, power, disconnect)
       out(resumeIt, pullup)
       master(tx)
       slave(rx)
@@ -87,9 +87,10 @@ object UsbDeviceCtrl {
     output.pullup := cdOutput(BufferCC(input.pullup))
     output.resumeIt := cdOutput(BufferCC(input.resumeIt))
     input.tick := PulseCCByToggle(output.tick, cdOutput, cdInput)
-    input.reset := PulseCCByToggle(output.reset, cdOutput, cdInput)
-    input.resume := PulseCCByToggle(output.resume, cdOutput, cdInput)
+    input.reset := cdInput(BufferCC(output.reset))
+    input.resume := cdInput(BufferCC(output.resume))
     input.power := cdInput(BufferCC(output.power))
+    input.disconnect := cdInput(BufferCC(output.disconnect))
   }
 
 
@@ -110,6 +111,7 @@ object UsbDeviceCtrl {
     val INTERRUPT = 0xFF08
     val HALT = 0xFF0C
     val CONFIG = 0xFF10
+    val ADDRESS_WIDTH = 0xFF20
   }
   object Code{
     val NONE = 0xF
@@ -140,7 +142,13 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   val regs = new Area {
     val frame = Reg(UInt(11 bits))
     val address = Reg(Bits(7 bits))
-    val interrupts = Reg(Bits(16 bits)) init(0)
+    val interrupts = new Area{
+      val endpoints = Reg(Bits(p.epCount bits)) init(0)
+      val reset = RegInit(False)
+
+      val enable = RegInit(False)
+      val pending = (endpoints.orR || reset) && enable
+    }
     val halt = new Area{
       val id = Reg(UInt(log2Up(p.epCount) bits))
       val enable = RegInit(False)
@@ -389,7 +397,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
     EP_ANALYSE whenIsActive{
       memory.internal.doRead(desc.addressByte)
-      when(ep.head === 0 || ep.stall || regs.halt.hit){
+      when(!ep.enable){
+        goto(IDLE)
+      } elsewhen(ep.head === 0 || ep.stall || regs.halt.hit){
         handshakePid := ((ep.stall && !regs.halt.hit) ? B(UsbPid.STALL) | B(UsbPid.NAK)).resized
         switch(token.pid){
           is(UsbPid.SETUP, UsbPid.OUT){
@@ -602,7 +612,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.internal.writeCmd.data(4, 12 bits) := B(completion ? desc.next | ep.head).resized
 
       when(completion && desc.interrupt){
-        regs.interrupts(0, 16 bits)(token.endpoint) := True
+        regs.interrupts.endpoints(token.endpoint.resized) := True
       }
       goto(IDLE)
     }
@@ -622,6 +632,10 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       when(io.phy.reset){
         goto(ACTIVE_INIT)
       }
+    }
+
+    ACTIVE_INIT onEntry {
+      regs.interrupts.reset := True
     }
     ACTIVE_INIT whenIsActive{
       regs.address := 0
@@ -645,12 +659,18 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   val mapping = new Area {
     ctrl.read(regs.frame   , Regs.FRAME)
     ctrl.write(regs.address, Regs.ADDRESS)
-    ctrl.read(regs.interrupts, Regs.INTERRUPT)
-    ctrl.clearOnSet(regs.interrupts, Regs.INTERRUPT)
+    ctrl.read(regs.interrupts.endpoints, Regs.INTERRUPT)
+    ctrl.clearOnSet(regs.interrupts.endpoints, Regs.INTERRUPT)
+    ctrl.read(regs.interrupts.reset, Regs.INTERRUPT, 16)
+    ctrl.clearOnSet(regs.interrupts.reset, Regs.INTERRUPT, 16)
     ctrl.write(regs.halt.id, Regs.HALT, 0)
     ctrl.write(regs.halt.enable, Regs.HALT, 4)
     ctrl.readAndWrite(regs.halt.effective, Regs.HALT, 5)
-    ctrl.write(regs.pullup, Regs.CONFIG, 0)
+    ctrl.setOnSet(regs.pullup, Regs.CONFIG, 0)
+    ctrl.clearOnSet(regs.pullup, Regs.CONFIG, 1)
+    ctrl.setOnSet(regs.interrupts.enable, Regs.CONFIG, 2)
+    ctrl.clearOnSet(regs.interrupts.enable, Regs.CONFIG, 3)
+    ctrl.read(U(p.addressWidth), Regs.ADDRESS_WIDTH)
 
     val memoryMapping = MaskMapping(0x8000, 0x0000)
     val readBuffer = memory.external.readRsp.toReg
@@ -702,7 +722,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
   }
 
 
-  io.interrupt := regs.interrupts.orR
+  io.interrupt := RegNext(regs.interrupts.pending) init(False)
 }
 
 
