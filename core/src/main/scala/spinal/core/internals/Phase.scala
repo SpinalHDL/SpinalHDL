@@ -821,8 +821,8 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         val port = topo.readWriteSync.head
 
         val ram = new Ram_1wrs(
-          wordWidth = mem.getWidth,
-          wordCount = mem.wordCount,
+          wordWidth = port.width,
+          wordCount = mem.wordCount*mem.width/port.width,
           technology = mem.technology,
           readUnderWrite = port.readUnderWrite,
           maskWidth = if (port.mask != null) port.mask.getWidth else 1,

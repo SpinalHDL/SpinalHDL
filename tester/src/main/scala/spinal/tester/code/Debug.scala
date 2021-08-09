@@ -397,3 +397,25 @@ object Foo32 extends App{
 
   SpinalConfig(removePruned = false).generateVerilog(new Test).printRtl()
 }
+
+
+case class Foo2() extends Component {
+  val io = new Bundle {
+    val addr = in UInt(6 bits)
+    val writeData = in Bits(8 bits)
+    val readData = out Bits(8 bits)
+    val enable = in Bool()
+    val writeEnable = in Bool()
+  }
+
+  val mem = Mem(Bits(32 bits), 16)
+  io.readData := mem.readWriteSyncMixedWidth(io.addr, io.writeData, io.enable, io.writeEnable)
+//  mem.writeMixedWidth(io.addr, io.writeData, io.enable)
+//  mem.readSyncMixedWidth(io.addr, io.readData, io.enable)
+}
+
+object Foo2 {
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(targetDirectory="rtl-gen").addStandardMemBlackboxing(blackboxAll).generateVerilog(Foo2())
+  }
+}
