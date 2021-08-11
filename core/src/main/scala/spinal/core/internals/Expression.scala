@@ -1877,6 +1877,7 @@ abstract class AssignmentExpression extends Expression {
   */
 abstract class BitVectorAssignmentExpression extends AssignmentExpression {
   def minimalTargetWidth: Int
+  def copyWithTarget(target : BitVector) : BitVectorAssignmentExpression
 }
 
 
@@ -1896,6 +1897,8 @@ class BitAssignmentFixed() extends BitVectorAssignmentExpression with ScalaLocat
 
   var out: BitVector = null
   var bitId: Int = -1
+
+  override def copyWithTarget(target: BitVector) = BitAssignmentFixed(target, bitId)
 
   override def getTypeObject = TypeBool
 
@@ -1956,6 +1959,8 @@ class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthPr
   var hi = -1
   var lo = 0
 
+  override def copyWithTarget(target: BitVector) = RangedAssignmentFixed(target, hi, lo)
+
   override def getWidth: Int = hi + 1 - lo
   override def finalTarget: BaseType = out
   override def minimalTargetWidth: Int = hi+1
@@ -1984,7 +1989,7 @@ class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthPr
   * Bit assignment with floating index
   */
 object BitAssignmentFloating {
-  def apply(out: BitVector, bitId: UInt): BitAssignmentFloating = {
+  def apply(out: BitVector, bitId: Expression with WidthProvider): BitAssignmentFloating = {
     val assign = new BitAssignmentFloating
     assign.out   = out
     assign.bitId = bitId
@@ -1996,6 +2001,9 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLo
 
   var out: BitVector = null
   var bitId: Expression with WidthProvider = null
+
+
+  override def copyWithTarget(target: BitVector) = BitAssignmentFloating(target, bitId)
 
   override def getTypeObject = TypeBool
   override def finalTarget: BaseType = out
@@ -2045,7 +2053,7 @@ class BitAssignmentFloating() extends BitVectorAssignmentExpression with ScalaLo
   * Range assignment with a floating range
   */
 object RangedAssignmentFloating{
-  def apply(out: BitVector,offset: UInt,bitCount: Int): RangedAssignmentFloating = {
+  def apply(out: BitVector,offset: Expression with WidthProvider, bitCount: Int): RangedAssignmentFloating = {
     val assign = new RangedAssignmentFloating
     assign.out = out
     assign.offset = offset
@@ -2058,6 +2066,8 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
   var out: BitVector = null
   var offset: Expression with WidthProvider = null
   var bitCount: Int = -1
+
+  override def copyWithTarget(target: BitVector) = RangedAssignmentFloating(target, offset, bitCount)
 
   override def getTypeObject = out.getTypeObject
 

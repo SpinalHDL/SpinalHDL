@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, BitVectorAssignmentExpression, RangedAssignmentFixed, RangedAssignmentFloating}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
@@ -83,7 +85,10 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
           case that: AssignmentNode => that.clone(to)
           case _ => that
         }*/
-        to.compositAssignFrom(thatSafe, to, kind)
+        target match {
+          case a : BitVectorAssignmentExpression => to.compositAssignFrom(thatSafe, a.copyWithTarget(to.asInstanceOf[BitVector]), kind)
+          case bt : BaseType => to.compositAssignFrom(thatSafe, to, kind)
+        }
       }
     }
   }
