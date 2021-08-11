@@ -73,9 +73,12 @@ class EngineContext {
         GlobalData.get.toplevel.walkComponents { c =>
 //          assert(c.prePopTasks.isEmpty)
           if (c.prePopTasks.nonEmpty) {
-            c.rework(
+            val tasks = c.prePopTasks
+            c.rework {
+              c.prePopTasks = tasks
               c.prePop()
-            )
+            }
+            c.prePopTasks.clear()
             hadPrePop = true
           }
         }
