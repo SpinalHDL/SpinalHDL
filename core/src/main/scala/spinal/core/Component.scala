@@ -315,6 +315,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Rework the component */
   val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
   def rework[T](gen: => T) : T = {
+    val previousTasks = this.prePopTasks
+    this.prePopTasks = mutable.ArrayBuffer[PrePopTask]()
     ClockDomain.push(this.clockDomain)
     Component.push(this)
     scopeProperties.foreach{ case (p, v) => p.push(v)}
@@ -323,6 +325,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     scopeProperties.foreach{ case (p, v) => p.pop()}
     Component.pop(this)
     ClockDomain.pop()
+    prePopTasks = previousTasks
     ret
   }
 
