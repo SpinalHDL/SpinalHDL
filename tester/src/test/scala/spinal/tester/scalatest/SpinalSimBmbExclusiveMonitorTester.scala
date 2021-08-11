@@ -36,11 +36,11 @@ class SpinalSimBmbExclusiveMonitorTester extends AnyFunSuite{
             alignment = BmbParameter.BurstAlignement.LENGTH,
             canRead = true,
             canWrite = true,
-            canExclusive = true
+            canExclusive = true,
+            canInvalidate = true,
+            canSync = true
           )),
           BmbInvalidationParameter(
-            canInvalidate = true,
-            canSync = true,
             invalidateLength = 8,
             invalidateAlignment = BmbParameter.BurstAlignement.LENGTH
           )

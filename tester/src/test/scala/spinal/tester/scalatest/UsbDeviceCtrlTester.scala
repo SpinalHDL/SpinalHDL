@@ -5,6 +5,7 @@ import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.bmb.BmbParameter
 import spinal.lib.bus.bmb.sim.BmbDriver
+import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.com.usb.ohci.UsbPid
 import spinal.lib.com.usb.phy.UsbDevicePhyNative
 import spinal.lib.com.usb.sim.UsbLsFsPhyAbstractIoAgent
@@ -15,13 +16,17 @@ import spinal.lib.sim.MemoryRegionAllocator
 import scala.collection.mutable
 import scala.util.Random
 
-case class UsbDeviceCtrlTesterTop(fsRatio : Int) extends Component {
-  val ctrl = new UsbDeviceCtrl(
+case class UsbDeviceCtrlTesterTop() extends Component {
+  val ctrlCd = ClockDomain.external("ctrlCd", frequency = FixedFrequency(100 MHz))
+  val phyCd = ClockDomain.external("phyCd", frequency = FixedFrequency(48 MHz))
+//  val phyCd = ctrlCd
+
+  val ctrl = ctrlCd on new UsbDeviceCtrl(
     p = UsbDeviceCtrlParameter(
-      addressWidth = 15
+      addressWidth = 14
     ),
     bmbParameter = BmbParameter(
-      addressWidth = 17,
+      addressWidth = UsbDeviceCtrl.ctrlAddressWidth,
       dataWidth = 32,
       sourceWidth = 0,
       contextWidth = 0,
@@ -29,12 +34,13 @@ case class UsbDeviceCtrlTesterTop(fsRatio : Int) extends Component {
     )
   )
 
-  val phy = new UsbDevicePhyNative(fsRatio = fsRatio, sim = true)
-  ctrl.io.phy <> phy.io.ctrl
+  val phy = phyCd on new UsbDevicePhyNative(sim = true)
+  ctrl.io.phy.cc(ctrlCd, phyCd) <> phy.io.ctrl
 
   val bmb = ctrl.io.ctrl.toIo()
   val usb = phy.io.usb.toIo()
   val power = phy.io.power.toIo()
+  val pullup = phy.io.pullup.toIo()
   val interrupts = ctrl.io.interrupt.toIo()
 
   ctrl.regs.address.simPublic()
@@ -42,13 +48,12 @@ case class UsbDeviceCtrlTesterTop(fsRatio : Int) extends Component {
 
 class UsbDeviceCtrlTester extends AnyFunSuite{
   test("miaou"){
-    SimConfig.withFstWave.compile(UsbDeviceCtrlTesterTop(
-      fsRatio = 4
-    )).doSim(seed = 42){ dut =>
-      dut.clockDomain.forkStimulus(1e12/12e6/dut.fsRatio toLong)
-      val usbAgent = new UsbLsFsPhyAbstractIoAgent(dut.usb, dut.clockDomain, dut.fsRatio)
+    SimConfig.withFstWave.compile(UsbDeviceCtrlTesterTop()).doSim(seed = 42){ dut =>
+      dut.ctrlCd.forkStimulus(1e12/dut.ctrlCd.frequency.getValue.toDouble toLong)
+      dut.phyCd.forkStimulus(1e12/dut.phyCd.frequency.getValue.toDouble  toLong)
+      val usbAgent = new UsbLsFsPhyAbstractIoAgent(dut.usb, dut.phyCd, dut.phy.fsRatio)
 
-      val ctrl = BmbDriver(dut.bmb, dut.clockDomain)
+      val ctrl = BmbDriver(dut.bmb, dut.ctrlCd)
 
       val deviceAddress = 0x53
       var frameCounter = 0x566
@@ -63,18 +68,20 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         ctrl.write(0, i*4)
       }
       ctrl.write(deviceAddress, UsbDeviceCtrl.Regs.ADDRESS)
+      ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
+      ctrl.write(0x5, UsbDeviceCtrl.Regs.CONFIG)
       assert(dut.ctrl.regs.address.toInt == deviceAddress)
 
       dut.power #= true
-      dut.clockDomain.waitSampling(100)
+      dut.phyCd.waitSampling(100)
       usbAgent.connect(false)
-      dut.clockDomain.waitSampling(100)
+      dut.phyCd.waitSampling(100)
       usbAgent.emitReset()
       usbAgent.waitDone()
       assert(dut.ctrl.regs.address.toInt == 0)
 
 
-      dut.clockDomain.waitSampling(100)
+      dut.phyCd.waitSampling(100)
       newFrame()
       assert(ctrl.read(UsbDeviceCtrl.Regs.FRAME) == frameCounter)
       ctrl.write(deviceAddress, UsbDeviceCtrl.Regs.ADDRESS)
@@ -86,7 +93,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       val lock = SimMutex()
-      val alloc = MemoryRegionAllocator(0, 0x7FFF)
+      val alloc = MemoryRegionAllocator(0, 1 << dut.ctrl.p.addressWidth)
       alloc.allocateOn(0, 16*4)
 
       class Descriptor(val address : Int){
@@ -135,7 +142,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
       fork {
         while(true){
-          dut.clockDomain.waitSamplingWhere(dut.interrupts.toBoolean)
+          dut.ctrlCd.waitSamplingWhere(dut.interrupts.toBoolean)
           println("INT")
           var mask = ctrl.read(UsbDeviceCtrl.Regs.INTERRUPT).toInt
           ctrl.write(mask, UsbDeviceCtrl.Regs.INTERRUPT)
@@ -151,6 +158,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                   descQueues(descriptorId).dequeue()
                 }
               }
+              case 16 => println("USB RESET")
             }
             mask &= ~(1 << int)
           }
@@ -158,7 +166,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       //TODO
-      val transferPerEndpoint = 200
+      val transferPerEndpoint = 10
       val endpointCount = 16
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
@@ -170,7 +178,11 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
 
         def newDescriptor(size : Int) = {
-          val m = alloc.allocateAligned(12+size, 16)
+          var m : SizeMapping = null
+          while(m == null) {
+            m = alloc.allocateAligned(12 + size, 16)
+            if(m == null) dut.ctrlCd.waitSampling(Random.nextInt(1000))
+          }
           println(s"MEMORY FREE : ${alloc.freeSize}")
           val d = new Descriptor(m.base.toInt)
           descQueues(endpointId) += d
@@ -399,7 +411,6 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                 for(i <- 0 to Random.nextInt(3)) {
                   frameCurrentUpdate()
                   schedule(frameCurrent) {
-                    println("MASDASDASD")
                     val doStall = Random.nextBoolean()
 
                     if(doStall) {
@@ -449,9 +460,9 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         println(s"DONE Endpoint $endpointId")
       }
 
-      dut.clockDomain.waitSampling(10)
+      dut.phyCd.waitSampling(10)
 
-      def randomDelay() = dut.clockDomain.waitSampling(Random.nextInt(100))
+      def randomDelay() = dut.phyCd.waitSampling(Random.nextInt(100))
       while(schedules.nonEmpty || endpoints.exists(!_.isDone) || descQueues.exists(_.nonEmpty)){
         schedules.get(frameCounter) match {
           case Some(tasks) => {
@@ -467,7 +478,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         randomDelay()
       }
 
-      dut.clockDomain.waitSampling(100)
+      dut.phyCd.waitSampling(100)
     }
   }
 }

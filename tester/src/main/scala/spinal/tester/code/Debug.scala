@@ -48,42 +48,42 @@ object Debug {
 }
 
 
-object Debug2 extends App{
 
-//  class Miaou extends Bundle{
-//
-//
-//    def fifo2() = new Composite{
-//      val x = 4
-//    }.x
-//
-//    def fifo1(): Unit = new Area {
-//      val x = UInt(8 bits)
-//
-//      this.setCompositeName(Miaou.this)
-//      x + 1
-//    }
-////    def fifo(): Unit = composite(this) {
-////      val x = UInt(8 bits)
-////
-////      x + 1
-////    }
-//  }
+
+object Debug2 extends App{
 
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
 
-    val a = slave(Stream(UInt( 8 bits)))
-    val b = master(Stream(UInt( 8 bits)))
-
-    a >> b
-
-
-    val x = out Bool()
-    x := False
-    when(b.fire){
-      x := True
+    case class Wuff(val a : Int) extends Bundle{
+      println(a)
     }
+
+    val miaou = Wuff(1)
+    val miaou2 = miaou.copy(2)
+
+    class Miaou(val a : UInt = UInt(32 bits), b : Bool = Bool()) extends Bundle
+
+    val x = new Miaou()
+    val y = new Miaou(42, False)
+//    val z = x.copy(42, False)
+
+//    val a,b = in Bits(8 bits)
+//
+//    val x, y = OHToUInt(a)
+//    val z = OHToUInt(b)
+
+//    val a = slave(Stream(UInt( 8 bits)))
+//    val b = master(Stream(UInt( 8 bits)))
+//
+//    a >> b
+//
+//
+//    val x = out Bool()
+//    x := False
+//    when(b.fire){
+//      x := True
+//    }
 //    val a = in Bits(8 bits)
 //    val x = out UInt(6 bits)
 //    val y, z = out Bool()
@@ -303,5 +303,119 @@ object Test4141 {
       dataWidth = 32,
       idWidth = 4
     ))
+  }
+}
+
+
+// generate some logic so verilator has some work to do
+case class Foo(a: Int, b: Int) extends Component {
+  val io = new Bundle {
+    val output = out UInt(a bits)
+  }
+
+  var tmp = U(0, a bits)
+
+  for (_ <- 0 until b) {
+    val reg = Reg(UInt(a bits)) init(0)
+    reg := reg + 1
+
+    tmp = tmp + reg
+  }
+
+  io.output := tmp
+}
+
+
+object Foo {
+  def main(args: Array[String]): Unit = {
+
+
+    val cfg = SimConfig.withFstWave.addSimulatorFlag("--threads 1")
+    for(i <- 0 until 6){
+      val compiled = cfg.compile(Foo(a = 2048, b = 10 - 1))
+      compiled.doSim(seed = 0) { dut =>
+        dut.clockDomain.forkStimulus(10)
+        dut.clockDomain.waitSampling(200000)
+      }
+    }
+
+
+  }
+}
+
+object Foo32 extends App{
+  class Sub extends Component{
+//    val io = new Bundle{
+//      val x = in Bits(32 bit)
+//      val y = out Bits(32 bit)
+//    }
+
+//    val miaou = Bits(32 bit).noSpinalPrune()
+
+//    val dout = (out Bits(32 bit)) noSpinalPrune()
+  }
+  class Top extends Component{
+//    val io = new Bundle{
+//      val din = in Bits(32 bit)
+//      val dout = (out Bits(32 bit)) noSpinalPrune()
+//    }
+//
+//    val notused1, notused2 = Bits(32 bit)
+//    val dut = new Sub()
+//
+//    dut.io.x  := notused1
+//    notused2 := dut.io.y
+//    io.dout := io.din
+
+//    val miaou = Bits(32 bit).keep()
+//
+//    val sub = new Sub()
+
+    val io = new Bundle {
+      val xx = Some(in Bool())
+    }
+    println(io.flatten.mkString(","))
+  }
+
+
+  class TestIO(a: Boolean = false) extends Bundle {
+    val z = Bool
+    val more = if (a) Some(Bool) else None
+  }
+
+  class Test extends Component {
+    val io = new Bundle {
+      val b = out Bool()
+      val t = in(new TestIO(true))
+    }
+    val ret = io.t.more match {
+      case Some(v: Bool) => v && io.t.z
+      case None => io.t.z
+    }
+    io.b := ret
+  }
+
+  SpinalConfig(removePruned = false).generateVerilog(new Test).printRtl()
+}
+
+
+case class Foo2() extends Component {
+  val io = new Bundle {
+    val addr = in UInt(6 bits)
+    val writeData = in Bits(8 bits)
+    val readData = out Bits(8 bits)
+    val enable = in Bool()
+    val writeEnable = in Bool()
+  }
+
+  val mem = Mem(Bits(32 bits), 16)
+  io.readData := mem.readWriteSyncMixedWidth(io.addr, io.writeData, io.enable, io.writeEnable)
+//  mem.writeMixedWidth(io.addr, io.writeData, io.enable)
+//  mem.readSyncMixedWidth(io.addr, io.readData, io.enable)
+}
+
+object Foo2 {
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(targetDirectory="rtl-gen").addStandardMemBlackboxing(blackboxAll).generateVerilog(Foo2())
   }
 }

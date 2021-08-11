@@ -146,8 +146,6 @@ class BmbInterconnectGenerator() extends Area{
       if(sInvalidationRequirements.exists(_.invalidateAlignment.allowWord)) invalidationAlignement = BmbParameter.BurstAlignement.WORD
       if(sInvalidationRequirements.exists(_.invalidateAlignment.allowByte)) invalidationAlignement = BmbParameter.BurstAlignement.BYTE
       val aggregated = BmbInvalidationParameter(
-        canInvalidate       = sInvalidationRequirements.exists(_.canInvalidate),
-        canSync             = sInvalidationRequirements.exists(_.canInvalidate),
         invalidateLength    = sInvalidationRequirements.map(_.invalidateLength).max,
         invalidateAlignment = invalidationAlignement
       )
@@ -163,8 +161,6 @@ class BmbInterconnectGenerator() extends Area{
       if(sInvalidationRequirements.exists(_.invalidateAlignment.allowByte)) invalidationAlignement = BmbParameter.BurstAlignement.BYTE
 
       val aggregated = BmbInvalidationParameter(
-        canInvalidate       = sInvalidationRequirements.exists(_.canInvalidate),
-        canSync             = sInvalidationRequirements.exists(_.canInvalidate),
         invalidateLength    = sInvalidationRequirements.map(_.invalidateLength).max,
         invalidateAlignment = invalidationAlignement
       )
@@ -225,7 +221,7 @@ class BmbInterconnectGenerator() extends Area{
     val invalidationGen = Handle {
       for(c <- connections){
         c.arbiterInvalidationRequirements.load(invalidationRequirements.copy(
-          canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
+//          canInvalidate = invalidationRequirements.canInvalidate && c.arbiterAccessRequirements.aggregated.withCachedRead
         ))
       }
     }
@@ -413,6 +409,21 @@ class BmbInterconnectGenerator() extends Area{
         }
       }
 
+      if(!m.accessRequirements.canSync && s.accessCapabilities.canSync) {
+        accessBridges += new AccessBridge {
+          override def logic(mSide: Bmb) = {
+            val c = BmbSyncRemover(
+              p = mSide.p
+            )
+            c.setCompositeName(s.bus, "syncRemover", true)
+            c.io.input << mSide
+            c.io.output
+          }
+
+          override def accessParameter(mSide: BmbAccessParameter) = BmbSyncRemover.outputConfig(mSide)
+        }
+      }
+
       var accessParameter = decoderAccessRequirements.get
       for(bridge <- accessBridges){
         accessParameter = bridge.accessParameter(accessParameter)
@@ -431,20 +442,6 @@ class BmbInterconnectGenerator() extends Area{
     decoderInvalidationRequirements.loadAsync{
       lock.get
       var invalidationParameter = arbiterInvalidationRequirements.get
-      if(invalidationParameter.canSync && !m.invalidationCapabilities.canSync) {
-        invalidationBridges += new InvalidationBridge {
-          override def logic(sSide: Bmb): Bmb = {
-            val c = BmbSyncRemover(
-              p = sSide.p
-            )
-            c.setCompositeName(s.bus, "syncRemover", true)
-            c.io.output >> sSide
-            c.io.input
-          }
-
-          override def invalidationParameter(sSide: BmbInvalidationParameter): BmbInvalidationParameter = sSide.copy(canSync = false)
-        }
-      }
 
       for(bridge <- invalidationBridges){
         invalidationParameter = bridge.invalidationParameter(invalidationParameter)

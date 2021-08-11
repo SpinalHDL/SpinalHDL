@@ -58,8 +58,6 @@ case class BmbInvalidateMonitorGenerator()
   val inputAccessSource = Handle[BmbAccessCapabilities]
   val inputAccessRequirements = Handle[BmbAccessParameter]
   val inputInvalidationRequirements = Handle(BmbInvalidationParameter(
-    canInvalidate = true,
-    canSync = true,
     invalidateLength = inputAccessRequirements.lengthWidth,
     invalidateAlignment = inputAccessRequirements.alignment
   ))

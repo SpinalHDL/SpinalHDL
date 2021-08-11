@@ -249,6 +249,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     */
   case class MuxBuilder[T <: Data](whenTrue: T){
     def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
+    def otherwise(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
   }
 
   /** Conditional operation for Data value */
