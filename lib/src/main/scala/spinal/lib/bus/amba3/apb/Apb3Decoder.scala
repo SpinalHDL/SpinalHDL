@@ -39,6 +39,10 @@ object Apb3Decoder{
 
   def apply(master: Apb3, slaves: Seq[(Apb3, SizeMapping)]): Apb3Decoder = {
 
+    for(slave <- slaves)
+    {
+      assert(master.config.addressWidth > slave._1.config.addressWidth,f"Mapping at 0x${slave._2.base}%x has an address width bigger than the decoder can allow")
+    }
     val decoder = new Apb3Decoder(master.config, slaves.map(_._2))
     val router  = new Apb3Router(decoder.io.output.config)
 
