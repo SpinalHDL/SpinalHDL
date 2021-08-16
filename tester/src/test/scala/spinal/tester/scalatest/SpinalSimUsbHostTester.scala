@@ -212,6 +212,7 @@ class SpinalSimUsbHostTester extends AnyFunSuite{
       def currentFrameNumber = dut.ohci.reg.hcFmNumber.FN.toInt
       var totalBytes = 0
       val edCount = 10 //XXX
+      val transfersPerEndpoint = 5 //XXX
       for(edId <- 0 until edCount) {
         val CONTROL = 0
         val BULK = 1
@@ -274,7 +275,7 @@ class SpinalSimUsbHostTester extends AnyFunSuite{
 
         fork {
           var busyUntilFrame = currentFrameNumber + 1
-          for (tdId <- 0 until 5) { //XXX
+          for (tdId <- 0 until transfersPerEndpoint) { //XXX
             var size = if (edKind != INTERRUPT && Random.nextDouble() < 0.1) {
               Random.nextInt(8192 + 1)
             } else if (Random.nextDouble() < 0.05) {

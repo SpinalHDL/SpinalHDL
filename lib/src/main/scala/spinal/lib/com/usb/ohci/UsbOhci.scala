@@ -116,6 +116,7 @@ object UsbPid{
   val PING = Integer.parseInt("0100",2)
 
   val all = List(OUT, IN, SOF, SETUP, DATA0, DATA1, DATA2, MDATA, ACK, NAK, STALL, NYET, PRE, ERR, SPLIT, PING)
+  val allButSetup = List(OUT, IN, SOF, DATA0, DATA1, DATA2, MDATA, ACK, NAK, STALL, NYET, PRE, ERR, SPLIT, PING)
 
   def anyBut(pid : Int) = all.filter(_ != pid).randomPick()
   def token(pid : Int) = pid | ((0xF ^ pid) << 4)

@@ -43,7 +43,8 @@ case class UsbDeviceCtrlTesterTop() extends Component {
   val pullup = phy.io.pullup.toIo()
   val interrupts = ctrl.io.interrupt.toIo()
 
-  ctrl.regs.address.simPublic()
+  ctrl.regs.address.value.simPublic()
+  ctrl.regs.address.enable.simPublic()
 }
 
 class UsbDeviceCtrlTester extends AnyFunSuite{
@@ -67,10 +68,10 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       for(i <- 0 until 16){
         ctrl.write(0, i*4)
       }
-      ctrl.write(deviceAddress, UsbDeviceCtrl.Regs.ADDRESS)
+      ctrl.write(deviceAddress | 0x100, UsbDeviceCtrl.Regs.ADDRESS)
       ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
       ctrl.write(0x5, UsbDeviceCtrl.Regs.CONFIG)
-      assert(dut.ctrl.regs.address.toInt == deviceAddress)
+      assert(dut.ctrl.regs.address.value.toInt == deviceAddress)
 
       dut.power #= true
       dut.phyCd.waitSampling(100)
@@ -78,13 +79,13 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       dut.phyCd.waitSampling(100)
       usbAgent.emitReset()
       usbAgent.waitDone()
-      assert(dut.ctrl.regs.address.toInt == 0)
+      assert(dut.ctrl.regs.address.enable.toBoolean == false)
 
 
       dut.phyCd.waitSampling(100)
       newFrame()
       assert(ctrl.read(UsbDeviceCtrl.Regs.FRAME) == frameCounter)
-      ctrl.write(deviceAddress, UsbDeviceCtrl.Regs.ADDRESS)
+      ctrl.write(deviceAddress | 0x100, UsbDeviceCtrl.Regs.ADDRESS)
 
 
       val schedules = mutable.LinkedHashMap[Int, mutable.Queue[() => Unit]]()
@@ -94,7 +95,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
       val lock = SimMutex()
       val alloc = MemoryRegionAllocator(0, 1 << dut.ctrl.p.addressWidth)
-      alloc.allocateOn(0, 16*4)
+      alloc.allocateOn(0, 16*4+8)
 
       class Descriptor(val address : Int){
         var offset = 0
@@ -104,13 +105,12 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         var direction = false
         var interrupt = false
         var completionOnFull = false
-        var setup = false
         var frame = 0
 
         def write(): Unit ={
           ctrl.write((offset << 0) | (code << 16), address + 0)
           ctrl.write((next << 0) | (length << 16), address + 4)
-          ctrl.write((frame << 0) | (direction.toInt << 16) | (interrupt.toInt << 17) | (completionOnFull.toInt << 18) | (setup.toInt << 19), address + 8)
+          ctrl.write((frame << 0) | (direction.toInt << 16) | (interrupt.toInt << 17) | (completionOnFull.toInt << 18), address + 8)
         }
 
         def writeW1(): Unit ={
@@ -139,7 +139,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       val descQueues = Array.fill(16)(mutable.Queue[Descriptor]())
-
+      var setupCheck : () => Unit = null
       fork {
         while(true){
           dut.ctrlCd.waitSamplingWhere(dut.interrupts.toBoolean)
@@ -159,6 +159,11 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                 }
               }
               case 16 => println("USB RESET")
+              case 17 => {
+                println("EP SETUP")
+                setupCheck()
+                setupCheck = null
+              }
             }
             mask &= ~(1 << int)
           }
@@ -166,8 +171,8 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       //TODO
-      val transferPerEndpoint = 10
-      val endpointCount = 16
+      val transferPerEndpoint = 100 //TODO
+      val endpointCount = 16 //TODO
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
@@ -216,244 +221,287 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
         ctrl.write((maxPacketSize << 22) | (isochronous.toInt << 16) | 1, endpointId*4)
 
+        def readData(head : Int, count : Int) : Seq[Int] = {
+          val ret = Array.fill(count)(0)
+          for(w <- head/4 to (head+count+3)/4){
+            val value = ctrl.read(0 + w*4).toInt
+            for(b <- 0 to 3 if w*4+b >= head && w*4+b < head + count){
+              ret(w*4+b-head) = (value >> b*8) & 0xFF
+            }
+          }
+          ret
+        }
+
         val endpointThread = simThread
         for(_ <- 0 until transferPerEndpoint) {
 
           def phaseToggle() = phase = if (phase == UsbPid.DATA0) UsbPid.DATA1 else UsbPid.DATA0
-          def frameCurrentUpdate(): Unit ={
+
+          def frameCurrentUpdate(): Unit = {
             frameCurrent = frameCurrent.max(frameCounter + 1)
             if (Random.nextDouble() < 0.3) frameCurrent += Random.nextInt(4) + 1
           }
-          val length = Random.nextInt(maxPacketSize*4)
-          var left = length
-          var notEnough = true
+          val setup = endpointId == 0 &&  Random.nextDouble() < 0.4 //TODO
+//          val setup = endpointId == 0 && true
+          if (setup) {
+            val length = Random.nextInt(9)
+            val dataRef = List.fill(length)(Random.nextInt(256))
 
-          while (notEnough) {
-            var descLength = (maxPacketSize * (1 + Random.nextInt(4)))
-            val direction = Random.nextBoolean()
-            if(direction) descLength = descLength min left
-            val desc = newDescriptor(descLength)
-            var descOffset = 0
-            val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
-            var descNotDone = true
-            val descUsefullLength =  descLength min left
-
-            desc.offset = descOffset
-            desc.code = 0xF
-            desc.next = 0
-            desc.length = descLength
-            desc.direction = direction
-            desc.interrupt = true //TODO
-            desc.completionOnFull = descLength < left
-            desc.frame = 0
-            desc.setup = Random.nextBoolean()
-
-            println(s"Descriptor at ${desc.address}")
-
-            val data = List.fill(descUsefullLength)(Random.nextInt(256))
-            def dataAt(idx : Int) = if(idx < data.length) data(idx) else 0
-            if(desc.direction) {
-              for (i <- 0 until descUsefullLength by 4) {
-                ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + 12 + i)
-              }
+            frameCurrentUpdate()
+            def task(): Unit ={
+              phase = UsbPid.DATA0
+              usbAgent.emitBytes(List(UsbPid.SETUP | (~UsbPid.SETUP << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+              usbAgent.waitDone()
+              usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+              usbAgent.waitDone()
+              val (pid, payload) = usbAgent.rxBlocking()
+              assert(pid == UsbPid.ACK && payload.isEmpty)
+              phaseToggle()
             }
+            schedule(frameCurrent)(task())
+            setupCheck = () => {
+              val dataDut = readData(0x40, length)
+              assert(dataDut == dataRef)
+              endpointThread.resume()
+            }
+            endpointThread.suspend()
+          } else {
+            val length = Random.nextInt(maxPacketSize * 4)
+            var left = length
+            var notEnough = true
 
-            desc.write()
-            push(desc)
+            while (notEnough) {
+              var descLength = (maxPacketSize * (1 + Random.nextInt(4)))
+              val direction = Random.nextBoolean() //TODO
+              //            val direction = true
+              if (direction) descLength = descLength min left
+              val desc = newDescriptor(descLength)
+              var descOffset = 0
+              val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
+              var descNotDone = true
+              val descUsefullLength = descLength min left
 
-            while (descNotDone) {
-              val descOffsetCpy = descOffset
-              val packetLength = left min maxPacketSize
-              val withError = Random.nextDouble() < 0.3 //TODO
-//              val withError = false
-              val tokenError = withError && (Random.nextBoolean() || isochronous && desc.direction) //TODO
-              val dataError = withError && !tokenError
-              val handshakeError = withError && !tokenError
-              val dataRef = data.slice(descOffsetCpy, descOffsetCpy + packetLength)
+              desc.offset = descOffset
+              desc.code = 0xF
+              desc.next = 0
+              desc.length = descLength
+              desc.direction = direction
+              desc.interrupt = true //TODO
+              desc.completionOnFull = descLength < left
+              desc.frame = 0
 
-              frameCurrentUpdate()
+              println(s"Descriptor at ${desc.address}")
 
-              if (!desc.direction) {
-                desc.addCheck {
-                  val dataDut = desc.readData(descOffsetCpy, packetLength)
-                  assert(dataDut == dataRef)
+              val data = List.fill(descUsefullLength)(Random.nextInt(256))
+
+              def dataAt(idx: Int) = if (idx < data.length) data(idx) else 0
+
+              if (desc.direction) {
+                for (i <- 0 until descUsefullLength by 4) {
+                  ctrl.write(dataAt(i) | (dataAt(i + 1) << 8) | (dataAt(i + 2) << 16) | (dataAt(i + 3).toLong << 24), desc.address + 12 + i)
                 }
               }
 
-              def packetTask() : Unit = {
-                println(s"packetTask $tokenError $dataError $handshakeError")
-                if(!desc.direction) {
-                  println(s"SETUP/OUT ${simTime()} ${desc.address} $packetLength")
-                  val pidRight = if(desc.setup) UsbPid.SETUP else UsbPid.OUT
-                  val pidWrong = UsbPid.all.filter(_ != pidRight).randomPick()
-                  if(!tokenError) {
-                    usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                    usbAgent.waitDone()
-                  } else {
-//                    4 match {
-                    Random.nextInt(5) match { //TODO
-                      case 0 => //PID check error
-                        usbAgent.emitBytes(List(pidRight | (pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                      case 1 => //To many bytes
-                        usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1, 0), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                      case 2 => //Wrong PID
-                        usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                      case 3 => //crc error
-                        usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true, crcError = true)
-                      case 4 => //wrong address
-                        usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress+1 | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true, crcError = true)
-                    }
-                    usbAgent.waitDone()
-                    return
-                  }
+              desc.write()
+              push(desc)
 
-                  if(!dataError) {
-                    usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
-                    usbAgent.waitDone()
-                  } else {
-//                    4 match {
-                    Random.nextInt(5) match { //todo
-                      case 0 => // wrong PID
-                        val pidWrong = UsbPid.all.filter(e => (e & 7) != 3).randomPick(); usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
-                      case 1 => // wrong phase
-                        val pidWrong = phase ^0x8
-                        usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
-                        usbAgent.waitDone()
-                        if(!isochronous) {
-                          val (pid, payload) = usbAgent.rxBlocking()
-                          assert(pid == UsbPid.ACK && payload.isEmpty)
-                        }
-                        return
-                      case 2 => // pid error
-                        usbAgent.emitBytes(List(phase | (phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
-                      case 3 => // crc error
-                        usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false, crcError = true)
-                      case 4 => // to much data
-                        usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill((maxPacketSize min (descLength-descOffsetCpy))+Random.nextInt(5) + 1)(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false)
+              while (descNotDone) {
+                val descOffsetCpy = descOffset
+                val packetLength = left min maxPacketSize
+                val withError = Random.nextDouble() < 0.3 //TODO
+                //              val withError = false
+                val tokenError = withError && (Random.nextBoolean() || isochronous && desc.direction) //TODO
+                val dataError = withError && !tokenError
+                val handshakeError = withError && !tokenError
+                val dataRef = data.slice(descOffsetCpy, descOffsetCpy + packetLength)
 
-                    }
-                    usbAgent.waitDone()
-                    return
-                  }
-                  if(!isochronous) {
-                    val (pid, payload) = usbAgent.rxBlocking()
-                    assert(pid == UsbPid.ACK && payload.isEmpty)
-                  }
-                  phaseToggle()
-                  println(s"bye ${simTime()}")
-                } else {
-                  println(s"IN ${simTime()} ${desc.address} $packetLength")
+                frameCurrentUpdate()
 
-                  val pidRight = UsbPid.IN
-                  val pidWrong = UsbPid.all.filter(_ != pidRight).randomPick()
-
-                  if(!tokenError) {
-                    usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                    usbAgent.waitDone()
-                  } else {
-//                    1 match {
-                    Random.nextInt(2) match { //TODO
-                      case 0 =>  // pid error
-                        usbAgent.emitBytes(List(pidRight  | (pidRight  << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                      case 1 =>  // wrong pid
-                        usbAgent.emitBytes(List(pidWrong  | (~pidWrong  << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
-                    }
-                    usbAgent.waitDone()
-                    return
+                if (!desc.direction) {
+                  desc.addCheck {
+                    val dataDut = desc.readData(descOffsetCpy, packetLength)
+                    assert(dataDut == dataRef)
                   }
-                  val (pid, payload) = usbAgent.rxBlocking()
-                  assert(pid == phase)
-                  assert(payload == dataRef)
-                  if(!isochronous) {
-                    if(!handshakeError) {
-                      usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                }
+
+                def packetTask(): Unit = {
+                  println(s"packetTask $tokenError $dataError $handshakeError")
+                  if (!desc.direction) {
+                    println(s"OUT ${simTime()} ${desc.address} $packetLength")
+                    val pidRight = UsbPid.OUT
+                    val pidWrong = UsbPid.allButSetup.filter(e => e != pidRight).randomPick()
+                    if (!tokenError) {
+                      usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
                       usbAgent.waitDone()
                     } else {
-//                      3 match {
-                      Random.nextInt(4) match {  //TODO
-                        case 0 =>  //Wrong PID
-                          val pidWrong = UsbPid.anyBut(UsbPid.ACK); usbAgent.emitBytes(List(pidWrong | (~pidWrong<< 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
-                        case 1 => //pid error
-                          usbAgent.emitBytes(List(UsbPid.ACK | (UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
-                        case 2 =>  // too much data
-                          usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4), Random.nextInt(256)), crc16 = false, turnaround = true, ls = false, crc5 = false)
-                        case 3 =>  // no data
-                          usbAgent.emitBytes(List(), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                      //                    4 match {
+                      Random.nextInt(5) match { //TODO
+                        case 0 => //PID check error
+                          usbAgent.emitBytes(List(pidRight | (pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                        case 1 => //To many bytes
+                          usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1, 0), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                        case 2 => //Wrong PID
+                          usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                        case 3 => //crc error
+                          usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true, crcError = true)
+                        case 4 => //wrong address
+                          usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress + 1 | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true, crcError = true)
+                      }
+                      usbAgent.waitDone()
+                      return
+                    }
+
+                    if (!dataError) {
+                      usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+                      usbAgent.waitDone()
+                    } else {
+                      //                    4 match {
+                      Random.nextInt(5) match { //todo
+                        case 0 => // wrong PID
+                          val pidWrong = UsbPid.allButSetup.filter(e => (e & 7) != 3).randomPick(); usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+                        case 1 => // wrong phase
+                          val pidWrong = phase ^ 0x8
+                          usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+                          usbAgent.waitDone()
+                          if (!isochronous) {
+                            val (pid, payload) = usbAgent.rxBlocking()
+                            assert(pid == UsbPid.ACK && payload.isEmpty)
+                          }
+                          return
+                        case 2 => // pid error
+                          usbAgent.emitBytes(List(phase | (phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false)
+                        case 3 => // crc error
+                          usbAgent.emitBytes(List(phase | (~phase << 4)) ++ dataRef, crc16 = true, turnaround = true, ls = false, crc5 = false, crcError = true)
+                        case 4 => // to much data
+                          usbAgent.emitBytes(List(phase | (~phase << 4)) ++ List.fill((maxPacketSize min (descLength - descOffsetCpy)) + Random.nextInt(5) + 1)(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false)
 
                       }
                       usbAgent.waitDone()
                       return
                     }
+                    if (!isochronous) {
+                      val (pid, payload) = usbAgent.rxBlocking()
+                      assert(pid == UsbPid.ACK && payload.isEmpty)
+                    }
+                    phaseToggle()
+                    println(s"bye ${simTime()}")
+                  } else {
+                    println(s"IN ${simTime()} ${desc.address} $packetLength")
+
+                    val pidRight = UsbPid.IN
+                    val pidWrong = UsbPid.allButSetup.filter(_ != pidRight).randomPick()
+
+                    if (!tokenError) {
+                      usbAgent.emitBytes(List(pidRight | (~pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                      usbAgent.waitDone()
+                    } else {
+                      //                    1 match {
+                      Random.nextInt(2) match { //TODO
+                        case 0 => // pid error
+                          usbAgent.emitBytes(List(pidRight | (pidRight << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                        case 1 => // wrong pid
+                          usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true)
+                      }
+                      usbAgent.waitDone()
+                      return
+                    }
+                    val (pid, payload) = usbAgent.rxBlocking()
+                    assert(pid == phase)
+                    assert(payload == dataRef)
+                    if (!isochronous) {
+                      if (!handshakeError) {
+                        usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                        usbAgent.waitDone()
+                      } else {
+                        //                      3 match {
+                        Random.nextInt(4) match { //TODO
+                          case 0 => //Wrong PID
+                            val pidWrong = UsbPid.anyBut(UsbPid.ACK); usbAgent.emitBytes(List(pidWrong | (~pidWrong << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                          case 1 => //pid error
+                            usbAgent.emitBytes(List(UsbPid.ACK | (UsbPid.ACK << 4)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                          case 2 => // too much data
+                            usbAgent.emitBytes(List(UsbPid.ACK | (~UsbPid.ACK << 4), Random.nextInt(256)), crc16 = false, turnaround = true, ls = false, crc5 = false)
+                          case 3 => // no data
+                            usbAgent.emitBytes(List(), crc16 = false, turnaround = true, ls = false, crc5 = false)
+
+                        }
+                        usbAgent.waitDone()
+                        return
+                      }
+                    }
+                    phaseToggle()
                   }
-                  phaseToggle()
+                }
+
+                schedule(frameCurrent)(packetTask())
+
+                if (!withError) {
+                  left -= packetLength
+                  descOffset += packetLength
+                  if (packetLength != maxPacketSize) {
+                    notEnough = false
+                    descNotDone = false
+                  }
+                  if (desc.completionOnFull && descOffset == descLength) {
+                    descNotDone = false
+                  }
                 }
               }
+              desc.addCheck {
+                assert(desc.code == 0)
+                freeDescriptor(desc)
 
-              schedule(frameCurrent)(packetTask())
+                if (sleepOnCompletion) {
+                  for (i <- 0 to Random.nextInt(3)) {
+                    frameCurrentUpdate()
+                    schedule(frameCurrent) {
+                      val doStall = Random.nextBoolean()
 
-              if(!withError) {
-                left -= packetLength
-                descOffset += packetLength
-                if (packetLength != maxPacketSize) {
-                  notEnough = false
-                  descNotDone = false
-                }
-                if (desc.completionOnFull && descOffset == descLength) {
-                  descNotDone = false
-                }
-              }
-            }
-            desc.addCheck{
-              assert(desc.code == 0)
-              freeDescriptor(desc)
+                      if (doStall) {
+                        ctrl.write(endpointId | 0x10, Regs.HALT)
+                        while ((ctrl.read(Regs.HALT) & 0x20) == 0) {}
+                        val status = ctrl.read(endpointId * 4)
+                        ctrl.write(status | (1 << Status.STALL), endpointId * 4)
+                        ctrl.write(0, Regs.HALT)
+                      }
 
-              if(sleepOnCompletion){
-                for(i <- 0 to Random.nextInt(3)) {
+
+                      Random.nextInt(2) match {
+                        case 0 => {
+                          usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true);
+                          usbAgent.waitDone()
+                          if (!isochronous) {
+                            if (doStall) usbAgent.assertRxStall() else usbAgent.assertRxNak()
+                          }
+                        }
+                        case 1 => {
+                          val pid = UsbPid.OUT
+                          val phaseTx = if (Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1
+                          usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true);
+                          usbAgent.waitDone()
+                          usbAgent.emitBytes(List(phaseTx | (~phaseTx << 4)) ++ List.fill(Random.nextInt(65))(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false);
+                          usbAgent.waitDone()
+                          if (!isochronous) {
+                            if (doStall) usbAgent.assertRxStall()
+                            else if (phase != phaseTx) usbAgent.assertRxAck()
+                            else usbAgent.assertRxNak()
+                          }
+                        }
+                      }
+                      if (doStall) {
+                        val status = ctrl.read(endpointId * 4)
+                        ctrl.write(status & ~(1 << Status.STALL), endpointId * 4)
+                      }
+                    }
+                  }
                   frameCurrentUpdate()
                   schedule(frameCurrent) {
-                    val doStall = Random.nextBoolean()
-
-                    if(doStall) {
-                      ctrl.write(endpointId | 0x10, Regs.HALT)
-                      while((ctrl.read(Regs.HALT) & 0x20) == 0){}
-                      val status = ctrl.read(endpointId*4)
-                      ctrl.write(status | (1 << Status.STALL), endpointId*4)
-                      ctrl.write(0, Regs.HALT)
-                    }
-
-
-                    Random.nextInt(2) match {
-                      case 0 => {
-                        usbAgent.emitBytes(List(UsbPid.IN | (~UsbPid.IN << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
-                        if(!isochronous) {
-                          if(doStall) usbAgent.assertRxStall() else usbAgent.assertRxNak()
-                        }
-                      }
-                      case 1 => {
-                        val pid = if(Random.nextBoolean()) UsbPid.SETUP else UsbPid.OUT
-                        val phaseTx = if(Random.nextBoolean()) UsbPid.DATA0 else UsbPid.DATA1
-                        usbAgent.emitBytes(List(pid | (~pid << 4), deviceAddress | (endpointId << 7), endpointId >> 1), crc16 = false, turnaround = true, ls = false, crc5 = true); usbAgent.waitDone()
-                        usbAgent.emitBytes(List(phaseTx | (~phaseTx << 4)) ++ List.fill(Random.nextInt(65))(Random.nextInt(256)), crc16 = true, turnaround = true, ls = false, crc5 = false); usbAgent.waitDone()
-                        if(!isochronous) {
-                          if(doStall) usbAgent.assertRxStall()
-                          else if(phase != phaseTx) usbAgent.assertRxAck()
-                          else usbAgent.assertRxNak()
-                        }
-                      }
-                    }
-                    if(doStall) {
-                      val status = ctrl.read(endpointId*4)
-                      ctrl.write(status & ~(1 << Status.STALL), endpointId*4)
-                    }
+                    endpointThread.resume()
                   }
                 }
-                frameCurrentUpdate()
-                schedule(frameCurrent) {
-                  endpointThread.resume()
-                }
               }
+              if (sleepOnCompletion) endpointThread.suspend()
             }
-            if(sleepOnCompletion) endpointThread.suspend()
           }
         }
 

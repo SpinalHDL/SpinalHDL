@@ -27,8 +27,8 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
     lowSpeed := False
   }
 
-  val rxToTxDelay = new UsbTimer(0.084e-6*4, fsRatio){
-    val twoCycle = cycles(4)
+  val rxToTxDelay = new UsbTimer(0.084e-6*2, fsRatio){
+    val twoCycle = cycles(2)
     val active = RegInit(False) clearWhen(twoCycle)
     lowSpeed := False
   }
@@ -51,27 +51,27 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
 
       when(input.valid) {
         output.valid := input.valid
-        when(counter === 6) {
+
+        when(input.data) {
+          output.data := state
+          when(timer.oneCycle) {
+            counter := counter + 1;
+            input.ready := True
+            when(counter === 5){
+              timer.clear := True
+              input.ready := False
+              state := !state
+            }
+            when(counter === 6){
+              counter := 0;
+            }
+          }
+        } otherwise {
           output.data := !state
           when(timer.oneCycle) {
             counter := 0;
+            input.ready := True
             state := !state
-            timer.clear := True
-          }
-        } otherwise {
-          when(input.data) {
-            output.data := state
-            when(timer.oneCycle) {
-              counter := counter + 1;
-              input.ready := True
-            }
-          } otherwise {
-            output.data := !state
-            when(timer.oneCycle) {
-              counter := 0;
-              input.ready := True
-              state := !state
-            }
           }
         }
       }
