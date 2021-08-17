@@ -28,11 +28,13 @@ import scala.collection.mutable.ArrayBuffer
 
 class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc with VerilogBase {
   import pc._
+  globalPrefix = pc.config.globalPrefix
 
   var outFile: java.io.FileWriter = null
   def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
 
   override def impl(pc: PhaseContext): Unit = {
+
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
     if (!pc.config.oneFilePerComponent) {

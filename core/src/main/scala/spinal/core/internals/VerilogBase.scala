@@ -42,8 +42,9 @@ class Tab4 extends VerilogTheme {
 
 
 trait VerilogBase extends VhdlVerilogBase{
-  val theme = new Tab2 //TODO add into SpinalConfig
+  var globalPrefix = ""
 
+  val theme = new Tab2 //TODO add into SpinalConfig
   def expressionAlign(net: String, section: String, name: String) = {
     f"$net%-10s $section%-8s $name"
   }
@@ -105,17 +106,17 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    prefix + globalPrefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
   def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
 
   def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+    prefix + globalPrefix + enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
   def emitStructType(struct: SpinalStruct): String = {
