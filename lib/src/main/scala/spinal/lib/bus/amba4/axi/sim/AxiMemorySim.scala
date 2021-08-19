@@ -319,6 +319,12 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
             r.valid #= false
             clockDomain.waitSampling(random.nextInt(config.interruptMaxDelay + 1))
             r.valid #= true
+
+            if(i == job.burstLength)
+              r.payload.last #= true
+            r.payload.data #= memory.readBigInt(job.address + i * busWordWidth, busWordWidth)
+            clockDomain.waitSamplingWhere(r.ready.toBoolean)
+            i = i + 1
           }
           else {
             if(i == job.burstLength)
