@@ -515,8 +515,9 @@ object Miaou43414 extends App{
   case class adder() extends Component{
     val io=new Bundle{
       val data0,data1=in UInt(8 bits)
-      val sum=out UInt(8 bits) setAsReg()
+      val sum=out UInt(8 bits)
     }
+    io.sum.setAsReg()
     noIoPrefix()
 
     val p = this.parent.asInstanceOf[top]
