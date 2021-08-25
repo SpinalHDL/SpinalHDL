@@ -205,9 +205,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     switch(stateReg){
       for(state <- states){
         if(state == stateBoot) default {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         } else is(enumOf(state)) {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         }
       }
     }

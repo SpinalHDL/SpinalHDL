@@ -183,6 +183,31 @@ object Debug3 extends App{
     dut.clockDomain.waitSampling(100)
   }
 }
+object Debug344 extends App{
+  import spinal.core.sim._
+
+  SimConfig.withFstWave.compile(new Component {
+    val fsm = new StateMachine{
+      val STATE_A = new StateDelay(10) with EntryPoint
+      val STATE_B = new State()
+
+      val result = out UInt(8 bits)
+      result := 0
+      STATE_A.whenIsActive{
+        result := 1
+        println("A")
+      }
+      STATE_A.whenCompleted{
+        result := 2
+        goto(STATE_B)
+        println("B")
+      }
+    }
+  }).doSim{ dut =>
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(100)
+  }
+}
 
 
 object Debug4 extends App{
@@ -542,4 +567,115 @@ object Miaou43414 extends App{
   }
 
   SpinalVerilog(top())
+}
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.fsm._
+import spinal.lib.io.TriState
+
+case class FIFO_IF(width_d: Int, width_q: Int) extends Bundle with IMasterSlave {
+  val data = Bits(width_d bits)
+  val q = Bits(width_q bits)
+  val empty, full, rd, wr, reset = Bool()
+
+  override def asMaster(): Unit = {
+    out(data, rd, wr, reset)
+    in(q, empty, full)
+  }
+}
+
+class FTDICtrl(tick_div: Int) extends Component {
+  val io = new Bundle {
+    val ftdi = new Bundle {
+      val data = master(TriState(Bits(8 bits)))
+      val txe_n, rxf_n = in Bool()
+      val rd_n, wr = out Bool()
+    }
+    val c_fifo = master(FIFO_IF(8,8))
+    val a_fifo = master(FIFO_IF(32,8))
+  }
+
+  val ftdi_fsm = new StateMachine {
+    val FTD_RCHK, FTD_WCHK, C_FIFO_WR, A_FIFO_RD = new State
+    val FTD_READ, FTD_WRITE = new StateDelay(cyclesCount = tick_div*2)
+
+    setEntry(FTD_RCHK)
+
+    val can_read = RegNext(~(io.ftdi.rxf_n | io.c_fifo.full))
+    val can_write = RegNext(~(io.ftdi.txe_n | io.a_fifo.empty))
+
+    io.c_fifo.data := io.ftdi.data.read
+    io.ftdi.data.write := io.a_fifo.q
+
+    io.ftdi.rd_n := True
+    io.ftdi.wr := False
+    io.c_fifo.wr := False
+    io.a_fifo.rd := False
+    io.ftdi.data.writeEnable := False
+
+    FTD_RCHK
+      .whenIsActive {
+        when(can_read) {
+          goto(C_FIFO_WR)
+        }.otherwise {
+          goto(FTD_WCHK)
+        }
+      }
+
+    C_FIFO_WR
+      .whenIsActive {
+        io.c_fifo.wr := True
+        goto(FTD_READ)
+      }
+      .onExit {
+        io.c_fifo.wr := False
+      }
+
+    FTD_READ
+      .whenIsActive {
+        io.ftdi.rd_n := False
+      }
+      .whenCompleted {
+        io.ftdi.rd_n := True
+        goto(FTD_WCHK)
+      }
+
+    FTD_WCHK
+      .whenIsActive {
+        when(can_write) {
+          goto(FTD_WRITE)
+        }.otherwise {
+          goto(FTD_RCHK)
+        }
+      }
+
+    FTD_WRITE
+      .whenIsActive {
+        io.ftdi.data.writeEnable := True
+        io.ftdi.wr := True
+      }
+      .whenCompleted {
+        io.ftdi.data.writeEnable := False
+        io.ftdi.wr := False
+        goto(A_FIFO_RD)
+      }
+
+    A_FIFO_RD
+      .whenIsActive {
+        io.a_fifo.rd := True
+      }
+      .onExit {
+        io.a_fifo.rd := False
+        goto(FTD_RCHK)
+      }
+
+  }
+  ftdi_fsm.setEncoding(binaryOneHot)
+}
+
+object FTDICtrlVerilog {
+  def main(args: Array[String]) {
+    SpinalVerilog(new FTDICtrl(10))
+  }
 }

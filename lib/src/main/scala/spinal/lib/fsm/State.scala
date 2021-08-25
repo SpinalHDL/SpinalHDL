@@ -63,11 +63,13 @@ object State{
 /**
   * State
   */
+
+case class StateMachineTask(priority : Int, body : () => Unit)
 class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area with ScalaLocated {
 
   val onEntryTasks       = ArrayBuffer[() => Unit]()
   val onExitTasks        = ArrayBuffer[() => Unit]()
-  val whenActiveTasks    = ArrayBuffer[() => Unit]()
+  val whenActiveTasks    = ArrayBuffer[StateMachineTask]()
   val whenInactiveTasks  = ArrayBuffer[() => Unit]()
   val whenIsNextTasks    = ArrayBuffer[() => Unit]()
   @dontName var innerFsm = ArrayBuffer[StateMachine]()
@@ -83,7 +85,12 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
   }
 
   def whenIsActive(doThat: => Unit): this.type = {
-    whenActiveTasks += (() => doThat)
+    whenIsActiveWithPriority(0)(doThat)
+    this
+  }
+
+  def whenIsActiveWithPriority(priority : Int)(doThat: => Unit): this.type = {
+    whenActiveTasks += StateMachineTask(priority, () => doThat)
     this
   }
 
@@ -120,7 +127,7 @@ class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAcce
     fsm.startFsm()
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     when(fsm.wantExit()){
       doWhenCompletedTasks()
     }
@@ -164,7 +171,7 @@ class StateParallelFsm(val fsms: StateMachineAccessor*)(implicit stateMachineAcc
     fsms.foreach(_.startFsm())
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
     when(readys.reduce(_ && _)){
       doWhenCompletedTasks()
@@ -223,7 +230,7 @@ class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineA
     cache.value := cyclesCount
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     cache.value := cache.value - 1
     when(cache.value <= 1){
       doWhenCompletedTasks()
