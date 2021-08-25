@@ -226,6 +226,26 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     }
   }
 
+  def emitSuspend(): Unit ={
+    delayed(3e-3*0.005*1e12 toLong){
+      doneNotify()
+    }
+  }
+
+  def emitResume(): Unit ={
+    rx.enable = true
+    rx.dm = true
+    rx.dp = false
+    delayed(20e-3*0.005*1e12 toLong){
+      rx.dm = false
+      rx.dp = false
+      delayed(83e-9*2*1e12 toLong){
+        rx.enable = false
+        doneNotify()
+      }
+    }
+  }
+
   def bytesToBoolean(data : Seq[Int]) = {
     val ret = ArrayBuffer[Boolean]()
     for(e <- data) {

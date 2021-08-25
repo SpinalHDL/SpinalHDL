@@ -80,9 +80,25 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       usbAgent.emitReset()
       usbAgent.waitDone()
       assert(dut.ctrl.regs.address.enable.toBoolean == false)
-
-
       dut.phyCd.waitSampling(100)
+      assert(ctrl.read(UsbDeviceCtrl.Regs.INTERRUPT) == 1 << 16)
+      ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
+
+      println(s"suspend started at $simTime")
+      usbAgent.emitSuspend()
+      usbAgent.waitDone()
+      dut.phyCd.waitSampling(100)
+      assert(ctrl.read(UsbDeviceCtrl.Regs.INTERRUPT) == 1 << 18)
+      ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
+
+
+      println(s"resume started at $simTime")
+      usbAgent.emitResume()
+      usbAgent.waitDone()
+      dut.phyCd.waitSampling(100)
+      assert(ctrl.read(UsbDeviceCtrl.Regs.INTERRUPT) == 1 << 19)
+      ctrl.write(0xFFFFFFFFl, UsbDeviceCtrl.Regs.INTERRUPT)
+
       newFrame()
       assert(ctrl.read(UsbDeviceCtrl.Regs.FRAME) == frameCounter)
       ctrl.write(deviceAddress | 0x100, UsbDeviceCtrl.Regs.ADDRESS)
@@ -109,12 +125,12 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
 
         def write(): Unit ={
           ctrl.write((offset << 0) | (code << 16), address + 0)
-          ctrl.write((next << 0) | (length << 16), address + 4)
+          ctrl.write((next << 4) | (length << 16), address + 4)
           ctrl.write((frame << 0) | (direction.toInt << 16) | (interrupt.toInt << 17) | (completionOnFull.toInt << 18), address + 8)
         }
 
         def writeW1(): Unit ={
-          ctrl.write((next << 0) | (length << 16), address + 4)
+          ctrl.write((next << 4) | (length << 16), address + 4)
         }
 
         def read(): Unit ={
@@ -159,6 +175,8 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
                 }
               }
               case 16 => println("USB RESET")
+              case 18 => println("USB SUSPEND")
+              case 19 => println("USB RESUME")
               case 17 => {
                 println("EP SETUP")
                 setupCheck()

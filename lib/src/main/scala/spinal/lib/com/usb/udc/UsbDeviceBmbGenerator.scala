@@ -18,6 +18,7 @@ class UsbDeviceBmbGenerator(ctrlOffset : Handle[BigInt] = Unset)
 
   def createPhyDefault() = new Area{
     val usb = Handle(logic.io.usb)
+    val power = Handle(logic.io.power)
     val logic = Handle(UsbDevicePhyNative(sim=false))
 
     Handle{
@@ -30,24 +31,19 @@ class UsbDeviceBmbGenerator(ctrlOffset : Handle[BigInt] = Unset)
       }
     }
 
-    def createInferableIo() = Handle{
-      logic.clockDomain {
-        logic.io.power := True
-        val native = usb.get.toNativeIo()
-        when(!logic.io.pullup){
-          native.dp.writeEnable := True
-          native.dm.writeEnable := True
-          native.dp.write := False
-          native.dm.write := False
-        }
-        val buffer = native.stage()
-        master(buffer.stage())
+    def createInferableIo() = Handle{logic.clockDomain {new Area{
+      val native = usb.get.toNativeIo()
+      when(!logic.io.pullup){
+        native.dp.writeEnable := True
+        native.dm.writeEnable := True
+        native.dp.write := False
+        native.dm.write := False
       }
-    }
-
-//    def createSimIo() = Handle {
-//      (usb.toIo, management.toIo)
-//    }
+      val buffer = native.stage()
+      val dif = master(buffer.stage())
+      val power = in(Bool())
+      logic.io.power := power
+    }}}
   }
 
   val ctrlSource       = Handle[BmbAccessCapabilities]

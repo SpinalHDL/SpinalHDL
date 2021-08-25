@@ -340,25 +340,39 @@ case class UsbDevicePhyNative(sim : Boolean = false) extends Component{
     }
 
 
-    val timerLong = new UsbTimer(counterTimeMax = 21e-3, fsRatio) {
+    val timerLong = new UsbTimer(counterTimeMax = 21e-3*2, fsRatio) {
       val factor = if(sim) 0.005 else 1.0
-      val resume = trigger(20e-3*factor)
-      val reset = trigger(10e-3*factor)
-      val suspend = trigger(3e-3*factor)
+      val resume = trigger(19.9e-3*factor)
+      val reset = trigger(9.9e-3*factor)
+      val suspend = trigger(2.9e-3*factor)
+      val oneBit = trigger(83e-9)
+      val threeBit = trigger(83e-9*3)
+      val hadOne = RegInit(False) setWhen(oneBit) clearWhen(clear)
+      val hadTree = RegInit(False) setWhen(threeBit) clearWhen(clear)
       lowSpeed := False
     }
 
     val detect = new Area{
-      val current = filter.io.filtred.dp ## filter.io.filtred.dm
+      val current = filter.io.filtred.dm ## filter.io.filtred.dp
       val previous = RegNext(current) init(3)
+      when(timerLong.counter.msb){
+        timerLong.inc := False
+      }
       when(current =/= previous){
         timerLong.clear := True
       }
 
-      val currentIsReset = current === 0
-      val reset = RegInit(False) setWhen(timerLong.reset && currentIsReset) clearWhen(!currentIsReset)
-      io.ctrl.reset := reset
+      val isReset     = current === 0
+      val isSuspend   = current === 1
+      val resumeState = RegInit(False) clearWhen(current =/= 0 && current =/= previous) setWhen(timerLong.resume && current === 2)
+      val isResume = resumeState && timerLong.hadOne && !timerLong.hadTree && current === 1
+
+      val resetState = RegInit(False) setWhen(timerLong.reset && isReset) clearWhen(!isReset)
+      val suspendState = RegInit(False) setWhen(timerLong.suspend && isSuspend) clearWhen(!isSuspend)
+      io.ctrl.reset := resetState
+      io.ctrl.suspend := suspendState
       io.ctrl.disconnect := False
+      io.ctrl.resume.valid := RegNext(isResume) init(False)
     }
   }
 

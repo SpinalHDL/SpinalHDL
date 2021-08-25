@@ -54,13 +54,14 @@ object UsbDeviceCtrl {
     val rx = Rx()
 
     val pullup = Bool()
-    val reset, resume, disconnect = Bool()
+    val reset, suspend, disconnect = Bool()
+    val resume = Flow(NoData)
     val tick = Bool()
     val power = Bool()
     val resumeIt = Bool()
 
     override def asMaster(): Unit = {
-      in(tick, reset, resume, power, disconnect)
+      in(tick, reset, suspend, resume, power, disconnect)
       out(resumeIt, pullup)
       master(tx)
       slave(rx)
@@ -87,8 +88,9 @@ object UsbDeviceCtrl {
     output.pullup := cdOutput(BufferCC(input.pullup))
     output.resumeIt := cdOutput(BufferCC(input.resumeIt))
     input.tick := PulseCCByToggle(output.tick, cdOutput, cdInput)
-    input.reset := cdInput(BufferCC(output.reset))
-    input.resume := cdInput(BufferCC(output.resume))
+    input.reset  := cdInput(BufferCC(output.reset))
+    input.suspend := cdInput(BufferCC(output.suspend))
+    input.resume << output.resume.ccToggle(cdOutput, cdInput)
     input.power := cdInput(BufferCC(output.power))
     input.disconnect := cdInput(BufferCC(output.disconnect))
   }
@@ -149,10 +151,13 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val interrupts = new Area{
       val endpoints = Reg(Bits(p.epCount bits)) init(0)
       val reset = RegInit(False)
+      val suspend = RegInit(False) setWhen(io.phy.suspend.rise(False))
+      val resume = RegInit(False)  setWhen(io.phy.resume.valid)
+      val disconnect = RegInit(False) setWhen(io.phy.power.fall(False))
       val ep0Setup = RegInit(False)
 
       val enable = RegInit(False)
-      val pending = (endpoints.orR || reset || ep0Setup) && enable
+      val pending = (endpoints.orR || reset || suspend || resume || disconnect || ep0Setup) && enable
     }
     val halt = new Area{
       val id = Reg(UInt(log2Up(p.epCount) bits))
@@ -305,7 +310,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val offset = words(0)(0, p.lengthWidth bits)
     val code = words(0)(16, 4 bits)
 
-    val next = words(1)(0, p.addressWidth-descAlign bits).asUInt
+    val next = words(1)(4, p.addressWidth-descAlign bits).asUInt
     val length = words(1)(16, p.lengthWidth bits)
 
     val direction = words(2)(16)
@@ -562,7 +567,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     DATA_RX_ANALYSE whenIsActive{
-      when(dataRx.hasError || dataRxOverrun) {
+      when(dataRx.hasError || dataRxOverrun) { //TODO Maybe dataRxOverrun should ACK ?
         goto(IDLE)
       } otherwise {
         when(!noUpdate){
@@ -706,6 +711,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
     mapInterrupt(regs.interrupts.reset, 16)
     mapInterrupt(regs.interrupts.ep0Setup, 17)
+    mapInterrupt(regs.interrupts.suspend, 18)
+    mapInterrupt(regs.interrupts.resume, 19)
+    mapInterrupt(regs.interrupts.disconnect, 20)
     ctrl.write(regs.halt.id, Regs.HALT, 0)
     ctrl.write(regs.halt.enable, Regs.HALT, 4)
     ctrl.readAndWrite(regs.halt.effective, Regs.HALT, 5)
@@ -811,4 +819,4 @@ object UsbDeviceCtrlSynt extends App{
 }
 
 
-
+//TOOD test to many bytes in / out
