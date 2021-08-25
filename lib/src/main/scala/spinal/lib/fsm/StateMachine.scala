@@ -155,7 +155,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   def checkState(state: State) = assert(state.getStateMachineAccessor == this, s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
 
-  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT")
+  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
+
+  def bootAsEntry(): State ={
+    setEntry(stateBoot)
+    stateBoot
+  }
   override def build(): Unit = {
     inGeneration = true
     childStateMachines.foreach(_.build())
@@ -238,7 +243,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     when(wantStart){
       if(entryState == null)
         globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
-      else
+      else if(entryState != stateBoot)
         forceGoto(entryState)
     }
     when(wantKill){

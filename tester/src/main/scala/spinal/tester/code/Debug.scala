@@ -6,6 +6,7 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
 import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
@@ -54,7 +55,6 @@ object Debug2 extends App{
 
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
-
     case class Wuff(val a : Int) extends Bundle{
       println(a)
     }
@@ -168,15 +168,17 @@ object TestTopMain {
 object Debug3 extends App{
   import spinal.core.sim._
 
-  SimConfig.withIVerilog.compile(new Component {
-    val a,b,c = in UInt(8 bits)
-    val result = out(Reg(UInt(8 bits)) init(0))
-    result := result + 1
-    assert(result =/= 10, "miaou")
+  SimConfig.withFstWave.compile(new Component {
+    val fsm = new StateMachine{
+      val IDLE = bootAsEntry()
+      val STATE_A, STATE_B, STATE_C = new State
+      
+      IDLE.whenIsActive(goto(STATE_A))
+      STATE_A.whenIsActive(goto(STATE_B))
+      STATE_B.whenIsActive(goto(STATE_C))
+      STATE_C.whenIsActive(goto(STATE_B))
+    }
   }).doSim{ dut =>
-    dut.a #= 1
-    dut.b #= 0
-    dut.c #= 0
     dut.clockDomain.forkStimulus(10)
     dut.clockDomain.waitSampling(100)
   }
@@ -418,4 +420,125 @@ object Foo2 {
   def main(args: Array[String]): Unit = {
     SpinalConfig(targetDirectory="rtl-gen").addStandardMemBlackboxing(blackboxAll).generateVerilog(Foo2())
   }
+}
+
+
+
+case class TellMeWhy() extends Component{
+  case class payload_t() extends Bundle {
+    val id = UInt(4 bits)
+    val addr = UInt(32 bits)
+    val wdata = UInt(64 bits)
+    val be = UInt(8 bits)
+  }
+  val cond = in(Bool())
+  val read_pointer_n = UInt(3 bits)
+  // todo The correct code is as follows
+//    val read_pointer_n = UInt(3 bits).noCombLoopCheck
+  val read_pointer_q = Reg(UInt(3 bits)).init(0)
+  when(read_pointer_q === 7) {
+    read_pointer_n := U(0, 3 bits)
+  } .otherwise {
+    read_pointer_n := read_pointer_q+1
+  }
+  when(cond) {
+    read_pointer_q := 0
+  } .otherwise {
+    read_pointer_q := read_pointer_n
+  }
+  case class bitsTests_B() extends Bundle{
+    val a = Bool()
+    val b = Bits(8 bits)
+  }
+  val bitsTests = out(Vec(bitsTests_B(), 4)).setAsReg()
+  bitsTests.map(_.init(bitsTests_B().getZero))
+  bitsTests.allowUnsetRegToAvoidLatch
+  val tmp_read_pointer = Cat(read_pointer_n,read_pointer_q,True,False)
+  val vecSel = in(UInt(2 bits)).dontSimplifyIt().keep()
+  for( i<- 0 until 4){
+    switch(vecSel){
+      is(0) { bitsTests(0).b(i) := tmp_read_pointer(i) }
+      is(1) { bitsTests(1).b(i) := tmp_read_pointer(i) }
+      is(2) { bitsTests(2).b(i) := tmp_read_pointer(i) }
+      is(3) { bitsTests(3).b(i) := tmp_read_pointer(i) }
+    }
+    when(cond){
+      bitsTests(3).b(4+i)  := tmp_read_pointer(4+i)
+      // bitsTests(3).b(5)  := tmp_read_pointer(5)
+      // bitsTests(3).b(6)  := tmp_read_pointer(6)
+      // bitsTests(3).b(7)  := tmp_read_pointer(7)
+    }
+  }
+  val ResultDepth = 4
+  val result_d = Vec(Vec(payload_t(), 8), ResultDepth)//.noCombLoopCheck.allowOverride
+  val result_q = Reg(Vec(Vec(payload_t(), 8), ResultDepth))
+  //  result_q.map(_.map(_.init(payload_t().getZero)))
+  result_q := result_d
+  result_d := result_q
+
+  val beTest_cnt_i = in UInt(3 bits)
+
+  for(axi_byte <- 0 until 8){
+    //      result_d(0)(0).wdata(8*axi_byte,8 bits) := U"8'h47"
+    //      (result_d(0)(0).be)(axi_byte) :=  (cond | vecSel.msb)
+    result_d(read_pointer_q.resized)(beTest_cnt_i).wdata(8*axi_byte,8 bits) := U"8'h47"
+    result_d(read_pointer_q.resized)(beTest_cnt_i).be(axi_byte) := (cond | vecSel.msb)
+    // todo The correct code is as follows
+    //  result_d(read_pointer_q.resized)(beTest_cnt_i).be(axi_byte, 1 bits) := (cond | vecSel.msb).asUInt.resized
+  }
+  val result = out(result_q)
+}
+
+object Test1 extends App{
+  SpinalSystemVerilog(SpinalConfig(
+    targetDirectory = "build/tests"
+  )){
+    val tmp = TellMeWhy()
+    tmp
+  }
+}
+
+
+object Debug222 extends App{
+  object MyEnum extends SpinalEnum{
+    val A,B,C = newElement()
+  }
+  SpinalConfig(globalPrefix="miaou").generateVerilog(new Component {
+    setDefinitionName("miaou")
+    val x = in(MyEnum())
+  })
+}
+
+
+
+object Miaou43414 extends App{
+  case class adder() extends Component{
+    val io=new Bundle{
+      val data0,data1=in UInt(8 bits)
+      val sum=out UInt(8 bits) setAsReg()
+    }
+    noIoPrefix()
+
+    val p = this.parent.asInstanceOf[top]
+    io.sum:=io.data0+io.data1 + p.io.data0.pull()
+  }
+
+  case class top() extends Component{
+    val io=new Bundle{
+      val data0,data1,data2,data3=in UInt(8 bits)
+      val sum1,sum2=out UInt(8 bits)
+    }
+    noIoPrefix()
+    val adderInst0=adder()
+    val adderInst1=adder()
+    adderInst0.io.data0<>io.data0
+    adderInst0.io.data1<>io.data1
+    adderInst0.io.sum<>io.sum1
+
+    adderInst1.io.data0<>io.data2
+    adderInst1.io.data1<>io.data3
+    adderInst1.io.sum<>io.sum2
+  }
+
+  SpinalVerilog(top())
 }
