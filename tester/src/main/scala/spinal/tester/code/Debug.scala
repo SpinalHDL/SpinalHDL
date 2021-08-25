@@ -170,7 +170,7 @@ object Debug3 extends App{
 
   SimConfig.withFstWave.compile(new Component {
     val fsm = new StateMachine{
-      val IDLE = bootAsEntry()
+      val IDLE = makeInstantEntry()
       val STATE_A, STATE_B, STATE_C = new State
       
       IDLE.whenIsActive(goto(STATE_A))
