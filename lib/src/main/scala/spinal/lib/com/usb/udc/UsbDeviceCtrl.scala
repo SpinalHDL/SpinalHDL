@@ -627,7 +627,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.internal.writeCmd.address  := desc.addressWord
       memory.internal.writeCmd.mask     := 0xF
       memory.internal.writeCmd.data(0, p.lengthWidth bits) := desc.offset
-      memory.internal.writeCmd.data(16, 4 bits) := (completion ? B(0) | B(15))
+      memory.internal.writeCmd.data(16, 4 bits) := (completion ? B(0) | B(15)) //TODO if more error condition, update condition of completion when(!desc.full){
 
       goto(UPDATE_EP)
     }
@@ -654,6 +654,9 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         }
         when(regs.address.trigger && token.isIn) {
           regs.address.enable := True
+        }
+        when(!desc.full){ //When a descriptor is completed but not full, unlink the linked list for the software to fix things
+          memory.internal.writeCmd.data(4, 12 bits) := 0
         }
       }
       goto(IDLE)

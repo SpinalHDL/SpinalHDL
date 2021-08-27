@@ -295,7 +295,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
               if (direction) descLength = descLength min left
               val desc = newDescriptor(descLength)
               var descOffset = 0
-              val sleepOnCompletion = Random.nextDouble() < 0.2 //TODO
+              val sleepOnCompletion = true//Random.nextDouble() < 0.2 //TODO
               var descNotDone = true
               val descUsefullLength = descLength min left
 
