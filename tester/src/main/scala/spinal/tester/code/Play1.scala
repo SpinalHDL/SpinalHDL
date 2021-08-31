@@ -3,7 +3,6 @@ package spinal.tester.code
 
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier
-
 import spinal.core._
 import spinal.core.fiber._
 import spinal.demo.mandelbrot.{MandelbrotCoreParameters, MandelbrotSblDemo}
@@ -1168,23 +1167,23 @@ object PlayRamInfer {
       val read_3 = slave(ram.readSyncPort)
     }
 
-    val c = new Area {
-      val ram = Mem(Bits(8 bits), 64)
-
-      val write = slave(ram.writePort)
-      val readAddress = in UInt(6 bits)
-      val readData = out(ram.readAsync(readAddress))
-    }
-
-    val c2 = new Area {
-      val ram = Mem(Bits(8 bits), 64)
-
-      val write = slave(ram.writePort)
-      val readAddress_1 = in UInt(6 bits)
-      val readData_1 = out(ram.readAsync(readAddress_1))
-      val readAddress_2 = in UInt(6 bits)
-      val readData_2 = out(ram.readAsync(readAddress_2))
-    }
+//    val c = new Area {
+//      val ram = Mem(Bits(8 bits), 64)
+//
+//      val write = slave(ram.writePort)
+//      val readAddress = in UInt(6 bits)
+//      val readData = out(ram.readAsync(readAddress))
+//    }
+//
+//    val c2 = new Area {
+//      val ram = Mem(Bits(8 bits), 64)
+//
+//      val write = slave(ram.writePort)
+//      val readAddress_1 = in UInt(6 bits)
+//      val readData_1 = out(ram.readAsync(readAddress_1))
+//      val readAddress_2 = in UInt(6 bits)
+//      val readData_2 = out(ram.readAsync(readAddress_2))
+//    }
 
     val d = new Area {
       val ram = Mem(Bits(8 bits), 1024)
@@ -1205,7 +1204,7 @@ object PlayRamInfer {
       val readData_1 = out Bits(8 bits)
       val enable_1 = in Bool()
       val write_1 = in Bool()
-      readData_1 := ram.readWriteSync(address_1, writeData_1, enable_1, write_1,readUnderWrite = writeFirst)
+      readData_1 := ram.readWriteSync(address_1, writeData_1, enable_1, write_1)
 
       val address_2 = in UInt(10 bits)
       val writeData_2 = in Bits(8 bits)
@@ -1215,29 +1214,40 @@ object PlayRamInfer {
       readData_2 := ram.readWriteSync(address_2, writeData_2, enable_2, write_2)
     }
 
-    val f = new Area {
-      val ram = Mem(Bits(8 bits), 1024)
-
-      val address_1 = in UInt(10 bits)
-      val write_1 = in Bool()
-      val dataWrite_1 = in Bits(8 bits)
-      val dataRead_1 = out Bits(8 bits)
-      ram.write(address_1, dataWrite_1, write_1)
-      dataRead_1 := ram.readSync(address_1)
-
-
-      val address_2 = in UInt(10 bits)
-      val write_2 = in Bool()
-      val dataWrite_2 = in Bits(8 bits)
-      val dataRead_2 = out Bits(8 bits)
-      ram.write(address_2, dataWrite_2, write_2)
-      dataRead_2 := ram.readSync(address_2)
-    }
+//    val f = new Area {
+//      val ram = Mem(Bits(8 bits), 1024)
+//
+//      val address_1 = in UInt(10 bits)
+//      val write_1 = in Bool()
+//      val dataWrite_1 = in Bits(8 bits)
+//      val dataRead_1 = out Bits(8 bits)
+//      ram.write(address_1, dataWrite_1, write_1)
+//      dataRead_1 := ram.readSync(address_1)
+//
+//
+//      val address_2 = in UInt(10 bits)
+//      val write_2 = in Bool()
+//      val dataWrite_2 = in Bits(8 bits)
+//      val dataRead_2 = out Bits(8 bits)
+//      ram.write(address_2, dataWrite_2, write_2)
+//      dataRead_2 := ram.readSync(address_2)
+//    }
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(device = Device.ALTERA).generateVerilog(new TopLevel())
-    SpinalConfig(device = Device.ALTERA).generateVhdl(new TopLevel())
+//    SpinalConfig(device = Device.ALTERA).generateVerilog(new TopLevel())
+//    SpinalConfig(device = Device.ALTERA).generateVhdl(new TopLevel())
+
+    val rtls = List(
+      new Rtl {
+        override def getName(): String = "Yaouuu"
+        override def getRtlPath(): String = "TopLevel.v"
+        SpinalConfig(inlineRom = true).generateVerilog(new TopLevel().setDefinitionName(getRtlPath().split("\\.").head))
+      }
+    )
+
+    val targets = XilinxStdTargets() ++ AlteraStdTargets()
+    Bench(rtls, targets)
   }
 }
 

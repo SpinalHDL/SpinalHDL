@@ -27,13 +27,17 @@ trait ReadUnderWritePolicy {
   def readUnderWriteString: String
 }
 
+trait ReadOtherwiseWritePolicy {
+  def readUnderWriteString: String
+}
+
 
 trait MemTechnologyKind{
   def technologyKind: String
 }
 
 
-object dontCare extends ReadUnderWritePolicy{
+object dontCare extends ReadUnderWritePolicy with ReadOtherwiseWritePolicy{
   override def readUnderWriteString: String = "dontCare"
 }
 
@@ -47,6 +51,20 @@ object readFirst extends ReadUnderWritePolicy {
   override def readUnderWriteString: String = "readFirst"
 }
 
+object dontRead extends ReadOtherwiseWritePolicy{
+  override def readUnderWriteString: String = "dontRead"
+}
+
+object doRead extends ReadOtherwiseWritePolicy{
+  override def readUnderWriteString: String = "doRead"
+}
+
+
+
+
+//object noChange extends ReadUnderWritePolicy {
+//  override def readUnderWriteString: String = "noChange"
+//}
 
 object auto extends  MemTechnologyKind{
   override def technologyKind: String = "auto"
@@ -325,8 +343,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                     write         : Bool,
                     mask          : Bits = null,
                     readUnderWrite: ReadUnderWritePolicy = dontCare,
-                    clockCrossing : Boolean = false): T = {
-    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,false)
+                    clockCrossing : Boolean = false,
+                    writeOtherwiseRead : ReadOtherwiseWritePolicy = dontCare): T = {
+    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,false, writeOtherwiseRead = writeOtherwiseRead)
   }
 
   def readWriteSyncMixedWidth[U <: Data](address       : UInt,
@@ -335,8 +354,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                                          write         : Bool,
                                          mask          : Bits = null,
                                          readUnderWrite: ReadUnderWritePolicy = dontCare,
-                                         clockCrossing : Boolean = false): U = {
-    readWriteSyncImpl(address, data, enable, write, mask, readUnderWrite, clockCrossing, true)
+                                         clockCrossing : Boolean = false,
+                                         writeOtherwiseRead : ReadOtherwiseWritePolicy = dontCare): U = {
+    readWriteSyncImpl(address, data, enable, write, mask, readUnderWrite, clockCrossing, true, writeOtherwiseRead = writeOtherwiseRead)
   }
 
   def readWriteSyncImpl[U <: Data](address         : UInt,
@@ -346,9 +366,10 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                                    mask            : Bits = null,
                                    readUnderWrite  : ReadUnderWritePolicy = dontCare,
                                    clockCrossing   : Boolean = false,
-                                   allowMixedWidth : Boolean = false): U = {
+                                   allowMixedWidth : Boolean = false,
+                                   writeOtherwiseRead : ReadOtherwiseWritePolicy = dontCare): U = {
 
-    val readWritePort = MemReadWrite(this, address, data.asBits, mask,enable, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite)
+    val readWritePort = MemReadWrite(this, address, data.asBits, mask,enable, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite, writeOtherwiseRead)
 
     this.parentScope.append(readWritePort)
     this.dlcAppend(readWritePort)
@@ -702,7 +723,7 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
 
 
 object MemReadWrite {
-  def apply(mem: Mem[_], address: UInt, data: Bits, mask: Bits, chipSelect: Bool, writeEnable: Bool, width: Int, clockDomain: ClockDomain, readUnderWrite : ReadUnderWritePolicy): MemReadWrite = {
+  def apply(mem: Mem[_], address: UInt, data: Bits, mask: Bits, chipSelect: Bool, writeEnable: Bool, width: Int, clockDomain: ClockDomain, readUnderWrite : ReadUnderWritePolicy, writeOtherwiseRead : ReadOtherwiseWritePolicy): MemReadWrite = {
     val ret = new MemReadWrite
     ret.mem         = mem
     ret.address     = address
@@ -713,6 +734,7 @@ object MemReadWrite {
     ret.width       = width
     ret.data        = data
     ret.readUnderWrite = readUnderWrite
+    ret.writeOtherwiseRead = writeOtherwiseRead
     ret
   }
 }
@@ -728,6 +750,7 @@ class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagR
   var writeEnable  : Expression  = null
   var clockDomain  : ClockDomain = null
   var readUnderWrite : ReadUnderWritePolicy = null
+  var writeOtherwiseRead : ReadOtherwiseWritePolicy = null
 
   override def opName = "Mem.readSync(x)"
 
