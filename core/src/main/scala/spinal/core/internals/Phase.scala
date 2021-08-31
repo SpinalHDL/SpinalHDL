@@ -825,6 +825,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wordCount = mem.wordCount*mem.width/port.width,
           technology = mem.technology,
           readUnderWrite = port.readUnderWrite,
+          duringWrite = port.duringWrite,
           maskWidth = if (port.mask != null) port.mask.getWidth else 1,
           maskEnable = port.mask != null
         )
@@ -855,12 +856,14 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wordCount = mem.wordCount,
           technology = mem.technology,
           portA_readUnderWrite = portA.readUnderWrite,
+          portA_duringWrite = portA.duringWrite,
           portA_clock = portA.clockDomain,
           portA_addressWidth = portA.address.getWidth,
           portA_dataWidth = portA.getWidth,
           portA_maskWidth = if (portA.mask != null) portA.mask.getWidth else 1,
           portA_maskEnable = portA.mask != null,
           portB_readUnderWrite = portB.readUnderWrite,
+          portB_duringWrite = portB.duringWrite,
           portB_clock = portB.clockDomain,
           portB_addressWidth = portB.address.getWidth,
           portB_dataWidth = portB.getWidth,
