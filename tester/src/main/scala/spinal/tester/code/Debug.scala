@@ -158,7 +158,9 @@ class TestTop extends Component {
 
 object TestTopMain {
   def main(args: Array[String]) {
-    SpinalVerilog(new TestTop)
+//    SpinalVerilog(new TestTop)
+
+    SpinalConfig().addStandardMemBlackboxing(blackboxAll).generateVerilog(new StreamFifo(UInt(8 bits), 128))
   }
 }
 
