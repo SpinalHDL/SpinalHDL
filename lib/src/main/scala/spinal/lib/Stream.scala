@@ -860,7 +860,9 @@ object StreamJoin {
    * Convert a vector of streams into a stream of vectors.
    */
   def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
-    val combined = Stream(Vec(sources.map(_.payload)))
+    val payload = Vec(sources.map(_.payload))
+    val combined = Stream(payload)
+    combined.payload := payload
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
     combined
