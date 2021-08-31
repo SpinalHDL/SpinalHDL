@@ -106,7 +106,9 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
 
 object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
-trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
+trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]{
+  var isVital = false
+}
 
 
 class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady with InComponent{
@@ -216,10 +218,12 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
   def apply(address: UInt): T = {
     val ret = readAsync(address)
+    val asyncPort = dlcLast
 
     ret.compositeAssign = new Assignable {
       override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
         write(address, that.asInstanceOf[T])
+        asyncPort.removeStatement()
       }
 
       override def getRealSourceNoRec: Any = Mem.this

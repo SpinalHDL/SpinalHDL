@@ -1624,14 +1624,18 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
             case p: MemReadAsync =>
           }
           case s: MemWrite =>
+            s.isVital |= vital
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: MemReadWrite =>
+            s.isVital |= vital
             propagate(s.mem)
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: MemReadSync =>
+            s.isVital |= vital
             propagate(s.mem)
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
           case s: MemReadAsync =>
+            s.isVital |= vital
             propagate(s.mem)
             s.walkExpression{ case e: Statement => propagate(e) case _ => }
         }
