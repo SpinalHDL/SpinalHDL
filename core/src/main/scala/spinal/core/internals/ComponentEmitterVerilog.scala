@@ -1151,7 +1151,7 @@ end
         if(memReadWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadWrite.mem} because of its mixed width ports")
         if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into Verilog $memReadWrite")
 
-        memReadWrite.writeOtherwiseRead match {
+        memReadWrite.duringWritePolicy match {
           case `dontCare` | `dontRead` =>
             emitClockedProcess((tab, b) => {
               val symbolCount = memReadWrite.mem.getMemSymbolCount()
