@@ -1149,10 +1149,10 @@ end
         }, null, tmpBuilder, memWrite.clockDomain, false)
       case memReadWrite: MemReadWrite  =>
         if(memReadWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadWrite.mem} because of its mixed width ports")
-        if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into Verilog $memReadWrite")
 
         memReadWrite.duringWrite match {
           case `dontCare` | `dontRead` =>
+            if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into Verilog $memReadWrite")
             emitClockedProcess((tab, b) => {
               val symbolCount = memReadWrite.mem.getMemSymbolCount()
               b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
@@ -1164,66 +1164,45 @@ end
               b ++= s"${tab}end\n"
             }, null, tmpBuilder, memReadWrite.clockDomain, false)
           case `doRead` =>
-            emitClockedProcess((tab, b) => {
-              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-              b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-              emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-              b ++= s"${tab}end\n"
-            }, null, tmpBuilder, memReadWrite.clockDomain, false)
+            memReadWrite.readUnderWrite match {
+              case `dontCare` =>
+                emitClockedProcess((tab, b) => {
+                  val symbolCount = memReadWrite.mem.getMemSymbolCount()
+                  b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
+                  emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+                  b ++= s"${tab}end\n"
+                }, null, tmpBuilder, memReadWrite.clockDomain, false)
 
-            emitClockedProcess((tab, b) => {
-              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-              emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
-            }, null, tmpBuilder, memReadWrite.clockDomain, false)
+                emitClockedProcess((tab, b) => {
+                  val symbolCount = memReadWrite.mem.getMemSymbolCount()
+                  emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
+                }, null, tmpBuilder, memReadWrite.clockDomain, false)
+              case `writeFirst` =>
+                assert(mem.cldCount == 1)
+                emitClockedProcess((tab, b) => {
+                  val symbolCount = memReadWrite.mem.getMemSymbolCount()
+                  b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
+                  b ++= s"${tab}  if(${emitExpression(memReadWrite.writeEnable)}) begin\n"
+                  emitWrite(b, memReadWrite.mem, null, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "    ")
+                  b ++= s"${tab}    ${emitExpression(memReadWrite)} <= ${emitExpression(memReadWrite.data)};\n"
+                  b ++= s"${tab}  end else begin\n"
+                  emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "    ")
+                  b ++= s"${tab}  end\n"
+                  b ++= s"${tab}end\n"
+                }, null, tmpBuilder, memReadWrite.clockDomain, false)
+              case `readFirst` =>
+                assert(mem.cldCount == 1)
+                emitClockedProcess((tab, b) => {
+                  val symbolCount = memReadWrite.mem.getMemSymbolCount()
+                  b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
+                  emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+                  emitWrite(b, memReadWrite.mem,  if (memReadWrite.writeEnable != null) emitExpression(memReadWrite.writeEnable) else null.asInstanceOf[String], memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "  ")
+                  b ++= s"${tab}end\n"
+                }, null, tmpBuilder, memReadWrite.clockDomain, false)
+              case _ => SpinalError(s"memReadWrite can only be emited as readFirst, writeFirst, noChange or dontCare into Verilog $memReadWrite")
+            }
         }
 
-//
-//        memReadWrite.readUnderWrite match {
-//          case mode: dontCare.type =>
-//            emitClockedProcess((tab, b) => {
-//              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-//              b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-//              emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-//              b ++= s"${tab}end\n"
-//            }, null, tmpBuilder, memReadWrite.clockDomain, false)
-//
-//            emitClockedProcess((tab, b) => {
-//              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-//              emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
-//            }, null, tmpBuilder, memReadWrite.clockDomain, false)
-//          case mode: noChange.type =>
-//            emitClockedProcess((tab, b) => {
-//              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-//              b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-//              b ++= s"${tab}  if(${emitExpression(memReadWrite.writeEnable)}) begin\n"
-//              emitWrite(b, memReadWrite.mem, null, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "    ")
-//              b ++= s"${tab}  end else begin\n"
-//              emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "    ")
-//              b ++= s"${tab}  end\n"
-//              b ++= s"${tab}end\n"
-//            }, null, tmpBuilder, memReadWrite.clockDomain, false)
-//          case mode: writeFirst.type =>
-//            emitClockedProcess((tab, b) => {
-//              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-//              b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-//              b ++= s"${tab}  if(${emitExpression(memReadWrite.writeEnable)}) begin\n"
-//              emitWrite(b, memReadWrite.mem, null, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "    ")
-//              b ++= s"${tab}    ${emitExpression(memReadWrite)} <= ${emitExpression(memReadWrite.data)};\n"
-//              b ++= s"${tab}  end else begin\n"
-//              emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "    ")
-//              b ++= s"${tab}  end\n"
-//              b ++= s"${tab}end\n"
-//            }, null, tmpBuilder, memReadWrite.clockDomain, false)
-//          case mode: readFirst.type =>
-//            emitClockedProcess((tab, b) => {
-//              val symbolCount = memReadWrite.mem.getMemSymbolCount()
-//              b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
-//              emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-//              emitWrite(b, memReadWrite.mem,  if (memReadWrite.writeEnable != null) emitExpression(memReadWrite.writeEnable) else null.asInstanceOf[String], memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "  ")
-//              b ++= s"${tab}end\n"
-//            }, null, tmpBuilder, memReadWrite.clockDomain, false)
-//          case _ => SpinalError(s"memReadWrite can only be emited as readFirst, writeFirst, noChange or dontCare into Verilog $memReadWrite")
-//        }
 
       case memReadSync: MemReadSync   =>
         if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
