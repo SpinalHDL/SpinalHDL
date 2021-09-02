@@ -5,7 +5,7 @@ import spinal.lib._
 
 object BmbInvalidateMonitor{
   def outputAccessParameter(inputParameter : BmbAccessParameter) = inputParameter.sourcesTransform(s => s.copy(
-    contextWidth = 1 + s.contextWidth + inputParameter.addressWidth + s.lengthWidth,
+    contextWidth = 1 + inputParameter.contextWidth + inputParameter.addressWidth + s.lengthWidth,
     canInvalidate = false,
     canSync = false
   ))
