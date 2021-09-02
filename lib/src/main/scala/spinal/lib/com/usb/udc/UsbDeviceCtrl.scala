@@ -626,6 +626,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
       memory.internal.writeCmd.valid    := !token.isSetup
       memory.internal.writeCmd.address  := desc.addressWord
       memory.internal.writeCmd.mask     := 0xF
+      memory.internal.writeCmd.data := 0
       memory.internal.writeCmd.data(0, p.lengthWidth bits) := desc.offset
       memory.internal.writeCmd.data(16, 4 bits) := (completion ? B(0) | B(15)) //TODO if more error condition, update condition of completion when(!desc.full){
 

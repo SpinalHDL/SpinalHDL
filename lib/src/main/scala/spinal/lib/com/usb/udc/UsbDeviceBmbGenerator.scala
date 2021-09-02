@@ -31,7 +31,7 @@ class UsbDeviceBmbGenerator(ctrlOffset : Handle[BigInt] = Unset)
       }
     }
 
-    def createInferableIo() = Handle{logic.clockDomain {new Area{
+    def createInferableIo(withPower : Boolean = true) = Handle{logic.clockDomain {new Area{
       val native = usb.get.toNativeIo()
       when(!logic.io.pullup){
         native.dp.writeEnable := True
@@ -41,7 +41,7 @@ class UsbDeviceBmbGenerator(ctrlOffset : Handle[BigInt] = Unset)
       }
       val buffer = native.stage()
       val dif = master(buffer.stage())
-      val power = in(Bool())
+      val power = if(withPower) in(Bool()) else True
       logic.io.power := power
     }}}
   }
