@@ -106,17 +106,31 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + globalPrefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+//    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    var prefix_fix = prefix;
+    if(prefix=="`" && !enum.spinalEnum.isGlobalEnable) prefix_fix = ""
+
+    if(enum.spinalEnum.isPrefixEnable) {
+      if(encoding==binaryOneHot) {
+        prefix_fix + enum.spinalEnum.getName() + "_" + "OH" + "_" + enum.getName()
+      } else {
+        prefix_fix + enum.spinalEnum.getName() + "_" + enum.getName()
+      }
+    } else {
+      prefix_fix + enum.getName()
+    }
   }
 
   def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
 
   def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + globalPrefix + enum.getName() + "_" + encoding.getName() + "_type"
+//    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+    val bitCount     = encoding.getWidth(enum)
+    s"[${bitCount - 1}:0]"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
   def emitStructType(struct: SpinalStruct): String = {

@@ -80,6 +80,9 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
 
+  private[core] var isPrefixEnable = true
+  private[core] var isGlobalEnable = true
+
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
 
@@ -101,6 +104,14 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
     if (name != null) v.setName(name)
     elements += v
     v
+  }
+
+  def rawElementName() = {
+    isPrefixEnable = false
+  }
+
+  def setLocal() = {
+    isGlobalEnable = false
   }
 }
 
