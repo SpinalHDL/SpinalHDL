@@ -112,12 +112,12 @@ trait VerilogBase extends VhdlVerilogBase{
 
     if(enum.spinalEnum.isPrefixEnable) {
       if(encoding==binaryOneHot) {
-        prefix_fix + enum.spinalEnum.getName() + "_" + "OH" + "_" + enum.getName()
+        prefix_fix + globalPrefix + enum.spinalEnum.getName() + "_" + "OH" + "_" + enum.getName()
       } else {
-        prefix_fix + enum.spinalEnum.getName() + "_" + enum.getName()
+        prefix_fix + globalPrefix + enum.spinalEnum.getName() + "_" + enum.getName()
       }
     } else {
-      prefix_fix + enum.getName()
+      prefix_fix + globalPrefix + enum.getName()
     }
   }
 
@@ -130,7 +130,7 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
   def emitStructType(struct: SpinalStruct): String = {
