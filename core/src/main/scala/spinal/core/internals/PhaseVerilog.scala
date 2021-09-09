@@ -157,13 +157,14 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         val bitCount     = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding, "")
 
-        ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
+//        ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
+        if(enumDef.isGlobalEnable) {
+          for (element <- enumDef.elements) {
+            ret ++= s"`define ${emitEnumLiteral(element, encoding, "")} ${idToBits(element, encoding)}\n"
+          }
 
-        for (element <- enumDef.elements) {
-          ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
+          ret ++= "\n"
         }
-
-        ret ++= "\n"
       }
     }
 

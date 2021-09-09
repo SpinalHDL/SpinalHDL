@@ -52,6 +52,7 @@ class ComponentEmitterVerilog(
   val portMaps     = ArrayBuffer[String]()
   val definitionAttributes  = new StringBuilder()
   val declarations = new StringBuilder()
+  val localparams = new StringBuilder()
   val logics       = new StringBuilder()
   def getTrace() = new ComponentEmitterTrace(definitionAttributes :: declarations :: logics :: Nil, portMaps)
 
@@ -60,6 +61,7 @@ class ComponentEmitterVerilog(
     s"""
       |${definitionAttributes}module ${component.definitionName} (
       |${ports}
+      |${localparams}
       |${declarations}
       |${logics}
       |endmodule
@@ -206,6 +208,7 @@ class ComponentEmitterVerilog(
     emitAnalogs()
     emitMuxes()
     emitEnumDebugLogic()
+    emitEnumParams()
 
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -486,6 +489,22 @@ class ComponentEmitterVerilog(
       }
       logics ++= "  `endif\n\n"
     }
+  }
+
+  def emitEnumParams(): Unit = {
+    for((e,encoding) <- localEnums) {
+      for(element <- e.elements) {
+        localparams ++= s"  localparam ${emitEnumLiteral(element, encoding,"")} = ${idToBits(element, encoding)};\n"
+      }
+    }
+  }
+
+  def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+    //      val str    = encoding.getValue(enum).toString(2)
+    val str    = encoding.getValue(enum).toString(10)
+    val length = encoding.getWidth(enum.spinalEnum)
+    //      length.toString + "'b" + ("0" * (length - str.length)) + str
+    length.toString + "'d" + str
   }
 
   def emitAsynchronousAsAsign(process: AsyncProcess) = process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement
@@ -926,6 +945,8 @@ class ComponentEmitterVerilog(
 
   var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
   val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
+  val localEnums          = mutable.LinkedHashSet[(SpinalEnum, SpinalEnumEncoding)]()
+
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
@@ -936,13 +957,23 @@ class ComponentEmitterVerilog(
         if(spinalConfig._withEnumString) {
           signal match {
             case signal: SpinalEnumCraft[_] => {
-              val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
-              val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
-              enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
-              enumDebugStringList += Tuple3(signal , name, stringWidth)
+	      if(signal.spinalEnum.isGlobalEnable) {
+                val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
+                val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
+                enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
+                enumDebugStringList += Tuple3(signal , name, stringWidth)
+	      }
             }
             case _ =>
           }
+        }
+        signal match {
+          case signal: SpinalEnumCraft[_] => {
+            if(!signal.spinalEnum.isGlobalEnable) {
+              localEnums.add((signal.spinalEnum, signal.encoding))
+            }
+          }
+          case _ =>
         }
       case mem: Mem[_] =>
     }
