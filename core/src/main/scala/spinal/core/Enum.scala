@@ -80,8 +80,8 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
 
-  private[core] var isPrefixEnable = true
-  private[core] var isGlobalEnable = true
+  private[core] var isPrefixEnable = GlobalData.get.config.enumPrefixEnable
+  private[core] var isGlobalEnable = GlobalData.get.config.enumGlobalEnable
 
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()

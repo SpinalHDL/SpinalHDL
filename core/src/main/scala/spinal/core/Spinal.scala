@@ -155,7 +155,9 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
                         rtlHeader                      : String = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
-                        private [core] var _withEnumString : Boolean = true
+                        private [core] var _withEnumString : Boolean = true,
+                        var enumPrefixEnable                 : Boolean = true,
+                        var enumGlobalEnable                 : Boolean = true
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -208,6 +210,12 @@ case class SpinalConfig(mode                           : SpinalMode = null,
 
   def setScopeProperty[T](value: ScopePropertyValue): this.type ={
     scopeProperties(value.dady) = value
+    this
+  }
+
+  def withLocalEnum: this.type ={
+    enumPrefixEnable = false
+    enumGlobalEnable = false
     this
   }
 }

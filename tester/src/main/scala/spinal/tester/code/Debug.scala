@@ -530,10 +530,17 @@ object Debug222 extends App{
   object MyEnum extends SpinalEnum{
     val A,B,C = newElement()
   }
-  SpinalConfig(globalPrefix="miaou").generateVerilog(new Component {
+//  SpinalConfig(globalPrefix="miaou").generateVerilog(new Component {
+//    setDefinitionName("miaou")
+//    val x = in(MyEnum())
+//  })
+  SimConfig.withConfig(SpinalConfig().withLocalEnum).withFstWave.doSim(new Component {
     setDefinitionName("miaou")
-    val x = in(MyEnum())
-  })
+    val x = out(MyEnum())
+    x := MyEnum.C
+  }){dut =>
+    sleep(10)
+  }
 }
 
 
