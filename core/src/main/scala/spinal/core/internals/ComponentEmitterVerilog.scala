@@ -957,12 +957,10 @@ class ComponentEmitterVerilog(
         if(spinalConfig._withEnumString) {
           signal match {
             case signal: SpinalEnumCraft[_] => {
-	            if(signal.spinalEnum.isGlobalEnable) {
-                val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
-                val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
-                enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
-                enumDebugStringList += Tuple3(signal , name, stringWidth)
-              }
+              val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
+              val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
+              enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
+              enumDebugStringList += Tuple3(signal , name, stringWidth)
             }
             case _ =>
           }
@@ -976,6 +974,18 @@ class ComponentEmitterVerilog(
           case _ =>
         }
       case mem: Mem[_] =>
+    }
+
+    //Ensure that we add children component IO as localEnums too
+    for(c <- component.children){
+      for(io <- c.ioSet){
+        io match {
+          case e : SpinalEnumCraft[_] => {
+            localEnums.add((e.spinalEnum, e.encoding))
+          }
+          case _ =>
+        }
+      }
     }
 
     if(enumDebugStringList.nonEmpty) {

@@ -534,7 +534,7 @@ object Debug222 extends App{
 //    setDefinitionName("miaou")
 //    val x = in(MyEnum())
 //  })
-  SimConfig.withConfig(SpinalConfig().withLocalEnum).withFstWave.doSim(new Component {
+  SimConfig.withConfig(SpinalConfig()).withFstWave.doSim(new Component {
     setDefinitionName("miaou")
     val x = out(MyEnum())
     x := MyEnum.C

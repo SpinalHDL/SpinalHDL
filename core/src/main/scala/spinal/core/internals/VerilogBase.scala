@@ -111,11 +111,8 @@ trait VerilogBase extends VhdlVerilogBase{
     if(prefix=="`" && !enum.spinalEnum.isGlobalEnable) prefix_fix = ""
 
     if(enum.spinalEnum.isPrefixEnable) {
-      if(encoding==binaryOneHot) {
-        prefix_fix + globalPrefix + enum.spinalEnum.getName() + "_" + "OH" + "_" + enum.getName()
-      } else {
-        prefix_fix + globalPrefix + enum.spinalEnum.getName() + "_" + enum.getName()
-      }
+      val withEncoding = enum.spinalEnum.defaultEncoding != encoding && (enum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+      prefix_fix + globalPrefix + enum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + enum.getName()
     } else {
       prefix_fix + globalPrefix + enum.getName()
     }

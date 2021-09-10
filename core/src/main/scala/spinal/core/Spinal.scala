@@ -157,7 +157,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         scopeProperties                : mutable.LinkedHashMap[ScopeProperty[_], Any] = mutable.LinkedHashMap[ScopeProperty[_], Any](),
                         private [core] var _withEnumString : Boolean = true,
                         var enumPrefixEnable                 : Boolean = true,
-                        var enumGlobalEnable                 : Boolean = true
+                        var enumGlobalEnable                 : Boolean = false
 ){
   def generate       [T <: Component](gen: => T): SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl   [T <: Component](gen: => T): SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -213,8 +213,8 @@ case class SpinalConfig(mode                           : SpinalMode = null,
     this
   }
 
-  def withLocalEnum: this.type ={
-    enumGlobalEnable = false
+  def withGlobalEnum: this.type ={
+    enumGlobalEnable = true
     this
   }
 }
