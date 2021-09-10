@@ -957,12 +957,12 @@ class ComponentEmitterVerilog(
         if(spinalConfig._withEnumString) {
           signal match {
             case signal: SpinalEnumCraft[_] => {
-	      if(signal.spinalEnum.isGlobalEnable) {
+	            if(signal.spinalEnum.isGlobalEnable) {
                 val name = component.localNamingScope.allocateName(emitReference(signal, false) + "_string")
                 val stringWidth = signal.spinalEnum.elements.map(_.getNameElseThrow.length).max
                 enumDebugStringBuilder ++= s"  reg [${stringWidth * 8 - 1}:0] $name;\n"
                 enumDebugStringList += Tuple3(signal , name, stringWidth)
-	      }
+              }
             }
             case _ =>
           }

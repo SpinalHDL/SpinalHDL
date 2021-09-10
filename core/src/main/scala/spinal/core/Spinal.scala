@@ -214,7 +214,6 @@ case class SpinalConfig(mode                           : SpinalMode = null,
   }
 
   def withLocalEnum: this.type ={
-    enumPrefixEnable = false
     enumGlobalEnable = false
     this
   }
