@@ -125,16 +125,16 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     this
   }
 
-  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDefinition.defaultEncoding = encoding
+  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
 
   val cache = mutable.HashMap[Any,Any]()
-  val enumDefinition = new StateMachineEnum
-  var stateReg  : enumDefinition.C = null
-  var stateNext : enumDefinition.C = null
+  val enumDef = new StateMachineEnum
+  var stateReg  : enumDef.C = null
+  var stateNext : enumDef.C = null
   /* Candidate for next state */
-  var stateNextCand : enumDefinition.C = null
+  var stateNextCand : enumDef.C = null
   /* Condition for transition */
   var transitionCond : Bool = null
   override val wantExit  = False.allowPruning()
@@ -145,7 +145,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   @dontName var parentStateMachine: StateMachineAccessor = null
   @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
   @dontName val states   = ArrayBuffer[State]()
-  val stateToEnumElement = mutable.HashMap[State, enumDefinition.E]()
+  val stateToEnumElement = mutable.HashMap[State, enumDef.E]()
   @dontName var entryState: State = null
 
   def enumOf(state: State) = {
@@ -169,11 +169,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
         startFsm()
       }
     }
-    stateReg  = Reg(enumDefinition())
-    stateNext = enumDefinition().allowOverride
+    stateReg  = Reg(enumDef())
+    stateNext = enumDef().allowOverride
     /* Only synthesize, if conditional state machine */
     if (transitionCond != null)
-      stateNextCand = enumDefinition().allowOverride
+      stateNextCand = enumDef().allowOverride
 
     OwnableRef.proposal(stateBoot, this)
     OwnableRef.proposal(stateReg, this)
@@ -186,7 +186,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     for(state <- states){
       checkState(state)
-      val enumElement = enumDefinition.newElement(if(state.isNamed) state.getName() else null)
+      val enumElement = enumDef.newElement(if(state.isNamed) state.getPartialName else null)
       stateToEnumElement += (state -> enumElement)
     }
 
