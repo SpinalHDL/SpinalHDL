@@ -1,6 +1,9 @@
 package spinal
 
 import spinal.core._
+import spinal.core.fiber.{Engine, Handle}
+import spinal.lib.generator.Export
+import scala.collection.Seq
 
 import scala.collection.Iterable
 
@@ -13,6 +16,16 @@ package object lib  {
   def Event = new Stream(NoData)
 
   def NoData = new NoData
+
+  def export[T](h : Handle[T]) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
+    h
+  }
+
+  def export[T <: SpinalTag](h : T) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(h) }
+    h
+  }
 
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data

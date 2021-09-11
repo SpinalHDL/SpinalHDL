@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 trait UIntFactory{
   /** Create a new UInt */
-  def UInt() = new UInt()
+  def UInt(u: Unit = null) = new UInt()
   /** Create a new UInt of a given width */
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
@@ -48,7 +48,7 @@ trait UIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
-class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
     require(!q.signed, "assign SQ to UInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")

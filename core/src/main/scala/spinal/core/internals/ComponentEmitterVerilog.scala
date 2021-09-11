@@ -67,12 +67,14 @@ class ComponentEmitterVerilog(
   }
 
   def emitEntity(): Unit = {
-    component.getOrdredNodeIo.foreach{baseType =>
+    component.getOrdredNodeIo
+      .filterNot(_.isSuffix)
+      .foreach{baseType =>
       val syntax     = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
       val dir        = s"${emitDirection(baseType)}"
       val section    = s"${emitType(baseType)}"
       val name       = s"${baseType.getName()}"
-      val comma      = if(baseType == component.getOrdredNodeIo.last) "" else ","
+      val comma      = if(baseType == component.getOrdredNodeIo.filterNot(_.isSuffix).last) "" else ","
       val EDAcomment = s"${emitCommentAttributes(baseType.instanceAttributes)}"  //like "/* verilator public */"
 
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
@@ -86,8 +88,22 @@ class ComponentEmitterVerilog(
   }
 
   override def wrapSubInput(io: BaseType): Unit = {
-    val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-    declarations ++= emitBaseTypeWrap(io, name)
+    if (referencesOverrides.contains(io))
+      return
+    var name: String = null
+    if (!io.isSuffix) {
+      name = component.localNamingScope.allocateName(io.component.getName() + "_" +  io.getName())
+      declarations ++= emitBaseTypeWrap(io, name)
+    } else {
+      wrapSubInput(io.parent.asInstanceOf[BaseType])
+      var parentName: String = ""
+      referencesOverrides(io.parent) match {
+        case s: String => parentName = s
+        case n: Nameable => parentName = n.getNameElseThrow
+        case _ => throw new Exception(s"Could not determine name of ${io}")
+      }
+      name = parentName + "." + io.getPartialName()
+    }
     referencesOverrides(io) = name
   }
 
@@ -95,32 +111,35 @@ class ComponentEmitterVerilog(
     definitionAttributes ++= emitSyntaxAttributes(component.definition.instanceAttributes)
 
     for(mem <- mems){
+      var portId  = 0
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
           case e: BaseType =>
           case e           => expressionToWrap += e
         }
 
+        val portName = anonymSignalPrefix + "_" + mem.getName() + "_port" + portId
         s match {
           case s: MemReadSync  =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           case s: MemReadAsync =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
           case s: MemReadWrite =>
-            val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val name = component.localNamingScope.allocateName(portName)
             declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           case s: MemWrite    =>
         }
+        portId += 1
       })
     }
 
     for(output <- outputsToBufferize){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+      val name = component.localNamingScope.allocateName(output.getName() + "_read_buffer")
       declarations ++= emitBaseTypeSignal(output, name)
       logics ++= s"  assign ${emitReference(output, false)} = $name;\n"
       referencesOverrides(output) = name
@@ -128,31 +147,45 @@ class ComponentEmitterVerilog(
 
     for((select, muxes) <- multiplexersPerSelect){
       expressionToWrap += select._1
-      for(mux <- muxes) {
-        val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-        declarations ++= theme.maintab + expressionAlign("reg",emitType(mux), name) + ";\n"
-//        declarations ++= s"  reg ${emitType(mux)} $name;\n"
-        wrappedExpressionToName(mux) = name
-        //        expressionToWrap ++= mux.inputs
-      }
+      expressionToWrap ++= muxes
     }
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
-      val name = component.localNamingScope.allocateName(sub.getNameElseThrow + "_" + io.getNameElseThrow)
-      declarations ++= emitExpressionWrap(io, name)
-      referencesOverrides(io) = name
-    }))
+    component.children.foreach(sub =>
+      sub.getAllIo
+      .foreach(io => if(io.isOutput) {
+        val componentSignalName = (sub.getNameElseThrow + "_" + io.getNameElseThrow)
+        val name = component.localNamingScope.allocateName(componentSignalName)
+        if (!io.isSuffix)
+          declarations ++= emitExpressionWrap(io, name)
+        referencesOverrides(io) = name
+      }
+    ))
 
     //Wrap expression which need it
     cutLongExpressions()
     expressionToWrap --= wrappedExpressionToName.keysIterator
-    for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
-      val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= emitExpressionWrap(e, name)
-      wrappedExpressionToName(e) = name
+
+    component.dslBody.walkStatements{ s =>
+      s.walkDrivingExpressions{ e =>
+        if(!e.isInstanceOf[DeclarationStatement] && expressionToWrap.contains(e)){
+          var sName = s match {
+            case s : AssignmentStatement => "_" + s.dlcParent.getName()
+            case s : WhenStatement => "_when"
+            case s : SwitchContext => "_switch"
+            case s : Nameable => "_" + s.getName()
+            case s : MemPortStatement => "_" + s.dlcParent.getName() + "_port"
+            case _ => ""
+          }
+          val name = component.localNamingScope.allocateName(anonymSignalPrefix + sName)
+          declarations ++= emitExpressionWrap(e, name)
+          wrappedExpressionToName(e) = name
+        }
+      }
     }
 
-    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
+
+
+    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement] && !e.isInstanceOf[Multiplexer]){
       logics ++= s"  assign ${wrappedExpressionToName(e)} = ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
@@ -169,6 +202,7 @@ class ComponentEmitterVerilog(
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
+    emitInitials()
     emitAnalogs()
     emitMuxes()
     emitEnumDebugLogic()
@@ -190,6 +224,21 @@ class ComponentEmitterVerilog(
       case s: TreeStatement => s.algoIncrementale = algoIdIncrementalBase
       case s                =>
     }
+  }
+
+  def emitInitials() : Unit = {
+    if(initials.isEmpty) return
+    logics ++= "  initial begin\n"
+    emitLeafStatements(initials, 0, c.dslBody, "=", logics , "    ")
+//    initials.foreach{
+//      case s : InitialAssignmentStatement => {
+//        logics ++= s"    ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+//      }
+//      case s : AssertStatement => {
+//        logics ++= emitLeafStatements(Lists)
+//      }
+//    }
+    logics ++= "  end\n"
   }
 
   def emitAnalogs(): Unit ={
@@ -215,8 +264,8 @@ class ComponentEmitterVerilog(
       if(openSubIo.contains(data)) ""
       else {
         val wireName = emitReference(data, false)
-        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
-        wireName + section
+      // val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        wireName// + section  //Section removed as it can be a literal
       }
     }
 
@@ -248,6 +297,7 @@ class ComponentEmitterVerilog(
               case (name: String, i: Int)       => logics ++= s"    .${name}($i),\n"
               case (name: String, d: Double)    => logics ++= s"    .${name}($d),\n"
               case (name: String, b: Boolean)   => logics ++= s"    .${name}(${if(b) "1'b1" else "1'b0"}),\n"
+              case (name: String, b: BigInt)    => logics ++= s"    .${name}(${b.toString(16).size*4}'h${b.toString(16)}),\n"
               case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
@@ -262,10 +312,12 @@ class ComponentEmitterVerilog(
 
       logics ++= s"${child.getName()} (\n"
 
-      val instports: String = child.getOrdredNodeIo.map{ data =>
+      val instports: String = child.getOrdredNodeIo
+        .filterNot(_.isSuffix)
+        .map{ data =>
         val portAlign  = s"%-${maxNameLength}s".format(emitReferenceNoOverrides(data))
         val wireAlign  = s"%-${maxNameLengthCon}s".format(netsWithSection(data))
-        val comma      = if (data == child.getOrdredNodeIo.last) " " else ","
+        val comma      = if (data == child.getOrdredNodeIo.filterNot(_.isSuffix).last) " " else ","
         val dirtag: String = data.dir match{
           case spinal.core.in  | spinal.core.inWithNull  => "i"
           case spinal.core.out | spinal.core.outWithNull => "o"
@@ -325,12 +377,12 @@ class ComponentEmitterVerilog(
       referenceSetAdd(emitResetEdge(emitReference(reset, false), clockDomain.config.resetActiveLevel))
     }
 
-    b ++= s"${tabStr}always @ (${referenceSetSorted().mkString(" or ")}) begin\n"
+    b ++= s"${tabStr}always @(${referenceSetSorted().mkString(" or ")}) begin\n"
 
     inc
 
     if (asyncReset) {
-      b ++= s"${tabStr}if (${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}) begin\n"
+      b ++= s"${tabStr}if(${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}) begin\n"
       inc
       b ++= initialStatlementsGeneration
       dec
@@ -440,7 +492,9 @@ class ComponentEmitterVerilog(
       case _ if emitAsynchronousAsAsign(process) =>
         process.leafStatements.head match {
           case s: AssignmentStatement =>
-            logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+            if (!s.target.isInstanceOf[Suffixable]) {
+              logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
+            }
         }
       case _ =>
         val tmp = new StringBuilder
@@ -449,14 +503,14 @@ class ComponentEmitterVerilog(
 
         if (referenceSetSorted().nonEmpty) {
 //          logics ++= s"  always @ (${referenceSetSorted().mkString(" or ")})\n"
-          logics ++= s"  always @ (*) begin\n"
+          logics ++= s"  always @(*) begin\n"
           logics ++= tmp.toString()
           logics ++= "  end\n\n"
         } else {
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
-              val funcName = "zz_" + emitReference(node, false)
+              val funcName = "zz_" + emitReference(node, false).replaceAllLiterally(".", "__")
               declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
 //              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
               declarations ++= s"    begin\n"
@@ -477,7 +531,7 @@ class ComponentEmitterVerilog(
               declarations ++= s"  wire ${emitType(node)} $name;\n"
               logics ++= s"  assign $name = ${funcName}(1'b0);\n"
 //              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
-              logics ++= s"  always @ (*) ${emitReference(node, false)} = $name;\n"
+              logics ++= s"  always @(*) ${emitReference(node, false)} = $name;\n"
           }
         }
     }
@@ -510,11 +564,15 @@ class ComponentEmitterVerilog(
 
             val frontString = (for (m <- assertStatement.message) yield m match {
               case m: String => m
+              case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
+              case `REPORT_TIME` => "%d"
             }).mkString
 
-            val backString = (for (m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match {
+            val backString = (for (m <- assertStatement.message if !m.isInstanceOf[String]) yield m match {
+              case m: SpinalEnumCraft[_] => ", " + emitExpression(m) + "_string"
               case m: Expression => ", " + emitExpression(m)
+              case `REPORT_TIME` => ", $time"
             }).mkString
 
             val keyword = assertStatement.kind match {
@@ -584,7 +642,7 @@ class ComponentEmitterVerilog(
         treeStatement match {
           case treeStatement: WhenStatement =>
             if(scopePtr == treeStatement.whenTrue){
-              b ++= s"${tab}if(${emitExpression(treeStatement.cond)})begin\n"
+              b ++= s"${tab}if(${emitExpression(treeStatement.cond)}) begin\n"
             } else if(lastWhen == treeStatement){
               //              if(scopePtr.sizeIsOne && scopePtr.head.isInstanceOf[WhenStatement]){
               //                b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
@@ -592,12 +650,23 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}end else begin\n"
               //              }
             } else {
-              b ++= s"${tab}if(! ${emitExpression(treeStatement.cond)}) begin\n"
+              b ++= s"${tab}if(!${emitExpression(treeStatement.cond)}) begin\n"
             }
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           case switchStatement : SwitchStatement =>
-            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && element.keys.forall(_.isInstanceOf[Literal]))
+            def checkPure(o : Expression): Boolean = o match {
+              case l: Literal => true
+              case k: SwitchStatementKeyBool => k.key != null
+              case _ => false
+            }
+            def checkMaskedLiteral(o : Expression): Boolean = o match {
+              case k: SwitchStatementKeyBool => k.key != null
+              case _ => false
+            }
+            val hasMaskedLiterals = switchStatement.elements.exists(_.keys.exists(checkMaskedLiteral))
+            val isPure = switchStatement.elements.forall(_.keys.forall(checkPure))
+
             //Generate the code
             def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
               case null => null
@@ -655,9 +724,14 @@ class ComponentEmitterVerilog(
 //                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
                     case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
                     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+                    case e: SwitchStatementKeyBool => emitMaskedLiteral(e.key)
                   }
 
-                  b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  if (!hasMaskedLiterals) {
+                    b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
+                  } else {
+                    b ++= s"${tab}casez(${emitExpression(switchStatement.value)})\n"
+                  }
                   switchStatement.elements.foreach(element => {
                     val hasStuff = nextScope == element.scopeStatement
                     if(hasStuff || switchStatement.defaultScope != null) {
@@ -746,6 +820,7 @@ class ComponentEmitterVerilog(
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x : String               => x
       case x : DeclarationStatement => emitReference(x, false)
+      case x : Literal => emitExpression(x)
     }
     if(sensitive) referenceSetAdd(name)
     name
@@ -787,7 +862,10 @@ class ComponentEmitterVerilog(
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
     val net = if(signalNeedProcess(baseType)) "reg" else "wire"
     val section = emitType(baseType)
-    s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+    baseType match {
+      case struct: SpinalStruct => s"${theme.maintab}${expressionAlign(section, "", name)};\n"
+      case _                    => s"${theme.maintab}${expressionAlign(net, section, name)};\n"
+    }
 //    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
@@ -849,7 +927,7 @@ class ComponentEmitterVerilog(
     val enumDebugStringBuilder = new StringBuilder()
     component.dslBody.walkDeclarations {
       case signal: BaseType =>
-        if (!signal.isIo) {
+        if (!signal.isIo && !signal.isSuffix) {
           declarations ++= emitBaseTypeSignal(signal, emitReference(signal, false))
         }
         if(spinalConfig._withEnumString) {
@@ -1047,14 +1125,14 @@ end
           b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
         else{
           val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix)
+            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix + "_" + mem.getName() + "symbol_read")
             declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
             b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
             symboleReadDataName
           }
 
 //          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
-          logics ++= s"  always @ (*) begin\n"
+          logics ++= s"  always @(*) begin\n"
           logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
           logics ++= s"  end\n"
         }
@@ -1232,11 +1310,16 @@ end
   }
 
   def emitBitVectorLiteral(e: BitVectorLiteral): String = {
-    if(e.getWidth > 4){
+    if(e.getWidth > 4 && !e.hasPoison()){
       s"${e.getWidth}'h${e.hexString(e.getWidth,false)}"
     } else {
       s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
     }
+  }
+
+  // emit a masked literal for use in case expression, always emit as as a binary string
+  def emitMaskedLiteral(e: MaskedLiteral): String = {
+    s"${e.getWidth}'b${e.getBitsString(e.getWidth,'?')}"
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {

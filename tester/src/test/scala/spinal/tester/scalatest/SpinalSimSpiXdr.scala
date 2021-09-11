@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib.bus.amba3.apb.Apb3
@@ -35,7 +35,7 @@ import scala.util.Random
 
 
 
-class SpinalSimSpiXdrMaster extends FunSuite {
+class SpinalSimSpiXdrMaster extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
     var compiled: SimCompiled[SpiXdrMasterCtrl.TopLevel] = null

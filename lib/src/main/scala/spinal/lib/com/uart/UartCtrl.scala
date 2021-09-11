@@ -173,6 +173,22 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   }
 }
 
+object UartCtrl {
+  def apply(config: UartCtrlInitConfig, readonly: Boolean = false): UartCtrl = {
+    val uartCtrl = new UartCtrl()
+    uartCtrl.io.config.setClockDivider(config.baudrate Hz)
+    uartCtrl.io.config.frame.dataLength := config.dataLength  //8 bits
+    uartCtrl.io.config.frame.parity := config.parity
+    uartCtrl.io.config.frame.stop := config.stop
+    uartCtrl.io.writeBreak := False
+    if (readonly) {
+      uartCtrl.io.write.valid := False
+      uartCtrl.io.write.payload := B(0)
+    }
+    uartCtrl
+  }
+}
+
 case class UartCtrlInitConfig(
   baudrate : Int = 0,
   dataLength : Int = 0,
@@ -245,11 +261,14 @@ class UartCtrlUsageExample extends Component{
     val leds = out Bits(8 bits)
   }
 
-  val uartCtrl = new UartCtrl()
-  uartCtrl.io.config.setClockDivider(921.6 kHz)
-  uartCtrl.io.config.frame.dataLength := 7  //8 bits
-  uartCtrl.io.config.frame.parity := UartParityType.NONE
-  uartCtrl.io.config.frame.stop := UartStopType.ONE
+  val uartCtrl: UartCtrl = UartCtrl(
+    config = UartCtrlInitConfig(
+      baudrate = 921600,
+      dataLength = 7,  // 8 bits
+      parity = UartParityType.NONE,
+      stop = UartStopType.ONE
+    )
+  )
   uartCtrl.io.uart <> io.uart
 
   //Assign io.led with a register loaded each time a byte is received

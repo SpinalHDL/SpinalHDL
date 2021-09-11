@@ -16,10 +16,10 @@ object IntroHdl{
 
   class MyComponent extends Component {
     val io = new Bundle {
-      val a           = in    Bool
-      val b           = in    Bool
-      val c            = in    Bool
-      val result   = out Bool
+      val a           = in    Bool()
+      val b           = in    Bool()
+      val c            = in    Bool()
+      val result   = out Bool()
     }
     val a_and_b = io.a & io.b
     val not_c = !io.c
@@ -31,6 +31,8 @@ object IntroHdl{
   }
 }
 
+
+
 object PresentationDSL{
 
 
@@ -38,8 +40,8 @@ object PresentationDSL{
   object AST{
     import spinal.core._
 
-    val a,b,c  = Bool
-    val result = Bool
+    val a,b,c  = Bool()
+    val result = Bool()
     result := (a || b) && c
   }
 
@@ -60,7 +62,7 @@ object PresentationDSL{
 
   object AST3{
     import spinal.core._
-    val bools = List.fill(3)(in Bool)
+    val bools = List.fill(3)(in Bool())
 
     var boolsAnd = bools.head
     for(bool <- bools.tail){
@@ -85,7 +87,7 @@ object PresentationDSL{
         //...
       }
     }
-    val something, data, result = Bool
+    val something, data, result = Bool()
     result := False
     when(something){
       result := data
@@ -151,44 +153,22 @@ object PresentationDSL{
 
   }
 
-  object Prefix{
-    import spinal.core.BitCount
-    import spinal.core._
 
 
-    class BaseType{
-      def asInput() : this.type = ???
-    }
 
-    class Bool extends BaseType
-    class UInt(width : Int) extends BaseType
-
-    object in{
-      def Bool() = new Bool().asInput()
-      def UInt(width : BitCount) = new UInt(width.value).asInput()
-    }
-
-    val a = in Bool()
-    val b = in UInt(4 bits)
-
-
-    val c = Bool().asInput()
-  }
-
-
-  object Postfix{
-    case class BitCount(value : Int)
-    implicit class IntPimper(pimped : Int){
-      def bits = BitCount(pimped)
-    }
-
-    class UInt(width : Int)
-    object UInt{
-      def apply(width : BitCount) = new UInt(width.value)
-    }
-    
-    val a,b = UInt(4 bits)
-  }
+//  object Postfix{
+//    case class BitCount(value : Int)
+//    implicit class IntPimper(pimped : Int){
+//      def bits = BitCount(pimped)
+//    }
+//
+//    class UInt(width : Int)
+//    object UInt{
+//      def apply(width : BitCount) = new UInt(width.value)
+//    }
+//
+//    val a,b = UInt(4 bits)
+//  }
 
   object VarOperator{
     case class MegaInt(value : Int){
@@ -205,20 +185,20 @@ object PresentationDSL{
     }
   }
 
-  object DataTypes{
-    import spinal.core._
-
-    implicit class BundlePimper[T <: Bundle](pimped : T){
-      def :=(that : T) = ???
-    }
-
-    class RGB extends Bundle{
-      val r,g,b = UInt(8 bits)
-    }
-
-    val a,b = new RGB
-    a := b  //It is strongly typed and only accept RGB := RGB
-  }
+//  object DataTypes{
+//    import spinal.core._
+//
+//    implicit class BundlePimper[T <: Bundle](pimped : T){
+//      def :=(that : T) = ???
+//    }
+//
+//    class RGB extends Bundle{
+//      val r,g,b = UInt(8 bits)
+//    }
+//
+//    val a,b = new RGB
+//    a := b  //It is strongly typed and only accept RGB := RGB
+//  }
 
   object DataTypes2 {
     class Data
@@ -276,10 +256,10 @@ object PresentationSymbolic{
   import spinal.core._
   import spinal.lib._
   import spinal.lib.bus.amba3.apb._
-//  val x = Reg(Bool)
-//  val x = Reg(Bool) init(False)
-  val a,b,c,d,e = Bool
-//  val x = Reg(Bool)
+//  val x = Reg(Bool())
+//  val x = Reg(Bool()) init(False)
+  val a,b,c,d,e = Bool()
+//  val x = Reg(Bool())
 //  x := a
 //  when(d){
 //    when(e){
@@ -323,9 +303,9 @@ object PresentationSymbolic{
 //  }
   class Pwm(width : Int) extends Component{
     val io = new Bundle{
-      val enable    = in Bool
+      val enable    = in Bool()
       val dutyCycle = in UInt(width bits)
-      val pwm       = out Bool
+      val pwm       = out Bool()
     }
     // ...
   }
@@ -337,7 +317,7 @@ object PresentationSymbolic{
 //        dataWidth = 32
 //      ))
 //      val pop = master(Stream(Bits(packetWidth bits)))
-//      val pwm       = out Bool
+//      val pwm       = out Bool()
 //    }
 //    // ...
 //  }
@@ -347,8 +327,8 @@ object PresentationSymbolic{
 
   case class MemoryPort( addressWidth : Int,
                          dataWidth : Int) extends Bundle with IMasterSlave {
-    val enable    = Bool
-    val rwn       = Bool
+    val enable    = Bool()
+    val rwn       = Bool()
     val address   = Bits(addressWidth bits)
     val writeData = Bits(dataWidth bits)
     val readData  = Bits(dataWidth bits)
@@ -386,7 +366,7 @@ object PresentationSymbolic{
 
   class Toplevel extends Component{
     val io = new Bundle{
-      val pin = out Bool
+      val pin = out Bool()
     }
 
     val subComponent = new SubComponent
@@ -400,12 +380,12 @@ object PresentationSymbolic{
 //
 //  val PADDR      = UInt(config.addressWidth bits)
 //  val PSEL       = Bits(config.selWidth bits)
-//  val PENABLE    = Bool
-//  val PREADY     = Bool
-//  val PWRITE     = Bool
+//  val PENABLE    = Bool()
+//  val PREADY     = Bool()
+//  val PWRITE     = Bool()
 //  val PWDATA     = Bits(config.dataWidth bits)
 //  val PRDATA     = Bits(config.dataWidth bits)
-//  val PSLVERROR  = if(config.useSlaveError) Bool else null
+//  val PSLVERROR  = if(config.useSlaveError) Bool() else null
 //
 //  override def asMaster(): Unit = {
 //    out(PADDR, PSEL, PENABLE, PWRITE, PWDATA)

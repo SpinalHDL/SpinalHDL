@@ -1,6 +1,8 @@
 package spinal.tester.scalatest
 
-import org.scalatest.{FunSuite, Assertions}
+
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.{Assertions}
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
@@ -40,14 +42,15 @@ object TestTopLevel {
 
 }
 
-class BusSlaveFactoryDoubleReadTester extends FunSuite {
+class BusSlaveFactoryDoubleReadTester extends AnyFunSuite {
 
   test("BusSlaveFactoryDoubleRead") {
 
     val caught = Assertions.intercept[java.lang.AssertionError](
-      SpinalConfig().generateVhdl(
+      SpinalConfig().generateVerilog {
+        println(DslScopeStack.isEmpty)
         new TestTopLevel.DoubleReadDut()
-      )
+      }
     )
 
     assert(caught.toString.contains("DOUBLE-READ-ERROR"),
@@ -56,9 +59,10 @@ class BusSlaveFactoryDoubleReadTester extends FunSuite {
 
   test("BusSlaveFactoryDoubleWrite") {
     // test that no error is thrown on double write access
-    SpinalConfig().generateVhdl(
+    SpinalConfig().generateVhdl {
+      println(DslScopeStack.isEmpty)
       new TestTopLevel.DoubleWriteDut()
-    )
+    }
   }
 }
 

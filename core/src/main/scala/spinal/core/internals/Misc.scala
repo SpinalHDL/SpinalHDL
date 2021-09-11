@@ -46,6 +46,7 @@ object TypeBits
 object TypeUInt
 object TypeSInt
 object TypeEnum
+object TypeStruct
 
 
 trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
@@ -276,4 +277,13 @@ object GraphUtils{
 
 class BooleanPimped(pimped : Boolean){
   def generate[T](block : => T) : T = if(pimped) block else null.asInstanceOf[T]
+  def toInt = if(pimped) 1 else 0
+}
+
+
+class IntPimped(pimped : Int){
+  def toBoolean = pimped match {
+    case 0 => false
+    case 1 => true
+  }
 }

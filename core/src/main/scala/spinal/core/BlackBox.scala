@@ -56,14 +56,14 @@ case class GenericValue(e : Expression) extends SpinalTag
   *            val wordWidth = Ram_1w_1r.this.wordWidth
   *        }
   *        val io = new Bundle {
-  *            val clk = in Bool
+  *            val clk = in Bool()
   *            val wr = new Bundle {
-  *                val en   = in Bool
+  *                val en   = in Bool()
   *                val addr = in UInt (log2Up(wordCount) bit)
   *                val data = in Bits (wordWidth bit)
   *            }
   *            val rd = new Bundle {
-  *                val en   = in Bool
+  *                val en   = in Bool()
   *                val addr = in UInt (log2Up(wordCount) bit)
   *                val data = out Bits (wordWidth bit)
   *            }
@@ -77,6 +77,7 @@ abstract class BlackBox extends Component{
   val librariesUsages = mutable.HashSet[String]();
 
   private var isBb = false
+  var isSpinalSimWb = false
   setBlackBox()
 
   def isBlackBox = isBb
@@ -86,6 +87,10 @@ abstract class BlackBox extends Component{
   }
   def clearBlackBox() = {
     isBb = false
+  }
+
+  def spinalSimWhiteBox() = {
+    isSpinalSimWb = true
   }
 
   def addGeneric(name : String, that : Any) : Unit = that match {

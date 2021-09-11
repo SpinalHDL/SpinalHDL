@@ -44,9 +44,9 @@ case class JtaggGeneric (
     var ER2 : String = "ENABLED" ) extends Generic {}
 
 case class JtaggIo() extends Bundle with IMasterSlave{
-    val JSHIFT, JUPDATE, JRSTN, JRTI1, JRTI2, JCE1, JCE2 = Bool
-    val JTCK, JTDI   = Bool
-    val JTDO1, JTDO2 =  Bool
+    val JSHIFT, JUPDATE, JRSTN, JRTI1, JRTI2, JCE1, JCE2 = Bool()
+    val JTCK, JTDI   = Bool()
+    val JTDO1, JTDO2 =  Bool()
 
     override def asMaster(): Unit = {
       out(JSHIFT, JUPDATE, JRSTN, JRTI1, JRTI2, JCE1, JCE2)

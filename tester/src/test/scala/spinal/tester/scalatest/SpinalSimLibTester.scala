@@ -1,4 +1,4 @@
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -8,7 +8,7 @@ import spinal.lib.sim.{FlowMonitor, StreamDriver, StreamMonitor, StreamReadyRand
 import scala.collection.mutable
 import scala.util.Random
 
-class SpinalSimLibTester extends FunSuite{
+class SpinalSimLibTester extends AnyFunSuite{
 
   for(bitCount <- 0 until 12) {
     test("CountOnes"+bitCount) {

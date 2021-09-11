@@ -1,7 +1,8 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
+import spinal.core.fiber._
 import spinal.core.sim._
 import spinal.lib._
 import spinal.lib.bus.bmb.sim._
@@ -15,7 +16,7 @@ import scala.util.Random
 
 object SpinalSimBmbInterconnectGeneratorTester {
   def f() = {
-    new GeneratorComponent(new Generator {
+    new Component{
       val interconnect = BmbInterconnectGenerator()
 
 
@@ -163,13 +164,18 @@ object SpinalSimBmbInterconnectGeneratorTester {
         alignment = BmbParameter.BurstAlignement.LENGTH
       ))
 
-      def fullAccess(bus: Handle[Bmb]) = interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+      def fullAccess(bus: Handle[Bmb]) = {
+        println("fullAccess")
+        interconnect.slaves.keys.foreach(s => interconnect.addConnection(bus, s))
+        println("fullAccess done")
+      }
 
       fullAccess(mA.busHandle)
       fullAccess(mB.busHandle)
       fullAccess(mC.busHandle)
       fullAccess(mD.busHandle)
-    })
+      println("DONE")
+    }
   }
 }
 
@@ -194,7 +200,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
             allowedWrites.remove(address)
           }
         }
-        for ((bus, model) <- dut.generator.interconnect.slaves) {
+        for ((bus, model) <- dut.interconnect.slaves) {
           memory.addPort(
             bus = bus,
             busAddress = model.mapping.lowerBound.toLong,
@@ -204,7 +210,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
         }
 
         val regions = BmbRegionAllocator()
-        for ((bus, model) <- dut.generator.interconnect.masters) {
+        for ((bus, model) <- dut.interconnect.masters) {
           val agent = new BmbMasterAgent(bus, dut.clockDomain) {
             override def onRspRead(address: BigInt, data: Seq[Byte]): Unit = {
               val ref = (0 until data.length).map(i => memory.getByte(address.toLong + i))
@@ -226,7 +232,7 @@ class SpinalSimBmbInterconnectGeneratorTester  extends SpinalSimFunSuite{
             override def regionFree(region: SizeMapping): Unit = regions.free(region)
 
             override def regionIsMapped(region: SizeMapping, opcode: Int): Boolean = {
-              dut.generator.interconnect.slaves.values.exists { model =>
+              dut.interconnect.slaves.values.exists { model =>
                 val opcodeOk = opcode match {
                   case Bmb.Cmd.Opcode.WRITE => model.accessRequirements.canWrite
                   case Bmb.Cmd.Opcode.READ => model.accessRequirements.canRead

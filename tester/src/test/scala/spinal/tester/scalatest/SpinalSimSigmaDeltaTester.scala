@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.lib._
@@ -14,7 +14,7 @@ import spinal.lib.system.dma.sg.DmaSg
 
 import scala.collection.mutable
 
-class SpinalSimSigmaDeltaTester extends FunSuite{
+class SpinalSimSigmaDeltaTester extends AnyFunSuite{
   test("a"){
     SimConfig.compile(
       BmbBsbToDeltaSigma(

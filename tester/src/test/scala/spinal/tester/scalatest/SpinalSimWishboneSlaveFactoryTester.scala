@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -18,7 +18,7 @@ class WishboneSimpleSlave(config : WishboneConfig) extends Component{
   val reg = busCtrl.createReadWrite(Bits(busCtrl.busDataWidth bits),10)
 }
 
-class SpinalSimWishboneSlaveFactoryTester extends FunSuite{
+class SpinalSimWishboneSlaveFactoryTester extends AnyFunSuite{
   def testBus(conf:WishboneConfig, description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneSimpleSlave(conf))
     fixture.doSim(description){ dut =>

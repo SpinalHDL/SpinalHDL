@@ -66,7 +66,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterUpDown(
     stateCount = pendingMax+1,
@@ -94,18 +94,22 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val errorSlave = if(decodingErrorPossible) Axi4WriteOnlyErrorSlave(axiConfig) else null
 
   //Wire writeCmd
-  io.input.writeCmd.ready := ((decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR || (decodedCmdError && errorSlave.io.axi.writeCmd.ready)) && allowCmd
-  errorSlave.io.axi.writeCmd.valid := io.input.writeCmd.valid && decodedCmdError && allowCmd
-  errorSlave.io.axi.writeCmd.payload := io.input.writeCmd.payload
+  io.input.writeCmd.ready := ((decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR || (if(decodingErrorPossible) (decodedCmdError && errorSlave.io.axi.writeCmd.ready) else False)) && allowCmd
+  if(decodingErrorPossible) {
+    errorSlave.io.axi.writeCmd.valid := io.input.writeCmd.valid && decodedCmdError && allowCmd
+    errorSlave.io.axi.writeCmd.payload := io.input.writeCmd.payload
+  }
   for((output,sel) <- (io.outputs,decodedCmdSels.asBools).zipped){
     output.writeCmd.valid := io.input.writeCmd.valid && sel && allowCmd
     output.writeCmd.payload := io.input.writeCmd.payload
   }
 
   //Wire writeData
-  io.input.writeData.ready := ((pendingSels & io.outputs.map(_.writeData.ready).asBits).orR || (pendingError && errorSlave.io.axi.writeData.ready)) && allowData
-  errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
-  errorSlave.io.axi.writeData.payload := io.input.writeData.payload
+  io.input.writeData.ready := ((pendingSels & io.outputs.map(_.writeData.ready).asBits).orR || (if(decodingErrorPossible) (pendingError && errorSlave.io.axi.writeData.ready) else False)) && allowData
+  if(decodingErrorPossible) {
+    errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
+    errorSlave.io.axi.writeData.payload := io.input.writeData.payload
+  }
   for((output,sel) <- (io.outputs,pendingSels.asBools).zipped){
     output.writeData.valid   := io.input.writeData.valid && sel && allowData
     output.writeData.payload := io.input.writeData.payload
@@ -113,13 +117,15 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
 
   //Wire writeRsp
   val writeRspIndex = OHToUInt(pendingSels)
-  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR || errorSlave.io.axi.writeRsp.valid
+  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR || (if(decodingErrorPossible) errorSlave.io.axi.writeRsp.valid else False)
   io.input.writeRsp.payload := MuxOH(pendingSels,io.outputs.map(_.writeRsp.payload))
-  when(pendingError){
-    if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
-    if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
+  if(decodingErrorPossible) {
+    when(pendingError){
+      if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
+      if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
+    }
+    errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
   }
-  errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
   io.outputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
 }
 
@@ -143,7 +149,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val sharedOutputs = Vec(master(Axi4Shared(axiConfig)),sharedDecodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterMultiRequest(
     log2Up(pendingMax+1),

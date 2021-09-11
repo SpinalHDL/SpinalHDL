@@ -30,8 +30,8 @@ class RiscvAhbLite3(coreConfig : RiscvCoreConfig,iCacheConfig : InstructionCache
     val i = master(AhbLite3Master(iConfig))
     val d = master(AhbLite3Master(dConfig))
     val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
-    val debugResetIn = if(debug) in Bool else null
-    val debugResetOut = if(debug) out Bool else null
+    val debugResetIn = if(debug) in Bool() else null
+    val debugResetOut = if(debug) out Bool() else null
     val debugBus = if(debug) slave(Apb3(apb3Config)) else null
   }
 

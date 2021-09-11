@@ -125,7 +125,7 @@ case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
 case class MemWriteCmdWithMask[T <: Data](mem : Mem[T]) extends Bundle {
   val address = mem.addressType()
   val data    = mem.wordType()
-  val mask    = Bits
+  val mask    = Bits()
 }
 
 case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{

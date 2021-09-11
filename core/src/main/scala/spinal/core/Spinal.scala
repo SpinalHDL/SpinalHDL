@@ -148,6 +148,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         fixToWithWrap                  : Boolean = true,
                         headerWithDate                 : Boolean = false,
                         headerWithRepoHash             : Boolean = true,
+                        removePruned                   : Boolean = false,
                         phasesInserters                : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
                         transformationPhases           : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
                         memBlackBoxers                 : ArrayBuffer[Phase] = ArrayBuffer[Phase] (/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/),
@@ -245,6 +246,7 @@ class SpinalReport[T <: Component]() {
   val unusedSignals   = mutable.Set[BaseType]()
   var counterRegister = 0
   var toplevelName: String = null
+  var globalData : GlobalData = null
 
 
   val generatedSourcesPaths  = mutable.LinkedHashSet[String]()
@@ -352,6 +354,7 @@ object Spinal{
       case `VHDL`    => SpinalVhdlBoot(configPatched)(gen)
       case `Verilog` => SpinalVerilogBoot(configPatched)(gen)
       case `SystemVerilog` => SpinalVerilogBoot(configPatched)(gen)
+      case null => throw new Exception("Please specify mode in SpinalConfig (mode=[Verilog, SystemVerilog, VHDL])")
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")

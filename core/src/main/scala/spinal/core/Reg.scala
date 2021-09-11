@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.idslplugin.Location
+
 
 /**
   * Create a register
@@ -54,7 +56,7 @@ object RegNext {
   * Register a signal when a condition is true
   */
 object RegNextWhen {
-  def apply[T <: Data](next: T, cond: Bool, init: T = null.asInstanceOf[T]): T = {
+  def apply[T <: Data](next: T, cond: Bool, init: T = null.asInstanceOf[T])(implicit loc: Location): T = {
     val reg = Reg(next, init).setCompositeName(next, "regNextWhen", true)
     when(cond){
       reg := next

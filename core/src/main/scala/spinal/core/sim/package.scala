@@ -28,6 +28,7 @@ import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.Seq
 
 /**
   * Simulation package
@@ -58,6 +59,10 @@ package object sim {
   def setBigInt[T <: Data](mem : Mem[T], address : Long, data : BigInt): Unit = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to write to an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -79,6 +84,10 @@ package object sim {
   def getBigInt[T <: Data](mem : Mem[T], address : Long): BigInt = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to read from an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -186,7 +195,11 @@ package object sim {
     }
   }
 
-  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+  def forkSensitive(triggers: Data)(block: => Unit): Unit = {
+    forkSensitive2(triggers)(block)
+  }
+
+  def forkSensitive2(triggers: Data*)(block: => Unit): Unit = {
     def value(data: Data) = data.flatten.map(_.toBigInt)
     def currentTriggerValue = triggers.flatMap(value)
 
@@ -265,14 +278,14 @@ package object sim {
       val index = Random.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
     def pop() : T = {
       val index = 0
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
   }
@@ -498,7 +511,7 @@ package object sim {
       }
     }
 
-    def waitEdge(): Unit = waitRisingEdge(1)
+    def waitEdge(): Unit = waitEdge(1)
     def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
@@ -757,7 +770,7 @@ package object sim {
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
     def isSamplingDisable: Boolean       = ! isSamplingEnable
   }
-
+  implicit class SimClockDomainHandlePimper(cd: spinal.core.fiber.Handle[ClockDomain]) extends SimClockDomainPimper(cd.get)
 
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
@@ -766,8 +779,8 @@ package object sim {
     val queue = mutable.Queue[SimThread]()
     var locked = false
     def lock(){
-      val t = simThread
       if(locked) {
+        val t = simThread
         queue.enqueue(t)
         t.suspend()
       } else {
@@ -780,6 +793,31 @@ package object sim {
         queue.dequeue().resume()
       } else {
         locked = false
+      }
+    }
+  }
+
+
+  def forkSimSporadicWave(captures : Seq[(Double, Double)], enableTime : Double = 1e-7, disableTime : Double = 1e-4, timeUnit : Double = 1e12): Unit ={
+    fork{
+      for((at, until) <- captures) {
+        val duration = until-at
+        assert(duration >= 0)
+        while (simTime() < at * timeUnit) {
+          disableSimWave()
+          sleep(disableTime * timeUnit)
+          enableSimWave()
+          sleep(enableTime * timeUnit)
+        }
+        println("\n\n********************")
+        sleep(duration * timeUnit)
+        println("********************\n\n")
+      }
+      while(true) {
+        disableSimWave()
+        sleep(disableTime * timeUnit)
+        enableSimWave()
+        sleep(  enableTime * timeUnit)
       }
     }
   }

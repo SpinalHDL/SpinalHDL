@@ -102,20 +102,20 @@ object Utils{
       val op1 = OP1()
       val alu = ALU()
       val wb  = WB()
-      val rfen = Bool
-      val execute0AluBypass  = Bool
-      val execute1AluBypass  = Bool
-      val canInternalyStallWriteBack0 = Bool
-      val men  = Bool
+      val rfen = Bool()
+      val execute0AluBypass  = Bool()
+      val execute1AluBypass  = Bool()
+      val canInternalyStallWriteBack0 = Bool()
+      val men  = Bool()
       val m  = M()
       val msk = MSK()
       val csr = CSR()
       val mfs = MFS()
-      val useSrc0 = Bool
-      val useSrc1 = Bool
+      val useSrc0 = Bool()
+      val useSrc1 = Bool()
       val extensionTag = Bits()
       val extensionData = Bits()
-      val fencei  = Bool
+      val fencei  = Bool()
   }
 
   def BASE                 = M"------------------------------11"

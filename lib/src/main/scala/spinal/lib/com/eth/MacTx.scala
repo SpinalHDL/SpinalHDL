@@ -29,25 +29,30 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
     }
   }
 
+  val popToPush = new StreamCCByToggle(UInt(ptrWidth bits), popCd, pushCd, withOutputBuffer = false)
+  val pushToPop = new StreamCCByToggle(UInt(ptrWidth bits), pushCd, popCd, withOutputBuffer = false)
 
-  val popToPushGray = Bits(ptrWidth bits)
-  val pushToPopGray = Bits(ptrWidth bits)
+  popToPush.io.input.valid := True
+  popToPush rework { popToPush.pushArea.data init(0) }
 
-  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1 downto ptrWidth - 2) === ~b(ptrWidth - 1 downto ptrWidth - 2) && a(ptrWidth - 3 downto 0) === b(ptrWidth - 3 downto 0)
-  def isEmpty(a: Bits, b: Bits) = a === b
+  pushToPop.io.input.valid := True
+  pushToPop rework { pushToPop.pushArea.data init(0) }
+
+  def isFull(a: UInt, b: UInt) = a.msb =/= b.msb && a(ptrWidth - 2 downto 0) === b(ptrWidth - 2 downto 0)
+  def isEmpty(a: UInt, b: UInt) = a === b
 
   val push = pushCd on new Area {
     val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
-    val popPtrGray = BufferCC(popToPushGray, init = B(0, ptrWidth bits))
-    pushToPopGray := RegNext(toGray(oldPtr)) init(0)
+    val popPtr = popToPush.io.output.toFlow.toReg(0)
+    pushToPop.io.input.payload := oldPtr
 
-    io.push.stream.ready := !isFull(toGray(currentPtr), popPtrGray)
+    io.push.stream.ready := !isFull(currentPtr, popPtr)
     when(io.push.stream.fire) {
       ram(currentPtr.resized) := io.push.stream.payload
       currentPtr := currentPtr + 1
     }
 
-    io.push.availability := depth - (currentPtr - fromGray(popPtrGray))
+    io.push.availability := depth - (currentPtr - popPtr)
 
     when(io.push.commit) {
       oldPtr := currentPtr
@@ -56,19 +61,16 @@ case class MacTxManagedStreamFifoCc[T <: Data](payloadType : HardType[T],
 
   val pop = popCd on new Area {
     val currentPtr, oldPtr = Reg(UInt(ptrWidth bits)) init(0)
-    val pushPtrGray = BufferCC(pushToPopGray, init = B(0, ptrWidth bits))
-    val popPtrGray = toGray(oldPtr)
-    popToPushGray := RegNext(popPtrGray)init(0)
-
+    val pushPtr = pushToPop.io.output.toFlow.toReg(0)
+    popToPush.io.input.payload := oldPtr
 
     val cmd = Stream(ram.addressType())
-    cmd.valid := !isEmpty(toGray(currentPtr), pushPtrGray) && !io.pop.redo
+    cmd.valid := !isEmpty(currentPtr, pushPtr) && !io.pop.redo
     cmd.payload := currentPtr.resized
 
     val commitPtr = RegNextWhen(currentPtr, io.pop.stream.fire)
 
     io.pop.stream << ram.streamReadSync(cmd).throwWhen(io.pop.redo)
-
 
     when(cmd.fire){
       currentPtr := currentPtr + 1
@@ -317,7 +319,7 @@ case class MacTxPadder(dataWidth : Int) extends Component{
   val ok = counter === cycles-1
   val fill = counter =/= 0 && io.input.first
 
-  when(!ok && (counter =/= 0 || io.output.fire)){
+  when(!ok && io.output.fire){
     counter := counter + 1
   }
   when(io.output.lastFire){

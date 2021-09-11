@@ -7,13 +7,13 @@ import spinal.lib.com.uart._
 object SpinalLibTest {
 
   class BundleAA extends BundleA {
-    val a = Bool
-    val d = Bool
+    val a = Bool()
+    val d = Bool()
     val e = MyEnum.craft()
   }
 
   class BundleA extends Bundle {
-    val b = Bool
+    val b = Bool()
     val c = UInt(8 bit)
   }
 
@@ -27,11 +27,11 @@ object SpinalLibTest {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val clkA = in Bool
-      val resetA = in Bool
+      val clkA = in Bool()
+      val resetA = in Bool()
 
-      val clkB = in Bool
-      val resetB = in Bool
+      val clkB = in Bool()
+      val resetB = in Bool()
 
       val inRegBundle = in(new BundleAA())
       val outRegBundle = out(new BundleAA())

@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.HardType
 import spinal.core._
 import spinal.core.sim._
@@ -11,7 +11,7 @@ import spinal.lib.bus.bsb.sim.BsbBridgeTester
 import spinal.lib._
 import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
 
-class SpinalSimBsbTester extends FunSuite{
+class SpinalSimBsbTester extends AnyFunSuite{
   test("upsizerSparse"){
     SimConfig.doSim(new BsbUpSizerSparse(
       p = BsbParameter(
@@ -20,7 +20,7 @@ class SpinalSimBsbTester extends FunSuite{
         sinkWidth   = 4
       ),
       outputBytes = 8
-    ){val reg = RegNext(False)}) { dut =>
+    ){val reg = out(RegNext(False))}) { dut =>
       dut.clockDomain.forkStimulus(10)
       new BsbBridgeTester(
         input = dut.io.input,

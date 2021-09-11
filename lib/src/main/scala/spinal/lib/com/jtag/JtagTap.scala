@@ -10,10 +10,10 @@ import spinal.lib._
 // define Jtag IO's
 //
 case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
-  val tms = Bool
-  val tdi = Bool
-  val tdo = Bool
-  val tck = if(useTck) Bool else null
+  val tms = Bool()
+  val tdi = Bool()
+  val tdo = Bool()
+  val tck = if(useTck) Bool() else null
 
   def unclocked = {
     val ret = Jtag(false)
@@ -83,7 +83,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
 
   switch(fsm.state) {
     is(JtagState.IR_CAPTURE) {
-      instructionShift := instruction
+      instructionShift := B"01".resize(instructionWidth)
     }
     is(JtagState.IR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1

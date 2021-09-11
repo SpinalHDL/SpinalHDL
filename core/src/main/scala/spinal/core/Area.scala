@@ -40,26 +40,47 @@ import spinal.idslplugin.PostInitCallback
   * }}}
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
   */
-trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec {
+
+class Composite[T <: Nameable](val self : T, postfix : String = null) extends Area{
+  override def childNamePriority = Nameable.USER_WEAK
+  if(postfix == null) {
+    setCompositeName(self, true)
+  } else {
+    setCompositeName(self, postfix, true)
+  }
+}
+
+trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
+  def childNamePriority = DATAMODEL_WEAK
+  val _context = ScopeProperty.capture() //TODO not as heavy
+  def rework[T](body : => T): T = {
+    val oldContext = ScopeProperty.capture() //TODO not as heavy
+    _context.restore()
+    val b = body
+    oldContext.restore()
+    b
+  }
+  override private[core] def getComponent() = component
+
   override def valCallbackRec(obj: Any, name: String): Unit = {
     obj match {
       case component: Component =>
         if (component.parent == this.component) {
-          component.setPartialName(name, DATAMODEL_WEAK)
+          component.setPartialName(name, childNamePriority)
           OwnableRef.proposal(component, this)
         }
       case namable: Nameable =>
         if (!namable.isInstanceOf[ContextUser]) {
-          namable.setPartialName(name, DATAMODEL_WEAK)
+          namable.setPartialName(name, childNamePriority)
           OwnableRef.proposal(namable, this)
         } else if (namable.asInstanceOf[ContextUser].component == component){
-          namable.setPartialName(name, DATAMODEL_WEAK)
+          namable.setPartialName(name, childNamePriority)
           OwnableRef.proposal(namable, this)
         } else {
           if(component != null) for (kind <- component.children) {
             //Allow to name a component by his io reference into the parent component
             if (kind.reflectIo == namable) {
-              kind.setPartialName(name, DATAMODEL_WEAK)
+              kind.setPartialName(name, childNamePriority)
               OwnableRef.proposal(kind, this)
             }
           }

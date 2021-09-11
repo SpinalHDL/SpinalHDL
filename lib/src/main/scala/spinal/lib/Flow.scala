@@ -18,7 +18,7 @@ class FlowFactory extends MSFactory{
 object Flow extends FlowFactory
 
 class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T]{
-  val valid = Bool
+  val valid = Bool()
   val payload : T = payloadType()
 
   override def clone: Flow[T] = Flow(payloadType).asInstanceOf[this.type]
@@ -28,6 +28,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
 
   override def freeRun(): this.type = this
+  def setIdle(): this.type = {
+    valid := False
+    payload.assignDontCare()
+    this
+  }
 
 
   def toReg() : T = toReg(null.asInstanceOf[T])
@@ -74,6 +79,12 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     val (ret,occupancy) = this.toStream.queueWithOccupancy(fifoSize)
     overflow := occupancy >= overflowOccupancyAt
     ret
+  }
+
+  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain) : Flow[T] = {
+    val cc = new FlowCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
   }
 
   def connectFrom(that: Flow[T]): Flow[T] = {
@@ -175,16 +186,16 @@ object FlowCCByToggle {
   }
 }
 
-class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
     val output = master Flow (dataType)
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
   val inputArea = new ClockingArea(inputClock) {
-    val target = Reg(Bool)
+    val target = Reg(Bool())
     val data = Reg(io.input.payload)
     when(io.input.valid) {
       target := !target
@@ -202,7 +213,7 @@ class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCloc
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.output <-< flow
+    io.output << flow.m2sPipe(holdPayload = true)
   }
 
   if(inputClock.hasResetSignal){

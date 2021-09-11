@@ -22,9 +22,11 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import scala.collection.Seq
 
 object DataAssign
 object InitAssign
+object InitialAssign
 class VarAssignementTag(val from : Data) extends SpinalTag{
   var id = 0
 }
@@ -45,7 +47,7 @@ trait DataPrimitives[T <: Data]{
 
     val globalData = GlobalData.get
 
-    globalData.dslScope.push(_data.parentScope)
+    DslScopeStack.push(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -53,7 +55,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    globalData.dslScope.pop()
+    DslScopeStack.pop()
 
     ret.allowOverride
     ret := that
@@ -105,6 +107,16 @@ trait DataPrimitives[T <: Data]{
       Component.pop(c)
     }
     _data
+  }
+}
+
+trait BaseTypePrimitives[T <: BaseType] {
+
+  private[spinal] def _baseType: T = this.asInstanceOf[T]
+
+  def initial(that : T) = {
+    _baseType.initialFrom(that)
+    _baseType
   }
 }
 
@@ -173,14 +185,14 @@ object Data {
     }
 
     def push(c: Component, scope: ScopeStatement): Unit = {
-      c.globalData.dslScope.push(scope)
-      c.globalData.dslClockDomain.push(c.clockDomain)
+      DslScopeStack.push(scope)
+      ClockDomain.push(c.clockDomain)
     }
 
     def pop(c: Component): Unit = {
-      assert(c.globalData.currentComponent == c)
-      c.globalData.dslScope.pop()
-      c.globalData.dslClockDomain.pop()
+      assert(Component.current == c)
+      DslScopeStack.pop()
+      ClockDomainStack.pop()
     }
 
     var currentData: T = srcData
@@ -255,6 +267,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
+  private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
@@ -527,7 +540,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     * Useful for register that doesn't need a reset value in RTL,
     * but need a random value for simulation (avoid x-propagation)
     */
-  def randBoot(): this.type = {
+  def randBoot(u : Unit): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
@@ -627,6 +640,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       null
     }
     null
+  }
+
+
+  def toIo(): this.type ={
+    val subIo = this
+    val topIo = cloneOf(subIo)//.setPartialName(h, "", true)
+    topIo.copyDirectionOf(subIo)
+    for((s,t) <- (subIo.flatten, topIo.flatten).zipped if s.isAnalog) t.setAsAnalog()
+    topIo <> subIo
+    topIo.asInstanceOf[this.type]
   }
 
   /** Generate this if condition is true */

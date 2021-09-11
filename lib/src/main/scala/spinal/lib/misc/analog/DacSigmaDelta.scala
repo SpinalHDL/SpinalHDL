@@ -2,6 +2,7 @@ package spinal.lib.misc.analog
 
 import spinal.core._
 import spinal.lib._
+import spinal.core.fiber._
 import spinal.lib.bus.bmb._
 import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbInterconnectGenerator, BsbParameter}
 import spinal.lib.bus.misc.{BusSlaveFactory, SizeMapping}
@@ -122,7 +123,7 @@ case class BsbToDeltaSigma(p : BsbToDeltaSigmaParameter, inputParameter : BsbPar
 //    val toSigmaDelta = UIntToSigmaDeltaSecondOrder(p.channelWidth)
 //      toSigmaDelta.io.input <> S(sampler.state(channelId))
 
-    val buffer = Reg(Bool)
+    val buffer = Reg(Bool())
     buffer := toSigmaDelta.io.output && io.channelCount =/= 0
 
     io.outputs(channelId) := buffer
@@ -157,13 +158,13 @@ case class BmbBsbToDeltaSigma(p : BsbToDeltaSigmaParameter,
 
 
 case class BmbBsbToDeltaSigmaGenerator(ctrlOffset : Handle[BigInt] = Unset)
-                                      (implicit val interconnect: BmbInterconnectGenerator, val bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator{
-  val ctrl = produce(logic.io.ctrl)
-  val input = produce(logic.io.input)
-  val outputs = produceIo(logic.io.outputs)
-  val parameter = createDependency[BsbToDeltaSigmaParameter]
+                                      (implicit val interconnect: BmbInterconnectGenerator, val bsbInterconnect : BsbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area{
+  val ctrl = Handle(logic.io.ctrl)
+  val input = Handle(logic.io.input)
+  val outputs = Handle(logic.io.outputs.toIo)
+  val parameter = Handle[BsbToDeltaSigmaParameter]
 
-  val logic : Handle[BmbBsbToDeltaSigma] = add task BmbBsbToDeltaSigma(
+  val logic : Handle[BmbBsbToDeltaSigma] = Handle(BmbBsbToDeltaSigma(
     p              = parameter,
     bmbParameter  = accessRequirements.toBmbParameter(),
     inputParameter = BsbParameter(
@@ -172,11 +173,11 @@ case class BmbBsbToDeltaSigmaGenerator(ctrlOffset : Handle[BigInt] = Unset)
       sinkWidth = is.sinkWidth,
       withMask = is.withMask
     )
-  )
+  ))
 
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
   interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(BmbBsbToDeltaSigma.getBmbCapabilities),
@@ -186,6 +187,5 @@ case class BmbBsbToDeltaSigmaGenerator(ctrlOffset : Handle[BigInt] = Unset)
   )
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
   val is = bsbInterconnect.addSlave(input)
-  dependencies += List(is.byteCount, is.sourceWidth, is.withMask)
   is.sinkWidth.load(0)
 }

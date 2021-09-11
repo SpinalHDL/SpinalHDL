@@ -113,7 +113,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     * goto() will only have an effect, if condition is True
     */
   def setTransitionCondition(condition : Bool) {
-    this.transitionCond = Bool
+    this.transitionCond = Bool()
     this.transitionCond := condition
   }
 
@@ -139,6 +139,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var transitionCond : Bool = null
   override val wantExit  = False.allowPruning()
   val wantStart = False
+  val wantKill = False
   var autoStart = true
 
   @dontName var parentStateMachine: StateMachineAccessor = null
@@ -240,6 +241,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
       else
         forceGoto(entryState)
     }
+    when(wantKill){
+      forceGoto(stateBoot)
+    }
   }
 
   Component.current.addPrePopTask(() => {
@@ -269,7 +273,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   override def isActive(state: State): Bool = {
-    val ret = Bool
+    val ret = Component.current.onBody(Bool)
     postBuildTasks += {() => {
       ret := stateReg === enumOf(state)
     }}
@@ -277,7 +281,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   override def isEntering(state: State): Bool = {
-    val ret = Bool
+    val ret = Component.current.onBody(Bool)
     postBuildTasks += {() => {
       ret := stateNext === enumOf(state) && stateReg =/= enumOf(state)
     }}
@@ -307,6 +311,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     goto(stateBoot)
   }
 
+  def killFsm() : Unit = {
+    wantKill := True
+  }
+
   @dontName implicit val implicitFsm = this
 
   override def disableAutoStart(): Unit = autoStart = false
@@ -322,6 +330,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   def onStart(body : => Unit) = stateBoot.onExit(body)
   def isStarted = !isActive(stateBoot)
   def isStopped = isActive(stateBoot)
+  def isRunning = isStarted
 }
 
 

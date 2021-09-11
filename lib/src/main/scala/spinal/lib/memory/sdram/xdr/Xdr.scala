@@ -55,13 +55,13 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //  val DQ    = TriState(Bits(l.dataWidth bits))
 //  val DQS   = TriState(Bits(l.bytePerDq bits))
 //  val DM    = Bits(l.bytePerDq bits)
-//  val CASn  = Bool
-//  val CKE   = Bool
-//  val CSn   = Bool
-//  val RASn  = Bool
-//  val WEn   = Bool
-//  val ODT   = Bool
-//  val RESETn   = Bool
+//  val CASn  = Bool()
+//  val CKE   = Bool()
+//  val CSn   = Bool()
+//  val RASn  = Bool()
+//  val WEn   = Bool()
+//  val ODT   = Bool()
+//  val RESETn   = Bool()
 //
 //  override def asMaster(): Unit = {
 //    out(ADDR,BA,CASn,CKE,CSn,DM,RASn,WEn,ODT,RESETn)
@@ -75,11 +75,11 @@ case class Timings(      bootRefreshCount : Int, // Number of refresh command do
 //  val BA    = Bits(pl.bankWidth bits)
 //  val DQ    = TriState(Bits(pl.dataWidth bits))
 //  val DQM   = Bits(pl.bytePerWord bits)
-//  val CASn  = Bool
-//  val CKE   = Bool
-//  val CSn   = Bool
-//  val RASn  = Bool
-//  val WEn   = Bool
+//  val CASn  = Bool()
+//  val CKE   = Bool()
+//  val CSn   = Bool()
+//  val RASn  = Bool()
+//  val WEn   = Bool()
 //
 //  override def asMaster(): Unit = {
 //    out(ADDR,BA,CASn,CKE,CSn,DQM,RASn,WEn)
@@ -365,10 +365,10 @@ case class CoreTasks(cpa : CoreParameterAggregate) extends Bundle with IMasterSl
 case class InitCmd(cpa : CoreParameterAggregate) extends Bundle{
   val ADDR  = Bits(cpa.pl.sdram.chipAddressWidth bits)
   val BA    = Bits(cpa.pl.sdram.bankWidth bits)
-  val CASn  = Bool
-  val CSn   = Bool
-  val RASn  = Bool
-  val WEn   = Bool
+  val CASn  = Bool()
+  val CSn   = Bool()
+  val RASn  = Bool()
+  val WEn   = Bool()
 }
 
 case class SoftBus(cpa : CoreParameterAggregate) extends Bundle with IMasterSlave{

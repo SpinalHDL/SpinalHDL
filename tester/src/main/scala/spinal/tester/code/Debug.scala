@@ -3,234 +3,44 @@ package spinal.tester.code
 
 
 
+import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.lib._
+import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
 
 
 object Debug {
-  class halfadder () extends Component{
-    val io = new Bundle{
-      val a = in  Bits(1 bits)
-      val b = in  Bits(1 bits)
-      val s = out Bits(1 bits)
-      val c = out Bits(1 bits)
-    }
-    io.s := io.a ^ io.b
-    io.c := io.a & io.b
-  }
-
-  //---------------------------------------------------
-  //1-Bit Full Adder
-  //---------------------------------------------------
-  class fulladder () extends Component{
-    val io = new Bundle{
-      val a    = in  Bits(1 bits)
-      val b    = in  Bits(1 bits)
-      val cin  = in  Bits(1 bits)
-      val sum  = out Bits(1 bits)
-      val cout = out Bits(1 bits)
-    }
-    val cell0 = new halfadder
-    val cell1 = new halfadder
-
-    cell0.io.a := io.a
-    cell0.io.b := io.b
-
-    cell1.io.a := io.cin
-    cell1.io.b := cell0.io.s
-
-    io.sum     := cell1.io.s
-    io.cout    := cell0.io.c | cell1.io.c
-  }
-  //---------------------------------------------------
-  // 4-Bits carry adder
-  //---------------------------------------------------
-  class carryadder extends Component{
-    val io = new Bundle{
-      val cin   = in Bits (1 bits)
-      val op0   = in  Bits (4 bits)
-      val op1   = in  Bits (4 bits)
-      val sum   = out Bits (4 bits)
-      val cout  = out Bits (1 bits)
-    }
-    //val value = Bits(4 bits)
-
-    val cellArray = Array.fill(4)(new fulladder)
-
-    cellArray(0).io.cin <> io.cin
-    cellArray(0).io.a   <> io.op0(0).asBits
-    cellArray(0).io.b   <> io.op1(0).asBits
-    //io.sum(0).asBits    <> cellArray(0).io.sum
-
-    for (i <- 1 until 4){
-      cellArray(i).io.cin <> cellArray(i-1).io.cout
-      cellArray(i).io.a   <> io.op0(i).asBits
-      cellArray(i).io.b   <> io.op1(i).asBits
-      //io.sum(i).asBits    <> cellArray(i).io.sum
-    }
-
-    io.cout := cellArray(3).io.cout
-    for (i <- 0 until 4){
-      io.sum(i).asBits    <> cellArray(i).io.sum
-    }
-  }
-  class A {
-    val a = 1
-    val aa = 2
-  }
-
-  class B extends A {
-    val b = 2
-  }
-
-  class C(xx: Int) extends B {
-
-  }
-
-  class MyBundle extends Bundle {
-    val a = Bool
-    val b = Bool
-    val c = Vec(new MyBundle2, 2)
-  }
-
-  class MyBundle2 extends Bundle {
-    val a = Bool
-    val b = Bool
-  }
-
-
-  class MyBundleSub extends MyBundle {
-
-  }
-
-  object MyEnum extends SpinalEnum {
-    val s0, s1, s2 = newElement()
-  }
-
-  object MyEnum2 extends SpinalEnum {
-    val s0, s1, s2 = newElement()
-  }
-
-  class SubA extends Component {
-    val subB = new SubB()
-  }
-
-  class SubB extends Component {
-    val titi = Bool
-  }
-
-  class TopLevel(a: Int) extends Component {
-    val toto = Bool
-    println("toto : " + toto.getName())
-    val subA = new SubA()
-
-    println("TITI " + (subA.subB.titi.getComponents().map(_.getName()) ++ Seq(subA.subB.titi.getName())).reduce(_ + ":" + _))
+  class NameVecIndexing extends Component {
     val io = new Bundle {
-      //      val in1 = in (new MyBundle)
-      //      val out1 = out (new MyBundle2)
-
-      //      val outputVec = Vec(3, master Stream (new MyBundle))
-
-      val input = slave Stream (new MyBundle)
-      val output = master Stream (new MyBundle)
-
-      //      val romCmd = slave Stream(UInt(2 bit))
-      //      val romRead = master Stream(RomData())
-      //      val romCmd = in(UInt(2 bit))
-      //      val romRead = out(MyData())
-      val sin = out SInt (16 bit)
-      val fir = out SInt (16 bit)
-
-      val boolToUnsigned = out UInt()
-      val tt = out Bool
+      val qpsize = in  UInt(32 bits)
+      val addr1 = in  UInt(32 bits)
+      val addr2 = in  UInt(32 bits)
+      val addr3 = in  UInt(32 bits)
+      val qlevel = out (UInt(32 bits))
     }
-    //    println(io.elements.mkString("\n"))
-    SFix(4 exp, 8 bit).maxValue
-    SFix(4 exp, 8 bit).minValue
+    noIoPrefix()
 
-    SFix(4 exp, 8 bit)
-    SFix(4 exp, 8 exp)
+    val qp_f = Vec(Vec(Vec(UInt(32 bits), 5), 4), 3)
 
-    val newInput = in Bool
-    val newOutput = out Bool
+    for (i <- 0 until 3) (
+      for (j <- 0 until 4) (
+        for (k <- 0 until 5) {
+          qp_f(i)(j)(k) := i + j + k
+        }
+        )
+      )
 
-    newOutput := !newInput
-
-    val myClockDomain = ClockDomain.external("ttDomain")
-    val ttArea = new ClockingArea(myClockDomain) {
-      io.tt := RegNext(!io.tt)
-    }
-
-    MyEnum.s1 === MyEnum.s2()
-    //    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
-    //    implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
-    //
-    val s0Reg = RegNext(MyEnum.s0())
-
-    io.boolToUnsigned := U(True)
-
-    val forks = StreamFork(io.input, 3)
-    io.output << StreamArbiterFactory.lowerFirst.transactionLock.on(forks)
-
-    object MyData {
-      def apply(a: Boolean, b: BigInt): MyData = {
-        val ret = MyData()
-        ret.a := Bool(a)
-        ret.b := b
-        ret
-      }
-    }
-
-    //    for(i <- 0 to 63){
-    //      romData += MyData(false,i)
-    //    }
-
-    case class MyData() extends Bundle {
-      val a = Bool
-      val b = UInt(3 bit)
-    }
-
-    //    val romData = ArrayBuffer(MyData(false,1),MyData(false,2),MyData(true,3),MyData(false,4))
-    //    val rom = Mem(MyData(),68) init(romData)
-    //
-    //    io.romRead := rom(io.romCmd)
-
-    //    val lockupTable = Mem(SInt(16 bit),1024)
-    //    lockupTable.init((0 to 1023).map(i => S((Math.sin(i*2*Math.PI/1024.0)*32767).toInt)))
-    //
-    //    val counter = CounterFreeRun(1024)
-    //    io.sin := (lockupTable(counter)*lockupTable(counter)) >> 16
-
-
-    io.sin := Mem(SInt(16 bit), (0 to 1023).map(i => S((Math.pow(Math.sin(i * 2 * Math.PI / 1024.0), 1) * 32767).toInt))).readSync(CounterFreeRun(1024))
-
-    val waveform = (0 to 1023).map(i => {
-      S((Math.pow(Math.sin(i * 2 * Math.PI / 1024.0), 1) * 32767).toInt)
-    })
-    val rom = Mem(SInt(16 bit), waveform)
-    val animated = rom.readSync(CounterFreeRun(1024))
-
-    val firLength = 32
-    val coefs = (0 until firLength).map(i => S(((0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)) * 32767 / firLength).toInt, 16 bit))
-    io.fir := (coefs, History(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
-
-
-    //MacroTest.mkObject("asd")
-
+    io.addr1.addTag(tagAutoResize)
+    io.addr2.addTag(tagAutoResize)
+    io.addr3.addTag(tagAutoResize)
+    io.qlevel := qp_f(io.addr1(8 downto 4).addTag(tagAutoResize))(io.addr2)(io.addr3)
   }
 
 
   def main(args: Array[String]) {
-    println("START")
-    val a = new A
-    val b = new B
-    val c = new C(2)
-
-    SpinalVhdl(new carryadder())
-    println("DONE")
-
+    SpinalVerilog(new NameVecIndexing)
 
   }
 
@@ -238,6 +48,260 @@ object Debug {
 }
 
 
+object Debug2 extends App{
+
+//  class Miaou extends Bundle{
+//
+//
+//    def fifo2() = new Composite{
+//      val x = 4
+//    }.x
+//
+//    def fifo1(): Unit = new Area {
+//      val x = UInt(8 bits)
+//
+//      this.setCompositeName(Miaou.this)
+//      x + 1
+//    }
+////    def fifo(): Unit = composite(this) {
+////      val x = UInt(8 bits)
+////
+////      x + 1
+////    }
+//  }
+
+
+  SpinalConfig().includeFormal.generateSystemVerilog(new Component{
+
+    val a = slave(Stream(UInt( 8 bits)))
+    val b = master(Stream(UInt( 8 bits)))
+
+    a >> b
+
+
+    val x = out Bool()
+    x := False
+    when(b.fire){
+      x := True
+    }
+//    val a = in Bits(8 bits)
+//    val x = out UInt(6 bits)
+//    val y, z = out Bool()
+//
+//
+//    (x,y,z) := a
+
+
+
+//    val rawrrr = in UInt(8 bits)
+//    val wuff = out(Reg(UInt(8 bits))) init(0x11)
+//    wuff := wuff + rawrrr
+
+
+
+//    GenerationFlags.formal {
+//      when(Formal.initstate()) {
+//        assume(clockDomain.isResetActive)
+//      }
+//    }
+
+
+//    GenerationFlags.formal {
+//      ClockDomain.current.withoutReset(){
+//        assert(wuff === 0)
+//      }
+//      ClockDomain.current.readResetWire initial(False)
+//      rawrrr.initial(0x42)
+//
+//      assumeInitial(!clockDomain.isResetActive)
+//      ClockDomain.current.duringReset {
+//        assume(rawrrr === 0)
+//        assume(wuff === 3)
+//      }
+//    }
+
+    setDefinitionName("miaou")
+  })
+
+}
+
 //object MyEnum extends  spinal.core.MacroTest.mkObject("asd")
 //
 //
+
+
+
+import spinal.core._
+
+class Test extends Component {
+  val io = new Bundle {
+    val input = in Vec(UInt(10 bits), 2)
+    val output = out UInt(11 bits)
+  }
+
+  io.output := io.input(0) +^ io.input(1)
+
+}
+
+class TestTop extends Component {
+  val io = new Bundle {
+    val A = in UInt(10 bits)
+    val B = in UInt(10 bits)
+    val C = out UInt(11 bits)
+  }
+
+  val adder = new Test
+  adder.io.input(0) := io.A
+  adder.io.input(1) := io.B
+  io.C := adder.io.output
+}
+
+object TestTopMain {
+  def main(args: Array[String]) {
+    SpinalVerilog(new TestTop)
+  }
+}
+
+
+
+
+object Debug3 extends App{
+  import spinal.core.sim._
+
+  SimConfig.withIVerilog.compile(new Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)) init(0))
+    result := result + 1
+    assert(result =/= 10, "miaou")
+  }).doSim{ dut =>
+    dut.a #= 1
+    dut.b #= 0
+    dut.c #= 0
+    dut.clockDomain.forkStimulus(10)
+    dut.clockDomain.waitSampling(100)
+  }
+}
+
+
+object Debug4 extends App{
+  SpinalVerilog(new Component{
+    val mem = Mem(UInt(8 bits), 16) initBigInt(List.fill(16)(BigInt(0)))
+
+    val a = slave(mem.writePort)
+    val b = slave(mem.readSyncPort)
+    println(LatencyAnalysis(a.data, b.rsp))
+    println(LatencyAnalysis(b.cmd.payload, b.rsp))
+  })
+}
+
+
+class TopLevel extends Component {
+  val io = new Bundle {
+    val ready = in Bool()
+    val valid = out Bool()
+  }
+  val valid = RegInit(False)
+
+  when(io.ready) {
+    valid := False
+  }
+  io.valid <> valid
+  // some logic
+
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+
+  GenerationFlags.formal {
+//    assumeInitial(clockDomain.isResetActive)
+//    assert(!(valid.fall && !io.ready))
+//
+//    ClockDomain.current.duringReset {
+//      assume(io.ready === False)
+//    }
+    when(initstate()) {
+      assume(clockDomain.isResetActive)
+      assume(io.ready === False)
+    }.otherwise {
+      assert(!(valid.fall && !io.ready))
+    }
+  }
+}
+
+
+object MyToplevelSystemVerilogWithFormal {
+  def main(args: Array[String]) {
+    val config = SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind=SYNC, resetActiveLevel=HIGH))
+    config.includeFormal.generateSystemVerilog(new TopLevel())
+  }
+}
+
+
+
+import spinal.core._
+import spinal.core.sim._
+import spinal.lib.bus.amba4.axi._
+
+
+class Test22 extends Component {
+  val axiConf = Axi4Config(
+    addressWidth = 32,
+    dataWidth = 32,
+    useId = false,
+    useRegion = false,
+    useBurst = false,
+    useLock = false,
+    useCache = false,
+    useSize = false,
+    useQos = false,
+    useLen = false,
+    useLast = true,
+    useResp = false,
+    useProt = false,
+    useStrb = true
+  )
+
+  val axi = Axi4ReadOnly(axiConf)
+  axi.readCmd.valid := True
+  axi.readCmd.addr := 0x00000012
+  axi.readRsp.ready := True
+
+  val ram = Axi4SharedOnChipRam(
+    byteCount = 4 KiB,
+    dataWidth = 32,
+    idWidth = 4
+  )
+
+  val axiCrossbar = Axi4CrossbarFactory()
+//  axiCrossbar.lowLatency = true
+  axiCrossbar.addSlaves(
+    ram.io.axi       -> (0x00000000L, 4 KiB)
+  )
+  axiCrossbar.addConnections(
+    axi -> List(ram.io.axi)
+  )
+
+  axiCrossbar.build()
+}
+
+object Test {
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+    SimConfig.withWave.addSimulatorFlag("-Wno-CASEOVERLAP").compile(new Test22).doSim { dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for (_ <- 0 to 100) {
+        dut.clockDomain.waitSampling()
+      }
+    }
+  }
+}
+
+object Test4141 {
+  def main(args: Array[String]) {
+    SimConfig.withWave.compile(Axi4SharedOnChipRam(
+      byteCount = 4 KiB,
+      dataWidth = 32,
+      idWidth = 4
+    ))
+  }
+}

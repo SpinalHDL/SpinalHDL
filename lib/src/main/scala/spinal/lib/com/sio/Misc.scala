@@ -11,7 +11,7 @@ import spinal.lib.io.TriStateArray
 case class Sio( sioCount : Int,
                 ssWidth : Int = 1,
                 useSclk : Boolean = true) extends Bundle with IMasterSlave{
-  val sclk = if(useSclk)Bool else null
+  val sclk = if(useSclk)Bool() else null
   val sio  = TriStateArray(sioCount)
   val ss   = if(ssWidth != 0) Bits(ssWidth bits) else null
 

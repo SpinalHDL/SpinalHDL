@@ -56,8 +56,8 @@ class ScopeStatement(var parentStatement: TreeStatement) {
   def isEmpty = head == null
   def nonEmpty = head != null
 
-  def push() = GlobalData.get.dslScope.push(this)
-  def pop()  = GlobalData.get.dslScope.pop()
+  def push() = DslScopeStack.push(this)
+  def pop()  = DslScopeStack.pop()
 
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={
@@ -170,10 +170,14 @@ class ScopeStatement(var parentStatement: TreeStatement) {
 object Statement{
 
   def isFullToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
-    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) =>
-      true
-    case _ =>
-      false
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case _ => false
+  })
+
+  def isFullToFullStatementOrLit(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
+    case AssignmentStatement(a: DeclarationStatement, b: DeclarationStatement) => true
+    case AssignmentStatement(a: DeclarationStatement, b: Literal) => true
+    case _ => false
   })
 
   def isSomethingToFullStatement(bt: BaseType): Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
@@ -379,6 +383,19 @@ object InitAssignmentStatement{
 class InitAssignmentStatement extends AssignmentStatement{}
 
 
+object InitialAssignmentStatement{
+  def apply(target: Expression, source: Expression) = {
+    val ret = new InitialAssignmentStatement
+    ret.target = target
+    ret.source = source
+    ret.finalTarget.dlcAppend(ret)
+    ret
+  }
+}
+
+class InitialAssignmentStatement extends AssignmentStatement{}
+
+
 class WhenStatement(var cond: Expression) extends TreeStatement{
   val whenTrue, whenFalse = new ScopeStatement(this)
 
@@ -553,18 +570,18 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind): AssertStatement = {
-    val node = AssertStatement(cond, message, severity, kind)
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement = {
+    val node = AssertStatement(cond, message, severity, kind, trigger)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
-      GlobalData.get.dslScope.head.append(node)
+      DslScopeStack.get.append(node)
     }
 
     node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind): AssertStatement ={
-    AssertStatementHelper(cond, List(message), severity, kind)
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement ={
+    AssertStatementHelper(cond, List(message), severity, kind, trigger)
   }
 }
 
@@ -576,8 +593,14 @@ object AssertStatementKind{
   val COVER = new AssertStatementKind
 }
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind) extends LeafStatement with SpinalTagReady {
-  var clockDomain = globalData.dslClockDomain.head
+class AssertStatementTrigger
+object AssertStatementTrigger{
+  val CLOCKED = new AssertStatementTrigger
+  val INITIAL = new AssertStatementTrigger
+}
+
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger) extends LeafStatement with SpinalTagReady {
+  var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)
@@ -589,5 +612,8 @@ case class AssertStatement(var cond: Expression, message: Seq[Any], severity: As
 
   override def remapExpressions(func: (Expression) => Expression): Unit = cond = stabilized(func, cond)
 
-  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = trigger match {
+    case AssertStatementTrigger.CLOCKED => func(clockDomain)
+    case AssertStatementTrigger.INITIAL =>
+  }
 }

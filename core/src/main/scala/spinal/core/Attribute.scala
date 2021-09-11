@@ -52,6 +52,13 @@ class AttributeString(name: String, val value: String, kind: AttributeKind = DEF
 }
 
 
+class AttributeInteger(name: String, val value: Int, kind: AttributeKind = DEFAULT_ATTRIBUTE) extends Attribute {
+  override def getName: String = name
+  override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeInteger]
+  override def attributeKind() = kind
+}
+
+
 class AttributeFlag(name: String, kind: AttributeKind = DEFAULT_ATTRIBUTE) extends Attribute {
   override def getName: String = name
   override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeFlag]

@@ -33,7 +33,7 @@ object StateMachineStyle1 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out Bool()
     }
 
     val fsm = new StateMachine {
@@ -70,7 +70,7 @@ object StateMachineStyle2 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out Bool()
     }
 
     val fsm = new StateMachine{
@@ -110,7 +110,7 @@ object StateMachineStyle3 {
   class TopLevel extends Component {
 
     val io = new Bundle{
-      val result = out Bool
+      val result = out Bool()
     }
 
     val fsm = new StateMachine{
@@ -446,7 +446,7 @@ object StateMachineTry3Example {
 object StateMachineCondTransExample {
   class TopLevel extends Component {
     val counter = out(Reg(UInt(8 bits)) init (0))
-    val cond = in Bool
+    val cond = in Bool()
     val fsm = new StateMachine {
       setTransitionCondition(cond)
       val stateA, stateB, stateC = new State
@@ -492,8 +492,8 @@ object StateMachineCondTransExample {
 object StateMachineCondLargeExample {
   class LargeExample extends Component {
     val io = new Bundle {
-      val clk = in Bool
-      val txd = out Bool
+      val clk = in Bool()
+      val txd = out Bool()
     }
 
     val clkDomain = ClockDomain(

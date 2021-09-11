@@ -18,7 +18,7 @@ case class BmbI2cCtrl(generics : I2cSlaveMemoryMappedGenerics, bmbParameter: Bmb
   val io = new Bundle{
     val ctrl =  slave(Bmb(bmbParameter))
     val i2c = master(I2c())
-    val interrupt = out Bool
+    val interrupt = out Bool()
   }
 
   val i2cCtrl = new I2cSlave(generics.ctrlGenerics)

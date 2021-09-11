@@ -2,7 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
-import scala.sys.process.Process
+import java.io.File
+import scala.sys.process.{Process, ProcessLogger}
 
 class BoolPimped(pimped: Bool){
 
@@ -74,5 +75,21 @@ object DoCmd {
     else
       Process(cmd, new java.io.File(path)) !
 
+  }
+
+  def doCmdWithLog(cmd: String, path: String): String = {
+    val stdOut = new StringBuilder()
+    class Logger extends ProcessLogger {
+      override def err(s: => String): Unit = {
+        //if (!s.startsWith("ar: creating ")) println(s)
+      }
+      override def out(s: => String): Unit = {
+        //println(s)
+        stdOut ++= s
+      }
+      override def buffer[T](f: => T) = f
+    }
+    Process(cmd, new java.io.File(path)).!(new Logger)
+    stdOut.toString()
   }
 }

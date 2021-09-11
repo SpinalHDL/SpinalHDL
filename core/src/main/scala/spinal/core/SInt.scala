@@ -27,7 +27,7 @@ import spinal.core.internals._
   */
 trait SIntFactory{
   /** Create a new SInt */
-  def SInt() = new SInt()
+  def SInt(u: Unit = null) = new SInt()
   /** Create a new SInt of a given width */
   def SInt(width: BitCount): SInt = SInt().setWidth(width.value)
 }
@@ -44,7 +44,7 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")

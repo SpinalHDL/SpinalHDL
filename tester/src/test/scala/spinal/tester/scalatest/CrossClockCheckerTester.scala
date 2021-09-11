@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 
 
@@ -16,7 +16,7 @@ class CrossClockCheckerTesterA extends Component{
   val clkA = ClockDomain.external("clkA")
   val clkB = ClockDomain.external("clkB")
 
-  val reg = clkA(RegNext(in Bool))
+  val reg = clkA(RegNext(in Bool()))
 
   val bb = new BBA(clkB)
   bb.i := reg
@@ -44,7 +44,7 @@ class CrossClockCheckerTesterC extends Component{
 }
 
 
-class CrossClockCheckerTester extends FunSuite{
+class CrossClockCheckerTester extends AnyFunSuite{
   import CheckTester._
 
   test("a") {
@@ -174,7 +174,7 @@ class SyncronousCheckerTesterD(v : Int) extends Component{
   }
 }
 
-class SyncronousCheckerTester extends FunSuite{
+class SyncronousCheckerTester extends AnyFunSuite{
   import CheckTester._
 
   test("a") { generationShouldPass(new SyncronousCheckerTesterA) }

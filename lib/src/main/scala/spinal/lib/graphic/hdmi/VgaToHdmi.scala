@@ -19,7 +19,7 @@ case class VgaToHdmiEcp5(vgaCd : ClockDomain, hdmiCd : ClockDomain) extends Comp
   val encode_B = vgaCd(TmdsEncoder(VD = io.vga.color.b, CD = bCd  , VDE = io.vga.colorEn, TMDS = TMDS_blue))
 
   val ctr_mod5 = hdmiCd(Reg(UInt(3 bits)) randBoot())
-  val shift_ld = hdmiCd(Reg(Bool) randBoot())
+  val shift_ld = hdmiCd(Reg(Bool()) randBoot())
 
   shift_ld :=  ctr_mod5 === 4
   ctr_mod5 := ((ctr_mod5 === 4) ? U"3'd0" | (ctr_mod5 + 1))
