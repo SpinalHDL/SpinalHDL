@@ -407,6 +407,20 @@ object Operator {
     * BitVector operator
     */
   object BitVector {
+    class orR extends UnaryOperator {
+      override def getTypeObject = TypeBool
+      override def opName: String = "| Bits"
+    }
+
+    class andR extends UnaryOperator {
+      override def getTypeObject = TypeBool
+      override def opName: String = "& Bits"
+    }
+
+    class xorR extends UnaryOperator {
+      override def getTypeObject = TypeBool
+      override def opName: String = "^ Bits"
+    }
 
     abstract class And extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory: Resize
