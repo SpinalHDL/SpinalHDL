@@ -113,6 +113,9 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   def setLocal() = {
     isGlobalEnable = false
   }
+  def setGlobal() = {
+    isGlobalEnable = true
+  }
 }
 
 
