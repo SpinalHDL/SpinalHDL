@@ -51,11 +51,32 @@ abstract class BitVector extends BaseType with Widthable {
   def range: Range = 0 until getWidth
 
   /** Logical OR of all bits */
-  def orR: Bool = this.asBits =/= 0
+//  def orR: Bool = this.asBits =/= 0
+  def orR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBits =/= 0
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.orR)
+    }
+  }
   /** Logical AND of all bits */
-  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
+//  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
+  def andR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBits === ((BigInt(1) << getWidth) - 1)
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.andR)
+    }
+  }
   /** Logical XOR of all bits */
-  def xorR: Bool = this.asBools.reduce(_ ^ _)
+//  def xorR: Bool = this.asBools.reduce(_ ^ _)
+  def xorR: Bool = {
+    if(GlobalData.get.config.mode == VHDL) {
+      this.asBools.reduce(_ ^ _)
+    } else {
+      wrapUnaryWithBool(new Operator.BitVector.xorR)
+    }
+  }
 
   /**
     * Compare a BitVector with a MaskedLiteral (M"110--0")
