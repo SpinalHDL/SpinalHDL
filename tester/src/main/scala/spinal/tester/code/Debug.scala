@@ -13,35 +13,13 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Debug {
-  class NameVecIndexing extends Component {
-    val io = new Bundle {
-      val qpsize = in  UInt(32 bits)
-      val addr1 = in  UInt(32 bits)
-      val addr2 = in  UInt(32 bits)
-      val addr3 = in  UInt(32 bits)
-      val qlevel = out (UInt(32 bits))
-    }
-    noIoPrefix()
 
-    val qp_f = Vec(Vec(Vec(UInt(32 bits), 5), 4), 3)
-
-    for (i <- 0 until 3) (
-      for (j <- 0 until 4) (
-        for (k <- 0 until 5) {
-          qp_f(i)(j)(k) := i + j + k
-        }
-        )
-      )
-
-    io.addr1.addTag(tagAutoResize)
-    io.addr2.addTag(tagAutoResize)
-    io.addr3.addTag(tagAutoResize)
-    io.qlevel := qp_f(io.addr1(8 downto 4).addTag(tagAutoResize))(io.addr2)(io.addr3)
-  }
 
 
   def main(args: Array[String]) {
-    SpinalVerilog(new NameVecIndexing)
+    SpinalVerilog(new Component {
+      NoData === NoData
+    })
 
   }
 
