@@ -18,7 +18,7 @@ object Debug {
 
   def main(args: Array[String]) {
     SpinalVerilog(new Component {
-      NoData === NoData
+      val result = out(B(0).orR)
     })
 
   }

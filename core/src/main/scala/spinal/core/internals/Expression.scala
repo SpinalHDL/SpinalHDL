@@ -408,18 +408,24 @@ object Operator {
     */
   object BitVector {
     class orR extends UnaryOperator {
+      override type T = Expression with WidthProvider
       override def getTypeObject = TypeBool
       override def opName: String = "| Bits"
+      override def simplifyNode = if(source.getWidth == 0) new BoolLiteral(false) else this
     }
 
     class andR extends UnaryOperator {
+      override type T = Expression with WidthProvider
       override def getTypeObject = TypeBool
       override def opName: String = "& Bits"
+      override def simplifyNode = if(source.getWidth == 0) new BoolLiteral(true) else this
     }
 
     class xorR extends UnaryOperator {
+      override type T = Expression with WidthProvider
       override def getTypeObject = TypeBool
       override def opName: String = "^ Bits"
+      override def simplifyNode = if(source.getWidth == 0) new BoolLiteral(false) else this
     }
 
     abstract class And extends BinaryOperatorWidthableInputs with Widthable {
