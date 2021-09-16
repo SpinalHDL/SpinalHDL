@@ -6,25 +6,25 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
 object ScopeProperty {
-  val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]]
-  def get : mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]] = {
+  val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Any]]
+  def get : mutable.LinkedHashMap[ScopeProperty[Any], Any] = {
     val v = it.get()
     if(v != null) return v
-    it.set(mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]())
+    it.set(mutable.LinkedHashMap[ScopeProperty[Any], Any]())
     it.get()
   }
 
-  case class Capture(context : Seq[(ScopeProperty[Any], Seq[Any])]){
+  case class Capture(context : mutable.LinkedHashMap[ScopeProperty[Any], Any]){
     def restore(): Unit ={
-      get.clear()
-      for(e <- context){
-        get.update(e._1, Stack.concat(e._2))
-      }
+      it.set(context)
     }
   }
 
   def capture(): Capture ={
-    Capture(context = get.toSeq.map(e => e._1 -> Seq.concat(e._2)))
+    Capture(context = get.clone())
+  }
+  def captureNoClone(): Capture ={
+    Capture(context = get)
   }
 
   def sandbox[T](body : => T) = {
@@ -35,19 +35,38 @@ object ScopeProperty {
 
 
 trait ScopeProperty[T]{
-  private def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
-  def get = if(!ScopeProperty.get.contains(this.asInstanceOf[ScopeProperty[Any]]) || stack.isEmpty) default else stack.head
-  def push(v : T) = stack.push(v)
-  def pop() = {
-    stack.pop()
-    if(stack.isEmpty){
-      ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
+  def get : T = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
+    case Some(x) => {
+      x.asInstanceOf[T]
     }
+    case _ => this.default
   }
 
-  def headOption = if(stack.isEmpty) None else Some(get)
-  def isEmpty = stack.isEmpty
-  def nonEmpty = stack.nonEmpty
+  def set(v : T) = new {
+    val property = ScopeProperty.get
+    val previous = property.get(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
+    property.update(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]], v)
+    def restore() = {
+      previous match {
+        case None =>  ScopeProperty.get.remove(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
+        case Some(x) => ScopeProperty.get.update(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]], x)
+      }
+    }
+  }
+//  def push(v : T) = stack.push(v)
+//  def pop() = {
+//    stack.pop()
+//    if(stack.isEmpty){
+//      ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
+//    }
+//  }
+
+//  def headOption = if(stack.isEmpty) None else Some(get)
+  def isEmpty = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
+    case Some(x) => false
+    case _ => true
+  }
+//  def nonEmpty = stack.nonEmpty
 
   protected var _default: T
   def default : T = _default
@@ -55,15 +74,17 @@ trait ScopeProperty[T]{
 
   def apply(value : T) = new {
     def apply[B](body : => B): B ={
-      push(value)
+      val previous = ScopeProperty.this.get
+      set(value)
       val b = body
-      pop()
+      set(previous.asInstanceOf[T])
       b
     }
     def on[B](body : => B) = {
-      push(value)
+      val previous = ScopeProperty.this.get
+      set(value)
       val b = body
-      pop()
+      set(previous.asInstanceOf[T])
       b
     }
   }
@@ -71,9 +92,10 @@ trait ScopeProperty[T]{
 
 class ScopePropertyValue(val dady : ScopeProperty[_ <: Any]){
   def on[B](body : => B) = {
-    dady.asInstanceOf[ScopeProperty[Any]].push(this)
+    val previous = dady.get
+    dady.asInstanceOf[ScopeProperty[Any]].set(this)
     val b = body
-    dady.pop()
+    dady.asInstanceOf[ScopeProperty[Any]].set(previous)
     b
   }
 }

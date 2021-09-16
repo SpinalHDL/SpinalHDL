@@ -189,7 +189,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
       }
 
       //TODO
-      val transferPerEndpoint = 100 //TODO
+      val transferPerEndpoint = 10 //TODO
       val endpointCount = 16 //TODO
       val endpoints = for(endpointId <- 0 until endpointCount) yield fork {
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()

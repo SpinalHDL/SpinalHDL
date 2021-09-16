@@ -167,8 +167,8 @@ class PhaseContext(val config: SpinalConfig) {
   }
 
   def checkGlobalData(): Unit = {
-    if (DslScopeStack.nonEmpty) SpinalError("dslScope stack is not empty :(")
-    if (ClockDomainStack.nonEmpty) SpinalError("dslClockDomain stack is not empty :(")
+    if (DslScopeStack.get != null) SpinalError("dslScope stack is not empty :(")
+    if (ClockDomainStack.get != null) SpinalError("dslClockDomain stack is not empty :(")
   }
 
   def checkPendingErrors(msg : String) = if(globalData.pendingErrors.nonEmpty)
@@ -276,9 +276,9 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
 
           if (c != null) {
             val scope = node.rootScopeStatement
-            scope.push()
+            val ctx = scope.push()
             node.assignFrom(defaultValue.that)
-            scope.pop()
+            ctx.restore()
           }
         case _ =>
       }
@@ -384,9 +384,9 @@ class PhaseAnalog extends PhaseNetlist{
 
         bt.removeAssignments()
         bt.setAsComb()
-        bt.rootScopeStatement.push()
+        val ctx = bt.rootScopeStatement.push()
         bt := target
-        bt.rootScopeStatement.pop()
+        ctx.restore()
       }
 
       //Convert target comb assignment into AnalogDriver nods
@@ -394,9 +394,9 @@ class PhaseAnalog extends PhaseNetlist{
         s.source match {
           case btSource: BaseType if btSource.isAnalog =>
           case btSource =>
-            s.parentScope.push()
+            val ctx = s.parentScope.push()
             val enable = ConditionalContext.isTrue(target.rootScopeStatement)
-            s.parentScope.pop()
+            ctx.restore()
             s.removeStatementFromScope()
             target.rootScopeStatement.append(s)
             val driver = btSource.getTypeObject match {
@@ -750,7 +750,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
         val wr = topo.writes(0)
         for (rd <- topo.readsAsync) {
           val clockDomain = wr.clockDomain
-          clockDomain.push()
+          val ctx = ClockDomainStack.set(clockDomain)
 
           val ram = new Ram_1w_1ra(
             wordWidth = mem.getWidth,
@@ -778,7 +778,7 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
           wrapConsumers(rd, ram.io.rd.data)
 
           ram.setName(mem.getName())
-          clockDomain.pop()
+          ctx.restore()
         }
 
         for (rd <- topo.readsSync) {
@@ -2233,13 +2233,13 @@ class PhaseCreateComponent(gen: => Component)(pc: PhaseContext) extends PhaseNet
 
 
     Engine.create {
-      defaultClockDomain.push()
+      val ctx = ClockDomainStack.set(defaultClockDomain)
       native //Avoid unconstructable during phase
       binarySequential
       binaryOneHot
       gen
-      defaultClockDomain.pop()
-      assert(DslScopeStack.isEmpty, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
+      ctx.restore()
+//      assert(DslScopeStack.get != null, "The SpinalHDL context seems wrong, did you included the idslplugin in your scala build scripts ? This is a Scala compiler plugin, see https://github.com/SpinalHDL/SpinalTemplateSbt/blob/666dcbba79181659d0c736eb931d19ec1dc17a25/build.sbt#L13.")
     }
 
 //    //Ensure there is no prepop tasks remaining, as things can be quite aggresively context switched since the fiber update

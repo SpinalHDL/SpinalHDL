@@ -47,7 +47,7 @@ trait DataPrimitives[T <: Data]{
 
     val globalData = GlobalData.get
 
-    DslScopeStack.push(_data.parentScope)
+    val ctx = DslScopeStack.set(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -55,7 +55,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    DslScopeStack.pop()
+    ctx.restore()
 
     ret.allowOverride
     ret := that
@@ -102,9 +102,9 @@ trait DataPrimitives[T <: Data]{
     }
 
     if(c != null) {
-      Component.push(c)
+      val ctx = Component.push(c)
       _data.defaultImpl(that)
-      Component.pop(c)
+      ctx.restore()
     }
     _data
   }
@@ -184,16 +184,16 @@ object Data {
       }
     }
 
-    def push(c: Component, scope: ScopeStatement): Unit = {
-      DslScopeStack.push(scope)
-      ClockDomain.push(c.clockDomain)
-    }
-
-    def pop(c: Component): Unit = {
-      assert(Component.current == c)
-      DslScopeStack.pop()
-      ClockDomainStack.pop()
-    }
+//    def push(c: Component, scope: ScopeStatement): Unit = {
+//      DslScopeStack.push(scope)
+//      ClockDomain.push(c.clockDomain)
+//    }
+//
+//    def pop(c: Component): Unit = {
+//      assert(Component.current == c)
+//      DslScopeStack.pop()
+//      ClockDomainStack.pop()
+//    }
 
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
@@ -207,12 +207,12 @@ object Data {
         if (currentData.component == currentComponent && currentData.isIo) {
           //nothing to do
         } else {
-          push(currentComponent, currentComponent.dslBody)
+          val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
             copy.setPartialName(srcData, "", weak=true)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
           currentData = copy
         }
         currentComponent = currentComponent.parent
@@ -227,15 +227,15 @@ object Data {
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
-        push(riseTo, riseTo.dslBody)
+        val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
           copy.setPartialName(srcData, "", weak=true)
-        pop(riseTo)
+        ctx.restore()
         if (currentComponent != null) {
-          push(currentComponent, riseTo.parentScope)
+          val ctx = DslScopeStack.set(riseTo.parentScope)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
         } else {
           copy.addTag(new ExternalDriverTag(currentData))
         }

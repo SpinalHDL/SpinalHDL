@@ -141,7 +141,7 @@ object Engine extends ScopeProperty[EngineContext]{
 
   def create[T](body : => T, name : String = "root") = {
     val e = new EngineContext
-    Engine.push(e)
+    Engine.set(e)
     var ret : T = null.asInstanceOf[T]
     e.mainThread = e.schedule{
       ret = body

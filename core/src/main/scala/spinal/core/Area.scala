@@ -124,11 +124,10 @@ object ImplicitArea{
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/clock_domain/ ClockDomain Documentation]]
   */
 class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallback {
-
-  clockDomain.push()
+  val ctx = ClockDomainStack.set(clockDomain)
 
   override def postInitCallback(): this.type = {
-    clockDomain.pop()
+    ctx.restore()
     this
   }
 }
@@ -146,11 +145,11 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 
   val clockDomain = ClockDomain.current.copy(clockEnable = newClockEnable)
 
-  clockDomain.push()
+  val ctx = ClockDomainStack.set(clockDomain)
 
 
   override def postInitCallback(): this.type = {
-    clockDomain.pop()
+    ctx.restore()
     this
   }
 }
@@ -191,10 +190,10 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCall
   }
 
   val clockDomain = ClockDomain.current.copy(reset = newReset)
-  clockDomain.push()
+  val ctx = ClockDomainStack.set(clockDomain)
 
   override def postInitCallback(): this.type = {
-    clockDomain.pop()
+    ctx.restore()
     this
   }
 }
