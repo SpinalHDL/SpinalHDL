@@ -691,7 +691,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     }
 
     ACTIVE onEntry {
-      active.startFsm() //TODO stop fsm on exit ?
+      active.startFsm()
     }
     ACTIVE whenIsActive{
       when(io.phy.reset){
