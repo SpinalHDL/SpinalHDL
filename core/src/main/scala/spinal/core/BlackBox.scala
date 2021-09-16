@@ -126,8 +126,7 @@ abstract class BlackBox extends Component{
     * Map clock domain signals (clock, reset, enable) to a clockDomain
     */
   def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
-
-    Component.push(parent)
+    val context = Component.push(parent)
 
     if (clockDomain.hasClockEnableSignal && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
 
@@ -145,7 +144,7 @@ abstract class BlackBox extends Component{
     pulledDataCache += (clockDomain.clock -> clock)
     clock := clockDomain.readClockWire
 
-    Component.pop(parent)
+    context.restore()
   }
 
 

@@ -56,8 +56,10 @@ class ScopeStatement(var parentStatement: TreeStatement) {
   def isEmpty = head == null
   def nonEmpty = head != null
 
-  def push() = DslScopeStack.push(this)
-  def pop()  = DslScopeStack.pop()
+
+
+  def push() = DslScopeStack.set(this)
+//  def pop()  = DslScopeStack.pop()
 
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={

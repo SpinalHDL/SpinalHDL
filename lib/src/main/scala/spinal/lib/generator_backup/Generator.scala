@@ -269,7 +269,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
   }
 
   def generateIt(): Unit ={
-    if(generatorClockDomain.get != null) generatorClockDomain.push()
+    val ctx = (generatorClockDomain.get != null) generate generatorClockDomain.get.push()
 
     apply {
       for (task <- tasks) {
@@ -282,7 +282,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
         //        }
       }
     }
-    if(generatorClockDomain.get != null) generatorClockDomain.pop()
+    if(generatorClockDomain.get != null) ctx.restore()
     elaborated = true
   }
 

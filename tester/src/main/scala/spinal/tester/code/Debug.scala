@@ -5,6 +5,7 @@ package spinal.tester.code
 
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
+import spinal.core.fiber.Handle
 import spinal.lib._
 import spinal.core.sim._
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
@@ -23,6 +24,11 @@ object Debug {
     SpinalVerilog(new Component {
       val sel = in Bits(40 bits)
       val result = out(OHMasking.firstV2(sel))
+
+      println(Component.current)
+      Handle {
+        println(Component.current)
+      }
     })
 
   }
@@ -36,7 +42,7 @@ object DebugSim {
 
 
   def main(args: Array[String]) {
-    LutInputs.push(8)
+    LutInputs.set(8)
     SimConfig.withFstWave.compile(new Component {
       val sel = in Bits(40 bits)
       val result1 = out(OHMasking.firstV2(sel))

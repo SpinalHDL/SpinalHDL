@@ -31,23 +31,18 @@ import spinal.idslplugin.PostInitCallback
 object Component {
 
   /** Push a new component on the stack */
-  def push(c: Component): Unit = {
-    if(c != null) {
-      DslScopeStack.push(c.dslBody)
-    }else
-      DslScopeStack.push(null)
-  }
-
-  /**  Remove component of the stack if it is the same as c */
-  def pop(c: Component): Unit = {
-    val globalData = if(c != null) c.globalData else GlobalData.get
-    DslScopeStack.pop()
-  }
+  def push(c: Component) = DslScopeStack.set(if(c != null) c.dslBody else null)
+//
+//  /**  Remove component of the stack if it is the same as c */
+//  def pop(c: Component): Unit = {
+//    val globalData = if(c != null) c.globalData else GlobalData.get
+//    DslScopeStack.pop()
+//  }
 
   /** Get the current component on the stack */
-  def current: Component = DslScopeStack.headOption match {
-    case None        => null
-    case Some(scope) => scope.component
+  def current: Component = DslScopeStack.get match {
+    case null  => null
+    case scope => scope.component
   }
 }
 
@@ -138,18 +133,18 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     while(prePopTasks.nonEmpty){
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+      //TODO !!! use the proper scope property context
       for(t <- prePopTasksToDo){
-        ClockDomain.push(t.clockDomain)
+        val ctx = ClockDomain.push(t.clockDomain)
         t.task()
-        ClockDomain.pop()
-
+        ctx.restore()
       }
     }
   }
 
   def postInitCallback(): this.type = {
     prePop()
-    Component.pop(this)
+    DslScopeStack.set(parentScope)
     this
   }
 
@@ -313,18 +308,17 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
-  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
+  val scopeProperties = ScopeProperty.capture()
   def rework[T](gen: => T) : T = {
     val previousTasks = this.prePopTasks
     this.prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-    ClockDomain.push(this.clockDomain)
-    Component.push(this)
-    scopeProperties.foreach{ case (p, v) => p.push(v)}
+    val ctx = ScopeProperty.captureNoClone()
+
+    scopeProperties.restore()
     val ret = gen
     prePop()
-    scopeProperties.foreach{ case (p, v) => p.pop()}
-    Component.pop(this)
-    ClockDomain.pop()
+    ctx.restore()
+
     prePopTasks = previousTasks
     ret
   }
@@ -338,9 +332,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   def onBody[T](body : => T) : T = {
-    dslBody.push()
+    val ctx = DslScopeStack.set(dslBody)
     val ret = body
-    dslBody.pop()
+    ctx.restore()
     ret
   }
 }
