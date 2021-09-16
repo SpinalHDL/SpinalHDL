@@ -535,3 +535,7 @@ object CombInit {
 trait AllowIoBundle{
 
 }
+
+object LutInputs extends ScopeProperty[Int]{
+  var _default: Int = 4
+}

@@ -130,6 +130,43 @@ object OHMasking{
       ret
   }
 
+  def firstV2[T <: Data](that : T) : T = {
+    val lutSize = LutInputs.get
+    val input = that.asBits.asBools.setCompositeName(that, "bools")
+    val size = widthOf(input)
+    val tmp = Bits(size bits)
+
+    val cache = mutable.LinkedHashMap[Range, Bool]()
+
+    def build(target : Int, order : Int): Bool = {
+      if(target < 0) return False
+      val nextOrder = order * lutSize
+      val offset = target - target % nextOrder
+      var inputs = ArrayBuffer[Bool]()
+
+      if(!cache.contains(offset to target)) {
+        for (i <- offset to target by order) {
+          inputs += cache(i until i + order)
+        }
+        cache(offset to target) = inputs.orR.setCompositeName(that, s"range_${offset}_to_${target}")
+      }
+
+      if(offset != 0){
+        cache(offset to target) || build(offset-1, nextOrder)
+      } else {
+        cache(offset to target)
+      }
+    }
+
+    for(i <- 0 until size){
+      cache(i to i) = input(i)
+      tmp(i) := input(i) && !build(i-1, 1)
+    }
+
+    tmp.as(that)
+  }
+
+
   //Avoid combinatorial loop on the first
   def first(that : Vec[Bool]) : Vec[Bool] = {
     val bitsFirst = first(that.asBits)

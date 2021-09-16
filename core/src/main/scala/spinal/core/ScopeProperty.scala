@@ -37,8 +37,8 @@ object ScopeProperty {
 trait ScopeProperty[T]{
   private def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
   def get = if(!ScopeProperty.get.contains(this.asInstanceOf[ScopeProperty[Any]]) || stack.isEmpty) default else stack.head
-  protected[core] def push(v : T) = stack.push(v)
-  protected[core] def pop() = {
+  def push(v : T) = stack.push(v)
+  def pop() = {
     stack.pop()
     if(stack.isEmpty){
       ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]

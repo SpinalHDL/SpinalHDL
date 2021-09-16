@@ -6,10 +6,13 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.lib._
+import spinal.core.sim._
+import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 import spinal.lib.fsm._
 import spinal.lib.io.TriState
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 
 object Debug {
@@ -18,7 +21,8 @@ object Debug {
 
   def main(args: Array[String]) {
     SpinalVerilog(new Component {
-      val result = out(B(0).orR)
+      val sel = in Bits(40 bits)
+      val result = out(OHMasking.firstV2(sel))
     })
 
   }
@@ -27,7 +31,32 @@ object Debug {
 }
 
 
+object DebugSim {
 
+
+
+  def main(args: Array[String]) {
+    LutInputs.push(8)
+    SimConfig.withFstWave.compile(new Component {
+      val sel = in Bits(40 bits)
+      val result1 = out(OHMasking.firstV2(sel))
+      val result2 = out(OHMasking.first(sel))
+    }).doSim{dut =>
+      for(i <- 0 until 10000){
+        var in = 0l
+        for(i <- 0 until Random.nextInt(4)){
+          in |= 1l << Random.nextInt(40)
+        }
+        dut.sel #= in
+        sleep(1)
+        assert(dut.result1.toBigInt == dut.result2.toBigInt)
+      }
+    }
+
+  }
+
+  //  createEnum("asd")
+}
 
 object Debug2 extends App{
 
@@ -664,5 +693,59 @@ class FTDICtrl(tick_div: Int) extends Component {
 object FTDICtrlVerilog {
   def main(args: Array[String]) {
     SpinalVerilog(new FTDICtrl(10))
+  }
+}
+
+
+object SynthesisPlay {
+  def main(args: Array[String]) {
+    def buf1[T <: Data](that : T) = KeepAttribute(RegNext(that)).addAttribute("DONT_TOUCH")
+    def buf[T <: Data](that : T) = buf1(buf1(buf1(that)))
+    def firstOh(width : Int) = new Rtl {
+      override def getName(): String = s"firstOhAdder$width"
+      override def getRtlPath(): String = s"$getName.v"
+      SpinalVerilog(new Component {
+        val mask, state = buf(in(UInt(width bits)))
+        val result = OHMasking.first(mask)
+        val output = out(buf(result))
+        setDefinitionName(s"firstOhAdder$width")
+      })
+    }
+    def firstOhV2(width : Int) = new Rtl {
+      override def getName(): String = s"firstOhLut$width"
+      override def getRtlPath(): String = s"$getName.v"
+      SpinalVerilog(new Component {
+        val mask, state = buf(in(UInt(width bits)))
+        val result = OHMasking.firstV2(mask)
+        val output = out(buf(result))
+        setDefinitionName(s"firstOhLut$width")
+      })
+    }
+    def robinOh(width : Int) = new Rtl {
+      override def getName(): String = s"robinOh$width"
+      override def getRtlPath(): String = s"$getName.v"
+      SpinalVerilog(new Component {
+        val mask, state = buf(in(UInt(width bits)))
+        val result = OHMasking.roundRobin(mask, state)
+        val output = out(buf(result))
+        setDefinitionName(s"robinOh$width")
+      })
+    }
+
+    def firstUIntV2(width : Int) = new Rtl {
+      override def getName(): String = s"firstUIntLut$width"
+      override def getRtlPath(): String = s"$getName.v"
+      SpinalVerilog(new Component {
+        val mask, state = buf(in(UInt(width bits)))
+        val result = OHToUInt(OHMasking.firstV2(mask))
+        val output = out(buf(result))
+        setDefinitionName(s"firstUIntLut$width")
+      })
+    }
+//    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOh(w),firstOhV2(w), robinOh(w)))
+    val rtls = List(16, 32, 64, 128).flatMap(w => List(firstOhV2(w), firstUIntV2(w)))
+    val targets = XilinxStdTargets().take(2)
+
+    Bench(rtls, targets)
   }
 }
