@@ -206,8 +206,12 @@ object CountOne{
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
   def apply(thats : Seq[Bool]) : UInt = {
     if(thats.isEmpty) return U(0, 0 bits)
-    val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
-    val groups = thats.grouped(3)
+    val groupSize = LutInputs.get match {
+      case 4 => 3
+      case x => x
+    }
+    val lut = Vec((0 until 1 << Math.min(thats.size, groupSize)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(groupSize)
     val seeds = groups.map(l => lut.read(U(l.asBits()).resized)).toSeq
     seeds.reduceBalancedTree(_+_)
   }

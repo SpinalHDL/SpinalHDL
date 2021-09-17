@@ -11,15 +11,17 @@ import scala.util.Random
 class SpinalSimLibTester extends AnyFunSuite{
 
   for(bitCount <- 0 until 12) {
-    test("CountOnes"+bitCount) {
-      SimConfig.noOptimisation.compile(new Component {
-        val input = in Bits(bitCount bits)
-        val output = out (CountOne(input))
-      }).doSim(seed = 42){dut =>
-        for(_ <- 0 until 100+(1 << bitCount)*4){
-          dut.input.randomize()
-          sleep(1)
-          assert(dut.output.toInt === dut.input.toBigInt.bitCount)
+    test("CountOnes" + bitCount) {
+      LutInputs(Random.nextInt(5) + 2).on {
+        SimConfig.noOptimisation.compile(new Component {
+          val input = in Bits (bitCount bits)
+          val output = out(CountOne(input))
+        }).doSim(seed = 42) { dut =>
+          for (_ <- 0 until 100 + (1 << bitCount) * 4) {
+            dut.input.randomize()
+            sleep(1)
+            assert(dut.output.toInt === dut.input.toBigInt.bitCount)
+          }
         }
       }
     }
