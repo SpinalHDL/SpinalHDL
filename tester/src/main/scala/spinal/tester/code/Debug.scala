@@ -16,19 +16,41 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
+object CamTest{
+  class Top extends Component{
+    val linesCount = 8
+    val waysCount = 2
+    val commitsCount = 2
+    val commitsIdWidth = 5
+
+    case class Commit() extends Bundle{
+      val id = UInt(commitsIdWidth bits)
+      val done = Bool()
+    }
+    case class Slot() extends Bundle{
+      val commit = Vec(Commit(), commitsCount)
+      val valid = Bool()
+    }
+    val lines = Array.fill(linesCount)(new Area{
+      val ways = Array.fill(waysCount)(Slot())
+    })
+  }
+}
+
 object Debug {
 
 
 
   def main(args: Array[String]) {
     SpinalVerilog(new Component {
-      val sel = in Bits(40 bits)
-      val result = out(OHMasking.firstV2(sel))
-
-      println(Component.current)
-      Handle {
-        println(Component.current)
-      }
+      val sel = in UInt(8 bits)
+      val r  = out(Reg(UInt(8 bits)))
+      r.swichAssign(sel)(
+        0 -> U(32),
+        1 -> U(44),
+        4 -> U(55),
+        default -> U(66)
+      )
     })
 
   }
@@ -42,22 +64,30 @@ object DebugSim {
 
 
   def main(args: Array[String]) {
-    LutInputs.set(8)
-    SimConfig.withFstWave.compile(new Component {
-      val sel = in Bits(40 bits)
-      val result1 = out(OHMasking.firstV2(sel))
-      val result2 = out(OHMasking.first(sel))
-    }).doSim{dut =>
-      for(i <- 0 until 10000){
-        var in = 0l
-        for(i <- 0 until Random.nextInt(4)){
-          in |= 1l << Random.nextInt(40)
-        }
-        dut.sel #= in
-        sleep(1)
-        assert(dut.result1.toBigInt == dut.result2.toBigInt)
-      }
+    println(LutInputs.get) //4
+    LutInputs(6).on {
+      println(LutInputs.get) //6
+      LutInputs.set(3)
+      println(LutInputs.get) //3
     }
+
+    println(LutInputs.get) //4
+//    LutInputs.set(8)
+//    SimConfig.withFstWave.compile(new Component {
+//      val sel = in Bits(40 bits)
+//      val result1 = out(OHMasking.firstV2(sel))
+//      val result2 = out(OHMasking.first(sel))
+//    }).doSim{dut =>
+//      for(i <- 0 until 10000){
+//        var in = 0l
+//        for(i <- 0 until Random.nextInt(4)){
+//          in |= 1l << Random.nextInt(40)
+//        }
+//        dut.sel #= in
+//        sleep(1)
+//        assert(dut.result1.toBigInt == dut.result2.toBigInt)
+//      }
+//    }
 
   }
 

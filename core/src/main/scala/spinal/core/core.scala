@@ -352,6 +352,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     * Implicit Data helper
     */
   implicit def DataPimped[T <: Data](that: T): DataPimper[T] = new DataPimper(that)
+  implicit def BaseTypePimped[T <: BaseType](that: T): BaseTypePimper[T] = new BaseTypePimper(that)
 
   /**
     * Implicit SInt helper

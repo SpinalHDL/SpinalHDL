@@ -108,6 +108,19 @@ trait DataPrimitives[T <: Data]{
     }
     _data
   }
+
+  def swichAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+    switch(sel){
+      for((s, v) <- mappings) s match {
+        case spinal.core.default => spinal.core.default{
+          _data := v
+        }
+        case _ => is(s){
+          _data := v
+        }
+      }
+    }
+  }
 }
 
 trait BaseTypePrimitives[T <: BaseType] {
@@ -125,8 +138,12 @@ trait BaseTypePrimitives[T <: BaseType] {
   * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
   */
 class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
+
 }
 
+class BaseTypePimper[T <: BaseType](val _data: T) {
+
+}
 
 object Data {
 
