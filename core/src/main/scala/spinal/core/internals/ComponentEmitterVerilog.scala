@@ -1198,8 +1198,12 @@ end
               val symbolCount = memReadWrite.mem.getMemSymbolCount()
               b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
               emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-              emitWrite(b, memReadWrite.mem,  if (memReadWrite.writeEnable != null) emitExpression(memReadWrite.writeEnable) else null.asInstanceOf[String], memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(), tab + "  ")
               b ++= s"${tab}end\n"
+            }, null, tmpBuilder, memReadWrite.clockDomain, false)
+
+            emitClockedProcess((tab, b) => {
+              val symbolCount = memReadWrite.mem.getMemSymbolCount()
+              emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount(), memReadWrite.mem.getMemSymbolWidth(),tab)
             }, null, tmpBuilder, memReadWrite.clockDomain, false)
           case `dontRead` =>
             if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into Verilog $memReadWrite")
