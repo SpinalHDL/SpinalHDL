@@ -215,6 +215,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   def feedWith(that : Stream[Fragment[Rgb]], resync : Bool = False): Unit ={
     val error = RegInit(False)
     val waitStartOfFrame = RegInit(False)
+    val firstPixel = Reg(Bool) setWhen(io.frameStart) clearWhen(that.firstFire)
 
     io.pixels << that.toStreamOfFragment.throwWhen(error).haltWhen(waitStartOfFrame)
 
@@ -226,7 +227,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
       waitStartOfFrame := error
     }
     when(!waitStartOfFrame && !error) {
-      when(io.error || resync || io.frameStart && !that.isFirst) {
+      when(io.error || resync || firstPixel && that.valid && !that.first) {
         error := True
       }
     }
