@@ -48,8 +48,8 @@ case class UsbDeviceCtrlTesterTop() extends Component {
 }
 
 class UsbDeviceCtrlTester extends AnyFunSuite{
-  test("miaou"){
-    SimConfig.withFstWave.compile(UsbDeviceCtrlTesterTop()).doSim(seed = 42){ dut =>
+  for(i <- 43 to 44) test("miaou" + i){
+    SimConfig.compile(UsbDeviceCtrlTesterTop()).doSim(seed = i){ dut =>
       dut.ctrlCd.forkStimulus(1e12/dut.ctrlCd.frequency.getValue.toDouble toLong)
       dut.phyCd.forkStimulus(1e12/dut.phyCd.frequency.getValue.toDouble  toLong)
       val usbAgent = new UsbLsFsPhyAbstractIoAgent(dut.usb, dut.phyCd, dut.phy.fsRatio)
@@ -195,7 +195,7 @@ class UsbDeviceCtrlTester extends AnyFunSuite{
         val maxPacketSize = Random.nextInt(56)+8//List(8,16,32,64).randomPick()
         var frameCurrent = frameCounter
         var descs = mutable.Queue[Descriptor]()
-        val isochronous = Random.nextDouble() < 0.3 //TODO
+        val isochronous = Random.nextDouble() < 0.3  && endpointId != 0//TODO
         var phase = UsbPid.DATA0
 
 
