@@ -200,6 +200,26 @@ class ComponentEmitterVerilog(
       }
     })
 
+    //Collect all localEnums
+    component.dslBody.walkStatements { s =>
+      s match {
+        case signal: SpinalEnumCraft[_] => {
+          if (!signal.spinalEnum.isGlobalEnable) {
+            localEnums.add((signal.spinalEnum, signal.encoding))
+          }
+        }
+        case _ =>
+      }
+      s.walkExpression{
+        case literal: EnumLiteral[_] => {
+          if(!literal.enum.spinalEnum.isGlobalEnable) {
+            localEnums.add((literal.enum.spinalEnum, literal.encoding))
+          }
+        }
+        case _ =>
+      }
+    }
+
     //Flush all that mess out ^^
     emitSignals()
     emitMems(mems)
@@ -964,14 +984,6 @@ class ComponentEmitterVerilog(
             }
             case _ =>
           }
-        }
-        signal match {
-          case signal: SpinalEnumCraft[_] => {
-            if(!signal.spinalEnum.isGlobalEnable) {
-              localEnums.add((signal.spinalEnum, signal.encoding))
-            }
-          }
-          case _ =>
         }
       case mem: Mem[_] =>
     }
