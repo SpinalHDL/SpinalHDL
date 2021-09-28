@@ -28,8 +28,8 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def setBurstWRAP() : Unit = {assert(config.useBurst); burst := WRAP}
   def setBurstINCR() : Unit = {assert(config.useBurst); burst := INCR}
 
-  def isINCR() = burst === INCR
-  def isFIXED() = burst === FIXED
+  def isINCR() = if(config.useBurst) burst === INCR else True
+  def isFIXED() = if(config.useBurst) burst === FIXED else False
 
   def setSize(sizeBurst :UInt) : Unit = if(config.useBurst) size := sizeBurst
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
