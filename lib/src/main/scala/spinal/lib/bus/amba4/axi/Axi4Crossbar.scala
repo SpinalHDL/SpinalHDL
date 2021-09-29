@@ -142,8 +142,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
         }.toSeq
         val decoder = Axi4WriteOnlyDecoder(
           axiConfig = master.config,
-          decodings = slaves.map(_._2.mapping),
-          lowLatency = lowLatency
+          decodings = slaves.map(_._2.mapping)
         )
         applyName(master,"decoder",decoder)
 
@@ -161,8 +160,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           axiConfig = master.config,
           readDecodings = readOnlySlaves.map(_._2.mapping),
           writeDecodings = writeOnlySlaves.map(_._2.mapping),
-          sharedDecodings = sharedSlaves.map(_._2.mapping),
-          lowLatency = lowLatency
+          sharedDecodings = sharedSlaves.map(_._2.mapping)
         )
         applyName(master,"decoder",decoder)
 

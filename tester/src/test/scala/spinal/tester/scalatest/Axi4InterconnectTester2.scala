@@ -6,7 +6,7 @@ import spinal.lib.bus.amba4.axi._
 import scala.collection.Seq
 
 object Axi4CrossbarTester2{
-  class Axi4CrossbarTester2(lowLatency : Boolean = false) extends Component {
+  class Axi4CrossbarTester2 extends Component {
     val axiMasterConfig = Axi4Config(addressWidth = 15,dataWidth = 32,idWidth = 4)
     val axiSlaveConfig  = Axi4Config(addressWidth = 15,dataWidth = 32,idWidth = 8)
 
@@ -44,7 +44,6 @@ object Axi4CrossbarTester2{
         axiWriteOnlyMasters(1) -> (axiSlaves ++ axiWriteOnlySlaves ++ axiSharedSlaves)
       )
 
-    crossbarFactory.lowLatency = lowLatency
     val crossbar = crossbarFactory.build()
   }
 }
@@ -52,7 +51,6 @@ object Axi4CrossbarTester2{
 class Axi4CrossbarTester2CocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4CrossbarTester2"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4CrossbarTester2"
-  override def createToplevel: Component = new Axi4CrossbarTester2.Axi4CrossbarTester2(true)
+  override def createToplevel: Component = new Axi4CrossbarTester2.Axi4CrossbarTester2
   override def backendConfig(config: SpinalConfig): SpinalConfig = super.backendConfig(config)
-  withWaveform = true
 }
