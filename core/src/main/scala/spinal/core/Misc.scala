@@ -129,6 +129,7 @@ class HardType[T <: Data](t : => T){
     }
     ret
   }
+  def craft() = apply()
   def getBitsWidth = t.getBitsWidth
 }
 
@@ -537,5 +538,5 @@ trait AllowIoBundle{
 }
 
 object LutInputs extends ScopeProperty[Int]{
-  var _default: Int = 4
+  override def default: Int = 4
 }

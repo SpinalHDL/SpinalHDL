@@ -411,7 +411,7 @@ class ChecksTester extends AnyFunSuite  {
 
   test("scopeProperty"){
     object FixedPointProperty extends ScopeProperty[Int]{
-      var _default: Int = 42
+      override def default = 42
     }
 
     def check(ref : Int): Unit ={

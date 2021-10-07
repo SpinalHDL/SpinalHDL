@@ -111,15 +111,15 @@ object GlobalData {
 
 
 object DslScopeStack extends ScopeProperty[ScopeStatement]{
-  override protected var _default: ScopeStatement = null
+  override def default = null
 }
 
 object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
-  override protected var _default: Handle[ClockDomain] = null
+  override def default = null
 }
 
 object SwitchStack extends ScopeProperty[SwitchContext]{
-  override protected var _default: SwitchContext = null
+  override def default = null
 }
 
 
