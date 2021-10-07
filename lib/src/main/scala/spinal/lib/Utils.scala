@@ -103,6 +103,15 @@ object MuxOH {
       case _ => inputs(OHToUInt(oneHot))
     }
   }
+
+
+  def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
+  def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
+    masked.reduceBalancedTree(_ | _).as(inputs.head)
+  }
 }
 
 object Min {
@@ -119,6 +128,43 @@ object Max {
     }
 }
 
+object SetFromFirstOne{
+  def apply[T <: Data](that : T) : T = {
+    val lutSize = LutInputs.get
+    val input = that.asBits.asBools.setCompositeName(that, "bools")
+    val size = widthOf(input)
+    val tmp = Bits(size bits)
+
+    val cache = mutable.LinkedHashMap[Range, Bool]()
+
+    def build(target : Int, order : Int): Bool = {
+      if(target < 0) return False
+      val nextOrder = order * lutSize
+      val offset = target - target % nextOrder
+      var inputs = ArrayBuffer[Bool]()
+
+      if(!cache.contains(offset to target)) {
+        for (i <- offset to target by order) {
+          inputs += cache(i until i + order)
+        }
+        cache(offset to target) = inputs.orR.setCompositeName(that, s"range_${offset}_to_${target}")
+      }
+
+      if(offset != 0){
+        cache(offset to target) || build(offset-1, nextOrder)
+      } else {
+        cache(offset to target)
+      }
+    }
+
+    for(i <- 0 until size){
+      cache(i to i) = input(i)
+      tmp(i) := build(i, 1)
+    }
+
+    tmp.as(that)
+  }
+}
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
@@ -130,7 +176,7 @@ object OHMasking{
       ret
   }
 
-  def firstV2[T <: Data](that : T) : T = {
+  def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
     val input = that.asBits.asBools.setCompositeName(that, "bools")
     val size = widthOf(input)
@@ -140,7 +186,7 @@ object OHMasking{
 
     def build(target : Int, order : Int): Bool = {
       if(target < 0) return False
-      val nextOrder = order * lutSize
+      val nextOrder = if(order == 1) firstOrder else order * lutSize
       val offset = target - target % nextOrder
       var inputs = ArrayBuffer[Bool]()
 
