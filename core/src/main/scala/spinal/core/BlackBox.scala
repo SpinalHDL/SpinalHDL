@@ -110,6 +110,16 @@ abstract class BlackBox extends Component{
   /** Add the path of the rtl file */
   def addRTLPath(path: String) = listRTLPath += path
 
+  /** Add the content of the rtl */
+  def setInline(filename: String, moduleContent: String) = {
+    val targetFilePath = GlobalData.get.config.targetDirectory + "/" + filename
+    val outFile = new java.io.FileWriter(targetFilePath)
+    outFile.write(moduleContent)
+    outFile.flush()
+    outFile.close()
+    listRTLPath += targetFilePath.replace("//", "/") + "\n"
+  }
+
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
     try {
