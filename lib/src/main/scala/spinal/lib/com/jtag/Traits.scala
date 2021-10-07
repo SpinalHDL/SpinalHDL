@@ -9,9 +9,9 @@ import spinal.lib._
 //
 trait JtagTapFunctions {
   //Instruction wrappers
-  def idcode(value: Bits)(instructionId: Int)
-  def read[T <: Data](data: T, light : Boolean)(instructionId: Int)
-  def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int)
-  def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int)
+  def idcode(value: Bits)(instructionId: Int) : Area
+  def read[T <: Data](data: T, light : Boolean)(instructionId: Int) : Area
+  def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) : Area
+  def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) : Area
 //  def hasUpdate(now : Bool)(instructionId : Int): Unit
 }

@@ -129,10 +129,12 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
   }
 
   // implement traits of JtagTapFunctions
-  override def idcode(value: Bits)(instructionId: Int) = 
+  override def idcode(value: Bits)(instructionId: Int) : Area = {
     assert(false, """sorry a custom JTAG idcode is not supported by the embedded jtagg controller\n
                    |Idcode always 0xE0\n
                    |delete the code ... = tap.idcode(...) it's not necessary\n""".stripMargin)
+    null
+  }
 
   override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) = {
     val area = new JtagTapInstructionRead(data, light = light)
