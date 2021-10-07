@@ -4,7 +4,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim.{SpinalSimConfig, _}
-import spinal.lib.BufferCC
+import spinal.lib.{BufferCC, OHMasking, SetFromFirstOne}
 import spinal.tester
 import spinal.tester.scalatest
 
@@ -409,5 +409,38 @@ class SpinalSimMiscTester extends AnyFunSuite {
       }
     }
 
+    test(prefix + "SetFromFirstOne"){
+      SimConfig.compile(new Component {
+        val sel = in Bits(16 bits)
+        val mask = out(SetFromFirstOne(sel))
+      }).doSim(seed = 54){dut =>
+        for(i <- 0 until 1000){
+          var sel = 0
+          for(i <- 0 until Random.nextInt(5)) sel |= 1 << Random.nextInt(16)
+          dut.sel #= sel
+          val ref = if(sel == 0) 0 else (0-(1<<Integer.numberOfTrailingZeros(sel))) & 0xFFFF
+          sleep(1)
+          assert(dut.mask.toInt == ref)
+        }
+      }
+    }
+
+    test(prefix + "OhMaskingFirst"){
+      SimConfig.compile(new Component {
+        LutInputs.set(6)
+        val sel = in Bits(42 bits)
+        val mask = out(OHMasking.first(sel))
+        val mask2 = out(OHMasking.firstV2(sel))
+      }).doSim(seed = 54){dut =>
+        for(i <- 0 until 1000){
+          var sel = 0l
+          for(i <- 0 until Random.nextInt(5)) sel |= 1l << Random.nextInt(42)
+          dut.sel #= sel
+//          val ref = if(sel == 0) 0 else ((1<<Integer.numberOfTrailingZeros(sel)))
+          sleep(1)
+          assert(dut.mask.toLong == dut.mask2.toLong)
+        }
+      }
+    }
   }
 }
