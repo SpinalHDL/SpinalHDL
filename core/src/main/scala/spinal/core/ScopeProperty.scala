@@ -6,6 +6,7 @@ import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
 object ScopeProperty {
+  def apply[T] = new ScopeProperty[T]()
   val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Any]]
   def get : mutable.LinkedHashMap[ScopeProperty[Any], Any] = {
     val v = it.get()
@@ -31,15 +32,21 @@ object ScopeProperty {
     val spc = ScopeProperty.capture()
     try{ body } finally { spc.restore() }
   }
+
+  implicit def toValue[T](scopeProperty: ScopeProperty[T]) = scopeProperty.get
 }
 
 
-trait ScopeProperty[T]{
+class ScopeProperty[T]{
   def get : T = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
     case Some(x) => {
       x.asInstanceOf[T]
     }
-    case _ => this.default
+    case _ => {
+      val v = default
+      this.set(v)
+      v
+    }
   }
 
   def set(v : T) = new {
@@ -68,9 +75,10 @@ trait ScopeProperty[T]{
   }
 //  def nonEmpty = stack.nonEmpty
 
-  protected var _default: T
-  def default : T = _default
-  def setDefault(x: T): Unit = _default = x
+  def default : T = ???
+//  def setDefault(x: T): Unit = _default = x
+
+  final def _default = ??? //I changed a bit the API, now instead of var _default, you can override def default. Also instead of setDefault, you can directly use "set"
 
   def apply(value : T) = new {
     def apply[B](body : => B): B ={

@@ -6,6 +6,7 @@ package spinal.tester.code
 import spinal.core.Nameable.{DATAMODEL_WEAK, USER_WEAK}
 import spinal.core._
 import spinal.core.fiber.Handle
+import spinal.core.internals.Operator
 import spinal.lib._
 import spinal.core.sim._
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
@@ -37,25 +38,24 @@ object CamTest{
   }
 }
 
-object Debug {
+object Debug extends App{
+  val report = SpinalVerilog(new Component {
+    val a, b, c, d = in UInt(8 bits)
+    val calc = a*b+c*d
+    val result = out(CombInit(calc))
+  })
 
-
-
-  def main(args: Array[String]) {
-    SpinalVerilog(new Component {
-      val sel = in UInt(8 bits)
-      val r  = out(Reg(UInt(8 bits)))
-      r.swichAssign(sel)(
-        0 -> U(32),
-        1 -> U(44),
-        4 -> U(55),
-        default -> U(66)
-      )
-    })
-
+  report.toplevel.dslBody.walkStatements{
+    case bt : BaseType => {
+      bt.foreachStatements{ s =>
+        s.walkDrivingExpressions{
+          case e : Operator.BitVector.Mul => println(s"$bt with ${e.left} * ${e.right}")
+          case _ =>
+        }
+      }
+    }
+    case _ =>
   }
-
-  //  createEnum("asd")
 }
 
 

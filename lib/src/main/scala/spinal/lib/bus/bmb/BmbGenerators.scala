@@ -148,7 +148,7 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
   override def getBus(): Handle[Nameable] = ctrl
 
   val logic = Handle(new Area{
-    lock.get
+    lock.await()
     val bmb = Bmb(accessRequirements.toBmbParameter())
     val bus = BmbSlaveFactory(bmb)
     val targets = targetsModel.map(flag =>

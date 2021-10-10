@@ -137,7 +137,7 @@ class EngineContext {
 }
 
 object Engine extends ScopeProperty[EngineContext]{
-  override protected var _default: EngineContext = null
+  override def default = null
 
   def create[T](body : => T, name : String = "root") = {
     val e = new EngineContext

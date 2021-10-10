@@ -1,6 +1,6 @@
 package spinal.lib.eda.bench
 import spinal.core._
-import spinal.lib.StreamFifo
+import spinal.lib.{KeepAttribute, StreamFifo}
 import spinal.sim.SimManager
 
 import java.util.concurrent.ForkJoinPool
@@ -31,6 +31,26 @@ object Rtl {
       override def getRtlPaths(): Seq[String] = rtl.rtlSourcesPaths.toSeq
       override def getTopModuleName(): String = rtl.toplevelName
     }
+  }
+
+  def ffIo[T <: Component](c : T): T ={
+    def buf1[T <: Data](that : T) = KeepAttribute(RegNext(that)).addAttribute("DONT_TOUCH")
+    def buf[T <: Data](that : T) = buf1(buf1(buf1(that)))
+    c.rework{
+      val ios = c.getAllIo.toList
+      ios.foreach{io =>
+        if(io.getName() == "clk"){
+
+        } else if(io.isInput){
+          io.setAsDirectionLess().allowDirectionLessIo
+          io := buf(in(cloneOf(io).setName(io.getName() + "_wrap")))
+        } else if(io.isOutput){
+          io.setAsDirectionLess().allowDirectionLessIo
+          out(cloneOf(io).setName(io.getName() + "_wrap")) := buf(io)
+        } else ???
+      }
+    }
+    c
   }
 }
 
