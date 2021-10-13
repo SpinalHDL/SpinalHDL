@@ -188,7 +188,7 @@ case class SpinalIVerilogBackendConfig[T <: Component](override val rtl : Spinal
                                                                         wavePrefix, 
                                                                         waveDepth, 
                                                                         optimisationLevel, 
-                                                                        simulatorFlags, 
+                                                                        simulatorFlags,
                                                                         usePluginsCache, 
                                                                         pluginsCachePath,
                                                                         enableLogging)
@@ -253,6 +253,7 @@ object SpinalVpiBackend {
 
     import config._
 
+    vconfig.rtlIncludeDirs  ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
     vconfig.toplevelName      = rtl.toplevelName
     vconfig.wavePath          = "test.vcd"
