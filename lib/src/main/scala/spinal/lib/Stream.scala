@@ -969,7 +969,7 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false) extends Component {
   require(depth >= 1)
   val io = new Bundle with StreamFifoInterface[T] {
     val push = slave Stream (dataType)
@@ -979,7 +979,8 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     override def pushOccupancy: UInt = occupancy
     override def popOccupancy: UInt = occupancy
   }
-  val ram = Mem(dataType, depth)
+  val vec = useVec generate Vec(Reg(dataType), depth)
+  val ram = !useVec generate Mem(dataType, depth)
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr
@@ -992,11 +993,13 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 
   io.push.ready := !full
 
+  val readed = if(useVec) vec(popPtr.value) else ram(popPtr.value)
+
   latency match{
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
+        io.pop.payload := readed
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -1004,14 +1007,17 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
+      io.pop.payload := readed
     }
   }
   when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
-    ram(pushPtr.value) := io.push.payload
+    if(useVec)
+      vec.write(pushPtr.value, io.push.payload)
+    else
+      ram.write(pushPtr.value, io.push.payload)
     pushPtr.increment()
   }
   when(popping) {

@@ -130,17 +130,18 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     Handle(Component.current.addTag(new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id)))
   }
 
-  override def addInterrupt(source : Handle[Bool], id : Int) = {
+  override def addInterrupt(source : => Handle[Bool], id : Int) = {
     lock.retain()
     Handle{
+      val src = source
       soon(lock)
       gateways += PlicGatewayActiveHigh(
-        source = source,
+        source = src,
         id = id,
         priorityWidth = priorityWidth
-      ).setCompositeName(source, "plic_gateway")
+      ).setCompositeName(src, "plic_gateway")
 
-      Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + source.getName, id))
+      Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + src.getName, id))
       lock.release()
     }
   }
