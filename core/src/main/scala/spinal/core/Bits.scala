@@ -179,6 +179,11 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
   private[core] override def newMultiplexerExpression() = new MultiplexerBits
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerBits
 
+  def valueRange: Range = {
+    assert(getWidth < 32)
+    0 to (1 << getWidth)-1
+  }
+
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node   = new ResizeBits
     node.input = this
