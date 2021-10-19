@@ -7,6 +7,11 @@ import scala.collection.mutable.{ArrayBuffer, Stack}
 
 object ScopeProperty {
   def apply[T] = new ScopeProperty[T]()
+  def apply[T](default : T) = {
+    val sp = new ScopeProperty[T]()
+    sp.set(default)
+    sp
+  }
   val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Any]]
   def get : mutable.LinkedHashMap[ScopeProperty[Any], Any] = {
     val v = it.get()
@@ -34,6 +39,9 @@ object ScopeProperty {
   }
 
   implicit def toValue[T](scopeProperty: ScopeProperty[T]) = scopeProperty.get
+  implicit def toBits(scopeProperty: ScopeProperty[Int]) = new {
+    def bits = BitCount(scopeProperty.get)
+  }
 }
 
 
@@ -75,7 +83,13 @@ class ScopeProperty[T]{
   }
 //  def nonEmpty = stack.nonEmpty
 
-  def default : T = ???
+  def default : T = {
+    this match {
+      case n : Nameable => println("On $n")
+      case _ =>
+    }
+    ???
+  }
 //  def setDefault(x: T): Unit = _default = x
 
   final def _default = ??? //I changed a bit the API, now instead of var _default, you can override def default. Also instead of setDefault, you can directly use "set"
