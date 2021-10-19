@@ -96,6 +96,7 @@ object Mem {
 
   def apply[T <: Data](wordType: HardType[T], initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
+  def fill[T <: Data](wordCount: Int)(wordType: HardType[T])  = new Mem(wordType, wordCount)
 }
 
 
