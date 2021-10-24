@@ -42,9 +42,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
-      if(pc.config.dumpWave != null) {
-        outFile.write("`timescale 1ns/1ps ")
-      }
+      outFile.write("`timescale 1ns/1ps ")
 
       emitEnumPackage(outFile)
 
@@ -82,9 +80,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
           if (!c.isInBlackBoxTree) {
             outFile = new java.io.FileWriter(targetFilePath)
             outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, c, config.headerWithDate, config.headerWithRepoHash))
-            if(pc.config.dumpWave != null) {
-              outFile.write("`timescale 1ns/1ps ")
-            }
+            outFile.write("`timescale 1ns/1ps ")
 //            emitEnumPackage(outFile)
             outFile.write(moduleContent)
             outFile.flush()

@@ -540,3 +540,7 @@ trait AllowIoBundle{
 object LutInputs extends ScopeProperty[Int]{
   override def default: Int = 4
 }
+
+object ClassName{
+  def apply(that : Any) =  that.getClass.getSimpleName.replace("$","")
+}

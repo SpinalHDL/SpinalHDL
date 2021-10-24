@@ -247,13 +247,13 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     * Class used to write conditional operation on Data value
     * @example {{{ val res = myBool ? myBits1 | myBits2 }}}
     */
-  case class MuxBuilder[T <: Data](whenTrue: T){
+  class MuxBuilder[T <: Data](whenTrue: T){
     def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
     def otherwise(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
   }
 
   /** Conditional operation for Data value */
-  def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
+  def ?[T <: Data](whenTrue: T) = new MuxBuilder(whenTrue)
 
   /**
     * Class used to write conditional operation on Enumeration value

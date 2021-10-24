@@ -48,7 +48,10 @@ abstract class BitVector extends BaseType with Widthable {
   /** Return the least significant bit */
   def lsb: Bool = this(0)
   /** Return the range */
-  def range: Range = 0 until getWidth
+  @deprecated("Use bitsRange instead")
+  def range: Range = bitsRange
+
+  def bitsRange: Range = 0 until getWidth
 
   /** Logical OR of all bits */
 //  def orR: Bool = this.asBits =/= 0

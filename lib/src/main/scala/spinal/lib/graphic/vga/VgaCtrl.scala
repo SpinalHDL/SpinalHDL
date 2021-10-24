@@ -21,14 +21,14 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
   val v = VgaTimingsHV(timingsWidth)
 
   def setAs_h640_v480_r60: Unit = {
-    h.syncStart := 96 - 1
-    h.syncEnd := 800 - 1
-    h.colorStart := 96 + 16 - 1
-    h.colorEnd := 800 - 48 - 1
-    v.syncStart := 2 - 1
-    v.syncEnd := 525 - 1
-    v.colorStart := 2 + 10 - 1
-    v.colorEnd := 525 - 33 - 1
+    h.syncStart := 95
+    h.syncEnd := 799
+    h.colorStart := 143
+    h.colorEnd := 783
+    v.syncStart := 1
+    v.syncEnd := 524
+    v.colorStart := 34
+    v.colorEnd := 514
     h.polarity := False
     v.polarity := False
   }
@@ -146,16 +146,16 @@ object VgaTimingPrint extends App{
   }
 
   show(
-    hPixels    = 800,
-    hSync      = 128,
-    hFront     = 40,
-    hBack      = 88,
-    hPolarity  = true,
-    vPixels    = 600,
-    vSync      = 4,
-    vFront     = 1,
-    vBack      = 23,
-    vPolarity  = true
+    hPixels    = 640,
+    hSync      = 96,
+    hFront     = 16,
+    hBack      = 48,
+    hPolarity  = false,
+    vPixels    = 480,
+    vSync      = 2,
+    vFront     = 10,
+    vBack      = 33,
+    vPolarity  = false
   )
 }
 
