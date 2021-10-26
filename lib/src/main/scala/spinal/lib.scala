@@ -17,6 +17,10 @@ package object lib  {
 
   def NoData = new NoData
 
+  def export[T](named : Handle[T], value :  => Any) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName, value)) }
+  }
+
   def export[T](h : Handle[T]) = {
     Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
     h
