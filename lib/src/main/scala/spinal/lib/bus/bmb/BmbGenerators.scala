@@ -121,10 +121,11 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
 
   val lock = Lock()
 
-  val targetsModel = ArrayBuffer[Handle[Bool]]()
+  case class TargetModel(target : Handle[Bool], clockDomain : Handle[ClockDomain])
+  val targetsModel = ArrayBuffer[TargetModel]()
   def addTarget(target : Handle[Bool]) = {
     val id = targetsModel.size
-    targetsModel += target
+    targetsModel += TargetModel(target, ClockDomain.currentHandle)
 
     //TODO remove the need of delaying stuff for name capture
     Handle(Component.current.addTag(new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id)))
@@ -156,7 +157,7 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
       PlicTarget(
         gateways = gateways.map(_.get),
         priorityWidth = priorityWidth
-      ).setCompositeName(flag, "plic_target")
+      ).setCompositeName(flag.target, "plic_target")
     )
 
     //    gateways.foreach(_.priority := 1)
@@ -169,7 +170,8 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     )
 
     for(targetId <- 0 until targetsModel.length){
-      targetsModel(targetId) := targets(targetId).iep
+      def bufferize[T <: Data](that : T) : T = if(targetsModel(targetId).clockDomain != ClockDomain.currentHandle) targetsModel(targetId).clockDomain on BufferCC[T](that, init = null.asInstanceOf[T]) else RegNext[T](that)
+      targetsModel(targetId).target := bufferize(targets(targetId).iep)
     }
   })
 
