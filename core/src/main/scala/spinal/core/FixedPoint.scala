@@ -342,8 +342,8 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
   def :=(that: Float): Unit = this := BigDecimal(that.toDouble)
 
   def :=(that: BigDecimal): Unit = {
-    assert(that <= this.maxValue, s"Literal $that is to big to be assigned in $this")
-    assert(that >= this.minValue, s"Literal $that is to negative to be assigned in this $this")
+    assert(that <= this.maxValue, s"Literal $that is too big to be assigned in $this")
+    assert(that >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
 
     val shift = bitCount - maxExp - 1
     val value = if(shift >= 0)
@@ -354,8 +354,8 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
   }
 
   def :=(that: BigInt): Unit = {
-    assert(BigDecimal(that) <= this.maxValue, s"Literal $that is to big to be assigned in $this")
-    assert(BigDecimal(that)  >= this.minValue, s"Literal $that is to negative to be assigned in this $this")
+    assert(BigDecimal(that) <= this.maxValue, s"Literal $that is too big to be assigned in $this")
+    assert(BigDecimal(that)  >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
 
     val minExp = this.minExp
     if (minExp > 0)
@@ -458,7 +458,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
   def :=(that: BigDecimal): Unit = {
     assert(that >= 0)
-    assert(that <= this.maxValue, s"Literal $that is to big to be assigned in this $this")
+    assert(that <= this.maxValue, s"Literal $that is too big to be assigned in this $this")
 
     val shift = bitCount - maxExp
     val value = if(shift >= 0)
@@ -470,7 +470,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
   def :=(that: BigInt): Unit = {
     assert(that >= 0)
-    assert(that < (BigInt(1) << maxExp), s"Literal $that is to big to be assigned in this $this")
+    assert(that < (BigInt(1) << maxExp), s"Literal $that is too big to be assigned in this $this")
 
     val minExp = this.minExp
     if (minExp > 0)

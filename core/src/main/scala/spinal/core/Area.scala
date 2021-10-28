@@ -134,7 +134,7 @@ class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallb
 
 
 /**
-  * Clock Area with a specila clock enable
+  * Clock Area with a special clock enable
   */
 class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 
