@@ -198,3 +198,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCall
   }
 }
 
+
+trait AreaObject extends Area{
+  setWeakName(this.getClass.getSimpleName.replace("$",""))
+}
