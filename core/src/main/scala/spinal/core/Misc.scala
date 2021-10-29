@@ -47,6 +47,7 @@ object log2Up {
     if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
     (value - 1).bitLength
   }
+  def apply(value : Int) : Int = apply(BigInt(value))
 }
 
 
