@@ -39,6 +39,8 @@ object UIntToOh {
     ret
   }
 
+  def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
+
   def apply(value: UInt, mapping : Seq[Int]): Bits = {
     val ret = Bits(mapping.size bits)
     for((m, i) <- mapping.zipWithIndex){
