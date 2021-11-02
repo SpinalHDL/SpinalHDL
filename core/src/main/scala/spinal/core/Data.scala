@@ -683,6 +683,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+
+  def wrapNext() : this.type = {
+    val comb = CombInit(this)
+    this := comb
+    this.freeze()
+    comb.asInstanceOf[this.type]
+  }
 }
 
 trait DataWrapper extends Data{
