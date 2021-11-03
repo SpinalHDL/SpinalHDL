@@ -45,7 +45,7 @@ object ScopeProperty {
 }
 
 
-class ScopeProperty[T]{
+class ScopeProperty[T]  {
   def get : T = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
     case Some(x) => {
       x.asInstanceOf[T]
@@ -88,7 +88,7 @@ class ScopeProperty[T]{
       case n : Nameable => println("On $n")
       case _ =>
     }
-    ???
+    throw new Exception(s"ScopeProperty ${this} isn't set")
   }
 //  def setDefault(x: T): Unit = _default = x
 

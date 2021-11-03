@@ -876,7 +876,9 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     assert(array.length >= 1)
     stage(array, 0)
   }
-
+  def distinctLinked : mutable.LinkedHashSet[T] = {
+    mutable.LinkedHashSet[T]() ++ this.pimped
+  }
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
