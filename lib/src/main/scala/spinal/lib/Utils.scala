@@ -19,15 +19,16 @@
 package spinal.lib
 
 import spinal.core.internals._
+
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
-
 import spinal.core._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.ListBuffer
 import scala.collection.Seq
+import scala.collection.generic.Growable
 
 
 object UIntToOh {
@@ -842,7 +843,12 @@ object DelayEvent {
 class NoData extends Bundle {
 
 }
-
+class GrowableAnyPimped[T <: Any](pimped: Growable[T]) {
+  def addRet(that : T): T ={
+    pimped += that
+    that
+  }
+}
 
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
@@ -876,7 +882,9 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     assert(array.length >= 1)
     stage(array, 0)
   }
-
+  def distinctLinked : mutable.LinkedHashSet[T] = {
+    mutable.LinkedHashSet[T]() ++ this.pimped
+  }
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {

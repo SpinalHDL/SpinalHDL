@@ -1861,7 +1861,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
             if(withInit){
               regToComb += bt
               if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
-                SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine")
+                if(bt.scalaTrace == null){
+                  PendingError(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine\n${bt.getScalaLocationLong}")
+                } else {
+                  SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine\n${bt.getScalaLocationLong}")
+                }
+
               }
             }else if(bt.isVital) {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")

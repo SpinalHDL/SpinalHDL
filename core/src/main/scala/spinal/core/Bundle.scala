@@ -68,6 +68,10 @@ trait ValCallbackRec extends ValCallback{
           for ((e, i) <- seq.zipWithIndex) {
             valCallbackOn(e, name + "_" + i, refs)
           }
+        case seq: mutable.LinkedHashSet[_]   =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
         case Some(x) => valCallbackOn(x, name, refs)
         case _             =>
       }

@@ -114,6 +114,12 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret.rsp := mem.readSync(ret.cmd.payload,ret.cmd.valid)
     ret
   }
+
+  def readAsyncPort : MemReadPortAsync[T] = {
+    val ret : MemReadPortAsync[T] = MemReadPortAsync(mem.wordType(),mem.addressWidth)
+    ret.data := mem.readAsync(ret.address)
+    ret
+  }
 }
 
 
@@ -135,5 +141,16 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
   override def asMaster(): Unit = {
     master(cmd)
     in(rsp)
+  }
+}
+
+
+case class MemReadPortAsync[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
+  val address = UInt(addressWidth bit)
+  val data = cloneOf(dataType)
+
+  override def asMaster(): Unit = {
+    out(address)
+    in(data)
   }
 }
