@@ -267,8 +267,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     def pkgExtractBool(kind: String): (String, String) = {
       val ret = new StringBuilder()
       (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
+        ret ++= s"    alias temp : $kind(that'length-1 downto 0) is that;\n"
         ret ++= "  begin\n"
-        ret ++= "    return that(bitId);\n"
+        ret ++= "    return temp(bitId);\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
       })
