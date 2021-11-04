@@ -106,6 +106,17 @@ abstract class MultiData extends Data {
     this
   }
 
+
+  override def freeze(): MultiData.this.type = {
+    elements.foreach(_._2.freeze())
+    this
+  }
+
+  override def unfreeze(): MultiData.this.type = {
+    elements.foreach(_._2.unfreeze())
+    this
+  }
+
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }

@@ -271,7 +271,7 @@ case class ClockDomain(clock       : Bool,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
                        frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
-                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) {
+                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
 
@@ -327,10 +327,9 @@ case class ClockDomain(clock       : Bool,
   def setSyncronousWith(that: ClockDomain) = setSyncWith(that)
 
   def apply[T](block: => T): T = {
-    val parentCd = ClockDomain.current
-    ClockDomainStack.set(this)
+    val pop = this.push()
     val ret: T = block
-    ClockDomainStack.set(parentCd)
+    pop.restore()
     ret
   }
 

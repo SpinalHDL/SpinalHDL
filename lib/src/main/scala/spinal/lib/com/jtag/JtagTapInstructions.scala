@@ -101,6 +101,32 @@ class JtagTapInstructionRead[T <: Data](data: T, light : Boolean) extends Area {
   }
 }
 
+/**
+ * Usefull to create a jtag tap instruction that has a different data input/output, with a captureReady
+ */
+class JtagTapInstructionReadWrite[T <: Data](captureData: T, updateData: T, captureReady: Bool) extends Area {
+  val ctrl = JtagTapInstructionCtrl()
+  assert(widthOf(captureData) == widthOf(updateData)) // tdo is also clocked by tck
+
+  val store = Reg(Bits(widthOf(updateData) bit))  // for clean update
+
+  captureReady := False
+  when(ctrl.enable) {
+    when(ctrl.capture) {  // when the jtag is capturing the TAP
+      store := B(captureData)
+    }
+    when(ctrl.shift) {    // tdi DR shifting
+      store := (ctrl.tdi ## store) >> 1
+    }
+    when(ctrl.update) {
+      captureReady := True // ready for new data
+    }
+  }elsewhen(ctrl.reset) {
+      store.clearAll()
+  }
+  ctrl.tdo := store.lsb // tdo DR shifting
+  updateData.assignFromBits(store)
+}
 
 class JtagTapInstructionIdcode[T <: Data](value: Bits) extends Area {
   val ctrl = JtagTapInstructionCtrl()

@@ -59,7 +59,12 @@ class ScopeStatement(var parentStatement: TreeStatement) {
 
 
   def push() = DslScopeStack.set(this)
-//  def pop()  = DslScopeStack.pop()
+
+  def on(body : => Unit): Unit = {
+    val ctx = push()
+    body
+    ctx.restore()
+  }
 
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={

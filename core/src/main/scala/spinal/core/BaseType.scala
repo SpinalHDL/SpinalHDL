@@ -44,6 +44,7 @@ object BaseType{
   final val isTypeNodeMask = 2
   final val isVitalMask    = 4
   final val isAnalogMask   = 8
+  final val isFrozen       = 16
 }
 
 /**
@@ -77,6 +78,18 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   /** Set baseType to Combinatorial */
   override def setAsComb(): this.type = {
     btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this
+  }
+
+  override def freeze(): this.type = {
+    btFlags |= BaseType.isFrozen; this
+  }
+
+  override def unfreeze(): this.type = {
+    btFlags &= ~BaseType.isFrozen; this
+  }
+
+  def isFrozen(): Boolean = {
+    (btFlags & BaseType.isFrozen) != 0
   }
 
   /** Is the baseType a node */
@@ -201,7 +214,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
         InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
       case `InitialAssign` => InitialAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
-
+    if(isFrozen()){
+      LocatedPendingError(s"FROZEN ASSIGNED :\n$this := $that")
+    }
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
         DslScopeStack.get.append(statement(that))

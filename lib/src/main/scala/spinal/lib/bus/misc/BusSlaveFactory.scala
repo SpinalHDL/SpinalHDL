@@ -658,6 +658,7 @@ trait BusSlaveFactory extends Area{
     val maskWidth = mem.width / busDataWidth
     val mask = UInt(maskWidth bits)
     mask := 0
+    mask.allowOverride
     mask(writeAddress(mapping)(log2Up(mem.width / 8) - 1 downto log2Up(busDataWidth / 8))) := True
     port.mask := mask.asBits
 

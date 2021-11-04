@@ -696,6 +696,25 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
   }
 
   def doBlackboxing(pc: PhaseContext, typo: MemTopology): Unit
+
+  def wrapConsumers(topo : MemTopology, oldSource: Expression, newSource: Expression): Unit ={
+    topo.consumers.get(oldSource) match {
+      case None        =>
+      case Some(array) => array.foreach(ec => {
+        ec.remapExpressions{
+          case e if e == oldSource => newSource
+          case e                   => e
+        }
+      })
+    }
+  }
+
+  def removeMem(mem : Mem[_]): Unit ={
+    mem.removeStatement()
+    mem.foreachStatements(s => s.removeStatement())
+  }
+
+
 }
 
 
@@ -726,20 +745,11 @@ class PhaseMemBlackBoxingDefault(policy: MemBlackboxingPolicy) extends PhaseMemB
     }
 
     def wrapConsumers(oldSource: Expression, newSource: Expression): Unit ={
-      topo.consumers.get(oldSource) match {
-        case None        =>
-        case Some(array) => array.foreach(ec => {
-          ec.remapExpressions{
-            case e if e == oldSource => newSource
-            case e                   => e
-          }
-        })
-      }
+      super.wrapConsumers(topo, oldSource, newSource)
     }
 
     def removeMem(): Unit ={
-      mem.removeStatement()
-      mem.foreachStatements(s => s.removeStatement())
+      super.removeMem(mem)
     }
 
     if (mem.initialContent != null) {
@@ -1851,7 +1861,12 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
             if(withInit){
               regToComb += bt
               if(bt.isVital && !bt.hasTag(unsetRegIfNoAssignementTag)){
-                SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine")
+                if(bt.scalaTrace == null){
+                  PendingError(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine\n${bt.getScalaLocationLong}")
+                } else {
+                  SpinalWarning(s"UNASSIGNED REGISTER $bt with init value, please apply the allowUnsetRegToAvoidLatch tag if that's fine\n${bt.getScalaLocationLong}")
+                }
+
               }
             }else if(bt.isVital) {
               PendingError(s"UNASSIGNED REGISTER $bt, defined at\n${bt.getScalaLocationLong}")

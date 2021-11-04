@@ -584,6 +584,7 @@ class BmbInterconnectGenerator() extends Area{
     for((m, s) <- l) addConnection(m, s)
     this
   }
+  def getConnection(m : Handle[Bmb], s : Handle[Bmb]) = getMaster(m).connections.find(_.s.bus == s).get
 }
 
 

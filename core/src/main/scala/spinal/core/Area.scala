@@ -134,7 +134,7 @@ class ClockingArea(val clockDomain: ClockDomain) extends Area with PostInitCallb
 
 
 /**
-  * Clock Area with a specila clock enable
+  * Clock Area with a special clock enable
   */
 class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 
@@ -198,3 +198,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCall
   }
 }
 
+
+trait AreaObject extends Area{
+  setWeakName(this.getClass.getSimpleName.replace("$",""))
+}

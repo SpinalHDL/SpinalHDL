@@ -342,6 +342,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
 
+  def freeze() : this. type
+  def unfreeze() : this. type
+
   def purify() : this.type = {
     setAsDirectionLess()
     setAsComb()
@@ -680,6 +683,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+
+  def wrapNext() : this.type = {
+    val comb = CombInit(this)
+    this := comb
+    this.freeze()
+    comb.asInstanceOf[this.type]
+  }
 }
 
 trait DataWrapper extends Data{
@@ -696,5 +706,7 @@ trait DataWrapper extends Data{
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
+  override def freeze(): DataWrapper.this.type = ???
+  override def unfreeze(): DataWrapper.this.type = ???
 }
 

@@ -12,9 +12,9 @@ abstract class DataType(){
   def rangeError(that : Any, signal : Signal): Unit =
     SimError(f"ASSIGNMENT ERROR : ${that} is outside the range of $signal")
   def readIntError(signal : Signal): Unit =
-    SimError(f"READ ERROR : $signal is to big to be read with an Int")
+    SimError(f"READ ERROR : $signal is too big to be read with an Int")
   def readLongError(signal : Signal): Unit =
-    SimError(f"READ ERROR : $signal is to big to be read with an Long")
+    SimError(f"READ ERROR : $signal is too big to be read with an Long")
   def checkBigIntRange(value : BigInt, signal : Signal): Unit
   def checkLongRange(value : Long, signal : Signal) : Unit
   def checkIntRange(value : Int, signal : Signal) : Unit
