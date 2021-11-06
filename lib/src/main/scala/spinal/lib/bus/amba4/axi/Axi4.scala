@@ -162,15 +162,24 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     slave(r,b)
   }
 
-  def toReadOnly(): Axi4ReadOnly ={
+  def toReadOnly(idleOthers: Boolean = false): Axi4ReadOnly ={
     val ret = Axi4ReadOnly(config)
     ret << this
+    if(idleOthers){
+      this.writeCmd.setIdle()
+      this.writeData.setIdle()
+      this.writeRsp.setIdle()
+    }
     ret
   }
 
-  def toWriteOnly(): Axi4WriteOnly ={
+  def toWriteOnly(idleOthers: Boolean = false): Axi4WriteOnly ={
     val ret = Axi4WriteOnly(config)
     ret << this
+    if(idleOthers){
+      this.readCmd.setIdle()
+      this.readRsp.setIdle()
+    }
     ret
   }
 

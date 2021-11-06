@@ -37,6 +37,16 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     sink
   }
 
+  def toAxi4(): Axi4 = {
+    val ret = Axi4(config)
+    this >> ret
+  
+    ret.readCmd.setIdle()
+    ret.readRsp.setIdle()
+
+    ret
+  }
+
   def toFullConfig(): Axi4WriteOnly = {
     val ret = Axi4WriteOnly(config.toFullConfig())
     ret << this
