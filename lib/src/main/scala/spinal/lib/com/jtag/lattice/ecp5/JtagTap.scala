@@ -147,7 +147,15 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
     map(area.ctrl, instructionId)
     area
   }
-  
+
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  override def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
+    area
+  }
+
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
     val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
     map(area.ctrl, instructionId)

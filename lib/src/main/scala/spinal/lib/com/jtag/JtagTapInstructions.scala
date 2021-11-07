@@ -228,4 +228,11 @@ class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctio
     map(area.ctrl, instructionId)
     area
   }
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  override def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
+    area
+  }
 }
