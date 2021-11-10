@@ -463,9 +463,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
   
   def setIdle(): this.type = {
-    this.valid.assignDontCare()
-    this.ready.assignDontCare()
+    this.valid := False
     this.payload.assignDontCare()
+    this
+  }
+  
+  def setBlocked(): this.type = {
+    this.ready := False
     this
   }
 
