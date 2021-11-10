@@ -1209,7 +1209,9 @@ class MultiplexerEnum(enumDef: SpinalEnum) extends Multiplexer with InferableEnu
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
     super.normalizeInputs
-    InputNormalize.enumImpl(this)
+    for(i <- 0 until inputs.size){
+      inputs(i) =  InputNormalize.enumImpl(this, inputs(i))
+    }
   }
   override def getTypeObject: Any = TypeEnum
 }
@@ -1298,7 +1300,8 @@ class BinaryMultiplexerEnum(enumDef : SpinalEnum) extends BinaryMultiplexer with
   override def getDefinition: SpinalEnum = enumDef
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def normalizeInputs: Unit = {
-    InputNormalize.enumImpl(this)
+    whenTrue = InputNormalize.enumImpl(this, whenTrue)
+    whenFalse = InputNormalize.enumImpl(this, whenFalse)
   }
   override def getTypeObject: Any = TypeEnum
 }

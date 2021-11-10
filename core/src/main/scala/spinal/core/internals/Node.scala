@@ -66,13 +66,21 @@ object SymplifyNode {
 
 object InputNormalize {
 
+  def enumImpl(node: Expression with EnumEncoded, input: Expression with EnumEncoded): Expression with EnumEncoded = {
+    if(node.getEncoding != input.getEncoding) {
+      val cast = new CastEnumToEnum(node.getDefinition)
+      cast.input = input.asInstanceOf[cast.T]
+      cast.fixEncoding(node.getEncoding)
+      cast
+    }
+    else {
+      input
+    }
+  }
+
   def enumImpl(node: Expression with EnumEncoded): Unit = {
     node.remapExpressions {
-      case input: Expression with EnumEncoded if node.getEncoding != input.getEncoding =>
-        val cast = new CastEnumToEnum(node.getDefinition)
-        cast.input = input.asInstanceOf[cast.T]
-        cast.fixEncoding(node.getEncoding)
-        cast
+      case input: Expression with EnumEncoded => enumImpl(node, input)
       case input => input
     }
   }
