@@ -746,6 +746,11 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+
+  def apply[T <: SpinalTagReady](that : T) : T = {
+    that.addTag(this)
+    that
+  }
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag
