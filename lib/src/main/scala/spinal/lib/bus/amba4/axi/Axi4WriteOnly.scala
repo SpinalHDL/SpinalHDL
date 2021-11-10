@@ -42,7 +42,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     this >> ret
   
     ret.readCmd.setIdle()
-    ret.readRsp.setIdle()
+    ret.readRsp.setBlocked()
 
     ret
   }

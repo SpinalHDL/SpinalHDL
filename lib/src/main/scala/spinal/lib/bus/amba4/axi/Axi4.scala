@@ -166,8 +166,8 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     val ret = Axi4ReadOnly(config)
     ret << this
     if(idleOthers){
-      this.writeCmd.setIdle()
-      this.writeData.setIdle()
+      this.writeCmd.setBlocked()
+      this.writeData.setBlocked()
       this.writeRsp.setIdle()
     }
     ret
@@ -177,7 +177,7 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     val ret = Axi4WriteOnly(config)
     ret << this
     if(idleOthers){
-      this.readCmd.setIdle()
+      this.readCmd.setBlocked()
       this.readRsp.setIdle()
     }
     ret
