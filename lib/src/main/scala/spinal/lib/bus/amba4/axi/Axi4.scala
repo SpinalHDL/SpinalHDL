@@ -183,6 +183,24 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     ret
   }
 
+  def setIdle(): this.type = {
+    this.writeCmd.setIdle()
+    this.writeData.setIdle()
+    this.writeRsp.setBlocked()
+    this.readCmd.setIdle()
+    this.readRsp.setBlocked()
+    this
+  }
+
+  def setBlocked(): this.type = {
+    this.writeCmd.setBlocked()
+    this.writeData.setBlocked()
+    this.writeRsp.setIdle()
+    this.readCmd.setBlocked()
+    this.readRsp.setIdle()
+    this
+  }
+
   def toShared() : Axi4Shared = {
     Axi4ToAxi4Shared(this)
   }
