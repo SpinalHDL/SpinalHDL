@@ -700,6 +700,11 @@ class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady
     val addressReq = mem.addressWidth + log2Up(aspectRatio)
     address = InputNormalize.resizedOrUnfixedLit(address, addressReq, new ResizeUInt, address, this) //TODO better error messaging
 
+    if(!hasTag(AllowMixedWidth) && data.getWidth != width) {
+      PendingError(s"Write data width (${data.getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
+      return
+    }
+
     if(mem.getWidth != getWidth){
       if(!hasTag(AllowMixedWidth)) {
         PendingError(s"Write data width (${data.getWidth} bits) is not the same as the memory one ($mem) at\n${this.getScalaLocationLong}")
