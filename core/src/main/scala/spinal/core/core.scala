@@ -34,7 +34,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
 
-
+  type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
   def Bool : Bool = new Bool
