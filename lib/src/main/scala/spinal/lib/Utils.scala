@@ -25,8 +25,7 @@ import java.nio.charset.Charset
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
 import scala.collection.Seq
 import scala.collection.generic.Growable
 
@@ -884,6 +883,15 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   }
   def distinctLinked : mutable.LinkedHashSet[T] = {
     mutable.LinkedHashSet[T]() ++ this.pimped
+  }
+
+  def groupByLinked[K](by : T => K) : LinkedHashMap[K, ArrayBuffer[T]] = {
+    val ret = LinkedHashMap[K, ArrayBuffer[T]]()
+    for(e <- pimped) {
+      val k = by(e)
+      ret.getOrElseUpdate(k, ArrayBuffer[T]()) += e
+    }
+    ret
   }
 }
 
