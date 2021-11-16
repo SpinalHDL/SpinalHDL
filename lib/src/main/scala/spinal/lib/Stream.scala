@@ -461,6 +461,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val last = counter.willOverflowIfInc
     return addFragmentLast(last)
   }
+  
+  def setIdle(): this.type = {
+    this.valid := False
+    this.payload.assignDontCare()
+    this
+  }
+  
+  def setBlocked(): this.type = {
+    this.ready := False
+    this
+  }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
