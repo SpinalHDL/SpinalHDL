@@ -11,7 +11,7 @@ import spinal.core.sim._
 
 class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
     def prepare(
-        dut: StreamExtender[UInt, UInt],
+        dut: StreamTransactionExtender[UInt, UInt],
         alwaysInput: Boolean = false,
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
@@ -68,7 +68,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
 
     test("testRandomInOut") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
             dut
         }
         compiled.doSimUntilVoid { dut =>
@@ -83,7 +83,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
 
     test("testRandomIn") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
             dut
         }
         compiled.doSimUntilVoid { dut =>
@@ -98,7 +98,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
 
     test("testRandomOut") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
             dut
         }
         compiled.doSimUntilVoid { dut =>
@@ -113,7 +113,7 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
 
     test("testFullPipeline") {
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
             dut
         }
         compiled.doSimUntilVoid { dut =>

@@ -1492,11 +1492,11 @@ object StreamFifoMultiChannelBench extends App{
   Bench(rtls, targets)
 }
 
-object StreamExtender {
+object StreamTransactionExtender {
     def apply[T <: Data](input: Stream[T], count: UInt)(
         driver: (UInt, T) => T = (_: UInt, p: T) => p
     ): Stream[T] = {
-        val c = new StreamExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
         c.io.input << input
         c.io.count := count
         c.io.output
@@ -1504,8 +1504,8 @@ object StreamExtender {
 
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
         driver: (UInt, T) => T2
-    ): StreamExtender[T, T2] = {
-        val c = new StreamExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+    ): StreamTransactionExtender[T, T2] = {
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
         c.io.input << input
         c.io.count := count
         output << c.io.output
@@ -1514,7 +1514,7 @@ object StreamExtender {
 }
 
 /* Extend one input transfer into serveral outputs, io.count represent delivering output (count + 1) times. */
-class StreamExtender[T <: Data, T2 <: Data](
+class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
