@@ -620,14 +620,27 @@ trait BusSlaveFactory extends Area{
                                      bitOffset     : Int = 0) : Mem[T] = {
     val mapping    = SizeMapping(addressOffset,mem.wordCount << log2Up(busDataWidth / 8))
     val memAddress = writeAddress(mapping) >> log2Up(busDataWidth / 8)
-    val port       = mem.writePort
 
-    port.address := memAddress
-    port.valid := False
-    onWritePrimitive(mapping,true, null){
-      port.valid := True
+    // handle masking
+    if (writeByteEnable != null) {
+      val port = mem.writePortWithMask
+      port.address := memAddress
+      port.valid := False
+      onWritePrimitive(mapping,true, null){
+        port.valid := True
+      }
+      nonStopWrite(port.data, bitOffset)
+
+      port.mask := writeByteEnable
+    } else {
+      val port = mem.writePort
+      port.address := memAddress
+      port.valid := False
+      onWritePrimitive(mapping,true, null){
+        port.valid := True
+      }
+      nonStopWrite(port.data, bitOffset)
     }
-    nonStopWrite(port.data, bitOffset)
     mem
   }
 
