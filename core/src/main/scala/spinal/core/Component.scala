@@ -258,7 +258,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)
         else
-          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()} defined at \n${nameable.getScalaLocationLong}")
       case _ =>
     }
   }
