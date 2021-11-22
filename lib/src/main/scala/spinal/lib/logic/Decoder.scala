@@ -8,7 +8,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-class DecodingSpec[HT <: HardType[_ <: BaseType]](key : HT){
+class DecodingSpec[T <: BaseType](key : HardType[T]){
   var default : Option[Masked] = None
   val needs = mutable.LinkedHashMap[Masked, Masked]() //key, value
 
@@ -21,7 +21,7 @@ class DecodingSpec[HT <: HardType[_ <: BaseType]](key : HT){
     case None => needs(key) = value
   }
 
-  def build(sel : Bits, coverAll : Seq[Masked]) : Bits = {
+  def build(sel : Bits, coverAll : Seq[Masked]) : T = {
     val defaultsKeys = mutable.LinkedHashSet[Masked]()
     defaultsKeys ++= coverAll
     defaultsKeys --= needs.keys
@@ -30,7 +30,7 @@ class DecodingSpec[HT <: HardType[_ <: BaseType]](key : HT){
       case None => Nil
     }
     val finalSpec = needs ++ defaultNeeds
-    Symplify(sel, finalSpec, key.getBitsWidth)
+    Symplify(sel, finalSpec, key.getBitsWidth).as(key)
   }
 }
 
@@ -44,6 +44,6 @@ object DecodingSpecExample extends App{
 
     val sel = in Bits(3 bits)
     val result = out UInt(4 bits)
-    result := U(spec.build(sel, (0 to 7).map(Masked(_, 0x7))))
+    result := spec.build(sel, (0 to 7).map(Masked(_, 0x7)))
   })
 }
