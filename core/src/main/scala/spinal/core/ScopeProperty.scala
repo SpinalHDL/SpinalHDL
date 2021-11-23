@@ -5,22 +5,50 @@ import spinal.idslplugin.PostInitCallback
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
+class ScopePropertyContext{
+  val mutableMap = mutable.HashMap[ScopeProperty[Any], Any]() //For stuff changing often
+  var immutableMap = scala.collection.immutable.HashMap[ScopeProperty[Any], Any]() //For things mostly static
+
+  override def clone()  : ScopePropertyContext = {
+    val c = new ScopePropertyContext
+    c.mutableMap ++= mutableMap
+    c.immutableMap = immutableMap
+    c
+  }
+
+  def get(that : ScopeProperty[Any]) = if(that.storeAsMutable)
+    mutableMap.get(that)
+  else
+    immutableMap.get(that)
+
+  def remove(that : ScopeProperty[Any]) =  if(that.storeAsMutable)
+    mutableMap.remove(that)
+  else
+    immutableMap = immutableMap - that
+
+  def update(that : ScopeProperty[Any], value : Any) = if(that.storeAsMutable)
+    mutableMap.update(that, value)
+  else
+    immutableMap = immutableMap + (that -> value)
+}
+
 object ScopeProperty {
   def apply[T] = new ScopeProperty[T]()
-  def apply[T](default : T) = {
-    val sp = new ScopeProperty[T]()
-    sp.set(default)
+  def apply[T](defaultValue : T) : ScopeProperty[T] = {
+    val sp = new ScopeProperty[T](){
+      override def default = defaultValue
+    }
     sp
   }
-  val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Any]]
-  def get : mutable.LinkedHashMap[ScopeProperty[Any], Any] = {
+  val it = new ThreadLocal[ScopePropertyContext]
+  def get : ScopePropertyContext = {
     val v = it.get()
     if(v != null) return v
-    it.set(mutable.LinkedHashMap[ScopeProperty[Any], Any]())
+    it.set(new ScopePropertyContext)
     it.get()
   }
 
-  case class Capture(context : mutable.LinkedHashMap[ScopeProperty[Any], Any]){
+  case class Capture(context : ScopePropertyContext){
     def restore(): Unit ={
       it.set(context)
     }
@@ -46,6 +74,7 @@ object ScopeProperty {
 
 
 class ScopeProperty[T]  {
+  var storeAsMutable = false
   def get : T = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
     case Some(x) => {
       x.asInstanceOf[T]
