@@ -109,6 +109,7 @@ object AllowPartialyAssignedTag extends SpinalTag
 object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]{
   var isVital = false
+  var mem: Mem[_] = null
 }
 
 
@@ -512,7 +513,6 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   var width: Int = -1
   var readUnderWrite: ReadUnderWritePolicy = dontCare
   var address: Expression with WidthProvider = null
-  var mem: Mem[_] = null
 
   override def opName = "Mem.readAsync(x)"
 
@@ -577,7 +577,6 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   var width          : Int = -1
   var address        : Expression with WidthProvider = null
   var readEnable     : Expression = null
-  var mem            : Mem[_] = null
   var clockDomain    : ClockDomain = null
   var readUnderWrite : ReadUnderWritePolicy = null
 
@@ -656,8 +655,6 @@ object MemWrite{
 }
 
 class MemWrite() extends MemPortStatement with WidthProvider with SpinalTagReady {
-
-  var mem         : Mem[_] = null
   var width       : Int = -1
   var address     : Expression with WidthProvider = null
   var data        : Expression with WidthProvider = null
@@ -752,7 +749,6 @@ object MemReadWrite {
 
 
 class MemReadWrite() extends MemPortStatement with WidthProvider with SpinalTagReady  with ContextUser with Expression{
-  var mem          : Mem[_] = null
   var width        : Int = -1
   var address      : Expression with WidthProvider = null
   var data         : Expression with WidthProvider = null
