@@ -12,16 +12,19 @@ class DecodingSpec[T <: BaseType](key : HardType[T]){
   var default : Option[Masked] = None
   val needs = mutable.LinkedHashMap[Masked, Masked]() //key, value
 
-  def setDefault(value : Masked) = default match {
-    case Some(x) => ???
-    case None => default = Some(value)
+  def setDefault(value : Masked) = {
+    default match {
+      case Some(x) => ???
+      case None => default = Some(value)
+    }
+    this
   }
   def addNeeds(key : Masked, value : Masked): Unit = needs.get(key) match {
-    case Some(x) => ???
+    case Some(x) => assert(needs(key) == value)
     case None => needs(key) = value
   }
 
-  def build(sel : Bits, coverAll : Seq[Masked]) : T = {
+  def build(sel : Bits, coverAll : Iterable[Masked]) : T = {
     val defaultsKeys = mutable.LinkedHashSet[Masked]()
     defaultsKeys ++= coverAll
     defaultsKeys --= needs.keys
