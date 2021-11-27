@@ -202,3 +202,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with PostInitCall
 trait AreaObject extends Area{
   setName(this.getClass.getSimpleName.replace("$",""))
 }
+
+trait AreaRoot extends Area{
+  setName("")
+}
