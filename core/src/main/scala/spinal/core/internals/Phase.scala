@@ -2177,7 +2177,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
-      else
+      else if(!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
 
