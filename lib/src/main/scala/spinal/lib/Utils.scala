@@ -249,6 +249,31 @@ object OHMasking{
     ret.assignFromBits(masked.asBits)
     ret
   }
+
+  //For instance :
+  // request = 8 bits
+  // priority = 7 bits
+  // By default lsb first, but :
+  // if !priority(0) => request(0 downto 0) have less priority than others
+  // if !priority(1) => request(1 downto 0) have less priority than others
+  // ..
+  // Ex of priority sequence for round robin for 7 bits priority:
+  // 0000000 -> 1111111 -> 1111110 -> .. -> 1000000 -> 0000000
+  // Ex of priority shift
+  //   priority := priority |<< 1
+  //   when(priority === 0){
+  //     priority := (default -> true)
+  //   }
+  def roundRobinMasked[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests)
+    val priorityBits = B(priority)
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input ## (input.dropLow(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width-1)
+    val selOh = (pHigh << 1) | pLow
+  }.selOh
 }
 
 object CountOne{
