@@ -121,7 +121,8 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
 /**
   * Use to execute a State machine into a stateMachine
   */
-class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+class StateFsm[T <: StateMachineAccessor](val _fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+  val fsm = _fsm
 
   onEntry{
     fsm.startFsm()
@@ -144,7 +145,8 @@ class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAcce
   */
 object StatesSerialFsm {
 
-  def apply(fsms:  StateMachineAccessor*)(doWhenCompleted: (State) =>  Unit)(implicit stateMachineAccessor: StateMachineAccessor): Seq[State] = {
+  def apply(_fsms:  StateMachineAccessor*)(doWhenCompleted: (State) =>  Unit)(implicit stateMachineAccessor: StateMachineAccessor): Seq[State] = {
+    val fsms = _fsms
     var nextState: State = null
 
     val states = for(i <- fsms.size-1 downto 0) yield {
@@ -165,8 +167,9 @@ object StatesSerialFsm {
 /**
   * Run several state machine in parallel
   */
-class StateParallelFsm(val fsms: StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
-
+class StateParallelFsm(val _fsms: StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+  val fsms = _fsms
+  
   onEntry{
     fsms.foreach(_.startFsm())
   }

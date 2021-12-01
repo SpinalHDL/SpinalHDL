@@ -25,8 +25,7 @@ import java.nio.charset.Charset
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
 import scala.collection.Seq
 import scala.collection.generic.Growable
 
@@ -101,6 +100,7 @@ object MuxOH {
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    assert(oneHot.size == inputs.size)
     oneHot.size match {
       case 2 => oneHot(0) ? inputs(0) | inputs(1)
       case _ => inputs(OHToUInt(oneHot))
@@ -112,6 +112,7 @@ object MuxOH {
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
   def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    assert(oneHot.size == inputs.size)
     val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
     masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
@@ -248,6 +249,31 @@ object OHMasking{
     ret.assignFromBits(masked.asBits)
     ret
   }
+
+  //For instance :
+  // request = 8 bits
+  // priority = 7 bits
+  // By default lsb first, but :
+  // if !priority(0) => request(0 downto 0) have less priority than others
+  // if !priority(1) => request(1 downto 0) have less priority than others
+  // ..
+  // Ex of priority sequence for round robin for 7 bits priority:
+  // 0000000 -> 1111111 -> 1111110 -> .. -> 1000000 -> 0000000
+  // Ex of priority shift
+  //   priority := priority |<< 1
+  //   when(priority === 0){
+  //     priority := (default -> true)
+  //   }
+  def roundRobinMasked[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests)
+    val priorityBits = B(priority)
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input ## (input.dropLow(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width-1)
+    val selOh = (pHigh << 1) | pLow
+  }.selOh
 }
 
 object CountOne{
@@ -885,6 +911,15 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def distinctLinked : mutable.LinkedHashSet[T] = {
     mutable.LinkedHashSet[T]() ++ this.pimped
   }
+
+  def groupByLinked[K](by : T => K) : LinkedHashMap[K, ArrayBuffer[T]] = {
+    val ret = LinkedHashMap[K, ArrayBuffer[T]]()
+    for(e <- pimped) {
+      val k = by(e)
+      ret.getOrElseUpdate(k, ArrayBuffer[T]()) += e
+    }
+    ret
+  }
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
@@ -903,10 +938,10 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
-    apply(index) := data
+    Vec(pimped)(index) := data
   }
   def write(index: Int, data: T): Unit = {
-    apply(index) := data
+    pimped(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
   def apply(index: Int): T = Vec(pimped)(index)

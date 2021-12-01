@@ -93,6 +93,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
+  var definitionNameNoMerge = false
+
   /** Hierarchy level of the component */
   private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
@@ -154,8 +156,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */
-  def setDefinitionName(name: String): this.type = {
+  def setDefinitionName(name: String, noMerge : Boolean = true): this.type = {
     definitionName = name
+    definitionNameNoMerge = noMerge
     this
   }
 
@@ -258,7 +261,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)
         else
-          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()} defined at \n${nameable.getScalaLocationLong}")
       case _ =>
     }
   }

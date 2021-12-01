@@ -118,10 +118,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
   }
 
   def m2sPipe : Flow[T] = m2sPipe()
-  def m2sPipe(holdPayload : Boolean = false): Flow[T] = {
+  def m2sPipe(holdPayload : Boolean = false, flush : Bool = null): Flow[T] = {
     if(!holdPayload) {
       val ret = RegNext(this)
       ret.valid.init(False)
+      if(flush != null) when(flush){ ret.valid := False }
       ret
     } else {
       val ret = Reg(this)
@@ -130,6 +131,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
       when(this.valid){
         ret.payload := this.payload
       }
+      if(flush != null) when(flush){ ret.valid := False }
       ret
     }.setCompositeName(this, "m2sPipe", true)
   }

@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.DslScopeStack.storeAsMutable
 import spinal.core.Nameable._
 import spinal.core.fiber.Handle
 
@@ -111,14 +112,17 @@ object GlobalData {
 
 
 object DslScopeStack extends ScopeProperty[ScopeStatement]{
+  storeAsMutable = true
   override def default = null
 }
 
 object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
+  storeAsMutable = true
   override def default = null
 }
 
 object SwitchStack extends ScopeProperty[SwitchContext]{
+  storeAsMutable = true
   override def default = null
 }
 
@@ -747,6 +751,11 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+
+  def apply[T <: SpinalTagReady](that : T) : T = {
+    that.addTag(this)
+    that
+  }
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag

@@ -461,6 +461,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val last = counter.willOverflowIfInc
     return addFragmentLast(last)
   }
+  
+  def setIdle(): this.type = {
+    this.valid := False
+    this.payload.assignDontCare()
+    this
+  }
+  
+  def setBlocked(): this.type = {
+    this.ready := False
+    this
+  }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
@@ -1490,4 +1501,63 @@ object StreamFifoMultiChannelBench extends App{
 
 
   Bench(rtls, targets)
+}
+
+object StreamTransactionExtender {
+    def apply[T <: Data](input: Stream[T], count: UInt)(
+        driver: (UInt, T) => T = (_: UInt, p: T) => p
+    ): Stream[T] = {
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        c.io.output
+    }
+
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+        driver: (UInt, T) => T2
+    ): StreamTransactionExtender[T, T2] = {
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        output << c.io.output
+        c
+    }
+}
+
+/* Extend one input transfer into serveral outputs, io.count represent delivering output (count + 1) times. */
+class StreamTransactionExtender[T <: Data, T2 <: Data](
+    dataType: HardType[T],
+    outDataType: HardType[T2],
+    countWidth: Int,
+    var driver: (UInt, T) => T2
+) extends Component {
+    val io = new Bundle {
+        val count  = in UInt (countWidth bit)
+        val input  = slave Stream dataType
+        val output = master Stream outDataType
+    }
+
+    val expected = Reg(cloneOf(io.count))
+    val payload  = Reg(io.input.payloadType)
+    val counter  = Counter(io.count.getBitsWidth bits)
+    val lastOne  = counter === expected
+    val outValid = RegInit(False)
+
+    when(io.output.fire) {
+        when(lastOne) {
+            counter.clear()
+            outValid := False
+        }.otherwise {
+            counter.increment()
+        }
+    }
+
+    when(io.input.fire) {
+        expected := io.count
+        payload := io.input.payload
+        outValid := True
+    }
+    io.output.payload := driver(counter, payload)
+    io.output.valid := outValid
+    io.input.ready := (!outValid || (lastOne && io.output.fire))
 }

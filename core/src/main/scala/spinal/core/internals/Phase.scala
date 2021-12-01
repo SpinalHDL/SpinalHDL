@@ -1773,7 +1773,6 @@ class PhaseCheckIoBundle extends PhaseCheck{
   }
 }
 
-
 class PhaseCheckHiearchy extends PhaseCheck{
 
   override def impl(pc: PhaseContext): Unit = {
@@ -1806,6 +1805,11 @@ class PhaseCheckHiearchy extends PhaseCheck{
                 PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
               }
             }
+          case s : MemPortStatement => {
+            if(s.mem.component != s.component){
+              PendingError(s"SCOPE VIOLATION : memory port $s was created in another component than its memory ${s.mem} \n${s.getScalaLocationLong}")
+            }
+          }
           case _ =>
         }
 
@@ -1818,6 +1822,11 @@ class PhaseCheckHiearchy extends PhaseCheck{
                 PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
               }
             }
+          case s : MemPortStatement =>{
+            if(s.mem.component != c){
+              PendingError(s"OLD NETLIST RE-USED : Memory port $s of memory ${s.mem} is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
+            }
+          }
           case _ =>
         }
       })
@@ -1829,6 +1838,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
     })
   }
 }
+
 
 
 class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
@@ -1897,6 +1907,7 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
     }
   }
 }
+
 
 
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
@@ -2166,7 +2177,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     for (c <- sortedComponents) {
       if (c.isInstanceOf[BlackBox] && c.asInstanceOf[BlackBox].isBlackBox)
         globalScope.lockName(c.definitionName)
-      else
+      else if(!c.definitionNameNoMerge)
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
 

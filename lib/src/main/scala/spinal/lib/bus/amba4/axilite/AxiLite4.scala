@@ -139,10 +139,10 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 /** Companion object to create hard-wired AXI responses. */
@@ -168,10 +168,10 @@ case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 

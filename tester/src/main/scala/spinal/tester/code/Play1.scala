@@ -1117,17 +1117,17 @@ object PlaySymplify {
 
 object PlayBug extends App{
   import spinal.core._
+
+  class Sub(id : Int) extends Component{
+    val miaou = U(id)
+  }
   new SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVerilog(new Component{
-    val io=new Bundle{
-      val sig0=out.Bool().setAsReg() init(False)
-      val sig1=out.Bool().setAsReg() init(False)
-    }
-    val normalMode=new Area{
-      io.sig0:= ~io.sig0
-    }
-    val slowMode=new SlowArea(25 MHz){
-      io.sig1:= ~io.sig1
-    }
+    val sub1 = new Sub(0)
+    val sub2 = new Sub(1)
+    val miaou1 = new Sub(0).setDefinitionName("miaou")
+    val miaou2 = new Sub(0).setDefinitionName("miaou")
+    val wuff1 = new Sub(0).setDefinitionName("wuff")
+    setDefinitionName("test")
   })
 //  SpinalVerilog(new Component{
 //    val mem = Mem(Bits(16 bits), 64)

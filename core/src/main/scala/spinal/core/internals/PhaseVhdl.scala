@@ -107,6 +107,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
   }
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
+  val usedDefinitionNames = mutable.HashSet[String]()
 
   def compile(component: Component): String = {
     val componentBuilderVhdl = new ComponentEmitterVhdl(
@@ -123,7 +124,8 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     val trace = componentBuilderVhdl.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
-    val text = if (oldComponent == null) {
+    val text = if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
+      assert(!usedDefinitionNames.contains(component.definitionName), s"$component definition name was already used once for a different layout\n${component.getScalaLocationLong}")
       emitedComponent += (trace -> component)
       componentBuilderVhdl.result
     } else {
@@ -267,8 +269,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     def pkgExtractBool(kind: String): (String, String) = {
       val ret = new StringBuilder()
       (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
+        ret ++= s"    alias temp : $kind(that'length-1 downto 0) is that;\n"
         ret ++= "  begin\n"
-        ret ++= "    return that(bitId);\n"
+        ret ++= "    return temp(bitId);\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
       })
