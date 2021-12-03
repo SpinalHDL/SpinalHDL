@@ -609,7 +609,7 @@ trait PhaseMemBlackboxing extends PhaseNetlist {
         }
 
         mem.component.rework{
-          val content = Bits(mem.width bits)
+          val content = Bits(mem.width bits).allowOverride
           mem.foreachStatements{
             case port : MemWrite => {
               assert(port.aspectRatio == 1)

@@ -1122,11 +1122,12 @@ object PlayBug extends App{
     val miaou = U(id)
   }
   new SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVerilog(new Component{
-    val sub1 = new Sub(0)
-    val sub2 = new Sub(1)
-    val miaou1 = new Sub(0).setDefinitionName("miaou")
-    val miaou2 = new Sub(0).setDefinitionName("miaou")
-    val wuff1 = new Sub(0).setDefinitionName("wuff")
+    val a0 = in UInt(0 bits)
+    val d0 = in UInt(8 bits)
+    val mem = Mem.fill(1)(UInt(8 bits))
+    mem.write(a0, d0)
+    mem.write(a0, d0)
+    val r0 = mem.readAsync(a0)
     setDefinitionName("test")
   })
 //  SpinalVerilog(new Component{
