@@ -155,7 +155,6 @@ class GlobalData(val config : SpinalConfig) {
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
   val scalaLocateds = mutable.HashSet[ScalaLocated]()
-  val bbInlineRTL = mutable.LinkedHashSet[(String, String)]()
 
   def applyScalaLocated(): Unit ={
     try {

@@ -37,7 +37,6 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
     report.generatedSourcesPaths += targetPath
     report.toplevelName = pc.topLevel.definitionName
-    emitInlineRTL()
     if (!pc.config.oneFilePerComponent) {
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
@@ -55,6 +54,20 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       for(e <- componentsText.reverse){
         outFile.write(e())
+      }
+
+      val bbImplStrings = mutable.HashSet[String]()
+      sortedComponents.foreach{
+        case bb : BlackBox if bb.impl != null => {
+          val str = bb.impl.getVerilog()
+          if(!bbImplStrings.contains(str)) {
+            bbImplStrings += str
+            outFile.write("\n")
+            outFile.write(str)
+            outFile.write("\n")
+          }
+        }
+        case _ =>
       }
 
       outFile.flush()
@@ -92,15 +105,6 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
 
       fileList.flush()
       fileList.close()
-    }
-  }
-
-  def emitInlineRTL(): Unit = {
-    for((path,rtl) <- GlobalData.get.bbInlineRTL) {
-      val outFile = new java.io.FileWriter(path)
-      outFile.write(rtl)
-      outFile.flush()
-      outFile.close()
     }
   }
 

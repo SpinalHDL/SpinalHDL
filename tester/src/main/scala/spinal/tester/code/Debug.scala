@@ -94,6 +94,78 @@ object DebugSim {
   //  createEnum("asd")
 }
 
+
+object InlineBbPlay extends App{
+  object adderImpl extends BlackBoxImpl{
+    override def getVerilog() =
+      """module adder #(
+        |    parameter WIDTH = 16
+        |) (
+        |    input      [WIDTH-1:0] ain    ,
+        |    input      [WIDTH-1:0] bin    ,
+        |    output reg [WIDTH-1:0] add_out
+        |);
+        |
+        |always @(*) begin
+        |  add_out = ain + bin;
+        |end
+        |
+        |endmodule
+      """.stripMargin
+  }
+
+  class adder(width: Int) extends BlackBox {
+    addGeneric("WIDTH", width)
+
+    val io = new Bundle {
+      val ain = in UInt(width bits)
+      val bin = in UInt(width bits)
+      val add_out = out UInt(width bits)
+    }
+    noIoPrefix()
+
+//    setInline(adderImpl)
+    setInlineVerilog(
+      """module adder #(
+        |    parameter WIDTH = 16
+        |) (
+        |    input      [WIDTH-1:0] ain    ,
+        |    input      [WIDTH-1:0] bin    ,
+        |    output reg [WIDTH-1:0] add_out
+        |);
+        |
+        |always @(*) begin
+        |  add_out = ain + bin;
+        |end
+        |
+        |endmodule
+      """.stripMargin
+    )
+  }
+
+  class top extends Module {
+    val io = new Bundle {
+      val ain = in UInt(16 bits)
+      val bin = in UInt(16 bits)
+      val add_out = out UInt(16 bits)
+      val Xain = in UInt(18 bits)
+      val Xbin = in UInt(18 bits)
+      val Xadd_out = out UInt(18 bits)
+    }
+    noIoPrefix()
+    var adder0 = new adder(16)
+    io.ain <> adder0.io.ain
+    io.bin <> adder0.io.bin
+    io.add_out <> adder0.io.add_out
+
+    var adderX = new adder(18)
+    io.Xain <> adderX.io.ain
+    io.Xbin <> adderX.io.bin
+    io.Xadd_out <> adderX.io.add_out
+  }
+  SimConfig.doSim(new top()){dut => }
+}
+
 object Debug2 extends App{
 
 
