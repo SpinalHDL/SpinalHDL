@@ -56,6 +56,20 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
         outFile.write(e())
       }
 
+      val bbImplStrings = mutable.HashSet[String]()
+      sortedComponents.foreach{
+        case bb : BlackBox if bb.impl != null => {
+          val str = bb.impl.getVerilog()
+          if(!bbImplStrings.contains(str)) {
+            bbImplStrings += str
+            outFile.write("\n")
+            outFile.write(str)
+            outFile.write("\n")
+          }
+        }
+        case _ =>
+      }
+
       outFile.flush()
       outFile.close()
     }
