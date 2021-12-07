@@ -78,6 +78,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
   val tdoUnbufferd = CombInit(bypass)
   val tdoDr = False
   val tdoIr = instructionShift.lsb
+  val isBypass = instruction.asSInt === -1
 
   jtag.tdo := ClockDomain.current.withRevertedClockEdge()(RegNext(tdoUnbufferd))
 
@@ -94,7 +95,11 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     }
     is(JtagState.DR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
-      tdoUnbufferd := tdoDr
+      when(isBypass){
+        tdoUnbufferd := bypass
+      } otherwise{
+        tdoUnbufferd := tdoDr
+      }
     }
   }
 
@@ -125,6 +130,13 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
   override def write[T <: Data](data: T, cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Int) = {
     val area = new JtagTapInstructionWrite(data, cleanUpdate, readable)
     map(area.ctrl, instructionId)
+    area
+  }
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
     area
   }
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {

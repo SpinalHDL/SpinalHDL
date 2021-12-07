@@ -3,9 +3,10 @@ package spinal
 import spinal.core._
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.generator.Export
-import scala.collection.Seq
 
+import scala.collection.Seq
 import scala.collection.Iterable
+import scala.collection.generic.Growable
 
 package object lib  {
   //  def Stream[T <: Data](that : T) : Stream[T] = new Stream[T](that)
@@ -16,6 +17,10 @@ package object lib  {
   def Event = new Stream(NoData)
 
   def NoData = new NoData
+
+  def export[T](named : Handle[T], value :  => Any) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName, value)) }
+  }
 
   def export[T](h : Handle[T]) = {
     Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
@@ -32,6 +37,7 @@ package object lib  {
   implicit def traversableOncePimped[T <: Data](that: Seq[T]) = new TraversableOncePimped[T](that)
   implicit def traversableOnceBoolPimped(that: Seq[Bool]) = new TraversableOnceBoolPimped(that)
   implicit def traversableOnceAnyPimped[T <: Any](that: Seq[T]) = new TraversableOnceAnyPimped(that)
+  implicit def growableAnyPimped[T <: Any](that: Growable[T]) = new GrowableAnyPimped(that)
 
 
 

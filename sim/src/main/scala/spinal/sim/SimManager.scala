@@ -314,6 +314,10 @@ class SimManager(val raw : SimRaw) {
       case e : Throwable => {
         println(f"""[Error] Simulation failed at time=$time""")
         raw.sleep(1)
+        val str = e.getStackTrace.head.toString
+        if(str.contains("spinal.core.") && !str.contains("sim")){
+          System.err.println("It seems like you used some SpinalHDL hardware elaboration API in the simulation. If you did, you shouldn't.")
+        }
         throw e
       }
     } finally {

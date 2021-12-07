@@ -19,15 +19,15 @@
 package spinal.lib
 
 import spinal.core.internals._
+
 import java.io.UTFDataFormatException
 import java.nio.charset.Charset
-
 import spinal.core._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
 import scala.collection.Seq
+import scala.collection.generic.Growable
 
 
 object UIntToOh {
@@ -38,6 +38,8 @@ object UIntToOh {
     }
     ret
   }
+
+  def apply(value : UInt) : Bits = apply(value,  1 << widthOf(value))
 
   def apply(value: UInt, mapping : Seq[Int]): Bits = {
     val ret = Bits(mapping.size bits)
@@ -98,10 +100,21 @@ object MuxOH {
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    assert(oneHot.size == inputs.size)
     oneHot.size match {
       case 2 => oneHot(0) ? inputs(0) | inputs(1)
       case _ => inputs(OHToUInt(oneHot))
     }
+  }
+
+
+  def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
+  def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+    assert(oneHot.size == inputs.size)
+    val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
+    masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
 }
 
@@ -119,6 +132,43 @@ object Max {
     }
 }
 
+object SetFromFirstOne{
+  def apply[T <: Data](that : T) : T = {
+    val lutSize = LutInputs.get
+    val input = that.asBits.asBools.setCompositeName(that, "bools")
+    val size = widthOf(input)
+    val tmp = Bits(size bits)
+
+    val cache = mutable.LinkedHashMap[Range, Bool]()
+
+    def build(target : Int, order : Int): Bool = {
+      if(target < 0) return False
+      val nextOrder = order * lutSize
+      val offset = target - target % nextOrder
+      var inputs = ArrayBuffer[Bool]()
+
+      if(!cache.contains(offset to target)) {
+        for (i <- offset to target by order) {
+          inputs += cache(i until i + order)
+        }
+        cache(offset to target) = inputs.orR.setCompositeName(that, s"range_${offset}_to_${target}")
+      }
+
+      if(offset != 0){
+        cache(offset to target) || build(offset-1, nextOrder)
+      } else {
+        cache(offset to target)
+      }
+    }
+
+    for(i <- 0 until size){
+      cache(i to i) = input(i)
+      tmp(i) := build(i, 1)
+    }
+
+    tmp.as(that)
+  }
+}
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
@@ -129,6 +179,43 @@ object OHMasking{
       ret.assignFromBits(masked.asBits)
       ret
   }
+
+  def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
+    val lutSize = LutInputs.get
+    val input = that.asBits.asBools.setCompositeName(that, "bools")
+    val size = widthOf(input)
+    val tmp = Bits(size bits)
+
+    val cache = mutable.LinkedHashMap[Range, Bool]()
+
+    def build(target : Int, order : Int): Bool = {
+      if(target < 0) return False
+      val nextOrder = if(order == 1) firstOrder else order * lutSize
+      val offset = target - target % nextOrder
+      var inputs = ArrayBuffer[Bool]()
+
+      if(!cache.contains(offset to target)) {
+        for (i <- offset to target by order) {
+          inputs += cache(i until i + order)
+        }
+        cache(offset to target) = inputs.orR.setCompositeName(that, s"range_${offset}_to_${target}")
+      }
+
+      if(offset != 0){
+        cache(offset to target) || build(offset-1, nextOrder)
+      } else {
+        cache(offset to target)
+      }
+    }
+
+    for(i <- 0 until size){
+      cache(i to i) = input(i)
+      tmp(i) := input(i) && !build(i-1, 1)
+    }
+
+    tmp.as(that)
+  }
+
 
   //Avoid combinatorial loop on the first
   def first(that : Vec[Bool]) : Vec[Bool] = {
@@ -162,6 +249,43 @@ object OHMasking{
     ret.assignFromBits(masked.asBits)
     ret
   }
+
+  //For instance :
+  // request = 8 bits
+  // priority = 7 bits
+  // By default lsb first, but :
+  // if priority(0) => request(0 downto 0) have less priority than others
+  // if priority(1) => request(1 downto 0) have less priority than others
+  // ..
+  // Ex of priority sequence for round robin for 7 bits priority:
+  // 0000000 -> 1111111 -> 1111110 -> .. -> 1000000 -> 0000000
+  // Ex of priority shift
+  //   priority := priority |<< 1
+  //   when(priority === 0){
+  //     priority := (default -> true)
+  //   }
+  def roundRobinMasked[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests)
+    val priorityBits = B(priority)
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input ## (input.dropLow(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width-1)
+    val selOh = (pHigh << 1) | pLow
+  }.selOh
+
+  //Same as roundRobinMasked, but priority is shifted left by one, and lsb mean that input.lsb has priority
+  def roundRobinMaskedFull[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests)
+    val priorityBits = B(priority)
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width)
+    val doubleMask = input ## (input & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder =  LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width)
+    val selOh = pHigh | pLow
+  }.selOh
 }
 
 object CountOne{
@@ -169,8 +293,12 @@ object CountOne{
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
   def apply(thats : Seq[Bool]) : UInt = {
     if(thats.isEmpty) return U(0, 0 bits)
-    val lut = Vec((0 until 1 << Math.min(thats.size, 3)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
-    val groups = thats.grouped(3)
+    val groupSize = LutInputs.get match {
+      case 4 => 3
+      case x => x
+    }
+    val lut = Vec((0 until 1 << Math.min(thats.size, groupSize)).map(v => U(BigInt(v).bitCount, log2Up(thats.size + 1) bits)))
+    val groups = thats.grouped(groupSize)
     val seeds = groups.map(l => lut.read(U(l.asBits()).resized)).toSeq
     seeds.reduceBalancedTree(_+_)
   }
@@ -753,7 +881,12 @@ object DelayEvent {
 class NoData extends Bundle {
 
 }
-
+class GrowableAnyPimped[T <: Any](pimped: Growable[T]) {
+  def addRet(that : T): T ={
+    pimped += that
+    that
+  }
+}
 
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
@@ -787,7 +920,18 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     assert(array.length >= 1)
     stage(array, 0)
   }
+  def distinctLinked : mutable.LinkedHashSet[T] = {
+    mutable.LinkedHashSet[T]() ++ this.pimped
+  }
 
+  def groupByLinked[K](by : T => K) : LinkedHashMap[K, ArrayBuffer[T]] = {
+    val ret = LinkedHashMap[K, ArrayBuffer[T]]()
+    for(e <- pimped) {
+      val k = by(e)
+      ret.getOrElseUpdate(k, ArrayBuffer[T]()) += e
+    }
+    ret
+  }
 }
 
 class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
@@ -806,10 +950,10 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
-    apply(index) := data
+    Vec(pimped)(index) := data
   }
   def write(index: Int, data: T): Unit = {
-    apply(index) := data
+    pimped(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
   def apply(index: Int): T = Vec(pimped)(index)

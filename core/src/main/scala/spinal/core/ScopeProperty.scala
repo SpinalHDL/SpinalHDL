@@ -5,65 +5,137 @@ import spinal.idslplugin.PostInitCallback
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, Stack}
 
+class ScopePropertyContext{
+  val mutableMap = mutable.HashMap[ScopeProperty[Any], Any]() //For stuff changing often
+  var immutableMap = scala.collection.immutable.HashMap[ScopeProperty[Any], Any]() //For things mostly static
+
+  override def clone()  : ScopePropertyContext = {
+    val c = new ScopePropertyContext
+    c.mutableMap ++= mutableMap
+    c.immutableMap = immutableMap
+    c
+  }
+
+  def get(that : ScopeProperty[Any]) = if(that.storeAsMutable)
+    mutableMap.get(that)
+  else
+    immutableMap.get(that)
+
+  def remove(that : ScopeProperty[Any]) =  if(that.storeAsMutable)
+    mutableMap.remove(that)
+  else
+    immutableMap = immutableMap - that
+
+  def update(that : ScopeProperty[Any], value : Any) = if(that.storeAsMutable)
+    mutableMap.update(that, value)
+  else
+    immutableMap = immutableMap + (that -> value)
+}
+
 object ScopeProperty {
-  val it = new ThreadLocal[mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]]
-  def get : mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]] = {
+  def apply[T] = new ScopeProperty[T]()
+  def apply[T](defaultValue : T) : ScopeProperty[T] = {
+    val sp = new ScopeProperty[T](){
+      override def default = defaultValue
+    }
+    sp
+  }
+  val it = new ThreadLocal[ScopePropertyContext]
+  def get : ScopePropertyContext = {
     val v = it.get()
     if(v != null) return v
-    it.set(mutable.LinkedHashMap[ScopeProperty[Any], Stack[Any]]())
+    it.set(new ScopePropertyContext)
     it.get()
   }
 
-  case class Capture(context : Seq[(ScopeProperty[Any], Seq[Any])]){
+  case class Capture(context : ScopePropertyContext){
     def restore(): Unit ={
-      get.clear()
-      for(e <- context){
-        get.update(e._1, Stack.concat(e._2))
-      }
+      it.set(context)
     }
   }
 
   def capture(): Capture ={
-    Capture(context = get.toSeq.map(e => e._1 -> Seq.concat(e._2)))
+    Capture(context = get.clone())
+  }
+  def captureNoClone(): Capture ={
+    Capture(context = get)
   }
 
   def sandbox[T](body : => T) = {
     val spc = ScopeProperty.capture()
     try{ body } finally { spc.restore() }
   }
+
+  implicit def toValue[T](scopeProperty: ScopeProperty[T]) = scopeProperty.get
+  implicit def toBits(scopeProperty: ScopeProperty[Int]) = new {
+    def bits = BitCount(scopeProperty.get)
+  }
 }
 
 
-trait ScopeProperty[T]{
-  private def stack = ScopeProperty.get.getOrElseUpdate(this.asInstanceOf[ScopeProperty[Any]],new Stack[Any]()).asInstanceOf[Stack[T]]
-  def get = if(!ScopeProperty.get.contains(this.asInstanceOf[ScopeProperty[Any]]) || stack.isEmpty) default else stack.head
-  protected[core] def push(v : T) = stack.push(v)
-  protected[core] def pop() = {
-    stack.pop()
-    if(stack.isEmpty){
-      ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
+class ScopeProperty[T]  {
+  var storeAsMutable = false
+  def get : T = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
+    case Some(x) => {
+      x.asInstanceOf[T]
+    }
+    case _ => {
+      val v = default
+      this.set(v)
+      v
     }
   }
 
-  def headOption = if(stack.isEmpty) None else Some(get)
-  def isEmpty = stack.isEmpty
-  def nonEmpty = stack.nonEmpty
+  def set(v : T) = new {
+    val property = ScopeProperty.get
+    val previous = property.get(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
+    property.update(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]], v)
+    def restore() = {
+      previous match {
+        case None =>  ScopeProperty.get.remove(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
+        case Some(x) => ScopeProperty.get.update(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]], x)
+      }
+    }
+  }
+//  def push(v : T) = stack.push(v)
+//  def pop() = {
+//    stack.pop()
+//    if(stack.isEmpty){
+//      ScopeProperty.get -= this.asInstanceOf[ScopeProperty[Any]]
+//    }
+//  }
 
-  protected var _default: T
-  def default : T = _default
-  def setDefault(x: T): Unit = _default = x
+//  def headOption = if(stack.isEmpty) None else Some(get)
+  def isEmpty = ScopeProperty.get.get(this.asInstanceOf[ScopeProperty[Any]]) match {
+    case Some(x) => false
+    case _ => true
+  }
+//  def nonEmpty = stack.nonEmpty
+
+  def default : T = {
+    this match {
+      case n : Nameable => println("On $n")
+      case _ =>
+    }
+    throw new Exception(s"ScopeProperty ${this} isn't set")
+  }
+//  def setDefault(x: T): Unit = _default = x
+
+  final def _default = ??? //I changed a bit the API, now instead of var _default, you can override def default. Also instead of setDefault, you can directly use "set"
 
   def apply(value : T) = new {
     def apply[B](body : => B): B ={
-      push(value)
+      val previous = ScopeProperty.this.get
+      set(value)
       val b = body
-      pop()
+      set(previous.asInstanceOf[T])
       b
     }
     def on[B](body : => B) = {
-      push(value)
+      val previous = ScopeProperty.this.get
+      set(value)
       val b = body
-      pop()
+      set(previous.asInstanceOf[T])
       b
     }
   }
@@ -71,9 +143,10 @@ trait ScopeProperty[T]{
 
 class ScopePropertyValue(val dady : ScopeProperty[_ <: Any]){
   def on[B](body : => B) = {
-    dady.asInstanceOf[ScopeProperty[Any]].push(this)
+    val previous = dady.get
+    dady.asInstanceOf[ScopeProperty[Any]].set(this)
     val b = body
-    dady.pop()
+    dady.asInstanceOf[ScopeProperty[Any]].set(previous)
     b
   }
 }

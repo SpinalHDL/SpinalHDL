@@ -61,6 +61,16 @@ abstract class SpinalStruct(val typeName: String = null) extends BaseType with N
     this
   }
 
+  override def freeze(): this.type = {
+    elements.foreach(_._2.freeze())
+    this
+  }
+
+  override def unfreeze(): this.type = {
+    elements.foreach(_._2.unfreeze())
+    this
+  }
+
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }

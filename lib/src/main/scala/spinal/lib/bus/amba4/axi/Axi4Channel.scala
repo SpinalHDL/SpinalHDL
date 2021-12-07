@@ -28,8 +28,8 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def setBurstWRAP() : Unit = {assert(config.useBurst); burst := WRAP}
   def setBurstINCR() : Unit = {assert(config.useBurst); burst := INCR}
 
-  def isINCR() = burst === INCR
-  def isFIXED() = burst === FIXED
+  def isINCR() = if(config.useBurst) burst === INCR else True
+  def isFIXED() = if(config.useBurst) burst === FIXED else False
 
   def setSize(sizeBurst :UInt) : Unit = if(config.useBurst) size := sizeBurst
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
@@ -230,8 +230,8 @@ object Axi4Priv{
 
   def driveAx[T <: Axi4Ax](stream: Stream[T],sink: Stream[T]): Unit = {
     sink.arbitrationFrom(stream)
-    assert(stream.config.idWidth <= sink.config.idWidth, s"$stream idWidth > $sink idWidth")
-    assert(stream.config.addressWidth >= sink.config.addressWidth, s"$stream  addressWidth < $sink addressWidth")
+    assert(stream.config.idWidth <= sink.config.idWidth, s"Expect $stream idWidth=${stream.config.idWidth} <= $sink idWidth=${sink.config.idWidth}")
+    assert(stream.config.addressWidth >= sink.config.addressWidth, s"Expect $stream addressWidth=${stream.config.addressWidth} >= $sink addressWidth=${sink.config.addressWidth}")
 
     sink.addr := stream.addr.resized
     driveWeak(stream,sink,stream.id,sink.id,() => U(sink.id.range -> false),true,false)
@@ -307,7 +307,7 @@ object Axi4W{
 object Axi4B{
   implicit class StreamPimper(stream : Stream[Axi4B]) {
     def drive(sink: Stream[Axi4B]): Unit = {
-      assert(stream.config.idWidth >= sink.config.idWidth, s"$stream idWidth < $sink idWidth")
+      assert(stream.config.idWidth >= sink.config.idWidth, s"Expect $stream idWidth=${stream.config.idWidth} >= $sink idWidth=${sink.config.idWidth}")
       sink.arbitrationFrom(stream)
 
       Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
@@ -320,7 +320,7 @@ object Axi4B{
 object Axi4R{
   implicit class StreamPimper(stream : Stream[Axi4R]) {
     def drive(sink: Stream[Axi4R]): Unit = {
-      assert(stream.config.idWidth >= sink.config.idWidth, s"$stream idWidth < $sink idWidth")
+      assert(stream.config.idWidth >= sink.config.idWidth, s"Expect $stream idWidth=${stream.config.idWidth} >= $sink idWidth=${sink.config.idWidth}")
 
       sink.arbitrationFrom(stream)
       sink.data := stream.data

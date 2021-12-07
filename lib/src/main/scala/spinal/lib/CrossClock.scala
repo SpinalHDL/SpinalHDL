@@ -4,7 +4,7 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = 2): T = {
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get): T = {
     val c = new BufferCC(input, init, bufferDepth)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
@@ -13,9 +13,11 @@ object BufferCC {
     ret := c.io.dataOut
     return ret
   }
+
+  val defaultDepth = ScopeProperty(2)
 }
 
-class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int) extends Component {
+class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {

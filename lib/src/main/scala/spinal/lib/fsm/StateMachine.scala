@@ -125,16 +125,16 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     this
   }
 
-  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDefinition.defaultEncoding = encoding
+  def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
 
   val cache = mutable.HashMap[Any,Any]()
-  val enumDefinition = new StateMachineEnum
-  var stateReg  : enumDefinition.C = null
-  var stateNext : enumDefinition.C = null
+  val enumDef = new StateMachineEnum
+  var stateReg  : enumDef.C = null
+  var stateNext : enumDef.C = null
   /* Candidate for next state */
-  var stateNextCand : enumDefinition.C = null
+  var stateNextCand : enumDef.C = null
   /* Condition for transition */
   var transitionCond : Bool = null
   override val wantExit  = False.allowPruning()
@@ -143,9 +143,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var autoStart = true
 
   @dontName var parentStateMachine: StateMachineAccessor = null
-  @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()
+  @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
   @dontName val states   = ArrayBuffer[State]()
-  val stateToEnumElement = mutable.HashMap[State, enumDefinition.E]()
+  val stateToEnumElement = mutable.HashMap[State, enumDef.E]()
   @dontName var entryState: State = null
 
   def enumOf(state: State) = {
@@ -155,7 +155,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
   def checkState(state: State) = assert(state.getStateMachineAccessor == this, s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
 
-  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT")
+  var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
+
+  def makeInstantEntry(): State ={
+    setEntry(stateBoot)
+    stateBoot
+  }
   override def build(): Unit = {
     inGeneration = true
     childStateMachines.foreach(_.build())
@@ -164,11 +169,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
         startFsm()
       }
     }
-    stateReg  = Reg(enumDefinition())
-    stateNext = enumDefinition().allowOverride
+    stateReg  = Reg(enumDef())
+    stateNext = enumDef().allowOverride
     /* Only synthesize, if conditional state machine */
     if (transitionCond != null)
-      stateNextCand = enumDefinition().allowOverride
+      stateNextCand = enumDef().allowOverride
 
     OwnableRef.proposal(stateBoot, this)
     OwnableRef.proposal(stateReg, this)
@@ -181,7 +186,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
 
     for(state <- states){
       checkState(state)
-      val enumElement = enumDefinition.newElement(if(state.isNamed) state.getName() else null)
+      val enumElement = enumDef.newElement(if(state.isNamed) state.getPartialName else null)
       stateToEnumElement += (state -> enumElement)
     }
 
@@ -200,9 +205,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     switch(stateReg){
       for(state <- states){
         if(state == stateBoot) default {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         } else is(enumOf(state)) {
-          state.whenActiveTasks.foreach(_())
+          state.whenActiveTasks.sortBy(_.priority).foreach(_.body())
         }
       }
     }
@@ -238,7 +243,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     when(wantStart){
       if(entryState == null)
         globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
-      else
+      else if(entryState != stateBoot)
         forceGoto(entryState)
     }
     when(wantKill){

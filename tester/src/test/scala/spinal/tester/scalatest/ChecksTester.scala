@@ -411,7 +411,7 @@ class ChecksTester extends AnyFunSuite  {
 
   test("scopeProperty"){
     object FixedPointProperty extends ScopeProperty[Int]{
-      var _default: Int = 42
+      override def default = 42
     }
 
     def check(ref : Int): Unit ={
@@ -486,7 +486,7 @@ class RepeatabilityTester extends AnyFunSuite{
 
   test("UartGraph"){
     val dut = SpinalVerilog(new UartCtrl(UartCtrlGenerics())).toplevel
-    assert(GraphUtils.countNames(dut) == 93)
+    assert(GraphUtils.countNames(dut) == 94)
   }
 
 

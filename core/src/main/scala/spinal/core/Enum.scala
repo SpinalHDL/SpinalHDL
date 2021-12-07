@@ -80,6 +80,9 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
 
+  private[core] var isPrefixEnable = GlobalData.get.config.enumPrefixEnable
+  private[core] var isGlobalEnable = GlobalData.get.config.enumGlobalEnable
+
   /** Contains all elements of the enumeration */
   @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
 
@@ -101,6 +104,17 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
     if (name != null) v.setName(name)
     elements += v
     v
+  }
+
+  def rawElementName() = {
+    isPrefixEnable = false
+  }
+
+  def setLocal() = {
+    isGlobalEnable = false
+  }
+  def setGlobal() = {
+    isGlobalEnable = true
   }
 }
 
@@ -314,7 +328,7 @@ object binarySequential extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
   override def isNative = false
-  setName("binary_sequential")
+  setName("seq")
 }
 
 
@@ -327,7 +341,7 @@ object binaryOneHot extends SpinalEnumEncoding{
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.bitLength-1)
   override def isNative = false
-  setName("binary_one_hot")
+  setName("oh")
 }
 
 

@@ -10,7 +10,9 @@ import scala.collection.Seq
 case class BmbDecoder(p : BmbParameter,
                       mappings : Seq[AddressMapping],
                       capabilities : Seq[BmbParameter],
-                      pendingMax : Int = 63) extends Component{
+                      pendingMax : Int = 63,
+                      pipelinedDecoder : Boolean = false,
+                      pipelinedHalfPipe : Boolean = false) extends Component{
 
   val mappingWithWrite = (mappings, capabilities).zipped.filter((x,y) => y.access.canWrite)._1
   val mappingWithRead = (mappings, capabilities).zipped.filter((x,y) => y.access.canRead)._1
@@ -27,36 +29,39 @@ case class BmbDecoder(p : BmbParameter,
   val logic = if(hasDefault && mappings.size == 1 && !(p.access.canWrite && !capabilities.head.access.canWrite) && !(p.access.canRead && !capabilities.head.access.canRead)){
     io.outputs(0) << io.input
   } else new Area {
-    val hits = Vec(Bool(), mappings.size)
+    val input = io.input.cmd.pipelined(m2s = pipelinedDecoder && !pipelinedHalfPipe, halfRate = pipelinedDecoder && pipelinedHalfPipe)
+    val hitsS0 = Vec(Bool(), mappings.size)
+    val noHitS0 = if (!hasDefault) !hitsS0.orR else False
+    val hitsS1 = if(pipelinedDecoder) RegNextWhen(hitsS0, io.input.cmd.fire) else hitsS0
+    val noHitS1 = if(pipelinedDecoder) RegNextWhen(noHitS0, io.input.cmd.fire) else noHitS0
     for (portId <- 0 until mappings.length) yield {
       val slaveBus = io.outputs(portId)
       val memorySpace = mappings(portId)
       val capability = capabilities(portId)
-      val hit = hits(portId)
+      val hit = hitsS0(portId)
       hit := (memorySpace match {
-        case DefaultMapping => !hits.filterNot(_ == hit).orR
+        case DefaultMapping => !hitsS0.filterNot(_ == hit).orR
         case _ => memorySpace.hit(io.input.cmd.address)
       })
       if(!capability.access.canWrite) hit clearWhen(io.input.cmd.isWrite)
       if(!capability.access.canRead) hit clearWhen(io.input.cmd.isRead)
-      slaveBus.cmd.valid := io.input.cmd.valid && hit
-      slaveBus.cmd.payload := io.input.cmd.payload.resized
+      slaveBus.cmd.valid := input.valid && hitsS1(portId)
+      slaveBus.cmd.payload := input.payload.resized
     }
-    val noHit = if (!hasDefault) !hits.orR else False
-    io.input.cmd.ready := (hits, io.outputs).zipped.map(_ && _.cmd.ready).orR || noHit
+    input.ready := (hitsS1, io.outputs).zipped.map(_ && _.cmd.ready).orR || noHitS1
 
     val rspPendingCounter = Reg(UInt(log2Up(pendingMax + 1) bits)) init(0)
-    rspPendingCounter := rspPendingCounter + U(io.input.cmd.lastFire) - U(io.input.rsp.lastFire)
+    rspPendingCounter := rspPendingCounter + U(input.lastFire) - U(io.input.rsp.lastFire)
     val cmdWait = Bool()
-    val rspHits = RegNextWhen(hits, io.input.cmd.valid && !cmdWait)
+    val rspHits = RegNextWhen(hitsS1, input.valid && !cmdWait)
     val rspPending = rspPendingCounter =/= 0
     val rspNoHitValid = if (!hasDefault) !rspHits.orR else False
     val rspNoHit = !hasDefault generate new Area{
-      val doIt = RegInit(False) clearWhen(io.input.rsp.lastFire) setWhen(io.input.cmd.fire && noHit && io.input.cmd.last)
-      val singleBeatRsp = if(p.access.canRead) RegNextWhen(io.input.cmd.isWrite, io.input.cmd.fire) else True
-      val source = RegNextWhen(io.input.cmd.source, io.input.cmd.fire)
-      val context = RegNextWhen(io.input.cmd.context, io.input.cmd.fire)
-      val counter = p.access.canRead generate RegNextWhen(io.input.cmd.transferBeatCountMinusOne, io.input.cmd.fire)
+      val doIt = RegInit(False) clearWhen(io.input.rsp.lastFire) setWhen(input.fire && noHitS1 && input.last)
+      val singleBeatRsp = if(p.access.canRead) RegNextWhen(input.isWrite, input.fire) else True
+      val source = RegNextWhen(input.source, input.fire)
+      val context = RegNextWhen(input.context, input.fire)
+      val counter = p.access.canRead generate RegNextWhen(input.transferBeatCountMinusOne, input.fire)
     }
 
     io.input.rsp.valid := io.outputs.map(_.rsp.valid).orR || (rspPending && rspNoHitValid)
@@ -85,9 +90,9 @@ case class BmbDecoder(p : BmbParameter,
     }
     for(output <- io.outputs) output.rsp.ready := io.input.rsp.ready
 
-    cmdWait := (rspPending && (hits =/= rspHits || rspNoHitValid)) || rspPendingCounter === pendingMax
+    cmdWait := (rspPending && (hitsS1 =/= rspHits || rspNoHitValid)) || rspPendingCounter === pendingMax
     when(cmdWait) {
-      io.input.cmd.ready := False
+      input.ready := False
       io.outputs.foreach(_.cmd.valid := False)
     }
   }

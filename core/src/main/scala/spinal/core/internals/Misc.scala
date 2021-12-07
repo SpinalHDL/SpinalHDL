@@ -137,6 +137,12 @@ trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLin
       func(current)
     }
   }
+
+  def cldCount: Int ={
+    var count = 0
+    dlcForeach{_ => count += 1}
+    count
+  }
 }
 
 

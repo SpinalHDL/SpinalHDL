@@ -73,9 +73,12 @@ class EngineContext {
         GlobalData.get.toplevel.walkComponents { c =>
 //          assert(c.prePopTasks.isEmpty)
           if (c.prePopTasks.nonEmpty) {
-            c.rework(
+            val tasks = c.prePopTasks
+            c.rework {
+              c.prePopTasks = tasks
               c.prePop()
-            )
+            }
+            c.prePopTasks.clear()
             hadPrePop = true
           }
         }
@@ -134,11 +137,11 @@ class EngineContext {
 }
 
 object Engine extends ScopeProperty[EngineContext]{
-  override protected var _default: EngineContext = null
+  override def default = null
 
   def create[T](body : => T, name : String = "root") = {
     val e = new EngineContext
-    Engine.push(e)
+    Engine.set(e)
     var ret : T = null.asInstanceOf[T]
     e.mainThread = e.schedule{
       ret = body

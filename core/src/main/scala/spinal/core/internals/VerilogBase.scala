@@ -42,8 +42,9 @@ class Tab4 extends VerilogTheme {
 
 
 trait VerilogBase extends VhdlVerilogBase{
-  val theme = new Tab2 //TODO add into SpinalConfig
+  var globalPrefix = ""
 
+  val theme = new Tab2 //TODO add into SpinalConfig
   def expressionAlign(net: String, section: String, name: String) = {
     f"$net%-10s $section%-8s $name"
   }
@@ -105,17 +106,28 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+//    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    var prefix_fix = prefix;
+    if(prefix=="`" && !enum.spinalEnum.isGlobalEnable) prefix_fix = ""
+
+    if(enum.spinalEnum.isPrefixEnable) {
+      val withEncoding = enum.spinalEnum.defaultEncoding != encoding && (enum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+      prefix_fix + globalPrefix + enum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + enum.getName()
+    } else {
+      prefix_fix + globalPrefix + enum.getName()
+    }
   }
 
   def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
 
   def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+//    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+    val bitCount     = encoding.getWidth(enum)
+    s"[${bitCount - 1}:0]"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
   def emitStructType(struct: SpinalStruct): String = {

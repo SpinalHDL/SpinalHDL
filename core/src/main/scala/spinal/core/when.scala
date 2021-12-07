@@ -41,13 +41,13 @@ object ConditionalContext {
 
     if(DslScopeStack.get == rootScope) return True
 
-    rootScope.push()
+    val ctx = DslScopeStack.set(rootScope)
 
     val swap = rootScope.swap()
     val cond = False
     swap.appendBack()
 
-    rootScope.pop()
+    ctx.restore()
 
     cond := True
     cond
@@ -83,9 +83,9 @@ object when {
 
     DslScopeStack.get.append(whenStatement)
 
-    whenStatement.whenTrue.push()
+    val ctx = DslScopeStack.set(whenStatement.whenTrue)
     block
-    whenStatement.whenTrue.pop()
+    ctx.restore()
 
     whenContext
   }
@@ -105,9 +105,9 @@ class ElseWhenClause(val cond : Bool, _block: => Unit){
 class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
 
   def otherwise(block: => Unit): Unit = {
-    whenStatement.whenFalse.push()
+    val ctx = whenStatement.whenFalse.push()
     block
-    whenStatement.whenFalse.pop()
+    ctx.restore()
   }
 
   def elsewhen(clause : ElseWhenClause)(implicit loc: Location) : WhenContext = protElsewhen(clause.cond)(clause.block)(loc)
@@ -152,10 +152,7 @@ object switch {
       val switchStatement = new SwitchStatement(value)
       val switchContext   = new SwitchContext(switchStatement)
 
-      SwitchStack.push(switchContext)
-      block
-      SwitchStack.pop()
-
+      SwitchStack(switchContext).on(block)
       DslScopeStack.get.append(switchStatement)
   }
 }
@@ -224,9 +221,9 @@ object is {
 
 
     switchContext.statement.elements += switchElement
-    switchElement.scopeStatement.push()
+    val ctx = switchElement.scopeStatement.push()
     block
-    switchElement.scopeStatement.pop()
+    ctx.restore()
   }
 }
 
@@ -245,8 +242,8 @@ object default {
 
     switchContext.statement.defaultScope = defaultScope
 
-    defaultScope.push()
+    val ctx = defaultScope.push()
     block
-    defaultScope.pop()
+    ctx.restore()
   }
 }

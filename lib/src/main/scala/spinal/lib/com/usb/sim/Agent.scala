@@ -67,7 +67,7 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
   def decodeStuffing(packet : Seq[Boolean]): Seq[Boolean] ={
     val ret = ArrayBuffer[Boolean]()
     var counter = 0
-    for(e <- packet){
+    for((e, i) <- packet.zipWithIndex){
       if(counter != 6){
         ret += e
       } else {
@@ -75,6 +75,9 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       }
       if(e){
         counter += 1
+        if(counter == 6){
+          assert(!packet(i+1))
+        }
       } else {
         counter = 0
       }
@@ -220,6 +223,26 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
     delayed(100e-6*1e12 toLong){
       rx.enable = false
       doneNotify()
+    }
+  }
+
+  def emitSuspend(): Unit ={
+    delayed(3e-3*0.005*1e12 toLong){
+      doneNotify()
+    }
+  }
+
+  def emitResume(): Unit ={
+    rx.enable = true
+    rx.dm = true
+    rx.dp = false
+    delayed(20e-3*0.005*1e12 toLong){
+      rx.dm = false
+      rx.dp = false
+      delayed(83e-9*2*1e12 toLong){
+        rx.enable = false
+        doneNotify()
+      }
     }
   }
 
@@ -377,6 +400,9 @@ class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cd
       case EOP_1 => {
         assert(txEnable && txSe0)
         if(bitEvent){
+          if(packetBits.length > 16 && !packetBits.takeRight(7).exists(_ != packetBits.last)){
+            println("asd")
+          }
           val detoggled = decodePacketToggle(packetBits)
           val destuffed = decodeStuffing(detoggled)
           val bytes = decodeBytes(destuffed)

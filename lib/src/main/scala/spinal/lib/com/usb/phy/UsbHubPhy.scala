@@ -180,27 +180,27 @@ case class UsbLsFsPhy(portCount : Int, sim : Boolean = false) extends Component 
         output.valid := input.valid
         output.lowSpeed := input.lowSpeed
         timer.lowSpeed := input.lowSpeed
-        when(counter === 6) {
+
+        when(input.data) {
+          output.data := state
+          when(timer.oneCycle) {
+            counter := counter + 1;
+            input.ready := True
+            when(counter === 5){
+              timer.clear := True
+              input.ready := False
+              state := !state
+            }
+            when(counter === 6){
+              counter := 0;
+            }
+          }
+        } otherwise {
           output.data := !state
           when(timer.oneCycle) {
             counter := 0;
+            input.ready := True
             state := !state
-            timer.clear := True
-          }
-        } otherwise {
-          when(input.data) {
-            output.data := state
-            when(timer.oneCycle) {
-              counter := counter + 1;
-              input.ready := True
-            }
-          } otherwise {
-            output.data := !state
-            when(timer.oneCycle) {
-              counter := 0;
-              input.ready := True
-              state := !state
-            }
           }
         }
       }

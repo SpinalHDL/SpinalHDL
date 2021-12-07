@@ -99,6 +99,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def ^(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Xor)
   override def unary_~ : UInt      = wrapUnaryOperator(new Operator.UInt.Not)
 
+  def valueRange: Range = {
+    assert(getWidth < 32)
+    0 to (1 << getWidth)-1
+  }
+
   /* Implement fixPoint operators */
   /**highest m bits Saturation */
   override def sat(m: Int): UInt = {

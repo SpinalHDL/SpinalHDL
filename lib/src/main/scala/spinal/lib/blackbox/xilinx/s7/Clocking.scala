@@ -3,6 +3,26 @@ package spinal.lib.blackbox.xilinx.s7
 import spinal.core._
 import spinal.core.fiber.Handle
 
+
+object BUFGCE{
+  def on(that: Bool, clockEnable: Bool): Bool = {
+    val bufgce = BUFGCE()
+    bufgce.setCompositeName(that, "BUFGCE")
+    bufgce.I := that
+    bufgce.CE := clockEnable
+    bufgce.O
+  }
+  def onReset(that : Handle[ClockDomain]): Handle[ClockDomain] = Handle {
+    that.copy(reset = BUFG.on(that.reset))
+  }}
+
+case class BUFGCE() extends BlackBox{
+  val I = in Bool()
+  val CE = in Bool()
+  val O = out Bool()
+  O := CE.mux(True -> I, False -> False)
+}
+
 object BUFG{
   def on(that : Bool) : Bool = {
     val bufg = BUFG()

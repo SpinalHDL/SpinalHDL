@@ -45,6 +45,18 @@ class Generic {
 
 case class GenericValue(e : Expression) extends SpinalTag
 
+
+class BlackBoxImpl{
+//  def getRtl(mode : SpinalMode): Unit = {
+//    mode match {
+//      case Verilog =>  getVerilog
+//      case VHDL =>  getVhdl
+//    }
+//  }
+  def getVerilog() : String = ???
+  def getVhdl() : String = ???
+}
+
 /**
   * A blackbox allows the user to integrate an existing VHDL/Verilog component into the design by just specifying
   * the interfaces.
@@ -78,6 +90,7 @@ abstract class BlackBox extends Component{
 
   private var isBb = false
   var isSpinalSimWb = false
+  var impl : BlackBoxImpl = null
   setBlackBox()
 
   def isBlackBox = isBb
@@ -110,6 +123,17 @@ abstract class BlackBox extends Component{
   /** Add the path of the rtl file */
   def addRTLPath(path: String) = listRTLPath += path
 
+  def setInline(impl: BlackBoxImpl): Unit ={
+    this.impl = impl
+  }
+
+  def setInlineVerilog(str : String) : Unit = setInline(new BlackBoxImpl{
+    override def getVerilog() = str
+  })
+  def setInlineVhdl(str : String) : Unit = setInline(new BlackBoxImpl{
+    override def getVhdl() = str
+  })
+
   /** Return the generic of the blackbox */
   def getGeneric: Generic = {
     try {
@@ -126,8 +150,7 @@ abstract class BlackBox extends Component{
     * Map clock domain signals (clock, reset, enable) to a clockDomain
     */
   def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null, resetActiveLevel: Polarity = HIGH, enableActiveLevel: Polarity = HIGH): Unit = {
-
-    Component.push(parent)
+    val context = Component.push(parent)
 
     if (clockDomain.hasClockEnableSignal && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
 
@@ -145,7 +168,7 @@ abstract class BlackBox extends Component{
     pulledDataCache += (clockDomain.clock -> clock)
     clock := clockDomain.readClockWire
 
-    Component.pop(parent)
+    context.restore()
   }
 
 

@@ -47,7 +47,7 @@ trait DataPrimitives[T <: Data]{
 
     val globalData = GlobalData.get
 
-    DslScopeStack.push(_data.parentScope)
+    val ctx = DslScopeStack.set(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -55,7 +55,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    DslScopeStack.pop()
+    ctx.restore()
 
     ret.allowOverride
     ret := that
@@ -102,11 +102,24 @@ trait DataPrimitives[T <: Data]{
     }
 
     if(c != null) {
-      Component.push(c)
+      val ctx = Component.push(c)
       _data.defaultImpl(that)
-      Component.pop(c)
+      ctx.restore()
     }
     _data
+  }
+
+  def swichAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+    switch(sel){
+      for((s, v) <- mappings) s match {
+        case spinal.core.default => spinal.core.default{
+          _data := v
+        }
+        case _ => is(s){
+          _data := v
+        }
+      }
+    }
   }
 }
 
@@ -125,8 +138,12 @@ trait BaseTypePrimitives[T <: BaseType] {
   * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
   */
 class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
+
 }
 
+class BaseTypePimper[T <: BaseType](val _data: T) {
+
+}
 
 object Data {
 
@@ -184,16 +201,16 @@ object Data {
       }
     }
 
-    def push(c: Component, scope: ScopeStatement): Unit = {
-      DslScopeStack.push(scope)
-      ClockDomain.push(c.clockDomain)
-    }
-
-    def pop(c: Component): Unit = {
-      assert(Component.current == c)
-      DslScopeStack.pop()
-      ClockDomainStack.pop()
-    }
+//    def push(c: Component, scope: ScopeStatement): Unit = {
+//      DslScopeStack.push(scope)
+//      ClockDomain.push(c.clockDomain)
+//    }
+//
+//    def pop(c: Component): Unit = {
+//      assert(Component.current == c)
+//      DslScopeStack.pop()
+//      ClockDomainStack.pop()
+//    }
 
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
@@ -207,12 +224,12 @@ object Data {
         if (currentData.component == currentComponent && currentData.isIo) {
           //nothing to do
         } else {
-          push(currentComponent, currentComponent.dslBody)
+          val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
             copy.setPartialName(srcData, "", weak=true)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
           currentData = copy
         }
         currentComponent = currentComponent.parent
@@ -227,15 +244,15 @@ object Data {
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
-        push(riseTo, riseTo.dslBody)
+        val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
           copy.setPartialName(srcData, "", weak=true)
-        pop(riseTo)
+        ctx.restore()
         if (currentComponent != null) {
-          push(currentComponent, riseTo.parentScope)
+          val ctx = DslScopeStack.set(riseTo.parentScope)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
         } else {
           copy.addTag(new ExternalDriverTag(currentData))
         }
@@ -324,6 +341,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def setAsReg(): this.type
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
+
+  def freeze() : this. type
+  def unfreeze() : this. type
 
   def purify() : this.type = {
     setAsDirectionLess()
@@ -663,6 +683,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+
+  def wrapNext() : this.type = {
+    val comb = CombInit(this)
+    this := comb
+    this.freeze()
+    comb.asInstanceOf[this.type]
+  }
 }
 
 trait DataWrapper extends Data{
@@ -679,5 +706,7 @@ trait DataWrapper extends Data{
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
+  override def freeze(): DataWrapper.this.type = ???
+  override def unfreeze(): DataWrapper.this.type = ???
 }
 

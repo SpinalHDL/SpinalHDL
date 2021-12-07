@@ -186,8 +186,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   }
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
-    assert(hi == 0, "assignFromBits hi != 0")
-    assert(low == 0, "assignFromBits low != 0")
+    assert(hi == 0, "Expect hi == 0 in assignFromBits")
+    assert(low == 0, "Expect low == 0 in assignFromBits")
     assignFromBits(bits)
   }
 
@@ -247,12 +247,13 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     * Class used to write conditional operation on Data value
     * @example {{{ val res = myBool ? myBits1 | myBits2 }}}
     */
-  case class MuxBuilder[T <: Data](whenTrue: T){
+  class MuxBuilder[T <: Data](whenTrue: T){
     def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
+    def otherwise(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
   }
 
   /** Conditional operation for Data value */
-  def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
+  def ?[T <: Data](whenTrue: T) = new MuxBuilder(whenTrue)
 
   /**
     * Class used to write conditional operation on Enumeration value

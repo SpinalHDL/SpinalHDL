@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.DslScopeStack.storeAsMutable
 import spinal.core.Nameable._
 import spinal.core.fiber.Handle
 
@@ -111,15 +112,18 @@ object GlobalData {
 
 
 object DslScopeStack extends ScopeProperty[ScopeStatement]{
-  override protected var _default: ScopeStatement = null
+  storeAsMutable = true
+  override def default = null
 }
 
 object ClockDomainStack extends ScopeProperty[Handle[ClockDomain]]{
-  override protected var _default: Handle[ClockDomain] = null
+  storeAsMutable = true
+  override def default = null
 }
 
 object SwitchStack extends ScopeProperty[SwitchContext]{
-  override protected var _default: SwitchContext = null
+  storeAsMutable = true
+  override def default = null
 }
 
 
@@ -228,7 +232,7 @@ trait GlobalDataUser {
 
 
 trait ContextUser extends GlobalDataUser with ScalaLocated{
-  var parentScope = if(globalData != null) DslScopeStack.get else null
+  var parentScope : ScopeStatement = if(globalData != null) DslScopeStack.get else null
 
   def component: Component = if(parentScope != null) parentScope.component else null
 
@@ -544,7 +548,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
 trait ScalaLocated extends GlobalDataUser {
 
-  private var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
+  var scalaTrace = if(globalData == null || !globalData.scalaLocatedEnable || (DslScopeStack.get != null && !globalData.scalaLocatedComponents.contains(DslScopeStack.get.component.getClass))) {
     null
   } else {
     new Throwable()
@@ -746,6 +750,11 @@ trait SpinalTag {
   def driverShouldNotChange = false
   def canSymplifyHost       = false
   def allowMultipleInstance = true // Allow multiple instances of the tag on the same object
+
+  def apply[T <: SpinalTagReady](that : T) : T = {
+    that.addTag(this)
+    that
+  }
 }
 
 class DefaultTag(val that: BaseType) extends SpinalTag

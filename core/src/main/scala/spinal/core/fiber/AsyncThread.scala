@@ -46,14 +46,14 @@ class AsyncThread(parent : AsyncThread, engine: EngineContext, body : => Unit) e
 
   val seed = Random.nextLong()
 
-  val parrentScope = ScopeProperty.it.get
+  val parrentScope = ScopeProperty.capture()
   val jvmThread = Engine.get.newJvmThread {
 //    manager.setupJvmThread(Thread.currentThread())
 //    SimManagerContext.threadLocal.set(mainContext)
 //    manager.context.thread = SimThread.this
     try {
       Random.setSeed(seed)
-      ScopeProperty.it.set(parrentScope)
+      parrentScope.restore()
       engine.currentAsyncThread = this
       body
     } catch {

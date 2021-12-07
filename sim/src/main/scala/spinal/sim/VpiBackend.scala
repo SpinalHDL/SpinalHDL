@@ -14,6 +14,7 @@ import scala.sys.process._
 import spinal.sim.vpi._
 
 case class VpiBackendConfig(
+  val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
   val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
   var toplevelName: String   = null,
   var pluginsPath: String    = "simulation_plugins",
@@ -426,6 +427,10 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
     simulationDefSourceFile.write(simulationDefSource) 
     simulationDefSourceFile.close
 
+    config.rtlSourcesPaths.filter(s => s.endsWith(".bin") || s.endsWith(".mem")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(workspacePath)))
+
+    val verilogIncludePaths = config.rtlIncludeDirs.map("-I " + new File(_).getAbsolutePath).mkString(" ")
+
     assert(Process(Seq(iverilogPath,
                        analyzeFlags,
                        "-o",
@@ -433,6 +438,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                        "-s __simulation_def",
                        "-s",
                        toplevelName,
+                       verilogIncludePaths,
                        verilogSourcePaths,
                        s"./rtl/__simulation_def.v").mkString(" "),
                      new File(workspacePath)).! (new Logger()) == 0, 

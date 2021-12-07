@@ -363,45 +363,49 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
 
 
 
-abstract class Axi4ReadOnlyMonitor(bus : Axi4ReadOnly, clockDomain: ClockDomain){
+abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain){
+  def this(bus: Axi4ReadOnly, clockDomain: ClockDomain){
+    this(bus.ar, bus.r, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain){
+    this(bus.ar, bus.r, clockDomain);
+  }
+  val busConfig = ar.config
   def onReadByte(address : BigInt, data : Byte, id : Int) : Unit
   def onLast(id : Int) : Unit
 
   val rQueue = mutable.Queue[() => Unit]()
 
-  val arMonitor = StreamMonitor(bus.ar, clockDomain){_ =>
-    val size = bus.ar.size.toInt
-    val len = bus.ar.len.toInt
-    val id = bus.ar.id.toInt
-    val burst = bus.ar.burst.toInt
-    val addr = bus.ar.addr.toBigInt
+  val arMonitor = StreamMonitor(ar, clockDomain){_ =>
+    val size = ar.size.toInt
+    val len = ar.len.toInt
+    val id = ar.id.toInt
+    val burst = ar.burst.toInt
+    val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(bus.config.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(bus.config.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
         }
       }
       rQueue += { () =>
-        assert(bus.r.last.toBoolean == (beat == len))
-        assert(bus.r.resp.toInt == 0)
-        val data = bus.r.data.toBigInt
-        for(i <- 0 until bus.config.bytePerWord){
+        assert(r.last.toBoolean == (beat == len))
+        assert(r.resp.toInt == 0)
+        val data = r.data.toBigInt
+        for(i <- 0 until busConfig.bytePerWord){
           onReadByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
         }
-        if(bus.r.last.toBoolean) onLast(id)
+        if(r.last.toBoolean) onLast(id)
       }
     }
   }
 
-  val rMonitor = StreamMonitor(bus.r, clockDomain){r =>
+  val rMonitor = StreamMonitor(r, clockDomain){r =>
     rQueue.dequeue().apply()
   }
 }
-
-
-

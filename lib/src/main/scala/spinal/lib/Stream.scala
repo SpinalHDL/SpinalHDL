@@ -461,6 +461,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val last = counter.willOverflowIfInc
     return addFragmentLast(last)
   }
+  
+  def setIdle(): this.type = {
+    this.valid := False
+    this.payload.assignDontCare()
+    this
+  }
+  
+  def setBlocked(): this.type = {
+    this.ready := False
+    this
+  }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
@@ -860,7 +871,9 @@ object StreamJoin {
    * Convert a vector of streams into a stream of vectors.
    */
   def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
-    val combined = Stream(Vec(sources.map(_.payload)))
+    val payload = Vec(sources.map(_.payload))
+    val combined = Stream(payload)
+    combined.payload := payload
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
     combined
@@ -967,7 +980,7 @@ object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false) extends Component {
   require(depth >= 1)
   val io = new Bundle with StreamFifoInterface[T] {
     val push = slave Stream (dataType)
@@ -977,7 +990,8 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     override def pushOccupancy: UInt = occupancy
     override def popOccupancy: UInt = occupancy
   }
-  val ram = Mem(dataType, depth)
+  val vec = useVec generate Vec(Reg(dataType), depth)
+  val ram = !useVec generate Mem(dataType, depth)
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr
@@ -990,11 +1004,13 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 
   io.push.ready := !full
 
+  val readed = if(useVec) vec(popPtr.value) else ram(popPtr.value)
+
   latency match{
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
+        io.pop.payload := readed
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -1002,14 +1018,17 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
+      io.pop.payload := readed
     }
   }
   when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
-    ram(pushPtr.value) := io.push.payload
+    if(useVec)
+      vec.write(pushPtr.value, io.push.payload)
+    else
+      ram.write(pushPtr.value, io.push.payload)
     pushPtr.increment()
   }
   when(popping) {
@@ -1346,6 +1365,7 @@ case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], chann
 
 }
 
+//Emulate multiple fifo but with one push,one pop port and a shared storage
 //io.availability has one cycle latency
 case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
   assert(isPow2(depth))
@@ -1481,4 +1501,63 @@ object StreamFifoMultiChannelBench extends App{
 
 
   Bench(rtls, targets)
+}
+
+object StreamTransactionExtender {
+    def apply[T <: Data](input: Stream[T], count: UInt)(
+        driver: (UInt, T) => T = (_: UInt, p: T) => p
+    ): Stream[T] = {
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        c.io.output
+    }
+
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+        driver: (UInt, T) => T2
+    ): StreamTransactionExtender[T, T2] = {
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        output << c.io.output
+        c
+    }
+}
+
+/* Extend one input transfer into serveral outputs, io.count represent delivering output (count + 1) times. */
+class StreamTransactionExtender[T <: Data, T2 <: Data](
+    dataType: HardType[T],
+    outDataType: HardType[T2],
+    countWidth: Int,
+    var driver: (UInt, T) => T2
+) extends Component {
+    val io = new Bundle {
+        val count  = in UInt (countWidth bit)
+        val input  = slave Stream dataType
+        val output = master Stream outDataType
+    }
+
+    val expected = Reg(cloneOf(io.count))
+    val payload  = Reg(io.input.payloadType)
+    val counter  = Counter(io.count.getBitsWidth bits)
+    val lastOne  = counter === expected
+    val outValid = RegInit(False)
+
+    when(io.output.fire) {
+        when(lastOne) {
+            counter.clear()
+            outValid := False
+        }.otherwise {
+            counter.increment()
+        }
+    }
+
+    when(io.input.fire) {
+        expected := io.count
+        payload := io.input.payload
+        outValid := True
+    }
+    io.output.payload := driver(counter, payload)
+    io.output.valid := outValid
+    io.input.ready := (!outValid || (lastOne && io.output.fire))
 }

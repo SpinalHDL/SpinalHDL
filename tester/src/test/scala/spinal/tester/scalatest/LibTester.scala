@@ -28,6 +28,7 @@ class LibTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "LibTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/LibTester"
   override def createToplevel: Component = new LibTester.LibTester
+  withWaveform = true
 }
 
 

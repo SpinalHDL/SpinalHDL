@@ -57,10 +57,10 @@ case class BmbToAxi4SharedBridge(bmbConfig : BmbParameter, pendingMax : Int = 31
   }
 
   val writeCmdInfo, readCmdInfo = Stream(Info())
-  writeCmdInfo.valid := cmdStage.fire && cmdStage.first && cmdStage.isWrite
+  writeCmdInfo.valid := cmdStage.fire && cmdStage.isWrite
   writeCmdInfo.source := cmdStage.source
   writeCmdInfo.context := cmdStage.context
-  readCmdInfo.valid  := cmdStage.fire && cmdStage.first && cmdStage.isRead
+  readCmdInfo.valid  := cmdStage.fire && cmdStage.isRead
   readCmdInfo.source := cmdStage.source
   readCmdInfo.context := cmdStage.context
 

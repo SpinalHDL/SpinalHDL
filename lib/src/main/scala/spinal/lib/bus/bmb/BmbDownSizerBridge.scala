@@ -115,12 +115,12 @@ case class BmbDownSizerBridge(inputParameter: BmbParameter,
     }
   }
 
-  if(inputParameter.invalidation.canInvalidate){
+  if(inputParameter.access.canInvalidate){
     io.input.inv << io.output.inv
     io.input.ack >> io.output.ack
   }
 
-  if(inputParameter.invalidation.canSync){
+  if(inputParameter.access.canSync){
     io.input.sync << io.output.sync
   }
 }

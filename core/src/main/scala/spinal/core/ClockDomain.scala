@@ -117,7 +117,7 @@ object ClockDomain {
                withClockEnable : Boolean = false,
                frequency       : ClockFrequency = UnknownFrequency()): ClockDomain = {
 
-    Component.push(null)
+    val ctx = Component.push(null)
 
     val clockDomain = internal(
       name            = name,
@@ -129,25 +129,28 @@ object ClockDomain {
       frequency       = frequency
     )
 
-    Component.pop(null)
+    ctx.restore()
 
     clockDomain
   }
 
   /** Push a clockdomain on the stack */
-  def push(c: Handle[ClockDomain]): Unit = {
-    ClockDomainStack.push(c)
-  }
+  def push(c: Handle[ClockDomain]) = ClockDomainStack.set(c)
+  def push(c: ClockDomain) = ClockDomainStack.set(Handle.sync(c))
 
-  def push(c: ClockDomain): Unit = {
-    ClockDomainStack.push(Handle.sync(c))
-  }
+//  def push(c: Handle[ClockDomain]): Unit = {
+//    ClockDomainStack.push(c)
+//  }
+//
+//  def push(c: ClockDomain): Unit = {
+//    ClockDomainStack.push(Handle.sync(c))
+//  }
 
 
   /** Pop a clockdomain on the stack */
-  def pop(): Unit = {
-    ClockDomainStack.pop()
-  }
+//  def pop(): Unit = {
+//    ClockDomainStack.pop()
+//  }
 
   /** Return the current clock Domain */
   def current: ClockDomain = {
@@ -268,7 +271,7 @@ case class ClockDomain(clock       : Bool,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
                        frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
-                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) {
+                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
 
@@ -283,8 +286,8 @@ case class ClockDomain(clock       : Bool,
   def hasResetSignal       = reset != null
   def hasSoftResetSignal   = softReset != null
 
-  def push(): Unit = ClockDomain.push(this)
-  def pop(): Unit  = ClockDomain.pop()
+  def push() = ClockDomain.push(this)
+//  def pop(): Unit  = ClockDomain.pop()
 
   def isResetActive = {
     if(config.useResetPin && reset != null)
@@ -324,9 +327,9 @@ case class ClockDomain(clock       : Bool,
   def setSyncronousWith(that: ClockDomain) = setSyncWith(that)
 
   def apply[T](block: => T): T = {
-    push()
+    val pop = this.push()
     val ret: T = block
-    pop()
+    pop.restore()
     ret
   }
 

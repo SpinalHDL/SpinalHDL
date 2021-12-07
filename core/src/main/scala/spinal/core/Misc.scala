@@ -47,6 +47,7 @@ object log2Up {
     if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
     (value - 1).bitLength
   }
+  def apply(value : Int) : Int = apply(BigInt(value))
 }
 
 
@@ -129,14 +130,17 @@ class HardType[T <: Data](t : => T){
     }
     ret
   }
+  def craft() = apply()
   def getBitsWidth = t.getBitsWidth
 }
 
 
-object signalCache {
-  def apply[T <: Data](key: Object, subKey: Object)(factory: => T): T = {
-    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-    cache.getOrElseUpdate(subKey, factory).asInstanceOf[T]
+object signalCache{
+  def apply[T <: Data](key: Any)(factory: => T): T = {
+    Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+  def apply[T <: Data](key: Any, subKey: Any)(factory: => T): T = {
+    apply((key, subKey))(factory)
   }
 }
 
@@ -532,4 +536,12 @@ object CombInit {
 
 trait AllowIoBundle{
 
+}
+
+object LutInputs extends ScopeProperty[Int]{
+  override def default: Int = 4
+}
+
+object ClassName{
+  def apply(that : Any) =  that.getClass.getSimpleName.replace("$","")
 }

@@ -93,7 +93,9 @@ class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
 
 
 class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
-  test("t1") {
+  for(pipelinedDecoder <- List(false, true);
+      pipelinedHalfPipe <- List(false, true))
+  test(s"t1_${pipelinedDecoder}_${pipelinedHalfPipe}") {
     val p = BmbParameter(
       addressWidth = 20,
       dataWidth    = 32,
@@ -105,7 +107,9 @@ class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
       p             = p,
       mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000)),
       capabilities  = Seq.fill(2)(p),
-      pendingMax = 15
+      pendingMax = 15,
+      pipelinedDecoder = pipelinedDecoder,
+      pipelinedHalfPipe = pipelinedHalfPipe
     )).doSimUntilVoid(seed = 42) { dut =>
       SimTimeout(1000000)
       dut.clockDomain.forkStimulus(2)

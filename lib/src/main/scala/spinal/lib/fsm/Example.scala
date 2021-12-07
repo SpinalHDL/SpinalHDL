@@ -604,3 +604,55 @@ object StateMachineSimExample {
   }
 }
 
+
+object StateMachineSimExample2 {
+  class TopLevel extends Component {
+    val counter = out(Reg(UInt(8 bits)) init (0))
+
+    def fsmChild = new StateMachineSlave {
+      val stateD, stateE, stateF = new State
+      setEntry(stateD)
+      stateD.whenIsActive {
+        goto(stateE)
+      }
+      stateE.whenIsActive {
+        goto(stateF)
+      }
+      stateF.whenIsActive {
+        exitFsm()
+      }
+    }
+
+    val fsm = new StateMachine {
+      val stateA, stateB = new State
+      val stateC = new StateFsm(fsmChild)
+      setEntry(stateA)
+      stateA.whenIsActive {
+        goto(stateB)
+      }
+      stateB.whenIsActive {
+        goto(stateC)
+      }
+      stateC.whenCompleted{
+        stateC.fsm.startFsm()
+        counter := counter + 1
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    import spinal.core.sim._
+    SimConfig.withFstWave.compile{
+      val dut = new TopLevel
+      dut.fsm.stateReg.simPublic()
+      dut
+    }.doSim{dut =>
+      dut.clockDomain.forkStimulus(10)
+
+      for(i <- 0 until 20){
+        dut.clockDomain.waitSampling()
+      }
+    }
+  }
+}
+
