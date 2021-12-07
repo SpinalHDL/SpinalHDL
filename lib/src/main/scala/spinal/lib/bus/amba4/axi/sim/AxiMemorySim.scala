@@ -238,6 +238,7 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
   val memory = SparseMemory()
   val pending_reads = new mutable.Queue[AxiJob]
   val pending_writes = new mutable.Queue[AxiJob]
+  val threads = new mutable.Queue[SimThread]
 
   /** Bus word width in bytes */
   val busWordWidth = axi.config.dataWidth / 8
@@ -247,28 +248,39 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
   }
 
   def start() : Unit = {
-    fork {
+    threads.enqueue(fork {
       handleAr(axi.ar)
-    }
+    })
 
-    fork {
+    threads.enqueue(fork {
       handleR(axi.r)
-    }
+    })
 
     if(config.useAlteraBehavior) {
-      fork {
+      threads.enqueue(fork {
         handleAwAndW(axi.w, axi.aw, axi.b)
-      }
+      })
     }
     else {
-      fork {
+      threads.enqueue(fork {
         handleAw(axi.aw)
-      }
+      })
 
-      fork {
+      threads.enqueue(fork {
         handleW(axi.w, axi.b)
-      }
+      })
     }
+  }
+
+  def stop(): Unit = {
+    threads.map(f => f.terminate())
+  }
+
+  def reset(): Unit = {
+    stop()
+    pending_reads.clear()
+    pending_writes.clear()
+    start()
   }
 
   def handleAr(ar : Stream[Axi4Ar]) : Unit = {
