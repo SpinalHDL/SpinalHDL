@@ -13,14 +13,22 @@ import scala.util.Random
 
 
 
-abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockDomain){
+abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream[Axi4B], clockDomain: ClockDomain){
+  def this(bus: Axi4WriteOnly, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain) {
+    this(bus.aw, bus.w, bus.b, clockDomain);
+  }
+
+  val busConfig = aw.config
   val awQueue = mutable.Queue[() => Unit]()
   val wQueue = mutable.Queue[() => Unit]()
-  val bQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+  val bQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
   def pending = bQueue.exists(_.nonEmpty)
-  StreamReadyRandomizer(bus.b, clockDomain)
+  StreamReadyRandomizer(b, clockDomain)
 
   def genAddress() : BigInt
   def mappingAllocate(mapping : SizeMapping) : Boolean
@@ -31,13 +39,13 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
 
   def genCmd() : Unit = {
     if(!allowGen) return
-    val region = bus.aw.region.randomizedInt()
+    val region = aw.region.randomizedInt()
     val burst = bursts(Random.nextInt(bursts.size))
     val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)
     val lenBeat = len + 1
-    val size = Random.nextInt(log2Up(bus.config.bytePerWord) + 1)
+    val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
     val sizeByte = 1 << size
-    val id = bus.aw.id.randomizedInt()
+    val id = aw.id.randomizedInt()
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
@@ -61,63 +69,71 @@ abstract class Axi4WriteOnlyMasterAgent(bus : Axi4WriteOnly, clockDomain: ClockD
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
     awQueue.enqueue { () =>
-      bus.aw.addr #= address
-      if (bus.config.useId) bus.aw.id #= id
-      if (bus.config.useRegion) bus.aw.region #= region
-      if (bus.config.useLen) bus.aw.len #= len
-      if (bus.config.useSize) bus.aw.size #= size
-      if (bus.config.useBurst) bus.aw.burst #= burst
-      if (bus.config.useLock) bus.aw.lock.randomize()
-      if (bus.config.useCache) bus.aw.cache.randomize()
-      if (bus.config.useQos) bus.aw.qos.randomize()
-      if (bus.config.awUserWidth >= 0) bus.aw.user.randomize()
-      if (bus.config.useProt) bus.aw.prot.randomize()
+      aw.addr #= address
+      if (busConfig.useId) aw.id #= id
+      if (busConfig.useRegion) aw.region #= region
+      if (busConfig.useLen) aw.len #= len
+      if (busConfig.useSize) aw.size #= size
+      if (busConfig.useBurst) aw.burst #= burst
+      if (busConfig.useLock) aw.lock.randomize()
+      if (busConfig.useCache) aw.cache.randomize()
+      if (busConfig.useQos) aw.qos.randomize()
+      if (busConfig.awUserWidth >= 0) aw.user.randomize()
+      if (busConfig.useProt) aw.prot.randomize()
     }
 
-    var beatOffset = (address & (bus.config.bytePerWord-1)).toInt
+    var beatOffset = (address & (busConfig.bytePerWord-1)).toInt
     for (beat <- 0 until lenBeat) {
       val beatOffsetCache = beatOffset
 //      println(beatOffsetCache)
       wQueue.enqueue { () =>
-        bus.w.data.randomize()
+        w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
-        if(bus.config.useStrb)  bus.w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
-//        if(bus.config.useStrb)  bus.w.strb #= (((1 << bytesInBeat)-1) << beatOffsetCache) & ((1 << bus.config.bytePerWord)-1)
-        if(bus.config.useWUser) bus.w.user.randomize()
-        if(bus.config.useLast)  bus.w.last #= beat == lenBeat-1
+        if(busConfig.useStrb)  w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
+//        if(busConfig.useStrb)  w.strb #= (((1 << bytesInBeat)-1) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
+        if(busConfig.useWUser) w.user.randomize()
+        if(busConfig.useLast)  w.last #= beat == lenBeat-1
       }
       beatOffset += sizeByte
-      beatOffset &= (bus.config.bytePerWord-1)
+      beatOffset &= (busConfig.bytePerWord-1)
       beatOffset &= ~(sizeByte-1)
     }
 
     //WRITE RSP
     bQueue(id).enqueue { () =>
-      assert(bus.b.resp.toInt == 0)
+      assert(b.resp.toInt == 0)
       mappingFree(mapping)
     }
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(bus.aw, clockDomain){ _ =>
+  StreamDriver(aw, clockDomain){ _ =>
     if(awQueue.isEmpty) genCmd()
     if(awQueue.nonEmpty) { awQueue.dequeue().apply(); true } else false
   }
 
-  StreamDriver(bus.w, clockDomain){ _ =>
+  StreamDriver(w, clockDomain){ _ =>
     if(wQueue.isEmpty) genCmd()
     if(wQueue.nonEmpty) { wQueue.dequeue().apply(); true } else false
   }
 
-  val rspMonitor = StreamMonitor(bus.b, clockDomain){_ =>
-    bQueue(bus.b.id.toInt).dequeue()()
+  val rspMonitor = StreamMonitor(b, clockDomain){_ =>
+    bQueue(b.id.toInt).dequeue()()
     rspCounter+=1
   }
 }
 
-abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDomain){
+abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain){
+  def this(bus: Axi4ReadOnly, clockDomain: ClockDomain) {
+    this(bus.ar, bus.r, clockDomain);
+  }
+  def this(bus: Axi4, clockDomain: ClockDomain) {
+    this(bus.ar, bus.r, clockDomain);
+  }
+  
+  val busConfig = ar.config
   val arQueue = mutable.Queue[() => Unit]()
-  val rQueue = Array.fill(1 << bus.config.idWidth)(mutable.Queue[() => Unit]())
+  val rQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
 
@@ -128,17 +144,17 @@ abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDom
 
 
   def pending = rQueue.exists(_.nonEmpty)
-  StreamReadyRandomizer(bus.r, clockDomain)
+  StreamReadyRandomizer(r, clockDomain)
 
   def genCmd() : Unit = {
     if(!allowGen) return
-    val region = bus.ar.region.randomizedInt()
+    val region = ar.region.randomizedInt()
     val burst = bursts(Random.nextInt(bursts.size))
     val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
     val lenBeat = len + 1
-    val size = Random.nextInt(log2Up(bus.config.bytePerWord) + 1)
+    val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
     val sizeByte = 1 << size
-    val id = bus.ar.id.randomizedInt()
+    val id = ar.id.randomizedInt()
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
@@ -162,24 +178,24 @@ abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDom
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
     arQueue.enqueue { () =>
-      bus.ar.addr #= address
-      if (bus.config.useId) bus.ar.id #= id
-      if (bus.config.useRegion) bus.ar.region #= region
-      if (bus.config.useLen) bus.ar.len #= len
-      if (bus.config.useSize) bus.ar.size #= size
-      if (bus.config.useBurst) bus.ar.burst #= burst
-      if (bus.config.useLock) bus.ar.lock.randomize()
-      if (bus.config.useCache) bus.ar.cache.randomize()
-      if (bus.config.useQos) bus.ar.qos.randomize()
-      if (bus.config.arUserWidth >= 0) bus.ar.user.randomize()
-      if (bus.config.useProt) bus.ar.prot.randomize()
+      ar.addr #= address
+      if (busConfig.useId) ar.id #= id
+      if (busConfig.useRegion) ar.region #= region
+      if (busConfig.useLen) ar.len #= len
+      if (busConfig.useSize) ar.size #= size
+      if (busConfig.useBurst) ar.burst #= burst
+      if (busConfig.useLock) ar.lock.randomize()
+      if (busConfig.useCache) ar.cache.randomize()
+      if (busConfig.useQos) ar.qos.randomize()
+      if (busConfig.arUserWidth >= 0) ar.user.randomize()
+      if (busConfig.useProt) ar.prot.randomize()
     }
 
     //READ RSP
     for(beat <- 0 to len) rQueue(id).enqueue { () =>
-      assert(bus.r.resp.toInt == 0)
-      assert(bus.r.last.toBoolean == (beat == len))
-      if(bus.r.last.toBoolean) {
+      assert(r.resp.toInt == 0)
+      assert(r.last.toBoolean == (beat == len))
+      if(r.last.toBoolean) {
         mappingFree(mapping)
         rspCounter+=1
       }
@@ -187,13 +203,13 @@ abstract class Axi4ReadOnlyMasterAgent(bus : Axi4ReadOnly, clockDomain: ClockDom
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(bus.ar, clockDomain){ _ =>
+  StreamDriver(ar, clockDomain){ _ =>
     if(arQueue.isEmpty) genCmd()
     if(arQueue.nonEmpty) { arQueue.dequeue().apply(); true } else false
   }
 
-  val rspMonitor = StreamMonitor(bus.r, clockDomain){_ =>
-    rQueue(bus.r.id.toInt).dequeue()()
+  val rspMonitor = StreamMonitor(r, clockDomain){_ =>
+    rQueue(r.id.toInt).dequeue()()
   }
 }
 
