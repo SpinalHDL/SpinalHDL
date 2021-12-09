@@ -24,9 +24,8 @@ import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
 
-import scala.collection.mutable
+import scala.collection.{Seq, TraversableOnce, mutable}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
-import scala.collection.Seq
 import scala.collection.generic.Growable
 
 
@@ -1115,5 +1114,30 @@ case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
     val port = dataType()
     values += port
     port
+  }
+}
+
+object whenMasked{
+  def apply[T](things : TraversableOnce[T], conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+    val thingsList = things.toList
+    val condsList = conds.toList
+    assert(thingsList.size == condsList.size)
+    for((thing, cond) <- (thingsList, condsList).zipped) when(cond){ body(thing) }
+  }
+
+  def apply[T](things : TraversableOnce[T], conds : Bits)(body : T => Unit): Unit ={
+    apply(things, conds.asBools)(body)
+  }
+}
+
+object whenIndexed{
+  def apply[T](things : TraversableOnce[T], index : UInt)(body : T => Unit): Unit ={
+    val thingsList = things.toList
+    assert(log2Up(thingsList.size) == widthOf(index))
+    switch(index) {
+      for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
+        body(thing)
+      }
+    }
   }
 }
