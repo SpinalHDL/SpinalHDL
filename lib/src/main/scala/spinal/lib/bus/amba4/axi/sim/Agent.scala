@@ -407,18 +407,22 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1)))
         }
       }
+      val accessAddress = beatAddress & ~BigInt(busConfig.bytePerWord-1)
+
       rQueue += { () =>
         assert(r.last.toBoolean == (beat == len))
         assert(r.resp.toInt == 0)
         val data = r.data.toBigInt
-        for(i <- 0 until busConfig.bytePerWord){
-          onReadByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
+        val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
+        val end = start + bytePerBeat
+        for(i <- start until end){
+          onReadByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
         }
         if(r.last.toBoolean) onLast(id)
       }
