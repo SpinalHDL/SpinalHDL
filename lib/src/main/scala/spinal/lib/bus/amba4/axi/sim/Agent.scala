@@ -275,7 +275,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
-    val size = if(busConfig.useSize) ar.size.toInt else 0
+    val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
     val burst = if(busConfig.useBurst) ar.burst.toInt else 0
@@ -341,7 +341,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val awMonitor = StreamMonitor(aw, clockDomain){_ =>
-    val size = if(busConfig.useSize) aw.size.toInt else 0
+    val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) aw.len.toInt else 0
     val burst = if(busConfig.useBurst) aw.burst.toInt else 0
     val addr = aw.addr.toBigInt
@@ -393,7 +393,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   val rQueue = mutable.Queue[() => Unit]()
 
   val arMonitor = StreamMonitor(ar, clockDomain){_ =>
-    val size = if(busConfig.useSize) ar.size.toInt else 0
+    val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
     val burst = if(busConfig.useBurst) ar.burst.toInt else 0
