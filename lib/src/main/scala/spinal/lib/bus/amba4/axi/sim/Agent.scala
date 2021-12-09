@@ -24,7 +24,8 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   val busConfig = aw.config
   val awQueue = mutable.Queue[() => Unit]()
   val wQueue = mutable.Queue[() => Unit]()
-  val bQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
   def pending = bQueue.exists(_.nonEmpty)
@@ -118,7 +119,8 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   }
 
   val rspMonitor = StreamMonitor(b, clockDomain){_ =>
-    bQueue(b.id.toInt).dequeue()()
+    val id = if(busConfig.useId) b.id.toInt else 0
+    bQueue(id).dequeue()()
     rspCounter+=1
   }
 }
@@ -133,7 +135,8 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   
   val busConfig = ar.config
   val arQueue = mutable.Queue[() => Unit]()
-  val rQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
 
@@ -209,7 +212,8 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   }
 
   val rspMonitor = StreamMonitor(r, clockDomain){_ =>
-    rQueue(r.id.toInt).dequeue()()
+    val id = if(busConfig.useId) r.id.toInt else 0
+    rQueue(id).dequeue()()
   }
 }
 
