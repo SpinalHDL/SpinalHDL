@@ -225,7 +225,6 @@ object  AxiLite4SpecRenamer{
         bt.setName(bt.getName().replace("_valid","valid"))
         bt.setName(bt.getName().replace("_ready","ready"))
         if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
-        //if(bt.getName().contains("_clk")) bt.addAttribute("X_INTERFACE_INFO", "xilinx.com:signal:clock:1.0 axisIo_clk CLK")
       })
     }
     if(Component.current == that.component)
