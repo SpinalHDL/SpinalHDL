@@ -21,6 +21,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     this(bus.aw, bus.w, bus.b, clockDomain);
   }
 
+  val pageAlignBits = 12
   val busConfig = aw.config
   val awQueue = mutable.Queue[() => Unit]()
   val wQueue = mutable.Queue[() => Unit]()
@@ -50,22 +51,27 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
+    var addrValid = false
     do{
       address = genAddress()
-      burst match {
-        case 0 =>
-          startAddress = address
-          endAddress   = startAddress + sizeByte
-        case 1 =>
-          startAddress = address
-          endAddress = startAddress + byteCount
-        case 2 =>
-          address = address & ~BigInt(sizeByte-1)
-          startAddress = address & ~(byteCount-1)
-          endAddress = startAddress + byteCount
+      val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
+      addrValid = address + byteCount < boundAddress
+      if(addrValid){
+        burst match {
+          case 0 =>
+            startAddress = address
+            endAddress   = startAddress + sizeByte
+          case 1 =>
+            startAddress = address
+            endAddress = startAddress + byteCount
+          case 2 =>
+            address = address & ~BigInt(sizeByte-1)
+            startAddress = address & ~(byteCount-1)
+            endAddress = startAddress + byteCount
+        }
+        mapping = SizeMapping(startAddress, endAddress - startAddress)
       }
-      mapping = SizeMapping(startAddress, endAddress - startAddress)
-    } while(!mappingAllocate(mapping));
+    } while(!addrValid || !mappingAllocate(mapping));
 
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
@@ -133,6 +139,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     this(bus.ar, bus.r, clockDomain);
   }
   
+  val pageAlignBits = 12
   val busConfig = ar.config
   val arQueue = mutable.Queue[() => Unit]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
@@ -161,22 +168,27 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
+    var addrValid = false
     do{
       address = genAddress()
-      burst match {
-        case 0 =>
-          startAddress = address
-          endAddress   = startAddress + sizeByte
-        case 1 =>
-          startAddress = address
-          endAddress = startAddress + byteCount
-        case 2 =>
-          address = address & ~BigInt(sizeByte-1)
-          startAddress = address & ~(byteCount-1)
-          endAddress = startAddress + byteCount
+      val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
+      addrValid = address + byteCount < boundAddress
+      if(addrValid){
+        burst match {
+          case 0 =>
+            startAddress = address
+            endAddress   = startAddress + sizeByte
+          case 1 =>
+            startAddress = address
+            endAddress = startAddress + byteCount
+          case 2 =>
+            address = address & ~BigInt(sizeByte-1)
+            startAddress = address & ~(byteCount-1)
+            endAddress = startAddress + byteCount
+        }
+        mapping = SizeMapping(startAddress, endAddress - startAddress)
       }
-      mapping = SizeMapping(startAddress, endAddress - startAddress)
-    } while(!mappingAllocate(mapping));
+    } while(!addrValid || !mappingAllocate(mapping));
 
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
