@@ -145,7 +145,16 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
     }
 }
 
-case class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCount: Int) extends Component {
+object Axi4SharedOnChipRamMultiPort {
+   def apply(portCount : Int, dataWidth : Int,byteCount : BigInt,idWidth : Int) = {
+       val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
+       val wordCount = byteCount / axiConfig.bytePerWord
+       new Axi4SharedOnChipRamMultiPort(axiConfig, wordCount, portCount)
+   }
+   def apply(config: Axi4Config, wordCount: BigInt, portCount: Int) = new Axi4SharedOnChipRamMultiPort(config, wordCount, portCount)
+}
+
+class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCount: Int) extends Component {
     val io = new Bundle {
         val axis = Vec(slave(Axi4Shared(config)), portCount)
     }
