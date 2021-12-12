@@ -158,6 +158,9 @@ class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCo
     val io = new Bundle {
         val axis = Vec(slave(Axi4Shared(config)), portCount)
     }
+    
+    if (config.useLock || config.useRegion || config.useCache || config.useProt || config.useQos)
+        SpinalWarning("Axi4SharedOnChipRamMultiPort might not support Axi4 Lock, Region, Cahce, Prot and Qos featrues!")
 
     val ram   = Mem(config.dataType, wordCount.toInt)
     val ports = Vec(Axi4SharedOnChipRamPort(config), portCount)
