@@ -124,14 +124,21 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
         } otherwise {
             outData := savedReadData
         }
-        readStream.translateFrom(readAddrStream.stage) { (to, from) =>
+
+        readStream.translateFrom(readAddrStream) { (to, from) =>
             if (axi.config.useId) to.id := from.id
             to.last := from.last
-            to.data := outData
+            to.data := 0
             to.setOKAY()
             if (axi.config.useRUser) to.user := from.user
         }
-        axi.readRsp << readStream
+        val readOutStream = cloneOf(readStream)
+        readOutStream.translateFrom(readStream.stage) { (to, from) =>
+            to := from
+            to.data.removeAssignments()
+            to.data := outData
+        }
+        axi.readRsp << readOutStream
 
         axi.arw.ready.noBackendCombMerge //Verilator perf
         axi
