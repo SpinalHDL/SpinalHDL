@@ -121,6 +121,14 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     bQueue(b.id.toInt).dequeue()()
     rspCounter+=1
   }
+
+  def reset(){
+    wQueue.clear()
+    bQueue.map(q => q.clear())
+    awQueue.clear()
+    awDriver.reset()
+    wDriver.reset()
+  }
 }
 
 abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain: ClockDomain){
@@ -210,6 +218,12 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
 
   val rspMonitor = StreamMonitor(r, clockDomain){_ =>
     rQueue(r.id.toInt).dequeue()()
+  }
+  
+  def reset(){
+    rQueue.map(q => q.clear())
+    arQueue.clear()
+    arDriver.reset()
   }
 }
 
@@ -374,6 +388,11 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     wQueue += WTransaction(w.data.toBigInt, w.strb.toBigInt, w.last.toBoolean)
     update()
   }
+
+  def reset(){
+    wProcess.clear()
+    wQueue.clear()
+  }
 }
 
 
@@ -423,5 +442,9 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
 
   val rMonitor = StreamMonitor(r, clockDomain){r =>
     rQueue.dequeue().apply()
+  }
+
+  def reset(){
+    rQueue.clear()
   }
 }
