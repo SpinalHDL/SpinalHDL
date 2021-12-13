@@ -92,7 +92,8 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
             if (axi.config.useWUser) to.user := from._1.user
             to.setOKAY()
         }
-        writeStream.ready := True
+        val writeReady = RegInit(False).riseWhen(True)
+        writeStream.ready := writeReady
 
         val bStream      = cloneOf(writeStream)
         val writeLast    = writeCombined.fire && writeCombined._1.last
@@ -143,22 +144,32 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
         axi.arw.ready.noBackendCombMerge //Verilator perf
         axi
     }
+
+    def withSoftResetOf(ram: Mem[Bits], softReset: Bool): Axi4Shared = {
+        val clock = ClockDomain.current.copy(softReset = softReset)
+        val area = new ClockingArea(clock) {
+
+            val axi = attach(ram)
+        }
+        area.axi
+    }
 }
 
 object Axi4SharedOnChipRamMultiPort {
-   def apply(portCount : Int, dataWidth : Int,byteCount : BigInt,idWidth : Int) = {
-       val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
-       val wordCount = byteCount / axiConfig.bytePerWord
-       new Axi4SharedOnChipRamMultiPort(axiConfig, wordCount, portCount)
-   }
-   def apply(config: Axi4Config, wordCount: BigInt, portCount: Int) = new Axi4SharedOnChipRamMultiPort(config, wordCount, portCount)
+    def apply(portCount: Int, dataWidth: Int, byteCount: BigInt, idWidth: Int) = {
+        val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth, byteCount, idWidth)
+        val wordCount = byteCount / axiConfig.bytePerWord
+        new Axi4SharedOnChipRamMultiPort(axiConfig, wordCount, portCount)
+    }
+    def apply(config: Axi4Config, wordCount: BigInt, portCount: Int) =
+        new Axi4SharedOnChipRamMultiPort(config, wordCount, portCount)
 }
 
 class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCount: Int) extends Component {
     val io = new Bundle {
         val axis = Vec(slave(Axi4Shared(config)), portCount)
     }
-    
+
     if (config.useLock || config.useRegion || config.useCache || config.useProt || config.useQos)
         SpinalWarning("Axi4SharedOnChipRamMultiPort might not support Axi4 Lock, Region, Cahce, Prot and Qos featrues!")
 

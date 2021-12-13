@@ -40,14 +40,33 @@ case class Axi4SharedOnChipRamMultiPortFixture(axiConfig: Axi4Config, wordCount:
     (io.axis, dut.io.axis).zipped map (_.toShared >> _)
 }
 
+case class Axi4SharedOnChipRamMultiPortWithSoftresetFixture(config: Axi4Config, wordCount: BigInt, portCount: Int)
+    extends Component {
+
+    val io = new Bundle {
+        val axis      = Vec(slave(Axi4(config)), portCount)
+        val softReset = in Bool ()
+    }
+
+    val ram   = Mem(config.dataType, wordCount.toInt)
+    val ports = Vec(Axi4SharedOnChipRamPort(config), portCount)
+    val axis0 = ports(0).withSoftResetOf(ram, io.softReset)
+    val axis1 = ports(1).attach(ram)
+    val axis  = Vec(axis0, axis1)
+
+    (io.axis, axis).zipped map (_.toShared >> _)
+}
+
 class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
 
     val memory = mutable.HashMap[BigInt, Byte]()
-    def axi4master(dut: Axi4SharedOnChipRamMultiPortFixture, id: Int) {
-        val slave   = dut.io.axis(id)
+    def axi4master(
+        port: Axi4,
+        clockDomain: ClockDomain
+    ): (Axi4ReadOnlyMasterAgent, Axi4WriteOnlyMasterAgent, Axi4ReadOnlyMonitor, Axi4WriteOnlyMonitor) = {
         val regions = mutable.Set[SizeMapping]()
-        val read = new Axi4ReadOnlyMasterAgent(slave, dut.clockDomain) {
-            override def genAddress(): BigInt = Random.nextInt(1 << slave.config.addressWidth)
+        val read = new Axi4ReadOnlyMasterAgent(port, clockDomain) {
+            override def genAddress(): BigInt = Random.nextInt(1 << port.config.addressWidth)
             override def bursts: List[Int]    = List(1)
             override def mappingAllocate(mapping: SizeMapping): Boolean = {
                 if (regions.exists(_.overlap(mapping))) return false
@@ -58,15 +77,15 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
             override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
         }
 
-        val readMonitor = new Axi4ReadOnlyMonitor(slave, dut.clockDomain) {
+        val readMonitor = new Axi4ReadOnlyMonitor(port, clockDomain) {
             override def onReadByte(address: BigInt, data: Byte, id: Int): Unit = {
                 if (memory.contains(address)) assert(memory(address) == data, id.toString + ":" + address.toString(16))
             }
             override def onLast(id: Int): Unit = {}
         }
 
-        val write = new Axi4WriteOnlyMasterAgent(slave, dut.clockDomain) {
-            override def genAddress(): BigInt = Random.nextInt(1 << slave.config.addressWidth)
+        val write = new Axi4WriteOnlyMasterAgent(port, clockDomain) {
+            override def genAddress(): BigInt = Random.nextInt(1 << port.config.addressWidth)
             override def bursts: List[Int]    = List(1)
             override def mappingAllocate(mapping: SizeMapping): Boolean = {
                 if (regions.exists(_.overlap(mapping))) return false
@@ -76,11 +95,12 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
 
             override def mappingFree(mapping: SizeMapping): Unit = regions.remove(mapping)
         }
-        val writeMonitor = new Axi4WriteOnlyMonitor(slave, dut.clockDomain) {
+        val writeMonitor = new Axi4WriteOnlyMonitor(port, clockDomain) {
             override def onWriteByte(address: BigInt, data: Byte): Unit = {
                 memory(address) = data
             }
         }
+        (read, write, readMonitor, writeMonitor)
     }
 
     def generic_test(ports: Int) {
@@ -93,7 +113,6 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
                 addressWidth = log2Up(byteCount),
                 dataWidth = 32,
                 idWidth = idWidth,
-                useId = true,
                 useLock = false,
                 useRegion = false,
                 useCache = false,
@@ -112,7 +131,7 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
         compiled.doSim { dut =>
             dut.clockDomain.forkStimulus(period = 10)
             for (i <- 0 until ports) {
-                axi4master(dut, i)
+                axi4master(dut.io.axis(i), dut.clockDomain)
             }
             dut.clockDomain.waitSampling((100 KiB).toInt)
             simSuccess()
@@ -129,5 +148,55 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
 
     test("port4") {
         generic_test(4)
+    }
+
+    test("softreset") {
+        memory.clear()
+
+        val ports   = 2
+        val idWidth = log2Up(ports)
+        val compiled = SimConfig.compile {
+            val byteCount = 1 MiB
+            val config = Axi4Config(
+                addressWidth = log2Up(byteCount),
+                dataWidth = 32,
+                idWidth = idWidth,
+                useId = false,
+                useLock = false,
+                useRegion = false,
+                useCache = false,
+                useProt = false,
+                useQos = false
+            )
+            val dut =
+                new Axi4SharedOnChipRamMultiPortWithSoftresetFixture(
+                    config = config,
+                    wordCount = byteCount / config.bytePerWord,
+                    portCount = ports
+                )
+            dut
+        }
+
+        compiled.doSim { dut =>
+            dut.io.softReset #= false
+            dut.clockDomain.forkStimulus(period = 10)
+            val agents = axi4master(dut.io.axis(0), dut.clockDomain)
+            axi4master(dut.io.axis(1), dut.clockDomain)
+
+            dut.clockDomain.waitSampling((10 KiB).toInt)
+            dut.clockDomain.waitSamplingWhere(dut.io.axis(0).ar.valid.toBoolean && dut.io.axis(0).ar.ready.toBoolean)
+            dut.io.softReset #= true
+            dut.clockDomain.waitSampling(2)
+
+            agents._3.reset()
+            agents._1.reset()
+
+            agents._4.reset()
+            agents._2.reset()
+
+            dut.io.softReset #= false
+            dut.clockDomain.waitSampling((100 KiB).toInt)
+            simSuccess()
+        }
     }
 }
