@@ -107,12 +107,12 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(aw, clockDomain){ _ =>
+  val awDriver = StreamDriver(aw, clockDomain){ _ =>
     if(awQueue.isEmpty) genCmd()
     if(awQueue.nonEmpty) { awQueue.dequeue().apply(); true } else false
   }
 
-  StreamDriver(w, clockDomain){ _ =>
+  val wDriver = StreamDriver(w, clockDomain){ _ =>
     if(wQueue.isEmpty) genCmd()
     if(wQueue.nonEmpty) { wQueue.dequeue().apply(); true } else false
   }
@@ -203,7 +203,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(ar, clockDomain){ _ =>
+  val arDriver = StreamDriver(ar, clockDomain){ _ =>
     if(arQueue.isEmpty) genCmd()
     if(arQueue.nonEmpty) { arQueue.dequeue().apply(); true } else false
   }
