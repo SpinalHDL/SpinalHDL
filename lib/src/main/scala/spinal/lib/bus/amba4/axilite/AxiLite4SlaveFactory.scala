@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 
 
-class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
+class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) extends BusSlaveFactoryDelayed{
 
   val readHaltRequest = False
   val writeHaltRequest = False
@@ -22,6 +22,8 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
   writeRsp.setOKAY()
   readRsp.setOKAY()
   readRsp.data := 0
+
+  override def writeByteEnable() : Bits = useWriteStrobes generate(bus.writeData.strb)
 
   def readAddress() : UInt = readDataStage.addr
   def writeAddress() : UInt = bus.writeCmd.addr
