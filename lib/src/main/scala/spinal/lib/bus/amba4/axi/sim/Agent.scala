@@ -21,10 +21,12 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     this(bus.aw, bus.w, bus.b, clockDomain);
   }
 
+  val pageAlignBits = 12
   val busConfig = aw.config
   val awQueue = mutable.Queue[() => Unit]()
   val wQueue = mutable.Queue[() => Unit]()
-  val bQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
   def pending = bQueue.exists(_.nonEmpty)
@@ -49,22 +51,27 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
+    var addrValid = false
     do{
       address = genAddress()
-      burst match {
-        case 0 =>
-          startAddress = address
-          endAddress   = startAddress + sizeByte
-        case 1 =>
-          startAddress = address
-          endAddress = startAddress + byteCount
-        case 2 =>
-          address = address & ~BigInt(sizeByte-1)
-          startAddress = address & ~(byteCount-1)
-          endAddress = startAddress + byteCount
+      val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
+      addrValid = address + byteCount < boundAddress
+      if(addrValid){
+        burst match {
+          case 0 =>
+            startAddress = address
+            endAddress   = startAddress + sizeByte
+          case 1 =>
+            startAddress = address
+            endAddress = startAddress + byteCount
+          case 2 =>
+            address = address & ~BigInt(sizeByte-1)
+            startAddress = address & ~(byteCount-1)
+            endAddress = startAddress + byteCount
+        }
+        mapping = SizeMapping(startAddress, endAddress - startAddress)
       }
-      mapping = SizeMapping(startAddress, endAddress - startAddress)
-    } while(!mappingAllocate(mapping));
+    } while(!addrValid || !mappingAllocate(mapping));
 
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
@@ -118,7 +125,8 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   }
 
   val rspMonitor = StreamMonitor(b, clockDomain){_ =>
-    bQueue(b.id.toInt).dequeue()()
+    val id = if(busConfig.useId) b.id.toInt else 0
+    bQueue(id).dequeue()()
     rspCounter+=1
   }
 }
@@ -131,9 +139,11 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     this(bus.ar, bus.r, clockDomain);
   }
   
+  val pageAlignBits = 12
   val busConfig = ar.config
   val arQueue = mutable.Queue[() => Unit]()
-  val rQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   var allowGen = true
   var rspCounter = 0
 
@@ -158,22 +168,27 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     var mapping : SizeMapping = null
     var address, startAddress, endAddress  : BigInt = null
     val byteCount = sizeByte*lenBeat
+    var addrValid = false
     do{
       address = genAddress()
-      burst match {
-        case 0 =>
-          startAddress = address
-          endAddress   = startAddress + sizeByte
-        case 1 =>
-          startAddress = address
-          endAddress = startAddress + byteCount
-        case 2 =>
-          address = address & ~BigInt(sizeByte-1)
-          startAddress = address & ~(byteCount-1)
-          endAddress = startAddress + byteCount
+      val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
+      addrValid = address + byteCount < boundAddress
+      if(addrValid){
+        burst match {
+          case 0 =>
+            startAddress = address
+            endAddress   = startAddress + sizeByte
+          case 1 =>
+            startAddress = address
+            endAddress = startAddress + byteCount
+          case 2 =>
+            address = address & ~BigInt(sizeByte-1)
+            startAddress = address & ~(byteCount-1)
+            endAddress = startAddress + byteCount
+        }
+        mapping = SizeMapping(startAddress, endAddress - startAddress)
       }
-      mapping = SizeMapping(startAddress, endAddress - startAddress)
-    } while(!mappingAllocate(mapping));
+    } while(!addrValid || !mappingAllocate(mapping));
 
     val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
@@ -209,7 +224,8 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   }
 
   val rspMonitor = StreamMonitor(r, clockDomain){_ =>
-    rQueue(r.id.toInt).dequeue()()
+    val id = if(busConfig.useId) r.id.toInt else 0
+    rQueue(id).dequeue()()
   }
 }
 
@@ -275,7 +291,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
-    val size = if(busConfig.useSize) ar.size.toInt else 0
+    val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
     val burst = if(busConfig.useBurst) ar.burst.toInt else 0
@@ -341,7 +357,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val awMonitor = StreamMonitor(aw, clockDomain){_ =>
-    val size = if(busConfig.useSize) aw.size.toInt else 0
+    val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) aw.len.toInt else 0
     val burst = if(busConfig.useBurst) aw.burst.toInt else 0
     val addr = aw.addr.toBigInt
@@ -393,7 +409,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   val rQueue = mutable.Queue[() => Unit]()
 
   val arMonitor = StreamMonitor(ar, clockDomain){_ =>
-    val size = if(busConfig.useSize) ar.size.toInt else 0
+    val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
     val burst = if(busConfig.useBurst) ar.burst.toInt else 0
@@ -403,18 +419,22 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1)))
         }
       }
+      val accessAddress = beatAddress & ~BigInt(busConfig.bytePerWord-1)
+
       rQueue += { () =>
         assert(r.last.toBoolean == (beat == len))
         assert(r.resp.toInt == 0)
         val data = r.data.toBigInt
-        for(i <- 0 until busConfig.bytePerWord){
-          onReadByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
+        val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
+        val end = start + bytePerBeat
+        for(i <- start until end){
+          onReadByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
         }
         if(r.last.toBoolean) onLast(id)
       }
