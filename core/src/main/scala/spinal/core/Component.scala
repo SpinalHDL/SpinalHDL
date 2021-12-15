@@ -340,4 +340,23 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     ctx.restore()
     ret
   }
+
+  /**
+    * Empty Component, remove logic in component and assign zero on output port as stub
+    * @example {{{ val dut = (new MyComponent).stub }}}
+    */
+  def stub: this.type = this.rework{
+    this.getAllIo.foreach{ p =>
+      if (p.isOutput | p.isInOut) {
+        p.removeAssignments()
+        p match {
+          case x: Bool      => x := False
+          case x: BitVector => x.clearAll()
+          case _            => SpinalError("unrecognized Datatype")
+        }
+      }
+      this.children.clear()
+    }
+    this
+  }
 }
