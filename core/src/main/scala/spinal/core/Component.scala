@@ -346,16 +346,19 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     * @example {{{ val dut = (new MyComponent).stub }}}
     */
   def stub: this.type = this.rework{
-    this.getAllIo.foreach{ p =>
-      if (p.isOutput | p.isInOut) {
-        p.removeAssignments()
-        p match {
-          case x: Bool      => x := False
-          case x: BitVector => x.clearAll()
-          case _            => SpinalError("unrecognized Datatype")
-        }
-      }
-      this.children.clear()
+    // step1: First remove all we don't want
+    this.children.clear()
+    this.dslBody.foreachStatements{
+      case bt : BaseType if !bt.isDirectionLess =>
+      case s => s.removeStatement()
+    }
+    // step2: remove output and assign zero
+    // this step cant merge into step1
+    this.dslBody.foreachStatements{
+      case bt : BaseType if bt.isOutput | bt.isInOut =>
+        bt.removeAssignments()
+        bt := bt.getZero
+      case s =>
     }
     this
   }
