@@ -64,84 +64,87 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
     def attach(ram: Mem[Bits]): Axi4Shared = {
         val wordRange       = config.wordRange
         val axi             = Axi4Shared(config)
-        val arw             = axi.arw.unburstify
-        val writeDataStream = axi.writeData
+        
+        val logic = new Composite(axi, "logic"){
+            val arw             = axi.arw.unburstify
+            val writeDataStream = axi.writeData
 
-        val readStream      = Stream(Axi4R(axi.config))
-        val readAddrStream  = cloneOf(arw)
-        val writeStream     = Stream(Axi4B(axi.config))
-        val writeAddrStream = cloneOf(arw)
+            val readStream      = Stream(Axi4R(axi.config))
+            val readAddrStream  = cloneOf(arw)
+            val writeStream     = Stream(Axi4B(axi.config))
+            val writeAddrStream = cloneOf(arw)
 
-        Vec(readAddrStream, writeAddrStream) <> StreamDemux(
-            arw,
-            U(arw.write),
-            2
-        )
-
-        val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
-        val writeAddr     = writeCombined._1.addr(wordRange)
-        ram.write(
-            address = writeAddr.resized,
-            data = writeCombined._2.data,
-            enable = writeCombined.fire,
-            mask = writeCombined._2.strb
-        )
-
-        writeStream.translateFrom(writeCombined) { (to, from) =>
-            if (axi.config.useId) to.id := from._1.id
-            if (axi.config.useWUser) to.user := from._1.user
-            to.setOKAY()
-        }
-        val writeReady = RegInit(False).riseWhen(True)
-        writeStream.ready := writeReady
-
-        val bStream      = cloneOf(writeStream)
-        val writeLast    = writeCombined.fire && writeCombined._1.last
-        val writePayload = RegNextWhen(writeStream.payload, writeLast)
-        val writeDone    = RegInit(False)
-        when(writeLast) {
-            writeDone := True
-        } elsewhen (bStream.fire) {
-            writeDone := False
-        }
-        bStream.valid := writeDone
-        bStream.payload := writePayload
-        axi.writeRsp << bStream
-
-        val readAddr = readAddrStream.addr(wordRange)
-        val readData = ram
-            .readSync(
-                address = readAddr.resized
+            Vec(readAddrStream, writeAddrStream) <> StreamDemux(
+                arw,
+                U(arw.write),
+                2
             )
-            .resized
-        val savedReadData = Reg(cloneOf(readData))
-        val dataValid     = RegNext(readAddrStream.fire).init(False)
-        when(dataValid) {
-            savedReadData := readData
-        }
-        val outData = cloneOf(readData)
-        when(dataValid) {
-            outData := readData
-        } otherwise {
-            outData := savedReadData
-        }
 
-        readStream.translateFrom(readAddrStream) { (to, from) =>
-            if (axi.config.useId) to.id := from.id
-            to.last := from.last
-            to.data := 0
-            to.setOKAY()
-            if (axi.config.useRUser) to.user := from.user
-        }
-        val readOutStream = cloneOf(readStream)
-        readOutStream.translateFrom(readStream.stage) { (to, from) =>
-            to := from
-            to.data.removeAssignments()
-            to.data := outData
-        }
-        axi.readRsp << readOutStream
+            val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
+            val writeAddr     = writeCombined._1.addr(wordRange)
+            ram.write(
+                address = writeAddr.resized,
+                data = writeCombined._2.data,
+                enable = writeCombined.fire,
+                mask = writeCombined._2.strb
+            )
 
-        axi.arw.ready.noBackendCombMerge //Verilator perf
+            writeStream.translateFrom(writeCombined) { (to, from) =>
+                if (axi.config.useId) to.id := from._1.id
+                if (axi.config.useWUser) to.user := from._1.user
+                to.setOKAY()
+            }
+            val writeReady = RegInit(False).riseWhen(True)
+            writeStream.ready := writeReady
+
+            val bStream      = cloneOf(writeStream)
+            val writeLast    = writeCombined.fire && writeCombined._1.last
+            val writePayload = RegNextWhen(writeStream.payload, writeLast)
+            val writeDone    = RegInit(False)
+            when(writeLast) {
+                writeDone := True
+            } elsewhen (bStream.fire) {
+                writeDone := False
+            }
+            bStream.valid := writeDone
+            bStream.payload := writePayload
+            axi.writeRsp << bStream
+
+            val readAddr = readAddrStream.addr(wordRange)
+            val readData = ram
+                .readSync(
+                    address = readAddr.resized
+                )
+                .resized
+            val savedReadData = Reg(cloneOf(readData))
+            val dataValid     = RegNext(readAddrStream.fire).init(False)
+            when(dataValid) {
+                savedReadData := readData
+            }
+            val outData = cloneOf(readData)
+            when(dataValid) {
+                outData := readData
+            } otherwise {
+                outData := savedReadData
+            }
+
+            readStream.translateFrom(readAddrStream) { (to, from) =>
+                if (axi.config.useId) to.id := from.id
+                to.last := from.last
+                to.data := 0
+                to.setOKAY()
+                if (axi.config.useRUser) to.user := from.user
+            }
+            val readOutStream = cloneOf(readStream)
+            readOutStream.translateFrom(readStream.stage) { (to, from) =>
+                to := from
+                to.data.removeAssignments()
+                to.data := outData
+            }
+            axi.readRsp << readOutStream
+
+            axi.arw.ready.noBackendCombMerge //Verilator perf
+        }
         axi
     }
 
