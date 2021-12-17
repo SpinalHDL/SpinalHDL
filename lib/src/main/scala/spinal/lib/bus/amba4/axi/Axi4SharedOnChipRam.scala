@@ -64,9 +64,10 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
     def attach(ram: Mem[Bits]): Axi4Shared = {
         val wordRange       = config.wordRange
         val axi             = Axi4Shared(config)
-        
+
         val logic = new Composite(axi, "logic"){
             val arw             = axi.arw.unburstify
+            val addr            = arw.addr(wordRange)
             val writeDataStream = axi.writeData
 
             val readStream      = Stream(Axi4R(axi.config))
@@ -81,9 +82,8 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
             )
 
             val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
-            val writeAddr     = writeCombined._1.addr(wordRange)
             ram.write(
-                address = writeAddr.resized,
+                address = addr.resized,
                 data = writeCombined._2.data,
                 enable = writeCombined.fire,
                 mask = writeCombined._2.strb
@@ -110,10 +110,9 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
             bStream.payload := writePayload
             axi.writeRsp << bStream
 
-            val readAddr = readAddrStream.addr(wordRange)
             val readData = ram
                 .readSync(
-                    address = readAddr.resized
+                    address = addr.resized
                 )
                 .resized
             val savedReadData = Reg(cloneOf(readData))
