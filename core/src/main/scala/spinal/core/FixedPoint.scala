@@ -135,452 +135,357 @@ object getFixSym{
 //  }
 //}
 
+object Fix {
 
+  def apply(maxExp: Int, bitCount: Int, signed: Boolean = false): Fix = new Fix(QFormat(bitCount, bitCount-maxExp, signed = signed))
+  def apply(i: Int): Fix = Fix(BigInt(i))
+  def apply(i: BigInt): Fix = {
+    val fixed = new Fix(QFormat(i.bitCount+1, 0, signed = true))
+    fixed.raw := i.intoSInt.asBits
+    fixed
+  }
+  def apply(f: Float): Fix = Fix(BigDecimal(f))
+  def apply(d: Double): Fix = Fix(BigDecimal(d))
+  def apply(d: BigDecimal): Fix = {
+    val i = (d * BigDecimal(10).pow(d.precision)).toBigInt()
+    val fracBitCount = log2Up(d.precision)
+    val fixed = Fix(QFormat(i.bitCount+1, fracBitCount, signed = true))
+    fixed.raw := i.intoSInt.asBits
+    fixed
+  }
 
+  def SFix(maxExp: Int, bitCount: Int) = new Fix(QFormat(bitCount, bitCount-maxExp, signed = true))
+  def UFix(maxExp: Int, bitCount: Int) = new Fix(QFormat(bitCount, bitCount-maxExp, signed = false))
 
+  implicit class SIntToFix(num: SInt) {
+    def asFix(): Fix = {
+      val res = new Fix(QFormat(num.getWidth, 0, signed = true))
+      res := num
+      res
+    }
+  }
 
-trait SFixFactory extends TypeFactory{
-  def SFix(peak: ExpNumber, width: BitCount): SFix = postTypeFactory(new SFix(peak.value, width.value))
-  def SFix(peak: ExpNumber, resolution: ExpNumber): SFix = postTypeFactory(new SFix(peak.value, 1 + peak.value - resolution.value))
+  implicit class UIntToFix(num: SInt) {
+    def asFix(): Fix = {
+      val res = new Fix(QFormat(num.getWidth, 0, signed = false))
+      res := num
+      res
+    }
+  }
 }
 
 
-trait UFixFactory extends TypeFactory{
-  def UFix(peak: ExpNumber, width: BitCount): UFix = postTypeFactory(new UFix(peak.value, width.value))
-  def UFix(peak: ExpNumber, resolution: ExpNumber): UFix = postTypeFactory(new UFix(peak.value, peak.value - resolution.value))
-}
+case class Fix(q: QFormat) extends MultiData with Num[Fix] {
 
+  require(q.amplify >= 0)
+  require(q.fraction >= 0)
 
-trait SFixCast {
-  @deprecated("Use xxx.toSFix instead", "???")
-  def toSFix(sint: SInt) = sint.toSFix
-}
+  val raw = Bits(q.width bit)
 
+  def alignLsb(left: Fix, right: Fix): (Fix, Fix) = {
+    val difLsb = left.q.fraction - right.q.fraction
+    if (difLsb == 0)
+      (left, right)
+    else if (difLsb > 0)
+      (left, right << difLsb)
+    else
+      (left << -difLsb, right)
+  }
 
-trait UFixCast {
-  @deprecated("Use xxx.toUFix instead", "???")
-  def toUFix(uint: UInt): UFix = uint.toUFix
-}
+  override def tag(q: QFormat): Fix = ???
 
+  override def +(right: Fix): Fix = {
+    val (_left, _right): (Fix, Fix) = alignLsb(this, right)
+    val res = new Fix(_left.q + _right.q)
+    res.raw := ((_left.q.signed, _right.q.signed) match {
+      case (false, false) => _left.raw.asUInt + _right.raw.asUInt
+      case (true, false) => _left.raw.asSInt + _right.raw.asUInt.intoSInt
+      case (false, true) => _left.raw.asUInt.intoSInt + _right.raw.asSInt
+      case (true, true) => _left.raw.asSInt + _right.raw.asSInt
+    }).asBits
+    res
+  }
 
-/**
-  * Base class for SFix and UFix
-  */
-abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData {
+  override def +^(right: Fix): Fix = extend() + right.extend()
 
-  require(bitCount >= 0)
+  override def +|(right: Fix): Fix = (this +^ right).sat(this.q.width)
 
-  val raw = rawFactory(maxExp, bitCount)
+  override def -(right: Fix): Fix = this + (-right)
 
-  def minExp: Int
+  override def -^(right: Fix): Fix = extend() - right.extend()
 
-  raw.setRefOwner(this)
-  raw.setPartialName("", weak = true)
+  override def -|(right: Fix): Fix = (this -^ right).sat(this.q.width)
+
+  override def *(right: Fix): Fix = {
+    val (_left, _right) = alignLsb(this, right)
+    val res = new Fix(_left.q * _right.q)
+    res.raw := ((_left.q.signed, _right.q.signed) match {
+      case (false, false) => _left.raw.asUInt * _right.raw.asUInt
+      case (true, false) => _left.raw.asSInt * _right.raw.asUInt.intoSInt
+      case (false, true) => _left.raw.asUInt.intoSInt * _right.raw.asSInt
+      case (true, true) => _left.raw.asSInt * _right.raw.asSInt
+    }).asBits
+    res
+  }
+
+  override def /(right: Fix): Fix = {
+    val (_left, _right) = alignLsb(this, right)
+    val res = new Fix(_left.q * _right.q)
+    res.raw := ((_left.q.signed, _right.q.signed) match {
+      case (false, false) => _left.raw.asUInt / _right.raw.asUInt
+      case (true, false) => _left.raw.asSInt / _right.raw.asUInt.intoSInt
+      case (false, true) => _left.raw.asUInt.intoSInt / _right.raw.asSInt
+      case (true, true) => _left.raw.asSInt / _right.raw.asSInt
+    }).asBits
+    res
+  }
+
+  override def %(right: Fix): Fix = {
+    val (_left, _right) = alignLsb(this, right)
+    val res = new Fix(QFormat(math.min(this.q.numeric, _right.q.numeric), math.max(this.q.fraction, _right.q.fraction), this.q.signed | _right.q.signed))
+    res.raw := ((_left.q.signed, _right.q.signed) match {
+      case (false, false) => _left.raw.asUInt % _right.raw.asUInt
+      case (true, false) => _left.raw.asSInt % _right.raw.asUInt.intoSInt
+      case (false, true) => _left.raw.asUInt.intoSInt % _right.raw.asSInt
+      case (true, true) => _left.raw.asSInt % _right.raw.asSInt
+    }).asBits
+    res
+  }
+
+  override def <(right: Fix): Bool = ???
+
+  override def <=(right: Fix): Bool = ???
+
+  override def >(right: Fix): Bool = ???
+
+  override def >=(right: Fix): Bool = ???
+
+  override def <<(shift: Int): Fix = {
+    assert(this.q.amplify >= shift)
+    val res = new Fix(QFormat(this.q.width, this.q.fraction+shift, this.q.signed))
+    res.raw := this.raw
+    res
+  }
+
+  def <<|(shift: Int): Fix = {
+    val res = new Fix(QFormat(this.q.width+shift, this.q.fraction, this.q.signed))
+    if (this.q.signed)
+      res.raw := (this.raw.asSInt << shift).asBits
+    else
+      res.raw := (this.raw.asUInt << shift).asBits
+    res
+  }
+
+  override def >>(shift: Int): Fix = {
+    assert(this.q.fraction >= shift)
+    val res = new Fix(QFormat(this.q.width, this.q.fraction-shift, this.q.signed))
+    res.raw := this.raw
+    res
+  }
+
+  def >>|(shift: Int): Fix = {
+    assert(this.q.numeric >= shift)
+    val res = new Fix(QFormat(this.q.width-shift, math.min(this.q.fraction-shift, 0), this.q.signed))
+    if (this.q.signed)
+      res.raw := (this.raw.asSInt >> shift).asBits
+    else
+      res.raw := (this.raw.asUInt >> shift).asBits
+    res
+  }
+
+  /**
+   * Aligned LSB saturation.
+   * Ex:
+   *    SQ(16, 5).sat(8)  -> SQ( 8, 5)
+   *    UQ( 8, 4).sat(7)  -> UQ( 7, 4)
+   *    SQ(12, 6).sat(10) -> SQ(10, 6)
+   *    SQ(10,10).sat(8)  -> SQ( 8, 8)
+   * @param m Bit width from LSB
+   * @return
+   */
+  override def sat(m: Int): Fix = {
+    if (this.q.width < m) {
+      val signBit = if (this.q.signed) 1 else 0
+      if (this.q.fraction+signBit <= m) {
+        // Truncate the fractional part
+        val res = new Fix(QFormat(signBit, this.q.fraction-m-signBit, this.q.signed))
+        val bitTrimmed = this.raw(this.q.fraction downto this.q.fraction-m+signBit)
+        if (this.q.signed)
+          res := bitTrimmed.asSInt.sat(m)
+        else
+          res := bitTrimmed.asUInt.sat(m)
+        res
+      } else {
+        val res = new Fix(QFormat(m-this.q.fraction-signBit, this.q.fraction, this.q.signed))
+        if (this.q.signed)
+          res := this.raw.asSInt.sat(m)
+        else
+          res := this.raw.asUInt.sat(m)
+        res
+      }
+    } else {
+      // Trivial operations
+      if (this.q.width == m) {
+        val res = new Fix(this.q)
+        res := this
+        res
+      } else {
+        this.extend(m-this.q.width)
+      }
+    }
+  }
+
+  def sat(whole: Int, frac: Int): Fix = {
+    ((this << frac).truncate() >> frac).sat(whole+frac)
+  }
+
+  /**
+   * Drop the highest m bits
+   * Ex:
+   *    SQ(16,5).sat(8)  -> SQ( 8,5)
+   *    SQ( 5,5).sat(8)  -> SQ( 8,5)
+   * @param m Bit width from LSB
+   * @return
+   */
+  override def trim(m: Int): Fix = {
+    assert(this.q.width >= m, s"Cannot trim Fix() to ${m} bits!")
+    if (m < this.q.width) {
+      val res = new Fix(QFormat(m, 0, this.q.signed))
+      if (this.q.signed)
+        res.raw := (this.raw << this.q.fraction).asSInt.trim(m).asBits
+      else
+        res.raw := (this.raw << this.q.fraction).asUInt.trim(m).asBits
+      res >> this.q.fraction
+    } else {
+      this.extend(m-this.q.width)
+    }
+  }
+
+  def truncate(): Fix = (this >> this.q.fraction).trim(this.q.width-this.q.fraction)
+
+  override def floor(n: Int): Fix = ???
+
+  override def ceil(n: Int, align: Boolean): Fix = ???
+
+  override def floorToZero(n: Int): Fix = ???
+
+  override def ceilToInf(n: Int, align: Boolean): Fix = ???
+
+  override def roundUp(n: Int, align: Boolean): Fix = ???
+
+  override def roundDown(n: Int, align: Boolean): Fix = ???
+
+  override def roundToZero(n: Int, align: Boolean): Fix = ???
+
+  override def roundToInf(n: Int, align: Boolean): Fix = ???
+
+  override def round(n: Int, align: Boolean): Fix = ???
+
+  def unary_-(): Fix = {
+    val res = new Fix(-this.q)
+    if (this.q.signed)
+      res.raw := (-raw.asSInt).asBits
+    else
+      res.raw := raw.asUInt.twoComplement(True).asBits
+    res
+  }
+
+  /**
+   * Sign extends the whole portion and can add bits to the fractional portion.
+   * @param numeric Number of numeric bits to add
+   * @param fractional Number of fractional bits to add
+   * @return The new sign extended (if signed) fixed-point
+   */
+  def extend(numeric: Int = 1, fractional: Int = 0): Fix = {
+    val res = new Fix(QFormat(this.q.width+numeric+fractional, this.q.fraction+fractional, signed = this.q.signed))
+    if (this.q.signed)
+      res.raw := (Bits(numeric bit).setAllTo(raw.msb) ## raw) << fractional
+    else
+      res.raw := (Bits(numeric bit).clearAll() ## raw) << fractional
+    res
+  }
+
+  def :=(that: Fix): Unit = {
+    val shifted = (that >> (this.q.fraction-that.q.fraction))
+    if (shifted.q.signed) {
+      if (this.q.signed) {
+        this.raw := shifted.raw
+      } else {
+        when (shifted.raw.msb) {
+          this.raw.clearAll()
+        } otherwise {
+          this.raw := shifted.raw
+        }
+      }
+    } else {
+      if (this.q.signed) {
+        this.raw := that.extend(this.q.nonFraction, this.q.fraction).raw
+      } else {
+        this.raw := that.raw
+      }
+    }
+  }
+
+  def :=(that: UInt): Unit = {
+    if (this.q.signed)
+      if (that.getWidth > this.q.numeric)
+        this.raw := that.intoSInt.sat(this.q.numeric).asBits
+      else
+        this.raw := that.intoSInt.expand(this.q.numeric).asBits
+    else
+      if (that.getWidth > this.q.numeric)
+        this.raw := that.sat(this.q.numeric).asBits
+      else
+        this.raw := that.expand(this.q.numeric).asBits
+  }
+
+  def :=(that: SInt): Unit = {
+    if (this.q.signed) {
+      if (that.getWidth > this.q.numeric)
+        this.raw := that.sat(this.q.numeric).asBits
+      else
+        this.raw := that.expand(this.q.numeric).asBits
+    } else {
+      when (that.sign) {
+        this.raw.clearAll()
+      } otherwise {
+        if (that.getWidth > this.q.numeric)
+          this.raw := that.sat(this.q.numeric).asBits
+        else
+          this.raw := that.expand(this.q.numeric).asBits
+      }
+    }
+  }
+
+  def :=(that: BigInt): Unit = if (this.q.signed) { this := BigIntToSInt(that) } else { this := BigIntToUInt(that) }
+  def :=(that: BigDecimal): Unit = {
+    val scaledUp: BigInt = (that * BigDecimal(2).pow(this.q.fraction)).toBigInt()
+    val scaledFix = new Fix(QFormat(scaledUp.bitCount, 0, signed=this.q.signed))
+    scaledFix := scaledUp
+    this := (scaledFix >> this.q.fraction)
+  }
+  def :=(that: Int): Unit = this := BigInt(that)
+  def :=(that: Long): Unit = this := BigInt(that)
+  def :=(that: Float): Unit = this := BigDecimal(that)
+  def :=(that: Double): Unit = this := BigDecimal(that)
+
+  def :=(that: Bits): Unit = this.raw := that
+
+  def toSInt: SInt = if (this.q.signed) this.raw.asSInt else this.raw.asUInt.asSInt
+  def toUInt: UInt = if (this.q.signed) this.raw.asSInt.asUInt else this.raw.asUInt
+
+  override def clone: this.type = new Fix(this.q).asInstanceOf[this.type]
 
   override def elements: ArrayBuffer[(String, Data)] = {
     ArrayBuffer("" -> raw)
   }
 
-  def rawFactory(exp: Int, bitCount: Int): R
-  def fixFactory(exp: Int, bitCount: Int): T
-
-  def difLsb(that: T) = (this.maxExp - this.bitCount) - (that.maxExp - that.bitCount)
-
-  def resolution : BigDecimal
-
-  def alignLsb(that: T): (R, R) = {
-    val lsbDif   = difLsb(that)
-    val left: R  = if (lsbDif > 0) this.raw << lsbDif else this.raw
-    val right: R = if (lsbDif < 0) that.raw << -lsbDif else that.raw
-    (left, right)
-  }
-
-  def doAddSub(that: T, sub: Boolean): T = {
-    val (rawLeft, rawRight) = alignLsb(that)
-    val ret = fixFactory(Math.max(this.maxExp, that.maxExp), Math.max(rawLeft.getBitsWidth, rawRight.getBitsWidth))
-    ret.raw := (if (sub) rawLeft - rawRight else rawLeft + rawRight)
-    ret
-  }
-
-  def doSmaller(that: T): Bool = {
-    val (rawLeft, rawRight) = alignLsb(that)
-    rawLeft < rawRight
-  }
-
-  def doSmallerEguals(that: T): Bool = {
-    val (rawLeft, rawRight) = alignLsb(that)
-    rawLeft <= rawRight
-  }
-
-  def doShiftLeft(that: Int): T = {
-    val ret = fixFactory(maxExp + that, bitCount)
-    ret.raw := this.raw
-    ret
-  }
-
-  def doShiftRight(that: Int): T = {
-    val ret = fixFactory(maxExp - that, bitCount)
-    ret.raw := this.raw
-    ret
-  }
-
-  def doShiftLeftBorned(that: Int): T = {
-    val ret = fixFactory(maxExp + that, bitCount + that)
-    ret.raw := this.raw << that
-    ret
-  }
-
-  def doShiftRightBorned(that: Int): T = {
-    val ret = fixFactory(maxExp - that, bitCount - that)
-    ret.raw := this.raw >> that
-    ret
-  }
-
-  override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
-
-  def truncated: this.type = {
-    val copy = cloneOf(this)
-    copy.raw := this.raw
-    copy.addTag(tagTruncated)
-    copy.asInstanceOf[this.type]
-  }
-
   override private[spinal] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
-      case that if this.getClass.isAssignableFrom(that.getClass) =>
-        val t = that.asInstanceOf[T]
-        if(this.maxExp < t.maxExp || this.minExp > t.minExp){
-          if(!t.hasTag(tagTruncated)){
-            val trace = ScalaLocated.long
-            globalData.pendingErrors += (() => s"$this can't be assigned by $t because of truncation. You can do x := y.truncated if that's fine.\n $trace")
-          }
-        }
-        val difLsb = this.difLsb(t)
-        if (difLsb > 0)
-          this.raw compositAssignFrom ((t.raw >> difLsb).resized, this.raw, kind)
-        else if (difLsb < 0)
-          this.raw compositAssignFrom ( (t.raw << -difLsb).resized, this.raw, kind)
-        else
-          this.raw compositAssignFrom ( t.raw.resized, this.raw, kind)
+      case that if this.getClass.isAssignableFrom(that.getClass) => this := that.asInstanceOf[Fix]
       case _ => SpinalError("Undefined assignment")
     }
   }
-}
 
-//TODO Fix autoconnect
-/**
-  * Signed fix point
-  *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Fix SFix Documentation]]
-  */
-class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount) {
-  override def rawFactory(maxExp: Int, bitCount: Int): SInt = SInt(bitCount bit)
-
-  override def fixFactory(maxExp: Int, bitCount: Int): SFix = SFix(maxExp exp, bitCount bit)
-
-  override def minExp: Int = maxExp - bitCount + 1
-
-  def +(that: SFix): SFix = doAddSub(that, sub = false)
-  def -(that: SFix): SFix = doAddSub(that, sub = true)
-  def *(that: SFix): SFix = {
-    val ret = fixFactory(this.maxExp + that.maxExp + 1, this.bitCount + that.bitCount)
-    ret.raw := this.raw * that.raw
-    ret
-  }
-
-  def << (that: Int): SFix  = doShiftLeft(that)
-  def >> (that: Int): SFix  = doShiftRight(that)
-  def <<|(that: Int): SFix  = doShiftLeftBorned(that)
-  def >>|(that: Int): SFix  = doShiftRightBorned(that)
-  def <  (that: SFix): Bool = doSmaller(that)
-  def >  (that: SFix): Bool = that.doSmaller(this)
-  def <= (that: SFix): Bool = doSmallerEguals(that)
-  def >= (that: SFix): Bool = that.doSmallerEguals(this)
-
-  def >= (that: BigDecimal): Bool = {
-    if (that > maxValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
-      return False
-    }
-    val other = cloneOf(this)
-    other := that
-    this >= other
-  }
-
-  def >(that: BigDecimal): Bool = {
-    if (that > maxValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
-      return False
-    }
-    val other = cloneOf(this)
-    other := that
-    this > other
-  }
-
-  def <(that: BigDecimal): Bool = {
-    if (that < minValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
-      return False
-    }
-    val other = cloneOf(this)
-    other := that
-    this < other
-  }
-
-  def <=(that: BigDecimal): Bool = {
-    if (that < minValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
-      return False
-    }
-    val other = cloneOf(this)
-    other := that
-    this <= other
-  }
-
-  def :=(that: Int): Unit   = this := BigInt(that)
-  def :=(that: Long): Unit  = this := BigInt(that)
-  def :=(that: Float): Unit = this := BigDecimal(that.toDouble)
-
-  def :=(that: BigDecimal): Unit = {
-    assert(that <= this.maxValue, s"Literal $that is too big to be assigned in $this")
-    assert(that >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
-
-    val shift = bitCount - maxExp - 1
-    val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt
-    else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
-    this.raw := value
-  }
-
-  def :=(that: BigInt): Unit = {
-    assert(BigDecimal(that) <= this.maxValue, s"Literal $that is too big to be assigned in $this")
-    assert(BigDecimal(that)  >= this.minValue, s"Literal $that is too negative to be assigned in this $this")
-
-    val minExp = this.minExp
-    if (minExp > 0)
-      this.raw := that >> minExp
-    else
-      this.raw := that << -minExp
-  }
-
-  def init(that: BigDecimal): this.type = {
-    val initValue = cloneOf(this)
-    initValue := that
-    this init (initValue)
-    this
-  }
-
-  // Rounded down
-  def toSInt: SInt = {
-    if (maxExp < 0)
-      S(0)
-    else {
-      if (minExp == 0)
-        raw
-      else if (minExp > 0)
-        raw << minExp
-      else
-        raw >> (-minExp)
-    }
-  }
-
-  //TODO Should update the calculation with BigDecimal
-  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - BigDecimal(1.0 / math.pow(2.0, bitCount - 1)))
-  def minValue: BigDecimal = -Math.pow(2.0, maxExp)
-  override def resolution: BigDecimal = Math.pow(2.0, maxExp-bitCount+1)
-
-  override def clone: this.type = new SFix(maxExp, bitCount).asInstanceOf[this.type]
-
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[peak=2^$maxExp resolution=2^$minExp]"
-}
-
-
-//@valClone
-class SFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
-
-  val x = SFix(maxExp exp, bitCount bit)
-  val y = SFix(maxExp exp, bitCount bit)
-
-  def truncated : this.type = {
-    val copy = clone()
-    copy.x := this.x
-    copy.y := this.y
-    copy.x.addTag(tagTruncated)
-    copy.y.addTag(tagTruncated)
-    copy
-  }
-
-  override def clone: this.type = new SFix2D(maxExp, bitCount).asInstanceOf[this.type]
-}
-
-/**
-  * Unsigned fix point
-  *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Fix UFix Documentation]]
-  */
-class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount) {
-
-  override def rawFactory(maxExp: Int, bitCount: Int): UInt = UInt(bitCount bit)
-  override def fixFactory(maxExp: Int, bitCount: Int): UFix = UFix(maxExp exp, bitCount bit)
-  override def minExp: Int = maxExp - bitCount
-
-  def +(that: UFix): UFix = doAddSub(that, sub = false)
-  def -(that: UFix): UFix = doAddSub(that, sub = true)
-  def *(that: UFix): UFix = {
-    val ret = fixFactory(this.maxExp + that.maxExp, this.bitCount + that.bitCount)
-    ret.raw := this.raw * that.raw
-    ret
-  }
-
-  def << (that: Int): UFix  = doShiftLeft(that)
-  def >> (that: Int): UFix  = doShiftRight(that)
-  def <<|(that: Int): UFix  = doShiftLeftBorned(that)
-  def >>|(that: Int): UFix  = doShiftRightBorned(that)
-  def <  (that: UFix): Bool = doSmaller(that)
-  def >  (that: UFix): Bool = that.doSmaller(this)
-  def <= (that: UFix): Bool = doSmallerEguals(that)
-  def >= (that: UFix): Bool = that.doSmallerEguals(this)
-
-  def >=(that: BigDecimal): Bool = {
-    if (that > maxValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
-      return False
-    }
-    val other = cloneOf(this)
-    other := that
-    this >= other
-  }
-
-  def :=(that: Int): Unit   = this := BigInt(that)
-  def :=(that: Long): Unit  = this := BigInt(that)
-  def :=(that: Float): Unit = this := BigDecimal(that.toDouble)
-
-  def :=(that: BigDecimal): Unit = {
-    assert(that >= 0)
-    assert(that <= this.maxValue, s"Literal $that is too big to be assigned in this $this")
-
-    val shift = bitCount - maxExp
-    val value = if(shift >= 0)
-      (that * BigDecimal(BigInt(1) << shift)).toBigInt
-    else
-      (that / BigDecimal(BigInt(1) << -shift)).toBigInt
-    this.raw := value
-  }
-
-  def :=(that: BigInt): Unit = {
-    assert(that >= 0)
-    assert(that < (BigInt(1) << maxExp), s"Literal $that is too big to be assigned in this $this")
-
-    val minExp = this.minExp
-    if (minExp > 0)
-      this.raw := that >> minExp
-    else
-      this.raw := that << -minExp
-  }
-
-  def init(that: BigDecimal): this.type = {
-    val initValue = cloneOf(this)
-    initValue := that
-    this init (initValue)
-    this
-  }
-
-  //Rounded down
-  def toUInt: UInt = {
-    if (maxExp < 0)
-      U(0)
-    else {
-      if (minExp == 0)
-        raw
-      else if (minExp > 0)
-        raw << minExp
-      else
-        raw >> (-minExp)
-    }
-  }
-
-  def fractionalPart: UFix = {
-    assert(this.bitCount - this.maxExp > 0)
-    val ret = UFix(0 exp, -minExp bit)
-    ret := this.resized
-    ret
-  }
-
-  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - 1.0 / math.pow(2.0, bitCount))
-  def minValue: BigDecimal = 0.0
-
-  override def resolution: BigDecimal = Math.pow(2.0, maxExp - bitCount)
-
-  override def clone: this.type = new UFix(maxExp, bitCount).asInstanceOf[this.type]
-}
-
-
-/**
-  * Two-dimensional XFix
-  */
-class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
-  val x = UFix(maxExp exp, bitCount bit)
-  val y = UFix(maxExp exp, bitCount bit)
-
-  def truncated : this.type = {
-    val copy = clone()
-    copy.x := this.x
-    copy.y := this.y
-    copy.x.addTag(tagTruncated)
-    copy.y.addTag(tagTruncated)
-    copy
-  }
-
-  override def clone: UFix2D.this.type = new UFix2D(maxExp, bitCount).asInstanceOf[this.type]
-}
-
-
-/**
-  * Two-dimensional SFix
-  */
-object SFix2D {
-  def apply(maxExp: ExpNumber, bitCount: BitCount): SFix2D = new SFix2D(maxExp.value, bitCount.value)
-
-  def apply(copy: SFix): SFix2D = SFix2D(copy.maxExp exp, copy.bitCount bit)
-}
-
-
-/**
-  * Two-dimensional UFix
-  */
-object UFix2D {
-  def apply(maxExp: ExpNumber, bitCount: BitCount): UFix2D = new UFix2D(maxExp.value, bitCount.value)
-
-  def apply(copy: UFix): UFix2D = UFix2D(copy.maxExp exp, copy.bitCount bit)
-}
-
-
-object SF{
-  def apply(value: BigDecimal, peak: ExpNumber, width: BitCount): SFix = {
-    val tmp = SFix(peak, width)
-    tmp := value
-    tmp
-  }
-
-  def apply(value: BigDecimal, peak: ExpNumber, resolution: ExpNumber): SFix = {
-    val tmp = SFix(peak, resolution)
-    tmp := value
-    tmp
-  }
-}
-
-
-object UF{
-  def apply(value: BigDecimal, peak: ExpNumber, width: BitCount): UFix = {
-    val tmp = UFix(peak, width)
-    tmp := value
-    tmp
-  }
-
-  def apply(value: BigDecimal, peak: ExpNumber, resolution: ExpNumber): UFix = {
-    val tmp = UFix(peak, resolution)
-    tmp := value
-    tmp
-  }
+  override def toString : String = s"(${this.name} : Fix[${this.q.toString}])"
 }

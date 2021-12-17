@@ -31,13 +31,13 @@ trait TypeFactory{
 /**
   * Base type factory
   */
-trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
 
 
 /**
   * Base type Cast
   */
-trait BaseTypeCast extends SFixCast with UFixCast
+trait BaseTypeCast
 
 object BaseType{
   final val isRegMask      = 1

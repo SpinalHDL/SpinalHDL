@@ -47,7 +47,7 @@ trait IODirection extends BaseTypeFactory {
   override def SInt(u: Unit = null) = applyIt(super.SInt())
   override def Vec[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = applyIt(super.Vec(elements, dataType))
 
-  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
+  def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
 /** Set a data to input */

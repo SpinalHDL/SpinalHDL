@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal
 
+import spinal.core.Fix.UFix
 import spinal.core.internals._
 
 import scala.annotation.elidable
@@ -30,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 
 
-package object core extends BaseTypeFactory with BaseTypeCast {
+package object core extends BaseTypeFactory {
 
   import languageFeature.implicitConversions
 
@@ -358,10 +359,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     * Implicit SInt helper
     */
   implicit class SIntPimper(self: SInt) {
-    def toSFix: SFix = {
-      val width = self.getWidth
-      val fix = SFix(width - 1 exp, width bit)
-      fix.raw := self
+    def toSFix: Fix = toFix
+    def toFix: Fix = {
+      val fix = Fix(QFormat(self.getWidth, 0, signed = true))
+      fix := self
       fix
     }
     /**
@@ -382,11 +383,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Implicit UInt helper
     */
-  implicit class UIntPimper(pimped: UInt) {
-    def toUFix: UFix = {
-      val width = pimped.getWidth
-      val fix = UFix(width exp, width bit)
-      fix.raw := pimped
+  implicit class UIntPimper(self: UInt) {
+    def toUFix: Fix = toFix
+    def toFix: Fix = {
+      val fix = Fix(self.getWidth, 0, false)
+      fix := self
       fix
     }
   }

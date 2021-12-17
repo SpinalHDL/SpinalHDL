@@ -132,7 +132,7 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: Bool): UInt = that.asUInt
   def apply(that: Bits): UInt = that.asUInt
   def apply(that: SInt): UInt = that.asUInt
-  def apply(that: UFix): UInt = that.toUInt
+  def apply(that: Fix): UInt  = that.toUInt
 
   def apply(that: Bool, width : BitCount): UInt = that.asUInt.resize(width)
   def apply(that: Bits, width : BitCount): UInt = that.asUInt.resize(width)
@@ -152,7 +152,7 @@ object S extends BitVectorLiteralFactory[SInt] {
   def apply(that: Bool): SInt = that.asSInt
   def apply(that: Bits): SInt = that.asSInt
   def apply(that: UInt): SInt = that.asSInt
-  def apply(that: SFix): SInt = that.toSInt
+  def apply(that: Fix): SInt  = that.toSInt
 
   def apply(that: Bool, width : BitCount): SInt = that.asSInt.resize(width)
   def apply(that: Bits, width : BitCount): SInt = that.asSInt.resize(width)

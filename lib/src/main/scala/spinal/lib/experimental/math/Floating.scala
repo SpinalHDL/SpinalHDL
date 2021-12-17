@@ -204,8 +204,8 @@ case class RecFloating(exponentSize: Int,
   /** Import from UInt */
   def fromUInt(that: UInt) = fromUnsignedInteger(that, 0)
 
-  /** Import from UFix */
-  def fromUFix(that: UFix) = fromUnsignedInteger(that.raw, that.minExp)
+  /** Import from Fix */
+  def fromFix(that: Fix) = if (that.q.signed) fromSignedInteger(that.raw.asSInt, that.q.fraction) else fromUnsignedInteger(that.raw.asUInt, that.q.fraction)
 
   /**
     * Import from unsigned integer
@@ -242,15 +242,15 @@ case class RecFloating(exponentSize: Int,
 
   /** Convert floating point to SFix with width */
   def toUFix(peak: ExpNumber, width: BitCount) = {
-    val UFixValue = UFix(peak, width)
-    UFixValue.raw := FloatingToUInt(this, width.value, peak.value - width.value)
+    val UFixValue = Fix(peak.value, width.value, false)
+    UFixValue.raw := FloatingToUInt(this, width.value, peak.value - width.value).asBits
     UFixValue
   }
 
   /** Convert floating point to SFix with resolution */
-  def toUFix(peak: ExpNumber, resolution: ExpNumber) = {
-    val UFixValue = UFix(peak, resolution)
-    UFixValue.raw := FloatingToUInt(this, peak.value - resolution.value, resolution.value)
+  def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val UFixValue = Fix(peak.value, resolution.value, true)
+    UFixValue.raw := FloatingToUInt(this, peak.value - resolution.value, resolution.value).asBits
     UFixValue
   }
 
@@ -264,9 +264,6 @@ case class RecFloating(exponentSize: Int,
 
   /** Import from SInt */
   def fromSInt(that: SInt) = fromSignedInteger(that, 0)
-
-  /** Import from SFix */
-  def fromSFix(that: SFix) = fromSignedInteger(that.raw, that.minExp)
 
   /**
     * Import from signed integer
@@ -301,20 +298,6 @@ case class RecFloating(exponentSize: Int,
 
   /** Convert floating point to SInt */
   def toSInt(width: Int): SInt = FloatingToSInt(this, width, 0)
-
-  /** Convert floating point to SFix with width */
-  def toSFix(peak: ExpNumber, width: BitCount) = {
-    val SFixValue = SFix(peak, width)
-    SFixValue.raw := FloatingToSInt(this, width.value, peak.value - width.value)
-    SFixValue
-  }
-
-  /** Convert floating point to SFix with resolution */
-  def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
-    val SFixValue = SFix(peak, resolution)
-    SFixValue.raw := FloatingToSInt(this, peak.value - resolution.value, resolution.value)
-    SFixValue
-  }
 
   /**
     * Assign double value to the Floating
