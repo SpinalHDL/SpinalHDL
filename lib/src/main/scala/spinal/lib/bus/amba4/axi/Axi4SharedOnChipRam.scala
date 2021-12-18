@@ -102,9 +102,9 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
             )
 
             val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
-            val writeAddr     = writeCombined._1.addr(wordRange)
+            val addr     = arw.addr(wordRange)
             ram.write(
-                address = writeAddr.resized,
+                address = addr.resized,
                 data = writeCombined._2.data,
                 enable = writeCombined.fire,
                 mask = writeCombined._2.strb
@@ -131,10 +131,9 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
             bStream.payload := writePayload
             axi.writeRsp << bStream
 
-            val readAddr = readAddrStream.addr(wordRange)
             val readData = ram
                 .readSync(
-                    address = readAddr.resized
+                    address = addr.resized
                 )
                 .resized
             val savedReadData = Reg(cloneOf(readData))
