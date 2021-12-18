@@ -1141,3 +1141,10 @@ object whenIndexed{
     }
   }
 }
+
+
+class ClockDomainPimped(cd : ClockDomain){
+  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth)
+  }
+}

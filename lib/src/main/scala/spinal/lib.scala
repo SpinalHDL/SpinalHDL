@@ -39,6 +39,8 @@ package object lib  {
   implicit def traversableOnceAnyPimped[T <: Any](that: Seq[T]) = new TraversableOnceAnyPimped(that)
   implicit def growableAnyPimped[T <: Any](that: Growable[T]) = new GrowableAnyPimped(that)
 
+  implicit def clockDomainPimped(cd: ClockDomain) = new ClockDomainPimped(cd)
+
 
 
 //  implicit def seqPimped[T <: Data](that: scala.IndexedSeq[T]) = new TraversableOncePimped[T](that)

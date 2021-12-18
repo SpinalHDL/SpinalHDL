@@ -81,7 +81,7 @@ object ResetCtrl{
                               clockDomain : ClockDomain,
                               inputPolarity : Polarity = HIGH,
                               outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                              bufferDepth : Int = 2) : Bool = {
+                              bufferDepth : Int = BufferCC.defaultDepth.get) : Bool = {
     val samplerCD = ClockDomain(
       clock = clockDomain.clock,
       reset = input,
@@ -107,11 +107,27 @@ object ResetCtrl{
                                    clockDomain : ClockDomain,
                                    inputPolarity : Polarity = HIGH,
                                    outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                                   bufferDepth : Int = 2) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
+                                   bufferDepth : Int = BufferCC.defaultDepth.get) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
     input = input ,
     clockDomain = clockDomain ,
     inputPolarity = inputPolarity ,
     outputPolarity = outputPolarity ,
     bufferDepth = bufferDepth
   )
+
+  //Return a new clockdomain which use all the properties of clockCd but use as reset source a syncronized value from resetCd
+  def asyncAssertSyncDeassertCreateCd(resetCd : ClockDomain,
+                                      clockCd : ClockDomain = ClockDomain.current,
+                                      bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    ClockDomain(
+      clock = clockCd.clock,
+      reset = ResetCtrl.asyncAssertSyncDeassert(
+        input = resetCd.reset,
+        clockDomain = clockCd,
+        inputPolarity = HIGH,
+        bufferDepth = bufferDepth
+      ),
+      config = clockCd.config
+    )
+  }
 }
