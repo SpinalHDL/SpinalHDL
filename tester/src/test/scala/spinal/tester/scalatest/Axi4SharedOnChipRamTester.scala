@@ -57,12 +57,12 @@ case class Axi4SharedOnChipRamMultiPortWithSoftresetFixture(config: Axi4Config, 
 
 class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
 
-    val memory = mutable.HashMap[BigInt, Byte]()
+    val memory  = mutable.HashMap[BigInt, Byte]()
+    val regions = mutable.Set[SizeMapping]()
     def axi4master(
         port: Axi4,
         clockDomain: ClockDomain
     ): (Axi4ReadOnlyMasterAgent, Axi4WriteOnlyMasterAgent, Axi4ReadOnlyMonitor, Axi4WriteOnlyMonitor) = {
-        val regions = mutable.Set[SizeMapping]()
         val read = new Axi4ReadOnlyMasterAgent(port, clockDomain) {
             override def genAddress(): BigInt = Random.nextInt(1 << port.config.addressWidth)
             override def bursts: List[Int]    = List(1)
