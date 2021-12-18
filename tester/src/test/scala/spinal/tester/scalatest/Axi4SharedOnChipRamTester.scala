@@ -49,12 +49,10 @@ case class Axi4SharedOnChipRamMultiPortWithSoftresetFixture(config: Axi4Config, 
     }
 
     val ram   = Mem(config.dataType, wordCount.toInt)
-    val ports = Vec(Axi4SharedOnChipRamPort(config), portCount)
-    val axis0 = ports(0).withSoftResetOf(ram, io.softReset)
-    val axis1 = ports(1).attach(ram)
-    val axis  = Vec(axis0, axis1)
-
-    (io.axis, axis).zipped map (_.toShared >> _)
+    val port0 = Axi4SharedOnChipRamPort(config, ram, io.softReset)
+    val port1 = Axi4SharedOnChipRamPort(config, ram)
+    io.axis(0).toShared() >> port0
+    io.axis(1).toShared() >> port1
 }
 
 class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {

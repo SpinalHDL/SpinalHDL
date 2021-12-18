@@ -1,6 +1,7 @@
 package spinal.lib.bus.amba4.axi
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib._
 
 object Axi4SharedOnChipRam{
@@ -60,14 +61,33 @@ case class Axi4SharedOnChipRam(dataWidth : Int, byteCount : BigInt, idWidth : In
 }
 
 
-case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
-    def attach(ram: Mem[Bits]): Axi4Shared = {
-        val wordRange       = config.wordRange
-        val axi             = Axi4Shared(config)
+object Axi4SharedOnChipRamPort {
+    def apply(config: Axi4Config, ram: Mem[Bits]) = {
+        val port = new Axi4SharedOnChipRamPort(config)
+        port.attach(ram)
+        port
+    }
 
-        val logic = new Composite(axi, "logic"){
+    def apply(config: Axi4Config, ram: Mem[Bits], softReset: Bool) = {
+        val clock = ClockDomain.current.copy(softReset = softReset)
+        val domain = new ClockingArea(clock) {
+            val port = new Axi4SharedOnChipRamPort(config)
+            port.attach(ram)
+        }
+        domain.port
+    }
+}
+
+case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4Shared] {
+    val axi                                = Axi4Shared(config)
+    override def implicitValue: Axi4Shared = this.axi
+
+    val ram = Handle[Mem[Bits]]
+
+    val logic = Handle {
+        new Area {
+            val wordRange       = config.wordRange
             val arw             = axi.arw.unburstify
-            val addr            = arw.addr(wordRange)
             val writeDataStream = axi.writeData
 
             val readStream      = Stream(Axi4R(axi.config))
@@ -82,8 +102,9 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
             )
 
             val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
+            val writeAddr     = writeCombined._1.addr(wordRange)
             ram.write(
-                address = addr.resized,
+                address = writeAddr.resized,
                 data = writeCombined._2.data,
                 enable = writeCombined.fire,
                 mask = writeCombined._2.strb
@@ -110,9 +131,10 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
             bStream.payload := writePayload
             axi.writeRsp << bStream
 
+            val readAddr = readAddrStream.addr(wordRange)
             val readData = ram
                 .readSync(
-                    address = addr.resized
+                    address = readAddr.resized
                 )
                 .resized
             val savedReadData = Reg(cloneOf(readData))
@@ -144,16 +166,10 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends Bundle {
 
             axi.arw.ready.noBackendCombMerge //Verilator perf
         }
-        axi
     }
 
-    def withSoftResetOf(ram: Mem[Bits], softReset: Bool): Axi4Shared = {
-        val clock = ClockDomain.current.copy(softReset = softReset)
-        val area = new ClockingArea(clock) {
-
-            val axi = attach(ram)
-        }
-        area.axi
+    def attach(ram: Mem[Bits]) = {
+        this.ram.load(ram)
     }
 }
 
@@ -176,9 +192,7 @@ class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCo
         SpinalWarning("Axi4SharedOnChipRamMultiPort might not support Axi4 Lock, Region, Cahce, Prot and Qos featrues!")
 
     val ram   = Mem(config.dataType, wordCount.toInt)
-    val ports = Vec(Axi4SharedOnChipRamPort(config), portCount)
-    for (i <- 0 until portCount) {
-        io.axis(i) >> ports(i).attach(ram)
-    }
+    val ports = Array.fill(portCount)(Axi4SharedOnChipRamPort(config, ram))
+    (io.axis, ports).zipped foreach ((m, s) => m >> s)
 }
 
