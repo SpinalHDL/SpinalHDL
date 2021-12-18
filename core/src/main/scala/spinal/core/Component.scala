@@ -343,9 +343,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /**
     * Empty Component, remove logic in component and assign zero on output port as stub
-    * @example {{{ val dut = (new MyComponent).stub }}}
+    * @example {{{ val dut = (new MyComponent).stub() }}}
     */
-  def stub: this.type = this.rework{
+  def stub(): this.type = this.rework{
     // step1: First remove all we don't want
     this.children.clear()
     this.dslBody.foreachStatements{
@@ -353,7 +353,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       case s => s.removeStatement()
     }
     // step2: remove output and assign zero
-    // this step cant merge into step1
+    // this step can't merge into step1
     this.dslBody.foreachStatements{
       case bt : BaseType if bt.isOutput | bt.isInOut =>
         bt.removeAssignments()
