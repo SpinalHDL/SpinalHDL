@@ -108,7 +108,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
 
     //WRITE RSP
     bQueue(id).enqueue { () =>
-      assert(b.resp.toInt == 0)
+      if(busConfig.useResp) assert(b.resp.toInt == 0)
       mappingFree(mapping)
     }
   }
@@ -208,9 +208,9 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
 
     //READ RSP
     for(beat <- 0 to len) rQueue(id).enqueue { () =>
-      assert(r.resp.toInt == 0)
-      assert(r.last.toBoolean == (beat == len))
-      if(r.last.toBoolean) {
+      if(busConfig.useResp) assert(r.resp.toInt == 0)
+      if(busConfig.useLast) assert(r.last.toBoolean == (beat == len))
+      if((busConfig.useLast && r.last.toBoolean) || (beat == len)) {
         mappingFree(mapping)
         rspCounter+=1
       }
@@ -247,8 +247,8 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
       val id = awQueue.dequeue()
       wCount -= 1
       bQueue(id) += {() =>
-        b.id #= id
-        b.resp #= 0
+        if(busConfig.useId) b.id #= id
+        if(busConfig.useResp) b.resp #= 0
       }
     }
   }
@@ -259,7 +259,7 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
     update()
   }
   val wMonitor = StreamMonitor(w, clockDomain){w =>
-    if(w.last.toBoolean) {
+    if(busConfig.useLast && w.last.toBoolean) {
       wCount = wCount + 1
       update()
     }
@@ -310,9 +310,9 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
         }
       }
       rQueue(id) += { () =>
-        r.id #= id
-        r.resp #= 0
-        r.last #= (beat == len)
+        if(busConfig.useId) r.id #= id
+        if(busConfig.useResp) r.resp #= 0
+        if(busConfig.useLast) r.last #= (beat == len)
         var data = BigInt(0)
         for(i <- 0 until busConfig.bytePerWord){
           data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i*8
@@ -375,8 +375,8 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
         }
       }
       wProcess += { (w : WTransaction) =>
-        assert(w.last == (beat == len))
-        val strb = w.strb
+        if(busConfig.useLast) assert(w.last == (beat == len))
+        val strb = if(busConfig.useStrb) w.strb.toInt else ((1 << busConfig.bytePerWord) - 1)
         val data = w.data
         for(i <- 0 until busConfig.bytePerWord){
           if(((strb >> i) & 1) != 0){
@@ -389,7 +389,9 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val wMonitor = StreamMonitor(w, clockDomain){w =>
-    wQueue += WTransaction(w.data.toBigInt, w.strb.toBigInt, w.last.toBoolean)
+    val strb = if(busConfig.useStrb) w.strb.toInt else ((1 << busConfig.bytePerWord) - 1)
+    val last = if(busConfig.useLast) w.last.toBoolean else false
+    wQueue += WTransaction(w.data.toBigInt, strb, last)
     update()
   }
 }
@@ -430,15 +432,15 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
       val accessAddress = beatAddress & ~BigInt(busConfig.bytePerWord-1)
 
       rQueue += { () =>
-        assert(r.last.toBoolean == (beat == len))
-        assert(r.resp.toInt == 0)
+        if(busConfig.useLast) assert(r.last.toBoolean == (beat == len))
+        if(busConfig.useResp) assert(r.resp.toInt == 0)
         val data = r.data.toBigInt
         val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
         val end = start + bytePerBeat
         for(i <- start until end){
           onReadByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte, id)
         }
-        if(r.last.toBoolean) onLast(id)
+        if((busConfig.useLast && r.last.toBoolean) || (beat == len)) onLast(id)
       }
     }
   }
