@@ -239,30 +239,36 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
   val busConfig = aw.config
   val awQueue = mutable.Queue[Int]()
   var wCount = 0
+  var wDone = false
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
 
   def update(): Unit ={
-    if(awQueue.nonEmpty && wCount > 0){
-      val id = awQueue.dequeue()
-      wCount -= 1
-      bQueue(id) += {() =>
-        if(busConfig.useId) b.id #= id
-        if(busConfig.useResp) b.resp #= 0
+    if(awQueue.nonEmpty){
+      if(wDone || (busConfig.useLen && wCount == 0) ){
+        val id = awQueue.dequeue()
+        bQueue(id) += {() =>
+          if(busConfig.useId) b.id #= id
+          if(busConfig.useResp) b.resp #= 0
+        }
+        wDone = false
+      } else {
+        wCount -= 1
       }
     }
   }
 
   val awMonitor = StreamMonitor(aw, clockDomain){aw =>
     val id = if(busConfig.useId) aw.id.toInt else 0
+    wCount = if(busConfig.useLen) aw.len.toInt else 0
     awQueue += id
     update()
   }
   val wMonitor = StreamMonitor(w, clockDomain){w =>
     if(busConfig.useLast && w.last.toBoolean) {
-      wCount = wCount + 1
-      update()
+      wDone = true
     }
+    update()
   }
 
   val bDriver = StreamDriver(b, clockDomain){ _ =>
