@@ -239,7 +239,8 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
   val busConfig = aw.config
   val awQueue = mutable.Queue[Int]()
   var wCount = 0
-  val bQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val bQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
 
   def update(): Unit ={
     if(awQueue.nonEmpty && wCount > 0){
@@ -287,7 +288,8 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     this(bus.ar, bus.r, clockDomain);
   }
   val busConfig = ar.config
-  val rQueue = Array.fill(1 << busConfig.idWidth)(mutable.Queue[() => Unit]())
+  val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
+  val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
 
   val arMonitor = StreamMonitor(ar, clockDomain){ar =>
