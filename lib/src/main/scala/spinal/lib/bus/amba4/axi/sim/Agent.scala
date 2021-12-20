@@ -378,7 +378,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   }
 
   val awMonitor = StreamMonitor(aw, clockDomain){_ =>
-    val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.dataWidth / 8)
+    val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.bytePerWord)
     val len = if(busConfig.useLen) aw.len.toInt else 0
     val burst = if(busConfig.useBurst) aw.burst.toInt else 0
     val addr = aw.addr.toBigInt
@@ -387,19 +387,23 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     for(beat <- 0 to len) {
       val beatAddress = burst match {
         case 0 => addr
-        case 1 => (addr + bytePerBeat*beat) & ~BigInt(busConfig.bytePerWord-1)
+        case 1 => (addr + bytePerBeat*beat)
         case 2 => {
           val base = addr & ~BigInt(bytes-1)
-          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1))) &  ~BigInt(busConfig.bytePerWord-1)
+          (base + ((addr + bytePerBeat*beat) & BigInt(bytes-1)))
         }
       }
+      val accessAddress = beatAddress & ~BigInt(busConfig.bytePerWord-1)
+
       wProcess += { (w : WTransaction) =>
         if(busConfig.useLast) assert(w.last == (beat == len))
         val strb = if(busConfig.useStrb) w.strb.toInt else ((1 << busConfig.bytePerWord) - 1)
         val data = w.data
-        for(i <- 0 until busConfig.bytePerWord){
+        val start = ((beatAddress & ~BigInt(bytePerBeat-1)) - accessAddress).toInt
+        val end = start + bytePerBeat
+        for(i <- start until end){
           if(((strb >> i) & 1) != 0){
-            onWriteByte(beatAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte)
+            onWriteByte(accessAddress + i, ((data >> (8*i)).toInt & 0xFF).toByte)
           }
         }
       }
