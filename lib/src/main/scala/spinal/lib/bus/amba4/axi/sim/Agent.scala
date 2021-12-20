@@ -42,7 +42,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   def genCmd() : Unit = {
     if(!allowGen) return
     val region = if(busConfig.useRegion) aw.region.randomizedInt() else 0
-    val burst = bursts(Random.nextInt(bursts.size))
+    val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
     val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
@@ -159,7 +159,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   def genCmd() : Unit = {
     if(!allowGen) return
     val region = if(busConfig.useRegion) ar.region.randomizedInt() else 0
-    val burst = bursts(Random.nextInt(bursts.size))
+    val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
     val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
@@ -311,7 +311,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
-    val burst = if(busConfig.useBurst) ar.burst.toInt else 0
+    val burst = if(busConfig.useBurst) ar.burst.toInt else 1
     val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
@@ -380,7 +380,7 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   val awMonitor = StreamMonitor(aw, clockDomain){_ =>
     val size = if(busConfig.useSize) aw.size.toInt else log2Up(busConfig.bytePerWord)
     val len = if(busConfig.useLen) aw.len.toInt else 0
-    val burst = if(busConfig.useBurst) aw.burst.toInt else 0
+    val burst = if(busConfig.useBurst) aw.burst.toInt else 1
     val addr = aw.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
@@ -439,7 +439,7 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
     val size = if(busConfig.useSize) ar.size.toInt else log2Up(busConfig.dataWidth / 8)
     val len = if(busConfig.useLen) ar.len.toInt else 0
     val id = if(busConfig.useId) ar.id.toInt else 0
-    val burst = if(busConfig.useBurst) ar.burst.toInt else 0
+    val burst = if(busConfig.useBurst) ar.burst.toInt else 1
     val addr = ar.addr.toBigInt
     val bytePerBeat = (1 << size)
     val bytes = (len + 1) * bytePerBeat
