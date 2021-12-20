@@ -23,6 +23,11 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
 
   val pageAlignBits = 12
   val busConfig = aw.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+
   val awQueue = mutable.Queue[() => Unit]()
   val wQueue = mutable.Queue[() => Unit]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
@@ -43,7 +48,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     if(!allowGen) return
     val region = if(busConfig.useRegion) aw.region.randomizedInt() else 0
     val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
-    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)
+    val len = if(busConfig.useLen){if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)} else 0
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
     val sizeByte = 1 << size
@@ -141,6 +146,11 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   
   val pageAlignBits = 12
   val busConfig = ar.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+
   val arQueue = mutable.Queue[() => Unit]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
@@ -152,7 +162,6 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   def mappingFree(mapping : SizeMapping) : Unit
   def bursts = List(0,1,2)
 
-
   def pending = rQueue.exists(_.nonEmpty)
   StreamReadyRandomizer(r, clockDomain)
 
@@ -160,7 +169,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
     if(!allowGen) return
     val region = if(busConfig.useRegion) ar.region.randomizedInt() else 0
     val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
-    val len = if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)
+    val len = if(busConfig.useLen){if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)} else 0
     val lenBeat = len + 1
     val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
     val sizeByte = 1 << size
@@ -238,6 +247,11 @@ class Axi4WriteOnlySlaveAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream
   }
 
   val busConfig = aw.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+
   val awQueueDepth = 1
   val awQueue = mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
@@ -300,7 +314,12 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     this(bus.ar, bus.r, clockDomain);
   }
 
-  val busConfig = ar.config  
+  val busConfig = ar.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+
   val arQueueDepth = 1
   val arQueue = mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
@@ -362,9 +381,14 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
   def this(bus: Axi4, clockDomain: ClockDomain) {
     this(bus.aw, bus.w, bus.b, clockDomain);
   }
-  val busConfig = aw.config
-  def onWriteByte(address : BigInt, data : Byte) : Unit
 
+  val busConfig = aw.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+
+  def onWriteByte(address : BigInt, data : Byte) : Unit
   case class WTransaction(data : BigInt, strb : BigInt, last : Boolean){
 
   }
@@ -429,7 +453,13 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
   def this(bus: Axi4, clockDomain: ClockDomain){
     this(bus.ar, bus.r, clockDomain);
   }
+
   val busConfig = ar.config
+  if(!busConfig.useLen){
+    SpinalWarning("The Axi4Config with useLen == false is only tested by assigning len = 0, " 
+      + "determine the burst length of transcation by last signal should not work.")
+  }
+  
   def onReadByte(address : BigInt, data : Byte, id : Int) : Unit
   def onLast(id : Int) : Unit
 
