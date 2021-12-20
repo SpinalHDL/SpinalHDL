@@ -29,7 +29,7 @@ package spinal.lib.bus.amba3.apb
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
-
+import scala.collection.Seq
 
 object Apb3Decoder{
 
