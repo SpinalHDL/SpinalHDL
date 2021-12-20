@@ -340,4 +340,26 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     ctx.restore()
     ret
   }
+
+  /**
+    * Empty Component, remove logic in component and assign zero on output port as stub
+    * @example {{{ val dut = (new MyComponent).stub() }}}
+    */
+  def stub(): this.type = this.rework{
+    // step1: First remove all we don't want
+    this.children.clear()
+    this.dslBody.foreachStatements{
+      case bt : BaseType if !bt.isDirectionLess =>
+      case s => s.removeStatement()
+    }
+    // step2: remove output and assign zero
+    // this step can't merge into step1
+    this.dslBody.foreachStatements{
+      case bt : BaseType if bt.isOutput | bt.isInOut =>
+        bt.removeAssignments()
+        bt := bt.getZero
+      case s =>
+    }
+    this
+  }
 }
