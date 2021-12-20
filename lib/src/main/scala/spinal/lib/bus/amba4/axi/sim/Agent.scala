@@ -97,12 +97,10 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     var beatOffset = (address & (busConfig.bytePerWord-1)).toInt
     for (beat <- 0 until lenBeat) {
       val beatOffsetCache = beatOffset
-//      println(beatOffsetCache)
       wQueue.enqueue { () =>
         w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
         if(busConfig.useStrb)  w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
-//        if(busConfig.useStrb)  w.strb #= (((1 << bytesInBeat)-1) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
         if(busConfig.useWUser) w.user.randomize()
         if(busConfig.useLast)  w.last #= beat == lenBeat-1
       }
