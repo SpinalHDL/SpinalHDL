@@ -299,7 +299,10 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
   def this(bus: Axi4, clockDomain: ClockDomain) {
     this(bus.ar, bus.r, clockDomain);
   }
-  val busConfig = ar.config
+
+  val busConfig = ar.config  
+  val arQueueDepth = 1
+  val arQueue = mutable.Queue[Int]()
   val idCount = if(busConfig.useId) (1 << busConfig.idWidth) else 1
   val rQueue = Array.fill(idCount)(mutable.Queue[() => Unit]())
   def readByte(address : BigInt) : Byte = Random.nextInt().toByte
@@ -330,8 +333,12 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
           data = data | (BigInt(readByte(beatAddress + i).toInt & 0xFF)) << i*8
         }
         r.data #= data
+        if(beat == len){
+          arQueue.dequeue()
+        }
       }
     }
+    arQueue.enqueue(id)
   }
 
 
@@ -345,7 +352,7 @@ class Axi4ReadOnlySlaveAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], clockDomain
     }
   }
 
-  val arDriver = StreamReadyRandomizer(ar, clockDomain)
+  val arDriver = StreamReadyRandomizer(ar, clockDomain, () => arQueue.size < arQueueDepth)
 }
 
 abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : Stream[Axi4B], clockDomain: ClockDomain) {
