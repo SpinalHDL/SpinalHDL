@@ -150,7 +150,7 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
 
             readStream.translateFrom(readAddrStream) { (to, from) =>
                 if (axi.config.useId) to.id := from.id
-                to.last := from.last
+                if (axi.config.useLast) to.last := from.last
                 to.data := 0
                 to.setOKAY()
                 if (axi.config.useRUser) to.user := from.user
