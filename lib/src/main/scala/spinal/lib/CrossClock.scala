@@ -126,7 +126,7 @@ object ResetCtrl{
         clockDomain = clockCd,
         inputPolarity = HIGH,
         bufferDepth = bufferDepth
-      ),
+      ).setCompositeName(resetCd.reset, "syncronized", true),
       config = clockCd.config
     )
   }
