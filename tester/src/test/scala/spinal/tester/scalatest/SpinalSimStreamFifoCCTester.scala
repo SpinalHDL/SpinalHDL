@@ -88,7 +88,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
   test("testSyncReset") {
     //Compile the simulator
-    val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.withFstWave.compile(
+    val compiled = SimConfig.withConfig(SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(resetKind = SYNC))).allOptimisation.compile(
       rtl = new StreamFifoCC(
         dataType = Bits(32 bits),
         depth = 32,

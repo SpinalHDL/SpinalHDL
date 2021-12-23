@@ -209,7 +209,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
   }
 
 
-  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset)(inputClock)
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset && inputClock.hasResetSignal)(inputClock)
   val outputArea = new ClockingArea(finalOutputClock) {
     val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
