@@ -94,17 +94,17 @@ package object lib  {
     val bigInt: BigInt
     val defaultAlignBit: Int = 0
 
-    def hexString: String = binarySystem.LiteralToString.HexString(bigInt, defaultAlignBit)
-    def octString: String = binarySystem.LiteralToString.OctString(bigInt, defaultAlignBit)
-    def binString: String = binarySystem.LiteralToString.BinString(bigInt, defaultAlignBit)
+    def hexString(): String = binarySystem.LiteralToString.HexString(bigInt, defaultAlignBit)
+    def octString(): String = binarySystem.LiteralToString.OctString(bigInt, defaultAlignBit)
+    def binString(): String = binarySystem.LiteralToString.BinString(bigInt, defaultAlignBit)
 
     def hexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(bigInt, bitSize)
     def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(bigInt, bitSize)
     def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(bigInt, bitSize)
 
-    def toBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, defaultAlignBit)
-    def toDecst: List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, defaultAlignBit)
-    def toOctst: List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, defaultAlignBit)
+    def toBinst(): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, defaultAlignBit)
+    def toDecst(): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, defaultAlignBit)
+    def toOctst(): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, defaultAlignBit)
 
     def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, num)
     def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, num)

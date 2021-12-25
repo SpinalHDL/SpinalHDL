@@ -3,7 +3,7 @@ package spinal.lib.tools.binarySystem
 object LiteralToBinst {
   def listPad(x: List[Int], size: Int): List[Int] = {
     if(size <= x.size){
-      x.drop(x.size - size)
+      x
     } else {
       List.fill(size - x.size)(0) ++ x
     }
