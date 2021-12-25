@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.tester
 import spinal.core._
 import spinal.core.sim._
@@ -11,6 +11,7 @@ import spinal.lib.bus.wishbone._
 import spinal.lib.wishbone.sim._
 import spinal.lib.sim._
 import scala.util.Random
+import scala.collection.Seq
 
 class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings : Seq[SizeMapping]) extends Component{
   val io = new Bundle{
@@ -29,7 +30,7 @@ class WishboneInterconComponent(config : WishboneConfig,n_masters: Int,decodings
   }
 }
 
-class SpinalSimWishboneSimInterconTester extends FunSuite{
+class SpinalSimWishboneSimInterconTester extends AnyFunSuite{
   def testIntercon(config : WishboneConfig,decodings : Seq[SizeMapping],masters: Int,description : String = ""): Unit = {
     val fixture = SimConfig.allOptimisation.compile(rtl = new WishboneInterconComponent(config,masters,decodings))
     fixture.doSim(description){ dut =>

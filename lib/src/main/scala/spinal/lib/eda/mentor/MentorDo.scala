@@ -3,6 +3,7 @@ package spinal.lib.eda.mentor
 import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.Seq
 
 /**
  * Created by PIC32F_USER on 29/06/2016.

@@ -46,6 +46,7 @@ object TypeBits
 object TypeUInt
 object TypeSInt
 object TypeEnum
+object TypeStruct
 
 
 trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
@@ -135,6 +136,12 @@ trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLin
       ptr = ptr.dlceNext
       func(current)
     }
+  }
+
+  def cldCount: Int ={
+    var count = 0
+    dlcForeach{_ => count += 1}
+    count
   }
 }
 
@@ -276,4 +283,13 @@ object GraphUtils{
 
 class BooleanPimped(pimped : Boolean){
   def generate[T](block : => T) : T = if(pimped) block else null.asInstanceOf[T]
+  def toInt = if(pimped) 1 else 0
+}
+
+
+class IntPimped(pimped : Int){
+  def toBoolean = pimped match {
+    case 0 => false
+    case 1 => true
+  }
 }

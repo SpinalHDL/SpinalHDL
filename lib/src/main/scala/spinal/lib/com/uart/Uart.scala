@@ -5,8 +5,8 @@ import spinal.lib._
 
 
 case class Uart(ctsGen : Boolean = false, rtsGen : Boolean = false) extends Bundle with IMasterSlave {
-  val txd = Bool
-  val rxd = Bool
+  val txd = Bool()
+  val rxd = Bool()
   val cts = ctsGen generate Bool()
   val rts = rtsGen generate Bool()
 

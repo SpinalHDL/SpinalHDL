@@ -33,8 +33,8 @@ import scala.collection.mutable
   *
   * @example {{{
   *     val cmd = new Bundle{
-  *       val init   = in Bool
-  *       val start  = in Bool
+  *       val init   = in Bool()
+  *       val start  = in Bool()
   *       val result = out Bits(32 bits)
   *     }
   * }}}
@@ -64,6 +64,15 @@ trait ValCallbackRec extends ValCallback{
           for ((e, i) <- seq.zipWithIndex) {
             valCallbackOn(e, name + "_" + i, refs)
           }
+        case seq: Set[_]   =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case seq: mutable.LinkedHashSet[_]   =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case Some(x) => valCallbackOn(x, name, refs)
         case _             =>
       }
 

@@ -18,23 +18,23 @@ import spinal.lib.soc.pinsec.{PinsecConfig, PinsecTimerCtrlExternal, Pinsec}
 
 //object PinsecTester{
 //  case class SdramModel() extends BlackBox{
-//    val Dq = in Bool
-//    val Addr = in Bool
-//    val Ba = in Bool
-//    val Clk = in Bool
-//    val Cke = in Bool
-//    val Cs_n = in Bool
-//    val Ras_n = in Bool
-//    val Cas_n = in Bool
-//    val We_n = in Bool
-//    val Dqm = in Bool
+//    val Dq = in Bool()
+//    val Addr = in Bool()
+//    val Ba = in Bool()
+//    val Clk = in Bool()
+//    val Cke = in Bool()
+//    val Cs_n = in Bool()
+//    val Ras_n = in Bool()
+//    val Cas_n = in Bool()
+//    val We_n = in Bool()
+//    val Dqm = in Bool()
 //  }
 //
 //  case class PinsecTester() extends Component{
 //    val io = new Bundle{
-//      val asyncReset = in Bool
-//      val axiClk = in Bool
-//      val jtag_tck = in Bool
+//      val asyncReset = in Bool()
+//      val axiClk = in Bool()
+//      val jtag_tck = in Bool()
 //      val jtag = slave(Jtag())
 //      val gpioA = master(TriStateArray(32 bits))
 //      val gpioB = master(TriStateArray(32 bits))
@@ -68,7 +68,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     sdramPowerupCounter.component.rework(
       sdramPowerupCounter init(sdramPowerupCounter.maxValue - 100)
     )
-    pinsec.axi.ram.rework{
+    val miaou = pinsec.axi.ram.rework(new Area{
       import pinsec.axi.ram._
 
       val port = ram.writePort
@@ -76,9 +76,13 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
       port.address.setName("ram_port0_address") := 0
       port.data.setName("ram_port0_writeData") := 0
 
-      Bool().setName("ram_port0_enable") := False
-      Bits(4 bits).setName("ram_port0_mask") := 0
-    }
+      val a = Bool().setName("ram_port0_enable")
+      val b = Bits(4 bits).setName("ram_port0_mask")
+      a := False
+      b := 0
+    })
+    miaou.a.pull()
+    miaou.b.pull()
     pinsec
   }
   override def backendConfig(config: SpinalConfig) = config.mode match {

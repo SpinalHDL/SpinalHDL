@@ -42,15 +42,20 @@ class Tab4 extends VerilogTheme {
 
 
 trait VerilogBase extends VhdlVerilogBase{
-  val theme = new Tab2 //TODO add into SpinalConfig
+  var globalPrefix = ""
 
+  val theme = new Tab2 //TODO add into SpinalConfig
   def expressionAlign(net: String, section: String, name: String) = {
     f"$net%-10s $section%-8s $name"
   }
 
   def emitExpressionWrap(e: Expression, name: String): String = {
 //    s"  wire ${emitType(e)} ${name};\n"
-    theme.maintab + expressionAlign("wire", emitType(e), name) + ";\n"
+    if (!e.isInstanceOf[SpinalStruct]) {
+      val isReg = e.isInstanceOf[Multiplexer]
+      theme.maintab + expressionAlign(if(isReg) "reg" else "wire", emitType(e), name) + ";\n"
+    } else
+      theme.maintab + expressionAlign(e.asInstanceOf[SpinalStruct].getTypeString, "", name) + ";\n"
   }
 
   def emitExpressionWrap(e: Expression, name: String, nature: String): String = {
@@ -79,6 +84,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
@@ -90,6 +96,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitCommentAttributes(attributes: Iterable[Attribute]): String = {
     val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeInteger => attribute.getName + " = " + attribute.value.toString
       case attribute: AttributeFlag => attribute.getName
     }
 
@@ -99,17 +106,32 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+//    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    var prefix_fix = prefix;
+    if(prefix=="`" && !enum.spinalEnum.isGlobalEnable) prefix_fix = ""
+
+    if(enum.spinalEnum.isPrefixEnable) {
+      val withEncoding = enum.spinalEnum.defaultEncoding != encoding && (enum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+      prefix_fix + globalPrefix + enum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + enum.getName()
+    } else {
+      prefix_fix + globalPrefix + enum.getName()
+    }
   }
 
   def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
 
   def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+//    prefix + enum.getName() + "_" + encoding.getName() + "_type"
+    val bitCount     = encoding.getWidth(enum)
+    s"[${bitCount - 1}:0]"
   }
 
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+    s"${globalPrefix}${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+  }
+
+  def emitStructType(struct: SpinalStruct): String = {
+    return struct.getTypeString
   }
 
   def emitType(e: Expression): String = e.getTypeObject match {
@@ -120,6 +142,7 @@ trait VerilogBase extends VhdlVerilogBase{
     case `TypeEnum` => e match {
       case e : EnumEncoded => emitEnumType(e.getDefinition, e.getEncoding)
     }
+    case `TypeStruct` => emitStructType(e.asInstanceOf[SpinalStruct])
   }
 
   def emitDirection(baseType: BaseType) = baseType.dir match {

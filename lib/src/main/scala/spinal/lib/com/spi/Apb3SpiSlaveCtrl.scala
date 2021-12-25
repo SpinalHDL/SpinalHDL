@@ -19,7 +19,7 @@ case class Apb3SpiSlaveCtrl(generics : SpiSlaveCtrlMemoryMappedConfig) extends C
   val io = new Bundle{
     val apb =  slave(Apb3(Apb3SpiSlaveCtrl.getApb3Config))
     val spi = master(SpiSlave())
-    val interrupt = out Bool
+    val interrupt = out Bool()
   }
 
   val spiCtrl = new SpiSlaveCtrl(generics.ctrlGenerics)

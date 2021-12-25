@@ -5,8 +5,8 @@ import spinal.core._
 //
 //class AdderCell extends Component {
 //  val io = new Bundle {
-//    val a, b, cin = in Bool
-//    val sum, cout = out Bool
+//    val a, b, cin = in Bool()
+//    val sum, cout = out Bool()
 //  }
 //  io.sum := io.a ^ io.b ^ io.cin
 //  io.cout := (io.a & io.b) | (io.a & io.cin) | (io.b & io.cin)
@@ -15,9 +15,9 @@ import spinal.core._
 //class Adder(width: Int) extends Component {
 //  val io = new Bundle {
 //    val a, b = in UInt (width bit)
-//    val cin = in Bool
+//    val cin = in Bool()
 //    val sum = out UInt (width bit)
-//    val cout = out Bool
+//    val cout = out Bool()
 //  }
 //  val cells = Array.fill(width)(new AdderCell)
 //  for(i <- 0 until width){
@@ -105,9 +105,9 @@ import spinal.core._
 class MyTopLevelX extends Component {
   //Define some input/output. Bundle like a VHDL record or a verilog struct.
   val io = new Bundle {
-    val a = in Bool
-    val b = in Bool
-    val c = out Bool
+    val a = in Bool()
+    val b = in Bool()
+    val c = out Bool()
   }
 
   //Define some asynchronous logic
@@ -131,15 +131,15 @@ class Ram_1w_1r(_wordWidth: Int, _wordCount: Int) extends BlackBox {
   }
 
   val io = new Bundle {
-    val clk = in Bool
+    val clk = in Bool()
 
     val wr = new Bundle {
-      val en = in Bool
+      val en = in Bool()
       val addr = in UInt (log2Up(_wordCount) bit)
       val data = in Bits (_wordWidth bit)
     }
     val rd = new Bundle {
-      val en = in Bool
+      val en = in Bool()
       val addr = in UInt (log2Up(_wordCount) bit)
       val data = out Bits (_wordWidth bit)
     }
@@ -180,8 +180,8 @@ object Trash{
   }
 
   case class VGA(channelWidth : Int) extends Bundle{
-    val hsync = Bool
-    val vsync = Bool
+    val hsync = Bool()
+    val vsync = Bool()
     val color = RGB(channelWidth)
   }
 

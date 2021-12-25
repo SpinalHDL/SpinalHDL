@@ -63,11 +63,13 @@ object State{
 /**
   * State
   */
+
+case class StateMachineTask(priority : Int, body : () => Unit)
 class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area with ScalaLocated {
 
   val onEntryTasks       = ArrayBuffer[() => Unit]()
   val onExitTasks        = ArrayBuffer[() => Unit]()
-  val whenActiveTasks    = ArrayBuffer[() => Unit]()
+  val whenActiveTasks    = ArrayBuffer[StateMachineTask]()
   val whenInactiveTasks  = ArrayBuffer[() => Unit]()
   val whenIsNextTasks    = ArrayBuffer[() => Unit]()
   @dontName var innerFsm = ArrayBuffer[StateMachine]()
@@ -83,7 +85,12 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
   }
 
   def whenIsActive(doThat: => Unit): this.type = {
-    whenActiveTasks += (() => doThat)
+    whenIsActiveWithPriority(0)(doThat)
+    this
+  }
+
+  def whenIsActiveWithPriority(priority : Int)(doThat: => Unit): this.type = {
+    whenActiveTasks += StateMachineTask(priority, () => doThat)
     this
   }
 
@@ -114,13 +121,14 @@ class State(implicit stateMachineAccessor: StateMachineAccessor) extends Area wi
 /**
   * Use to execute a State machine into a stateMachine
   */
-class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+class StateFsm[T <: StateMachineAccessor](val _fsm:  T)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+  val fsm = _fsm
 
   onEntry{
     fsm.startFsm()
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     when(fsm.wantExit()){
       doWhenCompletedTasks()
     }
@@ -137,7 +145,8 @@ class StateFsm[T <: StateMachineAccessor](val fsm:  T)(implicit stateMachineAcce
   */
 object StatesSerialFsm {
 
-  def apply(fsms:  StateMachineAccessor*)(doWhenCompleted: (State) =>  Unit)(implicit stateMachineAccessor: StateMachineAccessor): Seq[State] = {
+  def apply(_fsms:  StateMachineAccessor*)(doWhenCompleted: (State) =>  Unit)(implicit stateMachineAccessor: StateMachineAccessor): Seq[State] = {
+    val fsms = _fsms
     var nextState: State = null
 
     val states = for(i <- fsms.size-1 downto 0) yield {
@@ -158,13 +167,14 @@ object StatesSerialFsm {
 /**
   * Run several state machine in parallel
   */
-class StateParallelFsm(val fsms: StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
-
+class StateParallelFsm(val _fsms: StateMachineAccessor*)(implicit stateMachineAccessor: StateMachineAccessor) extends State with StateCompletionTrait {
+  val fsms = _fsms
+  
   onEntry{
     fsms.foreach(_.startFsm())
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
     when(readys.reduce(_ && _)){
       doWhenCompletedTasks()
@@ -223,7 +233,7 @@ class StateDelay(cyclesCount: UInt)(implicit stateMachineAccessor: StateMachineA
     cache.value := cyclesCount
   }
 
-  whenIsActive{
+  whenIsActiveWithPriority(1){
     cache.value := cache.value - 1
     when(cache.value <= 1){
       doWhenCompletedTasks()

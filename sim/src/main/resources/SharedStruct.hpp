@@ -4,7 +4,9 @@
 #include<boost/interprocess/sync/scoped_lock.hpp>
 #include<boost/interprocess/sync/interprocess_condition.hpp>
 #include<boost/interprocess/containers/vector.hpp>
+#if !defined(__ARM_ARCH)
 #include<immintrin.h> //_mm_pause 
+#endif
 #include<exception>
 #include<atomic>
 #include<thread>
@@ -20,6 +22,18 @@ using namespace boost::interprocess;
 
 typedef allocator<uint8_t, managed_shared_memory::segment_manager>  ShmemAllocator;
 typedef vector<uint8_t, ShmemAllocator> SharedVector;
+
+inline void _spin_pause() {
+    #if defined(__ARM_ARCH)
+        #if __ARM_ARCH == 8
+    __asm__ __volatile__("yield" ::: "memory");
+        #else
+    __asm__ __volatile__("yield");
+        #endif
+    #else
+    _mm_pause();
+    #endif
+}
 
 class VpiException: public std::exception
 {
@@ -68,7 +82,7 @@ class SharedStruct {
             for(uint32_t spin_count = 0; status == ProcStatus::ready; ++spin_count) {
 
                 if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
-                    _mm_pause();
+                    _spin_pause();
                 } else {
                     std::this_thread::yield();
                     spin_count = 0;

@@ -21,7 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
-
+import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 trait TypeFactory{
@@ -44,6 +44,7 @@ object BaseType{
   final val isTypeNodeMask = 2
   final val isVitalMask    = 4
   final val isAnalogMask   = 8
+  final val isFrozen       = 16
 }
 
 /**
@@ -51,12 +52,12 @@ object BaseType{
   */
 abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignmentStatement] with Expression {
 
-  globalData.currentScope match {
+  DslScopeStack.get match {
     case null =>
     case scope => scope.append(this)
   }
 
-  var clockDomain = globalData.currentClockDomain
+  var clockDomain = ClockDomain.current
 
   /** Type of the base type */
   private var btFlags = 0
@@ -77,6 +78,18 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   /** Set baseType to Combinatorial */
   override def setAsComb(): this.type = {
     btFlags &= ~(BaseType.isRegMask | BaseType.isAnalogMask); this
+  }
+
+  override def freeze(): this.type = {
+    btFlags |= BaseType.isFrozen; this
+  }
+
+  override def unfreeze(): this.type = {
+    btFlags &= ~BaseType.isFrozen; this
+  }
+
+  def isFrozen(): Boolean = {
+    (btFlags & BaseType.isFrozen) != 0
   }
 
   /** Is the baseType a node */
@@ -112,13 +125,18 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   def hasAssignement : Boolean = !this.dlcIsEmpty
 
+  def initialFrom(that: AnyRef, target: AnyRef = this) = {
+    compositAssignFrom(that,target,InitialAssign)
+  }
+
+
   /** Don't remove/simplify this data during rtl generation */
   private[core] var dontSimplify = false
 
   /** Can this data be simplified ?? */
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
-  /** Remove all assignements of the base type */
+  /** Remove all assignments of the base type */
   override def removeAssignments(): this.type = {
     foreachStatements(s => {
       s.removeStatement()
@@ -194,14 +212,17 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
         if(!isReg)
           LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
         InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
+      case `InitialAssign` => InitialAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
-
+    if(isFrozen()){
+      LocatedPendingError(s"FROZEN ASSIGNED :\n$this := $that")
+    }
     that match {
       case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
-        globalData.dslScope.head.append(statement(that))
+        DslScopeStack.get.append(statement(that))
       case _ => kind match {
-        case `DataAssign` => LocatedPendingError(s"Assignement data type missmatch\n$this := $that")
-        case `InitAssign` => LocatedPendingError(s"Register initialisation type missmatch\nReg($this) init($that)")
+        case `DataAssign` => LocatedPendingError(s"Assignment data type mismatch\n$this := $that")
+        case `InitAssign` => LocatedPendingError(s"Register initialisation type mismatch\nReg($this) init($that)")
       }
     }
   }
@@ -231,7 +252,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
 
   private[core] def newMultiplexerExpression() : Multiplexer
-  /** Base fucntion to create mux */
+  /** Base function to create mux */
   private[core] def newMultiplexer[T <: Expression](select: UInt, inputs : ArrayBuffer[T]): Multiplexer = newMultiplexer(select,inputs,newMultiplexerExpression())
 
 
@@ -244,7 +265,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   private[core] def newBinaryMultiplexerExpression() : BinaryMultiplexer
-  /** Base fucntion to create mux */
+  /** Base function to create mux */
   private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): BinaryMultiplexer = newMultiplexer(sel,whenTrue, whenFalse, newBinaryMultiplexerExpression())
 
   /** Create a multiplexer */

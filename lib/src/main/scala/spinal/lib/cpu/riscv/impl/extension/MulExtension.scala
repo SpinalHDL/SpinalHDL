@@ -22,7 +22,7 @@ class MulExtension extends CoreExtension{
     def RegPip [T<:Data] (that : T) = spinal.core.RegNextWhen(that,sample)
 
     val s1 = new Area {
-      val aSigned,bSigned = Bool
+      val aSigned,bSigned = Bool()
       val a,b = Bits(32 bit)
 
       a := execute0.inInst.alu_op0

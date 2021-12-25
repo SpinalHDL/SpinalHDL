@@ -26,7 +26,8 @@ case class BmbSpiXdrMasterCtrl(p : SpiXdrMasterCtrl.MemoryMappingParameters, ctr
   }
 
   val ctrl = SpiXdrMasterCtrl(p.ctrl)
-  val mapping = SpiXdrMasterCtrl.driveFrom(ctrl, BmbSlaveFactory(io.ctrl))(p)
+  val factory = BmbSlaveFactory(io.ctrl)
+  val mapping = SpiXdrMasterCtrl.driveFrom(ctrl, factory)(p)
   if(p.xip != null) io.xip <> mapping.xip.xipBus
   io.spi <> ctrl.io.spi
   io.interrupt <> mapping.interruptCtrl.interrupt

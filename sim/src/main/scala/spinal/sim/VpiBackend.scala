@@ -14,6 +14,7 @@ import scala.sys.process._
 import spinal.sim.vpi._
 
 case class VpiBackendConfig(
+  val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
   val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
   var toplevelName: String   = null,
   var pluginsPath: String    = "simulation_plugins",
@@ -55,9 +56,8 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   var runIface = 0
 
   CFLAGS += " -fPIC -DNDEBUG -I " + pluginsPath
-  CFLAGS += (if(isMac) " -dynamiclib " else "")
   LDFLAGS += (if(!isMac) " -shared" else "")
-  LDFLAGS += (if(!isWindows) " -lrt" else "")
+  LDFLAGS += (if(!isWindows && !isMac) " -lrt" else "")
 
   val jdk = System.getProperty("java.home").replace("/jre","").replace("\\jre","")
 
@@ -104,7 +104,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
       "Compilation of SharedMemIface_wrap.cxx failed")
 
         assert(Process(Seq(CC, 
-          CFLAGS, 
+          CFLAGS + (if(isMac) " -dynamiclib " else ""),
           "SharedMemIface.o", 
           "SharedMemIface_wrap.o",
           LDFLAGS, 
@@ -276,12 +276,14 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
           elaborationFlags,
           toplevelName,
           s"--vpi=${pwd + "/" + vpiModulePath}",
-          runFlags).mkString(" "), 
+          runFlags).mkString(" "),
         new File(workspacePath),
         "PATH" -> pathStr).! (new Logger())
 
-      if (retCode != 0) iface.set_crashed(retCode)
-      assert(retCode == 0, s"Simulation of $toplevelName failed")
+        if (retCode != 0) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
       }
     }
     )
@@ -425,15 +427,20 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
     simulationDefSourceFile.write(simulationDefSource) 
     simulationDefSourceFile.close
 
+    config.rtlSourcesPaths.filter(s => s.endsWith(".bin") || s.endsWith(".mem")).foreach(path =>  FileUtils.copyFileToDirectory(new File(path), new File(workspacePath)))
+
+    val verilogIncludePaths = config.rtlIncludeDirs.map("-I " + new File(_).getAbsolutePath).mkString(" ")
+
     assert(Process(Seq(iverilogPath,
                        analyzeFlags,
+                       "-o",
+                       toplevelName + ".vvp",
                        "-s __simulation_def",
                        "-s",
                        toplevelName,
+                       verilogIncludePaths,
                        verilogSourcePaths,
-                       s"./rtl/__simulation_def.v",
-                       "-o",
-                       toplevelName + ".vvp").mkString(" "), 
+                       s"./rtl/__simulation_def.v").mkString(" "),
                      new File(workspacePath)).! (new Logger()) == 0, 
            s"Analyze step of verilog files failed") 
   }
@@ -453,11 +460,14 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                 toplevelName + ".vvp",
                                 runFlags).mkString(" "), 
                               new File(workspacePath)).! (new Logger())
-      if (retCode != 0) iface.set_crashed(retCode)
-      assert(retCode == 0, s"Simulation of $toplevelName failed")
+        if (retCode != 0) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
       }
     })
 
+//    thread.setUncaughtExceptionHandler(new VpiThreadExceptionHandler)
     thread.setDaemon(true)
     thread.start()
     thread

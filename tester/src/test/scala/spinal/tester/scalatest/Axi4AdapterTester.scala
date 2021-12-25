@@ -2,7 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.core.sim._
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim.SimCompiled
 import spinal.lib.bus.amba4.axi.sim.{Axi4ReadOnlyMasterAgent, Axi4ReadOnlyMonitor, Axi4ReadOnlySlaveAgent, Axi4WriteOnlyMasterAgent, Axi4WriteOnlyMonitor, Axi4WriteOnlySlaveAgent}
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4ReadOnlyUpsizer, Axi4WriteOnlyUpsizer}
@@ -11,7 +11,7 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable
 import scala.util.Random
 
-class Axi4UpsizerTester extends FunSuite {
+class Axi4UpsizerTester extends AnyFunSuite {
 
   def writeTester(dut : Axi4WriteOnlyUpsizer): Unit ={
     dut.clockDomain.forkStimulus(10)

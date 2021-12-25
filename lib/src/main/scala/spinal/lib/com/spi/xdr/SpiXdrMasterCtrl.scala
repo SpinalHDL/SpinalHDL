@@ -34,7 +34,7 @@ case class XdrOutput(rate : Int) extends Bundle with IMasterSlave{
 }
 
 case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
-  val writeEnable = Bool
+  val writeEnable = Bool()
   val read,write = Bits(rate bits)
 
   override def asMaster(): Unit = {
@@ -336,8 +336,8 @@ object SpiXdrMasterCtrl {
   }
 
   case class Cmd(p: Parameters) extends Bundle{
-    val kind = Bool
-    val read, write = Bool
+    val kind = Bool()
+    val read, write = Bool()
     val data = Bits(p.dataWidth bits)
 
     def isData = !kind
@@ -502,9 +502,9 @@ object SpiXdrMasterCtrl {
 
     val xip = ifGen(mapping.xip != null) (new Area{
       val xipBus = XipBus(mapping.xip)
-      val enable = Reg(Bool)
+      val enable = Reg(Bool())
       val instructionMod = Reg(p.ModType)
-      val instructionEnable = Reg(Bool)
+      val instructionEnable = Reg(Bool())
       val instructionData = Reg(Bits(8 bits))
       val addressMod = Reg(p.ModType)
       val dummyCount = Reg(UInt(4 bits))
@@ -662,7 +662,7 @@ object SpiXdrMasterCtrl {
           }
         }
 
-        val lastFired = Reg(Bool) setWhen(xipBus.rsp.lastFire)
+        val lastFired = Reg(Bool()) setWhen(xipBus.rsp.lastFire)
         STOP.onEntry(lastFired := False)
         STOP.whenIsActive{
           xipToCtrlMod := payloadMod

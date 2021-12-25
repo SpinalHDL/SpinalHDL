@@ -44,8 +44,8 @@ trait BusIf extends BusIfBase {
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
-    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc:${wordAddressInc}")
-    assert(address >= regPtr, s"located Position conflict to Pre allocated Address:${regPtr}")
+    assert(address % wordAddressInc == 0, s"located Position not align by wordAddressInc: ${wordAddressInc}")
+    assert(address >= regPtr, s"located Position conflict to Pre allocated Address: ${regPtr}")
     regPtr = address + wordAddressInc
     creatReg(symbol.name, address, doc)
   }
@@ -92,7 +92,7 @@ trait BusIf extends BusIfBase {
 
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
-      case 0 => SpinalError("There have no inputs Trrigger signals")
+      case 0 => SpinalError("There have no inputs Trigger signals")
       case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
       case _ =>
     }
@@ -113,7 +113,7 @@ trait BusIf extends BusIfBase {
 //  @AutoInterrupt
 //  def interruptFactory2(regNamePre: String, triggers: Bool*): Bool = {
 //    triggers.size match {
-//      case 0 => SpinalError("There have no inputs Trrigger signals")
+//      case 0 => SpinalError("There have no inputs Trigger signals")
 //      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
 //      case _ =>
 //    }

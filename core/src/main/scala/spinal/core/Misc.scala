@@ -29,6 +29,7 @@ import scala.collection.mutable
 import scala.collection.mutable.Stack
 import scala.reflect.ClassTag
 import scala.runtime.Nothing$
+import scala.collection.Seq
 
 
 
@@ -46,6 +47,7 @@ object log2Up {
     if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
     (value - 1).bitLength
   }
+  def apply(value : Int) : Int = apply(BigInt(value))
 }
 
 
@@ -70,7 +72,7 @@ object roundUp {
 
 
 /**
- * Return a new data with the same data structure than the given parameter (including bit width) 
+ * Return a new data with the same data structure as the given parameter (including bit width) 
  */
 object cloneOf {  
   def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
@@ -79,7 +81,7 @@ object cloneOf {
 
 
 /**
- * Return a new data with the same data structure than the given parameter (execept bit width)
+ * Return a new data with the same data structure as the given parameter (except bit width)
  */
 object weakCloneOf {
   def apply[T <: Data](that: T): T = {
@@ -128,14 +130,17 @@ class HardType[T <: Data](t : => T){
     }
     ret
   }
+  def craft() = apply()
   def getBitsWidth = t.getBitsWidth
 }
 
 
-object signalCache {
-  def apply[T <: Data](key: Object, subKey: Object)(factory: => T): T = {
-    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-    cache.getOrElseUpdate(subKey, factory).asInstanceOf[T]
+object signalCache{
+  def apply[T <: Data](key: Any)(factory: => T): T = {
+    Component.current.userCache.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+  def apply[T <: Data](key: Any, subKey: Any)(factory: => T): T = {
+    apply((key, subKey))(factory)
   }
 }
 
@@ -308,29 +313,42 @@ object cloneable {
 
 class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
   var lock = false
-  val map  = mutable.Map[String, Int]()
+  val map  = mutable.Set[String]()
+  val overlaps  = mutable.Map[String, Int]()
+
+  assert(duplicationPostfix.isEmpty)
 
   def allocateName(name: String): String = {
     assert(!lock)
     val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 0)
-    map(lowerCase) = count + 1
-    val finalCount =  count + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (finalCount == 0) name else (name + "_" + finalCount + duplicationPostfix)
+    if(!map.contains(lowerCase) &&  (parent == null || !parent.map.contains(lowerCase))) {
+      map += lowerCase
+      return name
+    }
+    var count = overlaps.getOrElseUpdate(lowerCase, 0)
+    while(true){
+      count += 1
+      val alternative = name + "_" + count
+      val alternativeLowCase = alternative.toLowerCase()
+      if(!map.contains(alternativeLowCase) && (parent == null || !parent.map.contains(alternativeLowCase))){
+        map += alternativeLowCase
+        overlaps(lowerCase) = count
+        return alternative
+      }
+    }
+    return null
   }
 
-  def getUnusedName(name: String): String = {
-    val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 0) + (if (parent != null) parent.map.getOrElse(lowerCase, 0) else 0)
-    if (count == 0) name else (name + "_" + count + duplicationPostfix)
-  }
+//  def getUnusedName(name: String): String = {
+//    allocateName(name)
+//  }
 
 
   def lockName(name: String): Unit = {
     assert(!lock)
     val lowerCase = name.toLowerCase
-    val count = map.getOrElse(lowerCase, 1)
-    map(lowerCase) = count
+//    assert(!map.contains(lowerCase))
+    map += lowerCase
   }
 
   def iWantIt(name: String, errorMessage: => String): Unit = {
@@ -338,7 +356,7 @@ class NamingScope(val duplicationPostfix : String, parent: NamingScope = null) {
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
       PendingError(errorMessage)
-    map(lowerCase) = 1
+    map += (lowerCase)
   }
 
   def lockScope(): Unit ={
@@ -513,4 +531,17 @@ object CombInit {
   }
 
   def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
+}
+
+
+trait AllowIoBundle{
+
+}
+
+object LutInputs extends ScopeProperty[Int]{
+  override def default: Int = 4
+}
+
+object ClassName{
+  def apply(that : Any) =  that.getClass.getSimpleName.replace("$","")
 }

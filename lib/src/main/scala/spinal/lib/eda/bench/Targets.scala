@@ -7,6 +7,7 @@ import spinal.lib.eda.microsemi.LiberoFlow
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
+import scala.collection.Seq
 
 trait Target {
   def synthesise(rtl: Rtl, workspace: String): Report
@@ -79,7 +80,7 @@ object XilinxStdTargets {
             frequencyTarget = 50 MHz,
             vivadoPath=vivadoArtix7Path,
             workspacePath=workspace + "_area",
-            toplevelPath=rtl.getRtlPath(),
+            rtl=rtl,
             family=getFamilyName(),
             device="xc7a200tfbg676-3"
             //            device="xc7k70t-fbg676-3"
@@ -93,7 +94,7 @@ object XilinxStdTargets {
             frequencyTarget = 400 MHz,
             vivadoPath=vivadoArtix7Path,
             workspacePath=workspace + "_fmax",
-            toplevelPath=rtl.getRtlPath(),
+            rtl=rtl,
             family=getFamilyName(),
             device="xc7a200tfbg676-3"
             //            device="xc7k70t-fbg676-3"

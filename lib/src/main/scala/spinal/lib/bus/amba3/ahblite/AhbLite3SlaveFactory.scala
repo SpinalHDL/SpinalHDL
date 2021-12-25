@@ -27,13 +27,13 @@ package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, SingleMapping}
-
+import scala.collection.Seq
 
 
 class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
 
-  override def readHalt  = {}
-  override def writeHalt = {}
+  override def readHalt()  = {}
+  override def writeHalt() = {}
 
   override def readAddress()  = bus.HADDR
   override def writeAddress() = bus.HADDR

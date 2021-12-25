@@ -27,7 +27,7 @@ import spinal.core.internals._
   */
 trait SIntFactory{
   /** Create a new SInt */
-  def SInt() = new SInt()
+  def SInt(u: Unit = null) = new SInt()
   /** Create a new SInt of a given width */
   def SInt(width: BitCount): SInt = SInt().setWidth(width.value)
 }
@@ -44,10 +44,10 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }
@@ -96,6 +96,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~ : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+
+  def valueRange: Range = {
+    assert(getWidth < 33)
+    (-(1l << getWidth-1) toInt) to (1 << getWidth-1)-1
+  }
 
   /* Implement fixPoint operators */
   def sign: Bool = this.msb

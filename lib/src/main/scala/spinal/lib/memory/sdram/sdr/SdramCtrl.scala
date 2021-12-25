@@ -10,7 +10,7 @@ import scala.math.BigDecimal.RoundingMode
 
 case class SdramCtrlCmd[T <: Data](c : SdramLayout,contextType : T) extends Bundle{
   val address = UInt(c.wordAddressWidth bits)
-  val write = Bool
+  val write = Bool()
   val data = Bits(c.dataWidth bits)
   val mask = Bits(c.bytePerWord bits)
   val context = cloneOf(contextType)
@@ -23,7 +23,7 @@ case class SdramCtrlRsp[T <: Data](c : SdramLayout,contextType : T)  extends Bun
 
 case class SdramCtrlAxi4SharedContext(idWidth : Int) extends Bundle{
   val id = UInt(idWidth bits)
-  val last = Bool
+  val last = Bool()
 }
 
 case class SdramCtrlBus[T <: Data](c : SdramLayout, contextType : T) extends Bundle with IMasterSlave {
@@ -113,7 +113,7 @@ case class SdramCtrlBackendCmd[T <: Data](c : SdramLayout,contextType : T) exten
 }
 
 case class SdramCtrlBank(c : SdramLayout) extends Bundle{
-  val active = Bool
+  val active = Bool()
   val row = UInt(c.rowWidth bits)
 }
 
@@ -341,7 +341,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout, t : SdramTimings, CAS : Int, co
       if(ext.isOutput) ext := int
     })
 
-    val remoteCke = Bool
+    val remoteCke = Bool()
     val readHistory = History(
       that       = cmd.valid && (cmd.task === READ || (if(produceRspOnWrite) cmd.task === WRITE else False)),
       range      = 0 to CAS + 2,

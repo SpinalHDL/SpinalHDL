@@ -20,7 +20,7 @@ case class BmbMacEth(p : MacEthParameter,
   val io = new Bundle{
     val bus =  slave(Bmb(bmbParameter))
     val phy = master(PhyIo(p.phy))
-    val interrupt = out Bool
+    val interrupt = out Bool()
   }
 
   val mac = new MacEth(p, txCd, rxCd)

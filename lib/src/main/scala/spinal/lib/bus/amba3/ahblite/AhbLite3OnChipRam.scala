@@ -47,7 +47,7 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config, byteCount: BigInt) 
 
   // Address/control phase to write data phase
   val pendingWrite = Reg(new Bundle{
-    val valid   = Bool
+    val valid   = Bool()
     val address = ram.addressType()
     val mask    = Bits(AhbLite3Config.bytePerWord bits)
   })
@@ -93,9 +93,9 @@ case class AhbLite3OnChipRamMultiPort(portCount : Int, AhbLite3Config: AhbLite3C
   for(ahb <- io.ahbs) {
     // Address/control phase to write data phase
     val pending = Reg(new Bundle {
-      val valid = Bool
-      val write = Bool
-      val readInvalid = Bool
+      val valid = Bool()
+      val write = Bool()
+      val readInvalid = Bool()
       val address = ram.addressType()
       val mask = Bits(AhbLite3Config.bytePerWord bits)
     })

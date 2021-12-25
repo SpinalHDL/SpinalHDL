@@ -22,9 +22,9 @@ case class alt_outbuf_diffGeneric(io_standard           : String       = "None",
 case class alt_outbuf_diff(val generic : alt_outbuf_diffGeneric = alt_outbuf_diffGeneric()) extends BlackBox{
 
   val io = new Bundle{
-    val i    = in  Bool
-    val o    = out Bool
-    val obar = out Bool
+    val i    = in  Bool()
+    val o    = out Bool()
+    val obar = out Bool()
   }.setName("")
 
   def i    : Bool = io.i

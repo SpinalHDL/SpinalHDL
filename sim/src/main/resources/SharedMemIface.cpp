@@ -234,8 +234,8 @@ void SharedMemIface::check_ready(){
 
         #ifndef NO_SPINLOCK_YIELD_OPTIMIZATION
         if (spin_count < SPINLOCK_MAX_ACQUIRE_SPINS) {
-            _mm_pause();
-        } else {
+            _spin_pause();
+	} else {
             std::this_thread::yield();
             spin_count = 0;
         }
