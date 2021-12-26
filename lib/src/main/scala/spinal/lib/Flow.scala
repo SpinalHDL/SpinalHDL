@@ -68,7 +68,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
   def toStream  : Stream[T] = toStream(null)
   def toStream(overflow : Bool) : Stream[T] = {
-    val ret = Stream(payloadType)
+    val ret = Stream(payloadType).setCompositeName(this, "toStream", true)
     ret.valid := this.valid
     ret.payload := this.payload
     if(overflow != null) overflow := ret.valid && !ret.ready
