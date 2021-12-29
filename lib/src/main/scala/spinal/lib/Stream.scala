@@ -1505,7 +1505,7 @@ object StreamFifoMultiChannelBench extends App{
 
 object StreamTransactionExtender {
     def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T) => T = (_: UInt, p: T) => p
+        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
     ): Stream[T] = {
         val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
         c.io.input << input
@@ -1514,7 +1514,7 @@ object StreamTransactionExtender {
     }
 
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
-        driver: (UInt, T) => T2
+        driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
         val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
         c.io.input << input
@@ -1529,7 +1529,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
-    var driver: (UInt, T) => T2
+    driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
         val count  = in UInt (countWidth bit)
@@ -1557,7 +1557,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         payload := io.input.payload
         outValid := True
     }
-    io.output.payload := driver(counter, payload)
+    io.output.payload := driver(counter, payload, lastOne)
     io.output.valid := outValid
     io.input.ready := (!outValid || (lastOne && io.output.fire))
 }
