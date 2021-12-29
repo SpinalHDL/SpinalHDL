@@ -135,22 +135,51 @@ object getFixSym{
 //  }
 //}
 
+object Fix {
+  /** Direct conversions */
+  def apply(that: UInt): Fix = {
+    val fix = new Fix(that.getWidth, that.getWidth, signed=false)
+    fix.raw := that.asBits
+    fix
+  }
+
+  def apply(that: SInt): Fix = {
+    val fix = new Fix(that.getWidth+1, that.getWidth+1, signed=true)
+    fix.raw := that.asBits
+    fix
+  }
+
+  def apply(that: UFix): Fix = {
+    val fix = new Fix(that.maxExp, that.bitCount, signed=false)
+    fix.raw := that.asBits
+    fix
+  }
+
+  def apply(that: SFix): Fix = {
+    val fix = new Fix(that.maxExp+1, that.bitCount+1, signed=true)
+    fix.raw := that.asBits
+    fix
+  }
+}
 
 /**
  * Fixed-point number representation.
  *
  * Underlying bits are:
- * Fix = N.(M-N)
+ * Fix = [S|U]N.(M-N)
  * Where:
- * N = intWidth
+ * N = intWidth - signed
  * M = bitWidth
+ *
+ * Ex:
+ * U16.8 = unsigned 16 bits + 8 frac bits
+ * S8.8 = sign + 7 bits + 8 frac bits
  *
  * @param intWidth Integer part bit width
  * @param bitWidth Total number bit width
  * @param signed   Interpret number as signed if true
  */
 class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends MultiData with Num[Fix] {
-  override def elements: ArrayBuffer[(String, Data)] = ???
 
   def signWidth = if (signed) 1 else 0
   /** Total binary width without sign */
@@ -162,7 +191,18 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   val raw: Bits = Bits(bitWidth bit)
 
+  raw.setRefOwner(this)
+  raw.setPartialName("", weak = true)
+
+  def sign: Bool = if (signed) raw.msb else False
+  def int: Bits = raw.takeHigh(intWidth).dropHigh(signWidth)
+  def frac: Bits = raw.takeLow(fracWidth)
+
   override def tag(q: QFormat): Fix = ???
+
+  override def elements: ArrayBuffer[(String, Data)] = {
+    ArrayBuffer("" -> raw)
+  }
 
   /** Aligns the decimal point of two fixed-point numbers */
   protected def align(left: Fix, right: Fix): (Bits, Bits) = {
@@ -177,7 +217,8 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Addition */
   override def +(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(this.intWidth + right.intWidth, this.bitWidth + right.bitWidth, this.signed | right.signed)
+    val res = new Fix(this.intWidth, this.bitWidth, this.signed | right.signed)
+    res.setName(s"${this.getName()}_${right.getName()}_add", true)
     res.raw := (_left.asUInt + _right.asUInt).asBits
     res
   }
@@ -195,7 +236,8 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Subtraction */
   override def -(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(this.intWidth + right.intWidth, this.bitWidth + right.bitWidth, this.signed | right.signed)
+    val res = new Fix(this.intWidth, this.bitWidth, this.signed | right.signed)
+    res.setName(s"${this.getName()}_${right.getName()}_sub", true)
     res.raw := ((this.signed, right.signed) match {
       case (false, false) => _left.asUInt - _right.asUInt
       case (false, true) => _left.asUInt.intoSInt - _right.asSInt
@@ -220,11 +262,12 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     val (_left, _right) = align(this, right)
     // A + B + 1 if result is signed
     val res = new Fix(this.intWidth + right.intWidth + (this.signWidth | right.signWidth),
-                      this.fracWidth + right.fracWidth + (this.signWidth | right.signWidth),
+                      this.bitWidth + right.bitWidth + (this.signWidth | right.signWidth),
                       this.signed | right.signed)
-    res.raw := (_left.asUInt * _right.asUInt).asBits
+    res.setName(s"${this.getName()}_${right.getName()}_mul", true)
+    res.raw.dropHigh(1) := (_left.asUInt * _right.asUInt).asBits
     if (res.signed)
-      res.raw(res.raw.high) := _left.high ^ _right.high
+      res.raw.msb := _left.msb ^ _right.msb
     res
   }
 
@@ -280,15 +323,52 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Logical right shift (w(T) = w(this) - shift) */
   override def >>(shift: Int): Fix = ???
 
-  /** highest m bits Saturation Operation */
-  override def sat(m: Int): Fix = ???
+  /**
+   * Saturate dropping the highest m bits. Equivalent to .dropHigh(m)
+   * S2.5 sat(2) => S0.5
+   * U8.8 sat(4) => U4.8
+   * S24.8 sat(1) => S23.8
+   *
+   * @param m Highest m bits to drop
+   * @return Saturated result
+   */
+  override def sat(m: Int): Fix = {
+    val res = new Fix(math.max(signWidth, intWidth - m), bitWidth - m, signed = this.signed)
+    res.setName(s"${this.getName()}_sat", true)
+    if (signed) {
+      val needSatPos = this.raw.takeHigh(m).orR
+      val needSatNeg = this.raw.takeHigh(m).andR
+      val needSat = (needSatPos && ~this.sign) || (needSatNeg && this.sign)
+      when (needSat) {
+        res.raw.dropHigh(1).setAllTo(~this.sign)
+      } otherwise {
+        res.raw.dropHigh(1) := this.raw.dropHigh(m+1)
+      }
+      res.raw.msb := this.sign
+    } else {
+      val needSat = this.raw.dropLow(m).orR
+      when (needSat) {
+        res.raw.setAll()
+      } otherwise {
+        res.raw := this.raw.takeLow(m)
+      }
+    }
+    res
+  }
 
-  override def trim(m: Int): Fix = ???
+  /** Drop m lowest bits */
+  override def trim(m: Int): Fix = {
+    val res = new Fix(intWidth - math.max(0, m-fracWidth), bitWidth - m, signed = this.signed)
+    res.setName(s"${this.getName()}_trim", true)
+    res.raw := this.raw.dropLow(m)
+    res
+  }
 
   /** lowest n bits Round Operation */
   override def floor(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot floor(${n}) because numeric width is only ${this.numericWidth}")
     val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_floor", true)
     if (this.signed) {
       when (this.raw.msb) {
         val needRound = ~this.raw.takeLow(n).andR
@@ -311,6 +391,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   def ceil(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot ceil(${n}) because numeric width is only ${this.numericWidth}")
     val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_ceil", true)
     if (this.signed) {
       when (this.raw.msb) {
         res.raw := this.raw.dropLow(n)
@@ -324,7 +405,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
       }
     } else {
       val needRoundUp = this.raw.takeLow(n).xorR
-      res.raw := this.raw.dropLow(n).asUInt + needRoundUp
+      res.raw := (this.raw.dropLow(n).asUInt + needRoundUp.asUInt).asBits
     }
     res
   }
@@ -333,6 +414,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     assert(n < this.numericWidth, f"Cannot floorToZero(${n}) because numeric width is only ${this.numericWidth}")
     if (this.signed) {
       val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+      res.setName(s"${this.getName()}_floorZero", true)
       when (this.raw.msb) {
         res := ceil(n)
       } otherwise {
@@ -344,12 +426,13 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     }
   }
 
-  override def ceilToInf(width: BitCount, align: Boolean): Fix = ???
+  override def ceilToInf(n: Int, align: Boolean): Fix = ceilToInf(n)
 
   def ceilToInf(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot ceilToInf(${n}) because numeric width is only ${this.numericWidth}")
     if (this.signed) {
       val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+      res.setName(s"${this.getName()}_ceilInf", true)
       when (this.raw.msb) {
         res := floor(n)
       } otherwise {
@@ -364,6 +447,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   def roundHalfUp(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot roundHalfUp(${n}) because numeric width is only ${this.numericWidth}")
     val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_halfUp", true)
     val halfMatch = if (this.signed) ~this.raw.msb else True
     val lostBits = this.raw.takeLow(n)
     when (lostBits.msb === halfMatch) {
@@ -377,6 +461,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   def roundHalfDown(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot roundHalfDown(${n}) because numeric width is only ${this.numericWidth}")
     val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_halfDown", true)
     val halfMatch = if (this.signed) this.raw.msb else False
     val lostBits = this.raw.takeLow(n)
     when (lostBits.msb === halfMatch) {
@@ -390,17 +475,31 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   def roundHalfToZero(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot roundHalfToZero(${n}) because numeric width is only ${this.numericWidth}")
     val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_halfZero", true)
     val halfMatch = if (this.signed) ~this.raw.msb else True
     val lostBits = this.raw.takeLow(n)
     when (lostBits.msb === halfMatch) {
       res := floorToZero(n)
     } otherwise {
-      res := ceilToInf(n, false)
+      res := ceilToInf(n)
     }
     res
   }
 
-  def roundHalfToInf(n: Int): Fix = ???
+  def roundHalfToInf(n: Int): Fix = {
+    assert(n < this.numericWidth, f"Cannot roundHalfToInf(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
+    res.setName(s"${this.getName()}_halfInf", true)
+    val halfMatch = if (this.signed) ~this.raw.msb else True
+    val lostBits = this.raw.takeLow(n)
+    when (lostBits.msb === halfMatch) {
+      res := ceilToInf(n)
+    } otherwise {
+      res := floorToZero(n)
+    }
+    res
+  }
+
   def roundHalfToEven(n: Int): Fix = ???
   def roundHalfToOdd(n: Int): Fix = ???
 
@@ -419,14 +518,99 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     assert(n >= 0, "Integer expansion amount must not be negative!")
     assert(f >= 0, "Fractional expansion amount must not be negative!")
     val res = new Fix(this.intWidth + n, this.bitWidth + n + f, this.signed)
-    if (this.signed)
+    res.setName(s"${this.getName()}_expand", true)
+    if (this.signed) {
       res.raw := (Bits(n bit).setAllTo(this.raw.msb) ## this.raw) << f
-    else
-      res.raw := this.raw << f
+    } else {
+      res.raw := (Bits(n bit).clearAll() ## this.raw) << f
+    }
     res
   }
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+  def truncated: this.type = {
+    val copy = cloneOf(this)
+    copy.raw := this.raw
+    copy.addTag(tagTruncated)
+    copy.asInstanceOf[this.type]
+  }
+
+  def :=(that: Bits): Unit = {
+    this.raw := that
+  }
+
+  def :=(that: SInt): Unit = {
+    if (signed) {
+      this.raw := that.asBits
+    } else {
+      when(that.msb) {
+        this.raw.clearAll()
+      } otherwise {
+        this.raw := that.asBits
+      }
+    }
+  }
+
+  def :=(that: UInt): Unit = {
+    if (signed) {
+      if (that.getWidth > this.numericWidth) {
+        SpinalError(s"$this can't be assigned by $that because the width of the UInt is larger than the numeric width of the Fixed-point.")
+      }
+      this.raw.takeLow(that.getWidth) := that.asBits
+      this.raw.dropLow(that.getWidth).clearAll()
+    } else {
+      this.raw := that.asBits
+    }
+  }
+
+  def :=(that: SFix): Unit = this := Fix(that)
+  def :=(that: UFix): Unit = this := Fix(that)
+
+  override def clone: this.type = new Fix(intWidth, bitWidth, signed).asInstanceOf[this.type]
+
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+    that match {
+      case f: Fix =>
+        if (f.fracWidth > this.fracWidth && !f.hasTag(tagTruncated)) {
+          val trace = ScalaLocated.long
+          globalData.pendingErrors += (() => s"$this can't be assigned by $f because the value will need to be truncated.\n$trace")
+        }
+        if (f.wholeWidth > this.wholeWidth && !(f.hasTag(tagSaturate) || f.hasTag(tagAutoResize))) {
+          val trace = ScalaLocated.long
+          globalData.pendingErrors += (() => s"$this whole value width is less than $f and $f is not tagged for auto-saturation or resize\n$trace")
+        }
+        // Remove tags
+        val t = f.clone.removeTags(f.getTags())
+        t.raw := f.raw
+        // Align the integer portion LSBs
+        var aligned: Fix = f
+        if (f.fracWidth > this.fracWidth) {
+          // TODO: Add rounding mode tag?
+          aligned = f.trim(f.fracWidth-this.fracWidth)
+        } else if (f.fracWidth < this.fracWidth) {
+          aligned = f.expand(0, this.fracWidth-f.fracWidth)
+        }
+        // Resize the integer portion
+        var resized: Fix = aligned
+        if (f.wholeWidth > this.wholeWidth) {
+          if (f.hasTag(tagSaturate)) {
+            resized = aligned.sat(f.wholeWidth-this.wholeWidth)
+          } else {
+            resized = this.clone
+            resized.setName(s"${this.getName()}_resized")
+            resized.raw := aligned.raw.takeHigh(this.signWidth) ## aligned.raw.takeLow(this.numericWidth)
+          }
+        } else if (f.wholeWidth < this.wholeWidth) {
+          resized = aligned.expand(this.wholeWidth-f.wholeWidth)
+        }
+        this.raw := resized.raw
+      case b: Bits => this := b
+      case s: SInt => this := s
+      case u: UInt => this := u
+      case _ => SpinalError("Undefined assignment")
+    }
+  }
+
+  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[signed=${if (this.signed) "1" else "0"},whole=${this.wholeWidth},frac=${this.fracWidth}]"
 }
 
 

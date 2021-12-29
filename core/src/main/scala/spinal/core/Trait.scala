@@ -772,6 +772,7 @@ object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
+object tagSaturate                   extends SpinalTag
 class IfDefTag(val cond : String)       extends SpinalTag
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
