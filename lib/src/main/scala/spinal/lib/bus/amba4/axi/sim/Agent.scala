@@ -117,12 +117,12 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(aw, clockDomain){ _ =>
+  val awDriver = StreamDriver(aw, clockDomain){ _ =>
     if(awQueue.isEmpty) genCmd()
     if(awQueue.nonEmpty) { awQueue.dequeue().apply(); true } else false
   }
 
-  StreamDriver(w, clockDomain){ _ =>
+  val wDriver = StreamDriver(w, clockDomain){ _ =>
     if(wQueue.isEmpty) genCmd()
     if(wQueue.nonEmpty) { wQueue.dequeue().apply(); true } else false
   }
@@ -131,6 +131,14 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     val id = if(busConfig.useId) b.id.toInt else 0
     bQueue(id).dequeue()()
     rspCounter+=1
+  }
+
+  def reset(){
+    wQueue.clear()
+    bQueue.map(q => q.clear())
+    awQueue.clear()
+    awDriver.reset()
+    wDriver.reset()
   }
 }
 
@@ -225,7 +233,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   }
 
   def maskRandom() = Random.nextBoolean()
-  StreamDriver(ar, clockDomain){ _ =>
+  val arDriver = StreamDriver(ar, clockDomain){ _ =>
     if(arQueue.isEmpty) genCmd()
     if(arQueue.nonEmpty) { arQueue.dequeue().apply(); true } else false
   }
@@ -233,6 +241,12 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   val rspMonitor = StreamMonitor(r, clockDomain){_ =>
     val id = if(busConfig.useId) r.id.toInt else 0
     rQueue(id).dequeue()()
+  }
+  
+  def reset(){
+    rQueue.map(q => q.clear())
+    arQueue.clear()
+    arDriver.reset()
   }
 }
 
@@ -439,6 +453,11 @@ abstract class Axi4WriteOnlyMonitor(aw : Stream[Axi4Aw], w : Stream[Axi4W], b : 
     wQueue += WTransaction(w.data.toBigInt, strb, last)
     update()
   }
+
+  def reset(){
+    wProcess.clear()
+    wQueue.clear()
+  }
 }
 
 
@@ -498,5 +517,9 @@ abstract class Axi4ReadOnlyMonitor(ar : Stream[Axi4Ar], r : Stream[Axi4R], clock
 
   val rMonitor = StreamMonitor(r, clockDomain){r =>
     rQueue.dequeue().apply()
+  }
+
+  def reset(){
+    rQueue.clear()
   }
 }
