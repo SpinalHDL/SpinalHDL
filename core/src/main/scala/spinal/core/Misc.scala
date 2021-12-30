@@ -144,6 +144,13 @@ object signalCache{
   }
 }
 
+object globalCache{
+  def apply[T](key: Any)(factory: => T): T = {
+    GlobalData.get.userDatabase.getOrElseUpdate(key, factory).asInstanceOf[T]
+  }
+}
+
+
 
 /**
  * Concatenate a list of data 

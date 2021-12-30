@@ -1115,7 +1115,11 @@ object StreamFifoCC{
 
 
 
-class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](val dataType: HardType[T],
+                              val depth: Int,
+                              val pushClock: ClockDomain,
+                              val popClock: ClockDomain,
+                              val withPopBufferedReset : Boolean = true) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
@@ -1152,7 +1156,8 @@ class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClo
     io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
   }
 
-  val popCC = new ClockingArea(popClock) {
+  val finalPopCd = popClock.withOptionalBufferedResetFrom(withPopBufferedReset)(pushClock)
+  val popCC = new ClockingArea(finalPopCd) {
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val popPtrPlus  = popPtr + 1
     val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
@@ -1189,7 +1194,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
                                   inputClock: ClockDomain, 
                                   outputClock: ClockDomain, 
                                   withOutputBuffer : Boolean = true,
-                                  withInputWait : Boolean = false) extends Component {
+                                  withInputWait : Boolean = false,
+                                  withOutputBufferedReset : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1213,7 +1219,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
     }
   }
 
-  val popArea = outputClock on new Area {
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset)(inputClock)
+  val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
     val target = BufferCC(pushArea.target, False)
