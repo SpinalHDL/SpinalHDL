@@ -1145,6 +1145,15 @@ object whenIndexed{
 
 class ClockDomainPimped(cd : ClockDomain){
   def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
-    ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth)
+    val key = Tuple3(cd, resetCd,  bufferDepth)
+    if(resetCd.config.resetKind == BOOT){
+      if(cd.config.resetKind == BOOT) { return cd }
+      return cd.copy(reset = null, softReset = null, config = cd.config.copy(resetKind = BOOT))
+    }
+    return globalCache(key)(ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth))
+  }
+
+  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
   }
 }

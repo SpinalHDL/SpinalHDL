@@ -68,7 +68,7 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
 
   def toStream  : Stream[T] = toStream(null)
   def toStream(overflow : Bool) : Stream[T] = {
-    val ret = Stream(payloadType)
+    val ret = Stream(payloadType).setCompositeName(this, "toStream", true)
     ret.valid := this.valid
     ret.payload := this.payload
     if(overflow != null) overflow := ret.valid && !ret.ready
@@ -188,7 +188,10 @@ object FlowCCByToggle {
   }
 }
 
-class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: HardType[T],
+                                inputClock: ClockDomain,
+                                outputClock: ClockDomain,
+                                withOutputBufferedReset : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
     val output = master Flow (dataType)
@@ -206,7 +209,8 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, 
   }
 
 
-  val outputArea = new ClockingArea(outputClock) {
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset && inputClock.hasResetSignal)(inputClock)
+  val outputArea = new ClockingArea(finalOutputClock) {
     val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 

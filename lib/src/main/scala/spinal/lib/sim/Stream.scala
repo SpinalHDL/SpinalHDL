@@ -46,6 +46,11 @@ class StreamMonitor[T <: Data](stream : Stream[T], clockDomain: ClockDomain){
       }
     }
   }
+
+  def reset() {
+    keepValueEnable = false
+    keepValue = false
+  }
 }
 
 object StreamDriver{
@@ -117,6 +122,11 @@ class StreamDriver[T <: Data](stream : Stream[T], clockDomain: ClockDomain, var 
     }
   }
   clockDomain.onSamplings(fsm)
+
+  def reset() {
+    state = 0
+    stream.valid #= false
+  }
 }
 
 object StreamReadyRandomizer {
