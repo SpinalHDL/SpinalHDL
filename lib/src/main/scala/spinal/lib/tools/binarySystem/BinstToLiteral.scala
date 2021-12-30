@@ -20,6 +20,6 @@ object BinIntsToLiteral {
   }
 
   def binIntsToBigInt(li: List[Int]): BigInt = {
-    BigInt(BinIntsToHexString(li), 16)
+    BigInt(binIntsToHexString(li), 16)
   }
 }
