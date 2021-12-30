@@ -1,7 +1,7 @@
 package spinal.lib.tools.binarySystem
 
-object BinstToLiteral {
-  def BinstToHexString(li: List[Int], alignLeft: Boolean = false): String = {
+object BinIntsToLiteral {
+  def binIntsToHexString(li: List[Int], alignLeft: Boolean = false): String = {
     val hexCount = scala.math.ceil(li.size/4.0).toInt
     val newli = if(alignLeft) li else List.fill(hexCount * 4 - li.size)(0) ++ li
     newli.grouped(4)
@@ -10,7 +10,7 @@ object BinstToLiteral {
       .mkString("")
   }
 
-  def BinstToOctString(li: List[Int], alignLeft: Boolean = false): String = {
+  def binIntsToOctString(li: List[Int], alignLeft: Boolean = false): String = {
     val hexCount = scala.math.ceil(li.size/3.0).toInt
     val newli = if(alignLeft) List.fill(hexCount * 3 - li.size)(0) ++ li else li
     newli.grouped(3)
@@ -19,7 +19,7 @@ object BinstToLiteral {
       .mkString("")
   }
 
-  def BinstToBigInt(li: List[Int]): BigInt = {
-    BigInt(BinstToHexString(li), 16)
+  def binIntsToBigInt(li: List[Int]): BigInt = {
+    BigInt(BinIntsToHexString(li), 16)
   }
 }

@@ -86,8 +86,8 @@ package object lib  {
     def asDec: BigInt = dec(s)
     def asOct: BigInt = oct(s)
     def asBin: BigInt = bin(s)
-    def hexToBinst: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(s, 16))
-    def hexToBinstAlign: List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(BigInt(s, 16), 4 * s.size)
+    def hexToBinInts: List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(BigInt(s, 16))
+    def hexToBinIntsAlign: List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(BigInt(s, 16), 4 * s.size)
   }
 
   trait LiteralRicher {
@@ -102,13 +102,13 @@ package object lib  {
     def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(bigInt, bitSize)
     def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(bigInt, bitSize)
 
-    def toBinst(): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, defaultAlignBit)
-    def toDecst(): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, defaultAlignBit)
-    def toOctst(): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, defaultAlignBit)
+    def toBinInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(bigInt, defaultAlignBit)
+    def toDecInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(bigInt, defaultAlignBit)
+    def toOctInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(bigInt, defaultAlignBit)
 
-    def toBinst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToBinst(bigInt, num)
-    def toDecst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToDecst(bigInt, num)
-    def toOctst(num: Int): List[Int] = binarySystem.LiteralToBinst.BigIntToOctst(bigInt, num)
+    def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(bigInt, num)
+    def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(bigInt, num)
+    def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(bigInt, num)
   }
 
   implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
@@ -129,13 +129,13 @@ package object lib  {
     override val defaultAlignBit: Int = 8
   }
 
-  implicit class BinstRicher(li: List[Int]){
-    def BinstToOctAlignLeft: String  = binarySystem.BinstToLiteral.BinstToOctString(li, true)
-    def BinstToHexAlignLeft: String  = binarySystem.BinstToLiteral.BinstToHexString(li, true)
-    def BinstToOct: String    = binarySystem.BinstToLiteral.BinstToOctString(li)
-    def BinstToHex: String    = binarySystem.BinstToLiteral.BinstToHexString(li)
-    def BinstToBigInt: BigInt = binarySystem.BinstToLiteral.BinstToBigInt(li)
-    def BinstToInt: Int       = BinstToBigInt.toInt
-    def BinstToLong: Long     = BinstToBigInt.toLong
+  implicit class BinIntsRicher(li: List[Int]){
+    def binIntsToOctAlignLeft: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
+    def binIntsToHexAlignLeft: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
+    def binIntsToOct: String    = binarySystem.BinIntsToLiteral.binIntsToOctString(li)
+    def binIntsToHex: String    = binarySystem.BinIntsToLiteral.binIntsToHexString(li)
+    def binIntsToBigInt: BigInt = binarySystem.BinIntsToLiteral.binIntsToBigInt(li)
+    def binIntsToInt: Int       = binIntsToBigInt.toInt
+    def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
 }
