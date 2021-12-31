@@ -130,8 +130,8 @@ package object lib  {
   }
 
   implicit class BinIntsRicher(li: List[Int]){
-    def binIntsToOctAlignLeft: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
-    def binIntsToHexAlignLeft: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
+    def binIntsToOctAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
+    def binIntsToHexAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
     def binIntsToOct: String    = binarySystem.BinIntsToLiteral.binIntsToOctString(li)
     def binIntsToHex: String    = binarySystem.BinIntsToLiteral.binIntsToHexString(li)
     def binIntsToBigInt: BigInt = binarySystem.BinIntsToLiteral.binIntsToBigInt(li)
