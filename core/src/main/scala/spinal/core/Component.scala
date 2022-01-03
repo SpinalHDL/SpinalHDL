@@ -346,6 +346,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     * @example {{{ val dut = (new MyComponent).stub() }}}
     */
   def stub(): this.type = this.rework{
+    // step0: walk and fix clock (clock, reset port need keep)
+    val pc = this.globalData.phaseContext
+    pc.doPhase(new PhasePullClockDomains(pc))
     // step1: First remove all we don't want
     this.children.clear()
     this.dslBody.foreachStatements{
