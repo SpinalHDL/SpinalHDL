@@ -70,7 +70,7 @@ class ScopeStatement(var parentStatement: TreeStatement) {
     def appendBack(): Unit ={
       if(nonEmpty){
         last.nextScopeStatement = cHead
-        cHead.lastScopeStatement = last
+        if(cHead != null) cHead.lastScopeStatement = last
       } else {
         head = cHead
       }
