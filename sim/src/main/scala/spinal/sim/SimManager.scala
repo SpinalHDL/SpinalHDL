@@ -123,6 +123,10 @@ class SimManager(val raw : SimRaw) {
     jvmThread
   }
 
+  def newSpawnTask() : SimThreadSpawnTask = new SimThreadSpawnTask {
+    override def setup() = {} //Dummy
+  }
+
   val readBypass = if(raw.isBufferedWrite) mutable.HashMap[Signal, BigInt]() else null
   def setupJvmThread(thread: Thread){}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)

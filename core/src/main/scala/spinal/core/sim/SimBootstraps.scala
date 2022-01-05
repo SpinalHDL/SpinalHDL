@@ -21,10 +21,9 @@
 package spinal.core.sim
 
 import java.io.File
-
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
@@ -416,6 +415,11 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
       override def setupJvmThread(thread: Thread): Unit = {
         super.setupJvmThread(thread)
         GlobalData.it.set(spinalGlobalData)
+      }
+
+      override def newSpawnTask() = new SimThreadSpawnTask {
+        val initialContext = ScopeProperty.capture()
+        override def setup() = initialContext.restore()
       }
     }
     manager.userData = dut
