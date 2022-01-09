@@ -1510,6 +1510,71 @@ object StreamFifoMultiChannelBench extends App{
   Bench(rtls, targets)
 }
 
+object StreamTransactionCounter {
+    def apply[T <: Data, T2 <: Data](
+        trigger: Stream[T],
+        target: Stream[T2],
+        count: UInt,
+        noDelay: Boolean = false
+    ): StreamTransactionCounter = {
+        val inst = new StreamTransactionCounter(count.getWidth, noDelay)
+        inst.io.ctrlFire := trigger.fire
+        inst.io.targetFire := target.fire
+        inst.io.count := count
+        inst
+    }
+}
+
+class StreamTransactionCounter(
+    countWidth: Int,
+    noDelay: Boolean = false
+) extends Component {
+    val io = new Bundle {
+        val ctrlFire   = in Bool ()
+        val targetFire = in Bool ()
+        val count      = in UInt (countWidth bits)
+        val working    = out Bool ()
+        val last       = out Bool ()
+        val done       = out Bool ()
+        val value      = out UInt (countWidth bit)
+    }
+
+    val countReg = RegNextWhen(io.count, io.ctrlFire)
+    val counter  = Counter(io.count.getBitsWidth bits)
+    val expected = cloneOf(io.count)
+    expected := countReg
+
+    val lastOne = counter === expected
+    val running = Reg(Bool()) init False
+
+    val done         = lastOne && io.targetFire
+    val doneWithFire = if (noDelay) False else True
+    when(done && io.ctrlFire) {
+        running := doneWithFire
+    } elsewhen (io.ctrlFire) {
+        running := True
+    } elsewhen done {
+        running := False
+    }
+
+    when(done) {
+        counter.clear()
+    } elsewhen (io.targetFire) {
+        counter.increment()
+    }
+
+    if (noDelay) {
+        when(io.ctrlFire) {
+            expected := io.count
+        }
+    }
+
+    io.working := running
+    io.last := lastOne
+    io.done := lastOne && io.targetFire
+    io.value := counter
+}
+
 object StreamTransactionExtender {
     def apply[T <: Data](input: Stream[T], count: UInt)(
         driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
@@ -1539,32 +1604,32 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
-        val count  = in UInt (countWidth bit)
-        val input  = slave Stream dataType
-        val output = master Stream outDataType
+        val count   = in UInt (countWidth bit)
+        val input   = slave Stream dataType
+        val output  = master Stream outDataType
+        val working = out Bool ()
+        val first   = out Bool ()
+        val last    = out Bool ()
     }
 
-    val expected = Reg(cloneOf(io.count))
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
     val payload  = Reg(io.input.payloadType)
-    val counter  = Counter(io.count.getBitsWidth bits)
-    val lastOne  = counter === expected
+    val lastOne  = counter.io.last
     val outValid = RegInit(False)
 
-    when(io.output.fire) {
-        when(lastOne) {
-            counter.clear()
-            outValid := False
-        }.otherwise {
-            counter.increment()
-        }
+    when(counter.io.done) {
+        outValid := False
     }
 
     when(io.input.fire) {
-        expected := io.count
         payload := io.input.payload
         outValid := True
     }
-    io.output.payload := driver(counter, payload, lastOne)
+
+    io.output.payload := driver(counter.io.value, payload, lastOne)
     io.output.valid := outValid
-    io.input.ready := (!outValid || (lastOne && io.output.fire))
+    io.input.ready := (!outValid || counter.io.done)
+    io.last := lastOne
+    io.first := (counter.io.value === 0) && counter.io.working
+    io.working := counter.io.working
 }
