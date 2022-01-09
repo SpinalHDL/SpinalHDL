@@ -1005,32 +1005,39 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
 }
 
 
-class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
+object PhasePullClockDomains{
+  def single(c : Component): Unit ={
+    val cds = mutable.LinkedHashSet[ClockDomain]()
+    c.dslBody.walkLeafStatements{
+      case bt : BaseType if bt.isReg =>
+        val cd = bt.clockDomain
+        if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
+          SpinalError(s"MISSING RESET SIGNAL in the ClockDomain used by $bt\n${bt.getScalaLocationLong}")
 
+        cds += cd
+      case ls => ls.foreachClockDomain(cd => cds += cd)
+    }
+
+    c.rework{
+      for(cd <- cds){
+        cd.readClockWire
+        if(cd.hasResetSignal)       cd.readResetWire
+        if(cd.hasSoftResetSignal)   cd.readSoftResetWire
+        if(cd.hasClockEnableSignal) cd.readClockEnableWire
+      }
+    }
+  }
+
+  def recursive(c : Component) : Unit = {
+    single(c)
+    c.children.foreach(recursive)
+  }
+}
+
+class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-
-    walkComponents(c => {
-      val cds = mutable.LinkedHashSet[ClockDomain]()
-      c.dslBody.walkLeafStatements{
-        case bt : BaseType if bt.isReg =>
-          val cd = bt.clockDomain
-          if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
-            SpinalError(s"MISSING RESET SIGNAL in the ClockDomain used by $bt\n${bt.getScalaLocationLong}")
-
-          cds += cd
-        case ls => ls.foreachClockDomain(cd => cds += cd)
-      }
-
-      c.rework{
-        for(cd <- cds){
-          cd.readClockWire
-          if(cd.hasResetSignal)       cd.readResetWire
-          if(cd.hasSoftResetSignal)   cd.readSoftResetWire
-          if(cd.hasClockEnableSignal) cd.readClockEnableWire
-        }
-      }
-    })
+    walkComponents(c => PhasePullClockDomains.single(c))
   }
 }
 
