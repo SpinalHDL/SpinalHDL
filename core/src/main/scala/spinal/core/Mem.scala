@@ -220,12 +220,14 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
   def apply(address: UInt): T = {
     val ret = readAsync(address)
-    val asyncPort = dlcLast
+    val asyncPort = dlcLast.asInstanceOf[MemReadAsync]
 
     ret.compositeAssign = new Assignable {
       override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
         write(address, that.asInstanceOf[T])
         asyncPort.removeStatement()
+        ret.flatten.foreach(_.removeAssignments())
+        asyncPort.elaborationReadBits.removeAssignments()
       }
 
       override def getRealSourceNoRec: Any = Mem.this
@@ -262,6 +264,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this.dlcAppend(readPort)
 
     readBits.assignFrom(readPort)
+    readPort.elaborationReadBits = readBits
     data.assignFromBits(readBits)
   }
 
@@ -513,6 +516,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
   var width: Int = -1
   var readUnderWrite: ReadUnderWritePolicy = dontCare
   var address: Expression with WidthProvider = null
+  var elaborationReadBits : Bits = null //Used only to cleanup mem(x) := y leftovers
 
   override def opName = "Mem.readAsync(x)"
 
