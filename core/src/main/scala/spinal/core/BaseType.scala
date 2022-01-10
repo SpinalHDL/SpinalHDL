@@ -123,6 +123,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     false
   }
 
+  def hasDataAssignment: Boolean = {
+    foreachStatements(s => if (s.isInstanceOf[DataAssignmentStatement]) return true)
+    false
+  }
+
   def hasAssignement : Boolean = !this.dlcIsEmpty
 
   def initialFrom(that: AnyRef, target: AnyRef = this) = {

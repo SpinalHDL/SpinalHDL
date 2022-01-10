@@ -221,4 +221,18 @@ abstract class MultiData extends Data {
     }
     this
   }
+
+
+
+  def assignUnassignedByName(that: MultiData): Unit = {
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other != null) {
+        element match {
+          case b  : MultiData => b.assignUnassignedByName(other.asInstanceOf[MultiData])
+          case bt : BaseType => if(!bt.hasDataAssignment) element := other
+        }
+      }
+    }
+  }
 }

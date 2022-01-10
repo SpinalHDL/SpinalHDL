@@ -93,7 +93,7 @@ object OHToUInt {
 }
 
 //Will be target dependent
-object MuxOH {
+class MuxOHImpl {
   def apply[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
@@ -116,6 +116,11 @@ object MuxOH {
     masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
 }
+
+object MuxOH extends MuxOHImpl
+object OHMux extends MuxOHImpl
+object OhMux extends MuxOHImpl
+
 
 object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)

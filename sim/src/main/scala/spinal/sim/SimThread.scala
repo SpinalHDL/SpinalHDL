@@ -81,12 +81,15 @@ class SimThread(body: => Unit) {
   }
 
   val seed = Random.nextLong()
+
+  val spawnTask = manager.newSpawnTask()
   val jvmThread = manager.newJvmThread {
     manager.setupJvmThread(Thread.currentThread())
     SimManagerContext.threadLocal.set(mainContext)
     manager.context.thread = SimThread.this
     try {
       Random.setSeed(seed)
+      spawnTask.setup()
       body
     } catch {
       case e : JvmThreadUnschedule =>
@@ -100,4 +103,8 @@ class SimThread(body: => Unit) {
     manager.context.thread = null
     done = true
   }
+}
+
+trait SimThreadSpawnTask{
+  def setup(): Unit
 }
