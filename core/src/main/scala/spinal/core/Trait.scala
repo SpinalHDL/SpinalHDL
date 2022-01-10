@@ -492,6 +492,7 @@ trait Nameable extends OwnableRef with ContextUser{
   def unsetName(): this.type = {
     mode = Nameable.UNNAMED
     namePriority = -100
+    name = null
     this
   }
 

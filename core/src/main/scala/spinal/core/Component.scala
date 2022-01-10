@@ -82,7 +82,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: Handle[ClockDomain])
+  case class PrePopTask(task : () => Unit){
+    val context = ScopeProperty.capture()
+  }
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
@@ -137,7 +139,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
       //TODO !!! use the proper scope property context
       for(t <- prePopTasksToDo){
-        val ctx = ClockDomain.push(t.clockDomain)
+        val ctx = ScopeProperty.captureNoClone()
+        t.context.restore()
         t.task()
         ctx.restore()
       }
@@ -151,7 +154,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.currentHandle)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task)
 //  def addPrePopTask(task: () => Unit) = Engine.get.onCompletion += task
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 

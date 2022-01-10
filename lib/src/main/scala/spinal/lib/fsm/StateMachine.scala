@@ -251,10 +251,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     }
   }
 
-  Component.current.addPrePopTask(() => {
-    if(parentStateMachine == null)
+  Component.current.afterElaboration{
+    if(parentStateMachine == null) {
       build()
-  })
+    }
+  }
 
 
   override def setEntry(state: State): Unit = {
