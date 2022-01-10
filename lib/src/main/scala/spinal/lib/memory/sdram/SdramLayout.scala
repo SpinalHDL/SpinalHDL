@@ -46,10 +46,12 @@ case class SdramLayout( generation : SdramGeneration,
                         bankWidth : Int,
                         columnWidth : Int,
                         rowWidth : Int,
-                        dataWidth : Int){
+                        dataWidth : Int,
+                        csWidth : Int = 1){
   def bytePerWord = dataWidth/8
-  def wordAddressWidth = bankWidth + columnWidth + rowWidth
-  def byteAddressWidth = bankWidth + columnWidth + rowWidth + log2Up(bytePerWord)
+  def csAddressWidth = if (csWidth == 1) 0 else log2Up(csWidth)
+  def wordAddressWidth = bankWidth + columnWidth + rowWidth + csAddressWidth
+  def byteAddressWidth = wordAddressWidth + log2Up(bytePerWord)
   def chipAddressWidth = Math.max(columnWidth,rowWidth)
   def bankCount = 1 << bankWidth
   def capacity = BigInt(1) << byteAddressWidth
