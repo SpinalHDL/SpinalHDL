@@ -35,7 +35,7 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
   var allowGen = true
   var rspCounter = 0
   def pending = bQueue.exists(_.nonEmpty)
-  StreamReadyRandomizer(b, clockDomain)
+  val bDriver = StreamReadyRandomizer(b, clockDomain)
 
   def genAddress() : BigInt
   def mappingAllocate(mapping : SizeMapping) : Boolean
@@ -169,7 +169,7 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   def bursts = List(0,1,2)
 
   def pending = rQueue.exists(_.nonEmpty)
-  StreamReadyRandomizer(r, clockDomain)
+  val rDriver = StreamReadyRandomizer(r, clockDomain)
 
   def genCmd() : Unit = {
     if(!allowGen) return
