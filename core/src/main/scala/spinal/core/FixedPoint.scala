@@ -181,6 +181,8 @@ object Fix {
  */
 class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends MultiData with Num[Fix] {
 
+  assert(bitWidth >= intWidth, s"${this.name}: BitWidth (${bitWidth}) must be at least as large as IntWidth (${intWidth})!")
+
   def signWidth = if (signed) 1 else 0
   /** Total binary width without sign */
   def numericWidth = bitWidth - signWidth
@@ -209,17 +211,23 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     val shift = left.fracWidth - right.fracWidth
     if (shift > 0)
       (left.raw, right.raw << shift)
-    if (shift < 0)
+    else if (shift < 0)
       (left.raw << -shift, right.raw)
-    (left.raw, right.raw)
+    else
+      (left.raw, right.raw)
   }
 
   /** Addition */
   override def +(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(this.intWidth, this.bitWidth, this.signed | right.signed)
+    val res = new Fix(math.max(this.intWidth, right.intWidth), math.max(_left.getWidth, _right.getWidth), this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_add", true)
-    res.raw := (_left.asUInt + _right.asUInt).asBits
+    res.raw := ((this.signed, right.signed) match {
+      case (false, false) => _left.asUInt + _right.asUInt
+      case (false, true) => _left.asUInt.asSInt + _right.asSInt
+      case (true, false) => _left.asSInt + _right.asUInt.asSInt
+      case (true, true) => _left.asSInt + _right.asSInt
+    }).resize(res.bitWidth).asBits
     res
   }
 
@@ -243,7 +251,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
       case (false, true) => _left.asUInt.intoSInt - _right.asSInt
       case (true, false) => _left.asSInt - _right.asUInt.intoSInt
       case (true, true) => _left.asSInt - _right.asSInt
-    }).asBits.resize(res.bitWidth)
+    }).resize(res.bitWidth).asBits
     res
   }
 
@@ -262,20 +270,49 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     val (_left, _right) = align(this, right)
     // A + B + 1 if result is signed
     val res = new Fix(this.intWidth + right.intWidth + (this.signWidth | right.signWidth),
-                      this.bitWidth + right.bitWidth + (this.signWidth | right.signWidth),
+                      _left.getWidth + _right.getWidth + (this.signWidth | right.signWidth),
                       this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_mul", true)
-    res.raw.dropHigh(1) := (_left.asUInt * _right.asUInt).asBits
-    if (res.signed)
-      res.raw.msb := _left.msb ^ _right.msb
+    res.raw := ((this.signed, right.signed) match {
+      case (false, false) => _left.asUInt * _right.asUInt
+      case (false, true) => _left.asUInt.intoSInt * _right.asSInt
+      case (true, false) => _left.asSInt * _right.asUInt.intoSInt
+      case (true, true) => _left.asSInt * _right.asSInt
+    }).resize(res.bitWidth).asBits
     res
   }
 
   /** Division */
-  override def /(right: Fix): Fix = ???
+  override def /(right: Fix): Fix = {
+    val (_left, _right) = align(this, right)
+    val res = new Fix(Math.max(this.intWidth, right.intWidth) + (this.signWidth | right.signWidth),
+                      Math.max(_left.getWidth, _right.getWidth) + (this.signWidth | right.signWidth),
+                      this.signed | right.signed)
+    res.setName(s"${this.getName()}_${right.getName()}_div", true)
+    res.raw := ((this.signed, right.signed) match {
+      case (false, false) => _left.asUInt / _right.asUInt
+      case (false, true) => _left.asUInt.intoSInt / _right.asSInt
+      case (true, false) => _left.asSInt / _right.asUInt.intoSInt
+      case (true, true) => _left.asSInt / _right.asSInt
+    }).resize(res.bitWidth).asBits
+    res
+  }
 
   /** Modulo */
-  override def %(right: Fix): Fix = ???
+  override def %(right: Fix): Fix = {
+    val (_left, _right) = align(this, right)
+    val res = new Fix(Math.max(this.intWidth, right.intWidth) + (this.signWidth | right.signWidth),
+                      Math.max(_left.getWidth, _right.getWidth) + (this.signWidth | right.signWidth),
+                      this.signed | right.signed)
+    res.setName(s"${this.getName()}_${right.getName()}_mod", true)
+    res.raw := ((this.signed, right.signed) match {
+      case (false, false) => _left.asUInt % _right.asUInt
+      case (false, true) => _left.asUInt.intoSInt % _right.asSInt
+      case (true, false) => _left.asSInt % _right.asUInt.intoSInt
+      case (true, true) => _left.asSInt % _right.asSInt
+    }).resize(res.bitWidth).asBits
+    res
+  }
 
   /** Is less than right */
   override def <(right: Fix): Bool = {
@@ -334,7 +371,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
    */
   override def sat(m: Int): Fix = {
     val res = new Fix(math.max(signWidth, intWidth - m), bitWidth - m, signed = this.signed)
-    res.setName(s"${this.getName()}_sat", true)
+    res.setPartialName(s"${this.getName()}_sat", true)
     if (signed) {
       val needSatPos = this.raw.takeHigh(m).orR
       val needSatNeg = this.raw.takeHigh(m).andR
@@ -359,149 +396,336 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Drop m lowest bits */
   override def trim(m: Int): Fix = {
     val res = new Fix(intWidth - math.max(0, m-fracWidth), bitWidth - m, signed = this.signed)
-    res.setName(s"${this.getName()}_trim", true)
+    res.setPartialName(s"${this.getName()}_trim", true)
     res.raw := this.raw.dropLow(m)
     res
   }
 
+  def floor(): Fix = floor(this.fracWidth)
   /** lowest n bits Round Operation */
   override def floor(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot floor(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_floor", true)
-    if (this.signed) {
-      when (this.raw.msb) {
-        val needRound = ~this.raw.takeLow(n).andR
-        when (needRound) {
-          res.raw := (this.raw.dropLow(n).asSInt - 1).asBits
-        } otherwise {
-          res.raw := this.raw.dropLow(n)
-        }
-      } otherwise {
-        res.raw := this.raw.dropLow(n)
-      }
-    } else {
-      res.raw := this.raw.dropLow(n)
-    }
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    res.setPartialName(s"${this.getName()}_floor", true)
+    res.raw := this.raw.dropLow(n)
     res
   }
 
   override def ceil(n: Int, align: Boolean): Fix = ???
 
+  def ceil(): Fix = ceil(this.fracWidth)
   def ceil(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot ceil(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_ceil", true)
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    res.setPartialName(s"${this.getName()}_ceil", true)
+    val fracOr = this.raw.takeLow(n).orR
     if (this.signed) {
-      when (this.raw.msb) {
-        res.raw := this.raw.dropLow(n)
-      } otherwise {
-        val needRound = this.raw.takeLow(n).orR
-        when (needRound) {
-          res.raw := (this.raw.dropLow(n).asUInt + 1).asBits
-        } otherwise {
-          res.raw := this.raw.dropLow(n)
-        }
-      }
+      res.raw := (this.raw.dropLow(n).asSInt + (False ## fracOr).asSInt).asBits
     } else {
-      val needRoundUp = this.raw.takeLow(n).xorR
-      res.raw := (this.raw.dropLow(n).asUInt + needRoundUp.asUInt).asBits
+      res.raw := (this.raw.dropLow(n).asUInt + fracOr.asUInt).asBits
     }
     res
   }
 
+  def floorToZero(): Fix = floorToZero(this.fracWidth)
   override def floorToZero(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot floorToZero(${n}) because numeric width is only ${this.numericWidth}")
     if (this.signed) {
-      val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-      res.setName(s"${this.getName()}_floorZero", true)
-      when (this.raw.msb) {
-        res := ceil(n)
+      val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+      res.setPartialName(s"${this.getName()}_floorZero", true)
+      val fracOr = this.raw.takeLow(n).orR
+      val addValue = SInt(2 bit)
+      when(this.raw.msb && fracOr) {
+        addValue := 1
       } otherwise {
-        res := floor(n)
+        addValue := 0
       }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
       res
     } else {
-      floor(n)
+      floor(n).setPartialName(s"${this.getName()}_floorZero", true)
     }
   }
 
   override def ceilToInf(n: Int, align: Boolean): Fix = ceilToInf(n)
 
+  def ceilToInf(): Fix = ceilToInf(this.fracWidth)
   def ceilToInf(n: Int): Fix = {
     assert(n < this.numericWidth, f"Cannot ceilToInf(${n}) because numeric width is only ${this.numericWidth}")
     if (this.signed) {
-      val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-      res.setName(s"${this.getName()}_ceilInf", true)
-      when (this.raw.msb) {
-        res := floor(n)
+      val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+      res.setPartialName(s"${this.getName()}_ceilInf", true)
+      val fracOr = this.raw.takeLow(n).orR
+      val addValue = SInt(2 bit)
+      when(fracOr) {
+        when(!this.raw.msb) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
       } otherwise {
-        res := ceil(n)
+        addValue := 0
       }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
       res
     } else {
-      ceil(n)
+      ceil(n).setPartialName(s"${this.getName()}_ceilToInf", true)
     }
   }
 
+  def roundHalfUp(): Fix = roundHalfUp(this.fracWidth)
   def roundHalfUp(n: Int): Fix = {
-    assert(n < this.numericWidth, f"Cannot roundHalfUp(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_halfUp", true)
-    val halfMatch = if (this.signed) ~this.raw.msb else True
-    val lostBits = this.raw.takeLow(n)
-    when (lostBits.msb === halfMatch) {
-      res := ceil(n)
+    assert(n < this.numericWidth-1, f"Cannot roundHalfUp(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    res.setPartialName(s"${this.getName()}_halfUp", true)
+//    val fracOr = this.raw.takeLow(n-1).orR
+    val fracMSB = this.raw(n-1)
+    val addValue = SInt(2 bit)
+    when(fracMSB) {
+      addValue := 1
     } otherwise {
-      res := floor(n)
+      addValue := 0
+    }
+    if (this.signed) {
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+    } else {
+      res.raw := (this.raw.dropLow(n).asUInt + addValue.asBits(0).asUInt).asBits
     }
     res
   }
 
+  def roundHalfDown(): Fix = roundHalfDown(this.fracWidth)
   def roundHalfDown(n: Int): Fix = {
-    assert(n < this.numericWidth, f"Cannot roundHalfDown(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_halfDown", true)
-    val halfMatch = if (this.signed) this.raw.msb else False
-    val lostBits = this.raw.takeLow(n)
-    when (lostBits.msb === halfMatch) {
-      res := ceil(n)
+    assert(n < this.numericWidth-1, f"Cannot roundHalfDown(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    res.setPartialName(s"${this.getName()}_halfDown", true)
+    val fracOr = this.raw.takeLow(n-1).orR
+    val fracMSB = this.raw(n-1)
+    val addValue = SInt(2 bit)
+    when(!this.raw.msb) {
+      when(!(fracMSB && fracOr)) {
+        addValue := 1
+      } otherwise {
+        addValue := 0
+      }
     } otherwise {
-      res := floor(n)
+      when(!fracMSB || fracOr) {
+        addValue := 0
+      } otherwise {
+        addValue := 1
+      }
+    }
+    if (this.signed) {
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+    } else {
+      res.raw := (this.raw.dropLow(n).asUInt + addValue.asBits(0).asUInt).asBits
     }
     res
   }
 
+  def roundHalfToZero(): Fix = roundHalfToZero(this.fracWidth)
   def roundHalfToZero(n: Int): Fix = {
-    assert(n < this.numericWidth, f"Cannot roundHalfToZero(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_halfZero", true)
-    val halfMatch = if (this.signed) ~this.raw.msb else True
-    val lostBits = this.raw.takeLow(n)
-    when (lostBits.msb === halfMatch) {
-      res := floorToZero(n)
-    } otherwise {
-      res := ceilToInf(n)
+    assert(n < this.numericWidth-1, f"Cannot roundHalfToZero(${n}) because numeric width is only ${this.numericWidth}")
+    if (this.signed) {
+      val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+      res.setPartialName(s"${this.getName()}_halfZero", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        when (fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+      res
+    } else {
+      roundHalfDown(n).setPartialName(s"${this.getName()}_halfZero", true)
     }
-    res
   }
 
+  def roundHalfToInf(): Fix = roundHalfToInf(this.fracWidth)
   def roundHalfToInf(n: Int): Fix = {
-    assert(n < this.numericWidth, f"Cannot roundHalfToInf(${n}) because numeric width is only ${this.numericWidth}")
-    val res = new Fix(intWidth - Math.min(0, this.fracWidth-n), bitWidth - n, this.signed)
-    res.setName(s"${this.getName()}_halfInf", true)
-    val halfMatch = if (this.signed) ~this.raw.msb else True
-    val lostBits = this.raw.takeLow(n)
-    when (lostBits.msb === halfMatch) {
-      res := ceilToInf(n)
-    } otherwise {
-      res := floorToZero(n)
+    assert(n < this.numericWidth-1, f"Cannot roundHalfToInf(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    if (signed) {
+      res.setPartialName(s"${this.getName()}_halfInf", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+      res
+    } else {
+      roundHalfUp(n).setPartialName(s"${this.getName()}_halfInf", true)
     }
-    res
   }
 
-  def roundHalfToEven(n: Int): Fix = ???
-  def roundHalfToOdd(n: Int): Fix = ???
+  def roundHalfToEven(): Fix = roundHalfToEven(this.fracWidth)
+  def roundHalfToEven(n: Int): Fix = {
+    assert(n < this.numericWidth-2, f"Cannot roundHalfToEven(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    if (signed) {
+      res.setPartialName(s"${this.getName()}_halfEven", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val intLSB = this.raw(n)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        // positive
+        when(!intLSB) {
+          // even
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // odd
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      } otherwise {
+        // negative
+        when(!intLSB) {
+          // even
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // odd
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+      res
+    } else {
+      res.setPartialName(s"${this.getName()}_halfEven", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val intLSB = this.raw(n)
+      val addValue = UInt(1 bit)
+      when(!intLSB) {
+        // even
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        // odd
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asUInt + addValue).asBits
+      res
+    }
+  }
+
+  def roundHalfToOdd(): Fix = roundHalfToOdd(this.fracWidth)
+  def roundHalfToOdd(n: Int): Fix = {
+    assert(n < this.numericWidth-2, f"Cannot roundHalfToOdd(${n}) because numeric width is only ${this.numericWidth}")
+    val res = new Fix(intWidth - Math.max(0, n-this.fracWidth), bitWidth - n, this.signed)
+    if (signed) {
+      res.setPartialName(s"${this.getName()}_halfOdd", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val intLSB = this.raw(n)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        // positive
+        when(intLSB) {
+          // odd
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // even
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      } otherwise {
+        // negative
+        when(intLSB) {
+          // odd
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // even
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits
+      res
+    } else {
+      res.setPartialName(s"${this.getName()}_halfOdd", true)
+      val fracOr = this.raw.takeLow(n-1).orR
+      val fracMSB = this.raw(n-1)
+      val intLSB = this.raw(n)
+      val addValue = UInt(1 bit)
+      when(intLSB) {
+        // odd
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        // even
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(n).asUInt + addValue).asBits
+      res
+    }
+  }
 
   override def roundUp(n: Int, align: Boolean): Fix = ???
 
@@ -518,7 +742,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     assert(n >= 0, "Integer expansion amount must not be negative!")
     assert(f >= 0, "Fractional expansion amount must not be negative!")
     val res = new Fix(this.intWidth + n, this.bitWidth + n + f, this.signed)
-    res.setName(s"${this.getName()}_expand", true)
+    res.setPartialName(s"${this.getName()}_expand", true)
     if (this.signed) {
       res.raw := (Bits(n bit).setAllTo(this.raw.msb) ## this.raw) << f
     } else {
@@ -530,6 +754,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   def truncated: this.type = {
     val copy = cloneOf(this)
     copy.raw := this.raw
+    copy.addTags(this.getTags())
     copy.addTag(tagTruncated)
     copy.asInstanceOf[this.type]
   }
