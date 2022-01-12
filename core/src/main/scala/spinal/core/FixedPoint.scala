@@ -502,18 +502,10 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     val fracOr = this.raw.takeLow(n-1).orR
     val fracMSB = this.raw(n-1)
     val addValue = SInt(2 bit)
-    when(!this.raw.msb) {
-      when(!(fracMSB && fracOr)) {
-        addValue := 1
-      } otherwise {
-        addValue := 0
-      }
+    when(fracMSB && fracOr) {
+      addValue := 1
     } otherwise {
-      when(!fracMSB || fracOr) {
-        addValue := 0
-      } otherwise {
-        addValue := 1
-      }
+      addValue := 0
     }
     if (this.signed) {
       res.raw := (this.raw.dropLow(n).asSInt + addValue).asBits

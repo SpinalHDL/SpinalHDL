@@ -9,14 +9,7 @@ from cocotblib.misc import randSignal, assertEquals, truncUInt, sint, uint
 
 class Ref:
 
-    ops = ["+", "-", "*", "/", "%"]
-    rounds = ["ceil", "floor", "zero", "inf", "halfUp", "halfDown", "halfZero", "halfInf", "halfEven", "halfOdd"]
-
     def __init__(self,dut):
-        print(f"inFix0 = {dut.io_inFix_0}")
-        print(f"inFix1 = {dut.io_inFix_1}")
-        print(f"opMode = {dut.io_opMode}")
-        print(f"roundMode = {dut.io_opMode}")
         self.io_inFix_0 = sint(dut.io_inFix_0)/(2**4)
         self.io_inFix_1 = sint(dut.io_inFix_1)/(2**6)
         self.io_outFix = sint(dut.io_outFix)
@@ -34,8 +27,6 @@ class Ref:
             opResult = self.io_inFix_0 / self.io_inFix_1
         elif opMode == 4:
             opResult = self.io_inFix_0 % self.io_inFix_1
-
-        print(f"Ref: {self.io_inFix_0} {self.ops[opMode]} {self.io_inFix_1} = {opResult}")
 
         roundResult = 0.0
         if roundMode == 0:
@@ -74,8 +65,8 @@ class Ref:
                 roundResult = -roundResult
         elif roundMode == 8:
             # Half to even
-            frac_msb = math.trunc(opResult*10.0) % 10
-            whole_lsb = math.trunc(opResult*10.0)
+            frac_msb = math.trunc(abs(opResult)*10.0) % 10
+            whole_lsb = math.trunc(abs(opResult))
             if (frac_msb == 5):
                 # Make the number even
                 roundResult = abs(math.trunc(opResult)) + (whole_lsb % 2)
@@ -86,8 +77,8 @@ class Ref:
                 roundResult = -roundResult
         elif roundMode == 9:
             # Half to odd
-            frac_msb = math.trunc(opResult*10.0) % 10
-            whole_lsb = math.trunc(opResult*10.0)
+            frac_msb = math.trunc(abs(opResult)*10.0) % 10
+            whole_lsb = math.trunc(abs(opResult))
             if (frac_msb == 5):
                 # Make the number even
                 roundResult = abs(math.trunc(opResult)) + (1 - whole_lsb % 2)
@@ -97,24 +88,14 @@ class Ref:
             if opResult < 0:
                 roundResult = -roundResult
 
-        print(f"Ref: {self.rounds[roundMode]}({opResult}) = {roundResult}")
+        # print(f"Ref: {self.rounds[roundMode]}({opResult}) = {roundResult}")
 
         self.io_outFix_expected = roundResult
 
 
-ops = ["+", "-", "*", "/", "%"]
-rounds = ["ceil", "floor", "zero", "inf", "halfUp", "halfDown", "halfZero", "halfInf", "halfEven", "halfOdd"]
-
-
 def check_results(dut, op, mode):
     ref = Ref(dut)
-    op_str = f"{dut.io_inFix_0} {ops[op]} {dut.io_inFix_1}"
-    print(f"{op_str} = {dut.io_outRaw}")
-    round_str = f"{rounds[mode]}(ans)"
-    print(f"{round_str:>{len(op_str)}} = {dut.io_outFix}")
-    print(f"opRaw = {sint(dut.io_outRaw)/(2**12)}")
-    print(f"Result = {sint(dut.io_outFix)}. Expected = {ref.io_outFix_expected}")
-    # assertEquals(ref.io_outFix, ref.io_outFix_expected, "io_outFix")
+    assertEquals(ref.io_outFix, ref.io_outFix_expected, "io_outFix")
 
 
 def to_sint(i: int):
@@ -129,20 +110,15 @@ def test1(dut):
     dut.log.info("Cocotb test boot")
     #random.seed(0)
 
-    # for op in range(0,4):
-    #     print(f"Op = {op}")
-    #     for mode in range(0,10):
-    #         print(f"Mode = {mode}")
-    #         for i in range(0,10):
-    #             print("")
-    #             # dut.io_inFix_0.value = -1
-    #             # dut.io_inFix_1.value = 0
-    #             randSignal(dut.io_inFix_0)
-    #             randSignal(dut.io_inFix_1)
-    #             dut.io_opMode.value = op
-    #             dut.io_roundMode.value = mode
-    #             yield Timer(1000)
-    #             check_results(dut, op=op, mode=mode)
+    for op in range(0,4):
+        for mode in range(0,10):
+            for i in range(0,10):
+                randSignal(dut.io_inFix_0)
+                randSignal(dut.io_inFix_1)
+                dut.io_opMode.value = op
+                dut.io_roundMode.value = mode
+                yield Timer(1000)
+                check_results(dut, op=op, mode=mode)
 
     for mode in range(0,10):
         dut.io_roundMode.value = mode
