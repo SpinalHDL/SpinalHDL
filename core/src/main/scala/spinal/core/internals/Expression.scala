@@ -551,7 +551,7 @@ object Operator {
     }
 
     abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator {
-      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
+      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth.min(30)) - 1
       def getLiteralFactory: (BigInt, Int) => BitVectorLiteral
       override def simplifyNode: Expression = {
         if(left.getWidth == 0){
