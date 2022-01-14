@@ -9,6 +9,31 @@ from cocotblib.misc import randSignal, assertEquals, truncUInt, sint, uint
 
 class Ref:
 
+    @classmethod
+    def wrap_around(cls, n, wholeBits, fracBits, signed):
+        """
+        Wrap around fixed-point number
+        :param n: The fixed-point number
+        :param wholeBits: Number of whole bits
+        :param fracBits: Number of fractional bits
+        :param signed: Is signed
+        :return:
+        """
+        totalBits = wholeBits + fracBits
+        n = n*(2**fracBits)
+        if signed:
+            if n >= (2**(totalBits-1))-1:
+                n -= (2**totalBits)
+            elif n < -(2**(totalBits-1)):
+                n += (2**totalBits)
+        else:
+            if n >= (2**totalBits):
+                n -= (2**totalBits)
+            else:
+                n = 0
+        n = n/(2**fracBits)
+        return n
+
     def __init__(self,dut):
         self.io_inFix_0 = sint(dut.io_inFix_0)/(2**4)
         self.io_inFix_1 = sint(dut.io_inFix_1)/(2**6)
@@ -19,8 +44,10 @@ class Ref:
         opResult = 0.0
         if opMode == 0:
             opResult = self.io_inFix_0 + self.io_inFix_1
+            opResult = self.wrap_around(opResult, 12, 10, True)
         elif opMode == 1:
             opResult = self.io_inFix_0 - self.io_inFix_1
+            opResult = self.wrap_around(opResult, 12, 10, True)
         elif opMode == 2:
             opResult = self.io_inFix_0 * self.io_inFix_1
         elif opMode == 3:
@@ -66,8 +93,9 @@ class Ref:
         elif roundMode == 8:
             # Half to even
             frac_msb = math.trunc(abs(opResult)*10.0) % 10
+            frac_rem = (abs(opResult)*10.0) - math.trunc(abs(opResult)*10.0)
             whole_lsb = math.trunc(abs(opResult))
-            if (frac_msb == 5):
+            if frac_msb == 5 and frac_rem == 0:
                 # Make the number even
                 roundResult = abs(math.trunc(opResult)) + (whole_lsb % 2)
             else:
@@ -78,8 +106,9 @@ class Ref:
         elif roundMode == 9:
             # Half to odd
             frac_msb = math.trunc(abs(opResult)*10.0) % 10
+            frac_rem = (abs(opResult)*10.0) - math.trunc(abs(opResult)*10.0)
             whole_lsb = math.trunc(abs(opResult))
-            if (frac_msb == 5):
+            if frac_msb == 5 and frac_rem == 0:
                 # Make the number even
                 roundResult = abs(math.trunc(opResult)) + (1 - whole_lsb % 2)
             else:
@@ -87,8 +116,6 @@ class Ref:
                 roundResult = math.floor(abs(opResult) + 0.5)
             if opResult < 0:
                 roundResult = -roundResult
-
-        # print(f"Ref: {self.rounds[roundMode]}({opResult}) = {roundResult}")
 
         self.io_outFix_expected = roundResult
 
@@ -106,19 +133,25 @@ def to_sint(i: int):
 
 
 @cocotb.test()
-def test1(dut):
+def random_test(dut):
     dut.log.info("Cocotb test boot")
-    #random.seed(0)
 
     for op in range(0,4):
         for mode in range(0,10):
-            for i in range(0,10):
+            for i in range(0,100):
                 randSignal(dut.io_inFix_0)
                 randSignal(dut.io_inFix_1)
                 dut.io_opMode.value = op
                 dut.io_roundMode.value = mode
                 yield Timer(1000)
                 check_results(dut, op=op, mode=mode)
+
+    dut.log.info("Cocotb test done")
+
+
+@cocotb.test()
+def half_quarter_test(dut):
+    dut.log.info("Cocotb test boot")
 
     for mode in range(0,10):
         dut.io_roundMode.value = mode

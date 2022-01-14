@@ -45,10 +45,6 @@ object FixedPointNewTester {
       chosenOp.roundHalfToOdd()
     ))
 
-    roundResults.foreach(
-      f => println(f)
-    )
-
     io.outFix := roundResults(io.roundMode.asUInt)
   }
 
