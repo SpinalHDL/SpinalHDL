@@ -745,9 +745,9 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     val res = new Fix(this.intWidth + n, this.bitWidth + n + f, this.signed)
     res.setPartialName(s"${this.getName()}_expand", true)
     if (this.signed) {
-      res.raw := (Bits(n bit).setAllTo(this.raw.msb) ## this.raw) << f
+      res.raw := (this.raw.asSInt.resize(this.bitWidth+n).asBits) << f
     } else {
-      res.raw := (Bits(n bit).clearAll() ## this.raw) << f
+      res.raw := (this.raw.asUInt.resize(this.bitWidth+n).asBits) << f
     }
     res
   }
