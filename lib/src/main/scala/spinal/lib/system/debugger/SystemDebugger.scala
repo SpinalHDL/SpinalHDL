@@ -83,7 +83,7 @@ class JtagBridge(c: SystemDebuggerConfig) extends Component{
   })
 }
 
-class JtagBridgeNoTap(c: SystemDebuggerConfig, jtagClockDomain : ClockDomain) extends Component{
+class JtagBridgeNoTap(c: SystemDebuggerConfig, jtagClockDomain : ClockDomain, ignoreWidth : Int) extends Component{
   val io = new Bundle {
     val ctrl = slave(JtagTapInstructionCtrl())
     val remote = master(SystemDebuggerRemoteBus(c))
@@ -105,7 +105,7 @@ class JtagBridgeNoTap(c: SystemDebuggerConfig, jtagClockDomain : ClockDomain) ex
   }
 
   val jtag = jtagClockDomain on new Area{
-    val wrapper = new JtagInstructionWrapper(headerWidth = 2)
+    val wrapper = new JtagInstructionWrapper(headerWidth = 2, ignoreWidth)
     wrapper.ctrl <> io.ctrl
     val writeArea = wrapper.flowFragmentPush(system.cmd, JtagBridgeNoTap.this.clockDomain)(0)
     val readArea = wrapper.read(system.rsp.addTag(crossClockDomain))(1)

@@ -163,13 +163,13 @@ class JtagTapInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockD
 }
 
 
-
-class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctions{
+//ignoreWidth allows that wrapper to support jtag chain. ignoreWidth = 0 => only one tap allowed, 1 => two tape allowed and so on
+class JtagInstructionWrapper(headerWidth : Int, ignoreWidth : Int) extends Area with JtagTapFunctions{
   val ctrl = JtagTapInstructionCtrl()
 
   val header = Reg(Bits(headerWidth bits))
   val headerNext = (ctrl.tdi ## header) >> 1
-  val counter = Reg(UInt(log2Up(headerWidth) bits))
+  val counter = Reg(UInt(log2Up(headerWidth + ignoreWidth) bits))
   val done = Reg(Bool())
   val sendCapture = False
   val sendShift   = False
@@ -185,7 +185,7 @@ class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctio
       when(!done) {
         counter := counter + 1
         header := headerNext
-        when(counter === headerWidth - 1) {
+        when(counter === headerWidth + ignoreWidth - 1) {
           done := True
           sendCapture := True
         }
