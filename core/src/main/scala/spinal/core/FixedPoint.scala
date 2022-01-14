@@ -285,8 +285,8 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Division */
   override def /(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(Math.max(this.intWidth, right.intWidth) + (this.signWidth | right.signWidth),
-                      Math.max(_left.getWidth, _right.getWidth) + (this.signWidth | right.signWidth),
+    val res = new Fix(this.intWidth,
+                      _left.getWidth,
                       this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_div", true)
     res.raw := ((this.signed, right.signed) match {
@@ -301,8 +301,8 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Modulo */
   override def %(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(Math.max(this.intWidth, right.intWidth) + (this.signWidth | right.signWidth),
-                      Math.max(_left.getWidth, _right.getWidth) + (this.signWidth | right.signWidth),
+    val res = new Fix(right.intWidth,
+                      _right.getWidth,
                       this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_mod", true)
     res.raw := ((this.signed, right.signed) match {
@@ -355,10 +355,19 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   }
 
   /** Logical left shift (w(T) = w(this) + shift) */
-  override def <<(shift: Int): Fix = ???
+  override def <<(shift: Int): Fix = {
+    val res = new Fix(this.intWidth+shift, this.bitWidth+shift, this.signed)
+    res.raw := this.raw << shift
+    res
+  }
 
   /** Logical right shift (w(T) = w(this) - shift) */
-  override def >>(shift: Int): Fix = ???
+  override def >>(shift: Int): Fix = {
+    assert(this.bitWidth >= shift, s"Cannot right shift ${this} by ${shift} bits!")
+    val res = new Fix(math.max(this.intWidth-shift, 0), this.bitWidth-shift, this.signed)
+    res.raw := this.raw >> shift
+    res
+  }
 
   /**
    * Saturate dropping the highest m bits. Equivalent to .dropHigh(m)
