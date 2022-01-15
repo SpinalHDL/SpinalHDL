@@ -96,8 +96,8 @@ case class Backend(cpa: CoreParameterAggregate) extends Component {
   }
 
   case class PipelineCmd() extends Bundle {
-    val write = Bool
-    val last = Bool
+    val write = Bool()
+    val last = Bool()
     val context = Bits(backendContextWidth bits)
     val source = UInt(log2Up(portCount) bits)
   }

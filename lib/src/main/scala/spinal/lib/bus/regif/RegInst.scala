@@ -166,7 +166,7 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
 
   protected def RS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
-    when(hitDoWrite){
+    when(hitDoRead){
       ret.setAll()
     }
     ret
@@ -203,7 +203,7 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   protected def WS(bc: BitCount, resetValue: Long): Bits = {
     val ret = Reg(Bits(bc)) init B(resetValue)
     when(hitDoWrite){
-      ret.clearAll()
+      ret.setAll()
     }
     ret
   }

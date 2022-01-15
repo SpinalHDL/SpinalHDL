@@ -33,12 +33,12 @@ abstract class BmbMasterAgent(bus : Bmb, clockDomain: ClockDomain, cmdFactor : F
   def getCmd(): () => Unit = {
     //Generate a new CMD if none is pending
     if(cmdQueue.isEmpty && pendingCounter < pendingMax) {
-      pendingCounter += 1
       val sourceId = bus.p.access.randSource()
       bus.cmd.source #= sourceId
       val ap = bus.p.access.sources(sourceId)
       val region = regionAllocate(1 << ap.lengthWidth)
       if(region == null) return null
+      pendingCounter += 1
       val length = region.size.toInt-1
       val context = bus.cmd.context.randomizedLong
       val address = region.base

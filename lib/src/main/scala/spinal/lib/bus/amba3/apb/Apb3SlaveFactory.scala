@@ -27,7 +27,7 @@ package spinal.lib.bus.amba3.apb
 
 import spinal.core._
 import spinal.lib.bus.misc._
-
+import scala.collection.Seq
 
 object Apb3SlaveFactory {
   def apply(bus: Apb3, selId: Int = 0, dontCareReadData : Boolean = false) = new Apb3SlaveFactory(bus, selId, dontCareReadData)

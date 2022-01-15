@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.{FlatSpec, FunSuite}
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
 import spinal.sim._
@@ -44,7 +44,7 @@ object SpinalSimAccessSubComponents {
 
 }
 
-class SpinalSimAccessSubComponents extends FunSuite {
+class SpinalSimAccessSubComponents extends AnyFunSuite {
   SpinalSimTester { env =>
     import env._
 
@@ -55,6 +55,12 @@ class SpinalSimAccessSubComponents extends FunSuite {
         dut.subInst.subSubInst.miaouVec.simPublic()
         dut.subInst.subSubInst.io.a.simPublic()
         dut.subInst.subSubInst.miaou.simPublic()
+        dut.subInst.subSubInst.miaou.pull()
+        dut.subInst.subSubInst.io.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
+        dut.subInst.subSubInst.miaouVec.pull()
         dut
       }
     }

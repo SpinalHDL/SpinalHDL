@@ -26,6 +26,7 @@ import scala.annotation.elidable
 import scala.annotation.elidable._
 import scala.annotation.meta.field
 import scala.collection.immutable.Range
+import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 
 
@@ -33,8 +34,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
 
-
+  type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
+
+  def Bool : Bool = new Bool
+  def Bool(u: DummyTrait = DummyObject) : Bool = new Bool
+  def Bool(value: Boolean): Bool = BoolLiteral(value, this.Bool().setAsTypeNode())
 
   /**
     * Scala implicit
@@ -244,6 +249,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
+    def L(args: Any*): List[Any] ={
+      val ret = ArrayBuffer[Any]()
+      for((s,i) <- sc.parts.zipWithIndex){
+        ret += s
+        if(args.size > i) ret += args(i)
+      }
+      ret.toList
+    }
 
     def Bits(args: Any*): Bits = B(args)
     def UInt(args: Any*): UInt = U(args)
@@ -339,6 +352,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     * Implicit Data helper
     */
   implicit def DataPimped[T <: Data](that: T): DataPimper[T] = new DataPimper(that)
+  implicit def BaseTypePimped[T <: BaseType](that: T): BaseTypePimper[T] = new BaseTypePimper(that)
 
   /**
     * Implicit SInt helper
@@ -401,7 +415,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
 
-  implicit def BooleanPimped[T <: Data](that : Boolean) = new BooleanPimped(that)
+  implicit def BooleanPimped(that : Boolean) = new BooleanPimped(that)
+  implicit def IntPimped(that : Int) = new IntPimped(that)
 
 
   //For backward compatibility
@@ -422,22 +437,56 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
+  def assumeInitial(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL)
 
-  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME)
-  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER)
+  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED)
+  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT)
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
 
   def report(message: String)   = assert(False, message, NOTE)
   def report(message: Seq[Any]) = assert(False, message, NOTE)
 
   def report(message: String,   severity: AssertNodeSeverity) = assert(False, message, severity)
   def report(message: Seq[Any], severity: AssertNodeSeverity) = assert(False, message, severity)
+
+
+  class TuplePimperBase(product: Product){
+    def elements = product.productIterator.asInstanceOf[Iterator[Data]]
+    def := (right : Bits): Unit ={
+      val leftWidth = elements.map(_.getBitsWidth).sum
+      var rightOp = right
+      if(right.hasTag(tagAutoResize)){
+        rightOp = right.resize(leftWidth bits)
+      }
+      assert(rightOp.getWidth == leftWidth, s"Width missmatch (${right.getWidth} != $leftWidth")
+      var offset = 0
+      for(e <- elements.toList.reverse){
+        e.assignFromBits(rightOp(offset, e.getBitsWidth bits))
+        offset += e.getBitsWidth
+      }
+    }
+
+    def asBits = {
+      Cat(elements.toList.reverse)
+    }
+  }
+
+  implicit class Tuple2Pimper(pimped : Tuple2[Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple3Pimper(pimped : Tuple3[Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple4Pimper(pimped : Tuple4[Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple5Pimper(pimped : Tuple5[Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple6Pimper(pimped : Tuple6[Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple7Pimper(pimped : Tuple7[Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple8Pimper(pimped : Tuple8[Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple9Pimper(pimped : Tuple9[Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple10Pimper(pimped : Tuple10[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
+  implicit class Tuple11Pimper(pimped : Tuple11[Data, Data, Data, Data, Data, Data, Data, Data, Data, Data, Data]) extends TuplePimperBase(pimped)
 }

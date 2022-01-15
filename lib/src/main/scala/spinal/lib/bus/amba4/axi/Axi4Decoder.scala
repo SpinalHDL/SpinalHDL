@@ -58,7 +58,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
 }
 
 
-case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7,lowLatency : Boolean = false) extends Component{
+case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
   assert(!SizeMapping.verifyOverlapping(decodings), "AXI4 address decoding overlapping")
 
   val io = new Bundle{
@@ -66,7 +66,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterUpDown(
     stateCount = pendingMax+1,
@@ -86,7 +86,6 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
-  if(lowLatency) allowData.setWhen(allowCmd && io.input.writeCmd.valid)
   cmdAllowedStart := io.input.writeCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.writeCmd.ready))
 
   //Decoding error managment
@@ -94,18 +93,22 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   val errorSlave = if(decodingErrorPossible) Axi4WriteOnlyErrorSlave(axiConfig) else null
 
   //Wire writeCmd
-  io.input.writeCmd.ready := ((decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR || (decodedCmdError && errorSlave.io.axi.writeCmd.ready)) && allowCmd
-  errorSlave.io.axi.writeCmd.valid := io.input.writeCmd.valid && decodedCmdError && allowCmd
-  errorSlave.io.axi.writeCmd.payload := io.input.writeCmd.payload
+  io.input.writeCmd.ready := ((decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR || (if(decodingErrorPossible) (decodedCmdError && errorSlave.io.axi.writeCmd.ready) else False)) && allowCmd
+  if(decodingErrorPossible) {
+    errorSlave.io.axi.writeCmd.valid := io.input.writeCmd.valid && decodedCmdError && allowCmd
+    errorSlave.io.axi.writeCmd.payload := io.input.writeCmd.payload
+  }
   for((output,sel) <- (io.outputs,decodedCmdSels.asBools).zipped){
     output.writeCmd.valid := io.input.writeCmd.valid && sel && allowCmd
     output.writeCmd.payload := io.input.writeCmd.payload
   }
 
   //Wire writeData
-  io.input.writeData.ready := ((pendingSels & io.outputs.map(_.writeData.ready).asBits).orR || (pendingError && errorSlave.io.axi.writeData.ready)) && allowData
-  errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
-  errorSlave.io.axi.writeData.payload := io.input.writeData.payload
+  io.input.writeData.ready := ((pendingSels & io.outputs.map(_.writeData.ready).asBits).orR || (if(decodingErrorPossible) (pendingError && errorSlave.io.axi.writeData.ready) else False)) && allowData
+  if(decodingErrorPossible) {
+    errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
+    errorSlave.io.axi.writeData.payload := io.input.writeData.payload
+  }
   for((output,sel) <- (io.outputs,pendingSels.asBools).zipped){
     output.writeData.valid   := io.input.writeData.valid && sel && allowData
     output.writeData.payload := io.input.writeData.payload
@@ -113,13 +116,15 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
 
   //Wire writeRsp
   val writeRspIndex = OHToUInt(pendingSels)
-  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR || errorSlave.io.axi.writeRsp.valid
+  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR || (if(decodingErrorPossible) errorSlave.io.axi.writeRsp.valid else False)
   io.input.writeRsp.payload := MuxOH(pendingSels,io.outputs.map(_.writeRsp.payload))
-  when(pendingError){
-    if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
-    if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
+  if(decodingErrorPossible) {
+    when(pendingError){
+      if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
+      if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
+    }
+    errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
   }
-  errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
   io.outputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
 }
 
@@ -131,8 +136,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
                              readDecodings : Seq[SizeMapping],
                              writeDecodings : Seq[SizeMapping],
                              sharedDecodings : Seq[SizeMapping],
-                             pendingMax : Int = 7,
-                             lowLatency : Boolean = false) extends Component{
+                             pendingMax : Int = 7) extends Component{
   assert(!SizeMapping.verifyOverlapping(readDecodings++sharedDecodings), "AXI4 address decoding overlapping")
   assert(!SizeMapping.verifyOverlapping(writeDecodings++sharedDecodings), "AXI4 address decoding overlapping")
 
@@ -143,7 +147,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val sharedOutputs = Vec(master(Axi4Shared(axiConfig)),sharedDecodings.size)
   }
 
-  val cmdAllowedStart = Bool
+  val cmdAllowedStart = Bool()
 
   val pendingCmdCounter = CounterMultiRequest(
     log2Up(pendingMax+1),
@@ -173,7 +177,6 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
-  if(lowLatency) allowData.setWhen(allowCmd && io.input.sharedCmd.valid && io.input.sharedCmd.write)
   cmdAllowedStart := io.input.sharedCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.sharedCmd.ready))
 
   //Decoding error managment

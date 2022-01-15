@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.lib.{Delay, LatencyAnalysis}
 import spinal.lib.com.uart._
@@ -28,11 +28,12 @@ class LibTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "LibTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/LibTester"
   override def createToplevel: Component = new LibTester.LibTester
+  withWaveform = true
 }
 
 
 
-class CoreMiscTester extends FunSuite{
+class CoreMiscTester extends AnyFunSuite{
   import spinal.core.sim._
   test("SlowArea"){
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{

@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
@@ -29,6 +29,9 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
 
     //Pop data randomly and check that it match with the queueModel
     val popThread = fork{
+      dut.io.pop.ready #= false
+      dut.pushClock.waitSampling()
+      dut.popClock.waitSampling()
       for(repeat <- 0 until 10000){
         dut.io.pop.ready.randomize()
         dut.popClock.waitSampling()
@@ -47,7 +50,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
         dataType = Bits(32 bits),
         depth = 32,
         pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
+        popClock = ClockDomain.external("clkB", withReset = false)
       )
     )
 
@@ -58,15 +61,15 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
         dut.pushClock.fallingEdge()
         dut.popClock.fallingEdge()
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
+//        dut.popClock.deassertReset()
         sleep(0)
 
         //Do the resets
         dut.pushClock.assertReset()
-        dut.popClock.assertReset()
+//        dut.popClock.assertReset()
         sleep(10)
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
+//        dut.popClock.deassertReset()
         sleep(1)
 
         //Forever, randomly toggle one of the clocks (will create asynchronous clocks without fixed frequencies)
@@ -90,7 +93,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
         dataType = Bits(32 bits),
         depth = 32,
         pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
+        popClock = ClockDomain.external("clkB", withReset = false)
       )
     )
 
@@ -99,17 +102,17 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
       dut.pushClock.fallingEdge()
       dut.popClock.fallingEdge()
       dut.pushClock.deassertReset()
-      dut.popClock.deassertReset()
+//      dut.popClock.deassertReset()
       fork {
         //Clear clock domains signals, to be sure the simulation capture their first edge.
         sleep(0)
 
         //Do the resets
         dut.pushClock.assertReset()
-        dut.popClock.assertReset()
+//        dut.popClock.assertReset()
         sleep(10)
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
+//        dut.popClock.deassertReset()
         sleep(1)
       }
 
@@ -141,7 +144,7 @@ class SpinalSimStreamFifoCCTester extends SpinalSimFunSuite {
         dataType = Bits(32 bits),
         depth = 32,
         pushClock = ClockDomain.external("clkA"),
-        popClock = ClockDomain.external("clkB")
+        popClock = ClockDomain.external("clkB", withReset = false)
       )
     )
 
@@ -201,7 +204,7 @@ object TesterBugPlay extends App{
       dataType = Bits(32 bits),
       depth = 32,
       pushClock = ClockDomain.external("clkA"),
-      popClock = ClockDomain.external("clkB")
+      popClock = ClockDomain.external("clkB", withReset = false)
     )
   )
 
@@ -212,17 +215,17 @@ object TesterBugPlay extends App{
       dut.pushClock.fallingEdge()
       dut.popClock.fallingEdge()
       dut.pushClock.deassertReset()
-      dut.popClock.deassertReset()
+//      dut.popClock.deassertReset()
       fork {
         //Clear clock domains signals, to be sure the simulation capture their first edge.
         sleep(0)
 
         //Do the resets
         dut.pushClock.assertReset()
-        dut.popClock.assertReset()
+//        dut.popClock.assertReset()
         sleep(10)
         dut.pushClock.deassertReset()
-        dut.popClock.deassertReset()
+//        dut.popClock.deassertReset()
         sleep(1)
       }
 

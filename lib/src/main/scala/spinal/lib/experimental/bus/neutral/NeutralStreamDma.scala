@@ -133,7 +133,7 @@ object NeutralStreamDma {
     memRsp.fragment := io.mem.rsp.fragment
 
     val toManyPendingCmd = pendingMemCmd > c.pendingRequetMax-1
-    val toManyPendingRsp = Bool
+    val toManyPendingRsp = Bool()
     val rspArea = if(c.ctrlRspClock == null || this.clockDomain == c.ctrlRspClock) new Area{
       val pendingMemToFifo = CounterMultiRequest(
         width=log2Up(c.fifoSize + 1),

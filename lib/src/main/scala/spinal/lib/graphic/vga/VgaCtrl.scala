@@ -21,14 +21,14 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
   val v = VgaTimingsHV(timingsWidth)
 
   def setAs_h640_v480_r60: Unit = {
-    h.syncStart := 96 - 1
-    h.syncEnd := 800 - 1
-    h.colorStart := 96 + 16 - 1
-    h.colorEnd := 800 - 48 - 1
-    v.syncStart := 2 - 1
-    v.syncEnd := 525 - 1
-    v.colorStart := 2 + 10 - 1
-    v.colorEnd := 525 - 33 - 1
+    h.syncStart := 95
+    h.syncEnd := 799
+    h.colorStart := 143
+    h.colorEnd := 783
+    v.syncStart := 1
+    v.syncEnd := 524
+    v.colorStart := 34
+    v.colorEnd := 514
     h.polarity := False
     v.polarity := False
   }
@@ -81,6 +81,19 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     vPolarity  = true
   )
 
+  def setAs_h800_v600_r60: Unit = setAs(
+    hPixels    = 800,
+    hSync      = 128,
+    hFront     = 40,
+    hBack      = 88,
+    hPolarity  = true,
+    vPixels    = 600,
+    vSync      = 4,
+    vFront     = 1,
+    vBack      = 23,
+    vPolarity  = true
+  )
+
 
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : Int) : Unit = {
     require(busCtrl.busDataWidth == 32)
@@ -99,16 +112,63 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 }
 
 
+object VgaTimingPrint extends App{
+  def show( hPixels : Int,
+            hSync : Int,
+            hFront : Int,
+            hBack : Int,
+            hPolarity : Boolean,
+            vPixels : Int,
+            vSync : Int,
+            vFront : Int,
+            vBack : Int,
+            vPolarity : Boolean): Unit = {
+    val h_syncStart = hSync - 1
+    val h_colorStart = hSync + hBack - 1
+    val h_colorEnd = hSync + hBack + hPixels - 1
+    val h_syncEnd = hSync + hBack + hPixels + hFront - 1
+    val v_syncStart = vSync - 1
+    val v_colorStart = vSync + vBack - 1
+    val v_colorEnd = vSync + vBack + vPixels - 1
+    val v_syncEnd = vSync + vBack + vPixels + vFront - 1
+
+    println(
+      s"""    .hSyncStart  = $h_syncStart,
+         |    .hSyncEnd    = $h_syncEnd,
+         |    .hColorStart = $h_colorStart,
+         |    .hColorEnd   = $h_colorEnd,
+         |    .vSyncStart  = $v_syncStart,
+         |    .vSyncEnd 	 = $v_syncEnd,
+         |    .vColorStart = $v_colorStart,
+         |    .vColorEnd 	 = $v_colorEnd,
+         |    .polarities  = ${(if(hPolarity) 1 else 0) | (if(vPolarity) 2 else 0)},
+         |""".stripMargin)
+  }
+
+  show(
+    hPixels    = 640,
+    hSync      = 96,
+    hFront     = 16,
+    hBack      = 48,
+    hPolarity  = false,
+    vPixels    = 480,
+    vSync      = 2,
+    vFront     = 10,
+    vBack      = 33,
+    vPolarity  = false
+  )
+}
+
 case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
     val softReset = in Bool() default(False)
     val timings   = in(VgaTimings(timingsWidth))
 
-    val frameStart = out Bool
+    val frameStart = out Bool()
     val pixels     = slave Stream (Rgb(rgbConfig))
     val vga        = master(Vga(rgbConfig))
 
-    val error      = out Bool
+    val error      = out Bool()
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {
@@ -155,6 +215,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   def feedWith(that : Stream[Fragment[Rgb]], resync : Bool = False): Unit ={
     val error = RegInit(False)
     val waitStartOfFrame = RegInit(False)
+    val firstPixel = Reg(Bool) setWhen(io.frameStart) clearWhen(that.firstFire)
 
     io.pixels << that.toStreamOfFragment.throwWhen(error).haltWhen(waitStartOfFrame)
 
@@ -166,7 +227,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
       waitStartOfFrame := error
     }
     when(!waitStartOfFrame && !error) {
-      when(io.error || resync) {
+      when(io.error || resync || firstPixel && that.valid && !that.first) {
         error := True
       }
     }

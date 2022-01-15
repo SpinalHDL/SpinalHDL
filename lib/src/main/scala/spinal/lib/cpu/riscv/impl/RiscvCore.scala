@@ -33,7 +33,7 @@ object cmdStream_rspFlow extends InstructionBusKind with DataBusKind
 
 case class RiscvCoreConfig(val pcWidth : Int = 32,
                            val addrWidth : Int = 32,
-                           val startAddress : Int = 0,
+                           val startAddress : BigInt = 0,
                            val bypassExecute0 : Boolean = true,
                            val bypassExecute1 : Boolean = true,
                            val bypassWriteBack : Boolean = true,
@@ -406,7 +406,7 @@ case class CoreDataBus()(implicit val p : RiscvCoreConfig) extends Bundle with I
 }
 
 case class CoreDataCmd()(implicit val p : RiscvCoreConfig) extends Bundle{
-  val wr = Bool
+  val wr = Bool()
   val address = UInt(p.addrWidth bit)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
@@ -431,8 +431,8 @@ case class CoreDecodeOutput()(implicit val p : RiscvCoreConfig) extends Bundle{
   val src1 = Bits(32 bit)
   val alu_op0 = Bits(32 bit)
   val alu_op1 = Bits(32 bit)
-  val doSub = Bool
-  val predictorHasBranch = Bool
+  val doSub = Bool()
+  val predictorHasBranch = Bool()
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
 }
 
@@ -441,17 +441,17 @@ case class CoreExecute0Output()(implicit val p : RiscvCoreConfig) extends Bundle
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
   val br = new Bundle {
-    val eq, ltx = Bool
+    val eq, ltx = Bool()
   }
   val src1 = Bits(32 bit)
   val result = Bits(32 bit)
   val adder = UInt(32 bit)
-  val predictorHasBranch = Bool
+  val predictorHasBranch = Bool()
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
   val pcPlus4 = if(p.needExecute0PcPlus4) UInt(32 bit) else null
   val pc_sel = PC()
-  val unalignedMemoryAccessException = Bool
-  val needMemRsp = Bool
+  val unalignedMemoryAccessException = Bool()
+  val needMemRsp = Bool()
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
@@ -462,8 +462,8 @@ case class CoreExecute1Output()(implicit val p : RiscvCoreConfig) extends Bundle
   val result = Bits(32 bit)
   val regFileAddress = UInt(5 bit)
   val pcPlus4 = UInt(32 bit)
-  val unalignedMemoryAccessException = Bool
-  val needMemRsp = Bool
+  val unalignedMemoryAccessException = Bool()
+  val needMemRsp = Bool()
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
@@ -503,7 +503,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
 
   //Memories
   val regFile = Mem(Bits(32 bit),32)
-  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2) randBoot()
+  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2).randBoot()
 
 
   //Send instruction request to io.i.cmd
@@ -610,7 +610,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
     // branch prediction
     val branchCacheHit = inInst.branchCacheLine.pc === inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
     val staticBranchPrediction = brjmpImm.msb || ctrl.br === BR.J
-    val shouldTakeBranch = Bool
+    val shouldTakeBranch = Bool()
     branchPrediction match{
       case `disable` =>
         shouldTakeBranch := False

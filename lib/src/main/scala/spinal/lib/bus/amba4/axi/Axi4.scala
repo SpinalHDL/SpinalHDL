@@ -2,8 +2,8 @@
   *  This file describes the Axi4 interface
   *
   *   _________________________________________________________________________
-  *  | Global | Write Data | Write Addr | Write Resp | Read Data  | Read Addr  |
-  *  |   -    |    w       |    aw      |      b     |     r      |     ar     |
+  *  | Global | Write Data | Write Addr | Write Resp | Read Addr  | Read Data  |
+  *  |   -    |    w       |    aw      |      b     |     ar     |     r      |
   *  |-------------------------------------------------------------------------|
   *  |  aclk  |  wid       |  *awid     |  *bid      |  *arid     |  rid       |
   *  |  arstn |  wdata     |  awaddr    |  *bresp    |  araddr    |  rdata     |
@@ -162,16 +162,43 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     slave(r,b)
   }
 
-  def toReadOnly(): Axi4ReadOnly ={
+  def toReadOnly(idleOthers: Boolean = false): Axi4ReadOnly ={
     val ret = Axi4ReadOnly(config)
     ret << this
+    if(idleOthers){
+      this.writeCmd.setBlocked()
+      this.writeData.setBlocked()
+      this.writeRsp.setIdle()
+    }
     ret
   }
 
-  def toWriteOnly(): Axi4WriteOnly ={
+  def toWriteOnly(idleOthers: Boolean = false): Axi4WriteOnly ={
     val ret = Axi4WriteOnly(config)
     ret << this
+    if(idleOthers){
+      this.readCmd.setBlocked()
+      this.readRsp.setIdle()
+    }
     ret
+  }
+
+  def setIdle(): this.type = {
+    this.writeCmd.setIdle()
+    this.writeData.setIdle()
+    this.writeRsp.setBlocked()
+    this.readCmd.setIdle()
+    this.readRsp.setBlocked()
+    this
+  }
+
+  def setBlocked(): this.type = {
+    this.writeCmd.setBlocked()
+    this.writeData.setBlocked()
+    this.writeRsp.setIdle()
+    this.readCmd.setBlocked()
+    this.readRsp.setIdle()
+    this
   }
 
   def toShared() : Axi4Shared = {
@@ -258,8 +285,8 @@ object Axi4{
       val wrapCaseWidth = log2Up(wrapCaseMax + 1)
       val wrapCase = validSize.resize(wrapCaseWidth) + len.mux(
         M"----1---" -> U"11",
-        M"-----1--" -> U"10",
-        M"------1-" -> U"01",
+        M"----01--" -> U"10",
+        M"----001-" -> U"01",
         default -> U"00"
       )
       switch(burst) {

@@ -1,6 +1,7 @@
 package spinal.lib.bus.amba4.axi
 
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib._
 
 object Axi4SharedOnChipRam{
@@ -60,60 +61,137 @@ case class Axi4SharedOnChipRam(dataWidth : Int, byteCount : BigInt, idWidth : In
 }
 
 
-//WARNING, do not support backpresure
-case class Axi4SharedOnChipRamMultiPort(portCount : Int, dataWidth : Int,byteCount : BigInt,idWidth : Int) extends Component{
-  val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
+object Axi4SharedOnChipRamPort {
+    def apply(config: Axi4Config, ram: Mem[Bits]) = {
+        val port = new Axi4SharedOnChipRamPort(config)
+        port.attach(ram)
+        port
+    }
 
-  val io = new Bundle {
-    val axis = Vec(slave(Axi4Shared(axiConfig)), portCount)
-  }
-
-  val wordCount = byteCount / axiConfig.bytePerWord
-  val ram = Mem(axiConfig.dataType,wordCount.toInt)
-  val wordRange = log2Up(wordCount) + log2Up(axiConfig.bytePerWord)-1 downto log2Up(axiConfig.bytePerWord)
-
-  
-  for(axi <- io.axis) {
-    val arw = axi.arw.unburstify
-    val stage0 = arw.haltWhen(arw.write && !axi.writeData.valid)
-//    axi.readRsp.data := ram.readWriteSync(
-//      address = stage0.addr(axiConfig.wordRange).resized,
-//      data = axi.writeData.data,
-//      enable = stage0.fire,
-//      write = stage0.write,
-//      mask = axi.writeData.strb
-//    )
-    val addr = stage0.addr(axiConfig.wordRange)
-//    val addrLast = RegNext(addr)
-
-    ram.write(
-      address = addr,
-      data = axi.writeData.data,
-      enable = stage0.fire && stage0.write,
-      mask = axi.writeData.strb
-    )
-    axi.readRsp.data := ram.readSync(
-      address = addr
-    )
-
-    axi.writeData.ready := arw.valid && arw.write && stage0.ready
-
-    val stage1 = stage0.stage
-    stage1.ready := (axi.readRsp.ready && !stage1.write) || ((axi.writeRsp.ready || !stage1.last) && stage1.write)
-
-    axi.readRsp.valid := stage1.valid && !stage1.write
-    axi.readRsp.id := stage1.id
-    axi.readRsp.last := stage1.last
-    axi.readRsp.setOKAY()
-    if (axiConfig.useRUser) axi.readRsp.user := stage1.user
-
-    axi.writeRsp.valid := stage1.valid && stage1.write && stage1.last
-    axi.writeRsp.setOKAY()
-    axi.writeRsp.id := stage1.id
-    if (axiConfig.useBUser) axi.writeRsp.user := stage1.user
-
-    axi.arw.ready.noBackendCombMerge //Verilator perf
-  }
+    def apply(config: Axi4Config, ram: Mem[Bits], softReset: Bool) = {
+        val clock = ClockDomain.current.copy(softReset = softReset)
+        val domain = new ClockingArea(clock) {
+            val port = new Axi4SharedOnChipRamPort(config)
+            port.attach(ram)
+        }
+        domain.port
+    }
 }
 
+case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4Shared] {
+    val axi                                = Axi4Shared(config)
+    override def implicitValue: Axi4Shared = this.axi
+
+    val ram = Handle[Mem[Bits]]
+
+    val logic = Handle {
+        new Area {
+            val wordRange       = config.wordRange
+            val arw             = axi.arw.unburstify
+            val writeDataStream = axi.writeData
+
+            val readStream      = Stream(Axi4R(axi.config))
+            val readAddrStream  = cloneOf(arw)
+            val writeStream     = Stream(Axi4B(axi.config))
+            val writeAddrStream = cloneOf(arw)
+
+            Vec(readAddrStream, writeAddrStream) <> StreamDemux(
+                arw,
+                U(arw.write),
+                2
+            )
+
+            val writeCombined = StreamJoin(writeAddrStream, writeDataStream)
+            val address       = arw.addr(wordRange).resize(ram.addressWidth bits)
+            ram.write(
+                address = address,
+                data = writeCombined._2.data,
+                enable = writeCombined.fire,
+                mask = writeCombined._2.strb
+            )
+
+            writeStream.translateFrom(writeCombined) { (to, from) =>
+                if (axi.config.useId) to.id := from._1.id
+                if (axi.config.useWUser) to.user := from._1.user
+                to.setOKAY()
+            }
+            val writeReady = RegInit(False).riseWhen(True)
+            writeStream.ready := writeReady
+
+            val bStream      = cloneOf(writeStream)
+            val writeLast    = writeCombined.fire && writeCombined._1.last
+            val writePayload = RegNextWhen(writeStream.payload, writeLast)
+            val writeDone    = RegInit(False)
+            when(writeLast) {
+                writeDone := True
+            } elsewhen (bStream.fire) {
+                writeDone := False
+            }
+            bStream.valid := writeDone
+            bStream.payload := writePayload
+            axi.writeRsp << bStream
+
+            val readData = ram
+                .readSync(
+                    address = address
+                )
+                .resized
+            val savedReadData = Reg(cloneOf(readData))
+            val dataValid     = RegNext(readAddrStream.fire).init(False)
+            when(dataValid) {
+                savedReadData := readData
+            }
+            val outData = cloneOf(readData)
+            when(dataValid) {
+                outData := readData
+            } otherwise {
+                outData := savedReadData
+            }
+
+            readStream.translateFrom(readAddrStream) { (to, from) =>
+                if (axi.config.useId) to.id := from.id
+                if (axi.config.useLast) to.last := from.last
+                to.data := 0
+                to.setOKAY()
+                if (axi.config.useRUser) to.user := from.user
+            }
+            val readOutStream = cloneOf(readStream)
+            readOutStream.translateFrom(readStream.stage) { (to, from) =>
+                to := from
+                to.data.removeAssignments()
+                to.data := outData
+            }
+            axi.readRsp << readOutStream
+
+            axi.arw.ready.noBackendCombMerge //Verilator perf
+        }
+    }
+
+    def attach(ram: Mem[Bits]) = {
+        this.ram.load(ram)
+    }
+}
+
+object Axi4SharedOnChipRamMultiPort {
+    def apply(portCount: Int, dataWidth: Int, byteCount: BigInt, idWidth: Int) = {
+        val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth, byteCount, idWidth)
+        val wordCount = byteCount / axiConfig.bytePerWord
+        new Axi4SharedOnChipRamMultiPort(axiConfig, wordCount, portCount)
+    }
+    def apply(config: Axi4Config, wordCount: BigInt, portCount: Int) =
+        new Axi4SharedOnChipRamMultiPort(config, wordCount, portCount)
+}
+
+class Axi4SharedOnChipRamMultiPort(config: Axi4Config, wordCount: BigInt, portCount: Int) extends Component {
+    val io = new Bundle {
+        val axis = Vec(slave(Axi4Shared(config)), portCount)
+    }
+
+    if (config.useLock || config.useRegion || config.useCache || config.useProt || config.useQos)
+        SpinalWarning("Axi4SharedOnChipRamMultiPort might not support Axi4 Lock, Region, Cahce, Prot and Qos featrues!")
+
+    val ram   = Mem(config.dataType, wordCount.toInt)
+    val ports = Array.fill(portCount)(Axi4SharedOnChipRamPort(config, ram))
+    (io.axis, ports).zipped foreach ((m, s) => m >> s)
+}
 

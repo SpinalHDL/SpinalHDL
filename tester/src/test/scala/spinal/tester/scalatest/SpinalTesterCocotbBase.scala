@@ -2,15 +2,15 @@ package spinal.tester.scalatest
 
 import java.io.File
 import java.nio.charset.Charset
-
 import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
+abstract class SpinalTesterCocotbBase extends AnyFunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
 
   var withWaveform = false
   var spinalMustPass = true
@@ -73,7 +73,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
       s"make TOPLEVEL_LANG=${langString} ${additionalArgs.mkString(" ")}"
     ))
 //    val pass = getCocotbPass(xmlPath)
-    val pass = stdout.contains("**                                 ERRORS : 0                                      **")
+    val pass = stdout.contains("FAIL=0 SKIP=0")
 
     assert(!cocotbMustPass || pass,"Simulation fail")
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")

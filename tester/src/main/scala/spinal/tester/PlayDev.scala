@@ -57,9 +57,9 @@ object PlayDevErrorReport{
 object PlayDevLatency{
   class TopLevel extends Component {
     val a,b = in Bool()
-    val tmp = Reg(Bool)
-    val tmp2 = Bool
-    val tmp3 = Reg(Bool)
+    val tmp = Reg(Bool())
+    val tmp2 = Bool()
+    val tmp3 = Reg(Bool())
 
 
    // tmp := a
@@ -144,7 +144,7 @@ object PlayDevMemReadWrite{
     val mem = Mem(Bits(8 bits), 64)
     val address = UInt(6 bits)
     val wrData, rdData = Bits(8 bits)
-    val en, wr = Bool
+    val en, wr = Bool()
     rdData := mem.readWriteSync(address,wrData,en,wr)
   }
 
@@ -239,11 +239,11 @@ object PlayDevCombLoop{
 object PlayDevCrossClock{
 
   class TopLevel extends Component {
-    val clockA = in Bool
-    val clockB = in Bool
+    val clockA = in Bool()
+    val clockB = in Bool()
 
     val areaA = new ClockingArea(ClockDomain(clockA)){
-      val reg = Reg(Bool)
+      val reg = Reg(Bool())
       reg := in(Bool)
       val wire = Bool()
       wire := reg
@@ -252,7 +252,7 @@ object PlayDevCrossClock{
     }
 
     val areaB = new ClockingArea(ClockDomain(clockB)){
-      val reg = Reg(Bool)
+      val reg = Reg(Bool())
       reg := areaA.wire2
       val output = out Bool()
       output := reg
@@ -347,174 +347,174 @@ object PlayDevSwitchEnum{
   }
 }
 
-
-object PlayDevTriplify{
-  class PhaseTriplify() extends PhaseNetlist{
-    override def impl(pc: PhaseContext): Unit = {
-      import pc._
-      val todo = ArrayBuffer[BaseType]()
-      walkStatements{
-        case bt : BaseType if bt.isReg => todo += bt
-        case _ =>
-      }
-
-      todo.foreach{
-        case bt : BaseType => {
-          bt.setAsComb()
-          bt.parentScope.push()
-          bt.clockDomain.push()
-          def genRegs[T <: BaseType](bt : T)(implicit m: ClassTag[T]) =  {
-            val regs = Array.fill(3)(Reg(bt))
-            if(bt.isNamed) regs.zipWithIndex.foreach{case (reg,i) => reg.setWeakName(bt.getName() + "_triplify_" + i)}
-            bt.foreachStatements(s => {
-              def wrap(that : Expression): T ={
-                val ret = cloneOf(bt)
-                ret.assignFrom(that)
-                ret
-              }
-              def wrapBool(that : Expression): Bool ={
-                val ret = Bool()
-                ret.assignFrom(that)
-                ret
-              }
-              def wrapWidth(that : Expression, width : Int): T ={
-                val ret = weakCloneOf(bt)
-                ret.asInstanceOf[BitVector].setWidth(width)
-                ret.assignFrom(that)
-                ret
-              }
-              val source = s.target match {
-                case target : BitAssignmentFixed => wrapBool(s.source)
-                case target : BitAssignmentFloating => wrapBool(s.source)
-                case target : RangedAssignmentFixed => wrapWidth(s.source, target.getWidth)
-                case target : RangedAssignmentFloating => wrapWidth(s.source, target.getWidth)
-                case target : BaseType => wrap(s.source)
-              }
-              for(i <- 0 until 3){
-                val dup = regs(i)
-                val dupS = s match{
-                  case s : DataAssignmentStatement => new DataAssignmentStatement
-                  case s : InitAssignmentStatement => new InitAssignmentStatement
-                }
-
-                dupS.target = s.target match {
-                  case target : BitAssignmentFixed => BitAssignmentFixed(dup.asInstanceOf[BitVector], target.bitId)
-                  case target : BitAssignmentFloating => BitAssignmentFloating(dup.asInstanceOf[BitVector], target.bitId.asInstanceOf[UInt])
-                  case target : RangedAssignmentFixed => RangedAssignmentFixed(dup.asInstanceOf[BitVector], target.hi, target.lo)
-                  case target : RangedAssignmentFloating => RangedAssignmentFloating(dup.asInstanceOf[BitVector], target.offset.asInstanceOf[UInt], target.bitCount)
-                  case target : BaseType => dup
-                }
-                dupS.source = source
-
-                s.insertNext(dupS)
-                dup.dlcAppend(dupS)
-              }
-            })
-            regs
-          }
-
-
-          bt match {
-            case bt : Bool => {
-              val regs = genRegs(bt)
-              bt.removeAssignments()
-              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
-            }
-            case bt : Bits => {
-              val regs = genRegs(bt)
-              bt.removeAssignments()
-              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
-            }
-            case bt : UInt => {
-              val regs = genRegs(bt)
-              bt.removeAssignments()
-              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
-            }
-            case bt : SInt => {
-              val regs = genRegs(bt)
-              bt.removeAssignments()
-              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
-            }
-            case bt : SpinalEnumCraft[_] => {
-              val regs = genRegs(bt).map(_.asBits)
-              bt.removeAssignments()
-              bt.assignFromBits((regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2)))
-            }
-          }
-
-          bt.clockDomain.pop()
-          bt.parentScope.pop()
-        }
-      }
-    }
-  }
-
-  class TopLevel extends Component {
-    val bool = new Bundle {
-      val a, b, c = in Bool()
-      val result = out Bool()
-
-      val tmp = Reg(Bool)
-      when(a){
-        tmp := a || c && True
-        when(b){
-          tmp := b
-        }
-      }
-      result := tmp
-    }
-
-
-    val uint = new Bundle {
-      val a, b, c = in UInt(8 bits)
-      val result = out UInt(8 bits)
-
-      val tmp = Reg(UInt(8 bits))
-      when(a < 3){
-        tmp := a | c
-        when(b < 6){
-          tmp(3 downto 2) := b(6 downto 5)
-        }
-      }
-      result := tmp
-    }
-
-
-    val enum = new Bundle {
-      object State extends SpinalEnum{
-        val X,Y, Z = newElement()
-      }
-      val a, b, c = in (State())
-      val result = out (State())
-
-      val tmp = Reg(State())
-      when(a === State.X){
-        tmp := a
-        when(b === State.X){
-          tmp := b
-        }
-      }
-      result := tmp
-    }
-
-  }
-
-  def main(args: Array[String]) {
-//        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Apb3SpiMasterCtrl(
-//          SpiMasterCtrlMemoryMappedConfig(
-//            ctrlGenerics = SpiMasterCtrlGenerics(
-//              ssWidth     = 4,
-//              timerWidth  = 12,
-//              dataWidth   = 8
-//            ),
-//            cmdFifoDepth = 32,
-//            rspFifoDepth = 32
-//          )
-//        )).printPruned()
-//    val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Pinsec(PinsecConfig.default)).printPruned()
-        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new TopLevel).printPruned()
-  }
-}
+//
+//object PlayDevTriplify{
+//  class PhaseTriplify() extends PhaseNetlist{
+//    override def impl(pc: PhaseContext): Unit = {
+//      import pc._
+//      val todo = ArrayBuffer[BaseType]()
+//      walkStatements{
+//        case bt : BaseType if bt.isReg => todo += bt
+//        case _ =>
+//      }
+//
+//      todo.foreach{
+//        case bt : BaseType => {
+//          bt.setAsComb()
+//          bt.parentScope.push()
+//          bt.clockDomain.push()
+//          def genRegs[T <: BaseType](bt : T)(implicit m: ClassTag[T]) =  {
+//            val regs = Array.fill(3)(Reg(bt))
+//            if(bt.isNamed) regs.zipWithIndex.foreach{case (reg,i) => reg.setWeakName(bt.getName() + "_triplify_" + i)}
+//            bt.foreachStatements(s => {
+//              def wrap(that : Expression): T ={
+//                val ret = cloneOf(bt)
+//                ret.assignFrom(that)
+//                ret
+//              }
+//              def wrapBool(that : Expression): Bool ={
+//                val ret = Bool()
+//                ret.assignFrom(that)
+//                ret
+//              }
+//              def wrapWidth(that : Expression, width : Int): T ={
+//                val ret = weakCloneOf(bt)
+//                ret.asInstanceOf[BitVector].setWidth(width)
+//                ret.assignFrom(that)
+//                ret
+//              }
+//              val source = s.target match {
+//                case target : BitAssignmentFixed => wrapBool(s.source)
+//                case target : BitAssignmentFloating => wrapBool(s.source)
+//                case target : RangedAssignmentFixed => wrapWidth(s.source, target.getWidth)
+//                case target : RangedAssignmentFloating => wrapWidth(s.source, target.getWidth)
+//                case target : BaseType => wrap(s.source)
+//              }
+//              for(i <- 0 until 3){
+//                val dup = regs(i)
+//                val dupS = s match{
+//                  case s : DataAssignmentStatement => new DataAssignmentStatement
+//                  case s : InitAssignmentStatement => new InitAssignmentStatement
+//                }
+//
+//                dupS.target = s.target match {
+//                  case target : BitAssignmentFixed => BitAssignmentFixed(dup.asInstanceOf[BitVector], target.bitId)
+//                  case target : BitAssignmentFloating => BitAssignmentFloating(dup.asInstanceOf[BitVector], target.bitId.asInstanceOf[UInt])
+//                  case target : RangedAssignmentFixed => RangedAssignmentFixed(dup.asInstanceOf[BitVector], target.hi, target.lo)
+//                  case target : RangedAssignmentFloating => RangedAssignmentFloating(dup.asInstanceOf[BitVector], target.offset.asInstanceOf[UInt], target.bitCount)
+//                  case target : BaseType => dup
+//                }
+//                dupS.source = source
+//
+//                s.insertNext(dupS)
+//                dup.dlcAppend(dupS)
+//              }
+//            })
+//            regs
+//          }
+//
+//
+//          bt match {
+//            case bt : Bool => {
+//              val regs = genRegs(bt)
+//              bt.removeAssignments()
+//              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
+//            }
+//            case bt : Bits => {
+//              val regs = genRegs(bt)
+//              bt.removeAssignments()
+//              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
+//            }
+//            case bt : UInt => {
+//              val regs = genRegs(bt)
+//              bt.removeAssignments()
+//              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
+//            }
+//            case bt : SInt => {
+//              val regs = genRegs(bt)
+//              bt.removeAssignments()
+//              bt := (regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2))
+//            }
+//            case bt : SpinalEnumCraft[_] => {
+//              val regs = genRegs(bt).map(_.asBits)
+//              bt.removeAssignments()
+//              bt.assignFromBits((regs(0) & regs(1)) | (regs(0) & regs(2)) | (regs(1) & regs(2)))
+//            }
+//          }
+//
+//          bt.clockDomain.pop()
+//          bt.parentScope.pop()
+//        }
+//      }
+//    }
+//  }
+//
+//  class TopLevel extends Component {
+//    val bool = new Bundle {
+//      val a, b, c = in Bool()
+//      val result = out Bool()
+//
+//      val tmp = Reg(Bool())
+//      when(a){
+//        tmp := a || c && True
+//        when(b){
+//          tmp := b
+//        }
+//      }
+//      result := tmp
+//    }
+//
+//
+//    val uint = new Bundle {
+//      val a, b, c = in UInt(8 bits)
+//      val result = out UInt(8 bits)
+//
+//      val tmp = Reg(UInt(8 bits))
+//      when(a < 3){
+//        tmp := a | c
+//        when(b < 6){
+//          tmp(3 downto 2) := b(6 downto 5)
+//        }
+//      }
+//      result := tmp
+//    }
+//
+//
+//    val enum = new Bundle {
+//      object State extends SpinalEnum{
+//        val X,Y, Z = newElement()
+//      }
+//      val a, b, c = in (State())
+//      val result = out (State())
+//
+//      val tmp = Reg(State())
+//      when(a === State.X){
+//        tmp := a
+//        when(b === State.X){
+//          tmp := b
+//        }
+//      }
+//      result := tmp
+//    }
+//
+//  }
+//
+//  def main(args: Array[String]) {
+////        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Apb3SpiMasterCtrl(
+////          SpiMasterCtrlMemoryMappedConfig(
+////            ctrlGenerics = SpiMasterCtrlGenerics(
+////              ssWidth     = 4,
+////              timerWidth  = 12,
+////              dataWidth   = 8
+////            ),
+////            cmdFifoDepth = 32,
+////            rspFifoDepth = 32
+////          )
+////        )).printPruned()
+////    val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new Pinsec(PinsecConfig.default)).printPruned()
+//        val toplevel = SpinalConfig().addTransformationPhase(new PhaseTriplify).generateVhdl(new TopLevel).printPruned()
+//  }
+//}
 
 
 
@@ -801,7 +801,7 @@ object PlayDevSynthesis{
 
 
   class TopLevel extends Component {
-    val inputs = in(Vec(Bool, 16))
+    val inputs = in(Vec(Bool(), 16))
     val sel = in(UInt(4 bits))
     val output = out(inputs(sel))
   }
@@ -969,8 +969,8 @@ object PlayDevTest32 extends App{
 object PlayWithIndex extends App {
   class MyTopLevel extends Component{
     val io = new Bundle{
-      val load  = in Bool
-      val din   = in Bool
+      val load  = in Bool()
+      val din   = in Bool()
       val index = in UInt(log2Up(60) bits)
       val value = out UInt(60 bits)
     }
@@ -1038,7 +1038,7 @@ object PlayDeterministicGeneration extends App {
       val io = new Bundle{
         val apb =  slave(cloneOf(ctrl.io.apb))
         val i2c = master(I2c())
-        val interrupt = out Bool
+        val interrupt = out Bool()
       }
 
       io <> ctrl.io
@@ -1082,7 +1082,7 @@ object PlayAssertFormal extends App {
 object PlayErrorImprovment extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out Bool()
     }
     val a = RegInit(False)
     io.state := a
@@ -1106,7 +1106,7 @@ object PlayInitBoot extends App {
 object PlayErrorImprovment2 extends App {
   class MyTopLevel extends Component {
     val io = new Bundle {
-      val state = out Bool
+      val state = out Bool()
     }
     val a = RegInit(False)
     io.state := a
@@ -1150,7 +1150,7 @@ object PlayErrorReportingImprovmenet extends App {
 object PlayHardType extends App {
   case class A() extends Bundle{
     println("A")
-    val x,y,z = Bool
+    val x,y,z = Bool()
   }
   class MyTopLevel extends Component{
 
@@ -1179,8 +1179,8 @@ object PlayNamingImprovment extends App{
 
   class Sub extends Component{
     val io = new Bundle {
-      val input = in Bool
-      val output = out Bool
+      val input = in Bool()
+      val output = out Bool()
     }
     io.output := io.input
   }
@@ -1229,7 +1229,7 @@ object SimAccessSubSignal {
   import spinal.core.sim._
 
   class TopLevel extends Component {
-    val counter = Reg(UInt(8 bits)) init(0) simPublic()
+    val counter = Reg(UInt(8 bits)).init(0).simPublic()
     counter := counter + 1
   }
 
@@ -1504,7 +1504,7 @@ object OutputBug {
     var dut = SimConfig
       .compile(new Component {
         val io = new Bundle {
-          val cond0 = in Bool
+          val cond0 = in Bool()
         }
         val counter = Reg(UInt(8 bits)) init (0)
 

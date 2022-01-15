@@ -24,7 +24,7 @@ import spinal.core._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val strings: Seq[String]) {
 
@@ -41,7 +41,7 @@ class ComponentEmitterTrace(val builders: Seq[mutable.StringBuilder], val string
     if (this.hashCode() != obj.hashCode()) return false //Collision into hashmap implementation don't check it XD
     obj match {
       case that: ComponentEmitterTrace =>
-        return (this.builders, that.builders).zipped.map(_ == _).reduce(_ && _) && (this.strings, that.strings).zipped.map(_ == _).reduce(_ && _)
+        return (this.builders, that.builders).zipped.map(_ == _).forall(e => e) && (this.strings, that.strings).zipped.map(_ == _).forall(e => e)
     }
   }
 
@@ -61,6 +61,7 @@ abstract class ComponentEmitter {
 
   val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
   val processes  = mutable.LinkedHashSet[AsyncProcess]()
+  val initials  = mutable.ArrayBuffer[LeafStatement]()
   val analogs    = ArrayBuffer[BaseType]()
   val mems       = ArrayBuffer[Mem[_]]()
   val multiplexersPerSelect = mutable.LinkedHashMap[(Expression with WidthProvider,Int), ArrayBuffer[Multiplexer]]()
@@ -95,8 +96,8 @@ abstract class ComponentEmitter {
   }
 
   def isSubComponentInputBinded(data: BaseType) = {
-    if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
-      data.head.source.asInstanceOf[BaseType]
+    if(data.isInput && data.isComb && Statement.isFullToFullStatementOrLit(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+      data.head.source
     else
       null
   }
@@ -107,6 +108,7 @@ abstract class ComponentEmitter {
     //Sort all leaf statements into their nature (sync/async)
     var syncGroupInstanceCounter = 0
     component.dslBody.walkLeafStatements {
+      case s: InitialAssignmentStatement => initials += s
       case s: AssignmentStatement =>
         s.finalTarget match {
           case target: BaseType if target.isComb => asyncStatement += s
@@ -119,10 +121,16 @@ abstract class ComponentEmitter {
             }
           case target: BaseType if target.isAnalog =>
         }
-      case assertStatement: AssertStatement =>
-        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, true), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, true, syncGroupInstanceCounter))
-        syncGroupInstanceCounter += 1
-        group.dataStatements += assertStatement
+      case assertStatement: AssertStatement => assertStatement.trigger match {
+        case AssertStatementTrigger.CLOCKED => {
+          val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, true), new SyncGroup(assertStatement.clockDomain, assertStatement.rootScopeStatement, true, syncGroupInstanceCounter))
+          syncGroupInstanceCounter += 1
+          group.dataStatements += assertStatement
+        }
+        case AssertStatementTrigger.INITIAL => {
+          initials += assertStatement
+        }
+      }
       case x: MemPortStatement       =>
       case x: Mem[_]                 => mems += x
       case x: BaseType if x.isAnalog => analogs += x

@@ -11,7 +11,7 @@ import spinal.core._
 case class SblConfig(addressWidth : Int,dataWidth : Int)
 
 case class SblCmd(config: SblConfig) extends Bundle{
-  val isWrite = Bool
+  val isWrite = Bool()
   def isRead = !isWrite
   val address = UInt(config.addressWidth bit)
   val data = Bits(config.dataWidth bit)

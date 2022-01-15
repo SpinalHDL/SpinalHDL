@@ -21,7 +21,7 @@
 package spinal.lib.bus.misc
 
 import spinal.core._
-
+import scala.collection.Seq
 
 object AddressMapping{
   def verifyOverlapping(mapping: Seq[AddressMapping]): Boolean = {
@@ -68,8 +68,8 @@ object SizeMapping{
     *  @return : true = overlapping found, false = no overlapping
     */
   def verifyOverlapping(mappings: Seq[SizeMapping]): Boolean = {
-    for(m1 <- mappings; m2 <- mappings if m1 != m2){
-      if(m1.overlap(m2)) return true
+    for(m1 <- mappings.indices; m2 <- mappings.indices if m1 != m2){ // fix when some SizeMappings are completely overlap.
+      if(mappings(m1).overlap(mappings(m2))) return true
     }
     return false
   }

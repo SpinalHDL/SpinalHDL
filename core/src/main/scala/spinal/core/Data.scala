@@ -22,9 +22,11 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
+import scala.collection.Seq
 
 object DataAssign
 object InitAssign
+object InitialAssign
 class VarAssignementTag(val from : Data) extends SpinalTag{
   var id = 0
 }
@@ -40,12 +42,12 @@ trait DataPrimitives[T <: Data]{
   /** Assign a data to this */
   def := (that: T): Unit = _data assignFrom that
 
-  /** Use as \= to have the same behavioral thant VHDL variable */
+  /** Use as \= to have the same behavioral as VHDL variable */
   def \(that: T): T = {
 
     val globalData = GlobalData.get
 
-    globalData.dslScope.push(_data.parentScope)
+    val ctx = DslScopeStack.set(_data.parentScope)
 
     val swapContext = _data.parentScope.swap()
     val ret = cloneOf(that)
@@ -53,7 +55,7 @@ trait DataPrimitives[T <: Data]{
     ret := _data
 
     swapContext.appendBack()
-    globalData.dslScope.pop()
+    ctx.restore()
 
     ret.allowOverride
     ret := that
@@ -83,7 +85,7 @@ trait DataPrimitives[T <: Data]{
   /** Auto connection between two data */
   def <>(that: T): Unit = _data autoConnect that
 
-  /** Set inital value to a data */
+  /** Set initial value to a data */
   def init(that: T): T = {
     _data.initFrom(that)
     _data
@@ -100,11 +102,34 @@ trait DataPrimitives[T <: Data]{
     }
 
     if(c != null) {
-      Component.push(c)
+      val ctx = Component.push(c)
       _data.defaultImpl(that)
-      Component.pop(c)
+      ctx.restore()
     }
     _data
+  }
+
+  def swichAssign[T2 <: BaseType](sel : T2)(mappings: (Any, T)*): Unit = {
+    switch(sel){
+      for((s, v) <- mappings) s match {
+        case spinal.core.default => spinal.core.default{
+          _data := v
+        }
+        case _ => is(s){
+          _data := v
+        }
+      }
+    }
+  }
+}
+
+trait BaseTypePrimitives[T <: BaseType] {
+
+  private[spinal] def _baseType: T = this.asInstanceOf[T]
+
+  def initial(that : T) = {
+    _baseType.initialFrom(that)
+    _baseType
   }
 }
 
@@ -113,8 +138,12 @@ trait DataPrimitives[T <: Data]{
   * Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
   */
 class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
+
 }
 
+class BaseTypePimper[T <: BaseType](val _data: T) {
+
+}
 
 object Data {
 
@@ -172,16 +201,16 @@ object Data {
       }
     }
 
-    def push(c: Component, scope: ScopeStatement): Unit = {
-      c.globalData.dslScope.push(scope)
-      c.globalData.dslClockDomain.push(c.clockDomain)
-    }
-
-    def pop(c: Component): Unit = {
-      assert(c.globalData.currentComponent == c)
-      c.globalData.dslScope.pop()
-      c.globalData.dslClockDomain.pop()
-    }
+//    def push(c: Component, scope: ScopeStatement): Unit = {
+//      DslScopeStack.push(scope)
+//      ClockDomain.push(c.clockDomain)
+//    }
+//
+//    def pop(c: Component): Unit = {
+//      assert(Component.current == c)
+//      DslScopeStack.pop()
+//      ClockDomainStack.pop()
+//    }
 
     var currentData: T = srcData
     var currentComponent: Component = srcData.component
@@ -195,12 +224,12 @@ object Data {
         if (currentData.component == currentComponent && currentData.isIo) {
           //nothing to do
         } else {
-          push(currentComponent, currentComponent.dslBody)
+          val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
             copy.setPartialName(srcData, "", weak=true)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
           currentData = copy
         }
         currentComponent = currentComponent.parent
@@ -215,15 +244,15 @@ object Data {
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
-        push(riseTo, riseTo.dslBody)
+        val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
           copy.setPartialName(srcData, "", weak=true)
-        pop(riseTo)
+        ctx.restore()
         if (currentComponent != null) {
-          push(currentComponent, riseTo.parentScope)
+          val ctx = DslScopeStack.set(riseTo.parentScope)
           copy := currentData
-          pop(currentComponent)
+          ctx.restore()
         } else {
           copy.addTag(new ExternalDriverTag(currentData))
         }
@@ -255,6 +284,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
+  private[core] def isSuffix = parent != null && parent.isInstanceOf[Suffixable]
 
   var parent: Data = null
   def getRootParent: Data = if(parent == null) this else parent.getRootParent
@@ -262,7 +292,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as input */
   def asInput(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as input outside it's own component." )
+      LocatedPendingError(s"You should not set $this as input outside its own component." )
     }else {
       dir = in
     }
@@ -272,7 +302,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Set a data as output */
   def asOutput(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = out
     }
@@ -282,7 +312,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** set a data as inout */
   def asInOut(): this.type = {
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = inout
     }
@@ -291,7 +321,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def copyDirectionOfImpl(that : Data): this.type ={
     if(this.component != Component.current) {
-      LocatedPendingError(s"You should not set $this as output outside it's own component." )
+      LocatedPendingError(s"You should not set $this as output outside its own component." )
     }else {
       dir = that.dir
     }
@@ -311,6 +341,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def setAsReg(): this.type
   /** Set baseType to Combinatorial */
   def setAsComb(): this.type
+
+  def freeze() : this. type
+  def unfreeze() : this. type
 
   def purify() : this.type = {
     setAsDirectionLess()
@@ -340,7 +373,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       case `in`    => dir = out
       case `out`   => dir = in
       case `inout` =>
-      case _       => LocatedPendingError(s"Can't flip a data that is direction less $this")
+      case _       => LocatedPendingError(s"Can't flip a data that is direction less ($this)")
     }
     this
   }
@@ -475,7 +508,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         case (null,`in`)                          => this := that
         case (null,`out`)                         => that := this
         case _ if this.isAnalog && that.isAnalog  => this := that
-        case _                                    => LocatedPendingError(s"DIRECTION MISSMATCH, impossible to infer the connection direction between $this and $that ")
+        case _                                    => LocatedPendingError(s"DIRECTION MISMATCH, impossible to infer the connection direction between $this and $that ")
       }
     }
   }
@@ -524,10 +557,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
   /**
-    * Usefull for register that doesn't need a reset value in RTL,
-    * but need a randome value for simulation (avoid x-propagation)
+    * Useful for register that doesn't need a reset value in RTL,
+    * but need a random value for simulation (avoid x-propagation)
     */
-  def randBoot(): this.type = {
+  def randBoot(u : Unit): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
@@ -629,6 +662,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     null
   }
 
+
+  def toIo(): this.type ={
+    val subIo = this
+    val topIo = cloneOf(subIo)//.setPartialName(h, "", true)
+    topIo.copyDirectionOf(subIo)
+    for((s,t) <- (subIo.flatten, topIo.flatten).zipped if s.isAnalog) t.setAsAnalog()
+    topIo <> subIo
+    topIo.asInstanceOf[this.type]
+  }
+
   /** Generate this if condition is true */
   def genIf(cond: Boolean): this.type = if(cond) this else null
 
@@ -640,6 +683,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+
+  def wrapNext() : this.type = {
+    val comb = CombInit(this)
+    this := comb
+    this.freeze()
+    comb.asInstanceOf[this.type]
+  }
 }
 
 trait DataWrapper extends Data{
@@ -656,5 +706,7 @@ trait DataWrapper extends Data{
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
   override def setAsReg(): DataWrapper.this.type = ???
   override def setAsComb(): DataWrapper.this.type = ???
+  override def freeze(): DataWrapper.this.type = ???
+  override def unfreeze(): DataWrapper.this.type = ???
 }
 

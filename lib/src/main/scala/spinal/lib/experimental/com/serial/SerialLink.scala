@@ -16,9 +16,9 @@ object SerialLinkConst {
 }
 
 class SerialLinkRxToTx extends Bundle {
-  val close = Bool
-  val open = Bool
-  val miss = Bool
+  val close = Bool()
+  val open = Bool()
+  val miss = Bool()
   val rxPtr = UInt(16 bit)
   val otherRxPtr = Flow(UInt(16 bit))
 }
@@ -99,7 +99,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     val dataBuffer = Reg(Bits(8 bit))
     val txDataLeft = Reg(UInt(log2Up(burstSize+1) bit))
     val txDataLeftIsZero = txDataLeft === 0
-    val isLastData = Reg(Bool)
+    val isLastData = Reg(Bool())
     val isOpen = RegInit(False)
 
     //State before the connection opening

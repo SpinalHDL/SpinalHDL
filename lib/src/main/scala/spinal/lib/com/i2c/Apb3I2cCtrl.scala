@@ -39,7 +39,7 @@ case class Apb3I2cCtrl(generics : I2cSlaveMemoryMappedGenerics) extends Componen
   val io = new Bundle{
     val apb =  slave(Apb3(Apb3I2cCtrl.getApb3Config))
     val i2c = master(I2c())
-    val interrupt = out Bool
+    val interrupt = out Bool()
   }
 
   val i2cCtrl = new I2cSlave(generics.ctrlGenerics)

@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
@@ -17,7 +17,7 @@ object SpinalSimClockDomainTest{
       val result = out UInt (8 bits)
     }
 
-    val tmpClk, tmpReset = Bool
+    val tmpClk, tmpReset = Bool()
     tmpClk := io.mClk
     tmpReset := io.mReset
     ClockDomain(tmpClk, tmpReset){
@@ -47,7 +47,7 @@ object SpinalSimClockDomainTest{
 
   class SpinalSimClockDomainTest4 extends Component {
     val io = new Bundle {
-      val enable = in Bool
+      val enable = in Bool()
       val result = out UInt (8 bits)
     }
 
