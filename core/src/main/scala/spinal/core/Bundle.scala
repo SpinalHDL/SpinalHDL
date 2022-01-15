@@ -169,3 +169,65 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
 class BundleCase extends Bundle {
   private[core] override def rejectOlder = false
 }
+
+object Bundle{
+  def apply[T <: Data](wires: T*): BundleComb[T] = new BundleComb(wires.toList)
+}
+
+case class BundleComb[T <: Data](wires: List[T]) extends Widthable{
+  override def toString: String = {
+    val t = wires.map(_.getName()).mkString(",")
+    s"Bundle(${t})"
+  }
+
+  def calcWidth: Int = wires.map(_.getBitsWidth).sum
+
+  def :=(from: Widthable) = {
+    assert(from.getWidth == this.getWidth, s"Right Width '${this}' [$getWidth bit] mismatch left '${from}' [${from.getWidth} bit], can't auto connect")
+    from match {
+      case t: BitVector     => autoSlideConnect(wires.reverse, t.asBits)
+      case t: BundleComb[T] => {
+        if(this.wires == t.wires){
+          this.wires.zip(t.wires).foreach{case(a, b) => a := b}
+        }else{
+          autoSlideConnect(this.wires.reverse, t.asBits)
+        }
+      }
+      case _ => SpinalError("LHS should be Widthable, BitsVector, Vec, Bundles")
+    }
+  }
+
+  protected def autoSlideConnect[T <: Data](elements: List[T], source: Bits): Unit = {
+    var pos = 0
+    for (i <- 0 until elements.size) {
+      val element = elements(i)
+      val width = element.getBitsWidth
+      if(width == 1){
+        element match{
+          case elem: Bool => elem := source(pos)
+          case _ => autoConnect(element, source(pos downto pos))
+        }
+      }else{
+        autoConnect(element, source(width + pos -1 downto pos))
+      }
+      pos += width
+    }
+  }
+
+  protected def autoConnect[T <: Data](element: T, slidebits: Bits): Unit = {
+    element match {
+      case elem: MultiData => autoSlideConnect(elem.elements.map(_._2).toList, slidebits)
+      case elem: UInt => elem := U(slidebits)
+      case elem: SInt => elem := S(slidebits)
+      case elem: Bits => elem := slidebits
+      case elem: Bool => elem := slidebits.lsb
+      case _ => SpinalError(s"${element} not recognized")
+    }
+  }
+
+  def asBits : Bits = {
+    wires.map{
+      _.asBits
+    }.reduce(_ ## _)
+  }
+}

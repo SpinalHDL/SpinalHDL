@@ -1607,17 +1607,34 @@ object PlayBits2Bundle extends App{
   class Top extends Component{
     val io = new Bundle{
       val a = in Bits(120 bit)
-      val b: Vec[UInt] = out Vec(UInt(10 bits), 12)
-      val c: Bundle = out(MyRGB(40))
+      val b = out Vec(UInt(10 bits), 12)
+      val c = out(MyRGB(40))
     }
 
-    io.a ::> io.b
-    io.a ::> io.c
+//    io.a ::> io.b
+    io.b.assignFromBits(io.a)
+    io.c.assignFromBits(io.a)
+//    io.a ::> io.c
 //    io.b.<<(io.a)
 //    io.c.<<(io.a)
 //    io.b << io.a
 //    io.c << io.a
   }
 //  SpinalConfig(targetDirectory = "./tmp").generateVerilog(new Top)
-  SpinalVerilog(new Top)
+//  SpinalVerilog(new Top)
+
+  class Top2 extends Component{
+    val data = in Bits(32 bit)
+    val a = Bits(16 bit)
+    val b = Bits( 8 bit)
+    val c = Bits( 5 bit)
+    val d = Bits( 3 bit)
+    val e = Bits( 10 bit)
+    val f = Bits(  8 bit)
+    val g = Bits( 14 bit)
+    Bundle(a, b, c, d) := B(1832, 32 bit)
+    Bundle(a, b, c, d) := data
+    Bundle(a, b, c, d) := Bundle(e, f ,g)
+  }
+  SpinalVerilog(new Top2)
 }
