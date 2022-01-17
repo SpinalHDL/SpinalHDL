@@ -154,7 +154,7 @@ object Axi4AxUnburstified{
           address = transaction.addr,
           burst   = transaction.burst,
           len     = len,
-          size    = transaction.size,
+          size    = if(stream.config.useSize) transaction.size else U(log2Up(stream.config.bytePerWord), 3 bits),
           bytePerWord = stream.config.bytePerWord
         )
 
