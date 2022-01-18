@@ -43,42 +43,53 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
 
   def onCmdWrite(address : BigInt, data : Byte) : Unit = {}
   def bursts = List(0,1,2)
+  def sizes  = (0 to log2Up(busConfig.bytePerWord)).toList
+  def lens   = (0 to 64).toList ++ List(255)
 
   def genCmd() : Unit = {
     if(!allowGen) return
-    val region = if(busConfig.useRegion) aw.region.randomizedInt() else 0
-    val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
-    val len = if(busConfig.useLen){if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(64)} else 0
-    val lenBeat = len + 1
-    val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
-    val sizeByte = 1 << size
-    val id = if(busConfig.useId) aw.id.randomizedInt() else 0
-    var mapping : SizeMapping = null
-    var address, startAddress, endAddress  : BigInt = null
-    val byteCount = sizeByte*lenBeat
-    var addrValid = false
+    val region        = if (busConfig.useRegion) aw.region.randomizedInt() else 0
+    val id            = if (busConfig.useId) aw.id.randomizedInt() else 0
+    val burst         = if (busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
+    var len: Int      = 0
+    var size: Int     = log2Up(busConfig.bytePerWord)
+    var sizeByte: Int = busConfig.bytePerWord    
+
+    var mapping: SizeMapping                      = null
+    var address, startAddress, endAddress: BigInt = null
+    var addrValid                                 = false
+
     do{
+      if (busConfig.useLen) {
+        len = burst match {
+          case 0 => Random.nextInt(16)
+          case 1 => lens(Random.nextInt(lens.size))
+          case 2 => List(2, 4, 8, 16)(Random.nextInt(4)) - 1
+        }
+      }
+      val lenBeat = len + 1
+      if (busConfig.useSize) size = sizes(Random.nextInt(sizes.size))
+      sizeByte = 1 << size
+      val byteCount = sizeByte * lenBeat
+
       address = genAddress()
       val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
-      addrValid = address + byteCount < boundAddress
-      if(addrValid){
-        burst match {
-          case 0 =>
-            startAddress = address
-            endAddress   = startAddress + sizeByte
-          case 1 =>
-            startAddress = address
-            endAddress = startAddress + byteCount
-          case 2 =>
-            address = address & ~BigInt(sizeByte-1)
-            startAddress = address & ~(byteCount-1)
-            endAddress = startAddress + byteCount
-        }
-        mapping = SizeMapping(startAddress, endAddress - startAddress)
+      burst match {
+        case 0 =>
+          startAddress = address
+          endAddress   = startAddress + sizeByte
+        case 1 =>
+          startAddress = address
+          endAddress = startAddress + byteCount
+        case 2 =>
+          address = address & ~BigInt(sizeByte-1)
+          startAddress = address & ~(byteCount-1)
+          endAddress = startAddress + byteCount
       }
+      endAddress = endAddress & ~BigInt(sizeByte - 1)
+      addrValid = endAddress <= boundAddress
+      if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
     } while(!addrValid || !mappingAllocate(mapping));
-
-    val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
     awQueue.enqueue { () =>
       aw.addr #= address
@@ -95,14 +106,14 @@ abstract class Axi4WriteOnlyMasterAgent(aw : Stream[Axi4Aw], w : Stream[Axi4W], 
     }
 
     var beatOffset = (address & (busConfig.bytePerWord-1)).toInt
-    for (beat <- 0 until lenBeat) {
+    for (beat <- 0 to len) {
       val beatOffsetCache = beatOffset
       wQueue.enqueue { () =>
         w.data.randomize()
         val bytesInBeat = sizeByte - (beatOffsetCache % sizeByte)
         if(busConfig.useStrb)  w.strb #= ((Random.nextInt(1 << bytesInBeat)) << beatOffsetCache) & ((1 << busConfig.bytePerWord)-1)
         if(busConfig.useWUser) w.user.randomize()
-        if(busConfig.useLast)  w.last #= beat == lenBeat-1
+        if(busConfig.useLast)  w.last #= beat == len
       }
       beatOffset += sizeByte
       beatOffset &= (busConfig.bytePerWord-1)
@@ -167,45 +178,56 @@ abstract class Axi4ReadOnlyMasterAgent(ar : Stream[Axi4Ar], r : Stream[Axi4R], c
   def mappingAllocate(mapping : SizeMapping) : Boolean
   def mappingFree(mapping : SizeMapping) : Unit
   def bursts = List(0,1,2)
+  def sizes  = (0 to log2Up(busConfig.bytePerWord)).toList
+  def lens   = (0 to 64).toList ++ List(255)
 
   def pending = rQueue.exists(_.nonEmpty)
   val rDriver = StreamReadyRandomizer(r, clockDomain)
 
   def genCmd() : Unit = {
     if(!allowGen) return
-    val region = if(busConfig.useRegion) ar.region.randomizedInt() else 0
-    val burst = if(busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
-    val len = if(busConfig.useLen){if(burst == 2) List(2,4,8,16)(Random.nextInt(4))-1 else Random.nextInt(16)} else 0
-    val lenBeat = len + 1
-    val size = Random.nextInt(log2Up(busConfig.bytePerWord) + 1)
-    val sizeByte = 1 << size
-    val id = if(busConfig.useId) ar.id.randomizedInt() else 0
-    var mapping : SizeMapping = null
-    var address, startAddress, endAddress  : BigInt = null
-    val byteCount = sizeByte*lenBeat
-    var addrValid = false
+    val region        = if (busConfig.useRegion) ar.region.randomizedInt() else 0
+    val id            = if (busConfig.useId) ar.id.randomizedInt() else 0
+    val burst         = if (busConfig.useBurst) bursts(Random.nextInt(bursts.size)) else 1
+    var len: Int      = 0
+    var size: Int     = log2Up(busConfig.bytePerWord)
+    var sizeByte: Int = busConfig.bytePerWord    
+
+    var mapping: SizeMapping                      = null
+    var address, startAddress, endAddress: BigInt = null
+    var addrValid                                 = false
+
     do{
+      if (busConfig.useLen) {
+        len = burst match {
+          case 0 => Random.nextInt(16)
+          case 1 => lens(Random.nextInt(lens.size))
+          case 2 => List(2, 4, 8, 16)(Random.nextInt(4)) - 1
+        }
+      }
+      val lenBeat = len + 1
+      if (busConfig.useSize) size = sizes(Random.nextInt(sizes.size))
+      sizeByte = 1 << size
+      val byteCount = sizeByte * lenBeat
+
       address = genAddress()
       val boundAddress = ((address >> pageAlignBits) + 1) << pageAlignBits
-      addrValid = address + byteCount < boundAddress
-      if(addrValid){
-        burst match {
-          case 0 =>
-            startAddress = address
-            endAddress   = startAddress + sizeByte
-          case 1 =>
-            startAddress = address
-            endAddress = startAddress + byteCount
-          case 2 =>
-            address = address & ~BigInt(sizeByte-1)
-            startAddress = address & ~(byteCount-1)
-            endAddress = startAddress + byteCount
-        }
-        mapping = SizeMapping(startAddress, endAddress - startAddress)
+      burst match {
+        case 0 =>
+          startAddress = address
+          endAddress   = startAddress + sizeByte
+        case 1 =>
+          startAddress = address
+          endAddress = startAddress + byteCount
+        case 2 =>
+          address = address & ~BigInt(sizeByte-1)
+          startAddress = address & ~(byteCount-1)
+          endAddress = startAddress + byteCount
       }
+      endAddress = endAddress & ~BigInt(sizeByte - 1)
+      addrValid = endAddress <= boundAddress
+      if (addrValid) mapping = SizeMapping(startAddress, endAddress - startAddress)
     } while(!addrValid || !mappingAllocate(mapping));
-
-    val firstBeatOffset = (startAddress & (sizeByte-1)).toInt
 
     arQueue.enqueue { () =>
       ar.addr #= address
