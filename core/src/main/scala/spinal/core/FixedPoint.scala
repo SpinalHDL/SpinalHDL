@@ -418,6 +418,20 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
     res
   }
 
+  def abs(): Fix = {
+    val res = this.clone
+    if (this.signed) {
+      when (this.raw.msb) {
+        res.raw := ((~this.raw).asUInt+1).asBits
+      } otherwise {
+        res.raw := this.raw
+      }
+    } else {
+      res.raw := this.raw
+    }
+    res
+  }
+
   def floor(): Fix = floor(this.fracWidth)
   /** lowest n bits Round Operation */
   override def floor(n: Int): Fix = {
