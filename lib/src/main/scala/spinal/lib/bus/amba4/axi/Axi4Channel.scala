@@ -152,9 +152,9 @@ object Axi4AxUnburstified{
         val last        = beat === 1
         val address     = Axi4.incr(
           address = transaction.addr,
-          burst   = transaction.burst,
+          burst   = if(stream.config.useBurst) transaction.burst else Axi4.burst.INCR,
           len     = len,
-          size    = if(stream.config.useSize) transaction.size else U(log2Up(stream.config.bytePerWord), 3 bits),
+          size    = if(stream.config.useSize) transaction.size else U(log2Up(stream.config.bytePerWord)),
           bytePerWord = stream.config.bytePerWord
         )
 
@@ -178,15 +178,16 @@ object Axi4AxUnburstified{
         stream.ready    := result.ready
         result.valid    := stream.valid
         result.fragment.assignSomeByName(stream.payload)
-        when(stream.len === 0) {
-          result.last := True
-        }otherwise{
-          result.last := False
-          when(result.ready){
-            buffer.valid := stream.valid
-            buffer.transaction.assignSomeByName(stream.payload)
-            buffer.beat := stream.len
-            buffer.len := stream.len
+        result.last := True
+        if(stream.config.useLen) {
+          when(stream.len =/= 0) {
+            result.last := False
+            when(result.ready){
+              buffer.valid := stream.valid
+              buffer.transaction.assignSomeByName(stream.payload)
+              buffer.beat := stream.len
+              buffer.len := stream.len
+            }
           }
         }
       }
