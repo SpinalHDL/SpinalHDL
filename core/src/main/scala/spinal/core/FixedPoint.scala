@@ -244,7 +244,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Subtraction */
   override def -(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(this.intWidth, this.bitWidth, this.signed | right.signed)
+    val res = new Fix(math.max(this.intWidth, right.intWidth), math.max(_left.getWidth, _right.getWidth), this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_sub", true)
     res.raw := ((this.signed, right.signed) match {
       case (false, false) => _left.asUInt - _right.asUInt
@@ -284,10 +284,14 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   /** Division */
   override def /(right: Fix): Fix = {
-    val (_left, _right) = align(this, right)
-    val res = new Fix(this.intWidth,
-                      _left.getWidth,
+    val (leftAligned, rightAligned) = align(this, right) // These will need additional shifting
+    val newIntWidth = this.intWidth + right.fracWidth
+    val newFracWidth = right.wholeWidth + this.fracWidth
+    val res = new Fix(newIntWidth,
+                      newIntWidth + newFracWidth,
                       this.signed | right.signed)
+    val _left = leftAligned << res.fracWidth
+    val _right = rightAligned
     res.setName(s"${this.getName()}_${right.getName()}_div", true)
     res.raw := ((this.signed, right.signed) match {
       case (false, false) => _left.asUInt / _right.asUInt
@@ -300,10 +304,14 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   /** Modulo */
   override def %(right: Fix): Fix = {
-    val (_left, _right) = align(this, right)
-    val res = new Fix(right.intWidth,
-                      _right.getWidth,
-                      this.signed | right.signed)
+    val (leftAligned, rightAligned) = align(this, right) // These will need additional shifting
+    val newIntWidth = this.intWidth + right.fracWidth
+    val newFracWidth = right.wholeWidth + this.fracWidth
+    val res = new Fix(newIntWidth,
+      newIntWidth + newFracWidth,
+      this.signed | right.signed)
+    val _left = leftAligned << res.fracWidth
+    val _right = rightAligned
     res.setName(s"${this.getName()}_${right.getName()}_mod", true)
     res.raw := ((this.signed, right.signed) match {
       case (false, false) => _left.asUInt % _right.asUInt

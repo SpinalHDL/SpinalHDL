@@ -10,7 +10,7 @@ object FixedPointNewTester {
     val io = new Bundle {
       val inFix = in(Vec(Seq(new Fix(12, 16, true),
                              new Fix(10, 16, true))))
-      val outRaw = out(new Fix(23, 35, true))
+      val outRaw = out(new Fix(23, 36, true))
       val outFix = out(new Fix(23, 23, true))
       val opMode = in(Bits(3 bit))
       val roundMode = in(Bits(4 bit))
