@@ -305,13 +305,10 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Modulo */
   override def %(right: Fix): Fix = {
     val (leftAligned, rightAligned) = align(this, right) // These will need additional shifting
-    val newIntWidth = this.intWidth + right.fracWidth
-    val newFracWidth = right.wholeWidth + this.fracWidth
-    val res = new Fix(newIntWidth,
-      newIntWidth + newFracWidth,
-      this.signed | right.signed)
-    val _left = leftAligned << res.fracWidth
-    val _right = rightAligned
+    val res = new Fix(right.intWidth + (this.signWidth | right.signWidth),
+                      right.bitWidth + (this.signWidth | right.signWidth), this.signed | right.signed)
+    val _left = leftAligned
+    val _right = rightAligned // << right.fracWidth
     res.setName(s"${this.getName()}_${right.getName()}_mod", true)
     res.raw := ((this.signed, right.signed) match {
       case (false, false) => _left.asUInt % _right.asUInt

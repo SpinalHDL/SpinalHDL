@@ -54,4 +54,5 @@ class FixedPointNewTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "FixedPointNewTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/FixedPointNewTester"
   override def createToplevel: Component = new FixedPointNewTester
+  override def noVerilog: Boolean = true
 }

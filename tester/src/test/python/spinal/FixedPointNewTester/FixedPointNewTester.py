@@ -34,6 +34,17 @@ class Ref:
         n = n/(2**fracBits)
         return n
 
+    @classmethod
+    def trunc_fraction(cls, n, fracBits):
+        """
+        Truncates fixed-point fractional bits. Used by the unit test to avoid out-of-range fractional values, those
+        smaller than representable.
+        :param n: The fixed-point number
+        :param fracBits: Number of fractional bits to keep
+        :return: Truncated number
+        """
+        return math.trunc(n*(2**fracBits))/(2**fracBits)
+
     def __init__(self,dut):
         self.io_inFix_0 = sint(dut.io_inFix_0)/(2**4)
         self.io_inFix_1 = sint(dut.io_inFix_1)/(2**6)
@@ -52,6 +63,7 @@ class Ref:
             opResult = self.io_inFix_0 * self.io_inFix_1
         elif opMode == 3:
             opResult = self.io_inFix_0 / self.io_inFix_1
+            opResult = self.trunc_fraction(opResult, 13)
         elif opMode == 4:
             opResult = self.io_inFix_0 % self.io_inFix_1
 
@@ -121,7 +133,24 @@ class Ref:
 
 
 def check_results(dut, op, mode):
+
+    # op_str = ["+", "-", "*", "/", "%"]
+    # round_str = ["ceil", "floor", "floorToZero", "ceilToInf", "halfUp", "halfDown", "halfToZero", "halfToInf", "halfEven", "halfOdd"]
+
     ref = Ref(dut)
+    # print()
+    # inFix0_int = sint(dut.io_inFix_0)/(2**4)
+    # inFix1_int = sint(dut.io_inFix_1)/(2**6)
+    # outRaw_int = sint(dut.io_outRaw)/(2**13)
+    # outFix_int = sint(dut.io_outFix)
+    # inFix0_str = f"{dut.io_inFix_0}"
+    # inFix1_str = f"{dut.io_inFix_1}"
+    # outRaw_str = f"{dut.io_outRaw}"
+    # print()
+    # print(f"{inFix0_int:^{len(inFix0_str)}} {op_str[op]} {inFix1_int:^{len(inFix1_str)}} = {outRaw_int:^{len(outRaw_str)}}")
+    # print(f"{inFix0_str} {op_str[op]} {inFix1_str} = {outRaw_str}")
+    # round_func_str = f"{round_str[mode]}({outRaw_int})"
+    # print(f"{round_func_str:>{len(inFix0_str)+len(inFix1_str)+3}} = {dut.io_outFix} ({outFix_int})")
     assertEquals(ref.io_outFix, ref.io_outFix_expected, "io_outFix")
 
 
@@ -136,9 +165,9 @@ def to_sint(i: int):
 def random_test(dut):
     dut.log.info("Cocotb test boot")
 
-    for op in range(0,4):
-        for mode in range(0,10):
-            for i in range(0,100):
+    for op in range(0, 5):
+        for mode in range(0, 10):
+            for i in range(0, 100):
                 randSignal(dut.io_inFix_0)
                 randSignal(dut.io_inFix_1)
                 dut.io_opMode.value = op
@@ -153,14 +182,15 @@ def random_test(dut):
 def half_quarter_test(dut):
     dut.log.info("Cocotb test boot")
 
-    for mode in range(0,10):
+    for mode in range(0, 10):
         dut.io_roundMode.value = mode
         dut.io_opMode.value = 0
         # Specific cases to check the half rounding
         for i in [-2.75, -2.5, -2.25, -2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25,
                   0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75]:
-            dut.io_inFix_0.value = math.trunc(i*(2**4))
-            dut.io_inFix_1.value = 0
+            # Avoid division by zero by shifting a 1 to the right-hand side
+            dut.io_inFix_0.value = (math.trunc((i-1)*(2**4)))
+            dut.io_inFix_1.value = 1*(2**6)
             yield Timer(1000)
             check_results(dut, op=0, mode=mode)
 
