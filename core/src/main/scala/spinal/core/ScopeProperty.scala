@@ -127,20 +127,15 @@ class ScopeProperty[T]  {
   final def _default = ??? //I changed a bit the API, now instead of var _default, you can override def default. Also instead of setDefault, you can directly use "set"
 
   def apply(value : T) = new {
-    def apply[B](body : => B): B ={
-      val previous = ScopeProperty.this.get
+    def apply[B](body : => B): B = {
+      val wasSet = !ScopeProperty.this.isEmpty
+      val previous = if(wasSet) ScopeProperty.this.get
       set(value)
       val b = body
-      set(previous.asInstanceOf[T])
+      if(wasSet) set(previous.asInstanceOf[T])
       b
     }
-    def on[B](body : => B) = {
-      val previous = ScopeProperty.this.get
-      set(value)
-      val b = body
-      set(previous.asInstanceOf[T])
-      b
-    }
+    def on[B](body : => B) = apply(body)
   }
 }
 
