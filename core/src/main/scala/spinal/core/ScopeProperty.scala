@@ -52,6 +52,9 @@ object ScopeProperty {
     def restore(): Unit ={
       it.set(context)
     }
+    def restoreCloned(): Unit ={
+      it.set(context.clone())
+    }
   }
 
   def capture(): Capture ={

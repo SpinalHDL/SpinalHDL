@@ -5,9 +5,10 @@ import spinal.core.assert
 case class Lock() extends Handle[Int]{
   load(0)
   private var retains = 0
-  def retain() : Unit = {
+  def retain() : this.type = {
     retains += 1
     this.unload()
+    this
   }
   def release() : Unit = {
     assert(retains > 0)

@@ -137,13 +137,13 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     while(prePopTasks.nonEmpty){
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-      //TODO !!! use the proper scope property context
+
+      val ctx = ScopeProperty.captureNoClone()
       for(t <- prePopTasksToDo){
-        val ctx = ScopeProperty.captureNoClone()
-        t.context.restore()
+        t.context.restoreCloned()
         t.task()
-        ctx.restore()
       }
+      ctx.restore()
     }
   }
 
@@ -320,7 +320,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     this.prePopTasks = mutable.ArrayBuffer[PrePopTask]()
     val ctx = ScopeProperty.captureNoClone()
 
-    scopeProperties.restore()
+    scopeProperties.restoreCloned()
     val ret = gen
     prePop()
     ctx.restore()

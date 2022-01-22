@@ -54,8 +54,8 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
   def childNamePriority = DATAMODEL_WEAK
   val _context = ScopeProperty.capture() //TODO not as heavy
   def rework[T](body : => T): T = {
-    val oldContext = ScopeProperty.capture() //TODO not as heavy
-    _context.restore()
+    val oldContext = ScopeProperty.captureNoClone()
+    _context.restoreCloned()
     val b = body
     oldContext.restore()
     b
