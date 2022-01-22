@@ -91,40 +91,40 @@ package object lib  {
   }
 
   trait LiteralRicher {
-    val bigInt: BigInt
+    val toBigInt: BigInt
     val defaultAlignBit: Int = 0
 
-    def hexString(): String = binarySystem.LiteralToString.HexString(bigInt, defaultAlignBit)
-    def octString(): String = binarySystem.LiteralToString.OctString(bigInt, defaultAlignBit)
-    def binString(): String = binarySystem.LiteralToString.BinString(bigInt, defaultAlignBit)
+    def hexString(): String = binarySystem.LiteralToString.HexString(toBigInt, defaultAlignBit)
+    def octString(): String = binarySystem.LiteralToString.OctString(toBigInt, defaultAlignBit)
+    def binString(): String = binarySystem.LiteralToString.BinString(toBigInt, defaultAlignBit)
 
-    def hexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(bigInt, bitSize)
-    def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(bigInt, bitSize)
-    def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(bigInt, bitSize)
+    def hexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(toBigInt, bitSize)
+    def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(toBigInt, bitSize)
+    def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(toBigInt, bitSize)
 
-    def toBinInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(bigInt, defaultAlignBit)
-    def toDecInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(bigInt, defaultAlignBit)
-    def toOctInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(bigInt, defaultAlignBit)
+    def toBinInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, defaultAlignBit)
+    def toDecInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, defaultAlignBit)
+    def toOctInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, defaultAlignBit)
 
-    def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(bigInt, num)
-    def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(bigInt, num)
-    def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(bigInt, num)
+    def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, num)
+    def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, num)
+    def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, num)
   }
 
   implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
-    val bigInt = value
+    val toBigInt = value
   }
 
   implicit class LongRicher(value: Long) extends LiteralRicher  {
-    val bigInt = BigInt(value)
+    val toBigInt = BigInt(value)
   }
 
   implicit class IntRicher(value: Int) extends LiteralRicher {
-    val bigInt = BigInt(value)
+    val toBigInt = BigInt(value)
   }
 
   implicit class ByteRicher(value: Byte) extends LiteralRicher {
-    val bigInt = BigInt(value)
+    val toBigInt = BigInt(value)
 
     override val defaultAlignBit: Int = 8
   }
