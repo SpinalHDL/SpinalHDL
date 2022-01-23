@@ -100,6 +100,11 @@ class ScopeProperty[T]  {
       }
     }
   }
+
+  def clear() = {
+    ScopeProperty.get.remove(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
+  }
+
 //  def push(v : T) = stack.push(v)
 //  def pop() = {
 //    stack.pop()
@@ -132,7 +137,7 @@ class ScopeProperty[T]  {
       val previous = if(wasSet) ScopeProperty.this.get
       set(value)
       val b = body
-      if(wasSet) set(previous.asInstanceOf[T])
+      if(wasSet) set(previous.asInstanceOf[T]) else clear()
       b
     }
     def on[B](body : => B) = apply(body)
