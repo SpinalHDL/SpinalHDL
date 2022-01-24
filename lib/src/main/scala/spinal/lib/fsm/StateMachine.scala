@@ -161,7 +161,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     setEntry(stateBoot)
     stateBoot
   }
+
+  var builded = false
   override def build(): Unit = {
+    builded = true
     inGeneration = true
     childStateMachines.foreach(_.build())
     if(autoStart) {
@@ -252,7 +255,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   }
 
   Component.current.afterElaboration{
-    if(parentStateMachine == null) {
+    if(parentStateMachine == null && !builded) {
       build()
     }
   }
