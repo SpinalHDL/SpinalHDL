@@ -552,42 +552,28 @@ class ComponentEmitterVerilog(
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node: BaseType =>
-//              val funcName = "zz_" + emitReference(node, false).replaceAllLiterally(".", "__")
-//              declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
-////              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
-//              declarations ++= s"    begin\n"
+              val funcName = "zz_" + emitReference(node, false).replaceAllLiterally(".", "__")
+              declarations ++= s"  function ${emitType(node)} $funcName(input dummy);\n"
+//              declarations ++= s"    reg ${emitType(node)} ${emitReference(node, false)};\n"
+              declarations ++= s"    begin\n"
 
-//              val statements = ArrayBuffer[LeafStatement]()
-//              node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
-              val name = component.localNamingScope.allocateName(emitReference(node, false).replaceAllLiterally(".", "_") + "_const")
-              var i = 0
-              node.foreachStatements(s => {
-                if(i==0){
-                  declarations ++= s"${theme.maintab}${expressionAlign("wire", s"${emitType(s.source)}",name)};\n"
-                  logics ++= s"  assign $name = ${emitExpression(s.source)};\n"
-                  logics ++= "  always @(*) begin\n"
-                  logics ++= s"      ${emitAssignedExpression(s.target)} = $name;\n"
-                } else {
-                  logics ++= s"      ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
-                }
-                i = i + 1
-              })
-              logics ++= "  end\n\n"
+              val statements = ArrayBuffer[LeafStatement]()
+              node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
 
-//              val oldRef = referencesOverrides.getOrElse(node, null)
-//              referencesOverrides(node) = funcName
-//              emitLeafStatements(statements, 0, process.scope, "=", declarations, "      ")
-//
-//              if(oldRef != null) referencesOverrides(node) = oldRef else referencesOverrides.remove(node)
-////              declarations ++= s"      $funcName = ${emitReference(node, false)};\n"
-//              declarations ++= s"    end\n"
-//              declarations ++= s"  endfunction\n"
-//
-//              val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-//              declarations ++= s"  wire ${emitType(node)} $name;\n"
-//              logics ++= s"  assign $name = ${funcName}(1'b0);\n"
-////              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
-//              logics ++= s"  always @(*) ${emitReference(node, false)} = $name;\n"
+              val oldRef = referencesOverrides.getOrElse(node, null)
+              referencesOverrides(node) = funcName
+              emitLeafStatements(statements, 0, process.scope, "=", declarations, "      ")
+
+              if(oldRef != null) referencesOverrides(node) = oldRef else referencesOverrides.remove(node)
+//              declarations ++= s"      $funcName = ${emitReference(node, false)};\n"
+              declarations ++= s"    end\n"
+              declarations ++= s"  endfunction\n"
+
+              val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+              declarations ++= s"  wire ${emitType(node)} $name;\n"
+              logics ++= s"  assign $name = ${funcName}(1'b0);\n"
+//              logics ++= s"  always @ ($name) ${emitReference(node, false)} = $name;\n"
+              logics ++= s"  always @(*) ${emitReference(node, false)} = $name;\n"
           }
         }
     }
