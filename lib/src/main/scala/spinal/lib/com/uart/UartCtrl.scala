@@ -40,7 +40,7 @@ class UartCtrlIo(g : UartCtrlGenerics) extends Bundle {
   val config = in(UartCtrlConfig(g))
   val write  = slave(Stream(Bits(g.dataWidthMax bit)))
   val read   = master(Stream(Bits(g.dataWidthMax bit)))
-  val uart   = master(Uart())
+  val uart   = master(Uart(ctsGen = g.ctsGen, rtsGen = g.rtsGen))
   val readError = out Bool()
   val writeBreak = in Bool()
   val readBreak = out Bool()

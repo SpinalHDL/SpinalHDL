@@ -11,7 +11,7 @@ object WishboneUartCtrl{
 class WishboneUartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
   val io = new Bundle{
     val bus =  slave(Wishbone(WishboneUartCtrl.getWishboneConfig))
-    val uart = master(Uart())
+    val uart = master(Uart(ctsGen = config.uartCtrlConfig.ctsGen, rtsGen = config.uartCtrlConfig.rtsGen))
     val interrupt = out Bool()
   }
 
