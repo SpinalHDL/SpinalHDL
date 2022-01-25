@@ -237,7 +237,13 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   }
 
   /** Safe Addition with 1 bit expand */
-  override def +^(right: Fix): Fix = this.expand(1) + right.expand(1)
+  override def +^(right: Fix): Fix = {
+    if (this.bitWidth == right.bitWidth) {
+      this.expand(1) + right
+    } else {
+      this + right
+    }
+  }
 
   /** Safe Addition with saturation */
   override def +|(right: Fix): Fix = {
@@ -261,7 +267,13 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   }
 
   /** Safe Subtraction with 1 bit expand */
-  override def -^(right: Fix): Fix = this.expand(1) - right.expand(1)
+  override def -^(right: Fix): Fix = {
+    if (this.bitWidth == right.bitWidth) {
+      this.expand(1) - right
+    } else {
+      this - right
+    }
+  }
 
   /** Safe Subtraction with saturation */
   override def -|(right: Fix): Fix = {
