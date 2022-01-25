@@ -717,6 +717,7 @@ object SpiXdrMasterCtrl {
       val counterPlus = counter + io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
+      val counterMax = io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.dataWidth - m.bitrate , widthOf(counter) bits)))
       val lateSampling = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.lateSampling)))
       val readFill, readDone = False
       val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
@@ -730,14 +731,14 @@ object SpiXdrMasterCtrl {
 
           when(timer.sclkToogleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
             readFill := True
-            readDone := io.cmd.read && counterPlus === 0
+            readDone := io.cmd.read && counter === counterMax
           }
           when(timer.sclkToogleHit){
             state := !state
           }
           when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
-            when(counterPlus === 0){
+            when(counter === counterMax){
               io.cmd.ready := True
               state := False
             }
@@ -801,11 +802,12 @@ object SpiXdrMasterCtrl {
       //Get raw data to put on MOSI
       val dataWrite = Bits(maxBitRate bits)
       val widthSel = io.config.mod.muxListDc( p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
+      val offset =   io.config.mod.muxListDc( p.mods.map(m => m.id -> U(m.dataWidth-1, widthOf(fsm.counter) bits)))
       dataWrite.assignDontCare()
       switch(widthSel){
         for((width, widthId) <- widths.zipWithIndex){
           is(widthId){
-            dataWrite(0, width bits) := io.cmd.data.subdivideIn(width bits).reverse(fsm.counter >> log2Up(width))
+            dataWrite(0, width bits) := io.cmd.data.resize((p.dataWidth+width-1)/width*width).subdivideIn(width bits)(offset - fsm.counter >> log2Up(width))
           }
         }
       }
@@ -877,6 +879,15 @@ object SpiXdrMasterCtrl {
 
       io.rsp.valid := readDone
       io.rsp.data := bufferNext
+
+      switch(mod){
+        for(mod <- p.mods){
+          is(mod.id) {
+            val range = p.dataWidth-1 downto mod.dataWidth
+            if(range.size != 0) io.rsp.data(range) := 0
+          }
+        }
+      }
     }
   }
 }
