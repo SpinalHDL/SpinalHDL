@@ -193,6 +193,11 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   val raw: Bits = Bits(bitWidth bit)
 
+  val maxValue: BigDecimal = (BigDecimal(2).pow(numericWidth) - BigDecimal(1)) * BigDecimal(2).pow(-fracWidth)
+  val minValue: BigDecimal = if (signed) BigDecimal(-2).pow(numericWidth) * BigDecimal(2).pow(-fracWidth) else BigDecimal(0)
+  val lsbValue: BigDecimal = BigDecimal(2).pow(-fracWidth)
+  val msbValue: BigDecimal = BigDecimal(2).pow(numericWidth-1)
+
   raw.setRefOwner(this)
   raw.setPartialName("", weak = true)
 
