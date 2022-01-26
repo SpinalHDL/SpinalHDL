@@ -444,12 +444,19 @@ object SpiXdrMasterCtrl {
 
     //CMD
     val cmdLogic = new Area {
+      val writeData = Bits(32 bits)
+      bus.nonStopWrite(writeData)
+
+      val doRegular = bus.isWriting(address = baseAddress + 0x0)
+      val doWriteLarge = bus.isWriting(address = baseAddress + 0x50)
+      val doReadWriteLarge = bus.isWriting(address = baseAddress + 0x54)
+
       val streamUnbuffered = Stream(Cmd(p))
-      streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
-      bus.nonStopWrite(streamUnbuffered.data, bitOffset = 0)
-      bus.nonStopWrite(streamUnbuffered.write, bitOffset = 8)
-      bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
-      bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
+      streamUnbuffered.valid := doRegular || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.write := doRegular && writeData(8) || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.read  := doRegular && writeData(9) || doReadWriteLarge
+      streamUnbuffered.kind  := doRegular && writeData(11)
+      streamUnbuffered.data  := writeData.resized
 
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
