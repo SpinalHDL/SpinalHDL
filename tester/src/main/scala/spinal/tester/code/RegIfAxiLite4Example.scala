@@ -12,7 +12,7 @@ import spinal.lib.bus.amba4.axilite.sim.AxiLite4Driver
 class Axi4liteRegIfExample extends Component {
   import spinal.lib.bus.amba4.axilite._
   val io = new Bundle {
-    val irq = out Bool
+    val irq = out Bool()
     val axi = slave(AxiLite4(AxiLite4Config(16, 32)))
   }
 
