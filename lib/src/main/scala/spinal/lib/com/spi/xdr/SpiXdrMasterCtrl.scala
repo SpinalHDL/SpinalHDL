@@ -471,7 +471,12 @@ object SpiXdrMasterCtrl {
     //RSP
     val rspLogic = new Area {
       val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
-      bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
+
+      stream.ready := bus.isReading(baseAddress + 0) || bus.isReading(baseAddress + 0x58)
+      bus.read(!stream.valid,   baseAddress + 0, 31)
+      bus.read(stream.data.resize(widthOf(stream.payload).min(8)), baseAddress + 0)
+      bus.read(stream.data, baseAddress + 0x58)
+
       bus.read(fifoOccupancy, address = baseAddress + 4, 16)
     }
 
