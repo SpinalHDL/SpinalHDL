@@ -68,7 +68,7 @@ case class RtlPhy(pl : PhyLayout) extends Component{
   }
 
   val banks = for(bankId <- 0 until sl.bankCount) yield new Area {
-    val active = Reg(Bool) init (False)
+    val active = Reg(Bool()) init (False)
     val row = Reg(UInt(sl.rowWidth bits))
   }
 
@@ -151,6 +151,21 @@ case class RtlPhy(pl : PhyLayout) extends Component{
     val bytePerBeat = pl.bytePerBeat
     assert(offset % bytePerBeat == 0)
     var bin = Files.readAllBytes(Paths.get(path))
+    bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
+    for(beatId <- 0 until bin.size/bytePerBeat){
+      var data = BigInt(0)
+      for(byteId <- 0 until bytePerBeat){
+        data = data | (BigInt(bin(beatId*bytePerBeat + byteId).toInt & 0xFF) << (byteId*8))
+      }
+      ram.setBigInt(offset/bytePerBeat + beatId, data)
+    }
+  }
+
+  def loadBytes(offset : Long, data : Seq[Byte]): Unit ={
+    import spinal.core.sim._
+    val bytePerBeat = pl.bytePerBeat
+    assert(offset % bytePerBeat == 0)
+    var bin = data
     bin = bin ++ Array.fill(bytePerBeat-(bin.size % bytePerBeat))(0.toByte)
     for(beatId <- 0 until bin.size/bytePerBeat){
       var data = BigInt(0)

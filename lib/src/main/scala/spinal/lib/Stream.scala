@@ -2,6 +2,7 @@ package spinal.lib
 
 import spinal.core._
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+import scala.collection.Seq
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
@@ -26,8 +27,8 @@ class EventFactory extends MSFactory {
 }
 
 class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMasterSlave with DataCarrier[T] {
-  val valid   = Bool
-  val ready   = Bool
+  val valid   = Bool()
+  val ready   = Bool()
   val payload = payloadType()
 
   override def clone: Stream[T] =  Stream(payloadType)
@@ -125,13 +126,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def pipelined(m2s : Boolean = false,
                 s2m : Boolean = false,
                 halfRate : Boolean = false) : Stream[T] = {
-    val ret = Stream(payloadType)
     (m2s, s2m, halfRate) match {
-      case (false,false,false) => this
-      case (true,false,false) => val ret = Stream(payloadType); ret << this.m2sPipe(); ret
-      case (false,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe(); ret
-      case (true,true,false) => val ret = Stream(payloadType); ret << this.s2mPipe().m2sPipe(); ret
-      case (false,false,true) => val ret = Stream(payloadType); ret << this.halfPipe(); ret
+      case (false,false,false) => this.combStage()
+      case (true,false,false) =>  this.m2sPipe()
+      case (false,true,false) =>  this.s2mPipe()
+      case (true,true,false) =>   this.s2mPipe().m2sPipe()
+      case (false,false,true) =>  this.halfPipe()
     }
   }
 
@@ -150,12 +150,10 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Connect this to a fifo and return its pop stream
   */
-  def queue(size: Int): Stream[T] = {
-    val fifo = new StreamFifo(payloadType, size).setCompositeName(this,"queue", true)
-    fifo.setPartialName(this,"fifo")
-    fifo.io.push << this
-    fifo.io.pop
-  }
+  def queue(size: Int): Stream[T] = new Composite(this){
+    val fifo = new StreamFifo(payloadType, size)
+    fifo.io.push << self
+  }.fifo.io.pop
 
 /** Connect this to an clock crossing fifo and return its pop stream
   */
@@ -203,6 +201,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     cc.io.output
   }
 
+  def ccToggleWithoutBuffer(pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val cc = new StreamCCByToggle(payloadType, pushClock, popClock, withOutputBuffer=false, withInputWait=true).setCompositeName(this,"ccToggle", true)
+    cc.io.input << this
+    cc.io.output
+  }
+
+
   /**
    * Connect this to a new stream that only advances every n elements, thus repeating the input several times.
    * @return A tuple with the resulting stream that duplicates the items and the counter, indicating how many
@@ -245,19 +250,19 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
 /** Return True when a transaction is present on the bus but the ready signal is low
     */
-  def isStall : Bool = valid && !ready
+  def isStall : Bool = (valid && !ready).setCompositeName(this, "isStall", true)
 
   /** Return True when a transaction has appeared (first cycle)
     */
-  def isNew : Bool = valid && !(RegNext(isStall) init(False))
+  def isNew : Bool = (valid && !(RegNext(isStall) init(False))).setCompositeName(this, "isNew", true)
 
   /** Return True when a transaction occurs on the bus (valid && ready)
   */
-  override def fire: Bool = valid & ready
+  override def fire: Bool = (valid & ready).setCompositeName(this, "fire", true)
 
 /** Return True when the bus is ready, but no data is present
   */
-  def isFree: Bool = !valid || ready
+  def isFree: Bool = (!valid || ready).setCompositeName(this, "isFree", true)
   
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
@@ -303,7 +308,15 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next
   }
 
-/** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
+
+  def swapPayload[T2 <: Data](that: HardType[T2]) = {
+    val next = new Stream(that).setCompositeName(this, "swap", true)
+    next.arbitrationFrom(this)
+    next
+  }
+
+
+  /** A combinatorial stage doesn't do anything, but it is nice to separate signals for combinatorial transformations.
   */
   def combStage() : Stream[T] = {
     val ret = Stream(payloadType).setCompositeName(this, "combStage", true)
@@ -316,47 +329,33 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
-  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false, flush : Bool = null): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "m2sPipe", true)
+  def m2sPipe(collapsBubble : Boolean = true, crossClockData: Boolean = false, flush : Bool = null, holdPayload : Boolean = false): Stream[T] = new Composite(this) {
+    val m2sPipe = Stream(payloadType)
 
-    val rValid = RegInit(False).setCompositeName(this, "m2sPipe_rValid", true)
-    val rData = Reg(payloadType).setCompositeName(this, "m2sPipe_rData", true)
+    val rValid = RegNextWhen(self.valid, self.ready) init(False)
+    val rData = RegNextWhen(self.payload, if(holdPayload) self.fire else self.ready)
+
     if (crossClockData) rData.addTag(crossClockDomain)
+    if (flush != null) rValid clearWhen(flush)
 
-    this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
+    self.ready := m2sPipe.ready
+    if (collapsBubble) self.ready setWhen(!m2sPipe.valid)
 
-    when(this.ready) {
-      rValid := this.valid
-      rData := this.payload
-    }
+    m2sPipe.valid := rValid
+    m2sPipe.payload := rData
+  }.m2sPipe
 
-    if(flush != null) rValid clearWhen(flush)
+  def s2mPipe(): Stream[T] = new Composite(this) {
+    val s2mPipe = Stream(payloadType)
 
-    ret.valid := rValid
-    ret.payload := rData
-    ret
-  }
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(s2mPipe.ready)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-  def s2mPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "s2mPipe", true)
+    self.ready := !rValid
 
-    val rValid = RegInit(False).setCompositeName(this, "s2mPipe_rValid", true)
-    val rBits = Reg(payloadType).setCompositeName(this, "s2mPipe_rData", true)
-
-    ret.valid := this.valid || rValid
-    this.ready := !rValid
-    ret.payload := Mux(rValid, rBits, this.payload)
-
-    when(ret.ready) {
-      rValid := False
-    }
-
-    when(this.ready && (!ret.ready)) {
-      rValid := this.valid
-      rBits := this.payload
-    }
-    ret
-  }
+    s2mPipe.valid := self.valid || rValid
+    s2mPipe.payload := Mux(rValid, rData, self.payload)
+  }.s2mPipe
 
   def s2mPipe(stagesCount : Int): Stream[T] = {
     stagesCount match {
@@ -365,40 +364,30 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
   }
 
-  def validPipe() : Stream[T] = {
-    val sink = Stream(payloadType)
-    val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
-    sink.valid := validReg
-    sink.payload := this.payload
-    this.ready := sink.ready && validReg
-    sink
-  }
+  def validPipe() : Stream[T] = new Composite(this) {
+    val validPipe = Stream(payloadType)
+
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(validPipe.fire)
+
+    self.ready := validPipe.fire
+
+    validPipe.valid := rValid
+    validPipe.payload := self.payload
+  }.validPipe
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
-  def halfPipe(): Stream[T] = {
-    val ret = Stream(payloadType).setCompositeName(this, "halfPipe")
+  def halfPipe(): Stream[T] = new Composite(this) {
+    val halfPipe = Stream(payloadType)
 
-    val regs = new Area {
-      val valid = RegInit(False)
-      val ready = RegInit(True)
-      val payload = Reg(payloadType)
-    }.setCompositeName(ret, "regs")
+    val rValid = RegInit(False) setWhen(self.valid) clearWhen(halfPipe.fire)
+    val rData = RegNextWhen(self.payload, self.ready)
 
-    when(!regs.valid){
-      regs.valid := this.valid
-      regs.ready := !this.valid
-      regs.payload := this.payload
-    } otherwise {
-      regs.valid := !ret.ready
-      regs.ready := ret.ready
-    }
+    self.ready := !rValid
 
-    ret.valid := regs.valid
-    ret.payload := regs.payload
-    this.ready := regs.ready
-    ret
-  }
+    halfPipe.valid := rValid
+    halfPipe.payload := rData
+  }.halfPipe
 
 /** Block this when cond is False. Return the resulting stream
   */
@@ -471,6 +460,17 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
     val last = counter.willOverflowIfInc
     return addFragmentLast(last)
+  }
+  
+  def setIdle(): this.type = {
+    this.valid := False
+    this.payload.assignDontCare()
+    this
+  }
+  
+  def setBlocked(): this.type = {
+    this.ready := False
+    this
   }
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
@@ -550,8 +550,8 @@ class StreamArbiter[T <: Data](dataType: HardType[T], val portCount: Int)(val ar
 
   val locked = RegInit(False).allowUnsetRegToAvoidLatch
 
-  val maskProposal = Vec(Bool,portCount)
-  val maskLocked = Reg(Vec(Bool,portCount))
+  val maskProposal = Vec(Bool(),portCount)
+  val maskLocked = Reg(Vec(Bool(),portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
@@ -871,7 +871,9 @@ object StreamJoin {
    * Convert a vector of streams into a stream of vectors.
    */
   def vec[T <: Data](sources: Seq[Stream[T]]): Stream[Vec[T]] = {
-    val combined = Stream(Vec(sources.map(_.payload)))
+    val payload = Vec(sources.map(_.payload))
+    val combined = Stream(payload)
+    combined.payload := payload
     combined.valid := sources.map(_.valid).reduce(_ && _)
     sources.foreach(_.ready := combined.fire)
     combined
@@ -916,72 +918,69 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
     val availability = out UInt (log2Up(depth + 1) bits)
   }
 
-  val logic = depth match {
-    case 0 => new Area {
+  val bypass = (depth == 0) generate new Area {
       io.push >> io.pop
       io.occupancy := 0
       io.availability := 0
     }
-    case 1 => new Area{
+  val oneStage = (depth == 1) generate new Area{
       io.push.m2sPipe(flush = io.flush) >> io.pop
       io.occupancy := U(io.pop.valid)
       io.availability := U(!io.pop.valid)
     }
-    case _ => new Area {
-      val ram = Mem(dataType, depth)
-      val pushPtr = Counter(depth)
-      val popPtr = Counter(depth)
-      val ptrMatch = pushPtr === popPtr
-      val risingOccupancy = RegInit(False)
-      val pushing = io.push.fire
-      val popping = io.pop.fire
-      val empty = ptrMatch & !risingOccupancy
-      val full = ptrMatch & risingOccupancy
+  val logic = (depth > 1) generate new Area {
+    val ram = Mem(dataType, depth)
+    val pushPtr = Counter(depth)
+    val popPtr = Counter(depth)
+    val ptrMatch = pushPtr === popPtr
+    val risingOccupancy = RegInit(False)
+    val pushing = io.push.fire
+    val popping = io.pop.fire
+    val empty = ptrMatch & !risingOccupancy
+    val full = ptrMatch & risingOccupancy
 
-      io.push.ready := !full
-      io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
-      io.pop.payload := ram.readSync(popPtr.valueNext)
+    io.push.ready := !full
+    io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
+    io.pop.payload := ram.readSync(popPtr.valueNext)
 
-      when(pushing =/= popping) {
-        risingOccupancy := pushing
-      }
-      when(pushing) {
-        ram(pushPtr.value) := io.push.payload
-        pushPtr.increment()
-      }
-      when(popping) {
-        popPtr.increment()
-      }
+    when(pushing =/= popping) {
+      risingOccupancy := pushing
+    }
+    when(pushing) {
+      ram(pushPtr.value) := io.push.payload
+      pushPtr.increment()
+    }
+    when(popping) {
+      popPtr.increment()
+    }
 
-      val ptrDif = pushPtr - popPtr
-      if (isPow2(depth)) {
-        io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-        io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
-      } else {
-        when(ptrMatch) {
-          io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
-          io.availability := Mux(risingOccupancy, U(0), U(depth))
-        } otherwise {
-          io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
-          io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
-        }
-      }
-
-      when(io.flush){
-        pushPtr.clear()
-        popPtr.clear()
-        risingOccupancy := False
+    val ptrDif = pushPtr - popPtr
+    if (isPow2(depth)) {
+      io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
+      io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
+    } else {
+      when(ptrMatch) {
+        io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
+        io.availability := Mux(risingOccupancy, U(0), U(depth))
+      } otherwise {
+        io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
+        io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
       }
     }
-  }
 
+    when(io.flush){
+      pushPtr.clear()
+      popPtr.clear()
+      risingOccupancy := False
+    }
+  }
 }
 
 object StreamFifoLowLatency{
   def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0) extends Component {
+class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,val latency : Int = 0, useVec : Boolean = false) extends Component {
   require(depth >= 1)
   val io = new Bundle with StreamFifoInterface[T] {
     val push = slave Stream (dataType)
@@ -991,7 +990,8 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     override def pushOccupancy: UInt = occupancy
     override def popOccupancy: UInt = occupancy
   }
-  val ram = Mem(dataType, depth)
+  val vec = useVec generate Vec(Reg(dataType), depth)
+  val ram = !useVec generate Mem(dataType, depth)
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr
@@ -1004,11 +1004,13 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 
   io.push.ready := !full
 
+  val readed = if(useVec) vec(popPtr.value) else ram(popPtr.value)
+
   latency match{
     case 0 => {
       when(!empty){
         io.pop.valid := True
-        io.pop.payload := ram.readAsync(popPtr.value, readUnderWrite = writeFirst)
+        io.pop.payload := readed
       } otherwise{
         io.pop.valid := io.push.valid
         io.pop.payload := io.push.payload
@@ -1016,14 +1018,17 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
     }
     case 1 => {
       io.pop.valid := !empty
-      io.pop.payload := ram.readAsync(popPtr.value, writeFirst)
+      io.pop.payload := readed
     }
   }
   when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
-    ram(pushPtr.value) := io.push.payload
+    if(useVec)
+      vec.write(pushPtr.value, io.push.payload)
+    else
+      ram.write(pushPtr.value, io.push.payload)
     pushPtr.increment()
   }
   when(popping) {
@@ -1049,7 +1054,7 @@ class StreamFifoLowLatency[T <: Data](val dataType: HardType[T],val depth: Int,v
 }
 
 object StreamFifoCC{
-  def apply[T <: Data](dataType: T, depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
+  def apply[T <: Data](dataType: HardType[T], depth: Int, pushClock: ClockDomain, popClock: ClockDomain) = new StreamFifoCC(dataType, depth, pushClock, popClock)
 }
 
 //class   StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
@@ -1110,7 +1115,11 @@ object StreamFifoCC{
 
 
 
-class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](val dataType: HardType[T],
+                              val depth: Int,
+                              val pushClock: ClockDomain,
+                              val popClock: ClockDomain,
+                              val withPopBufferedReset : Boolean = true) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
@@ -1147,7 +1156,8 @@ class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClo
     io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
   }
 
-  val popCC = new ClockingArea(popClock) {
+  val finalPopCd = popClock.withOptionalBufferedResetFrom(withPopBufferedReset)(pushClock)
+  val popCC = new ClockingArea(finalPopCd) {
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val popPtrPlus  = popPtr + 1
     val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
@@ -1180,42 +1190,49 @@ object StreamCCByToggle {
   }
 }
 
-class StreamCCByToggle[T <: Data](dataType: HardType[T], inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: HardType[T], 
+                                  inputClock: ClockDomain, 
+                                  outputClock: ClockDomain, 
+                                  withOutputBuffer : Boolean = true,
+                                  withInputWait : Boolean = false,
+                                  withOutputBufferedReset : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
   }
 
-  val outHitSignal = Bool
+  val outHitSignal = Bool()
 
-  val pushArea = new ClockingArea(inputClock) {
+  val pushArea = inputClock on new Area {
     val hit = BufferCC(outHitSignal, False)
-    val target = RegInit(False)
-    val data = Reg(io.input.payload)
-    io.input.ready := False
-    when(io.input.valid && hit === target) {
-      target := !target
-      data := io.input.payload
-      io.input.ready := True
+    val accept = Bool()
+    val target = RegInit(False) toggleWhen(accept)
+    val data = RegNextWhen(io.input.payload, accept)
+
+    if (!withInputWait) {
+      accept := io.input.fire
+      io.input.ready := (hit === target)
+    } else {
+      val busy = RegInit(False) setWhen(accept) clearWhen(io.input.ready)
+      accept := (!busy) && io.input.valid
+      io.input.ready := busy && (hit === target)
     }
   }
 
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset)(inputClock)
+  val popArea = finalOutputClock on new Area {
+    val stream = cloneOf(io.input)
 
-  val popArea = new ClockingArea(outputClock) {
     val target = BufferCC(pushArea.target, False)
-    val hit = RegInit(False)
+    val hit = RegNextWhen(target, stream.fire) init(False)
     outHitSignal := hit
 
-    val stream = cloneOf(io.input)
     stream.valid := (target =/= hit)
+
     stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)
 
-    when(stream.fire) {
-      hit := !hit
-    }
-
-    io.output << stream.m2sPipe()
+    io.output << (if(withOutputBuffer) stream.m2sPipe(holdPayload = true) else stream)
   }
 }
 
@@ -1355,8 +1372,9 @@ case class StreamFifoMultiChannelPop[T <: Data](payloadType : HardType[T], chann
 
 }
 
+//Emulate multiple fifo but with one push,one pop port and a shared storage
 //io.availability has one cycle latency
-case class StreamFifoMultiChannel[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
+case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T], channelCount : Int, depth : Int, withAllocationFifo : Boolean = false) extends Component{
   assert(isPow2(depth))
   val io = new Bundle {
     val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
@@ -1453,7 +1471,7 @@ object StreamFifoMultiChannelBench extends App{
     SpinalVerilog(new Component{
       val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
       val pop  = slave(StreamFifoMultiChannelPop(payloadType, channelCount))
-      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+      val fifo = StreamFifoMultiChannelSharedSpace(payloadType, channelCount, 32)
 
       fifo.io.push.channel := RegNext(push.channel)
       push.full := RegNext(fifo.io.push.full)
@@ -1471,7 +1489,7 @@ object StreamFifoMultiChannelBench extends App{
     override def getRtlPath(): String = getName() + ".v"
     SpinalVerilog(new Component{
       val push = slave(StreamFifoMultiChannelPush(payloadType, channelCount))
-      val fifo = StreamFifoMultiChannel(payloadType, channelCount, 32)
+      val fifo = StreamFifoMultiChannelSharedSpace(payloadType, channelCount, 32)
 
       fifo.io.push.channel := RegNext(push.channel)
       push.full := RegNext(fifo.io.push.full)
@@ -1490,4 +1508,128 @@ object StreamFifoMultiChannelBench extends App{
 
 
   Bench(rtls, targets)
+}
+
+object StreamTransactionCounter {
+    def apply[T <: Data, T2 <: Data](
+        trigger: Stream[T],
+        target: Stream[T2],
+        count: UInt,
+        noDelay: Boolean = false
+    ): StreamTransactionCounter = {
+        val inst = new StreamTransactionCounter(count.getWidth, noDelay)
+        inst.io.ctrlFire := trigger.fire
+        inst.io.targetFire := target.fire
+        inst.io.count := count
+        inst
+    }
+}
+
+class StreamTransactionCounter(
+    countWidth: Int,
+    noDelay: Boolean = false
+) extends Component {
+    val io = new Bundle {
+        val ctrlFire   = in Bool ()
+        val targetFire = in Bool ()
+        val count      = in UInt (countWidth bits)
+        val working    = out Bool ()
+        val last       = out Bool ()
+        val done       = out Bool ()
+        val value      = out UInt (countWidth bit)
+    }
+
+    val countReg = RegNextWhen(io.count, io.ctrlFire)
+    val counter  = Counter(io.count.getBitsWidth bits)
+    val expected = cloneOf(io.count)
+    expected := countReg
+
+    val lastOne = counter === expected
+    val running = Reg(Bool()) init False
+
+    val done         = lastOne && io.targetFire
+    val doneWithFire = if (noDelay) False else True
+    when(done && io.ctrlFire) {
+        running := doneWithFire
+    } elsewhen (io.ctrlFire) {
+        running := True
+    } elsewhen done {
+        running := False
+    }
+
+    when(done) {
+        counter.clear()
+    } elsewhen (io.targetFire) {
+        counter.increment()
+    }
+
+    if (noDelay) {
+        when(io.ctrlFire) {
+            expected := io.count
+        }
+    }
+
+    io.working := running
+    io.last := lastOne
+    io.done := lastOne && io.targetFire
+    io.value := counter
+}
+
+object StreamTransactionExtender {
+    def apply[T <: Data](input: Stream[T], count: UInt)(
+        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
+    ): Stream[T] = {
+        val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        c.io.output
+    }
+
+    def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
+        driver: (UInt, T, Bool) => T2
+    ): StreamTransactionExtender[T, T2] = {
+        val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
+        c.io.input << input
+        c.io.count := count
+        output << c.io.output
+        c
+    }
+}
+
+/* Extend one input transfer into serveral outputs, io.count represent delivering output (count + 1) times. */
+class StreamTransactionExtender[T <: Data, T2 <: Data](
+    dataType: HardType[T],
+    outDataType: HardType[T2],
+    countWidth: Int,
+    driver: (UInt, T, Bool) => T2
+) extends Component {
+    val io = new Bundle {
+        val count   = in UInt (countWidth bit)
+        val input   = slave Stream dataType
+        val output  = master Stream outDataType
+        val working = out Bool ()
+        val first   = out Bool ()
+        val last    = out Bool ()
+    }
+
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
+    val payload  = Reg(io.input.payloadType)
+    val lastOne  = counter.io.last
+    val outValid = RegInit(False)
+
+    when(counter.io.done) {
+        outValid := False
+    }
+
+    when(io.input.fire) {
+        payload := io.input.payload
+        outValid := True
+    }
+
+    io.output.payload := driver(counter.io.value, payload, lastOne)
+    io.output.valid := outValid
+    io.input.ready := (!outValid || counter.io.done)
+    io.last := lastOne
+    io.first := (counter.io.value === 0) && counter.io.working
+    io.working := counter.io.working
 }

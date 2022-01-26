@@ -28,9 +28,9 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
     val byteCounter = Reg(UInt(log2Up(outputConfig.bytePerWord) bits))
     val size = Reg(UInt(3 bits))
     val outputValid = RegInit(False) clearWhen(io.output.writeData.ready)
-    val outputLast = Reg(Bool)
+    val outputLast = Reg(Bool())
     val busy = RegInit(False)
-    val incrementByteCounter, alwaysFire = Reg(Bool)
+    val incrementByteCounter, alwaysFire = Reg(Bool())
     val byteCounterNext = (U"0" @@ byteCounter) + (U"1" << size).resized
     val dataBuffer = Reg(Bits(outputConfig.dataWidth bits))
     val maskBuffer = Reg(Bits(outputConfig.bytePerWord bits)) init(0)
@@ -62,6 +62,7 @@ case class Axi4WriteOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Con
 
     when(cmdLogic.dataFork.fire){
       byteCounter := cmdLogic.dataFork.addr.resized
+      for(bit <- 0 until Math.min(7,widthOf(byteCounter))) byteCounter(bit) clearWhen(cmdLogic.dataFork.size > bit)
       size := cmdLogic.dataFork.size
       alwaysFire := !cmdLogic.dataFork.isINCR()
       incrementByteCounter := !cmdLogic.dataFork.isFIXED
@@ -100,7 +101,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
 
     io.output.readCmd.size.removeAssignments() := sizeMax
     io.output.readCmd.len.removeAssignments() := incrLen.resized
-    io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
+    if(io.output.readCmd.config.useId) io.output.readCmd.id.removeAssignments() := 0 //Do not allow out of order
   }
 
   val dataLogic = new Area{
@@ -141,7 +142,7 @@ case class Axi4ReadOnlyUpsizer(inputConfig : Axi4Config, outputConfig : Axi4Conf
     io.input.readRsp.last := io.output.readRsp.last && byteCounter === byteCounterLast
     io.input.readRsp.resp := io.output.readRsp.resp
     io.input.readRsp.data := io.output.readRsp.data.subdivideIn(ratio.slices).read(byteCounter >> log2Up(inputConfig.bytePerWord))
-    io.input.readRsp.id := id
+    if(inputConfig.useId) io.input.readRsp.id := id
     io.output.readRsp.ready := busy && io.input.readRsp.ready && (io.input.readRsp.last || byteCounterNext(widthOf(byteCounter)))
   }
 }

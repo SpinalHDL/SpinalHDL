@@ -20,8 +20,8 @@ case class alt_outbufGeneric(io_standard           : String       = "None",
 case class alt_outbuf(val generic : alt_outbufGeneric = alt_outbufGeneric()) extends BlackBox{
 
   val io = new Bundle{
-    val i    = in  Bool
-    val o    = out Bool
+    val i    = in  Bool()
+    val o    = out Bool()
   }.setName("")
 
   def i    : Bool = io.i

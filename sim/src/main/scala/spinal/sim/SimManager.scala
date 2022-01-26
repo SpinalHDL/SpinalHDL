@@ -22,7 +22,7 @@ class SimCallSchedule(val time: Long, val call : ()  => Unit){
 class JvmThreadUnschedule extends Exception
 
 //Reusable thread
-abstract class JvmThread(mainThread : Thread, creationThread : Thread, cpuAffinity : Int) extends Thread{
+abstract class JvmThread(cpuAffinity : Int) extends Thread{
   var body : () => Unit = null
   var unscheduleAsked = false
   val barrier = new CyclicBarrier(2)
@@ -68,8 +68,15 @@ class SimFailure(message : String) extends Exception (message)
 object SimManager{
   var cpuAffinity = 0
   lazy val cpuCount = {
-    val systemInfo = new oshi.SystemInfo
-    systemInfo.getHardware.getProcessor.getLogicalProcessorCount
+    try {
+      val systemInfo = new oshi.SystemInfo
+      systemInfo.getHardware.getProcessor.getLogicalProcessorCount
+    } catch {
+      // fallback when oshi can't work on Apple M1
+      // see https://github.com/oshi/oshi/issues/1462
+      // remove this workaround when the issue is fixed
+      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError) => Runtime.getRuntime().availableProcessors()
+    }
   }
   def newCpuAffinity() : Int = synchronized {
     val ret = cpuAffinity
@@ -80,7 +87,6 @@ object SimManager{
 
 class SimManager(val raw : SimRaw) {
   val cpuAffinity = SimManager.newCpuAffinity()
-  Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
   val mainThread = Thread.currentThread()
   var threads : SimCallSchedule = null
 
@@ -99,7 +105,7 @@ class SimManager(val raw : SimRaw) {
   val jvmIdleThreads = mutable.Stack[JvmThread]()
   def newJvmThread(body : => Unit) : JvmThread = {
     if(jvmIdleThreads.isEmpty){
-      val newJvmThread = new JvmThread(mainThread, Thread.currentThread(), cpuAffinity){
+      val newJvmThread = new JvmThread(cpuAffinity){
         override def bodyDone(): Unit = {
           jvmBusyThreads.remove(jvmBusyThreads.indexOf(this))
           jvmIdleThreads.push(this)
@@ -115,6 +121,10 @@ class SimManager(val raw : SimRaw) {
 
     jvmBusyThreads += jvmThread
     jvmThread
+  }
+
+  def newSpawnTask() : SimThreadSpawnTask = new SimThreadSpawnTask {
+    override def setup() = {} //Dummy
   }
 
   val readBypass = if(raw.isBufferedWrite) mutable.HashMap[Signal, BigInt]() else null
@@ -190,7 +200,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   def schedule(delay : Long, thread : SimThread): Unit = {
-    val s = new SimCallSchedule(time + delay, thread.resume)
+    val s = new SimCallSchedule(time + delay, thread.managerResume)
     schedule(s)
   }
 
@@ -232,6 +242,8 @@ class SimManager(val raw : SimRaw) {
   }
 
   def runWhile(continueWhile : => Boolean = true): Unit ={
+    val initialAffinity = Affinity.getAffinity
+    Affinity.setAffinity(cpuAffinity) //Boost context switching by 2 on host OS, by 10 on VM
     try {
 //      simContinue = true
       var forceDeltaCycle = false
@@ -306,9 +318,14 @@ class SimManager(val raw : SimRaw) {
       case e : Throwable => {
         println(f"""[Error] Simulation failed at time=$time""")
         raw.sleep(1)
+        val str = e.getStackTrace.head.toString
+        if(str.contains("spinal.core.") && !str.contains("sim")){
+          System.err.println("It seems like you used some SpinalHDL hardware elaboration API in the simulation. If you did, you shouldn't.")
+        }
         throw e
       }
     } finally {
+      Affinity.setAffinity(initialAffinity)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unscheduleAsked = true)
       (jvmIdleThreads ++ jvmBusyThreads).foreach(_.unschedule())
       for(t <- (jvmIdleThreads ++ jvmBusyThreads)){

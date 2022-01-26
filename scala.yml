@@ -1,0 +1,36 @@
+name: Scala CI
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK 11
+      uses: actions/setup-java@v2
+      with:
+        java-version: '11'
+        distribution: 'adopt'
+    - name: Setup GHDL
+      # You may pin to the exact commit or the version.
+      # uses: ghdl/setup-ghdl-ci@233774d8c0c5021af4c3686ea405013cb1494fd1
+      uses: ghdl/setup-ghdl-ci@233774d8c0c5021af4c3686ea405013cb1494fd1
+      with:
+        # Select GHDL backend (mcode, llvm or gcc)
+        backend: mcode # optional, default is mcode   
+    - name: Verilator Sim
+      # You may pin to the exact commit or the version.
+      # uses: drom/action-verilator@78c73c22637055ff90c331ba5257844c23e3ab92
+      uses: drom/action-verilator@78c73c22637055ff90c331ba5257844c23e3ab92
+      with:
+        # Verialtor version
+        version: 4.040 # optional, default is 4.020              
+    - name: Run tests
+      run: sbt compile

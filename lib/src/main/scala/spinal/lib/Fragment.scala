@@ -378,7 +378,7 @@ class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bit
 
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True).setCompositeName(pimped, "first", true))
+  def first: Bool = signalCache(pimped, "first")(RegNextWhen(pimped.last, pimped.fire, True).setCompositeName(pimped, "first", true))
   def tail: Bool = !first
   def isFirst: Bool = pimped.valid && first
   def isTail : Bool = pimped.valid && tail
@@ -461,7 +461,7 @@ class StreamFragmentFactory extends MSFactory {
 
 
 class Fragment[T <: Data](val fragmentType: HardType[T]) extends Bundle {
-  val last = Bool
+  val last = Bool()
   val fragment: T = fragmentType()
 
   def dataType = fragmentType()
@@ -484,7 +484,7 @@ class Fragment[T <: Data](val fragmentType: HardType[T]) extends Bundle {
 //
 //class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
 //  val outputs = Vec(mapTo.size, cloneOf(input))
-//  val enables = Vec(mapTo.size, Reg(Bool))
+//  val enables = Vec(mapTo.size, Reg(Bool()))
 //
 //  outputs.foreach(_.data := input.data)
 //  when(input.isNotInTail) {

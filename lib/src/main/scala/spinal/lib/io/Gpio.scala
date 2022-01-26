@@ -28,7 +28,7 @@ object Gpio {
     }
 
     val mapper = factory(io.bus)
-    val syncronized = BufferCC(io.gpio.read)
+    val syncronized = Delay(io.gpio.read, p.readBufferLength)
     val last = RegNext(syncronized)
 
 

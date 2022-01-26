@@ -42,8 +42,8 @@ case class LambdaComponent(bitsWidth: Int) extends Component {
 
     val xx = ifGen(true)(
       new Bundle {
-        val a: Bool = in Bool
-        val b: Bool = out Bool
+        val a: Bool = in Bool()
+        val b: Bool = out Bool()
       }
     )
   }

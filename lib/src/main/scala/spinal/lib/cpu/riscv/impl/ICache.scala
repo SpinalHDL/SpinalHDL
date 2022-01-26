@@ -106,7 +106,7 @@ case class InstructionCacheMemBus()(implicit val p : InstructionCacheConfig) ext
 
 case class InstructionCacheFlushBus() extends Bundle with IMasterSlave{
   val cmd = Event
-  val rsp = Bool
+  val rsp = Bool()
 
   override def asMaster(): Unit = {
     master(cmd)
@@ -140,7 +140,7 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
 
 
   class LineInfo() extends Bundle{
-    val valid = Bool
+    val valid = Bool()
     val address = UInt(tagRange.length bit)
   }
 

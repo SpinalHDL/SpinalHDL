@@ -101,6 +101,32 @@ class JtagTapInstructionRead[T <: Data](data: T, light : Boolean) extends Area {
   }
 }
 
+/**
+ * Usefull to create a jtag tap instruction that has a different data input/output, with a captureReady
+ */
+class JtagTapInstructionReadWrite[T <: Data](captureData: T, updateData: T, captureReady: Bool) extends Area {
+  val ctrl = JtagTapInstructionCtrl()
+  assert(widthOf(captureData) == widthOf(updateData)) // tdo is also clocked by tck
+
+  val store = Reg(Bits(widthOf(updateData) bit))  // for clean update
+
+  captureReady := False
+  when(ctrl.enable) {
+    when(ctrl.capture) {  // when the jtag is capturing the TAP
+      store := B(captureData)
+    }
+    when(ctrl.shift) {    // tdi DR shifting
+      store := (ctrl.tdi ## store) >> 1
+    }
+    when(ctrl.update) {
+      captureReady := True // ready for new data
+    }
+  }elsewhen(ctrl.reset) {
+      store.clearAll()
+  }
+  ctrl.tdo := store.lsb // tdo DR shifting
+  updateData.assignFromBits(store)
+}
 
 class JtagTapInstructionIdcode[T <: Data](value: Bits) extends Area {
   val ctrl = JtagTapInstructionCtrl()
@@ -112,7 +138,7 @@ class JtagTapInstructionIdcode[T <: Data](value: Bits) extends Area {
     }
   }
 
-  when(ctrl.reset){
+  when(ctrl.capture){
     shifter := value
   }
 
@@ -137,13 +163,13 @@ class JtagTapInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]], sinkClockD
 }
 
 
-
-class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctions{
+//ignoreWidth allows that wrapper to support jtag chain. ignoreWidth = 0 => only one tap allowed, 1 => two tape allowed and so on
+class JtagInstructionWrapper(headerWidth : Int, ignoreWidth : Int) extends Area with JtagTapFunctions{
   val ctrl = JtagTapInstructionCtrl()
 
   val header = Reg(Bits(headerWidth bits))
   val headerNext = (ctrl.tdi ## header) >> 1
-  val counter = Reg(UInt(log2Up(headerWidth) bits))
+  val counter = Reg(UInt(log2Up(headerWidth + ignoreWidth) bits))
   val done = Reg(Bool())
   val sendCapture = False
   val sendShift   = False
@@ -159,7 +185,7 @@ class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctio
       when(!done) {
         counter := counter + 1
         header := headerNext
-        when(counter === headerWidth - 1) {
+        when(counter === headerWidth + ignoreWidth - 1) {
           done := True
           sendCapture := True
         }
@@ -200,6 +226,13 @@ class JtagInstructionWrapper(headerWidth : Int) extends Area with JtagTapFunctio
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
     val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
     map(area.ctrl, instructionId)
+    area
+  }
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  override def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
     area
   }
 }

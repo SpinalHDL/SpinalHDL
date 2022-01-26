@@ -21,6 +21,7 @@
 
 package spinal.core
 
+import spinal.core.fiber._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
@@ -30,26 +31,18 @@ import spinal.idslplugin.PostInitCallback
 object Component {
 
   /** Push a new component on the stack */
-  def push(c: Component): Unit = {
-    if(c != null) {
-      c.globalData.dslScope.push(c.dslBody)
-    }else
-      GlobalData.get.dslScope.push(null)
-  }
-
-  /**  Remove component of the stack if it is the same as c */
-  def pop(c: Component): Unit = {
-    val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.dslScope.pop()
-  }
+  def push(c: Component) = DslScopeStack.set(if(c != null) c.dslBody else null)
+//
+//  /**  Remove component of the stack if it is the same as c */
+//  def pop(c: Component): Unit = {
+//    val globalData = if(c != null) c.globalData else GlobalData.get
+//    DslScopeStack.pop()
+//  }
 
   /** Get the current component on the stack */
-  def current: Component = current(GlobalData.get)
-
-  /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.dslScope.headOption match {
-    case None        => null
-    case Some(scope) => scope.component
+  def current: Component = DslScopeStack.get match {
+    case null  => null
+    case scope => scope.component
   }
 }
 
@@ -60,8 +53,8 @@ object Component {
   * @example {{{
   *         class MyAndGate extends Component {
   *           val io = new Bundle{
-  *             val a,b = in Bool
-  *             val res = out Bool
+  *             val a,b = in Bool()
+  *             val res = out Bool()
   *           }
   *           io.res := io.a & io.b
   *         }
@@ -70,6 +63,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
+  if(globalData.toplevel == null) globalData.toplevel = this
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)
 
@@ -82,25 +76,35 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
 
+  def isLogicLess = dslBody.isEmpty && children.isEmpty
+
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
+  case class PrePopTask(task : () => Unit){
+    val context = ScopeProperty.capture()
+  }
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
-  val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
+  val userCache = mutable.Map[Any, Any]()
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
+  var definitionNameNoMerge = false
+
   /** Hierarchy level of the component */
   private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
+  def walkComponents(body : Component => Unit) = {
+    body(this)
+    children.foreach(body)
+  }
   /** Reference owner type */
 //  override type RefOwnerType = Component
 
@@ -109,7 +113,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Get the parent component (null if there is no parent)*/
   def parent: Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  val clockDomain = ClockDomain.current
+  val clockDomain = ClockDomain.currentHandle
 
   var withoutReservedKeywords = false
   def withoutKeywords(): Unit ={
@@ -133,25 +137,31 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     while(prePopTasks.nonEmpty){
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+
+      val ctx = ScopeProperty.captureNoClone()
       for(t <- prePopTasksToDo){
-        t.clockDomain(t.task())
+        t.context.restoreCloned()
+        t.task()
       }
+      ctx.restore()
     }
   }
 
   def postInitCallback(): this.type = {
     prePop()
-    Component.pop(this)
+    DslScopeStack.set(parentScope)
     this
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task)
+//  def addPrePopTask(task: () => Unit) = Engine.get.onCompletion += task
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
   /** Set the definition name of the component */
-  def setDefinitionName(name: String): this.type = {
+  def setDefinitionName(name: String, noMerge : Boolean = true): this.type = {
     definitionName = name
+    definitionNameNoMerge = noMerge
     this
   }
 
@@ -254,7 +264,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()), Nameable.DATAMODEL_STRONG)
         else
-          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()} defined at \n${nameable.getScalaLocationLong}")
       case _ =>
     }
   }
@@ -304,16 +314,18 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def prePopEvent(): Unit = {}
 
   /** Rework the component */
-  val scopeProperties = ScopeProperty.get.map{case (p, s) => (p, s.head)}
+  val scopeProperties = ScopeProperty.capture()
   def rework[T](gen: => T) : T = {
-    ClockDomain.push(this.clockDomain)
-    Component.push(this)
-    scopeProperties.foreach{ case (p, v) => p.push(v)}
+    val previousTasks = this.prePopTasks
+    this.prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+    val ctx = ScopeProperty.captureNoClone()
+
+    scopeProperties.restoreCloned()
     val ret = gen
     prePop()
-    scopeProperties.foreach{ case (p, v) => p.pop()}
-    Component.pop(this)
-    ClockDomain.pop(this.clockDomain)
+    ctx.restore()
+
+    prePopTasks = previousTasks
     ret
   }
 
@@ -323,5 +335,36 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       case _ =>
     }
     null
+  }
+
+  def onBody[T](body : => T) : T = {
+    val ctx = DslScopeStack.set(dslBody)
+    val ret = body
+    ctx.restore()
+    ret
+  }
+
+  /**
+    * Empty Component, remove logic in component and assign zero on output port as stub
+    * @example {{{ val dut = (new MyComponent).stub() }}}
+    */
+  def stub(): this.type = this.rework{
+    // step0: walk and fix clock (clock, reset port need keep)
+    PhasePullClockDomains.recursive(this)
+    // step1: First remove all we don't want
+    this.children.clear()
+    this.dslBody.foreachStatements{
+      case bt : BaseType if !bt.isDirectionLess =>
+      case s => s.removeStatement()
+    }
+    // step2: remove output and assign zero
+    // this step can't merge into step1
+    this.dslBody.foreachStatements{
+      case bt : BaseType if bt.isOutput | bt.isInOut =>
+        bt.removeAssignments()
+        bt := bt.getZero
+      case s =>
+    }
+    this
   }
 }

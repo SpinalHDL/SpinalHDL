@@ -1,11 +1,11 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
-import spinal.lib.{StreamFifoMultiChannel, master, slave}
+import spinal.lib.{StreamFifoMultiChannelSharedSpace, master, slave}
 import spinal.lib.bus.bmb.sim.{BmbInterconnectTester, BmbMasterAgent, BmbMemoryAgent, BmbMemoryTester}
-import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbParameter, BmbSourceParameter}
+import spinal.lib.bus.bmb.{Bmb, BmbAccessParameter, BmbDecoder, BmbDecoderOutOfOrder, BmbDecoderPerSource, BmbParameter, BmbSourceParameter}
 import spinal.lib.bus.misc.{DefaultMapping, SizeMapping}
 import spinal.lib.eda.bench.{Bench, Rtl, XilinxStdTargets}
 
@@ -16,7 +16,7 @@ import scala.util.Random
 
 
 
-class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
+class SpinalSimBmbDecoderOutOfOrderTester extends AnyFunSuite {
   def doIt(outputCount : Int, sourceCount : Int, withDefault : Boolean): Unit ={
     val p = BmbParameter(
       addressWidth = 20,
@@ -35,7 +35,7 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
       dut.clockDomain.forkStimulus(2)
 
       val tester = new BmbInterconnectTester()
-      tester.perSourceRspCountTarget = 10000
+      tester.perSourceRspCountTarget = 1000
       tester.addMaster(dut.io.input, dut.clockDomain)
       for(portId <- 0 until dut.mappings.size) tester.addSlave(
         bus          = dut.io.outputs(portId),
@@ -92,8 +92,10 @@ class SpinalSimBmbDecoderOutOfOrderTester extends FunSuite {
 }
 
 
-class SpinalSimBmbDecoderInOrderTester extends FunSuite {
-  test("t1") {
+class SpinalSimBmbDecoderInOrderTester extends AnyFunSuite {
+  for(pipelinedDecoder <- List(false, true);
+      pipelinedHalfPipe <- List(false, true))
+  test(s"t1_${pipelinedDecoder}_${pipelinedHalfPipe}") {
     val p = BmbParameter(
       addressWidth = 20,
       dataWidth    = 32,
@@ -104,6 +106,66 @@ class SpinalSimBmbDecoderInOrderTester extends FunSuite {
     SimConfig.compile(BmbDecoder(
       p             = p,
       mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000)),
+      capabilities  = Seq.fill(2)(p),
+      pendingMax = 15,
+      pipelinedDecoder = pipelinedDecoder,
+      pipelinedHalfPipe = pipelinedHalfPipe
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(1000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
+}
+
+class SpinalSimBmbDecoderInOrderPerSourceTester extends AnyFunSuite {
+  test("t1") {
+    val p = BmbParameter(
+      addressWidth = 20,
+      dataWidth    = 32,
+      lengthWidth  = 6,
+      sourceWidth  = 2,
+      contextWidth = 16
+    )
+    SimConfig.compile(BmbDecoderPerSource(
+      p             = p,
+      mappings      = Seq(DefaultMapping, SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
+      capabilities  = Seq.fill(3)(p),
+      pendingMax = 15
+    )).doSimUntilVoid(seed = 42) { dut =>
+      SimTimeout(1000000)
+      dut.clockDomain.forkStimulus(2)
+
+      val tester = new BmbInterconnectTester()
+      tester.addMaster(dut.io.input, dut.clockDomain)
+      for(portId <- 0 until dut.mappings.size) tester.addSlave(
+        bus          = dut.io.outputs(portId),
+        mapping      = dut.mappings(portId),
+        offset   = 0,
+        cd  = dut.clockDomain
+      )
+    }
+  }
+
+  test("t2") {
+    val p = BmbParameter(
+      addressWidth = 20,
+      dataWidth    = 32,
+      lengthWidth  = 6,
+      sourceWidth  = 2,
+      contextWidth = 16
+    )
+    SimConfig.withWave.compile(BmbDecoderPerSource(
+      p             = p,
+      mappings      = Seq(SizeMapping(0x40000, 0x40000), SizeMapping(0x80000, 0x40000)),
       capabilities  = Seq.fill(2)(p),
       pendingMax = 15
     )).doSimUntilVoid(seed = 42) { dut =>
@@ -121,7 +183,6 @@ class SpinalSimBmbDecoderInOrderTester extends FunSuite {
     }
   }
 }
-
 
 
 object SpinalSimBmbDecoderOutOfOrderSynthesisBench extends App{

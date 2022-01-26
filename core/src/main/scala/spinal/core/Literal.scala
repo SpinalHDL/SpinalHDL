@@ -21,7 +21,7 @@
 package spinal.core
 
 import spinal.core.internals._
-
+import scala.collection.Seq
 
 /**
   * Base class to create Bit Vector from literal
@@ -111,14 +111,9 @@ object B extends BitVectorLiteralFactory[Bits] {
   def apply(): Bits = new Bits()
   def apply(that: Data): Bits = that.asBits
   def apply(that: Data, width : BitCount): Bits = that.asBits.resize(width)
-  def apply(value : Seq[Bool]) : Bits = {
-    val ret = Bits(value.length bits)
-    for(i <- ret.range){
-      ret(i) := value(i)
-    }
-    ret
-  }
-  def apply[T <: Data](value : Vec[Bool]) : Bits = B(value.asInstanceOf[Data])
+  def apply(head: Data, tail: Data*) : Bits = Cat((head +: tail).reverse)
+  def apply(value : Seq[Data]) : Bits = Cat(value)
+  def apply[T <: Data](value : Vec[T]) : Bits = B(value.asInstanceOf[Data])
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false

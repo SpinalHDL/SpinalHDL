@@ -2,28 +2,15 @@ package spinal.lib.eda.microsemi
 
 import java.io.File
 import java.nio.file.Paths
-
 import org.apache.commons.io.FileUtils
 import spinal.core._
+import spinal.lib.DoCmd.doCmd
 import spinal.lib.StreamFifo
 import spinal.lib.eda.bench.Report
 
 import scala.sys.process._
 
 object LiberoFlow {
-  def doCmd(cmd : String): Unit ={
-    println(cmd)
-    Process("cmd /C " + cmd) !
-  }
-  def doCmd(cmd : String, path : String): Unit ={
-    println(cmd)
-    Process("cmd /C " + cmd, new java.io.File(path)) !
-  }
-  def doCmd(cmds : Seq[String]): Unit ={
-    println(cmds.mkString)
-    Process(cmds.map(cmd => "cmd /K /C " + cmd)) !
-  }
-
   def apply(liberoPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
     val targetPeriod = (if(frequencyTarget != null) frequencyTarget else 100 MHz).toTime

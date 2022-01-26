@@ -22,7 +22,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     val output = master(Bmb(outputAccessParameter, inputParameter.invalidation))
   }
 
-  val doResult = Bool
+  val doResult = Bool()
   val addrIncrRange = (Math.min(Bmb.boundaryWidth-1, inputParameter.access.addressWidth - 1) downto 0)
 
   val buffer = new Area{
@@ -37,7 +37,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     val isWrite = Bmb.Cmd.Opcode.isWrite(opcode)
 
     when(io.output.cmd.fire) {
-      beat := beat - 1
+      beat := (beat - 1).resized
       address(addrIncrRange) := addressIncr(addrIncrRange)
       when(last){
         valid := False
@@ -50,7 +50,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
 
   if(outputAccessParameter.canWrite) {
     io.output.cmd.data := io.input.cmd.data
-    io.output.cmd.mask := io.input.cmd.mask
+    if(outputAccessParameter.canMask) io.output.cmd.mask := io.input.cmd.mask
   }
   io.output.cmd.last := True
 

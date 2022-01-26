@@ -3,13 +3,14 @@ package spinal.lib.com.spi.ddr
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.blackbox.lattice.ecp5.{IDDRX1F, IFS1P3BX, ODDRX1F, OFS1P3BX, Ulx3sUsrMclk}
 import spinal.lib.blackbox.lattice.ice40
 import spinal.lib.blackbox.lattice.ice40.SB_IO
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbParameter}
 import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.simple.{PipelinedMemoryBus, PipelinedMemoryBusConfig}
 import spinal.lib.com.eth.Mdio
-import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind}
+import spinal.lib.com.spi.{SpiHalfDuplexMaster, SpiKind, SpiMaster}
 import spinal.lib.fsm.{State, StateMachine}
 import spinal.lib.io.TriState
 
@@ -33,7 +34,7 @@ case class XdrOutput(rate : Int) extends Bundle with IMasterSlave{
 }
 
 case class XdrPin(rate : Int) extends Bundle with IMasterSlave{
-  val writeEnable = Bool
+  val writeEnable = Bool()
   val read,write = Bits(rate bits)
 
   override def asMaster(): Unit = {
@@ -119,6 +120,88 @@ case class SpiXdrMaster(val p : SpiXdrParameter) extends Bundle with IMasterSlav
         }
       }
     }
+
+    spi
+  }
+
+  def lazySclk(ssIdle : Int, sclkValue : Boolean) = {
+    val ret = cloneOf(this)
+
+    ret.sclk.write := ((ss =/= ssIdle) ? this.sclk.write | B(if(sclkValue) (1 << p.ssWidth) - 1 else 0))
+    for((s,m) <- (ret.data, this.data).zipped){
+      s.write := m.write
+      s.writeEnable := m.writeEnable
+      m.read := s.read
+    }
+    ret.ss := this.ss
+
+    ret
+  }
+
+  def toSpiEcp5(): SpiMaster = {
+    val spi = SpiMaster(
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    assert(p.ioRate == 1)
+
+    def outputFF(that: Bool): Bool = {
+                val oFF = OFS1P3BX()
+                oFF.PD := False
+                oFF.SP := True
+                oFF.D := that
+                oFF.Q
+    }
+
+    spi.sclk := outputFF(sclk.write(0))
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
+
+    spi
+  }
+
+
+  def toSpiEcp5Flash(): SpiMaster = {
+    val spi = SpiMaster(
+      ssWidth = p.ssWidth,
+      useSclk = true
+    )
+
+    assert(p.ioRate == 1)
+
+    def outputFF(that: Bool): Bool = {
+      val oFF = OFS1P3BX()
+      oFF.PD := False
+      oFF.SP := True
+      oFF.D := that
+      oFF.Q
+    }
+
+    spi.sclk := RegNext(sclk.write(0))
+    Component.current.afterElaboration(spi.sclk.setAsDirectionLess())
+    val usrMclk = Ulx3sUsrMclk()
+    usrMclk.USRMCLKTS := False
+    usrMclk.USRMCLKI := spi.sclk
+
+    if (ssWidth != 0) for ((s, m) <- (spi.ss.asBools, ss.asBools).zipped) s := outputFF(m)
+    spi.mosi := outputFF(data(0).write(0))
+
+    val iFF = IFS1P3BX()
+    iFF.PD := False
+    iFF.SP := True
+    iFF.D := spi.miso
+
+    data(1).read(0) := iFF.Q
+    data(0).read(0) := True
 
     spi
   }
@@ -213,7 +296,7 @@ object SpiXdrMasterCtrl {
 
     val ModType = HardType(UInt(log2Up(mods.map(_.id).max + 1) bits))
     def ssGen = spi.ssWidth != 0
-    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true)
+    def addFullDuplex(id : Int, rate : Int = 1, ddr : Boolean = false, dataWidth : Int = 8, lateSampling : Boolean = true): this.type = addHalfDuplex(id,rate,ddr,1,dataWidth,1, true, lateSampling = lateSampling)
     def addHalfDuplex(id : Int, rate : Int, ddr : Boolean, spiWidth : Int, dataWidth : Int = 8, readPinOffset : Int = 0, ouputHighWhenIdle : Boolean = false, lateSampling : Boolean = true): this.type = {
       assert(isPow2(spi.ioRate))
       if(rate == 1) {
@@ -253,8 +336,8 @@ object SpiXdrMasterCtrl {
   }
 
   case class Cmd(p: Parameters) extends Bundle{
-    val kind = Bool
-    val read, write = Bool
+    val kind = Bool()
+    val read, write = Bool()
     val data = Bits(p.dataWidth bits)
 
     def isData = !kind
@@ -361,26 +444,39 @@ object SpiXdrMasterCtrl {
 
     //CMD
     val cmdLogic = new Area {
+      val writeData = Bits(32 bits)
+      bus.nonStopWrite(writeData)
+
+      val doRegular = bus.isWriting(address = baseAddress + 0x0)
+      val doWriteLarge = bus.isWriting(address = baseAddress + 0x50)
+      val doReadWriteLarge = bus.isWriting(address = baseAddress + 0x54)
+
       val streamUnbuffered = Stream(Cmd(p))
-      streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
-      bus.nonStopWrite(streamUnbuffered.data, bitOffset = 0)
-      bus.nonStopWrite(streamUnbuffered.write, bitOffset = 8)
-      bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
-      bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
+      streamUnbuffered.valid := doRegular || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.write := doRegular && writeData(8) || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.read  := doRegular && writeData(9) || doReadWriteLarge
+      streamUnbuffered.kind  := doRegular && writeData(11)
+      streamUnbuffered.data  := writeData.resized
 
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
-        cmd << stream.stage()
+        cmd <-/< stream
       } else {
         cmd << stream
       }
       bus.read(fifoAvailability, address = baseAddress + 4, 0)
+      bus.read(cmd.valid, address = baseAddress + 12, 16)
     }
 
     //RSP
     val rspLogic = new Area {
       val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
-      bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
+
+      stream.ready := bus.isReading(baseAddress + 0) || bus.isReading(baseAddress + 0x58)
+      bus.read(!stream.valid,   baseAddress + 0, 31)
+      bus.read(stream.data.resize(widthOf(stream.payload).min(8)), baseAddress + 0)
+      bus.read(stream.data, baseAddress + 0x58)
+
       bus.read(fifoOccupancy, address = baseAddress + 4, 16)
     }
 
@@ -418,9 +514,9 @@ object SpiXdrMasterCtrl {
 
     val xip = ifGen(mapping.xip != null) (new Area{
       val xipBus = XipBus(mapping.xip)
-      val enable = Reg(Bool)
+      val enable = Reg(Bool())
       val instructionMod = Reg(p.ModType)
-      val instructionEnable = Reg(Bool)
+      val instructionEnable = Reg(Bool())
       val instructionData = Reg(Bits(8 bits))
       val addressMod = Reg(p.ModType)
       val dummyCount = Reg(UInt(4 bits))
@@ -578,7 +674,7 @@ object SpiXdrMasterCtrl {
           }
         }
 
-        val lastFired = Reg(Bool) setWhen(xipBus.rsp.lastFire)
+        val lastFired = Reg(Bool()) setWhen(xipBus.rsp.lastFire)
         STOP.onEntry(lastFired := False)
         STOP.whenIsActive{
           xipToCtrlMod := payloadMod
@@ -633,6 +729,7 @@ object SpiXdrMasterCtrl {
       val counterPlus = counter + io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
+      val counterMax = io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.dataWidth - m.bitrate , widthOf(counter) bits)))
       val lateSampling = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.lateSampling)))
       val readFill, readDone = False
       val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
@@ -646,14 +743,14 @@ object SpiXdrMasterCtrl {
 
           when(timer.sclkToogleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
             readFill := True
-            readDone := io.cmd.read && counterPlus === 0
+            readDone := io.cmd.read && counter === counterMax
           }
           when(timer.sclkToogleHit){
             state := !state
           }
           when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
-            when(counterPlus === 0){
+            when(counter === counterMax){
               io.cmd.ready := True
               state := False
             }
@@ -717,11 +814,12 @@ object SpiXdrMasterCtrl {
       //Get raw data to put on MOSI
       val dataWrite = Bits(maxBitRate bits)
       val widthSel = io.config.mod.muxListDc( p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
+      val offset =   io.config.mod.muxListDc( p.mods.map(m => m.id -> U(m.dataWidth-1, widthOf(fsm.counter) bits)))
       dataWrite.assignDontCare()
       switch(widthSel){
         for((width, widthId) <- widths.zipWithIndex){
           is(widthId){
-            dataWrite(0, width bits) := io.cmd.data.subdivideIn(width bits).reverse(fsm.counter >> log2Up(width))
+            dataWrite(0, width bits) := io.cmd.data.resize((p.dataWidth+width-1)/width*width).subdivideIn(width bits)(offset - fsm.counter >> log2Up(width))
           }
         }
       }
@@ -793,6 +891,15 @@ object SpiXdrMasterCtrl {
 
       io.rsp.valid := readDone
       io.rsp.data := bufferNext
+
+      switch(mod){
+        for(mod <- p.mods){
+          is(mod.id) {
+            val range = p.dataWidth-1 downto mod.dataWidth
+            if(range.size != 0) io.rsp.data(range) := 0
+          }
+        }
+      }
     }
   }
 }

@@ -79,7 +79,7 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
   val instruction     = Bool // 0-> 0x32 / 1-> 0x38
   val tdo             = Bool(false)
   val state           = asJtagTapState(io)
-  val lastInstruction = Reg(Bool) init(False)
+  val lastInstruction = Reg(Bool()) init(False)
   
   when(io.JCE1.rise){
     lastInstruction := False
@@ -129,10 +129,12 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
   }
 
   // implement traits of JtagTapFunctions
-  override def idcode(value: Bits)(instructionId: Int) = 
+  override def idcode(value: Bits)(instructionId: Int) : Area = {
     assert(false, """sorry a custom JTAG idcode is not supported by the embedded jtagg controller\n
                    |Idcode always 0xE0\n
                    |delete the code ... = tap.idcode(...) it's not necessary\n""".stripMargin)
+    null
+  }
 
   override def read[T <: Data](data: T, light : Boolean = false)(instructionId: Int) = {
     val area = new JtagTapInstructionRead(data, light = light)
@@ -145,7 +147,15 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
     map(area.ctrl, instructionId)
     area
   }
-  
+
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  override def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
+    area
+  }
+
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
     val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
     map(area.ctrl, instructionId)
@@ -165,8 +175,8 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
 //
 class SimpleJtagTap extends Component {
   val io = new Bundle {
-    val clk     = in  Bool
-    val rst     = in  Bool
+    val clk     = in  Bool()
+    val rst     = in  Bool()
     val switchs = in  Bits(8 bit)
     val leds    = out Bits(8 bit)
   }

@@ -24,11 +24,11 @@ case class SdramInterface(g : SdramLayout) extends Bundle with IMasterSlave{
   val BA    = Bits(g.bankWidth bits)
   val DQ    = TriStateArray(g.dataWidth bits)
   val DQM   = Bits(g.bytePerWord bits)
-  val CASn  = Bool
-  val CKE   = Bool
-  val CSn   = Bool
-  val RASn  = Bool
-  val WEn   = Bool
+  val CASn  = Bool()
+  val CKE   = Bool()
+  val CSn   = Bool()
+  val RASn  = Bool()
+  val WEn   = Bool()
 
   override def asMaster(): Unit = {
     out(ADDR,BA,CASn,CKE,CSn,DQM,RASn,WEn)

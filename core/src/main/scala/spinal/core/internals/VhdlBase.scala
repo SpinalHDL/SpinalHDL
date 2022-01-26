@@ -78,12 +78,17 @@ trait VhdlBase extends VhdlVerilogBase{
       return enum.getName() + "_" + encoding.getName() + "_type"
   }
 
+  def emitStructType(struct: SpinalStruct): String = {
+    return struct.getTypeString
+  }
+
   def emitDataType(node: Expression, constrained: Boolean = true) = node match {
     case bool: Bool => "std_logic"
     case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
     case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
     case enum: SpinalEnumCraft[_] => emitEnumType(enum)
+    case struct: SpinalStruct => emitStructType(struct)
   }
 
   def emitDirection(baseType: BaseType) = baseType.dir match {

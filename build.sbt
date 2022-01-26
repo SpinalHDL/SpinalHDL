@@ -6,9 +6,10 @@ import sbt.Tests._
 val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
   organization := "com.github.spinalhdl",
   version      := SpinalVersion.all,
-  scalaVersion := SpinalVersion.compiler,
-  scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
-  javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
+  crossScalaVersions := SpinalVersion.compilers,
+  scalaVersion := SpinalVersion.compilers(0),
+  scalacOptions ++= Seq("-unchecked","-target:jvm-1.8"/*, "-feature" ,"-deprecation"*/),
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
   baseDirectory in test := file("/out/"),
   fork := true,
 
@@ -22,15 +23,15 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   },
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
-  libraryDependencies += "org.scala-lang" % "scala-library" % SpinalVersion.compiler,
+  libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
 
   dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
   dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
+  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
 
   //set SBT_OPTS="-Xmx2G"
-  //sbt clean reload publishSigned
+  //sbt +clean +reload +publishSigned
   //https://oss.sonatype.org
   publishMavenStyle := true,
   publishArtifact in Test := false,
@@ -78,8 +79,8 @@ lazy val all = (project in file("."))
 
 
 import sys.process._
-def gitHash = (try {
-  "git rev-parse HEAD".!!
+def gitHash(dir: File) = (try {
+  s"git -C ${dir.toString} rev-parse HEAD".!!
 } catch{
   case e : java.io.IOException => "???"
 }).linesIterator.next()
@@ -90,7 +91,8 @@ lazy val idslpayload = (project in file("idslpayload"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-idsl-payload",
-    version := SpinalVersion.sim
+    version := SpinalVersion.sim,
+    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
   )
 
 lazy val idslplugin = (project in file("idslplugin"))
@@ -127,12 +129,14 @@ lazy val core = (project in file("core"))
     defaultSettingsWithPlugin,
     name := "SpinalHDL-core",
     libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
 
     resolvers += Resolver.sonatypeRepo("public"),
     version := SpinalVersion.core,
     sourceGenerators in Compile += Def.task {
       val dir = (sourceManaged in Compile).value
+      dir.mkdirs()
       val file = dir / "Info.scala"
       IO.write(file, """package spinal.core
                        |object Info {
@@ -140,7 +144,7 @@ lazy val core = (project in file("core"))
                        |  val name = "%s"
                        |  val gitHash = "%s"
                        |}
-                       |""".stripMargin.format(SpinalVersion.core, name, gitHash))
+                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
       Seq(file)
     }.taskValue
   )
@@ -163,7 +167,7 @@ lazy val debugger = (project in file("debugger"))
     version := SpinalVersion.debugger,
     resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
     libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
+    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
     publishArtifact := false,
     publishLocal := {}
   )
@@ -187,7 +191,7 @@ lazy val tester = (project in file("tester"))
     version := SpinalVersion.tester,
     baseDirectory in (Test) := file("./"),
 
-    libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
     publishArtifact := false,
     publishLocal := {}
   )

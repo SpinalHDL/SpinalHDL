@@ -71,7 +71,7 @@ case class Axi4SharedToApb3Bridge(addressWidth: Int, dataWidth: Int, idWidth: In
   }
 
   val phase      = RegInit(SETUP)
-  val write      = Reg(Bool)
+  val write      = Reg(Bool())
   val readedData = Reg(Bits(dataWidth bits))
   val id         = Reg(UInt(idWidth bits))
 

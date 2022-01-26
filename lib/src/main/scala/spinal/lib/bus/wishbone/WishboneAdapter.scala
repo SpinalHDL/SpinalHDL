@@ -76,7 +76,7 @@ class WishboneAdapter(wbmConfig : WishboneConfig,
          if (io.wbs.ACK) change state to idle     [io.wbs.STB = io.wbm.STB]
       */
       io.wbs.STB.removeAssignments()
-      val wait4ack = Reg(Bool) init(False)
+      val wait4ack = Reg(Bool()) init(False)
       when(!wait4ack && io.wbs.STB){
         wait4ack := True
       }.elsewhen(wait4ack && io.wbs.ACK){

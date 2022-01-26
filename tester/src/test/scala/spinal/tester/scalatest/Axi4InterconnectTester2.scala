@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
+import scala.collection.Seq
 
 object Axi4CrossbarTester2{
   class Axi4CrossbarTester2 extends Component {

@@ -28,6 +28,7 @@ import scala.collection.generic.Shrinkable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
+import scala.collection.Seq
 
 /**
   * Simulation package
@@ -48,7 +49,7 @@ package object sim {
 
   private def btToSignal(manager: SimManager, bt: BaseNode) = {
     if(bt.algoIncrementale != -1){
-      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it durring the elaboration.")
+      SimError(s"UNACCESSIBLE SIGNAL : $bt isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
     }
 
     manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](bt.algoInt)
@@ -58,6 +59,10 @@ package object sim {
   def setBigInt[T <: Data](mem : Mem[T], address : Long, data : BigInt): Unit = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to write to an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -66,7 +71,7 @@ package object sim {
       case Some(tag) => {
         for(i <- 0 until tag.mapping.size; mapping = tag.mapping(i)){
           if(mem.algoIncrementale != -1){
-            SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it durring the elaboration.")
+            SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
           }
           val symbol = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](mem.algoInt + i)
           val symbolData = (data >> mapping.range.low) & mapping.mask
@@ -79,6 +84,10 @@ package object sim {
   def getBigInt[T <: Data](mem : Mem[T], address : Long): BigInt = {
     val manager = SimManagerContext.current.manager
     val tag = mem.getTag(classOf[MemSymbolesTag])
+    val depth = mem.wordCount
+    if(address >= depth){
+      SimError(s"Attempting to read from an out of range address: address: $address, memory depth: $depth")
+    }
     tag match {
       case None => {
         val signal = btToSignal(manager, mem)
@@ -88,7 +97,7 @@ package object sim {
         var data = BigInt(0)
         for(i <- 0 until tag.mapping.size; mapping = tag.mapping(i)){
           if(mem.algoIncrementale != -1){
-            SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it durring the elaboration.")
+            SimError(s"UNACCESSIBLE SIGNAL : $mem isn't accessible during the simulation.\n- To fix it, call simPublic() on it during the elaboration.")
           }
           val symbol = manager.raw.userData.asInstanceOf[ArrayBuffer[Signal]](mem.algoInt + i)
           val readed = manager.getBigInt(symbol, address)
@@ -157,6 +166,7 @@ package object sim {
 
   /** Sleep / WaitUntil */
   def sleep(cycles: Long): Unit = SimManagerContext.current.thread.sleep(cycles)
+  def sleep(cycles: Double): Unit = SimManagerContext.current.thread.sleep(cycles.toLong)
   def waitUntil(cond: => Boolean): Unit = {
     SimManagerContext.current.thread.waitUntil(cond)
   }
@@ -185,7 +195,11 @@ package object sim {
     }
   }
 
-  def forkSensitive(triggers: Data*)(block: => Unit): Unit = {
+  def forkSensitive(triggers: Data)(block: => Unit): Unit = {
+    forkSensitive2(triggers)(block)
+  }
+
+  def forkSensitive2(triggers: Data*)(block: => Unit): Unit = {
     def value(data: Data) = data.flatten.map(_.toBigInt)
     def currentTriggerValue = triggers.flatMap(value)
 
@@ -216,6 +230,8 @@ package object sim {
       periodicaly(delay)(body)
     }
   }
+
+  def simThread = SimManagerContext.current.thread
 
   /**
     * Add implicit function to BaseType for simulation
@@ -262,14 +278,14 @@ package object sim {
       val index = Random.nextInt(pimped.length)
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
     def pop() : T = {
       val index = 0
       val ret = pimped(index)
       pimped(index) = pimped.last
-      pimped.reduceToSize(pimped.length-1)
+      pimped.remove(pimped.length-1)
       ret
     }
   }
@@ -318,6 +334,14 @@ package object sim {
     def #=(value: Int)    = setLong(bt, value)
     def #=(value: Long)   = setLong(bt, value)
     def #=(value: BigInt) = setBigInt(bt, value)
+    def #=(value: Array[Byte]) = { //TODO improve perf
+      var acc = BigInt(0)
+      for(i <- value.size-1 downto 0){
+        acc = acc << 8
+        acc |= value(i).toInt & 0xFF
+      }
+      setBigInt(bt, acc)
+    }
   }
 
   /**
@@ -487,7 +511,7 @@ package object sim {
       }
     }
 
-    def waitEdge(): Unit = waitRisingEdge(1)
+    def waitEdge(): Unit = waitEdge(1)
     def waitEdge(count : Int): Unit = {
       val manager = SimManagerContext.current.manager
       val signal  = getSignal(manager, cd.clock)
@@ -740,14 +764,61 @@ package object sim {
     def isResetAsserted: Boolean         = (cd.hasResetSignal && (cd.resetSim.toBoolean ^ cd.config.resetActiveLevel != spinal.core.HIGH)) || (cd.hasSoftResetSignal && (cd.softResetSim.toBoolean ^ cd.config.softResetActiveLevel != spinal.core.HIGH))
     def isResetDeasserted: Boolean       =  ! isResetAsserted
 
-    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnable.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
+    def isClockEnableAsserted: Boolean   = !cd.hasClockEnableSignal || (cd.clockEnableSim.toBoolean ^ cd.config.clockEnableActiveLevel != spinal.core.HIGH)
     def isClockEnableDeasserted: Boolean = ! isClockEnableAsserted
 
     def isSamplingEnable: Boolean        = isResetDeasserted && isClockEnableAsserted
     def isSamplingDisable: Boolean       = ! isSamplingEnable
   }
-
+  implicit class SimClockDomainHandlePimper(cd: spinal.core.fiber.Handle[ClockDomain]) extends SimClockDomainPimper(cd.get)
 
   def enableSimWave() =  SimManagerContext.current.manager.raw.enableWave()
   def disableSimWave() =  SimManagerContext.current.manager.raw.disableWave()
+
+  case class SimMutex(){
+    val queue = mutable.Queue[SimThread]()
+    var locked = false
+    def lock(){
+      if(locked) {
+        val t = simThread
+        queue.enqueue(t)
+        t.suspend()
+      } else {
+        locked = true
+      }
+    }
+    def unlock(){
+      assert(locked)
+      if(queue.nonEmpty) {
+        queue.dequeue().resume()
+      } else {
+        locked = false
+      }
+    }
+  }
+
+
+  def forkSimSporadicWave(captures : Seq[(Double, Double)], enableTime : Double = 1e-7, disableTime : Double = 1e-4, timeUnit : Double = 1e12): Unit ={
+    fork{
+      for((at, until) <- captures) {
+        val duration = until-at
+        assert(duration >= 0)
+        while (simTime() < at * timeUnit) {
+          disableSimWave()
+          sleep(disableTime * timeUnit)
+          enableSimWave()
+          sleep(enableTime * timeUnit)
+        }
+        println("\n\n********************")
+        sleep(duration * timeUnit)
+        println("********************\n\n")
+      }
+      while(true) {
+        disableSimWave()
+        sleep(disableTime * timeUnit)
+        enableSimWave()
+        sleep(  enableTime * timeUnit)
+      }
+    }
+  }
 }

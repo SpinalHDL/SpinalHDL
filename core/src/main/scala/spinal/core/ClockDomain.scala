@@ -21,6 +21,7 @@
 package spinal.core
 
 import spinal.core.ClockDomain.DivisionRate
+import spinal.core.fiber.Handle
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -48,8 +49,6 @@ sealed trait ClockDomainBoolTag extends SpinalTag{
 case class ClockTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ResetTag(clockDomain: ClockDomain)       extends ClockDomainBoolTag
 case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
-
-trait DummyTrait
 
 
 
@@ -118,7 +117,7 @@ object ClockDomain {
                withClockEnable : Boolean = false,
                frequency       : ClockFrequency = UnknownFrequency()): ClockDomain = {
 
-    Component.push(null)
+    val ctx = Component.push(null)
 
     val clockDomain = internal(
       name            = name,
@@ -130,23 +129,35 @@ object ClockDomain {
       frequency       = frequency
     )
 
-    Component.pop(null)
+    ctx.restore()
 
     clockDomain
   }
 
   /** Push a clockdomain on the stack */
-  def push(c: ClockDomain): Unit = {
-    GlobalData.get.dslClockDomain.push(c)
-  }
+  def push(c: Handle[ClockDomain]) = ClockDomainStack.set(c)
+  def push(c: ClockDomain) = ClockDomainStack.set(Handle.sync(c))
+
+//  def push(c: Handle[ClockDomain]): Unit = {
+//    ClockDomainStack.push(c)
+//  }
+//
+//  def push(c: ClockDomain): Unit = {
+//    ClockDomainStack.push(Handle.sync(c))
+//  }
+
 
   /** Pop a clockdomain on the stack */
-  def pop(c: ClockDomain): Unit = {
-    GlobalData.get.dslClockDomain.pop()
-  }
+//  def pop(): Unit = {
+//    ClockDomainStack.pop()
+//  }
 
   /** Return the current clock Domain */
-  def current: ClockDomain = GlobalData.get.dslClockDomain.head
+  def current: ClockDomain = {
+    val h = currentHandle
+    if(h != null) h.get else null
+  }
+  def currentHandle: Handle[ClockDomain] = ClockDomainStack.get
 
   def isResetActive       = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive
@@ -260,7 +271,7 @@ case class ClockDomain(clock       : Bool,
                        clockEnable : Bool = null,
                        config      : ClockDomainConfig = GlobalData.get.commonClockConfig,
                        frequency   : ClockDomain.ClockFrequency = UnknownFrequency(),
-                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) {
+                       clockEnableDivisionRate : ClockDomain.DivisionRate = ClockDomain.UnknownDivisionRate()) extends SpinalTagReady {
 
   assert(!(reset != null && config.resetKind == BOOT), "A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
 
@@ -275,8 +286,8 @@ case class ClockDomain(clock       : Bool,
   def hasResetSignal       = reset != null
   def hasSoftResetSignal   = softReset != null
 
-  def push(): Unit = ClockDomain.push(this)
-  def pop(): Unit  = ClockDomain.pop(this)
+  def push() = ClockDomain.push(this)
+//  def pop(): Unit  = ClockDomain.pop()
 
   def isResetActive = {
     if(config.useResetPin && reset != null)
@@ -316,13 +327,21 @@ case class ClockDomain(clock       : Bool,
   def setSyncronousWith(that: ClockDomain) = setSyncWith(that)
 
   def apply[T](block: => T): T = {
-    push()
+    val pop = this.push()
     val ret: T = block
-    pop()
+    pop.restore()
     ret
   }
 
   def on [T](block : => T) : T = apply(block)
+
+  def withoutReset() = GlobalData.get.userDatabase.getOrElseUpdate(this -> "withoutReset", copy(reset = null, softReset = null)).asInstanceOf[ClockDomain]
+
+  def duringReset(body : => Unit): Unit ={
+    when(ClockDomain.current.isResetActive) {
+      ClockDomain.current.withoutReset() on body
+    }
+  }
 
   /** Slow down the current clock to factor time */
   def newClockDomainSlowedBy(factor: BigInt): ClockDomain = factor match {
@@ -341,7 +360,11 @@ case class ClockDomain(clock       : Bool,
         override def getMax: BigInt = currentDivisionRate.getMax*factor
         override def getMin: BigInt =  currentDivisionRate.getMin*factor
       }
-      this.copy(clockEnable = RegNext(tick) init(False), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+      def syncResetFix(enable : Bool) = config.resetKind match {
+        case `SYNC` if hasResetSignal => enable || isResetActive //Ensure that the area get a reset even if the enable isn't set
+        case _ => enable
+      }
+      this.copy(clockEnable = syncResetFix(RegNext(tick) init(False)), clockEnableDivisionRate = divisionRate, config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
     }
   }
 
@@ -368,6 +391,19 @@ case class ClockDomain(clock       : Bool,
   def withRevertedClockEdge() = {
     copy(config = config.copy(clockEdge = if(config.clockEdge == RISING) FALLING else RISING))
   }
+
+  def withAsyncReset() = {
+    copy(config = config.copy(resetKind = ASYNC))
+  }
+
+  def withSyncReset() = {
+    copy(config = config.copy(resetKind = SYNC))
+  }
+
+  def withBootReset() = {
+    copy(reset = null, config = config.copy(resetKind = BOOT))
+  }
+
 
   def samplingRate : IClockDomainFrequency = {
     if(clockEnable == null) return frequency

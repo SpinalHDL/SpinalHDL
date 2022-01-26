@@ -5,11 +5,25 @@ import spinal.lib.IMasterSlave
 
 case class TriState[T <: Data](dataType : HardType[T]) extends Bundle with IMasterSlave{
   val read,write : T = dataType()
-  val writeEnable = Bool
+  val writeEnable = Bool()
 
   override def asMaster(): Unit = {
     out(write,writeEnable)
     in(read)
+  }
+
+  def stage() = {
+    val ret = TriState(dataType).setCompositeName(this, "stage", true)
+    ret.writeEnable := RegNext(this.writeEnable)
+    ret.write := RegNext(this.write)
+    this.read := RegNext(ret.read)
+    ret
+  }
+
+  def <<(m : TriState[T]) : Unit = {
+    this.writeEnable := m.writeEnable
+    this.write := m.write
+    m.read := this.read
   }
 }
 
@@ -27,7 +41,7 @@ case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
   }
 
   def apply(i : Int) : TriState[Bool] = {
-    val ret = TriState(Bool)
+    val ret = TriState(Bool())
 
     //Make ret readable
     ret.read := this.read(i)
@@ -56,7 +70,7 @@ case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
 
 case class TriStateOutput[T <: Data](dataType : HardType[T]) extends Bundle with IMasterSlave{
   val write : T = dataType()
-  val writeEnable = Bool
+  val writeEnable = Bool()
 
   override def asMaster(): Unit = {
     out(write,writeEnable)

@@ -10,10 +10,10 @@ import spinal.lib._
 // define Jtag IO's
 //
 case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
-  val tms = Bool
-  val tdi = Bool
-  val tdo = Bool
-  val tck = if(useTck) Bool else null
+  val tms = Bool()
+  val tdi = Bool()
+  val tdo = Bool()
+  val tck = if(useTck) Bool() else null
 
   def unclocked = {
     val ret = Jtag(false)
@@ -78,12 +78,13 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
   val tdoUnbufferd = CombInit(bypass)
   val tdoDr = False
   val tdoIr = instructionShift.lsb
+  val isBypass = instruction.asSInt === -1
 
   jtag.tdo := ClockDomain.current.withRevertedClockEdge()(RegNext(tdoUnbufferd))
 
   switch(fsm.state) {
     is(JtagState.IR_CAPTURE) {
-      instructionShift := instruction
+      instructionShift := B"01".resize(instructionWidth)
     }
     is(JtagState.IR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
@@ -94,7 +95,11 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     }
     is(JtagState.DR_SHIFT) {
       instructionShift := (jtag.tdi ## instructionShift) >> 1
-      tdoUnbufferd := tdoDr
+      when(isBypass){
+        tdoUnbufferd := bypass
+      } otherwise{
+        tdoUnbufferd := tdoDr
+      }
     }
   }
 
@@ -127,14 +132,21 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     map(area.ctrl, instructionId)
     area
   }
+  // from a jtag main standpoint. the jtag debugger either updates(write to) the DR, or captures it (read from)
+  def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) = {
+    val area = new JtagTapInstructionReadWrite(captureData, updateData, captureReady)
+    map(area.ctrl, instructionId)
+    updateValid := area.ctrl.enable && area.ctrl.update
+    area
+  }
   override def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) = {
     val area = new JtagTapInstructionFlowFragmentPush(sink, sinkClockDomain)
     map(area.ctrl, instructionId)
     area
   }
 
-  def instructionWrapper(headerWidth : Int) (instructionId: Int)  = {
-    val area = new JtagInstructionWrapper(headerWidth)
+  def instructionWrapper(headerWidth : Int, ignoreWidth : Int) (instructionId: Int)  = {
+    val area = new JtagInstructionWrapper(headerWidth, ignoreWidth)
     map(area.ctrl, instructionId)
     area
   }

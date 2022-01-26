@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
@@ -104,7 +104,7 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   test("testBundle") {
     //Bundle used as fifo payload
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
 
@@ -150,7 +150,7 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   test("testTwoDepth") {
     //Bundle used as fifo payload
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
     }
@@ -195,7 +195,7 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   test("lowLatency_0") {
     //Bundle used as fifo payload
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
     }
@@ -234,7 +234,7 @@ class SpinalSimStreamFifoTester extends SpinalSimFunSuite {
   test("lowLatency_1") {
     //Bundle used as fifo payload
     case class Transaction() extends Bundle {
-      val flag = Bool
+      val flag = Bool()
       val data = Bits(8 bits)
       val color = Rgb(5, 6, 5)
     }

@@ -80,22 +80,22 @@ object FloatingToUInt {
   */
 case class FloatingCompareResult() extends Bundle {
   /** a less than b */
-  val lessThan = Bool
+  val lessThan = Bool()
 
   /** a less or equal to b */
-  val lessThanEqual = Bool
+  val lessThanEqual = Bool()
 
   /** a equals b */
-  val equals = Bool
+  val equals = Bool()
 
   /** a greater than b */
-  val greaterThan = Bool
+  val greaterThan = Bool()
 
   /** a greater or equal to b */
-  val greaterThanEqual = Bool
+  val greaterThanEqual = Bool()
 
   /** both nan or one argument is signalling NaN */
-  val invalid = Bool
+  val invalid = Bool()
 }
 
 /**

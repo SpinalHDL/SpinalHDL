@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core.sim._
 import spinal.core._
 import spinal.lib._
@@ -8,7 +8,7 @@ import spinal.lib._
 class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
   test("general") {
     SimConfig.doSim(new Component {
-      val mem = Mem(Bits(8 bits), 1) randBoot()
+      val mem = Mem(Bits(8 bits), 1).randBoot()
       val writePort = slave(mem.writePort)
       val readSyncPort = slave(mem.readSyncPort)
       val readAsyncPort = new Area {
@@ -49,7 +49,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
 
   test("rwPort") {
     SimConfig.doSim(new Component {
-      val mem = Mem(Bits(8 bits), 1) randBoot()
+      val mem = Mem(Bits(8 bits), 1).randBoot()
       val readWrite = new Area {
         val address = U""
         val writeData = in Bits (8 bits)
@@ -135,7 +135,7 @@ class SpinalSimOneEntryRamTester extends SpinalSimFunSuite{
 }
 
 
-class SpinalSimRamTester extends FunSuite {
+class SpinalSimRamTester extends AnyFunSuite {
   test("general") {
     SimConfig.withConfig(SpinalConfig(device = Device.XILINX)).compile(new Component {
       val ram = Mem(Bits(32 bits), 256)

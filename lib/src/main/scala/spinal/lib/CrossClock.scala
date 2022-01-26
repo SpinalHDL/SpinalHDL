@@ -4,35 +4,34 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: T = null, bufferDepth: Int = 2): T = {
-    val c = new BufferCC(input, init != null, bufferDepth)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get): T = {
+    val c = new BufferCC(input, init, bufferDepth)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
-    if(init != null) c.io.initial := init
 
     val ret = cloneOf(c.io.dataOut)
     ret := c.io.dataOut
     return ret
   }
+
+  val defaultDepth = ScopeProperty(2)
 }
 
-class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) extends Component {
+class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val initial = if(!withInit) null.asInstanceOf[T] else in(cloneOf(dataType))
     val dataIn = in(cloneOf(dataType))
     val dataOut = out(cloneOf(dataType))
   }
 
-  val buffers = Vec(Reg(dataType, io.initial),bufferDepth)
+  val buffers = Vec(Reg(dataType, init),bufferDepth)
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
   for (i <- 1 until bufferDepth) {
     buffers(i) := buffers(i - 1)
     buffers(i).addTag(crossClockBuffer)
-
   }
 
   io.dataOut := buffers.last
@@ -50,28 +49,22 @@ object PulseCCByToggle {
 }
 
 
-class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
+class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain, withOutputBufferedReset : Boolean = true) extends Component{
   val io = new Bundle{
-    val pulseIn = in Bool
-    val pulseOut = out Bool
+    val pulseIn = in Bool()
+    val pulseOut = out Bool()
   }
 
-  val inArea = new ClockingArea(clockIn) {
-    val target = RegInit(False)
-    when(io.pulseIn) {
-      target := !target
-    }
+  val inArea = clockIn on new Area {
+    val target = RegInit(False) toggleWhen(io.pulseIn)
   }
 
-  val outArea = new ClockingArea(clockOut) {
+
+  val finalOutputClock = clockOut.withOptionalBufferedResetFrom(withOutputBufferedReset)(clockIn)
+  val outArea = finalOutputClock on new Area {
     val target = BufferCC(inArea.target, False)
-    val hit    = RegInit(False);
 
-    when(target =/= hit) {
-      hit := !hit
-    }
-
-    io.pulseOut := (target =/= hit)
+    io.pulseOut := target.edge(False)
   }
 }
 
@@ -90,7 +83,7 @@ object ResetCtrl{
                               clockDomain : ClockDomain,
                               inputPolarity : Polarity = HIGH,
                               outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                              bufferDepth : Int = 2) : Bool = {
+                              bufferDepth : Int = BufferCC.defaultDepth.get) : Bool = {
     val samplerCD = ClockDomain(
       clock = clockDomain.clock,
       reset = input,
@@ -116,11 +109,27 @@ object ResetCtrl{
                                    clockDomain : ClockDomain,
                                    inputPolarity : Polarity = HIGH,
                                    outputPolarity : Polarity = null, //null => inferred from the clockDomain
-                                   bufferDepth : Int = 2) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
+                                   bufferDepth : Int = BufferCC.defaultDepth.get) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
     input = input ,
     clockDomain = clockDomain ,
     inputPolarity = inputPolarity ,
     outputPolarity = outputPolarity ,
     bufferDepth = bufferDepth
   )
+
+  //Return a new clockdomain which use all the properties of clockCd but use as reset source a syncronized value from resetCd
+  def asyncAssertSyncDeassertCreateCd(resetCd : ClockDomain,
+                                      clockCd : ClockDomain = ClockDomain.current,
+                                      bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    ClockDomain(
+      clock = clockCd.clock,
+      reset = ResetCtrl.asyncAssertSyncDeassert(
+        input = resetCd.reset,
+        clockDomain = clockCd,
+        inputPolarity = HIGH,
+        bufferDepth = bufferDepth
+      ).setCompositeName(resetCd.reset, "syncronized", true),
+      config = clockCd.config
+    )
+  }
 }

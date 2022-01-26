@@ -2,8 +2,10 @@ package spinal.lib.sim
 import java.nio.file.{Files, Paths}
 
 import spinal.core.sim._
+import spinal.lib.bus.misc.SizeMapping
 import spinal.sim.SimManagerContext
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -111,6 +113,18 @@ case class SparseMemory(){
     }
     content(idx)
   }
+  def write(address : Long, data : Int) : Unit = {
+    for(i <- 0 to 3) {
+      val a = address + i
+      getElseAlocate((a >> 20).toInt)(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+    }
+  }
+  def write(address : Long, data : Long) : Unit = {
+    for(i <- 0 to 7) {
+      val a = address + i
+      getElseAlocate((a >> 20).toInt)(a.toInt & 0xFFFFF) = (data >> (i*8)).toByte
+    }
+  }
 
   def write(address : Long, data : Byte) : Unit = {
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF) = data
@@ -120,6 +134,18 @@ case class SparseMemory(){
     getElseAlocate((address >> 20).toInt)(address.toInt & 0xFFFFF)
   }
 
+
+  def readByteAsInt(address : Long) : Int = read(address).toInt & 0xFF
+
+  def readInt(address : Long) : Int = {
+    var value = 0
+    for(i <- 0 until 4) value |= (read(address + i).toInt & 0xFF) << i*8
+    return value
+  }
+  def writeInt(address : Long, data : Int) : Unit = {
+    for(i <- 0 until 4) write(address + i, (data >> 8*i).toByte)
+  }
+
   def loadBin(offset : Long, file : String): Unit ={
     val bin = Files.readAllBytes(Paths.get(file))
     for(byteId <- 0 until bin.size){
@@ -127,3 +153,74 @@ case class SparseMemory(){
     }
   }
 }
+
+
+case class MemoryRegionAllocator(base : Long, size : Long){
+//  case class Allocation(base : Long, size : Long)
+  val allocations = mutable.HashSet[SizeMapping]()
+  def sizeRand() = (Random.nextLong()&Long.MaxValue)%size
+  def free(region : SizeMapping) = allocations.remove(region)
+  def free(address : BigInt) = {
+    allocations.remove(allocations.find(a => a.base <= address && a.base + a.size > address).get)
+  }
+  def isAllocated(address : Long) = allocations.exists(a => a.base <= address && a.base + a.size > address)
+  def isAllocated(address : Long, size : Long) = allocations.exists(a => a.base < address+size && a.base + a.size > address)
+  def allocate(sizeMax : Long, sizeMin : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base, Random.nextLong%(sizeMax-sizeMin + 1)+sizeMin)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < size) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+  def allocate(size : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base, size)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+
+  def allocateAligned(size : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 10){
+
+      val region = SizeMapping(sizeRand() + base & ~(size-1), size)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+
+  def allocateAligned(size : Long, align : Long) : SizeMapping = {
+    var tryies = 0
+    while(tryies < 50){
+
+      val region = SizeMapping(sizeRand() + base & ~(align-1), size)
+      if(allocations.forall(r => r.base > region.end || r.end < region.base) && region.end < MemoryRegionAllocator.this.size) {
+        allocations += region
+        return region
+      }
+      tryies += 1
+    }
+    return null
+  }
+
+  def allocateOn(base : Long, size : Long) = allocations += SizeMapping(base, size)
+  def freeSize = size - allocations.foldLeft(0)(_ + _.size.toInt)
+}
+

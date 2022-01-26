@@ -11,7 +11,6 @@ object JsonTest {
   def main(args: Array[String]) {
     import net.liftweb.json.Extraction._
     import net.liftweb.json.JsonAST._
-    import net.liftweb.json.Printer._
     implicit val formats = DefaultFormats // Brings in default date formats etc.
 
 

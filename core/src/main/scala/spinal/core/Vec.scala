@@ -20,9 +20,11 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.{BitAssignmentFixed, BitAssignmentFloating, BitVectorAssignmentExpression, RangedAssignmentFixed, RangedAssignmentFloating}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 /**
   * Vec factory
@@ -49,6 +51,7 @@ trait VecFactory {
   }
 
   def Vec[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
+  def Vec[T <: Data](gen: HardType[T], size: Int): Vec[T] = Vec.fill(size)(gen())
 
 //  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
 
@@ -82,7 +85,10 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Ve
           case that: AssignmentNode => that.clone(to)
           case _ => that
         }*/
-        to.compositAssignFrom(thatSafe, to, kind)
+        target match {
+          case a : BitVectorAssignmentExpression => to.compositAssignFrom(thatSafe, a.copyWithTarget(to.asInstanceOf[BitVector]), kind)
+          case bt : BaseType => to.compositAssignFrom(thatSafe, to, kind)
+        }
       }
     }
   }
@@ -164,7 +170,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
       if(finalAddress.hasTag(tagAutoResize)){
         finalAddress = address.resize(bitNeeded)
       }else {
-        SpinalError(s"To many bit to address the vector (${finalAddress.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
+        SpinalError(s"Too many bit to address the vector (${finalAddress.getWidth} in place of $bitNeeded)\n at\n${ScalaLocated.long}")
       }
     }
 
@@ -186,7 +192,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     if(address.hasTag(tagAutoResize)){
       address.resize(log2Up(length))
     }else{
-      LocatedPendingError(s"Vec address width missmatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
+      LocatedPendingError(s"Vec address width mismatch.\n- Vec : $this\n- Address width : ${widthOf(address)}\n")
       address
     }
   }else{
@@ -220,7 +226,7 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
   }
 
   //TODO sub element composite assignment, as well for indexed access (std)
-  /** Access an element of the bector by a oneHot value */
+  /** Access an element of the vector by a oneHot value */
   def oneHotAccess(oneHot: Bits): T = {
 
     if(elements.size != oneHot.getWidth){

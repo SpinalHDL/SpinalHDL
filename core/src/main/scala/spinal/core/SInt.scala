@@ -27,7 +27,7 @@ import spinal.core.internals._
   */
 trait SIntFactory{
   /** Create a new SInt */
-  def SInt() = new SInt()
+  def SInt(u: Unit = null) = new SInt()
   /** Create a new SInt of a given width */
   def SInt(width: BitCount): SInt = SInt().setWidth(width.value)
 }
@@ -44,10 +44,10 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }
@@ -96,6 +96,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~ : SInt      = wrapUnaryOperator(new Operator.SInt.Not)
+
+  def valueRange: Range = {
+    assert(getWidth < 33)
+    (-(1l << getWidth-1) toInt) to (1 << getWidth-1)-1
+  }
 
   /* Implement fixPoint operators */
   def sign: Bool = this.msb
@@ -447,20 +452,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   /**
-    * Absolute value of a SInt
-    * @example {{{ myUInt := mySInt.abs }}}
-    * @return a UInt assign with the absolute value of the SInt
-    */
-  def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
-  /** Return the absolute value of the SInt when enable is True */
-  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
-  /** symmetric abs
-    * @example {{{ S(-128,8 bits).absWithSym got U(127,7 bits) }}}
-    * @return a UInt assign with the absolute value save 1 bit
-    */
-  def absWithSym: UInt = this.symmetry.abs.resize(getWidth-1)
-
-  /**
     * Assign a range value to a SInt
     * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
     * @param rangesValue The first range value
@@ -533,4 +524,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastSInt(delay))
+
+  def reversed = S(B(this.asBools.reverse))
 }

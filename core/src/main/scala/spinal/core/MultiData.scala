@@ -21,7 +21,7 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 /**
   * Base class for multi data like Vec, Bundle
@@ -106,6 +106,17 @@ abstract class MultiData extends Data {
     this
   }
 
+
+  override def freeze(): MultiData.this.type = {
+    elements.foreach(_._2.freeze())
+    this
+  }
+
+  override def unfreeze(): MultiData.this.type = {
+    elements.foreach(_._2.unfreeze())
+    this
+  }
+
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
@@ -153,14 +164,20 @@ abstract class MultiData extends Data {
 
   private[core] def isEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => zippedMap(that, _ === _).reduce(_ && _)
+      case that: MultiData => {
+        val checks = zippedMap(that, _ === _)
+        if(checks.nonEmpty) checks.reduce(_ && _) else True
+      }
       case _               => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
   private[core] def isNotEquals(that: Any): Bool = {
     that match {
-      case that: MultiData => zippedMap(that, _ =/= _).reduce(_ || _)
+      case that: MultiData =>{
+        val checks = zippedMap(that, _ =/= _)
+        if(checks.nonEmpty) checks.reduce(_ || _) else False
+      }
       case _               => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
@@ -203,5 +220,19 @@ abstract class MultiData extends Data {
       case _     =>
     }
     this
+  }
+
+
+
+  def assignUnassignedByName(that: MultiData): Unit = {
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other != null) {
+        element match {
+          case b  : MultiData => b.assignUnassignedByName(other.asInstanceOf[MultiData])
+          case bt : BaseType => if(!bt.hasDataAssignment) element := other
+        }
+      }
+    }
   }
 }

@@ -5,7 +5,9 @@ import spinal.lib._
 
 object BmbInvalidateMonitor{
   def outputAccessParameter(inputParameter : BmbAccessParameter) = inputParameter.sourcesTransform(s => s.copy(
-    contextWidth = 1 + s.contextWidth + inputParameter.addressWidth + s.lengthWidth
+    contextWidth = 1 + inputParameter.contextWidth + inputParameter.addressWidth + s.lengthWidth,
+    canInvalidate = false,
+    canSync = false
   ))
   def outputInvalidationParameter() = BmbInvalidationParameter()
 }
@@ -57,7 +59,7 @@ case class BmbInvalidateMonitor(inputParameter : BmbParameter,
 
 
   val ackLogic = new Area{
-    val syncSource = rspLogic.rspToSyncFiltred.queue(pendingInvMax)
+    val syncSource = rspLogic.rspToSyncFiltred.s2mPipe().queue(pendingInvMax)
     syncSource.ready := io.input.ack.fire
 
     io.input.sync.arbitrationFrom(io.input.ack)

@@ -1,19 +1,19 @@
 package spinal.tester.scalatest
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.sim._
 import spinal.core.sim._
-import spinal.lib.{StreamFifoCC, StreamFifoMultiChannel}
+import spinal.lib.{StreamFifoCC, StreamFifoMultiChannelSharedSpace}
 import spinal.tester
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
-class SpinalSimStreamFifoMultiChannelTester extends FunSuite {
+class SpinalSimStreamFifoMultiChannelSharedSpaceTester extends AnyFunSuite {
   test("t1") {
-    SimConfig.compile(new StreamFifoMultiChannel(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
+    SimConfig.compile(new StreamFifoMultiChannelSharedSpace(Bits(32 bits), 4, 16)).doSimUntilVoid(seed = 42) { dut =>
       val queueModel = ArrayBuffer.fill(4)(mutable.Queue[Long]())
 
       SimTimeout(1000000)

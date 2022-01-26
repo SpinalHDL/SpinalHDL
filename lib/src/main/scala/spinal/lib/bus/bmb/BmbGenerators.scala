@@ -4,25 +4,26 @@ import spinal.lib.bus.misc.{AddressMapping, DefaultMapping, SizeMapping}
 import spinal.lib.generator._
 import spinal.lib._
 import spinal.core._
+import spinal.core.fiber._
 import spinal.lib.bus.amba3.apb.Apb3Config
 import spinal.lib.misc.{BmbClint, Clint}
 import spinal.lib.misc.plic.{PlicGateway, PlicGatewayActiveHigh, PlicMapper, PlicMapping, PlicTarget}
 
 import scala.collection.mutable.ArrayBuffer
-
+import scala.collection.Seq
 
 
 
 case class BmbExclusiveMonitorGenerator()
-                                       (implicit interconnect: BmbInterconnectGenerator) extends Generator {
-  val input = produce(logic.io.input)
-  val output = produce(logic.io.output)
+                                       (implicit interconnect: BmbInterconnectGenerator) extends Area {
+  val input = Handle(logic.io.input)
+  val output = Handle(logic.io.output)
 
 
   val inputAccessSource = Handle[BmbAccessCapabilities]
-  val inputAccessRequirements = createDependency[BmbAccessParameter]
+  val inputAccessRequirements = Handle[BmbAccessParameter]
   val outputInvalidationSource = Handle[BmbInvalidationParameter]
-  val invalidationRequirements = createDependency[BmbInvalidationParameter]
+  val invalidationRequirements = Handle[BmbInvalidationParameter]
 
   interconnect.addSlave(
     accessSource = inputAccessSource,
@@ -41,28 +42,24 @@ case class BmbExclusiveMonitorGenerator()
     bus = output
   )
 
-  val logic = add task BmbExclusiveMonitor(
+  val logic = Handle(BmbExclusiveMonitor(
     inputParameter = BmbParameter(inputAccessRequirements, invalidationRequirements),
     pendingWriteMax = 64
-  )
+  ))
 
-  tags += new MemoryConnection(input, output, 0)
+  export(new MemoryConnection(input, output, 0))
 }
 
 case class BmbInvalidateMonitorGenerator()
-                                        (implicit interconnect: BmbInterconnectGenerator) extends Generator {
-  val input = produce(logic.io.input)
-  val output = produce(logic.io.output)
+                                        (implicit interconnect: BmbInterconnectGenerator) extends Area {
+  val input = Handle(logic.io.input)
+  val output = Handle(logic.io.output)
 
   val inputAccessSource = Handle[BmbAccessCapabilities]
-  val inputAccessRequirements = createDependency[BmbAccessParameter]
-  val inputInvalidationRequirements = createDependency[BmbInvalidationParameter]
-
-  inputInvalidationRequirements.derivatedFrom(inputAccessRequirements)(r => BmbInvalidationParameter(
-    canInvalidate = true,
-    canSync = true,
-    invalidateLength = r.lengthWidth,
-    invalidateAlignment = r.alignment
+  val inputAccessRequirements = Handle[BmbAccessParameter]
+  val inputInvalidationRequirements = Handle(BmbInvalidationParameter(
+    invalidateLength = inputAccessRequirements.lengthWidth,
+    invalidateAlignment = inputAccessRequirements.alignment
   ))
 
   interconnect.addSlave(
@@ -79,26 +76,26 @@ case class BmbInvalidateMonitorGenerator()
     bus = output
   )
 
-  val logic = add task BmbInvalidateMonitor(
+  val logic = Handle(BmbInvalidateMonitor(
     inputParameter = BmbParameter(inputAccessRequirements, inputInvalidationRequirements),
     pendingInvMax = 16
-  )
+  ))
 
-  tags += new MemoryConnection(input, output, 0)
+  export(new MemoryConnection(input, output, 0))
 }
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
-                            (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
-  val ctrl = produce(logic.io.bus)
-  val cpuCount = createDependency[Int]
+                            (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area {
+  val ctrl = Handle(logic.io.bus)
+  val cpuCount = Handle[Int]
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
-  val logic = add task BmbClint(accessRequirements.toBmbParameter(), cpuCount)
+  val accessRequirements = Handle[BmbAccessParameter]
+  val logic = Handle(BmbClint(accessRequirements.toBmbParameter(), cpuCount))
   def timerInterrupt(id : Int) = logic.derivate(_.io.timerInterrupt(id))
   def softwareInterrupt(id : Int) = logic.derivate(_.io.softwareInterrupt(id))
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
     accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
     accessRequirements = accessRequirements,
@@ -106,59 +103,61 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
     mapping = apbOffset.derivate(SizeMapping(_, 1 << Clint.addressWidth))
   )
 
-  val hz = export(produce(ClockDomain.current.frequency))
+  val hz = export(Handle(ClockDomain.current.frequency))
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }
 
 
 
-case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator with InterruptCtrlGeneratorI{
+case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area with InterruptCtrlGeneratorI{
   @dontName val gateways = ArrayBuffer[Handle[PlicGateway]]()
-  val ctrl = produce(logic.bmb)
+  val ctrl = Handle(logic.bmb)
 
   val accessSource = Handle[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
+  val accessRequirements = Handle[BmbAccessParameter]
 
-  val priorityWidth = createDependency[Int]
-  val mapping = createDependency[PlicMapping]
+  val priorityWidth = Handle[Int]
+  val mapping = Handle[PlicMapping]
 
-  val targetsModel = ArrayBuffer[Handle[Bool]]()
+  val lock = Lock()
+
+  case class TargetModel(target : Handle[Bool], clockDomain : Handle[ClockDomain])
+  val targetsModel = ArrayBuffer[TargetModel]()
   def addTarget(target : Handle[Bool]) = {
     val id = targetsModel.size
-
-    targetsModel += target
-    dependencies += target
+    targetsModel += TargetModel(target, ClockDomain.currentHandle)
 
     //TODO remove the need of delaying stuff for name capture
-    add task(tags += new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id))
+    Handle(Component.current.addTag(new Export(BmbPlicGenerator.this.getName() + "_" + target.getName, id)))
   }
 
-  override def addInterrupt(source : Handle[Bool], id : Int) = {
-    this.dependencies += new Generator {
-      dependencies += source
-      add task new Area {
-        gateways += PlicGatewayActiveHigh(
-          source = source,
-          id = id,
-          priorityWidth = priorityWidth
-        ).setCompositeName(source, "plic_gateway")
+  override def addInterrupt(source : => Handle[Bool], id : Int) = {
+    lock.retain()
+    Handle{
+      val src = source
+      soon(lock)
+      gateways += PlicGatewayActiveHigh(
+        source = src,
+        id = id,
+        priorityWidth = priorityWidth
+      ).setCompositeName(src, "plic_gateway")
 
-        tags += new Export(BmbPlicGenerator.this.getName() + "_" + source.getName, id)
-      }
+      Component.current.addTag (new Export(BmbPlicGenerator.this.getName() + "_" + src.getName, id))
+      lock.release()
     }
   }
 
   override def getBus(): Handle[Nameable] = ctrl
 
-  val logic = add task new Area{
+  val logic = Handle(new Area{
+    lock.await()
     val bmb = Bmb(accessRequirements.toBmbParameter())
     val bus = BmbSlaveFactory(bmb)
-
     val targets = targetsModel.map(flag =>
       PlicTarget(
         gateways = gateways.map(_.get),
         priorityWidth = priorityWidth
-      ).setCompositeName(flag, "plic_target")
+      ).setCompositeName(flag.target, "plic_target")
     )
 
     //    gateways.foreach(_.priority := 1)
@@ -171,21 +170,22 @@ case class BmbPlicGenerator(apbOffset : Handle[BigInt] = Unset) (implicit interc
     )
 
     for(targetId <- 0 until targetsModel.length){
-      targetsModel(targetId) := targets(targetId).iep
+      def bufferize[T <: Data](that : T) : T = if(targetsModel(targetId).clockDomain != ClockDomain.currentHandle) targetsModel(targetId).clockDomain on BufferCC[T](that, init = null.asInstanceOf[T]) else RegNext[T](that)
+      targetsModel(targetId).target := bufferize(targets(targetId).iep)
     }
-  }
+  })
 
 
-  interconnect.addSlave(
+  if(interconnect != null) interconnect.addSlave(
     accessSource = accessSource,
-    accessCapabilities = accessSource.derivate(BmbSlaveFactory.getBmbCapabilities(
-      _,
+    accessCapabilities = Handle(BmbSlaveFactory.getBmbCapabilities(
+      accessSource,
       addressWidth = 22,
       dataWidth = 32
     )),
     accessRequirements = accessRequirements,
     bus = ctrl,
-    mapping = apbOffset.derivate(SizeMapping(_, 1 << 22))
+    mapping = Handle(SizeMapping(apbOffset, 1 << 22))
   )
 
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
@@ -199,17 +199,17 @@ object BmbBridgeGenerator{
 
 
 
-class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
-                        (implicit interconnect: BmbInterconnectGenerator) extends Generator {
+class BmbBridgeGenerator(val mapping : Handle[AddressMapping] = DefaultMapping, bypass : Boolean = true)
+                        (implicit interconnect: BmbInterconnectGenerator) extends Area {
   val accessSource = Handle[BmbAccessCapabilities]
   val invalidationSource = Handle[BmbInvalidationParameter]
 
   val accessCapabilities = Handle[BmbAccessCapabilities]
   val invalidationCapabilities = Handle[BmbInvalidationParameter]
 
-  val accessRequirements = createDependency[BmbAccessParameter]
-  val invalidationRequirements = createDependency[BmbInvalidationParameter]
-  val bmb = add task Bmb(accessRequirements, invalidationRequirements)
+  val accessRequirements = Handle[BmbAccessParameter]
+  val invalidationRequirements = Handle[BmbInvalidationParameter]
+  val bmb = Handle(Bmb(accessRequirements, invalidationRequirements))
 
   val accessTranform = ArrayBuffer[BmbAccessCapabilities => BmbAccessCapabilities]()
 
@@ -226,23 +226,31 @@ class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypa
     )}
     this
   }
+  def withoutMask(): this.type = {
+    accessTranform += { a => a.copy(
+      canMask =  false
+    )}
+    this
+  }
   def peripheral(dataWidth : Int): this.type = {
     this.dataWidth(dataWidth)
     this.unburstify()
   }
-  def asPeripheralDecoder(dataWidth : Int) = {
+  def asPeripheralDecoder(dataWidth : Int) : BmbImplicitPeripheralDecoder = {
     peripheral(dataWidth)
-    BmbImplicitPeripheralDecoder(bmb)
+    asPeripheralDecoder()
   }
-  def asPeripheralDecoder() = {
+
+  def asPeripheralDecoder() : BmbImplicitPeripheralDecoder = {
+    interconnect.masters(bmb).withPeripheralDecoder()
     BmbImplicitPeripheralDecoder(bmb)
   }
 
   if(bypass){
-    accessCapabilities.derivatedFrom(accessSource){
-      accessTranform.foldLeft(_)((v, f) => f(v))
+    accessCapabilities.loadAsync{
+      accessTranform.foldLeft(accessSource)((v, f) => f(v))
     }
-    invalidationCapabilities.merge(invalidationSource)
+    invalidationCapabilities.load(invalidationSource)
   }
 
   interconnect.addSlave(
@@ -265,18 +273,18 @@ class BmbBridgeGenerator(mapping : Handle[AddressMapping] = DefaultMapping, bypa
 
 
 case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
-                             (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Generator {
-  val input = produce(logic.io.input)
-  val output = produce(logic.io.output)
+                             (implicit interconnect: BmbInterconnectGenerator, decoder : BmbImplicitPeripheralDecoder = null) extends Area {
+  val input = Handle(logic.io.input)
+  val output = Handle(logic.io.output)
 
-  val apb3Config = createDependency[Apb3Config]
-  val accessSource = createDependency[BmbAccessCapabilities]
-  val accessRequirements = createDependency[BmbAccessParameter]
-  val logic = add task BmbToApb3Bridge(
+  val apb3Config = Handle[Apb3Config]
+  val accessSource = Handle[BmbAccessCapabilities]
+  val accessRequirements = Handle[BmbAccessParameter]
+  val logic = Handle(BmbToApb3Bridge(
     apb3Config = apb3Config,
     bmbParameter = accessRequirements.toBmbParameter(),
     pipelineBridge = false
-  )
+  ))
 
   interconnect.addSlave(
     accessSource = accessSource,

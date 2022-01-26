@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 trait UIntFactory{
   /** Create a new UInt */
-  def UInt() = new UInt()
+  def UInt(u: Unit = null) = new UInt()
   /** Create a new UInt of a given width */
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
@@ -48,10 +48,10 @@ trait UIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
-class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
     require(!q.signed, "assign SQ to UInt")
-    require(q.width == this.getWidth, s"${q} width dismatch!")
+    require(q.width == this.getWidth, s"${q} width mismatch!")
     Qtag = q
     this
   }
@@ -98,6 +98,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def &(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.And)
   override def ^(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Xor)
   override def unary_~ : UInt      = wrapUnaryOperator(new Operator.UInt.Not)
+
+  def valueRange: Range = {
+    assert(getWidth < 32)
+    0 to (1 << getWidth)-1
+  }
 
   /* Implement fixPoint operators */
   /**highest m bits Saturation */
@@ -309,7 +314,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @param enable enable the 2'complement
     * @return Return the 2'Complement of the number
     */
-  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+  def twoComplement(enable: Bool): SInt = ((enable ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+//  def twoComplementUInt(enable: Bool): UInt = ((Mux(enable, ~this, this)) + enable.asUInt)
 
   /**
     * Assign a range value to an UInt
@@ -344,13 +350,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     case that: MaskedLiteral  => that === this
     case that: Int            => this === that
     case that: BigInt         => this === that
-    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+    case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
   private[core] override def isNotEquals(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
     case that: MaskedLiteral  => that === this
-    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+    case _                    => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
   private[core] override def newMultiplexerExpression() = new MultiplexerUInt
@@ -371,7 +377,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**
     * Assign a mask to the output signal
     * @example {{{ output4 assignMask M"1111 }}}
-    * @param maskedLiteral masked litteral value
+    * @param maskedLiteral masked literal value
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {
     assert(maskedLiteral.width == this.getWidth)
@@ -415,6 +421,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastUInt(delay))
+
+  def reversed = U(B(this.asBools.reverse))
 }
 
 

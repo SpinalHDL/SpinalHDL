@@ -14,7 +14,7 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
 
   val io = new Bundle {
     val configFrame = in(UartCtrlFrameConfig(g))
-    val samplingTick = in Bool
+    val samplingTick = in Bool()
     val write = slave Stream (Bits(dataWidthMax bit))
     val cts = in Bool()
     val txd = out Bool()
@@ -45,7 +45,7 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     import UartCtrlTxState._
 
     val state = RegInit(IDLE)
-    val parity = Reg(Bool)
+    val parity = Reg(Bool())
     val txd = True
 
     when(clockDivider.tick) {

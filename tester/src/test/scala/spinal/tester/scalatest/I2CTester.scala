@@ -39,8 +39,8 @@ class I2CHALTester extends Component{
         val rsp    = master Flow (I2CIoMasterRsp ())
       }
 
-      val sda = out Bool
-      val scl = out Bool
+      val sda = out Bool()
+      val scl = out Bool()
     }
 
     val i2cSlave  = new I2CIoSlave(slaveGeneric)
