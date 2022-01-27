@@ -165,7 +165,7 @@ def to_sint(i: int):
 def random_test(dut):
     dut.log.info("Cocotb test boot")
 
-    for op in range(0, 5):
+    for op in range(0, 3):
         for mode in range(0, 10):
             for i in range(0, 100):
                 randSignal(dut.io_inFix_0)

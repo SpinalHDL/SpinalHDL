@@ -301,6 +301,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   /** Division */
   override def /(right: Fix): Fix = {
+    SpinalWarning("Fixed-point division is not finalized and not recommended for use! " + ScalaLocated.long)
     val (leftAligned, rightAligned) = align(this, right) // These will need additional shifting
     val newIntWidth = this.intWidth + right.fracWidth
     val newFracWidth = right.wholeWidth + this.fracWidth
@@ -321,6 +322,7 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 
   /** Modulo */
   override def %(right: Fix): Fix = {
+    SpinalWarning("Fixed-point modulo is not finalized and not recommended for use! " + ScalaLocated.long)
     val (leftAligned, rightAligned) = align(this, right) // These will need additional shifting
     val res = new Fix(right.intWidth + (this.signWidth | right.signWidth),
                       right.bitWidth + (this.signWidth | right.signWidth), this.signed | right.signed)
