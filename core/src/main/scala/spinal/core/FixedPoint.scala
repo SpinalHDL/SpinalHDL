@@ -225,14 +225,17 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Addition */
   override def +(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(math.max(this.intWidth, right.intWidth), math.max(_left.getWidth, _right.getWidth), this.signed | right.signed)
+    val newIntWidth = math.max(this.wholeWidth, right.wholeWidth) + (this.signWidth ^ right.signWidth)
+    val newFracWidth = math.max(this.fracWidth, right.fracWidth)
+    val newBitWidth = newIntWidth + newFracWidth
+    val res = new Fix(newIntWidth, newBitWidth, this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_add", true)
     res.raw := ((this.signed, right.signed) match {
-      case (false, false) => _left.asUInt + _right.asUInt
-      case (false, true) => _left.asUInt.asSInt + _right.asSInt
-      case (true, false) => _left.asSInt + _right.asUInt.asSInt
-      case (true, true) => _left.asSInt + _right.asSInt
-    }).resize(res.bitWidth).asBits
+      case (false, false) => (_left.asUInt + _right.asUInt).resize(res.bitWidth)
+      case (false, true) => (_left.asUInt.asSInt + _right.asSInt).resize(res.bitWidth)
+      case (true, false) => (_left.asSInt + _right.asUInt.asSInt).resize(res.bitWidth)
+      case (true, true) => (_left.asSInt + _right.asSInt).resize(res.bitWidth)
+    }).asBits
     res
   }
 
@@ -255,14 +258,17 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Subtraction */
   override def -(right: Fix): Fix = {
     val (_left, _right) = align(this, right)
-    val res = new Fix(math.max(this.intWidth, right.intWidth), math.max(_left.getWidth, _right.getWidth), this.signed | right.signed)
+    val newIntWidth = math.max(this.wholeWidth, right.wholeWidth) + (this.signWidth ^ right.signWidth)
+    val newFracWidth = math.max(this.fracWidth, right.fracWidth)
+    val newBitWidth = newIntWidth + newFracWidth
+    val res = new Fix(newIntWidth, newBitWidth, this.signed | right.signed)
     res.setName(s"${this.getName()}_${right.getName()}_sub", true)
     res.raw := ((this.signed, right.signed) match {
-      case (false, false) => _left.asUInt - _right.asUInt
-      case (false, true) => _left.asUInt.intoSInt - _right.asSInt
-      case (true, false) => _left.asSInt - _right.asUInt.intoSInt
-      case (true, true) => _left.asSInt - _right.asSInt
-    }).resize(res.bitWidth).asBits
+      case (false, false) => (_left.asUInt - _right.asUInt).resize(res.bitWidth)
+      case (false, true) => (_left.asUInt.asSInt - _right.asSInt).resize(res.bitWidth)
+      case (true, false) => (_left.asSInt - _right.asUInt.asSInt).resize(res.bitWidth)
+      case (true, true) => (_left.asSInt - _right.asSInt).resize(res.bitWidth)
+    }).asBits
     res
   }
 

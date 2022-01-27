@@ -55,10 +55,10 @@ class Ref:
         opResult = 0.0
         if opMode == 0:
             opResult = self.io_inFix_0 + self.io_inFix_1
-            opResult = self.wrap_around(opResult, 12, 10, True)
+            opResult = self.wrap_around(opResult, 11, 6, True)
         elif opMode == 1:
             opResult = self.io_inFix_0 - self.io_inFix_1
-            opResult = self.wrap_around(opResult, 12, 10, True)
+            opResult = self.wrap_around(opResult, 11, 6, True)
         elif opMode == 2:
             opResult = self.io_inFix_0 * self.io_inFix_1
         elif opMode == 3:
