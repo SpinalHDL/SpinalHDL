@@ -454,9 +454,9 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
   override def normalizeInputs: Unit = {
     def bitVectorNormalize(factory : => Resize) : Unit =  {
       val targetWidth = value.asInstanceOf[WidthProvider].getWidth
-      for(e <- elements; k <- e.keys){
-        for(i <- e.keys.indices) {
-          val k = e.keys(i)
+      for(e <- elements; eKeys = e.keys.toArray; k <- eKeys){
+        for(i <- eKeys.indices) {
+          val k = eKeys(i)
 
           e.keys(i) = k match {
             case k: SwitchStatementKeyBool        => k
