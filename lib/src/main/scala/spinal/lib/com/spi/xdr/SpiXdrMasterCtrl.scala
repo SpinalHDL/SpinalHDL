@@ -693,8 +693,6 @@ object SpiXdrMasterCtrl {
 
 
   class TopLevel(val p: Parameters) extends Component {
-    setDefinitionName("SpiXdrMasterCtrl")
-
     val io = new Bundle {
       val config = in(Config(p))
       val cmd = slave(Stream(Cmd(p)))
