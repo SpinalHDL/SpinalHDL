@@ -45,9 +45,9 @@ object Macros{
   def interruptFactoryImpl(c:Context)(busif: c.Tree, regNamePre: c.Tree, triggers: c.Tree*) = {
     import c.universe._
     val creatREG = q"""
-        val ENS    = $busif.newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePre+"_INT_ENABLE"))
-        val MASKS  = $busif.newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePre+"_INT_MASK"))
-        val STATUS = $busif.newReg("Interrupt status Reigsiter")(SymbolName($regNamePre+"_INT_STATUS"))
+        val ENS    = $busif.newReg("Interrupt Enable Register")(SymbolName($regNamePre+"_INT_ENABLE"))
+        val MASKS  = $busif.newReg("Interrupt Mask   Register")(SymbolName($regNamePre+"_INT_MASK"))
+        val STATUS = $busif.newReg("Interrupt status Register")(SymbolName($regNamePre+"_INT_STATUS"))
         """
     val creatField = triggers.collect {
       case q"$name" =>
@@ -81,9 +81,9 @@ object Macros{
 //    annottees match {
 //      case q"$mods def $fname($regNamePre,..$triggers):$tpt = {..$expr}" => {
 //        val creatREG = q"""
-//        val ENS    = newReg("Interrupt Enable Reigsiter")(SymbolName($regNamePre+"_INT_ENABLES"))
-//        val MASKS  = newReg("Interrupt Mask   Reigsiter")(SymbolName($regNamePre+"_INT_MASK"))
-//        val STATUS = newReg("Interrupt status Reigsiter")(SymbolName($regNamePre+"_INT_STATUS"))
+//        val ENS    = newReg("Interrupt Enable Register")(SymbolName($regNamePre+"_INT_ENABLES"))
+//        val MASKS  = newReg("Interrupt Mask   Register")(SymbolName($regNamePre+"_INT_MASK"))
+//        val STATUS = newReg("Interrupt status Register")(SymbolName($regNamePre+"_INT_STATUS"))
 //        """
 //        val creatField = triggers.collect {
 //          case q"$name" =>

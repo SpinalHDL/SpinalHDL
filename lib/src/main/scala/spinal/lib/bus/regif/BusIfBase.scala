@@ -2,8 +2,6 @@ package spinal.lib.bus.regif
 
 import spinal.core._
 import spinal.lib.bus.amba3.apb._
-import RegIfDocument._
-import CHeads._
 import spinal.lib.bus.misc.SizeMapping
 import language.experimental.macros
 
@@ -37,10 +35,11 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
+
+  def checkLastNA: Unit = RegInsts.foreach(_.checkLast)
+
   component.addPrePopTask(() => {
     readGenerator()
-    document(getModuleName)
-    genCHead(getModuleName)
   })
 
   def newRegAt(address:Int, doc: String)(implicit symbol: SymbolName) = {
@@ -73,17 +72,6 @@ trait BusIf extends BusIfBase {
     }
   }
 
-  def document(docName: String, docType: DocType = DocType.HTML) = {
-    docType match {
-      case DocType.Json =>
-      case DocType.Rst  =>
-      case DocType.MarkDown =>
-      case DocType.HTML => HTML(docName)
-      case DocType.Docx =>
-      case _ =>
-    }
-  }
-
   def FIFO(doc: String)(implicit symbol: SymbolName) = {
     val  res = creatReg(symbol.name, regPtr, doc)
     regPtr += wordAddressInc
@@ -96,9 +84,9 @@ trait BusIf extends BusIfBase {
       case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
       case _ =>
     }
-    val ENS    = newReg("Interrupt Enable Reigsiter")(SymbolName(s"${regNamePre}_ENABLES"))
-    val MASKS  = newReg("Interrupt Mask   Reigsiter")(SymbolName(s"${regNamePre}_MASK"))
-    val STATUS = newReg("Interrupt status Reigsiter")(SymbolName(s"${regNamePre}_STATUS"))
+    val ENS    = newReg("Interrupt Enable Register")(SymbolName(s"${regNamePre}_ENABLES"))
+    val MASKS  = newReg("Interrupt Mask   Register")(SymbolName(s"${regNamePre}_MASK"))
+    val STATUS = newReg("Interrupt status Register")(SymbolName(s"${regNamePre}_STATUS"))
     val intWithMask = new ListBuffer[Bool]()
     triggers.foreach(trigger => {
       val en   = ENS.field(1 bits, AccessType.RW, doc= "int enable register")(SymbolName(s"_en"))(0)
@@ -120,32 +108,20 @@ trait BusIf extends BusIfBase {
 //    False
 //  }
 
-  private def HTML(docName: String) = {
-    val pc = GlobalData.get.phaseContext
-    def targetPath = s"${pc.config.targetDirectory}/${docName}.html"
-    val body = RegInsts.map(_.trs(regPre)).mkString("\n")
-    val html = DocTemplate.getHTML(docName, body)
-    import java.io.PrintWriter
-    val fp = new PrintWriter(targetPath)
-    fp.write(html)
-    fp.close
+  def accept(vs : BusIfVisitor) = {
+    checkLastNA
+
+    vs.begin(busDataWidth)
+
+    for(reg <- RegInsts) {
+      reg.accept(vs)
+    }
+
+    vs.end()
   }
 
-  def genCHead(cFileName: String) = {
-    val pc = GlobalData.get.phaseContext
-    def targetPath = s"${pc.config.targetDirectory}/${cFileName}.h"
-    val maxRegNameWidth = RegInsts.map(_.name.length).max + regPre.size
-    val heads   = RegInsts.map(_.cHeadDefine(maxRegNameWidth, regPre)).mkString("\n")
-    val structs = RegInsts.map(_.cStruct(regPre)).mkString("\n")
-    import java.io.PrintWriter
-    val fp = new PrintWriter(targetPath)
-    fp.write(heads)
-    fp.write("\n\n" + structs)
-    fp.close
-  }
-
-  def readGenerator() = {
-    when(doRead){
+  private def readGenerator() = {
+    when(askRead){
       switch (readAddress()) {
         RegInsts.foreach{(reg: RegInst) =>
           is(reg.addr){
