@@ -149,6 +149,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   def postInitCallback(): this.type = {
     prePop()
+    ClockDomain.push(clockDomain)
     DslScopeStack.set(parentScope)
     this
   }
