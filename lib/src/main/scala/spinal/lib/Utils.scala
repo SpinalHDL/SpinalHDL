@@ -665,7 +665,8 @@ object LatencyAnalysis {
   def apply(paths: Expression*): Integer = list(paths)
 
   def list(paths: Seq[Expression]): Integer = {
-    var stack = 0;
+    assert(!paths.contains(null))
+    var stack = 0
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
     }
