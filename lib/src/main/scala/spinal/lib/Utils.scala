@@ -279,6 +279,20 @@ object OHMasking{
     val selOh = (pHigh << 1) | pLow
   }.selOh
 
+  //Based on the same principal than roundRobinMasked, but with inverted priorities
+  def roundRobinMaskedInvert[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests).reversed
+    val priorityBits = ~B(priority).reversed
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder = LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width)
+    val selOh = pHigh | pLow.resized
+    val result = selOh.reversed
+  }.result
+
+
   //Same as roundRobinMasked, but priority is shifted left by one, and lsb mean that input.lsb has priority
   def roundRobinMaskedFull[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
     val input = B(requests)
