@@ -17,6 +17,7 @@ object WaveFormat{
   //Common waveformat options
   object VCD extends WaveFormat("vcd")
   object FST extends WaveFormat("fst")
+  object FSDB extends WaveFormat("fsdb")
   object DEFAULT extends WaveFormat
   object NONE extends WaveFormat
  
