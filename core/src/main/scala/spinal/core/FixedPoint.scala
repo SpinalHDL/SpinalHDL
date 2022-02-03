@@ -20,6 +20,9 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.ScopeStatement
+
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 sealed trait RoundType
@@ -883,6 +886,236 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[signed=${if (this.signed) "1" else "0"},whole=${this.wholeWidth},frac=${this.fracWidth}]"
 }
 
+object AutoFix {
+
+  def apply(f: Fix): AutoFix = {
+    val maxValue = BigDecimal(2).pow(f.wholeWidth)-BigDecimal(2).pow(-f.fracWidth)
+    val minvalue = if (f.signed) -BigDecimal(2).pow(f.wholeWidth) else BigDecimal(0)
+    val ret = new AutoFix(maxValue, minvalue, -f.fracWidth exp)
+    ret.raw := f.raw
+    ret
+  }
+
+}
+
+class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNumber) extends MultiData {
+  assert((maxValue*BigDecimal(2).pow(-exp.value)).isWhole(),
+    s"maxValue ${maxValue} is not representable with exponent 2^${exp.value}")
+  assert((minValue*BigDecimal(2).pow(-exp.value)).isWhole(),
+    s"maxValue ${minValue} is not representable with exponent 2^${exp.value}")
+
+  // TODO?: Support dropping sign bit iff max and min have the same sign?
+  private val needsSign = (maxValue < 0) ^ (minValue < 0)
+
+  val signed = (maxValue < 0) || (minValue < 0)
+  val signWidth = if (signed) 1 else 0
+
+  private val maxShifted = maxValue.abs*BigDecimal(2).pow(-exp.value) - (if (maxValue < 0) signWidth else 0)
+  private val maxBits = maxShifted.toBigInt().bitLength
+  private val minShifted = minValue.abs*BigDecimal(2).pow(-exp.value) - (if (minValue < 0) signWidth else 0)
+  private val minBits = minShifted.toBigInt().bitLength
+
+  val bitWidth = Math.max(maxBits, minBits) + signWidth
+  val fracWidth = Math.min(exp.value, 0)
+  val wholeWidth = bitWidth - fracWidth - signWidth
+  val intWidth = bitWidth - fracWidth
+
+  val raw: Bits = Bits(bitWidth bit)
+
+  raw.setRefOwner(this)
+  raw.setPartialName("", weak = true)
+
+  override def elements: ArrayBuffer[(String, Data)] = {
+    ArrayBuffer("" -> raw)
+  }
+
+  // These are used for reference tracking
+  private var parents: Seq[AutoFix] = Nil
+  private val children: mutable.Set[AutoFix] = mutable.Set()
+
+  private def dependsOn(parents: AutoFix*): Unit = {
+    this.parents = parents
+    for (p <- parents) {
+      p.children += this
+    }
+  }
+
+  private def alignLR(l: AutoFix, r: AutoFix): (Bits, Bits) = {
+    val expDiff = l.exp.value - r.exp.value
+    if (expDiff >= 0) {
+      (l.raw << expDiff, r.raw)
+    } else {
+      (l.raw, r.raw << -expDiff)
+    }
+  }
+
+  private def trimOrExpand(b: Bits, w: Int): Bits = {
+    if (b.getWidth > w) {
+      b.takeLow(w)
+    } else {
+      b
+    }
+  }
+
+  def +(right: AutoFix): AutoFix = {
+    val ret = new AutoFix(this.maxValue+right.maxValue, this.minValue+right.minValue, Math.min(this.exp.value, right.exp.value) exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt        + _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.asSInt + _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt        + _r.asUInt.asSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt        + _r.asSInt).resize(ret.bitWidth)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  def -(right: AutoFix): AutoFix = {
+    val ret = new AutoFix(this.maxValue-right.minValue, this.minValue-right.maxValue, Math.min(this.exp.value, right.exp.value) exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt        - _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.asSInt - _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt        - _r.asUInt.asSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt        - _r.asSInt).resize(ret.bitWidth)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  def *(right: AutoFix): AutoFix = {
+    val possibleRanges = mutable.MutableList(this.maxValue, this.minValue, right.maxValue, right.minValue)
+    if (needsSign || right.needsSign) {
+      possibleRanges += 0
+    }
+    val possibleList = possibleRanges.combinations(2).map(l => l(0)*l(1)).toList
+    val ret = new AutoFix(possibleRanges.max, possibleRanges.min, this.exp.value + right.exp.value exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt        * _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.asSInt * _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt        * _r.asUInt.asSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt        * _r.asSInt).resize(ret.bitWidth)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  def /(right: AutoFix): AutoFix = {
+    SpinalWarning("Fixed-point division is not finalized and not recommended for use! " + ScalaLocated.long)
+    val ret = new AutoFix(this.maxValue.max(right.maxValue), this.minValue.min(right.minValue), this.exp.value + right.exp.value exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt        / _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.asSInt / _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt        / _r.asUInt.asSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt        / _r.asSInt).resize(ret.bitWidth)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  def %(right: AutoFix): AutoFix = {
+    SpinalWarning("Fixed-point modulo is not finalized and not recommended for use! " + ScalaLocated.long)
+    val ret = new AutoFix(this.maxValue.max(right.maxValue), this.minValue.min(right.minValue), this.exp.value + right.exp.value exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt        % _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.asSInt % _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt        % _r.asUInt.asSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt        % _r.asSInt).resize(ret.bitWidth)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  def <(right: AutoFix): Bool = {
+    val cmpOut = Bool(false)
+    this dependsOn right
+
+    // TODO: Figure out shifting and resizing
+
+    cmpOut
+  }
+
+  def <=(right: AutoFix): Bool = {
+    val cmpOut = Bool(false)
+    this dependsOn right
+
+    // TODO: Figure out shifting and resizing
+
+    cmpOut
+  }
+
+  def >(right: AutoFix): Bool = {
+    val cmpOut = Bool(false)
+    this dependsOn right
+
+    // TODO: Figure out shifting and resizing
+
+    cmpOut
+  }
+
+  def >=(right: AutoFix): Bool = {
+    val cmpOut = Bool(false)
+    this dependsOn right
+
+    // TODO: Figure out shifting and resizing
+
+    cmpOut
+  }
+
+  def <<(shift: Int): AutoFix = {
+    val shiftBig = BigDecimal(2).pow(shift)
+    val ret = new AutoFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
+    ret dependsOn this
+
+    // TODO: Figure out shifting and resizing
+
+    ret
+  }
+
+  def >>(shift: Int): AutoFix = {
+    val shiftBig = BigDecimal(2).pow(-shift)
+    val ret = new AutoFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value - shift) exp)
+    ret dependsOn this
+
+    // TODO: Figure out shifting and resizing
+
+    ret
+  }
+
+  def negate(): AutoFix = {
+    val ret = new AutoFix(-this.maxValue, -this.minValue, this.exp)
+    ret dependsOn this
+
+    if (this.signed) {
+      when (!ret.raw.msb) {
+        ret.raw := ((~this.raw).asUInt+1).asBits
+      } otherwise {
+        ret.raw := (~(this.raw.asUInt-1)).asBits
+      }
+    } else {
+      ret.raw := ((~this.raw).asUInt+1).asBits
+    }
+
+    ret
+  }
+
+  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}]"
+
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+}
 
 
 trait SFixFactory extends TypeFactory{
