@@ -284,7 +284,7 @@ class ComponentEmitterVerilog(
       val name = emitReference(bt, false)
       logics ++= s"${theme.maintab + theme.maintab}${name}${str};\n"
     }
-    logics ++= "  end\n"
+    logics ++= "  end\n\n"
   }
 
   def emitAnalogs(): Unit ={
