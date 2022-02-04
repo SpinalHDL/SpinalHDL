@@ -82,9 +82,8 @@ class ComponentEmitterVerilog(
       if(outputsToBufferize.contains(baseType) || baseType.isInput){
         portMaps += f"${syntax}${dir}%6s ${""}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
       } else {
-        val siginit = if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)
         val isReg   = if(signalNeedProcess(baseType)) "reg" else ""
-        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${siginit}${EDAcomment}${comma}"
+        portMaps += f"${syntax}${dir}%6s ${isReg}%3s ${section}%-8s ${name}${EDAcomment}${comma}"
       }
     }
   }
@@ -250,17 +249,41 @@ class ComponentEmitterVerilog(
   }
 
   def emitInitials() : Unit = {
-    if(initials.isEmpty) return
+    var withRandBoot = ArrayBuffer[(BaseType, String)]();
+    var withInitBoot = ArrayBuffer[(BaseType, String)]();
+    component.dslBody.walkDeclarations {
+      case bt: BaseType => {
+        if (!bt.isSuffix) {
+          getBaseTypeSignalRandBoot(bt) match {
+            case null =>
+            case str  => withRandBoot += bt -> str
+          }
+          getBaseTypeSignalInitBoot(bt) match {
+            case null =>
+            case str  => withInitBoot += bt -> str
+          }
+        }
+      }
+      case _ =>
+    }
+
+    if(initials.isEmpty && withRandBoot.isEmpty && withInitBoot.isEmpty) return
     logics ++= "  initial begin\n"
     emitLeafStatements(initials, 0, c.dslBody, "=", logics , "    ")
-//    initials.foreach{
-//      case s : InitialAssignmentStatement => {
-//        logics ++= s"    ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
-//      }
-//      case s : AssertStatement => {
-//        logics ++= emitLeafStatements(Lists)
-//      }
-//    }
+
+    if(withRandBoot.nonEmpty) {
+      logics ++= "  `ifndef SYNTHESIS\n"
+      for ((bt, str) <- withRandBoot) {
+        val name = emitReference(bt, false)
+        logics ++= s"${theme.maintab + theme.maintab}${name}${str};\n"
+      }
+      logics ++= "  `endif\n"
+    }
+
+    for((bt, str) <- withInitBoot){
+      val name = emitReference(bt, false)
+      logics ++= s"${theme.maintab + theme.maintab}${name}${str};\n"
+    }
     logics ++= "  end\n"
   }
 
@@ -894,11 +917,9 @@ class ComponentEmitterVerilog(
   def emitBaseTypeSignal(baseType: BaseType, name: String): String = {
     val syntax  = s"${emitSyntaxAttributes(baseType.instanceAttributes)}"
     val net     = if(signalNeedProcess(baseType)) "reg" else "wire"
-    val siginit = s"${getBaseTypeSignalInitialisation(baseType)}"
     val comment = s"${emitCommentAttributes(baseType.instanceAttributes)}"
     val section = emitType(baseType)
-    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment}${siginit};\n"
-//    s"  ${}${if(signalNeedProcess(baseType)) s"reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+    s"${theme.maintab}${syntax}${expressionAlign(net, section, name)}${comment};\n"
   }
 
   def emitBaseTypeWrap(baseType: BaseType, name: String): String = {
@@ -908,10 +929,9 @@ class ComponentEmitterVerilog(
       case struct: SpinalStruct => s"${theme.maintab}${expressionAlign(section, "", name)};\n"
       case _                    => s"${theme.maintab}${expressionAlign(net, section, name)};\n"
     }
-//    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
-  def getBaseTypeSignalInitialisation(signal: BaseType): String = {
+  def getBaseTypeSignalInitBoot(signal: BaseType): String = {
     if(signal.isReg){
       if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
         var initExpression: Literal = null
@@ -943,29 +963,36 @@ class ComponentEmitterVerilog(
         if(needFunc)
           ???
         else {
-//          assert(initStatement.parentScope == signal.parentScope)
+          //          assert(initStatement.parentScope == signal.parentScope)
           return " = " + emitExpressionNoWrappeForFirstOne(initExpression)
-        }
-      }else if (signal.hasTag(randomBoot)) {
-        return signal match {
-          case b: Bool       =>
-            " = " + { if(pc.config.randBootFixValue) {"0"} else { if(Random.nextBoolean()) "1" else "0"} }
-          case bv: BitVector =>
-            val rand = (if(pc.config.randBootFixValue) {BigInt(0)} else { BigInt(bv.getBitsWidth, Random)}).toString(2)
-            " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
-          case e: SpinalEnumCraft[_] =>
-            val vec  = e.spinalEnum.elements.toVector
-            val rand = if(pc.config.randBootFixValue) vec(0) else vec(Random.nextInt(vec.size))
-            " = " + emitEnumLiteral(rand, e.getEncoding)
         }
       }
     }
-    ""
+    null
+  }
+
+  def getBaseTypeSignalRandBoot(signal: BaseType): String = {
+    if(signal.isReg){
+      if (signal.hasTag(randomBoot)) {
+        return signal match {
+          case b: Bool       =>
+            " = $urandom"
+          case bv: BitVector =>
+            val randCount = (bv.getBitsWidth+31)/32
+            s" = {${randCount}{$$urandom}}"
+          case e: SpinalEnumCraft[_] =>
+            val randCount = (e.getBitsWidth+31)/32
+            s" = {${randCount}{$$urandom}}"
+        }
+      }
+    }
+    null
   }
 
   var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
   val enumDebugStringList = ArrayBuffer[(SpinalEnumCraft[_ <: SpinalEnum], String, Int)]()
   val localEnums          = mutable.LinkedHashSet[(SpinalEnum, SpinalEnumEncoding)]()
+  val randBoots = ArrayBuffer[BaseType]()
 
   def emitSignals(): Unit = {
     val enumDebugStringBuilder = new StringBuilder()
