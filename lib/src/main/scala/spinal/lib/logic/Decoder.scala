@@ -19,9 +19,17 @@ class DecodingSpec[T <: BaseType](key : HardType[T]){
     }
     this
   }
-  def addNeeds(key : Masked, value : Masked): Unit = needs.get(key) match {
-    case Some(x) => assert(needs(key) == value)
-    case None => needs(key) = value
+  def addNeeds(key : Masked, value : Masked): this.type = {
+    needs.get(key) match {
+      case Some(x) => assert(needs(key) == value)
+      case None => needs(key) = value
+    }
+    this
+  }
+
+  def addNeeds(keys : Seq[Masked], value : Masked): this.type = {
+    keys.foreach(addNeeds(_, value))
+    this
   }
 
   def build(sel : Bits, coverAll : Iterable[Masked]) : T = {

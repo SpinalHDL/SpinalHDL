@@ -11,6 +11,8 @@ object Masked{
       case lit : Literal => Masked(lit.getValue(), (BigInt(1) << widthOf(bt))-1)
     }
   }
+  def one = Masked(1,1)
+  def zero = Masked(0,1)
 }
 
 case class Masked(value : BigInt,care : BigInt){

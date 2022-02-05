@@ -142,7 +142,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
     if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
-      assert(!usedDefinitionNames.contains(component.definitionName), s"$component definition name was already used once for a different layout\n${component.getScalaLocationLong}")
+      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"$component definition name was already used once for a different layout\n${component.getScalaLocationLong}")
       usedDefinitionNames += component.definitionName
       emitedComponent += (trace -> component)
       () => componentBuilderVerilog.result

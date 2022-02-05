@@ -24,9 +24,8 @@ import java.io.UTFDataFormatException
 import java.nio.charset.Charset
 import spinal.core._
 
-import scala.collection.mutable
+import scala.collection.{Seq, TraversableOnce, mutable}
 import scala.collection.mutable.{ArrayBuffer, LinkedHashMap, ListBuffer}
-import scala.collection.Seq
 import scala.collection.generic.Growable
 
 
@@ -94,7 +93,7 @@ object OHToUInt {
 }
 
 //Will be target dependent
-object MuxOH {
+class MuxOHImpl {
   def apply[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
@@ -117,6 +116,11 @@ object MuxOH {
     masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
 }
+
+object MuxOH extends MuxOHImpl
+object OHMux extends MuxOHImpl
+object OhMux extends MuxOHImpl
+
 
 object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
@@ -274,6 +278,20 @@ object OHMasking{
     val (pLow, pHigh) = doubleOh.splitAt(width-1)
     val selOh = (pHigh << 1) | pLow
   }.selOh
+
+  //Based on the same principal than roundRobinMasked, but with inverted priorities
+  def roundRobinMaskedInvert[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests).reversed
+    val priorityBits = ~B(priority).reversed
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder = LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width)
+    val selOh = pHigh | pLow.resized
+    val result = selOh.reversed
+  }.result
+
 
   //Same as roundRobinMasked, but priority is shifted left by one, and lsb mean that input.lsb has priority
   def roundRobinMaskedFull[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
@@ -661,7 +679,8 @@ object LatencyAnalysis {
   def apply(paths: Expression*): Integer = list(paths)
 
   def list(paths: Seq[Expression]): Integer = {
-    var stack = 0;
+    assert(!paths.contains(null))
+    var stack = 0
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
     }
@@ -1115,5 +1134,46 @@ case class DataOr[T <: Data](dataType : HardType[T]) extends Area{
     val port = dataType()
     values += port
     port
+  }
+}
+
+object whenMasked{
+  def apply[T](things : TraversableOnce[T], conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+    val thingsList = things.toList
+    val condsList = conds.toList
+    assert(thingsList.size == condsList.size)
+    for((thing, cond) <- (thingsList, condsList).zipped) when(cond){ body(thing) }
+  }
+
+  def apply[T](things : TraversableOnce[T], conds : Bits)(body : T => Unit): Unit ={
+    apply(things, conds.asBools)(body)
+  }
+}
+
+object whenIndexed{
+  def apply[T](things : TraversableOnce[T], index : UInt)(body : T => Unit): Unit ={
+    val thingsList = things.toList
+    assert(log2Up(thingsList.size) == widthOf(index))
+    switch(index) {
+      for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
+        body(thing)
+      }
+    }
+  }
+}
+
+
+class ClockDomainPimped(cd : ClockDomain){
+  def withBufferedResetFrom(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    val key = Tuple3(cd, resetCd,  bufferDepth)
+    if(resetCd.config.resetKind == BOOT){
+      if(cd.config.resetKind == BOOT) { return cd }
+      return cd.copy(reset = null, softReset = null, config = cd.config.copy(resetKind = BOOT))
+    }
+    return globalCache(key)(ResetCtrl.asyncAssertSyncDeassertCreateCd(resetCd, cd, bufferDepth))
+  }
+
+  def withOptionalBufferedResetFrom(cond : Boolean)(resetCd : ClockDomain, bufferDepth : Int = BufferCC.defaultDepth.get) : ClockDomain = {
+    if(cond) this.withBufferedResetFrom(resetCd, bufferDepth) else cd
   }
 }

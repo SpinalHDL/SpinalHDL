@@ -1115,7 +1115,11 @@ object StreamFifoCC{
 
 
 
-class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClock: ClockDomain,val popClock: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](val dataType: HardType[T],
+                              val depth: Int,
+                              val pushClock: ClockDomain,
+                              val popClock: ClockDomain,
+                              val withPopBufferedReset : Boolean = true) extends Component {
 
   assert(isPow2(depth) & depth >= 2, "The depth of the StreamFifoCC must be a power of 2 and equal or bigger than 2")
 
@@ -1152,7 +1156,8 @@ class StreamFifoCC[T <: Data](dataType: HardType[T], val depth: Int, val pushClo
     io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
   }
 
-  val popCC = new ClockingArea(popClock) {
+  val finalPopCd = popClock.withOptionalBufferedResetFrom(withPopBufferedReset)(pushClock)
+  val popCC = new ClockingArea(finalPopCd) {
     val popPtr      = Reg(UInt(log2Up(2*depth) bits)) init(0)
     val popPtrPlus  = popPtr + 1
     val popPtrGray  = RegNextWhen(toGray(popPtrPlus), io.pop.fire) init(0)
@@ -1189,7 +1194,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
                                   inputClock: ClockDomain, 
                                   outputClock: ClockDomain, 
                                   withOutputBuffer : Boolean = true,
-                                  withInputWait : Boolean = false) extends Component {
+                                  withInputWait : Boolean = false,
+                                  withOutputBufferedReset : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType())
     val output = master Stream (dataType())
@@ -1213,7 +1219,8 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
     }
   }
 
-  val popArea = outputClock on new Area {
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset)(inputClock)
+  val popArea = finalOutputClock on new Area {
     val stream = cloneOf(io.input)
 
     val target = BufferCC(pushArea.target, False)
@@ -1503,9 +1510,74 @@ object StreamFifoMultiChannelBench extends App{
   Bench(rtls, targets)
 }
 
+object StreamTransactionCounter {
+    def apply[T <: Data, T2 <: Data](
+        trigger: Stream[T],
+        target: Stream[T2],
+        count: UInt,
+        noDelay: Boolean = false
+    ): StreamTransactionCounter = {
+        val inst = new StreamTransactionCounter(count.getWidth, noDelay)
+        inst.io.ctrlFire := trigger.fire
+        inst.io.targetFire := target.fire
+        inst.io.count := count
+        inst
+    }
+}
+
+class StreamTransactionCounter(
+    countWidth: Int,
+    noDelay: Boolean = false
+) extends Component {
+    val io = new Bundle {
+        val ctrlFire   = in Bool ()
+        val targetFire = in Bool ()
+        val count      = in UInt (countWidth bits)
+        val working    = out Bool ()
+        val last       = out Bool ()
+        val done       = out Bool ()
+        val value      = out UInt (countWidth bit)
+    }
+
+    val countReg = RegNextWhen(io.count, io.ctrlFire)
+    val counter  = Counter(io.count.getBitsWidth bits)
+    val expected = cloneOf(io.count)
+    expected := countReg
+
+    val lastOne = counter === expected
+    val running = Reg(Bool()) init False
+
+    val done         = lastOne && io.targetFire
+    val doneWithFire = if (noDelay) False else True
+    when(done && io.ctrlFire) {
+        running := doneWithFire
+    } elsewhen (io.ctrlFire) {
+        running := True
+    } elsewhen done {
+        running := False
+    }
+
+    when(done) {
+        counter.clear()
+    } elsewhen (io.targetFire) {
+        counter.increment()
+    }
+
+    if (noDelay) {
+        when(io.ctrlFire) {
+            expected := io.count
+        }
+    }
+
+    io.working := running
+    io.last := lastOne
+    io.done := lastOne && io.targetFire
+    io.value := counter
+}
+
 object StreamTransactionExtender {
     def apply[T <: Data](input: Stream[T], count: UInt)(
-        driver: (UInt, T) => T = (_: UInt, p: T) => p
+        driver: (UInt, T, Bool) => T = (_: UInt, p: T, _: Bool) => p
     ): Stream[T] = {
         val c = new StreamTransactionExtender(input.payloadType, input.payloadType, count.getBitsWidth, driver)
         c.io.input << input
@@ -1514,7 +1586,7 @@ object StreamTransactionExtender {
     }
 
     def apply[T <: Data, T2 <: Data](input: Stream[T], output: Stream[T2], count: UInt)(
-        driver: (UInt, T) => T2
+        driver: (UInt, T, Bool) => T2
     ): StreamTransactionExtender[T, T2] = {
         val c = new StreamTransactionExtender(input.payloadType, output.payloadType, count.getBitsWidth, driver)
         c.io.input << input
@@ -1529,35 +1601,35 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     dataType: HardType[T],
     outDataType: HardType[T2],
     countWidth: Int,
-    var driver: (UInt, T) => T2
+    driver: (UInt, T, Bool) => T2
 ) extends Component {
     val io = new Bundle {
-        val count  = in UInt (countWidth bit)
-        val input  = slave Stream dataType
-        val output = master Stream outDataType
+        val count   = in UInt (countWidth bit)
+        val input   = slave Stream dataType
+        val output  = master Stream outDataType
+        val working = out Bool ()
+        val first   = out Bool ()
+        val last    = out Bool ()
     }
 
-    val expected = Reg(cloneOf(io.count))
+    val counter  = StreamTransactionCounter(io.input, io.output, io.count)
     val payload  = Reg(io.input.payloadType)
-    val counter  = Counter(io.count.getBitsWidth bits)
-    val lastOne  = counter === expected
+    val lastOne  = counter.io.last
     val outValid = RegInit(False)
 
-    when(io.output.fire) {
-        when(lastOne) {
-            counter.clear()
-            outValid := False
-        }.otherwise {
-            counter.increment()
-        }
+    when(counter.io.done) {
+        outValid := False
     }
 
     when(io.input.fire) {
-        expected := io.count
         payload := io.input.payload
         outValid := True
     }
-    io.output.payload := driver(counter, payload)
+
+    io.output.payload := driver(counter.io.value, payload, lastOne)
     io.output.valid := outValid
-    io.input.ready := (!outValid || (lastOne && io.output.fire))
+    io.input.ready := (!outValid || counter.io.done)
+    io.last := lastOne
+    io.first := (counter.io.value === 0) && counter.io.working
+    io.working := counter.io.working
 }

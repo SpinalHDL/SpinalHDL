@@ -11,16 +11,16 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   var writeCmd = bus.writeCmd.unburstify
   val writeJoinEvent = StreamJoin.arg(writeCmd, bus.writeData)
-  val writeRsp = Axi4B(bus.config)
-  bus.writeRsp.payload := writeRsp
+  val writeRsp = Stream(Axi4B(bus.config))
+  bus.writeRsp << writeRsp.stage()
   when(bus.writeData.last) {
     // backpressure in last beat
-    writeJoinEvent.ready := bus.writeRsp.ready
-    bus.writeRsp.valid := writeJoinEvent.fire
+    writeJoinEvent.ready := writeRsp.ready
+    writeRsp.valid := writeJoinEvent.fire
   } otherwise {
     // otherwise, stall W channel when writeHaltRequest
     writeJoinEvent.ready := !writeHaltRequest
-    bus.writeRsp.valid := False
+    writeRsp.valid := False
   }
 
   val readCmd = bus.ar.unburstify

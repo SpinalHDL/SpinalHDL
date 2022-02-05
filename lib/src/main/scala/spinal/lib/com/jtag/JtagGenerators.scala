@@ -5,7 +5,7 @@ import spinal.lib.bus.bmb.BmbInterconnectGenerator
 import spinal.core.fiber._
 import spinal.lib.system.debugger._
 
-case class JtagInstructionDebuggerGenerator()(implicit val interconnect : BmbInterconnectGenerator) extends Area{
+case class JtagInstructionDebuggerGenerator(ignoreWidth : Int)(implicit val interconnect : BmbInterconnectGenerator) extends Area{
   val jtagClockDomain = Handle[ClockDomain]
   val jtagInstruction = Handle(logic.jtagBridge.io.ctrl)
   val bmb = Handle(logic.mmMaster)
@@ -16,7 +16,7 @@ case class JtagInstructionDebuggerGenerator()(implicit val interconnect : BmbInt
   )
 
   val logic = Handle(new Area{
-    val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain)
+    val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain, ignoreWidth)
     val debugger = new SystemDebugger(jtagConfig)
     debugger.io.remote <> jtagBridge.io.remote
 

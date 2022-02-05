@@ -31,6 +31,11 @@ object Symplify{
     val symplifiedTerms = SymplifyBit.getPrimeImplicantsByTrueAndFalse(trueTerms.toSeq, falseTerms.toSeq, addrWidth)
     logicOf(input, symplifiedTerms)
   }
+
+  //Default is zero
+  def apply(input : Bits, trueTerms : Iterable[Masked]) : Bool = {
+    Symplify.logicOf(input, SymplifyBit.getPrimeImplicantsByTrueAndDontCare(trueTerms.toSeq, Nil, widthOf(input)))
+  }
 }
 
 object SymplifyBit{

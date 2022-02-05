@@ -444,12 +444,19 @@ object SpiXdrMasterCtrl {
 
     //CMD
     val cmdLogic = new Area {
+      val writeData = Bits(32 bits)
+      bus.nonStopWrite(writeData)
+
+      val doRegular = bus.isWriting(address = baseAddress + 0x0)
+      val doWriteLarge = bus.isWriting(address = baseAddress + 0x50)
+      val doReadWriteLarge = bus.isWriting(address = baseAddress + 0x54)
+
       val streamUnbuffered = Stream(Cmd(p))
-      streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
-      bus.nonStopWrite(streamUnbuffered.data, bitOffset = 0)
-      bus.nonStopWrite(streamUnbuffered.write, bitOffset = 8)
-      bus.nonStopWrite(streamUnbuffered.read, bitOffset = 9)
-      bus.nonStopWrite(streamUnbuffered.kind, bitOffset = 11)
+      streamUnbuffered.valid := doRegular || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.write := doRegular && writeData(8) || doWriteLarge || doReadWriteLarge
+      streamUnbuffered.read  := doRegular && writeData(9) || doReadWriteLarge
+      streamUnbuffered.kind  := doRegular && writeData(11)
+      streamUnbuffered.data  := writeData.resized
 
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
       if(pipelined) {
@@ -464,7 +471,12 @@ object SpiXdrMasterCtrl {
     //RSP
     val rspLogic = new Area {
       val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
-      bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0, validInverted = true)
+
+      stream.ready := bus.isReading(baseAddress + 0) || bus.isReading(baseAddress + 0x58)
+      bus.read(!stream.valid,   baseAddress + 0, 31)
+      bus.read(stream.data.resize(widthOf(stream.payload).min(8)), baseAddress + 0)
+      bus.read(stream.data, baseAddress + 0x58)
+
       bus.read(fifoOccupancy, address = baseAddress + 4, 16)
     }
 
@@ -681,8 +693,6 @@ object SpiXdrMasterCtrl {
 
 
   class TopLevel(val p: Parameters) extends Component {
-    setDefinitionName("SpiXdrMasterCtrl")
-
     val io = new Bundle {
       val config = in(Config(p))
       val cmd = slave(Stream(Cmd(p)))
@@ -717,6 +727,7 @@ object SpiXdrMasterCtrl {
       val counterPlus = counter + io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.bitrate, log2Up(bitrateMax + 1) bits))).resized
       val fastRate = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.clkRate != 1)))
       val isDdr = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.slowDdr)))
+      val counterMax = io.config.mod.muxListDc(p.mods.map(m => m.id -> U(m.dataWidth - m.bitrate , widthOf(counter) bits)))
       val lateSampling = io.config.mod.muxListDc(p.mods.map(m => m.id -> Bool(m.lateSampling)))
       val readFill, readDone = False
       val ss = p.ssGen generate (Reg(Bits(p.spi.ssWidth bits)) init(0))
@@ -730,14 +741,14 @@ object SpiXdrMasterCtrl {
 
           when(timer.sclkToogleHit && ((!state ^ lateSampling) || isDdr) || fastRate){
             readFill := True
-            readDone := io.cmd.read && counterPlus === 0
+            readDone := io.cmd.read && counter === counterMax
           }
           when(timer.sclkToogleHit){
             state := !state
           }
           when((timer.sclkToogleHit && (state || isDdr)) || fastRate) {
             counter := counterPlus
-            when(counterPlus === 0){
+            when(counter === counterMax){
               io.cmd.ready := True
               state := False
             }
@@ -801,11 +812,12 @@ object SpiXdrMasterCtrl {
       //Get raw data to put on MOSI
       val dataWrite = Bits(maxBitRate bits)
       val widthSel = io.config.mod.muxListDc( p.mods.map(m => m.id -> U(widths.indexOf(m.bitrate), log2Up(widthMax + 1) bits)))
+      val offset =   io.config.mod.muxListDc( p.mods.map(m => m.id -> U(m.dataWidth-1, widthOf(fsm.counter) bits)))
       dataWrite.assignDontCare()
       switch(widthSel){
         for((width, widthId) <- widths.zipWithIndex){
           is(widthId){
-            dataWrite(0, width bits) := io.cmd.data.subdivideIn(width bits).reverse(fsm.counter >> log2Up(width))
+            dataWrite(0, width bits) := io.cmd.data.resize((p.dataWidth+width-1)/width*width).subdivideIn(width bits)(offset - fsm.counter >> log2Up(width))
           }
         }
       }
@@ -877,6 +889,15 @@ object SpiXdrMasterCtrl {
 
       io.rsp.valid := readDone
       io.rsp.data := bufferNext
+
+      switch(mod){
+        for(mod <- p.mods){
+          is(mod.id) {
+            val range = p.dataWidth-1 downto mod.dataWidth
+            if(range.size != 0) io.rsp.data(range) := 0
+          }
+        }
+      }
     }
   }
 }

@@ -145,8 +145,8 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     area
   }
 
-  def instructionWrapper(headerWidth : Int) (instructionId: Int)  = {
-    val area = new JtagInstructionWrapper(headerWidth)
+  def instructionWrapper(headerWidth : Int, ignoreWidth : Int) (instructionId: Int)  = {
+    val area = new JtagInstructionWrapper(headerWidth, ignoreWidth)
     map(area.ctrl, instructionId)
     area
   }

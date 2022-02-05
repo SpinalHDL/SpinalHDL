@@ -7,7 +7,7 @@ import spinal.core.fiber._
 import spinal.lib.master
 import spinal.lib.system.debugger.{JtagBridgeNoTap, SystemDebugger, SystemDebuggerConfig}
 
-case class Bscane2BmbMaster(usedId : Int) extends Component{
+case class Bscane2BmbMaster(usedId : Int, ignoreWidth : Int) extends Component{
   val jtagConfig = SystemDebuggerConfig()
 
   val io = new Bundle{
@@ -17,7 +17,7 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
   val bscane2 = BSCANE2(usedId)
   val jtagClockDomain = ClockDomain(BUFG.on(bscane2.TCK))
 
-  val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain)
+  val jtagBridge = new JtagBridgeNoTap(jtagConfig, jtagClockDomain, ignoreWidth)
   jtagBridge.io.ctrl << bscane2.toJtagTapInstructionCtrl()
 
   val debugger = new SystemDebugger(jtagConfig)
@@ -26,9 +26,9 @@ case class Bscane2BmbMaster(usedId : Int) extends Component{
   io.bmb << debugger.io.mem.toBmb()
 }
 
-case class Bscane2BmbMasterGenerator(userId : Int)(implicit interconnect : BmbInterconnectGenerator) extends Area{
+case class Bscane2BmbMasterGenerator(userId : Int, ignoreWidth : Int)(implicit interconnect : BmbInterconnectGenerator) extends Area{
   val bmb = Handle(logic.io.bmb)
-  val logic = Handle(Bscane2BmbMaster(userId))
+  val logic = Handle(Bscane2BmbMaster(userId, ignoreWidth))
   interconnect.addMaster(
     accessRequirements = SystemDebuggerConfig().getBmbParameter,
     bus = bmb

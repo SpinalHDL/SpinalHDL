@@ -1,6 +1,7 @@
 package spinal
 
 import spinal.core._
+import spinal.lib.tools.binarySystem
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.generator.Export
 
@@ -39,6 +40,8 @@ package object lib  {
   implicit def traversableOnceAnyPimped[T <: Any](that: Seq[T]) = new TraversableOnceAnyPimped(that)
   implicit def growableAnyPimped[T <: Any](that: Growable[T]) = new GrowableAnyPimped(that)
 
+  implicit def clockDomainPimped(cd: ClockDomain) = new ClockDomainPimped(cd)
+
 
 
 //  implicit def seqPimped[T <: Data](that: scala.IndexedSeq[T]) = new TraversableOncePimped[T](that)
@@ -63,4 +66,76 @@ package object lib  {
   def StreamArbiterFactory = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]
   def ScalaStream = collection.immutable.Stream
+
+  /**
+    * binarySystem
+    */
+  private val hex: String => BigInt = binarySystem.StringToLiteral.hex
+  private val dec: String => BigInt = binarySystem.StringToLiteral.dec
+  private val oct: String => BigInt = binarySystem.StringToLiteral.oct
+  private val bin: String => BigInt = binarySystem.StringToLiteral.bin
+
+  implicit class BinaryBuilder(private val sc: StringContext) {
+    def x(args: Any*): Int = hex(sc.parts.head).toInt
+    def o(args: Any*): Int = oct(sc.parts.head).toInt
+    def b(args: Any*): Int = bin(sc.parts.head).toInt
+  }
+
+  implicit class BinaryBuilder2(val s: String) {
+    def asHex: BigInt = hex(s)
+    def asDec: BigInt = dec(s)
+    def asOct: BigInt = oct(s)
+    def asBin: BigInt = bin(s)
+    def hexToBinInts: List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(BigInt(s, 16))
+    def hexToBinIntsAlign: List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(BigInt(s, 16), 4 * s.size)
+  }
+
+  trait LiteralRicher {
+    val toBigInt: BigInt
+    val defaultAlignBit: Int = 0
+
+    def hexString(): String = binarySystem.LiteralToString.HexString(toBigInt, defaultAlignBit)
+    def octString(): String = binarySystem.LiteralToString.OctString(toBigInt, defaultAlignBit)
+    def binString(): String = binarySystem.LiteralToString.BinString(toBigInt, defaultAlignBit)
+
+    def hexString(bitSize: Int): String = binarySystem.LiteralToString.HexString(toBigInt, bitSize)
+    def octString(bitSize: Int): String = binarySystem.LiteralToString.OctString(toBigInt, bitSize)
+    def binString(bitSize: Int): String = binarySystem.LiteralToString.BinString(toBigInt, bitSize)
+
+    def toBinInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, defaultAlignBit)
+    def toDecInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, defaultAlignBit)
+    def toOctInts(): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, defaultAlignBit)
+
+    def toBinInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToBinInts(toBigInt, num)
+    def toDecInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToDecInts(toBigInt, num)
+    def toOctInts(num: Int): List[Int] = binarySystem.LiteralToBinInts.BigIntToOctInts(toBigInt, num)
+  }
+
+  implicit class BigIntRicher(value: BigInt) extends LiteralRicher {
+    val toBigInt = value
+  }
+
+  implicit class LongRicher(value: Long) extends LiteralRicher  {
+    val toBigInt = BigInt(value)
+  }
+
+  implicit class IntRicher(value: Int) extends LiteralRicher {
+    val toBigInt = BigInt(value)
+  }
+
+  implicit class ByteRicher(value: Byte) extends LiteralRicher {
+    val toBigInt = BigInt(value)
+
+    override val defaultAlignBit: Int = 8
+  }
+
+  implicit class BinIntsRicher(li: List[Int]){
+    def binIntsToOctAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToOctString(li, true)
+    def binIntsToHexAlignHigh: String  = binarySystem.BinIntsToLiteral.binIntsToHexString(li, true)
+    def binIntsToOct: String    = binarySystem.BinIntsToLiteral.binIntsToOctString(li)
+    def binIntsToHex: String    = binarySystem.BinIntsToLiteral.binIntsToHexString(li)
+    def binIntsToBigInt: BigInt = binarySystem.BinIntsToLiteral.binIntsToBigInt(li)
+    def binIntsToInt: Int       = binIntsToBigInt.toInt
+    def binIntsToLong: Long     = binIntsToBigInt.toLong
+  }
 }

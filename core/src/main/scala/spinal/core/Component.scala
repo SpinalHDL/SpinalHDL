@@ -82,7 +82,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   private[core] val ioSet = mutable.LinkedHashSet[BaseType]()
 
   /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: Handle[ClockDomain])
+  case class PrePopTask(task : () => Unit){
+    val context = ScopeProperty.capture()
+  }
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
@@ -135,23 +137,25 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     while(prePopTasks.nonEmpty){
       val prePopTasksToDo = prePopTasks
       prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-      //TODO !!! use the proper scope property context
+
+      val ctx = ScopeProperty.captureNoClone()
       for(t <- prePopTasksToDo){
-        val ctx = ClockDomain.push(t.clockDomain)
+        t.context.restoreCloned()
         t.task()
-        ctx.restore()
       }
+      ctx.restore()
     }
   }
 
   def postInitCallback(): this.type = {
     prePop()
+    ClockDomain.push(clockDomain)
     DslScopeStack.set(parentScope)
     this
   }
 
   /** Add a new prePopTask */
-  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.currentHandle)
+  def addPrePopTask(task: () => Unit) = prePopTasks += PrePopTask(task)
 //  def addPrePopTask(task: () => Unit) = Engine.get.onCompletion += task
   def afterElaboration(body : => Unit) = addPrePopTask(() => body)
 
@@ -317,7 +321,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     this.prePopTasks = mutable.ArrayBuffer[PrePopTask]()
     val ctx = ScopeProperty.captureNoClone()
 
-    scopeProperties.restore()
+    scopeProperties.restoreCloned()
     val ret = gen
     prePop()
     ctx.restore()
@@ -339,5 +343,29 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     val ret = body
     ctx.restore()
     ret
+  }
+
+  /**
+    * Empty Component, remove logic in component and assign zero on output port as stub
+    * @example {{{ val dut = (new MyComponent).stub() }}}
+    */
+  def stub(): this.type = this.rework{
+    // step0: walk and fix clock (clock, reset port need keep)
+    PhasePullClockDomains.recursive(this)
+    // step1: First remove all we don't want
+    this.children.clear()
+    this.dslBody.foreachStatements{
+      case bt : BaseType if !bt.isDirectionLess =>
+      case s => s.removeStatement()
+    }
+    // step2: remove output and assign zero
+    // this step can't merge into step1
+    this.dslBody.foreachStatements{
+      case bt : BaseType if bt.isOutput | bt.isInOut =>
+        bt.removeAssignments()
+        bt := bt.getZero
+      case s =>
+    }
+    this
   }
 }

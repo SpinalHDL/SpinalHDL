@@ -408,6 +408,13 @@ class ChecksTester extends AnyFunSuite  {
     })
   }
 
+  test("catchShiftBig"){
+    generationShouldFaild(new Component {
+      val a = B(1)
+      val b = a << U(2, 30 bits)
+    })
+  }
+
 
   test("scopeProperty"){
     object FixedPointProperty extends ScopeProperty[Int]{

@@ -20,15 +20,15 @@
 \*                                                                           */
 package spinal.core.sim
 
-import java.io.File
-
+import java.io.{File, PrintWriter}
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{BaseNode, DeclarationStatement, GraphUtils, PhaseCheck, PhaseContext, PhaseNetlist}
-import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
+import spinal.core.{BaseType, Bits, BlackBox, Bool, Component, GlobalData, InComponent, Mem, MemSymbolesMapping, MemSymbolesTag, SInt, ScopeProperty, SpinalConfig, SpinalEnumCraft, SpinalReport, SpinalTag, SpinalTagReady, UInt, Verilator}
 import spinal.sim._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.io.Source
 import scala.util.Random
 import sys.process._
 
@@ -417,6 +417,11 @@ abstract class SimCompiled[T <: Component](val report: SpinalReport[T]){
         super.setupJvmThread(thread)
         GlobalData.it.set(spinalGlobalData)
       }
+
+      override def newSpawnTask() = new SimThreadSpawnTask {
+        val initialContext = ScopeProperty.capture()
+        override def setup() = initialContext.restore()
+      }
     }
     manager.userData = dut
 
@@ -654,8 +659,25 @@ case class SpinalSimConfig(
     FileUtils.deleteQuietly(new File(s"${_workspacePath}/${_workspaceName}"))
     new File(s"${_workspacePath}/${_workspaceName}").mkdirs()
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
+
+    val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
+    val rtlPatch = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
-      FileUtils.copyFileToDirectory(new File(srcPath), new File(s"${_workspacePath}/${_workspaceName}/rtl"))
+      val src = new File(srcPath)
+      val lines = Source.fromFile(src).getLines.toArray
+      val w = new PrintWriter(src)
+      for(line <- lines){
+          val str = if(line.contains("readmem")){
+            line.replace("$readmemb(\"", "$readmemb(\"" + rtlPatch + "/")
+          } else {
+            line
+          }
+          w.println(str)
+        }
+      w.close()
+
+      val dst = new File(rtlDir.getAbsolutePath + "/" + src.getName)
+      FileUtils.copyFileToDirectory(src, rtlDir)
     }
 
     _backend match {

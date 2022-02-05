@@ -96,9 +96,9 @@ trait DataPrimitives[T <: Data]{
     assert(_data.dir != inout)
 
     val c = if (_data.dir == in) {
-      Component.current.parent
+      _data.component.parent
     } else {
-      Component.current
+      _data.component
     }
 
     if(c != null) {

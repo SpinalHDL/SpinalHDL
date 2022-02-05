@@ -2,8 +2,8 @@
   *  This file describes the Axi4 interface
   *
   *   _________________________________________________________________________
-  *  | Global | Write Data | Write Addr | Write Resp | Read Data  | Read Addr  |
-  *  |   -    |    w       |    aw      |      b     |     r      |     ar     |
+  *  | Global | Write Data | Write Addr | Write Resp | Read Addr  | Read Data  |
+  *  |   -    |    w       |    aw      |      b     |     ar     |     r      |
   *  |-------------------------------------------------------------------------|
   *  |  aclk  |  wid       |  *awid     |  *bid      |  *arid     |  rid       |
   *  |  arstn |  wdata     |  awaddr    |  *bresp    |  araddr    |  rdata     |

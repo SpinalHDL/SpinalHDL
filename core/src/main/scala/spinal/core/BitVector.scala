@@ -91,6 +91,8 @@ abstract class BitVector extends BaseType with Widthable {
   /** BitVector is not equal to MaskedLiteral */
   def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
 
+  def andMask(that : Bool) : this.type = (that ? this otherwise this.getZero).asInstanceOf[this.type]
+  def orMask(that : Bool) : this.type = (that ? cloneOf(this).setAll() otherwise this).asInstanceOf[this.type]
 
   /** Left rotation of that Bits */
   def rotateLeft(that: UInt): T = {

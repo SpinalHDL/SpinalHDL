@@ -16,7 +16,8 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
         alwaysOutput: Boolean = false,
         inQueue: mutable.Queue[BigInt],
         outQueue: mutable.Queue[BigInt],
-        countQueue: mutable.Queue[BigInt]
+        countQueue: mutable.Queue[BigInt],
+        lastQueue: mutable.Queue[Boolean]
     ) {
         dut.clockDomain.forkStimulus(period = 10)
         dut.io.input.valid #= false
@@ -48,8 +49,11 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
         val monitor = StreamMonitor(dut.io.output, dut.clockDomain) { payload =>
             {
                 val address = outQueue.dequeue()
+                val last    = lastQueue.dequeue()
                 // println("##pop out queue:" + address.toString(16))
-                assert(payload.toBigInt == address)
+                val data = payload.toBigInt
+                assert((data >> 1) == address)
+                assert(((data & 1) == 1) == last)
             }
         }
 
@@ -62,65 +66,90 @@ class SpinalSimStreamExtenderTester extends SpinalSimFunSuite {
 
             for (i <- 0 to count) {
                 outQueue.enqueue(address)
+                lastQueue.enqueue(i == count)
             }
         }
     }
 
     test("testRandomInOut") {
+        val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(
+                UInt(32 bits),
+                UInt(33 bits),
+                12,
+                (id, payload: UInt, last) => payload @@ last
+            )
             dut
         }
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
             val countQueue = mutable.Queue[BigInt]()
-            prepare(dut, false, false, inQueue, outQueue, countQueue)
+            prepare(dut, false, false, inQueue, outQueue, countQueue, lastQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
     }
 
     test("testRandomIn") {
+        val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(
+                UInt(32 bits),
+                UInt(33 bits),
+                12,
+                (id, payload: UInt, last) => payload @@ last
+            )
             dut
         }
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
             val countQueue = mutable.Queue[BigInt]()
-            prepare(dut, false, true, inQueue, outQueue, countQueue)
+            prepare(dut, false, true, inQueue, outQueue, countQueue, lastQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
     }
 
     test("testRandomOut") {
+        val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(
+                UInt(32 bits),
+                UInt(33 bits),
+                12,
+                (id, payload: UInt, last) => payload @@ last
+            )
             dut
         }
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
             val countQueue = mutable.Queue[BigInt]()
-            prepare(dut, true, false, inQueue, outQueue, countQueue)
+            prepare(dut, true, false, inQueue, outQueue, countQueue, lastQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }
     }
 
     test("testFullPipeline") {
+        val lastQueue = mutable.Queue[Boolean]()
         val compiled = SimConfig.allOptimisation.compile {
-            val dut = new StreamTransactionExtender(UInt(32 bits), UInt(32 bits), 12, (id, payload: UInt) => payload)
+            val dut = new StreamTransactionExtender(
+                UInt(32 bits),
+                UInt(33 bits),
+                12,
+                (id, payload: UInt, last) => payload @@ last
+            )
             dut
         }
         compiled.doSimUntilVoid { dut =>
             val inQueue    = mutable.Queue[BigInt]()
             val outQueue   = mutable.Queue[BigInt]()
             val countQueue = mutable.Queue[BigInt]()
-            prepare(dut, true, true, inQueue, outQueue, countQueue)
+            prepare(dut, true, true, inQueue, outQueue, countQueue, lastQueue)
             dut.clockDomain.waitSampling((1 KiB).toInt)
             simSuccess()
         }

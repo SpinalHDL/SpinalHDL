@@ -142,6 +142,14 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
     master(cmd)
     in(rsp)
   }
+
+  def bypass(writeLast : Flow[MemWriteCmd[T]]): Unit = new Composite(this, "bypass", true){
+    val cmdLast = RegNext(cmd.payload)
+    val hit     = cmdLast === writeLast.address && writeLast.valid
+    when(hit){
+      rsp := writeLast.data
+    }
+  }
 }
 
 

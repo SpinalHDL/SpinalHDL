@@ -1,5 +1,7 @@
 package spinal.lib.bus.regif
 
+import java.{util => ju}
+
 object DocTemplate {
   object cssThemes {
     val Default =
@@ -125,6 +127,7 @@ object DocTemplate {
        |<!DOCTYPE html>
        |<html>
        |  <head>
+       |  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
        |    <title>
        |      ${moduleName}
        |    </title>
@@ -139,7 +142,7 @@ object DocTemplate {
        |  </head>
        |  <body>
        |  <header align="center">
-       |  <p class="regif-title"> ${moduleName} Interface Document </p>
+       |  <p class="regif-title"> ${moduleName} register interface </p>
        |  </header>
        |  <div class="table">
        |  <table  align="center" class="theme-default">
@@ -151,7 +154,8 @@ object DocTemplate {
        |  </table>
        |  </div>
        |  <footer align="center">
-       |  <div> <p class="info">Powered By <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  <div> <p class="info">Powered by <a href="https://spinalhdl.github.io/SpinalDoc-RTD/"> SpinalHDL </a> </p> </div>
+       |  <div> <p class="info"> ${ju.Calendar.getInstance().getTime()} </p> </div>
        |  </footer>
        |  </body>
        |</html>

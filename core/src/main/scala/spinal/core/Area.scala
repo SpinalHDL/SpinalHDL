@@ -41,12 +41,12 @@ import spinal.idslplugin.PostInitCallback
   *  @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/area/ Area Documentation]]
   */
 
-class Composite[T <: Nameable](val self : T, postfix : String = null) extends Area{
+class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boolean = true) extends Area{
   override def childNamePriority = Nameable.USER_WEAK
   if(postfix == null) {
-    setCompositeName(self, true)
+    setCompositeName(self, weak)
   } else {
-    setCompositeName(self, postfix, true)
+    setCompositeName(self, postfix, weak)
   }
 }
 
@@ -54,8 +54,8 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
   def childNamePriority = DATAMODEL_WEAK
   val _context = ScopeProperty.capture() //TODO not as heavy
   def rework[T](body : => T): T = {
-    val oldContext = ScopeProperty.capture() //TODO not as heavy
-    _context.restore()
+    val oldContext = ScopeProperty.captureNoClone()
+    _context.restoreCloned()
     val b = body
     oldContext.restore()
     b
