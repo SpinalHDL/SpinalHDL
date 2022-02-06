@@ -1000,12 +1000,9 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
   def *(right: AutoFix): AutoFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val possibleRanges = mutable.MutableList(lMax, lMin, rMax, rMin)
-    if (needsSign || right.needsSign) {
-      possibleRanges += 0
-    }
+    val possibleRanges = List(lMax, lMin, rMax, rMin)
     val possibleList = possibleRanges.combinations(2).map(l => l(0)*l(1)).toList
-    val ret = new AutoFix(possibleRanges.max, possibleRanges.min, this.exp.value + right.exp.value exp)
+    val ret = new AutoFix(possibleList.max, possibleList.min, this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
