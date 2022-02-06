@@ -1149,18 +1149,20 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
+  def unary_-(): AutoFix = negate()
+
   def negate(): AutoFix = {
     val ret = new AutoFix(-this.maxValue, -this.minValue, this.exp)
     ret dependsOn this
 
     if (this.signed) {
-      when (!ret.raw.msb) {
-        ret.raw := ((~this.raw).asUInt+1).asBits
+      when (!this.raw.msb) {
+        ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
       } otherwise {
-        ret.raw := (~(this.raw.asUInt-1)).asBits
+        ret.raw := (~(this.raw.asUInt-1)).resize(ret.bitWidth).asBits
       }
     } else {
-      ret.raw := ((~this.raw).asUInt+1).asBits
+      ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
     }
 
     ret
