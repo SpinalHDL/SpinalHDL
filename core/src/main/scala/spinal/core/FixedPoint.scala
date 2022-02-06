@@ -889,8 +889,8 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
 object AutoFix {
 
   def apply(f: Fix): AutoFix = {
-    val maxValue = BigDecimal(2).pow(f.wholeWidth)-BigDecimal(2).pow(-f.fracWidth)
-    val minvalue = if (f.signed) -BigDecimal(2).pow(f.wholeWidth) else BigDecimal(0)
+    val maxValue = BigInt(2).pow(f.bitWidth-1)-1
+    val minvalue = -BigInt(2).pow(f.bitWidth-1)
     val ret = new AutoFix(maxValue, minvalue, -f.fracWidth exp)
     ret.raw := f.raw
     ret
@@ -898,11 +898,11 @@ object AutoFix {
 
 }
 
-class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNumber) extends MultiData {
-  assert((maxValue*BigDecimal(2).pow(-exp.value)).isWhole(),
-    s"maxValue ${maxValue} is not representable with exponent 2^${exp.value}")
-  assert((minValue*BigDecimal(2).pow(-exp.value)).isWhole(),
-    s"maxValue ${minValue} is not representable with exponent 2^${exp.value}")
+class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
+//  assert((maxValue*BigDecimal(2).pow(-exp.value)).isWhole,
+//    s"maxValue ${maxValue} is not representable with exponent 2^${exp.value}")
+//  assert((minValue*BigDecimal(2).pow(-exp.value)).isWhole,
+//    s"maxValue ${minValue} is not representable with exponent 2^${exp.value}")
 
   // TODO?: Support dropping sign bit iff max and min have the same sign?
   private val needsSign = (maxValue < 0) ^ (minValue < 0)
@@ -910,10 +910,10 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   val signed = (maxValue < 0) || (minValue < 0)
   val signWidth = if (signed) 1 else 0
 
-  private val maxShifted = maxValue.abs*BigDecimal(2).pow(-exp.value) - (if (maxValue < 0) signWidth else 0)
-  private val maxBits = maxShifted.toBigInt().bitLength
-  private val minShifted = minValue.abs*BigDecimal(2).pow(-exp.value) - (if (minValue < 0) signWidth else 0)
-  private val minBits = minShifted.toBigInt().bitLength
+  private val maxShifted = maxValue.abs - (if (maxValue < 0) signWidth else 0)
+  private val maxBits = maxShifted.bitLength
+  private val minShifted = minValue.abs - (if (minValue < 0) signWidth else 0)
+  private val minBits = minShifted.bitLength
 
   val bitWidth = Math.max(maxBits, minBits) + signWidth
   val fracWidth = Math.min(exp.value, 0)
@@ -940,6 +940,15 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
     }
   }
 
+  private def alignRanges(l: AutoFix, r: AutoFix): (BigInt, BigInt, BigInt, BigInt) = {
+    val expDiff = l.exp.value - r.exp.value
+    if (expDiff >= 0) {
+      (l.maxValue*BigInt(2).pow(expDiff), l.minValue*BigInt(2).pow(expDiff), r.maxValue, r.minValue)
+    } else {
+      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(-expDiff), r.minValue*BigInt(2).pow(-expDiff))
+    }
+  }
+
   private def alignLR(l: AutoFix, r: AutoFix): (Bits, Bits) = {
     val expDiff = l.exp.value - r.exp.value
     if (expDiff >= 0) {
@@ -958,7 +967,8 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def +(right: AutoFix): AutoFix = {
-    val ret = new AutoFix(this.maxValue+right.maxValue, this.minValue+right.minValue, Math.min(this.exp.value, right.exp.value) exp)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AutoFix(lMax+rMax, lMin+rMin, Math.min(this.exp.value, right.exp.value) exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -973,7 +983,8 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def -(right: AutoFix): AutoFix = {
-    val ret = new AutoFix(this.maxValue-right.minValue, this.minValue-right.maxValue, Math.min(this.exp.value, right.exp.value) exp)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AutoFix(lMax-rMin, lMin-rMax, Math.min(this.exp.value, right.exp.value) exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -988,7 +999,8 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def *(right: AutoFix): AutoFix = {
-    val possibleRanges = mutable.MutableList(this.maxValue, this.minValue, right.maxValue, right.minValue)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val possibleRanges = mutable.MutableList(lMax, lMin, rMax, rMin)
     if (needsSign || right.needsSign) {
       possibleRanges += 0
     }
@@ -1008,8 +1020,9 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def /(right: AutoFix): AutoFix = {
-    SpinalWarning("Fixed-point division is not finalized and not recommended for use! " + ScalaLocated.long)
-    val ret = new AutoFix(this.maxValue.max(right.maxValue), this.minValue.min(right.minValue), this.exp.value + right.exp.value exp)
+    SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AutoFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1024,8 +1037,9 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def %(right: AutoFix): AutoFix = {
-    SpinalWarning("Fixed-point modulo is not finalized and not recommended for use! " + ScalaLocated.long)
-    val ret = new AutoFix(this.maxValue.max(right.maxValue), this.minValue.min(right.minValue), this.exp.value + right.exp.value exp)
+    SpinalWarning("Fixed-point modulo is not finalized and not recommended for use!\n" + ScalaLocated.long)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AutoFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1076,21 +1090,21 @@ class AutoFix(val maxValue: BigDecimal, val minValue: BigDecimal, val exp: ExpNu
   }
 
   def <<(shift: Int): AutoFix = {
-    val shiftBig = BigDecimal(2).pow(shift)
+    val shiftBig = BigInt(2).pow(shift)
     val ret = new AutoFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
     ret dependsOn this
 
-    // TODO: Figure out shifting and resizing
+    ret.raw := this.raw << shift
 
     ret
   }
 
   def >>(shift: Int): AutoFix = {
-    val shiftBig = BigDecimal(2).pow(-shift)
-    val ret = new AutoFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value - shift) exp)
+    val shiftBig = BigInt(2).pow(shift)
+    val ret = new AutoFix(this.maxValue / shiftBig, this.minValue / shiftBig, (this.exp.value - shift) exp)
     ret dependsOn this
 
-    // TODO: Figure out shifting and resizing
+    ret.raw := this.raw >> shift
 
     ret
   }
