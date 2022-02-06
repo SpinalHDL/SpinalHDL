@@ -1054,39 +1054,79 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
   }
 
   def <(right: AutoFix): Bool = {
-    val cmpOut = Bool(false)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    // TODO: Figure out shifting and resizing
-
-    cmpOut
+    if (lMax < rMin) {
+      True
+    } else if (lMin >= rMax) {
+      False
+    } else {
+      val (_l, _r) = alignLR(this, right)
+      (this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resized        < _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.asSInt.resized < _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized        < _r.asUInt.asSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized        < _r.asSInt.resized)
+      }
+    }
   }
 
   def <=(right: AutoFix): Bool = {
-    val cmpOut = Bool(false)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    // TODO: Figure out shifting and resizing
-
-    cmpOut
+    if (lMax <= rMin) {
+      True
+    } else if (lMin > rMax) {
+      False
+    } else {
+      val (_l, _r) = alignLR(this, right)
+      (this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resized        <= _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.asSInt.resized <= _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized        <= _r.asUInt.asSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized        <= _r.asSInt.resized)
+      }
+    }
   }
 
   def >(right: AutoFix): Bool = {
-    val cmpOut = Bool(false)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    // TODO: Figure out shifting and resizing
-
-    cmpOut
+    if (lMin > rMax) {
+      True
+    } else if (lMax <= rMin) {
+      False
+    } else {
+      val (_l, _r) = alignLR(this, right)
+      (this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resized        > _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.asSInt.resized > _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized        > _r.asUInt.asSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized        > _r.asSInt.resized)
+      }
+    }
   }
 
   def >=(right: AutoFix): Bool = {
-    val cmpOut = Bool(false)
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    // TODO: Figure out shifting and resizing
-
-    cmpOut
+    if (lMin >= rMax) {
+      True
+    } else if (lMax < rMin) {
+      False
+    } else {
+      val (_l, _r) = alignLR(this, right)
+      (this.signed, right.signed) match {
+        case (false, false) => (_l.asUInt.resized        >= _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.asSInt.resized >= _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized        >= _r.asUInt.asSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized        >= _r.asSInt.resized)
+      }
+    }
   }
 
   def <<(shift: Int): AutoFix = {
