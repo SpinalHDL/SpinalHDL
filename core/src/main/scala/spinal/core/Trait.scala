@@ -488,6 +488,15 @@ trait Nameable extends OwnableRef with ContextUser{
     }
     this
   }
+  def setPartialName(name: String, namePriority: Byte, owner : Any): this.type = {
+    if (isPriorityApplicable(namePriority)) {
+      this.name = name
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
+      OwnableRef.set(this, owner)
+    }
+    this
+  }
 
   def unsetName(): this.type = {
     mode = Nameable.UNNAMED
