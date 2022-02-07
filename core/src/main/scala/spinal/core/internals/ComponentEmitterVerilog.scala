@@ -501,15 +501,26 @@ class ComponentEmitterVerilog(
       logics ++= s"    case(${emitExpression(select)})\n"
       for(i <- 0 until length){
         val key = Integer.toBinaryString(i)
-        if(i != length-1)
-          logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
-        else
-          logics ++= s"      default : begin\n"
+        if(muxes.size == 1){
+          if (i != length - 1)
+            logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : """
+          else
+            logics ++= s"      default : "
 
-        for(mux <- muxes){
-          logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          for (mux <- muxes) {
+            logics ++= s"${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          }
+        } else {
+          if (i != length - 1)
+            logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
+          else
+            logics ++= s"      default : begin\n"
+
+          for (mux <- muxes) {
+            logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          }
+          logics ++= s"      end\n"
         }
-        logics ++= s"      end\n"
       }
       logics ++= s"    endcase\n"
       logics ++= s"  end\n\n"
@@ -1324,7 +1335,7 @@ end
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VERILOG backend can't emit ${port.mem} because of its mixed width ports")
 
-        if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into Verilog")
+        if (port.readUnderWrite != writeFirst) SpinalWarning(s"${mem}.readAsync can only be write first into Verilog")
 
         val symbolCount = port.mem.getMemSymbolCount()
 
