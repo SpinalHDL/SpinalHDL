@@ -124,16 +124,11 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
                     address = address
                 )
                 .resized
-            val savedReadData = Reg(cloneOf(readData))
             val dataValid     = RegNext(readAddrStream.fire).init(False)
-            when(dataValid) {
-                savedReadData := readData
-            }
-            val outData = cloneOf(readData)
+            val savedReadData = RegNextWhen(readData, dataValid)
+            val outData       = CombInit(savedReadData)
             when(dataValid) {
                 outData := readData
-            } otherwise {
-                outData := savedReadData
             }
 
             readStream.translateFrom(readAddrStream) { (to, from) =>
