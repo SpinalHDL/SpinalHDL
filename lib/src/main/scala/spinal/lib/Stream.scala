@@ -1610,6 +1610,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         val working = out Bool ()
         val first   = out Bool ()
         val last    = out Bool ()
+        val done    = out Bool ()
     }
 
     val counter  = StreamTransactionCounter(io.input, io.output, io.count)
@@ -1630,6 +1631,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     io.output.valid := outValid
     io.input.ready := (!outValid || counter.io.done)
     io.last := lastOne
+    io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
     io.working := counter.io.working
 }
