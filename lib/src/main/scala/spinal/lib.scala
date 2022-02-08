@@ -33,6 +33,7 @@ package object lib  {
     h
   }
 
+  implicit def AnyPimped[T <: Any](that: T) = new AnyPimped(that)
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
   implicit def traversableOncePimped[T <: Data](that: Seq[T]) = new TraversableOncePimped[T](that)
