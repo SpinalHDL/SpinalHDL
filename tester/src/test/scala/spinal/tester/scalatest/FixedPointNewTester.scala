@@ -12,16 +12,14 @@ object FixedPointNewTester {
                              new Fix(10, 16, true))))
       val outRaw = out(new Fix(23, 36, true))
       val outFix = out(new Fix(23, 23, true))
-      val opMode = in(Bits(3 bit))
+      val opMode = in(Bits(2 bit))
       val roundMode = in(Bits(4 bit))
     }
 
     val opResultsSeq = Seq(
       io.inFix(0) + io.inFix(1),
       io.inFix(0) - io.inFix(1),
-      io.inFix(0) * io.inFix(1),
-      io.inFix(0) / io.inFix(1),
-      io.inFix(0) % io.inFix(1)
+      io.inFix(0) * io.inFix(1)
     )
     val maxIntWidth: Int = opResultsSeq.map(_.intWidth).max
     val maxFracWidth: Int = opResultsSeq.map(_.fracWidth).max
