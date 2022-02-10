@@ -1205,6 +1205,314 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
+  def floor(): AutoFix = {
+    assert(this.exp.value < 0, f"Cannot floor() because number does not have enough fractional bits, needs at least -1 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    res.raw := this.raw.dropLow(-this.exp.value)
+    res
+  }
+
+  def ceil(): AutoFix = {
+    assert(this.exp.value < 0, f"Cannot ceil() because number does not have enough fractional bits, needs at least -1 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    val fracOr = this.raw.takeLow(-this.exp.value).orR
+    if (this.signed) {
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + (False ## fracOr).asSInt).asBits
+    } else {
+      res.raw := (this.raw.dropLow(-this.exp.value).asUInt + fracOr.asUInt).asBits
+    }
+    res
+  }
+
+  def floorToZero(): AutoFix = {
+    assert(this.exp.value < 0, f"Cannot floorToZero() because number does not have enough fractional bits, needs at least -1 exp")
+    if (this.signed) {
+      val shift = BigInt(2).pow(-this.exp.value)
+      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      res dependsOn this
+      val fracOr = this.raw.takeLow(-this.exp.value).orR
+      val addValue = SInt(2 bit)
+      when(this.raw.msb && fracOr) {
+        addValue := 1
+      } otherwise {
+        addValue := 0
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+      res
+    } else {
+      floor()
+    }
+  }
+
+  def ceilToInf(): AutoFix = {
+    assert(this.exp.value < 0, f"Cannot ceilToInf() because number does not have enough fractional bits, needs at least -1 exp")
+    if (this.signed) {
+      val shift = BigInt(2).pow(-this.exp.value)
+      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      res dependsOn this
+      val fracOr = this.raw.takeLow(-this.exp.value).orR
+      val addValue = SInt(2 bit)
+      when(fracOr) {
+        when(!this.raw.msb) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        addValue := 0
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+      res
+    } else {
+      ceil()
+    }
+  }
+
+  def roundHalfUp(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfUp() because number does not have enough fractional bits, needs at least -2 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    val fracMSB = this.raw(-this.exp.value-1)
+    val addValue = SInt(2 bit)
+    when(fracMSB) {
+      addValue := 1
+    } otherwise {
+      addValue := 0
+    }
+    if (this.signed) {
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+    } else {
+      res.raw := (this.raw.dropLow(-this.exp.value).asUInt + addValue.asBits(0).asUInt).asBits
+    }
+    res
+  }
+
+  def roundHalfDown(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfDown() because number does not have enough fractional bits, needs at least -2 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+    val fracMSB = this.raw(-this.exp.value-1)
+    val addValue = SInt(2 bit)
+    when(fracMSB && fracOr) {
+      addValue := 1
+    } otherwise {
+      addValue := 0
+    }
+    if (this.signed) {
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+    } else {
+      res.raw := (this.raw.dropLow(-this.exp.value).asUInt + addValue.asBits(0).asUInt).asBits
+    }
+    res
+  }
+
+  def roundHalfToZero(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfToZero() because number does not have enough fractional bits, needs at least -2 exp")
+    if (this.signed) {
+      val shift = BigInt(2).pow(-this.exp.value)
+      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      res dependsOn this
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        when (fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+      res
+    } else {
+      roundHalfDown()
+    }
+  }
+
+  def roundHalfToInf(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfToInf() because number does not have enough fractional bits, needs at least -2 exp")
+    if (this.signed) {
+      val shift = BigInt(2).pow(-this.exp.value)
+      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      res dependsOn this
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        when (fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+      res
+    } else {
+      roundHalfDown()
+    }
+  }
+
+  def roundHalfToEven(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    if (this.signed) {
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val intLSB = this.raw(-this.exp.value)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        // positive
+        when(!intLSB) {
+          // even
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // odd
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      } otherwise {
+        // negative
+        when(!intLSB) {
+          // even
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // odd
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+    } else {
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val intLSB = this.raw(-this.exp.value)
+      val addValue = UInt(1 bit)
+      when(!intLSB) {
+        // even
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        // odd
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asUInt + addValue).asBits
+    }
+    res
+  }
+
+  def roundHalfToOdd(): AutoFix = {
+    assert(this.exp.value < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
+    val shift = BigInt(2).pow(-this.exp.value)
+    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    res dependsOn this
+    if (this.signed) {
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val intLSB = this.raw(-this.exp.value)
+      val addValue = SInt(2 bit)
+      when(!this.raw.msb) {
+        // positive
+        when(intLSB) {
+          // odd
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // even
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      } otherwise {
+        // negative
+        when(intLSB) {
+          // odd
+          when(fracMSB && fracOr) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        } otherwise {
+          // even
+          when(fracMSB) {
+            addValue := 1
+          } otherwise {
+            addValue := 0
+          }
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asSInt + addValue).asBits
+    } else {
+      val fracOr = this.raw.takeLow(-this.exp.value-1).orR
+      val fracMSB = this.raw(-this.exp.value-1)
+      val intLSB = this.raw(-this.exp.value)
+      val addValue = UInt(1 bit)
+      when(intLSB) {
+        // odd
+        when(fracMSB && fracOr) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      } otherwise {
+        // even
+        when(fracMSB) {
+          addValue := 1
+        } otherwise {
+          addValue := 0
+        }
+      }
+      res.raw := (this.raw.dropLow(-this.exp.value).asUInt + addValue).asBits
+    }
+    res
+  }
+
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}]"
 
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
