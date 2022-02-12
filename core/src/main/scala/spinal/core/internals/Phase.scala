@@ -1615,9 +1615,15 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         } else {
           s.foreachClockDomain(cd => {
             propagate(cd.clock)
-            if(cd.hasResetSignal) propagate(cd.reset)
-            if(cd.hasSoftResetSignal) propagate(cd.softReset)
-            if(cd.hasClockEnableSignal) propagate(cd.clockEnable)
+            def propCached(that : BaseType): Unit ={
+              s.component.pulledDataCache.get(that) match {
+                case Some(x) => propagate(x.asInstanceOf[BaseType])
+                case None =>    propagate(that)
+              }
+            }
+            if(cd.hasResetSignal) propCached(cd.reset)
+            if(cd.hasSoftResetSignal) propCached(cd.softReset)
+            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 
