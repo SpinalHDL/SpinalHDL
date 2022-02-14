@@ -1271,9 +1271,11 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             }
           case _ =>
         }
-
         walkDeclarations {
-          case e: Widthable => widthableCheck(e)
+          case e: Widthable => {
+            if(e.getWidth == 0 && e.isNamed) globalData.zeroWidths += (e.component -> e)
+            widthableCheck(e)
+          }
           case _ =>
         }
 

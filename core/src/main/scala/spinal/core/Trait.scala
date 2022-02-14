@@ -151,6 +151,7 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
+  val zeroWidths          = mutable.LinkedHashSet[(Component, Widthable)]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()

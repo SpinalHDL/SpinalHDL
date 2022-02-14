@@ -468,7 +468,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   override def toString(): String = {
     if(component == null)
-      getName()
+      s"${getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else if((isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal]))
       s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else

@@ -286,6 +286,15 @@ class SpinalReport[T <: Component]() {
     this
   }
 
+  def printZeroWidth() : this.type = {
+    if(globalData.zeroWidths.isEmpty) return this
+    globalData.zeroWidths.foreach{case (c, n) =>
+      SpinalWarning(s"${c}/${n.toString}")
+    }
+    this
+  }
+
+
   def mergeRTLSource(fileName: String = null): Unit = {
 
     val bb_vhdl    = new mutable.LinkedHashSet[String]()
