@@ -473,6 +473,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
+  def forkSerial(cond : Bool): Stream[T] = new Composite(this, "forkSerial"){
+    val next = Stream(payloadType)
+    next.valid := self.valid
+    next.payload := self.payload
+    self.ready := next.ready && cond
+    next
+  }.next
+
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
 
