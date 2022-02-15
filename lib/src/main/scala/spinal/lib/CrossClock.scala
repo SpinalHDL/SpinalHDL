@@ -126,7 +126,8 @@ object ResetCtrl{
       reset = ResetCtrl.asyncAssertSyncDeassert(
         input = resetCd.reset,
         clockDomain = clockCd,
-        inputPolarity = HIGH,
+        inputPolarity = resetCd.config.resetActiveLevel,
+        outputPolarity = clockCd.config.resetActiveLevel,
         bufferDepth = bufferDepth
       ).setCompositeName(resetCd.reset, "syncronized", true),
       config = clockCd.config
