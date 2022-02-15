@@ -151,6 +151,7 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
+  val zeroWidths          = mutable.LinkedHashSet[(Component, Widthable)]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
@@ -485,6 +486,15 @@ trait Nameable extends OwnableRef with ContextUser{
       this.name = name
       mode = OWNER_PREFIXED
       this.namePriority = namePriority
+    }
+    this
+  }
+  def setPartialName(name: String, namePriority: Byte, owner : Any): this.type = {
+    if (isPriorityApplicable(namePriority)) {
+      this.name = name
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
+      OwnableRef.set(this, owner)
     }
     this
   }

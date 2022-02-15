@@ -555,7 +555,7 @@ class PhaseAnalog extends PhaseNetlist{
 //}
 
 
-class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
+class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]] = mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]()) {
   val writes                   = ArrayBuffer[MemWrite]()
   val readsAsync               = ArrayBuffer[MemReadAsync]()
   val readsSync                = ArrayBuffer[MemReadSync]()
@@ -1271,9 +1271,11 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             }
           case _ =>
         }
-
         walkDeclarations {
-          case e: Widthable => widthableCheck(e)
+          case e: Widthable => {
+            if(e.getWidth == 0 && e.isNamed) globalData.zeroWidths += (e.component -> e)
+            widthableCheck(e)
+          }
           case _ =>
         }
 
@@ -1615,9 +1617,15 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         } else {
           s.foreachClockDomain(cd => {
             propagate(cd.clock)
-            if(cd.hasResetSignal) propagate(cd.reset)
-            if(cd.hasSoftResetSignal) propagate(cd.softReset)
-            if(cd.hasClockEnableSignal) propagate(cd.clockEnable)
+            def propCached(that : BaseType): Unit ={
+              s.component.pulledDataCache.get(that) match {
+                case Some(x) => propagate(x.asInstanceOf[BaseType])
+                case None =>    propagate(that)
+              }
+            }
+            if(cd.hasResetSignal) propCached(cd.reset)
+            if(cd.hasSoftResetSignal) propCached(cd.softReset)
+            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 

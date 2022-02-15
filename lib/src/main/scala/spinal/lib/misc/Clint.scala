@@ -3,9 +3,10 @@ package spinal.lib.misc
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
+import spinal.lib.bus.amba4.axilite.{AxiLite4, AxiLite4Config, AxiLite4SlaveFactory}
 import spinal.lib.bus.bmb.{Bmb, BmbAccessCapabilities, BmbAccessParameter, BmbParameter, BmbSlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
-import spinal.lib.bus.wishbone.WishboneConfig
+import spinal.lib.bus.wishbone.{Wishbone, WishboneConfig, WishboneSlaveFactory}
 
 object Clint{
   def getWisboneConfig() = WishboneConfig(
@@ -65,6 +66,46 @@ case class Apb3Clint(hartCount : Int) extends Component{
   io.time := logic.time
 }
 
+
+case class WishboneClint(hartCount : Int) extends Component{
+  val io = new Bundle {
+    val bus = slave(Wishbone(WishboneConfig(16-2, 32)))
+    val timerInterrupt = out Bits(hartCount bits)
+    val softwareInterrupt = out Bits(hartCount bits)
+    val time = out UInt(64 bits)
+  }
+
+  val factory = WishboneSlaveFactory(io.bus)
+  val logic = Clint(hartCount)
+  logic.driveFrom(factory)
+
+  for(hartId <- 0 until hartCount){
+    io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
+    io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
+  }
+
+  io.time := logic.time
+}
+
+case class AxiLite4Clint(hartCount : Int) extends Component{
+  val io = new Bundle {
+    val bus = slave(AxiLite4(AxiLite4Config(16, 32)))
+    val timerInterrupt = out Bits(hartCount bits)
+    val softwareInterrupt = out Bits(hartCount bits)
+    val time = out UInt(64 bits)
+  }
+
+  val factory = new AxiLite4SlaveFactory(io.bus)
+  val logic = Clint(hartCount)
+  logic.driveFrom(factory)
+
+  for(hartId <- 0 until hartCount){
+    io.timerInterrupt(hartId) := logic.harts(hartId).timerInterrupt
+    io.softwareInterrupt(hartId) := logic.harts(hartId).softwareInterrupt
+  }
+
+  io.time := logic.time
+}
 
 case class BmbClint(bmbParameter : BmbParameter, hartCount : Int) extends Component{
   val io = new Bundle {

@@ -501,15 +501,26 @@ class ComponentEmitterVerilog(
       logics ++= s"    case(${emitExpression(select)})\n"
       for(i <- 0 until length){
         val key = Integer.toBinaryString(i)
-        if(i != length-1)
-          logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
-        else
-          logics ++= s"      default : begin\n"
+        if(muxes.size == 1){
+          if (i != length - 1)
+            logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : """
+          else
+            logics ++= s"      default : "
 
-        for(mux <- muxes){
-          logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          for (mux <- muxes) {
+            logics ++= s"${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          }
+        } else {
+          if (i != length - 1)
+            logics ++= s"""      ${select.getWidth}'b${"0" * (select.getWidth - key.length)}${key} : begin\n"""
+          else
+            logics ++= s"      default : begin\n"
+
+          for (mux <- muxes) {
+            logics ++= s"        ${wrappedExpressionToName(mux)} = ${emitExpression(mux.inputs(i))};\n"
+          }
+          logics ++= s"      end\n"
         }
-        logics ++= s"      end\n"
       }
       logics ++= s"    endcase\n"
       logics ++= s"  end\n\n"
@@ -1231,10 +1242,28 @@ end
 
     val tmpBuilder = new StringBuilder()
 
+    val topo = new MemTopology(mem)
+
+    val allowReadSyncReadFirst = topo.readWriteSync.isEmpty && topo.writes.size == 1 && topo.readsSync.filter(_.readUnderWrite == readFirst).forall(_.clockDomain == topo.writes.head.clockDomain)
+    def emitMemReadSync(memReadSync: MemReadSync, tab : String, b : StringBuilder): Unit ={
+      if (memReadSync.readEnable != null) {
+        b ++= s"${tab}if(${emitExpression(memReadSync.readEnable)}) begin\n"
+        emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
+        b ++= s"${tab}end\n"
+      } else {
+        emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
+      }
+    }
 
     mem.foreachStatements{
       case memWrite: MemWrite      =>
         emitClockedProcess((tab, b) => {
+          if(allowReadSyncReadFirst){
+            for(read <- topo.readsSync if read.readUnderWrite == readFirst){
+              emitMemReadSync(read, tab, b)
+            }
+          }
+
           if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.mem} because of its mixed width ports")
           emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount(), memWrite.mem.getMemSymbolWidth(), tab)
         }, null, tmpBuilder, memWrite.clockDomain, false)
@@ -1311,20 +1340,17 @@ end
       case memReadSync: MemReadSync   =>
         if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
         if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"memReadSync with writeFirst is as dontCare into Verilog $memReadSync")
-        if(memReadSync.readUnderWrite == readFirst) SpinalError(s"memReadSync with readFirst is as dontCare into Verilog $memReadSync")
-        emitClockedProcess((tab, b) => {
-          if(memReadSync.readEnable != null) {
-            b ++= s"${tab}if(${emitExpression(memReadSync.readEnable)}) begin\n"
-            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
-            b ++= s"${tab}end\n"
-          } else {
-            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
-          }
-        }, null, tmpBuilder, memReadSync.clockDomain, false)
+        if(memReadSync.readUnderWrite == readFirst) {
+          if(!allowReadSyncReadFirst) SpinalError(s"memReadSync with readFirst is as dontCare into Verilog $memReadSync")
+        } else {
+          emitClockedProcess((tab, b) => {
+            emitMemReadSync(memReadSync, tab, b)
+          }, null, tmpBuilder, memReadSync.clockDomain, false)
+        }
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VERILOG backend can't emit ${port.mem} because of its mixed width ports")
 
-        if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into Verilog")
+        if (port.readUnderWrite != writeFirst) SpinalWarning(s"${mem}.readAsync can only be write first into Verilog")
 
         val symbolCount = port.mem.getMemSymbolCount()
 

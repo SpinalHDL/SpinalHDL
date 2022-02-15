@@ -907,6 +907,13 @@ class GrowableAnyPimped[T <: Any](pimped: Growable[T]) {
   }
 }
 
+class AnyPimped[T <: Any](pimped: T) {
+  def ifMap(cond : Boolean)(body : T => T): T ={
+    if(cond) body(pimped) else pimped
+  }
+}
+
+
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))

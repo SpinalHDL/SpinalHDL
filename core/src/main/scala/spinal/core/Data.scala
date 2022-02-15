@@ -653,10 +653,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       SpinalError(
         s"""
            |*** Spinal can't clone ${this.getClass} datatype
-                                                     |*** You have two way to solve that :
-                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-                                                     |*** Or override by your self the bundle clone function
-                                                     |*** The error is """.stripMargin + this.getScalaLocationLong)
+           |*** You have two way to solve that :
+           |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+           |*** Or override by your self the bundle clone function
+           |*** The error is """.stripMargin + this.getScalaLocationLong)
       null
     }
     null
