@@ -139,7 +139,7 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
     val text = if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
-      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"$component definition name was already used once for a different layout\n${component.getScalaLocationLong}")
+      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"Component '${component}' with definition name '${component.definitionName}' was already used once for a different layout\n${component.getScalaLocationLong}")
       emitedComponent += (trace -> component)
       componentBuilderVhdl.result
     } else {
