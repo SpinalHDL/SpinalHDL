@@ -204,6 +204,7 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
     * @return a SInt data
     */
   def asSInt: SInt = asBits.asSInt
+  def asSInt(bitCount: BitCount): SInt = asBits.asSInt.resize(bitCount.value)
 
   /**
     * Cast a Bool to an UInt of a given width

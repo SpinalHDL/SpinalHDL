@@ -285,6 +285,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
         ret ++= s"    alias temp : $kind(that'length-1 downto 0) is that;\n"
         ret ++= "  begin\n"
+        ret ++= "    if bitId >= temp'length then\n"
+        ret ++= "      return 'U';\n"
+        ret ++= "    end if;\n"
         ret ++= "    return temp(bitId);\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
@@ -303,6 +306,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
         ret ++= "    for i in 0 to elementCount-1 loop\n"
         ret ++= "      table(i) := temp(i + size - 1 downto i);\n"
         ret ++= "    end loop;\n"
+        ret ++= "    if base + size >= elementCount then\n"
+        ret ++= s"      return (size-1 downto 0 => 'U');\n"
+        ret ++= "    end if;\n"
         ret ++= "    return table(to_integer(base));\n"
         ret ++= "  end pkg_extract;\n\n"
         ret.result()
