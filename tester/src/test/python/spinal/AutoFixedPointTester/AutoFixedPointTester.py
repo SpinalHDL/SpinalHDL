@@ -132,23 +132,23 @@ class Ref:
 
 def check_results(dut, op, mode):
 
-    op_str = ["+", "-", "*", "/", "%"]
-    round_str = ["ceil", "floor", "floorToZero", "ceilToInf", "halfUp", "halfDown", "halfToZero", "halfToInf", "halfEven", "halfOdd"]
+    # op_str = ["+", "-", "*", "/", "%"]
+    # round_str = ["ceil", "floor", "floorToZero", "ceilToInf", "halfUp", "halfDown", "halfToZero", "halfToInf", "halfEven", "halfOdd"]
 
     ref = Ref(dut)
-    print()
-    inFix0_int = sint(dut.io_inFix_0)/(2**4)
-    inFix1_int = sint(dut.io_inFix_1)/(2**6)
-    outRaw_int = sint(dut.io_outRaw)/(2**13)
-    outFix_int = sint(dut.io_outFix)
-    inFix0_str = f"{dut.io_inFix_0}"
-    inFix1_str = f"{dut.io_inFix_1}"
-    outRaw_str = f"{dut.io_outRaw}"
-    print()
-    print(f"{inFix0_int:^{len(inFix0_str)}} {op_str[op]} {inFix1_int:^{len(inFix1_str)}} = {outRaw_int:^{len(outRaw_str)}}")
-    print(f"{inFix0_str} {op_str[op]} {inFix1_str} = {outRaw_str}")
-    round_func_str = f"{round_str[mode]}({outRaw_int})"
-    print(f"{round_func_str:>{len(inFix0_str)+len(inFix1_str)+3}} = {dut.io_outFix} ({outFix_int})")
+    # print()
+    # inFix0_int = sint(dut.io_inFix_0)/(2**4)
+    # inFix1_int = sint(dut.io_inFix_1)/(2**6)
+    # outRaw_int = sint(dut.io_outRaw)/(2**13)
+    # outFix_int = sint(dut.io_outFix)
+    # inFix0_str = f"{dut.io_inFix_0}"
+    # inFix1_str = f"{dut.io_inFix_1}"
+    # outRaw_str = f"{dut.io_outRaw}"
+    # print()
+    # print(f"{inFix0_int:^{len(inFix0_str)}} {op_str[op]} {inFix1_int:^{len(inFix1_str)}} = {outRaw_int:^{len(outRaw_str)}}")
+    # print(f"{inFix0_str} {op_str[op]} {inFix1_str} = {outRaw_str}")
+    # round_func_str = f"{round_str[mode]}({outRaw_int})"
+    # print(f"{round_func_str:>{len(inFix0_str)+len(inFix1_str)+3}} = {dut.io_outFix} ({outFix_int})")
     assertEquals(ref.io_outFix, ref.io_outFix_expected, "io_outFix")
 
 
