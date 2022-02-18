@@ -1065,9 +1065,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    if ((lMax <= rMax && lMin >= rMax) || (rMax <= lMax && rMin >= lMin)) {
-      True
-    } else if (lMin > rMax || lMax < rMin) {
+    if (lMin > rMax || lMax < rMin) {
       False
     } else {
       val (_l, _r) = alignLR(this, right)
@@ -1085,9 +1083,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
-    if ((lMax < rMax && lMin > rMax) || (rMax < lMax && rMin > lMin)) {
-      False
-    } else if (lMin > rMax || lMax < rMin) {
+    if (lMin > rMax || lMax < rMin) {
       True
     } else {
       val (_l, _r) = alignLR(this, right)
