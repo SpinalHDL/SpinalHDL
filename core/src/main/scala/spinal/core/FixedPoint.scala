@@ -896,6 +896,15 @@ object AutoFix {
     ret
   }
 
+  def apply(num: BigInt, exp: ExpNumber): AutoFix = {
+    val ret = new AutoFix(num, num, exp)
+    if (num >= 0)
+      ret.raw := BigIntToUInt(num).asBits
+    else
+      ret.raw := BigIntToSInt(num).asBits
+    ret
+  }
+
 }
 
 class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
@@ -973,10 +982,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trimOrExpand(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt        + _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.asSInt + _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt        + _r.asUInt.asSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt        + _r.asSInt).resize(ret.bitWidth)
+      case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt             + _r.asSInt.resize(ret.bitWidth))
+      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
     }).asBits, ret.bitWidth)
 
     ret
@@ -989,10 +998,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trimOrExpand(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt        - _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.asSInt - _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt        - _r.asUInt.asSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt        - _r.asSInt).resize(ret.bitWidth)
+      case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
+      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
     }).asBits, ret.bitWidth)
 
     ret
@@ -1005,12 +1014,13 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     val ret = new AutoFix(possibleList.max, possibleList.min, this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
-    val (_l, _r) = alignLR(this, right)
+    val _l = this.raw
+    val _r = right.raw
     ret.raw := trimOrExpand(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt        * _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.asSInt * _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt        * _r.asUInt.asSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt        * _r.asSInt).resize(ret.bitWidth)
+      case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt             * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) * _r.asSInt)
     }).asBits, ret.bitWidth)
 
     ret
@@ -1024,10 +1034,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trimOrExpand(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt        / _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.asSInt / _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt        / _r.asUInt.asSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt        / _r.asSInt).resize(ret.bitWidth)
+      case (false, false) => (_l.asUInt          / _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.intoSInt / _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt          / _r.asUInt.intoSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt          / _r.asSInt).resize(ret.bitWidth)
     }).asBits, ret.bitWidth)
 
     ret
@@ -1041,10 +1051,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trimOrExpand(((this.signed, right.signed) match {
-      case (false, false) => (_l.asUInt        % _r.asUInt).resize(ret.bitWidth)
-      case (false,  true) => (_l.asUInt.asSInt % _r.asSInt).resize(ret.bitWidth)
-      case ( true, false) => (_l.asSInt        % _r.asUInt.asSInt).resize(ret.bitWidth)
-      case ( true,  true) => (_l.asSInt        % _r.asSInt).resize(ret.bitWidth)
+      case (false, false) => (_l.asUInt          % _r.asUInt).resize(ret.bitWidth)
+      case (false,  true) => (_l.asUInt.intoSInt % _r.asSInt).resize(ret.bitWidth)
+      case ( true, false) => (_l.asSInt          % _r.asUInt.intoSInt).resize(ret.bitWidth)
+      case ( true,  true) => (_l.asSInt          % _r.asSInt).resize(ret.bitWidth)
     }).asBits, ret.bitWidth)
 
     ret
@@ -1202,6 +1212,27 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
       ret.raw := ((~this.raw).asUInt+1).resize(ret.bitWidth).asBits
     }
 
+    ret
+  }
+
+  def sat(satMax: BigInt, satMin: BigInt): AutoFix = {
+    val ret = new AutoFix(satMax, satMin, exp)
+    when (this > AutoFix(satMax, exp)) {
+      if (this.signed)
+        ret.raw := BigIntToSInt(satMax).resize(ret.bitWidth).asBits
+      else
+        ret.raw := BigIntToUInt(satMax).resize(ret.bitWidth).asBits
+    } elsewhen (this < AutoFix(satMin, exp)) {
+      if (this.signed)
+        ret.raw := BigIntToSInt(satMin).resize(ret.bitWidth).asBits
+      else
+        ret.raw := BigIntToUInt(satMin).resize(ret.bitWidth).asBits
+    } otherwise {
+      if (this.signed)
+        ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
+      else
+        ret.raw := this.raw.asUInt.resize(ret.bitWidth).asBits
+    }
     ret
   }
 
@@ -1513,9 +1544,34 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     res
   }
 
-  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}]"
+  override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
 
-  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
+    that match {
+      case af: AutoFix =>
+        var af_rounded: AutoFix = af
+        if (af.exp.value < this.exp.value) {
+          val exp_diff = af.exp.value - this.exp.value
+          if (exp_diff > 1)
+            af_rounded = (af << this.exp.value).roundHalfDown() >> this.exp.value
+          else
+            af_rounded = (af << this.exp.value).floor() >> this.exp.value
+        } else if (af.exp.value > this.exp.value) {
+          val exp_diff = af.exp.value - this.exp.value
+          af_rounded = af << exp_diff
+        }
+
+        if (this.signed)
+          this.raw := af_rounded.raw.asSInt.resize(this.bitWidth).asBits
+        else
+          this.raw := af_rounded.raw.asUInt.resize(this.bitWidth).asBits
+      case f: Fix => this := AutoFix(f)
+    }
+  }
+
+
+
+  override def clone: this.type = new AutoFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
 
 
