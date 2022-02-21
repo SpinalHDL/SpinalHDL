@@ -120,6 +120,12 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret.data := mem.readAsync(ret.address)
     ret
   }
+
+  def readAsyncPortBySyncReadRevertedClk : MemReadPortAsync[T] = {
+    val ret : MemReadPortAsync[T] = MemReadPortAsync(mem.wordType(),mem.addressWidth)
+    ret.data := ClockDomain.current.withRevertedClockEdge()(mem.readSync(ret.address))
+    ret
+  }
 }
 
 
