@@ -249,13 +249,22 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
-    def L(args: Any*): List[Any] ={
-      val ret = ArrayBuffer[Any]()
+    class LList extends ArrayBuffer[Any]{
+      def stripMargin = {
+        for((e, i) <- this.zipWithIndex) e match{
+          case s : String => this(i) = s.stripMargin
+          case _ =>
+        }
+        this
+      }
+    }
+    def L(args: Any*): LList ={
+      val ret = new LList()
       for((s,i) <- sc.parts.zipWithIndex){
         ret += s
         if(args.size > i) ret += args(i)
       }
-      ret.toList
+      ret
     }
 
     def Bits(args: Any*): Bits = B(args)
