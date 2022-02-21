@@ -643,6 +643,7 @@ class ComponentEmitterVerilog(
               case m: SpinalEnumCraft[_] => "%s"
               case m: Expression => "%x"
               case `REPORT_TIME` => "%d"
+              case x => SpinalError(s"""L\"\" can't manage the parameter '${x}' type. Located at :\n${statement.getScalaLocationLong}""")
             }).mkString
 
             val backString = (for (m <- assertStatement.message if !m.isInstanceOf[String]) yield m match {
