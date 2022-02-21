@@ -896,6 +896,39 @@ object AutoFix {
     ret
   }
 
+  def apply(u: UInt): AutoFix = AutoFix(u, 0 exp)
+  def apply(u: UInt, exp: ExpNumber): AutoFix = {
+    val maxValue = BigInt(2).pow(u.getWidth)-1
+    val ret = new AutoFix(maxValue, 0, exp)
+    ret.raw := u.asBits
+    ret
+  }
+
+  def apply(s: SInt): AutoFix = AutoFix(s, 0 exp)
+  def apply(s: SInt, exp: ExpNumber): AutoFix = {
+    val maxValue = BigInt(2).pow(s.getWidth-1)-1
+    val minValue = -BigInt(2).pow(s.getWidth-1)
+    val ret = new AutoFix(maxValue, minValue, exp)
+    ret.raw := s.asBits
+    ret
+  }
+
+  def apply(uf: UFix): AutoFix = {
+    val maxValue = BigInt(2).pow(uf.bitCount)-1
+    val ret = new AutoFix(maxValue, 0, -uf.minExp exp)
+    ret.raw := uf.raw.asBits
+    ret
+  }
+
+  def apply(sf: SFix): AutoFix = {
+    val maxValue = BigInt(2).pow(sf.bitCount-1)-1
+    val minValue = -BigInt(2).pow(sf.bitCount-1)
+    val ret = new AutoFix(maxValue, minValue, -sf.minExp exp)
+    ret.raw := sf.raw.asBits
+    ret
+  }
+
+
   def apply(num: BigInt, exp: ExpNumber): AutoFix = {
     val ret = new AutoFix(num, num, exp)
     if (num >= 0)
@@ -1562,10 +1595,38 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
         else
           this.raw := af_rounded.raw.asUInt.resize(this.bitWidth).asBits
       case f: Fix => this := AutoFix(f)
+      case u: UInt => this := AutoFix(u)
+      case s: SInt => this := AutoFix(s)
+      case uf: UFix => this := AutoFix(uf)
+      case sf: SFix => this := AutoFix(sf)
     }
   }
 
+  def asUInt(): UInt = {
+    if (this.signed) {
+      val out = UInt(this.bitWidth bit)
+      this.raw.asSInt.asUInt
+      when(this.raw.msb) {
+        out := U(0).resize(this.bitWidth)
+      } otherwise {
+        out := this.raw.asUInt
+      }
+      out
+    } else {
+      this.raw.asUInt
+    }
+  }
 
+  def asSInt(): SInt = {
+    if (this.signed) {
+      this.raw.asSInt
+    } else {
+      this.raw.asUInt.intoSInt
+    }
+  }
+
+  def asUFix(): UFix = this.asUInt().toUFix >> -this.exp.value
+  def asSFix(): SFix = this.asSInt().toSFix >> -this.exp.value
 
   override def clone: this.type = new AutoFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
