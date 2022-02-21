@@ -350,40 +350,40 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   /** Is less than right */
   override def <(right: Fix): Bool = {
     (this.signed, right.signed) match {
-      case (false, false) => this.raw.asUInt < this.raw.asUInt
-      case (false, true) => this.raw.asUInt.intoSInt < this.raw.asSInt
-      case (true, false) => this.raw.asSInt < this.raw.asUInt.intoSInt
-      case (true, true) => this.raw.asSInt < this.raw.asSInt
+      case (false, false) => this.raw.asUInt < right.raw.asUInt
+      case (false, true) => this.raw.asUInt.intoSInt < right.raw.asSInt
+      case (true, false) => this.raw.asSInt < right.raw.asUInt.intoSInt
+      case (true, true) => this.raw.asSInt < right.raw.asSInt
     }
   }
 
   /** Is equal or less than right */
   override def <=(right: Fix): Bool = {
     (this.signed, right.signed) match {
-      case (false, false) => this.raw.asUInt <= this.raw.asUInt
-      case (false, true) => this.raw.asUInt.intoSInt <= this.raw.asSInt
-      case (true, false) => this.raw.asSInt <= this.raw.asUInt.intoSInt
-      case (true, true) => this.raw.asSInt <= this.raw.asSInt
+      case (false, false) => this.raw.asUInt <= right.raw.asUInt
+      case (false, true) => this.raw.asUInt.intoSInt <= right.raw.asSInt
+      case (true, false) => this.raw.asSInt <= right.raw.asUInt.intoSInt
+      case (true, true) => this.raw.asSInt <= right.raw.asSInt
     }
   }
 
   /** Is greater than right */
   override def >(right: Fix): Bool = {
     (this.signed, right.signed) match {
-      case (false, false) => this.raw.asUInt > this.raw.asUInt
-      case (false, true) => this.raw.asUInt.intoSInt > this.raw.asSInt
-      case (true, false) => this.raw.asSInt > this.raw.asUInt.intoSInt
-      case (true, true) => this.raw.asSInt > this.raw.asSInt
+      case (false, false) => this.raw.asUInt > right.raw.asUInt
+      case (false, true) => this.raw.asUInt.intoSInt > right.raw.asSInt
+      case (true, false) => this.raw.asSInt > right.raw.asUInt.intoSInt
+      case (true, true) => this.raw.asSInt > right.raw.asSInt
     }
   }
 
   /** Is equal or greater than right */
   override def >=(right: Fix): Bool = {
     (this.signed, right.signed) match {
-      case (false, false) => this.raw.asUInt >= this.raw.asUInt
-      case (false, true) => this.raw.asUInt.intoSInt >= this.raw.asSInt
-      case (true, false) => this.raw.asSInt >= this.raw.asUInt.intoSInt
-      case (true, true) => this.raw.asSInt >= this.raw.asSInt
+      case (false, false) => this.raw.asUInt >= right.raw.asUInt
+      case (false, true) => this.raw.asUInt.intoSInt >= right.raw.asSInt
+      case (true, false) => this.raw.asSInt >= right.raw.asUInt.intoSInt
+      case (true, true) => this.raw.asSInt >= right.raw.asSInt
     }
   }
 
