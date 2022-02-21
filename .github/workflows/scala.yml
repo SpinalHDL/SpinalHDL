@@ -49,7 +49,7 @@ jobs:
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
 
-    - name: Install uncachesd tools
+    - name: Install uncached tools
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
     - name: Compile tests
