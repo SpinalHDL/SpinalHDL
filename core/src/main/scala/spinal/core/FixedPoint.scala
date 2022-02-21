@@ -1000,7 +1000,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  private def trimOrExpand(b: Bits, w: Int): Bits = {
+  private def trim(b: Bits, w: Int): Bits = {
     if (b.getWidth > w) {
       b.takeLow(w)
     } else {
@@ -1014,7 +1014,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+    ret.raw := trim(((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
       case (false,  true) => (_l.asUInt.intoSInt             + _r.asSInt.resize(ret.bitWidth))
       case ( true, false) => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
@@ -1030,7 +1030,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+    ret.raw := trim(((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
       case (false,  true) => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
       case ( true, false) => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
@@ -1049,7 +1049,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
     val _l = this.raw
     val _r = right.raw
-    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+    ret.raw := trim(((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt.resize(ret.bitWidth) * _r.asUInt)
       case (false,  true) => (_l.asUInt.intoSInt             * _r.asSInt.resize(ret.bitWidth)).resize(ret.bitWidth)
       case ( true, false) => (_l.asSInt.resize(ret.bitWidth) * _r.asUInt.intoSInt)
@@ -1066,7 +1066,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+    ret.raw := trim(((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt          / _r.asUInt).resize(ret.bitWidth)
       case (false,  true) => (_l.asUInt.intoSInt / _r.asSInt).resize(ret.bitWidth)
       case ( true, false) => (_l.asSInt          / _r.asUInt.intoSInt).resize(ret.bitWidth)
@@ -1083,7 +1083,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
-    ret.raw := trimOrExpand(((this.signed, right.signed) match {
+    ret.raw := trim(((this.signed, right.signed) match {
       case (false, false) => (_l.asUInt          % _r.asUInt).resize(ret.bitWidth)
       case (false,  true) => (_l.asUInt.intoSInt % _r.asSInt).resize(ret.bitWidth)
       case ( true, false) => (_l.asSInt          % _r.asUInt.intoSInt).resize(ret.bitWidth)
