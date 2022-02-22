@@ -5,8 +5,7 @@ import spinal.lib.tools.binarySystem
 import spinal.core.fiber.{Engine, Handle}
 import spinal.lib.generator.Export
 
-import scala.collection.Seq
-import scala.collection.Iterable
+import scala.collection.{Iterable, Seq, TraversableOnce}
 import scala.collection.generic.Growable
 
 package object lib  {
@@ -36,9 +35,9 @@ package object lib  {
   implicit def AnyPimped[T <: Any](that: T) = new AnyPimped(that)
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
-  implicit def traversableOncePimped[T <: Data](that: Seq[T]) = new TraversableOncePimped[T](that)
-  implicit def traversableOnceBoolPimped(that: Seq[Bool]) = new TraversableOnceBoolPimped(that)
-  implicit def traversableOnceAnyPimped[T <: Any](that: Seq[T]) = new TraversableOnceAnyPimped(that)
+  implicit def traversableOncePimped[T <: Data](that: TraversableOnce[T]) = new TraversableOncePimped[T](that.toSeq)
+  implicit def traversableOnceBoolPimped(that: TraversableOnce[Bool]) = new TraversableOnceBoolPimped(that.toSeq)
+  implicit def traversableOnceAnyPimped[T <: Any](that: TraversableOnce[T]) = new TraversableOnceAnyPimped(that.toSeq)
   implicit def growableAnyPimped[T <: Any](that: Growable[T]) = new GrowableAnyPimped(that)
 
   implicit def clockDomainPimped(cd: ClockDomain) = new ClockDomainPimped(cd)
