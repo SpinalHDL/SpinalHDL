@@ -923,6 +923,18 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     }
   }
 
+  def onMask(conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onMask(conds : Bits)(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onSel(sel : UInt)(body : T => Unit): Unit ={
+    whenIndexed[T](pimped, sel)(body)
+  }
+
+
+
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
   }
