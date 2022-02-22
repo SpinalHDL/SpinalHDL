@@ -139,4 +139,7 @@ package object lib  {
     def binIntsToInt: Int       = binIntsToBigInt.toInt
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
+  
+  
+  val OHMux = new MuxOHImpl
 }

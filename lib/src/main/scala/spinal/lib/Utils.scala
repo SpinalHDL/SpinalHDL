@@ -118,7 +118,6 @@ class MuxOHImpl {
 }
 
 object MuxOH extends MuxOHImpl
-object OHMux extends MuxOHImpl
 object OhMux extends MuxOHImpl
 
 
