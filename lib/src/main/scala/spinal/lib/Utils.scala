@@ -175,13 +175,12 @@ object SetFromFirstOne{
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
-  def first[T <: Data](that : T) : T = {
+  def first[T <: Data](that : T) : T = new Composite(that, "ohFirst"){
       val input = that.asBits.asUInt
       val masked = input & ~(input - 1)
-      val ret = cloneOf(that)
-      ret.assignFromBits(masked.asBits)
-      ret
-  }
+      val value = cloneOf(that)
+      value.assignFromBits(masked.asBits)
+  }.value
 
   def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
