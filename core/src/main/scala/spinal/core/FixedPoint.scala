@@ -928,7 +928,6 @@ object AutoFix {
     ret
   }
 
-
   def apply(num: BigInt, exp: ExpNumber): AutoFix = {
     val ret = new AutoFix(num, num, exp)
     if (num >= 0)
@@ -936,6 +935,13 @@ object AutoFix {
     else
       ret.raw := BigIntToSInt(num).asBits
     ret
+  }
+
+  def apply(wholeBits: Int, fracBits: Int, signed: Boolean): AutoFix = {
+    val signedBit = if (signed) 1 else 0
+    val maxValue = BigInt(2).pow(wholeBits+fracBits-signedBit)-1
+    val minValue = if (signed) -BigInt(2).pow(wholeBits+fracBits-signedBit) else BigInt(0)
+    new AutoFix(maxValue, minValue, -fracBits exp)
   }
 
 }
