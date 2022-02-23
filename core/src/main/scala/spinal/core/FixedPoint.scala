@@ -1047,7 +1047,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
   }
 
   def *(right: AutoFix): AutoFix = {
-    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val (lMax, lMin, rMax, rMin) = (this.maxValue, this.minValue, right.maxValue, right.minValue)
     val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
     val ret = new AutoFix(possibleLimits.max, possibleLimits.min, this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
