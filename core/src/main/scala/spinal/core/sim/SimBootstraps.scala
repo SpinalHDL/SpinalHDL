@@ -668,7 +668,7 @@ case class SpinalSimConfig(
       val w = new PrintWriter(src)
       for(line <- lines){
           val str = if(line.contains("readmem")){
-            line.replace("$readmemb(\"", "$readmemb(\"" + rtlPatch + "/")
+            line.replace("$readmemb(\"", "$readmemb(\"" + rtlPatch + File.separator)
           } else {
             line
           }
