@@ -37,6 +37,7 @@ trait IODirection extends BaseTypeFactory {
 
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
+  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
