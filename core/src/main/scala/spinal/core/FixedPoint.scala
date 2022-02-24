@@ -1137,10 +1137,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        === _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized === _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        === _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        === _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          === _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized === _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          === _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          === _r.asSInt.resized)
       }
     }
   }
@@ -1155,10 +1155,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        =/= _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized =/= _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        =/= _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        =/= _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          =/= _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized =/= _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          =/= _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          =/= _r.asSInt.resized)
       }
     }
   }
@@ -1174,10 +1174,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        < _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized < _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        < _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        < _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          < _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized < _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          < _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          < _r.asSInt.resized)
       }
     }
   }
@@ -1193,10 +1193,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        <= _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized <= _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        <= _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        <= _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          <= _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized <= _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          <= _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          <= _r.asSInt.resized)
       }
     }
   }
@@ -1212,10 +1212,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        > _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized > _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        > _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        > _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          > _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized > _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          > _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          > _r.asSInt.resized)
       }
     }
   }
@@ -1231,10 +1231,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     } else {
       val (_l, _r) = alignLR(this, right)
       (this.signed, right.signed) match {
-        case (false, false) => (_l.asUInt.resized        >= _r.asUInt.resized)
-        case (false,  true) => (_l.asUInt.asSInt.resized >= _r.asSInt.resized)
-        case ( true, false) => (_l.asSInt.resized        >= _r.asUInt.asSInt.resized)
-        case ( true,  true) => (_l.asSInt.resized        >= _r.asSInt.resized)
+        case (false, false) => (_l.asUInt.resized          >= _r.asUInt.resized)
+        case (false,  true) => (_l.asUInt.intoSInt.resized >= _r.asSInt.resized)
+        case ( true, false) => (_l.asSInt.resized          >= _r.asUInt.intoSInt.resized)
+        case ( true,  true) => (_l.asSInt.resized          >= _r.asSInt.resized)
       }
     }
   }
