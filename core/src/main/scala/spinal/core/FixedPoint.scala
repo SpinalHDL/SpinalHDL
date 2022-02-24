@@ -886,50 +886,50 @@ class Fix(val intWidth: Int, val bitWidth: Int, val signed: Boolean) extends Mul
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[signed=${if (this.signed) "1" else "0"},whole=${this.wholeWidth},frac=${this.fracWidth}]"
 }
 
-object AutoFix {
+object AFix {
 
-  def apply(f: Fix): AutoFix = {
+  def apply(f: Fix): AFix = {
     val maxValue = BigInt(2).pow(f.bitWidth-1)-1
     val minvalue = -BigInt(2).pow(f.bitWidth-1)
-    val ret = new AutoFix(maxValue, minvalue, -f.fracWidth exp)
+    val ret = new AFix(maxValue, minvalue, -f.fracWidth exp)
     ret.raw := f.raw
     ret
   }
 
-  def apply(u: UInt): AutoFix = AutoFix(u, 0 exp)
-  def apply(u: UInt, exp: ExpNumber): AutoFix = {
+  def apply(u: UInt): AFix = AFix(u, 0 exp)
+  def apply(u: UInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(u.getWidth)-1
-    val ret = new AutoFix(maxValue, 0, exp)
+    val ret = new AFix(maxValue, 0, exp)
     ret.raw := u.asBits
     ret
   }
 
-  def apply(s: SInt): AutoFix = AutoFix(s, 0 exp)
-  def apply(s: SInt, exp: ExpNumber): AutoFix = {
+  def apply(s: SInt): AFix = AFix(s, 0 exp)
+  def apply(s: SInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(s.getWidth-1)-1
     val minValue = -BigInt(2).pow(s.getWidth-1)
-    val ret = new AutoFix(maxValue, minValue, exp)
+    val ret = new AFix(maxValue, minValue, exp)
     ret.raw := s.asBits
     ret
   }
 
-  def apply(uf: UFix): AutoFix = {
+  def apply(uf: UFix): AFix = {
     val maxValue = BigInt(2).pow(uf.bitCount)-1
-    val ret = new AutoFix(maxValue, 0, -uf.minExp exp)
+    val ret = new AFix(maxValue, 0, -uf.minExp exp)
     ret.raw := uf.raw.asBits
     ret
   }
 
-  def apply(sf: SFix): AutoFix = {
+  def apply(sf: SFix): AFix = {
     val maxValue = BigInt(2).pow(sf.bitCount-1)-1
     val minValue = -BigInt(2).pow(sf.bitCount-1)
-    val ret = new AutoFix(maxValue, minValue, -sf.minExp exp)
+    val ret = new AFix(maxValue, minValue, -sf.minExp exp)
     ret.raw := sf.raw.asBits
     ret
   }
 
-  def apply(num: BigInt, exp: ExpNumber): AutoFix = {
-    val ret = new AutoFix(num, num, exp)
+  def apply(num: BigInt, exp: ExpNumber): AFix = {
+    val ret = new AFix(num, num, exp)
     if (num >= 0)
       ret.raw := BigIntToUInt(num).asBits
     else
@@ -937,16 +937,17 @@ object AutoFix {
     ret
   }
 
-  def apply(wholeBits: Int, fracBits: Int, signed: Boolean): AutoFix = {
+  def apply(wholeBits: BitCount, fracBits: BitCount, signed: Boolean): AFix = AFix(wholeBits.value, fracBits.value, signed)
+  def apply(wholeBits: Int, fracBits: Int, signed: Boolean): AFix = {
     val signedBit = if (signed) 1 else 0
     val maxValue = BigInt(2).pow(wholeBits+fracBits-signedBit)-1
     val minValue = if (signed) -BigInt(2).pow(wholeBits+fracBits-signedBit) else BigInt(0)
-    new AutoFix(maxValue, minValue, -fracBits exp)
+    new AFix(maxValue, minValue, -fracBits exp)
   }
 
 }
 
-class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
+class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
 //  assert((maxValue*BigDecimal(2).pow(-exp.value)).isWhole,
 //    s"maxValue ${maxValue} is not representable with exponent 2^${exp.value}")
 //  assert((minValue*BigDecimal(2).pow(-exp.value)).isWhole,
@@ -978,17 +979,17 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
   }
 
   // These are used for reference tracking
-  private var parents: Seq[AutoFix] = Nil
-  private val children: mutable.Set[AutoFix] = mutable.Set()
+  private var parents: Seq[AFix] = Nil
+  private val children: mutable.Set[AFix] = mutable.Set()
 
-  private def dependsOn(parents: AutoFix*): Unit = {
+  private def dependsOn(parents: AFix*): Unit = {
     this.parents = parents
     for (p <- parents) {
       p.children += this
     }
   }
 
-  private def alignRanges(l: AutoFix, r: AutoFix): (BigInt, BigInt, BigInt, BigInt) = {
+  private def alignRanges(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
     val expDiff = l.exp.value - r.exp.value
     if (expDiff >= 0) {
       (l.maxValue*BigInt(2).pow(expDiff), l.minValue*BigInt(2).pow(expDiff), r.maxValue, r.minValue)
@@ -997,7 +998,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  private def alignLR(l: AutoFix, r: AutoFix): (Bits, Bits) = {
+  private def alignLR(l: AFix, r: AFix): (Bits, Bits) = {
     val expDiff = l.exp.value - r.exp.value
     if (expDiff >= 0) {
       (l.raw << expDiff, r.raw)
@@ -1014,9 +1015,9 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def +(right: AutoFix): AutoFix = {
+  def +(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AutoFix(lMax+rMax, lMin+rMin, Math.min(this.exp.value, right.exp.value) exp)
+    val ret = new AFix(lMax+rMax, lMin+rMin, Math.min(this.exp.value, right.exp.value) exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1030,9 +1031,9 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def -(right: AutoFix): AutoFix = {
+  def -(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AutoFix(lMax-rMin, lMin-rMax, Math.min(this.exp.value, right.exp.value) exp)
+    val ret = new AFix(lMax-rMin, lMin-rMax, Math.min(this.exp.value, right.exp.value) exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1046,10 +1047,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def *(right: AutoFix): AutoFix = {
+  def *(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = (this.maxValue, this.minValue, right.maxValue, right.minValue)
     val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
-    val ret = new AutoFix(possibleLimits.max, possibleLimits.min, this.exp.value + right.exp.value exp)
+    val ret = new AFix(possibleLimits.max, possibleLimits.min, this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val _l = this.raw
@@ -1064,10 +1065,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def /(right: AutoFix): AutoFix = {
+  def /(right: AFix): AFix = {
     SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AutoFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
+    val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1081,10 +1082,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def %(right: AutoFix): AutoFix = {
+  def %(right: AFix): AFix = {
     SpinalWarning("Fixed-point modulo is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    val ret = new AutoFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
+    val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
     ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
@@ -1098,8 +1099,8 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def ==(right: AutoFix): Bool = this === right
-  def ===(right: AutoFix): Bool = {
+  def ==(right: AFix): Bool = this === right
+  def ===(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1116,8 +1117,8 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def !=(right: AutoFix): Bool = this =/= right
-  def =/=(right: AutoFix): Bool = {
+  def !=(right: AFix): Bool = this =/= right
+  def =/=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1134,7 +1135,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def <(right: AutoFix): Bool = {
+  def <(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1153,7 +1154,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def <=(right: AutoFix): Bool = {
+  def <=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1172,7 +1173,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def >(right: AutoFix): Bool = {
+  def >(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1191,7 +1192,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def >=(right: AutoFix): Bool = {
+  def >=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     this dependsOn right
 
@@ -1210,9 +1211,9 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def <<(shift: Int): AutoFix = {
+  def <<(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AutoFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
+    val ret = new AFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
     ret dependsOn this
 
     ret.raw := this.raw << shift
@@ -1220,9 +1221,9 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def >>(shift: Int): AutoFix = {
+  def >>(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AutoFix(this.maxValue / shiftBig, this.minValue / shiftBig, (this.exp.value - shift) exp)
+    val ret = new AFix(this.maxValue / shiftBig, this.minValue / shiftBig, (this.exp.value - shift) exp)
     ret dependsOn this
 
     ret.raw := this.raw >> shift
@@ -1230,10 +1231,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def unary_-(): AutoFix = negate()
+  def unary_-(): AFix = negate()
 
-  def negate(): AutoFix = {
-    val ret = new AutoFix(-this.maxValue, -this.minValue, this.exp)
+  def negate(): AFix = {
+    val ret = new AFix(-this.maxValue, -this.minValue, this.exp)
     ret dependsOn this
 
     if (this.signed) {
@@ -1249,14 +1250,14 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def sat(satMax: BigInt, satMin: BigInt): AutoFix = {
-    val ret = new AutoFix(satMax, satMin, exp)
-    when (this > AutoFix(satMax, exp)) {
+  def sat(satMax: BigInt, satMin: BigInt): AFix = {
+    val ret = new AFix(satMax, satMin, exp)
+    when (this > AFix(satMax, exp)) {
       if (this.signed)
         ret.raw := BigIntToSInt(satMax).resize(ret.bitWidth).asBits
       else
         ret.raw := BigIntToUInt(satMax).resize(ret.bitWidth).asBits
-    } elsewhen (this < AutoFix(satMin, exp)) {
+    } elsewhen (this < AFix(satMin, exp)) {
       if (this.signed)
         ret.raw := BigIntToSInt(satMin).resize(ret.bitWidth).asBits
       else
@@ -1270,19 +1271,19 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     ret
   }
 
-  def floor(): AutoFix = {
+  def floor(): AFix = {
     assert(this.exp.value < 0, f"Cannot floor() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     res.raw := this.raw.dropLow(-this.exp.value)
     res
   }
 
-  def ceil(): AutoFix = {
+  def ceil(): AFix = {
     assert(this.exp.value < 0, f"Cannot ceil() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     val fracOr = this.raw.takeLow(-this.exp.value).orR
     if (this.signed) {
@@ -1293,11 +1294,11 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     res
   }
 
-  def floorToZero(): AutoFix = {
+  def floorToZero(): AFix = {
     assert(this.exp.value < 0, f"Cannot floorToZero() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
-      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
       res dependsOn this
       val fracOr = this.raw.takeLow(-this.exp.value).orR
       val addValue = SInt(2 bit)
@@ -1313,11 +1314,11 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def ceilToInf(): AutoFix = {
+  def ceilToInf(): AFix = {
     assert(this.exp.value < 0, f"Cannot ceilToInf() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
-      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
       res dependsOn this
       val fracOr = this.raw.takeLow(-this.exp.value).orR
       val addValue = SInt(2 bit)
@@ -1337,10 +1338,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def roundHalfUp(): AutoFix = {
+  def roundHalfUp(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfUp() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     val fracMSB = this.raw(-this.exp.value-1)
     val addValue = SInt(2 bit)
@@ -1357,10 +1358,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     res
   }
 
-  def roundHalfDown(): AutoFix = {
+  def roundHalfDown(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfDown() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     val fracOr = this.raw.takeLow(-this.exp.value-1).orR
     val fracMSB = this.raw(-this.exp.value-1)
@@ -1378,11 +1379,11 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     res
   }
 
-  def roundHalfToZero(): AutoFix = {
+  def roundHalfToZero(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToZero() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
-      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
       res dependsOn this
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
@@ -1407,11 +1408,11 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def roundHalfToInf(): AutoFix = {
+  def roundHalfToInf(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToInf() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
-      val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+      val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
       res dependsOn this
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
@@ -1436,10 +1437,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     }
   }
 
-  def roundHalfToEven(): AutoFix = {
+  def roundHalfToEven(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
@@ -1507,10 +1508,10 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
     res
   }
 
-  def roundHalfToOdd(): AutoFix = {
+  def roundHalfToOdd(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
-    val res = new AutoFix(this.maxValue / shift, this.minValue / shift, 0 exp)
+    val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
     res dependsOn this
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
@@ -1582,8 +1583,8 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
 
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
-      case af: AutoFix =>
-        var af_rounded: AutoFix = af
+      case af: AFix =>
+        var af_rounded: AFix = af
         if (af.exp.value < this.exp.value) {
           val exp_diff = af.exp.value - this.exp.value
           if (exp_diff > 1)
@@ -1599,11 +1600,11 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
           this.raw := af_rounded.raw.asSInt.resize(this.bitWidth).asBits
         else
           this.raw := af_rounded.raw.asUInt.resize(this.bitWidth).asBits
-      case f: Fix => this := AutoFix(f)
-      case u: UInt => this := AutoFix(u)
-      case s: SInt => this := AutoFix(s)
-      case uf: UFix => this := AutoFix(uf)
-      case sf: SFix => this := AutoFix(sf)
+      case f: Fix => this := AFix(f)
+      case u: UInt => this := AFix(u)
+      case s: SInt => this := AFix(s)
+      case uf: UFix => this := AFix(uf)
+      case sf: SFix => this := AFix(sf)
     }
   }
 
@@ -1633,7 +1634,7 @@ class AutoFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) ex
   def asUFix(): UFix = this.asUInt().toUFix >> -this.exp.value
   def asSFix(): SFix = this.asSInt().toSFix >> -this.exp.value
 
-  override def clone: this.type = new AutoFix(maxValue, minValue, exp).asInstanceOf[this.type]
+  override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
 
 

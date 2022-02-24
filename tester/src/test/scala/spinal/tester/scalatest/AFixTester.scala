@@ -2,16 +2,16 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.core.{Bundle, Component, Vec, in, out}
-import spinal.tester.scalatest.AutoFixedPointTester.AutoFixedPointTester
+import spinal.tester.scalatest.AFixTester.AFixTester
 
-object AutoFixedPointTester {
+object AFixTester {
 
-  class AutoFixedPointTester extends Component {
+  class AFixTester extends Component {
     val io = new Bundle {
-      val inFix = in(Vec(Seq(new AutoFix(32767, -32768, -4 exp),
-                             new AutoFix(32767, -32768, -6 exp))))
-      val outRaw = out(new AutoFix(68719476735L, -68719476736L, -13 exp))
-      val outFix = out(new AutoFix(8388607, -8388608, 0 exp))
+      val inFix = in(Vec(Seq(new AFix(32767, -32768, -4 exp),
+                             new AFix(32767, -32768, -6 exp))))
+      val outRaw = out(new AFix(68719476735L, -68719476736L, -13 exp))
+      val outFix = out(new AFix(8388607, -8388608, 0 exp))
       val opMode = in(Bits(2 bit))
       val roundMode = in(Bits(4 bit))
     }
@@ -28,7 +28,7 @@ object AutoFixedPointTester {
     val rangeMin = opResultsSeq.minBy(_.maxValue).minValue
     val rangeExpMin = opResultsSeq.minBy(_.exp.value).exp
     val opResults = Vec(opResultsSeq.map(af => {
-      val resized_af = new AutoFix(rangeMax, rangeMin, rangeExpMin)
+      val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
       resized_af := af
       resized_af
     }))
@@ -54,8 +54,8 @@ object AutoFixedPointTester {
 
 }
 
-class AutoFixedPointTesterCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "AutoFixedPointTester"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/AutoFixedPointTester"
-  override def createToplevel: Component = new AutoFixedPointTester
+class AFixTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "AFixTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/AFixTester"
+  override def createToplevel: Component = new AFixTester
 }
