@@ -111,6 +111,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   val usedDefinitionNames = mutable.HashSet[String]()
 
+
+  val romCache = mutable.HashMap[String, String]()
   def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
@@ -125,7 +127,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
-      pc                          = pc
+      pc                          = pc,
+      romCache                    = romCache
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {

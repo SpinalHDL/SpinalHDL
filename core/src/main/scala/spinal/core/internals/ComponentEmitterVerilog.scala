@@ -42,7 +42,8 @@ class ComponentEmitterVerilog(
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
   pc                                 : PhaseContext,
-  spinalConfig                       : SpinalConfig
+  spinalConfig                       : SpinalConfig,
+  romCache                           : mutable.HashMap[String, String]
 ) extends ComponentEmitter {
 
   import verilogBase._
@@ -1118,40 +1119,39 @@ class ComponentEmitterVerilog(
           }
         }
       }else {
-        val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
-        val relativePath = new File(filePath).getPath
-        if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-          for (i <- 0 until symbolCount) {
-            logics ++= s"""    $$readmemb("${relativePath}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
-          }
-        } else {
-          logics ++= s"""    $$readmemb("${relativePath}.bin",${emitReference(mem, false)});\n"""
-        }
 
-        val files = if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-          List.tabulate(symbolCount){i => {
-            val name = s"${filePath}_symbol$i.bin"
-            emitedRtlSourcesPath += name
-            new java.io.FileWriter(name)
-          }}
-        }else{
-          emitedRtlSourcesPath += s"${filePath}.bin"
-          List(new java.io.FileWriter(s"${filePath}.bin"))
-        }
-        for ((value, index) <- mem.initialContent.zipWithIndex) {
-          val unfilledValue = value.toString(2)
-          val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
-          if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-            for (i <- 0 until symbolCount) {
-              files(i).write( s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n")
+
+        val withSymbols = memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1
+        for (i <- 0 until symbolCount) {
+          val symbolPostfix = if(withSymbols) s"_symbol$i" else ""
+          val builder = new mutable.StringBuilder()
+          for ((value, index) <- mem.initialContent.zipWithIndex) {
+            val unfilledValue = value.toString(2)
+            val filledValue = "0" * (mem.getWidth - unfilledValue.length) + unfilledValue
+            if(withSymbols) {
+              builder ++=  s"${filledValue.substring(symbolWidth * (symbolCount - i - 1), symbolWidth * (symbolCount - i))}\n"
+            } else {
+              builder ++= s"$filledValue\n"
             }
-          } else {
-            files.head.write( s"$filledValue\n")
           }
-        }
 
-        files.foreach(_.flush())
-        files.foreach(_.close())
+          val romStr = builder.toString
+          val relativePath = romCache.get(romStr) match {
+            case None =>
+              val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
+              val file = new File(filePath)
+              emitedRtlSourcesPath += filePath
+              val writer = new java.io.FileWriter(file)
+              writer.write(romStr)
+              writer.flush()
+              writer.close()
+              if(spinalConfig.romReuse) romCache(romStr) = file.getName
+              file.getPath
+            case Some(x) => x
+          }
+
+          logics ++= s"""    $$readmemb("${relativePath}",${emitReference(mem, false)}${symbolPostfix});\n"""
+        }
       }
 
       logics ++= "  end\n"
