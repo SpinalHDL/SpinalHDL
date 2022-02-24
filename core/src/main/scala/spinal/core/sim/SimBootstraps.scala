@@ -661,14 +661,24 @@ case class SpinalSimConfig(
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
 
     val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
-    val rtlPatch = rtlDir.getAbsolutePath
+//    val rtlPath = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
       val src = new File(srcPath)
       val lines = Source.fromFile(src).getLines.toArray
       val w = new PrintWriter(src)
       for(line <- lines){
           val str = if(line.contains("readmem")){
-            line.replace("$readmemb(\"", "$readmemb(\"" + rtlPatch + File.separator)
+            val exprPattern = """.*\$readmem.*\(\"(.+)\".+\).*""".r
+            val absline = line match {
+              case exprPattern(relpath) => {
+                val windowsfix = relpath.replace(".\\", "")
+                val abspath = new File(windowsfix).getAbsolutePath
+                val ret = line.replace(relpath, abspath)
+                ret.replace("\\", "\\\\") //windows escape "\"
+              }
+              case _ => new Exception("readmem abspath replace failed")
+            }
+            absline
           } else {
             line
           }

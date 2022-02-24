@@ -1119,7 +1119,7 @@ class ComponentEmitterVerilog(
         }
       }else {
         val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}"
-        val relativePath = new File(filePath).getName
+        val relativePath = new File(filePath).getPath
         if (memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
           for (i <- 0 until symbolCount) {
             logics ++= s"""    $$readmemb("${relativePath}_symbol$i.bin",${emitReference(mem, false)}_symbol$i);\n"""
