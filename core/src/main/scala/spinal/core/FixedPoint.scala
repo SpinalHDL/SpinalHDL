@@ -945,6 +945,34 @@ object AFix {
     new AFix(maxValue, minValue, -fracBits exp)
   }
 
+  def U(wholeBits: BitCount): AFix = AFix(wholeBits, 0 bit, signed = false)
+  def U(wholeBits: BitCount, fracBits: BitCount): AFix = AFix(wholeBits, fracBits, signed = false)
+  def U(msbExp: ExpNumber, bitLength: BitCount): AFix = AFix(msbExp.value bit, (bitLength.value - msbExp.value) bit, false)
+  def U(msbExp: ExpNumber, lsbExp: ExpNumber): AFix = AFix(msbExp.value bit, -lsbExp.value bit, false)
+  def U(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits, -exp.value bit, false)
+  def U(maxValue: BigInt, exp: ExpNumber): AFix = {
+    assert(maxValue >= 0, s"AFix.U maxValue must be non-negative! (${maxValue} is not >= 0)")
+    new AFix(maxValue*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)-1), 0, exp)
+  }
+  def U(maxValue: BigInt, minValue: BigInt, exp: ExpNumber): AFix = {
+    assert(maxValue >= 0, s"AFix.U maxValue must be non-negative! (${maxValue} is not >= 0)")
+    assert(maxValue >= 0, s"AFix.U minValue must be non-negative! (${minValue} is not >= 0)")
+    new AFix(maxValue*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)-1),
+             minValue*BigInt(2).pow(-exp.value), exp)
+  }
+
+  def S(wholeBits: BitCount): AFix = AFix(wholeBits+(1 bit), 0 bit, signed = true)
+  def S(wholeBits: BitCount, fracBits: BitCount): AFix = AFix(wholeBits+(1 bit), fracBits, signed = true)
+  def S(msbExp: ExpNumber, bitLength: BitCount): AFix = AFix(msbExp.value+1 bit, (bitLength.value - msbExp.value) bit, signed = true)
+  def S(msbExp: ExpNumber, lsbExp: ExpNumber): AFix = AFix(msbExp.value+1 bit, -lsbExp.value bit, signed = true)
+  def S(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits+(1 bit), -exp.value bit, signed = true)
+  def S(value: BigInt, exp: ExpNumber): AFix =
+    new AFix(value.max(0)*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)*value.signum-value.signum),
+             value.min(0)*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)*value.signum-value.signum), exp)
+  def S(maxValue: BigInt, minValue: BigInt, exp: ExpNumber): AFix =
+    new AFix(maxValue*BigInt(2).pow(-exp.value)+(BigInt(2).pow(-exp.value)*maxValue.signum-maxValue.signum),
+             minValue*BigInt(2).pow(-exp.value), exp)
+
 }
 
 class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
