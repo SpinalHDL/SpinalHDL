@@ -173,8 +173,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val ram = Mem(Bits(32 bits), 1 << p.addressWidth-2)
 
     val readPort = ram.readSyncPort
-    val writePort = ram.writePortWithMask
-    writePort.mask.setWidth(4)
+    val writePort = ram.writePortWithMask(4)
 
     val internal = new Area{
       val writeCmd = cloneOf(writePort)
