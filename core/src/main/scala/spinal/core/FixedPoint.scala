@@ -993,7 +993,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   private val minBits = minShifted.bitLength
 
   val bitWidth = Math.max(maxBits, minBits) + signWidth
-  val fracWidth = Math.min(exp.value, 0)
+  val fracWidth = Math.min(-exp.value, 0)
   val wholeWidth = bitWidth - fracWidth - signWidth
   val intWidth = bitWidth - fracWidth
 
@@ -1612,22 +1612,24 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case af: AFix =>
-        var af_rounded: AFix = af
-        if (af.exp.value < this.exp.value) {
-          val exp_diff = af.exp.value - this.exp.value
-          if (exp_diff > 1)
-            af_rounded = (af << this.exp.value).roundHalfDown() >> this.exp.value
-          else
-            af_rounded = (af << this.exp.value).floor() >> this.exp.value
-        } else if (af.exp.value > this.exp.value) {
+        assert(af.fracWidth <= this.fracWidth, s"Cannot assign ${af} to ${this} as fractional precision would be lost! Consider rounding before assignment.")
+        assert(af.wholeWidth <= this.wholeWidth, s"Cannot assign ${af} to ${this} as whole bits would be lost! Consider saturating before assignment.")
+
+        if (af.bitWidth != this.bitWidth) {
+          SpinalWarning(s"Assigning ${af} to ${this} required bit expansion.\n" + ScalaLocated.long)
+        }
+
+        var af_frac_expand: AFix = af
+        if (af.exp.value > this.exp.value) {
           val exp_diff = af.exp.value - this.exp.value
           af_rounded = af << exp_diff
         }
 
         if (this.signed)
-          this.raw := af_rounded.raw.asSInt.resize(this.bitWidth).asBits
+          this.raw := af_frac_expand.raw.asSInt.resize(this.bitWidth).asBits
         else
-          this.raw := af_rounded.raw.asUInt.resize(this.bitWidth).asBits
+          this.raw := af_frac_expand.raw.asUInt.resize(this.bitWidth).asBits
+
       case f: Fix => this := AFix(f)
       case u: UInt => this := AFix(u)
       case s: SInt => this := AFix(s)
