@@ -690,6 +690,18 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this.freeze()
     comb.asInstanceOf[this.type]
   }
+
+  def regNextValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+
+    val ret = cloneOf(this)
+
+    for((dst, src) <- (ret.flatten, this.flatten).zipped){
+      dst := src.regNextValue()
+    }
+
+    ret.asInstanceOf[this.type]
+  }
 }
 
 trait DataWrapper extends Data{

@@ -66,6 +66,16 @@ class ScopeStatement(var parentStatement: TreeStatement) {
     ctx.restore()
   }
 
+  //Execute body on the head of the ScopeStatement list
+  def onHead[T](body : => T) : T = {
+    val ctx = push()
+    val swapContext = swap()
+    val ret = body
+    ctx.restore()
+    swapContext.appendBack()
+    ret
+  }
+
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={
       if(nonEmpty){

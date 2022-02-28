@@ -1583,6 +1583,42 @@ class PhaseCheckCrossClock() extends PhaseCheck{
   }
 }
 
+class PhaseNextifyTag(val dest : BaseType) extends SpinalTag
+class PhaseNextifyReg() extends PhaseNetlist{
+  override def impl(pc: PhaseContext) = {
+    pc.walkDeclarations{
+      case bt : BaseType if bt.hasTag(classOf[PhaseNextifyTag])=> {
+        bt.isReg match {
+          case false => ???
+          case true => {
+            val dests = bt.getTags().collect{ case e : PhaseNextifyTag  => e.dest }
+            val seed = dests.head
+
+            dests.foreach(_.unfreeze())
+
+            for(other <- dests.filter(_ != seed)) {
+              other.component.rework{other := seed.pull()}
+            }
+
+            bt.parentScope.onHead(seed := bt)
+
+            bt.foreachStatements{
+              case s : InitAssignmentStatement =>
+              case s : DataAssignmentStatement => {
+                s.dlcRemove()
+                s.target = seed
+                seed.dlcAppend(s)
+              }
+            }
+
+            bt.component.rework(bt := seed)
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) extends PhaseNetlist {
 
@@ -1924,8 +1960,6 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
     }
   }
 }
-
-
 
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
@@ -2540,6 +2574,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 

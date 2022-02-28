@@ -363,4 +363,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     else
       head.source.toString
   }
+
+  override def regNextValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+    val ret = this.parentScope.onHead(this.clone).asInstanceOf[this.type]
+    this.addTag(new PhaseNextifyTag(ret))
+    ret.freeze()
+    ret.pull()
+  }
 }
