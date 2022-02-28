@@ -38,6 +38,7 @@ trait Expression extends BaseNode with ExpressionContainer {
   }
 
   override def toString = opName
+  def toStringRec(level : Int = 1) : String = toString
 }
 
 
@@ -234,6 +235,23 @@ abstract class BinaryOperator extends Operator {
 
 abstract class BinaryOperatorWidthableInputs extends BinaryOperator {
   override type T = Expression with WidthProvider
+
+  def checkLiteralRange(check : (BitVectorLiteral, Expression with WidthProvider) => Unit): Unit ={
+    (left, right) match {
+      case (_ : BitVectorLiteral, _ : BitVectorLiteral) =>
+      case (lit : BitVectorLiteral, value : T) => check(lit, value)
+      case (value : T, lit : BitVectorLiteral) => check(lit, value)
+      case _ =>
+    }
+  }
+
+  def checkLiteralRanges(signed  : Boolean) ={
+    checkLiteralRange { (lit, value) =>
+      if(lit.poisonMask == null && lit.getWidth > value.getWidth) {
+        PendingError(s"OUT OF RANGE CONSTANT. Operator ${this.toStringMultiLine} is checking a value against a out of range constant\n${this.getScalaLocationLong}")
+      }
+    }
+  }
 }
 
 
@@ -626,6 +644,7 @@ object Operator {
     class Equal extends BitVector.Equal {
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
@@ -635,6 +654,7 @@ object Operator {
     class NotEqual extends BitVector.NotEqual {
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
@@ -743,6 +763,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -754,6 +775,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -763,6 +785,7 @@ object Operator {
       override def opName: String = "UInt === UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -772,6 +795,7 @@ object Operator {
       override def opName: String = "UInt =/= UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -885,6 +909,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -896,6 +921,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -905,6 +931,7 @@ object Operator {
       override def opName: String = "SInt === SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -914,6 +941,7 @@ object Operator {
       override def opName: String = "SInt =/= SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }

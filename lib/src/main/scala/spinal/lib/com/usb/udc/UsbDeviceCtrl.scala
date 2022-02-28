@@ -231,7 +231,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
 
   val rxTimer = new Area {
-    val counter = Reg(UInt(log2Up(16) bits))
+    val counter = Reg(UInt(5 bits))
     val clear = False
     when(io.phy.tick) {
       counter := counter + 1
