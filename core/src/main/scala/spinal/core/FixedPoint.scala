@@ -1304,6 +1304,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  def sat(af: AFix): AFix = sat(af.maxValue, af.minValue)
   def sat(satMax: BigInt, satMin: BigInt): AFix = {
     val ret = new AFix(satMax, satMin, exp)
     when (this > AFix(satMax, exp)) {
