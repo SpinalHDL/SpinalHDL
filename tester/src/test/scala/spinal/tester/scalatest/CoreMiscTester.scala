@@ -48,9 +48,9 @@ class CoreMiscTester extends AnyFunSuite{
         c := 22
       }
 
-      val x = out(a.regNextValue)
-      val y = out(a.regNextValue)
-      val z = out(b.regNextValue)
+      val x = out(a.getAheadValue)
+      val y = out(a.getAheadValue)
+      val z = out(b.getAheadValue)
     }).doSim(seed = 42){dut =>
       var an,bn,cn,a,b,c = 0
       dut.conds.foreach(_ #= false)

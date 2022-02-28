@@ -691,13 +691,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     comb.asInstanceOf[this.type]
   }
 
-  def regNextValue() : this.type = {
+  def getAheadValue() : this.type = {
     assert(this.isReg, "Next value is only for regs")
 
     val ret = cloneOf(this)
 
     for((dst, src) <- (ret.flatten, this.flatten).zipped){
-      dst := src.regNextValue()
+      dst := src.getAheadValue()
     }
 
     ret.asInstanceOf[this.type]
