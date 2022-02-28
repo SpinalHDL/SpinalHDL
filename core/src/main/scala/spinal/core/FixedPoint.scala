@@ -1636,11 +1636,27 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
 
+
+  def truncated: AFix = {
+    val copy = cloneOf(this)
+    copy.raw := this.raw
+    copy.addTag(tagTruncated)
+    copy
+  }
+
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case af: AFix =>
-        assert(af.fracWidth <= this.fracWidth, s"Cannot assign ${af} to ${this} as fractional precision would be lost! Consider rounding before assignment.")
-        assert(af.wholeWidth <= this.wholeWidth, s"Cannot assign ${af} to ${this} as whole bits would be lost! Consider saturating before assignment.")
+        if(this.exp.value > af.exp.value && !af.hasTag(tagTruncated)){
+         PendingError(s"Cannot assign ${af} to ${this} as precision would be lost! Consider rounding before assignment.\n" + ScalaLocated.long)
+         return
+        }
+
+        val (du, dd, su, sd) = alignRanges(this, af)
+        if(du < su || dd > sd){
+          PendingError(s"Cannot assign ${af} to ${this} as it would get out of range\n" + ScalaLocated.long)
+          return
+        }
 
         if (af.bitWidth != this.bitWidth) {
           SpinalWarning(s"Assigning ${af} to ${this} required bit expansion.\n" + ScalaLocated.long)
