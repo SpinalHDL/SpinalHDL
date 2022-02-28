@@ -1592,19 +1592,20 @@ class PhaseNextifyReg() extends PhaseNetlist{
           case false => ???
           case true => {
             val dests = bt.getTags().collect{ case e : PhaseNextifyTag  => e.dest }
-            val seed = dests.head
+            val seed = dests.head //Used to implement the ff input logic
 
             dests.foreach(_.unfreeze())
 
             for(other <- dests.filter(_ != seed)) {
-              other.component.rework{other := seed.pull()}
+              other.component.rework{other := seed.pull()} //pull to ensure it work with in/out
             }
 
-            bt.parentScope.onHead(seed := bt)
+            bt.parentScope.onHead(seed := bt) //Default value
 
             bt.foreachStatements{
               case s : InitAssignmentStatement =>
               case s : DataAssignmentStatement => {
+                //Move the assignment to the seed
                 s.dlcRemove()
                 s.target = seed
                 seed.dlcAppend(s)
@@ -2450,6 +2451,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 

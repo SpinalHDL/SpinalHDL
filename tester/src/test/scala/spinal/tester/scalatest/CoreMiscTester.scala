@@ -30,7 +30,7 @@ class CoreMiscTester extends AnyFunSuite{
   test("reg_nextValue"){
     SimConfig.compile(new Component{
       val conds = in(Vec.fill(8)(Bool()))
-      val a, b, c = out(Reg(UInt(8 bits)) init(0))
+      val a, b, c, d, e = out(Reg(UInt(8 bits)) init(0))
 
       when(conds(0)){
         a := 1
@@ -46,11 +46,16 @@ class CoreMiscTester extends AnyFunSuite{
         a := 4
         b := 12
         c := 22
+        d := 31
       }
 
       val x = out(a.getAheadValue)
       val y = out(a.getAheadValue)
       val z = out(b.getAheadValue)
+
+      when(d.getAheadValue() === 0){
+        e := 1
+      }
     }).doSim(seed = 42){dut =>
       var an,bn,cn,a,b,c = 0
       dut.conds.foreach(_ #= false)
