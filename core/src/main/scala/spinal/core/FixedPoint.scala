@@ -961,9 +961,9 @@ object AFix {
              minValue*BigInt(2).pow(-exp.value), exp)
   }
 
-  def S(wholeBits: BitCount): AFix = AFix(wholeBits+(1 bit), 0 bit, signed = true)
+  def S(wholeBits: BitCount): AFix = AFix(wholeBits, 0 bit, signed = true)
   def S(wholeBits: BitCount, fracBits: BitCount): AFix = AFix(wholeBits+(1 bit), fracBits, signed = true)
-  def S(msbExp: ExpNumber, bitLength: BitCount): AFix = AFix(msbExp.value+1 bit, (bitLength.value - msbExp.value) bit, signed = true)
+  def S(msbExp: ExpNumber, bitLength: BitCount): AFix = AFix(msbExp.value bits, (bitLength.value - msbExp.value) bit, signed = true)
   def S(msbExp: ExpNumber, lsbExp: ExpNumber): AFix = AFix(msbExp.value+1 bit, -lsbExp.value bit, signed = true)
   def S(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits+(1 bit), -exp.value bit, signed = true)
   def S(value: BigInt, exp: ExpNumber): AFix =
