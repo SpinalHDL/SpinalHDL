@@ -1239,7 +1239,29 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  // Shift decimal point left
   def <<(shift: Int): AFix = {
+    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value - shift) exp)
+    ret dependsOn this
+
+    ret.raw := this.raw
+
+    ret
+  }
+
+  // Shift decimal point right
+  def >>(shift: Int): AFix = {
+    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value + shift) exp)
+    ret dependsOn this
+
+    ret.raw := this.raw
+
+    ret
+
+  }
+
+  // Shift bits and decimal point left, adding padding bits right
+  def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
     val ret = new AFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
     ret dependsOn this
@@ -1249,12 +1271,16 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
-  def >>(shift: Int): AFix = {
+  // Shift bits and decimal point right, adding padding bits left
+  def >>|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
-    val ret = new AFix(this.maxValue / shiftBig, this.minValue / shiftBig, (this.exp.value - shift) exp)
+    val ret = new AFix(this.maxValue / shiftBig, this.minValue / shiftBig, this.exp)
     ret dependsOn this
 
-    ret.raw := this.raw >> shift
+    if (this.signed)
+      ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
+    else
+      ret.raw := this.raw.asUInt.resize(ret.bitWidth).asBits
 
     ret
   }
@@ -1622,7 +1648,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         var af_frac_expand: AFix = af
         if (af.exp.value > this.exp.value) {
           val exp_diff = af.exp.value - this.exp.value
-          af_rounded = af << exp_diff
+          af_frac_expand = af <<| exp_diff
         }
 
         if (this.signed)
