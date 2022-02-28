@@ -153,6 +153,8 @@ class Axi4DownsizerTester extends AnyFunSuite {
             inputAgent.awDriver.transactionDelay = () => 0
             inputAgent.wDriver.transactionDelay = () => 0
             inputAgent.bDriver.factor = 1.1f
+        } else {
+            inputAgent.awDriver.transactionDelay = () => 100 + Random.nextInt(100)
         }
 
         val outputAgent = new Axi4WriteOnlySlaveAgent(dut.io.output, dut.clockDomain)
@@ -248,6 +250,8 @@ class Axi4DownsizerTester extends AnyFunSuite {
         if (pipelined) {
             inputAgent.arDriver.transactionDelay = () => 0
             inputAgent.rDriver.factor = 1.1f
+        } else {
+            inputAgent.arDriver.transactionDelay = () => 100 + Random.nextInt(100)
         }
 
         val outputAgent = new Axi4ReadOnlySlaveAgent(dut.io.output, dut.clockDomain)
