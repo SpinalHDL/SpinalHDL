@@ -10,6 +10,7 @@ import dotty.tools.dotc.core.Names.PreName
 import dotty.tools.dotc.core.StdNames.*
 import dotty.tools.dotc.core.Symbols.*
 import dotty.tools.dotc.core.Types.*
+import dotty.tools.dotc.core.unpickleScala2.Scala2Flags
 import dotty.tools.dotc.plugins.{PluginPhase, StandardPlugin}
 import dotty.tools.dotc.transform.{PickleQuotes, Staging}
 
@@ -57,7 +58,7 @@ class ValCallbackPhase extends PluginPhase {
     if (symbolHasTrait(cs, "spinal.idslplugin.ValCallback")) {
       val func : TermSymbol = cs.requiredMethod("valCallback")
       tpd.cpy.Template(tree)(body = tree.body.map{
-        case vd: ValDef => {
+        case vd: ValDef if !vd.symbol.annotations.exists(_.symbol.name.toString == "DontName") && !vd.rhs.isEmpty => { //TODO also, test dontname
           val nameStr = vd.name.toString
           val const = Constant(nameStr)
           val lit = Literal(const)

@@ -38,12 +38,12 @@ import spinal.idslplugin.{PostInitCallback, ValCallback}
 //}
 object Main{
   def main(args: Array[String]): Unit = {
-    new CCCCCCCCCC1
+    new CCCCCCCCCC1(2,3)
   }
 }
 
 
-class CCCCCCCCCC1 extends Component {
+class CCCCCCCCCC1(val aaaa : Int, bbbb : Int) extends Component {
   val io = new Bundle{
 
   }
