@@ -48,7 +48,7 @@ case class SingleMapping(address : BigInt) extends AddressMapping{
 
 
 case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
-  override def hit(address: UInt): Bool = (address & base) === mask
+  override def hit(address: UInt): Bool = (address & ~U(mask, widthOf(address) bits)) === base
   override def removeOffset(address: UInt) = address & ~mask
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = ???
