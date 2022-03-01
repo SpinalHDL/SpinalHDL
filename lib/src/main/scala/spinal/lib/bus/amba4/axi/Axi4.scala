@@ -210,6 +210,22 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     ret << this
     ret
   }
+
+  def pipelined(
+    aw: StreamPipe = StreamPipe.NONE,
+    w: StreamPipe = StreamPipe.NONE,
+    b: StreamPipe = StreamPipe.NONE,
+    ar: StreamPipe = StreamPipe.NONE,
+    r: StreamPipe = StreamPipe.NONE
+  ): Axi4 = {
+    val ret = cloneOf(this)
+    ret.aw << this.aw.pipelined(aw)
+    ret.w << this.w.pipelined(w)
+    ret.b.pipelined(b) >> this.b
+    ret.ar << this.ar.pipelined(ar)
+    ret.r.pipelined(r) >> this.r
+    ret
+  }
 }
 
 
