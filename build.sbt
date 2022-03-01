@@ -23,12 +23,12 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
   },
 //  concurrentRestrictions := Seq(Tags.limit(Tags.ForkedTestGroup, 4)),
 
-  libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
-
-  dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
-  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
-  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
-  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+//  libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
+//
+//  dependencyOverrides += "net.java.dev.jna" % "jna" % "4.2.2",
+//  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "4.2.2",
+//  dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
+//  dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
 
   //set SBT_OPTS="-Xmx2G"
   //sbt +clean +reload +publishSigned
@@ -73,9 +73,10 @@ lazy val all = (project in file("."))
     version := SpinalVersion.all,
     publishArtifact := false,
     publishLocal := {},
-    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
+//    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
-  .aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
+  .aggregate(play, idslpayload, idslplugin)
+  //.aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
 
 import sys.process._
@@ -86,13 +87,17 @@ def gitHash(dir: File) = (try {
 }).linesIterator.next()
 
 
-
+//val defaultSettingsWithPlugin = defaultSettings ++ Seq(
+//  scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
+//    s"-Xplugin:${file.getAbsolutePath}"
+//  }.value
+//
 lazy val idslpayload = (project in file("idslpayload"))
   .settings(
     defaultSettings,
     name := "SpinalHDL-idsl-payload",
-    version := SpinalVersion.sim,
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value
+    version := SpinalVersion.sim
+//    libraryDependencies += "org.scala-lang" %% "scala3-reflect" % scalaVersion.value
   )
 
 lazy val idslplugin = (project in file("idslplugin"))
@@ -102,100 +107,110 @@ lazy val idslplugin = (project in file("idslplugin"))
     name := "SpinalHDL-idsl-plugin",
     exportJars := true,
     libraryDependencies ++= Seq(
-      "org.scala-lang" % "scala-compiler" % scalaVersion.value
+      "org.scala-lang" %% "scala3-compiler" % scalaVersion.value
     )
   )
 
-lazy val sim = (project in file("sim"))
-  .settings(
-    defaultSettings,
-    name := "SpinalHDL-sim",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
-    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
-    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
-    version := SpinalVersion.sim
-  )
-
+//lazy val sim = (project in file("sim"))
+//  .settings(
+//    defaultSettings,
+//    name := "SpinalHDL-sim",
+//    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+//    libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
+//    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
+//    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
+//    version := SpinalVersion.sim
+//  )
+//
 val defaultSettingsWithPlugin = defaultSettings ++ Seq(
   scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
     s"-Xplugin:${file.getAbsolutePath}"
   }.value
 )
 
-lazy val core = (project in file("core"))
+lazy val play = (project in file("play"))
   .dependsOn(idslplugin)
   .settings(
     defaultSettingsWithPlugin,
-    name := "SpinalHDL-core",
-    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
-    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+    name := "SpinalHDL-play",
 
-    resolvers += Resolver.sonatypeRepo("public"),
-    version := SpinalVersion.core,
-    sourceGenerators in Compile += Def.task {
-      val dir = (sourceManaged in Compile).value
-      dir.mkdirs()
-      val file = dir / "Info.scala"
-      IO.write(file, """package spinal.core
-                       |object Info {
-                       |  val version = "%s"
-                       |  val name = "%s"
-                       |  val gitHash = "%s"
-                       |}
-                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
-      Seq(file)
-    }.taskValue
+    version := SpinalVersion.sim
   )
-  .dependsOn(sim)
-
-lazy val lib = (project in file("lib"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-lib",
-    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-    version := SpinalVersion.lib
-  )
-  .dependsOn (sim, core)
 
 
-lazy val debugger = (project in file("debugger"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL Debugger",
-    version := SpinalVersion.debugger,
-    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
-    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
-    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-.dependsOn(sim, core, lib/*, ip*/)
-
-lazy val demo = (project in file("demo"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-demo",
-    version := SpinalVersion.demo,
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger)
-
-
-lazy val tester = (project in file("tester"))
-  .settings(
-    defaultSettingsWithPlugin,
-    name := "SpinalHDL-tester",
-    version := SpinalVersion.tester,
-    baseDirectory in (Test) := file("./"),
-
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
-    publishArtifact := false,
-    publishLocal := {}
-  )
-  .dependsOn(sim, core, lib, debugger,demo)
+//lazy val core = (project in file("core"))
+//  .dependsOn(idslplugin)
+//  .settings(
+//    defaultSettingsWithPlugin,
+//    name := "SpinalHDL-core",
+//    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+//    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
+//    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+//
+//    resolvers += Resolver.sonatypeRepo("public"),
+//    version := SpinalVersion.core,
+//    sourceGenerators in Compile += Def.task {
+//      val dir = (sourceManaged in Compile).value
+//      dir.mkdirs()
+//      val file = dir / "Info.scala"
+//      IO.write(file, """package spinal.core
+//                       |object Info {
+//                       |  val version = "%s"
+//                       |  val name = "%s"
+//                       |  val gitHash = "%s"
+//                       |}
+//                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
+//      Seq(file)
+//    }.taskValue
+//  )
+//  .dependsOn(sim)
+//
+//lazy val lib = (project in file("lib"))
+//  .settings(
+//    defaultSettingsWithPlugin,
+//    name := "SpinalHDL-lib",
+//    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+//    version := SpinalVersion.lib
+//  )
+//  .dependsOn (sim, core)
+//
+//
+//lazy val debugger = (project in file("debugger"))
+//  .settings(
+//    defaultSettingsWithPlugin,
+//    name := "SpinalHDL Debugger",
+//    version := SpinalVersion.debugger,
+//    resolvers += "sparetimelabs" at "https://www.sparetimelabs.com/maven2/",
+//    libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
+//    libraryDependencies += "net.liftweb" %% "lift-json" % "3.4.3",
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//.dependsOn(sim, core, lib/*, ip*/)
+//
+//lazy val demo = (project in file("demo"))
+//  .settings(
+//    defaultSettingsWithPlugin,
+//    name := "SpinalHDL-demo",
+//    version := SpinalVersion.demo,
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//  .dependsOn(sim, core, lib, debugger)
+//
+//
+//lazy val tester = (project in file("tester"))
+//  .settings(
+//    defaultSettingsWithPlugin,
+//    name := "SpinalHDL-tester",
+//    version := SpinalVersion.tester,
+//    baseDirectory in (Test) := file("./"),
+//
+//    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.5",
+//    publishArtifact := false,
+//    publishLocal := {}
+//  )
+//  .dependsOn(sim, core, lib, debugger,demo)
 
 // Assembly
 
