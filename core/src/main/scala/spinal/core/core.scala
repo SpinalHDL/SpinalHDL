@@ -20,14 +20,15 @@
 \*                                                                           */
 package spinal
 
-import spinal.core.internals._
+import spinal.core.internals.*
 
 import scala.annotation.elidable
-import scala.annotation.elidable._
+import scala.annotation.elidable.*
 import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
+import scala.languageFeature._
 
 
 package object core extends BaseTypeFactory with BaseTypeCast {
@@ -44,9 +45,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Scala implicit
     */
-  implicit lazy val implicitConversions = scala.language.implicitConversions
-  implicit lazy val reflectiveCalls     = scala.language.reflectiveCalls
-  implicit lazy val postfixOps          = scala.language.postfixOps
+  implicit lazy val implicitConversions : implicitConversions = scala.language.implicitConversions
+  implicit lazy val reflectiveCalls     : reflectiveCalls = scala.language.reflectiveCalls
+  implicit lazy val postfixOps          : postfixOps = scala.language.postfixOps
 
   /** Implicit clause builder for `elseWhen` */
   implicit class ElseWhenClauseBuilder(cond: Bool){
@@ -65,11 +66,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Implicit senum conversion
     */
-  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) = element.asInstanceOf[SpinalEnumElement[T]]
-  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     = craft.asInstanceOf[SpinalEnumCraft[T]]
+  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) : SpinalEnumElement[T] = element.asInstanceOf[SpinalEnumElement[T]]
+  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     : SpinalEnumCraft[T] = craft.asInstanceOf[SpinalEnumCraft[T]]
 
-  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) = element.asInstanceOf[SpinalEnumElement[T2]]
-  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     = craft.asInstanceOf[SpinalEnumCraft[T2]]
+  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) : SpinalEnumElement[T2] = element.asInstanceOf[SpinalEnumElement[T2]]
+  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     : SpinalEnumCraft[T2] = craft.asInstanceOf[SpinalEnumCraft[T2]]
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
@@ -424,8 +425,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
 
-  implicit def BooleanPimped(that : Boolean) = new BooleanPimped(that)
-  implicit def IntPimped(that : Int) = new IntPimped(that)
+  implicit def BooleanPimped(that : Boolean) : BooleanPimped = new BooleanPimped(that)
+  implicit def IntPimped(that : Int)         : IntPimped = new IntPimped(that)
 
 
   //For backward compatibility
