@@ -60,13 +60,13 @@ trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: D
 
     //Remove from BaseType
     if(dlceLast != null){
-      dlceLast.dlceNext = dlceNext
+      dlceLast.asInstanceOf[DoubleLinkedContainerElement[_, _]].dlceNext = dlceNext.asInstanceOf[Nothing]
     } else {
       dlcParent.dlcHead = dlceNext
     }
 
     if(dlceNext != null){
-      dlceNext.dlceLast = dlceLast
+      dlceNext.asInstanceOf[DoubleLinkedContainerElement[_, _]].dlceLast = dlceLast.asInstanceOf[Nothing]
     } else {
       dlcParent.dlcLast = dlceLast
     }

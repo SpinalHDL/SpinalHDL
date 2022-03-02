@@ -46,14 +46,15 @@ class ValCallbackPhase extends PluginPhase {
     val cs = ctx.owner.asClass
 
     //No io bundle without component trait compilation time check
-    tree.foreachSubTree {
-      case vd: ValDef if vd.name.toString == "io" && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => {
-        if (!symbolHasTrait(cs, "spinal.core.Component") && !symbolHasTrait(cs, "spinal.core.Area") && !symbolHasTrait(cs, "spinal.core.Data") && !symbolHasTrait(cs, "spinal.core.AllowIoBundle")) {
-          report.error(s"MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component", vd.sourcePos)
-        }
-      }
-      case _ =>
-    }
+//    tree.foreachSubTree {
+//      case vd: ValDef if vd.name.toString == "io" && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => {
+//        if (!symbolHasTrait(cs, "spinal.core.Component") && !symbolHasTrait(cs, "spinal.core.Area") && !symbolHasTrait(cs, "spinal.core.Data") && !symbolHasTrait(cs, "spinal.core.AllowIoBundle")) {
+//          report.error(s"MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component", vd.sourcePos)
+//        }
+//      }
+//      case _ =>
+//    }
+
 
     if (symbolHasTrait(cs, "spinal.idslplugin.ValCallback")) {
       val func : TermSymbol = cs.requiredMethod("valCallback")
@@ -90,12 +91,6 @@ class PostInitPhase extends PluginPhase {
       case p : ClassSymbol => (p.fullName.toString == name) || symbolHasTrait(p, name)
     }
   }
-
-//
-//  override def transformOther(tree: tpd.Tree)(implicit ctx: Context): Tree = {
-//    println(tree)
-//    tree
-//  }
 
   override def transformApply(a: Apply)(implicit ctx: Context): Tree = {
     var ret: Tree = a

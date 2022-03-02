@@ -32,6 +32,12 @@ trait SIntFactory{
   def SInt(width: BitCount): SInt = SInt().setWidth(width.value)
 }
 
+object SInt {
+  /** Create a new SInt */
+  def apply() = new SInt()
+  /** Create a new SInt of a given width */
+  def apply(width: BitCount): SInt = SInt().setWidth(width.value)
+}
 
 /**
   * The SInt type corresponds to a vector of bits that can be used for signed integer arithmetic.
@@ -44,7 +50,7 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
+class SInt() extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BaseTypePrimitives[SInt]  with BitwiseOp[SInt] {
   override def tag(q: QFormat): SInt = {
     require(q.signed, "assign UQ to SInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")
@@ -498,7 +504,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     node
   })
 
-  override def resize(width: BitCount) = resize(width.value)
+  override def resize(width: BitCount) : SInt = resize(width.value)
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
   override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1

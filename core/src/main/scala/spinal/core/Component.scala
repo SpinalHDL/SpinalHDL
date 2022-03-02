@@ -26,6 +26,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import spinal.core.internals._
 import spinal.idslplugin.PostInitCallback
+import scala.reflect.Selectable
 
 
 object Component {
@@ -62,7 +63,7 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec {
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with PostInitCallback with Stackable with OwnableRef with SpinalTagReady with OverridedEqualsHashCode with ValCallbackRec with Selectable{
   if(globalData.toplevel == null) globalData.toplevel = this
   if(globalData.phaseContext.topLevel == null) globalData.phaseContext.topLevel = this
   val dslBody = new ScopeStatement(null)

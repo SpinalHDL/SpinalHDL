@@ -23,6 +23,7 @@ package spinal.core
 import spinal.core.Nameable.DATAMODEL_WEAK
 import spinal.core.internals.Misc
 import spinal.idslplugin.PostInitCallback
+import scala.reflect.Selectable
 
 
 
@@ -50,7 +51,7 @@ class Composite[T <: Nameable](val self : T, postfix : String = null, weak : Boo
   }
 }
 
-trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode  {
+trait Area extends NameableByComponent with ContextUser with OwnableRef with ScalaLocated with ValCallbackRec with OverridedEqualsHashCode with Selectable {
   def childNamePriority = DATAMODEL_WEAK
   val _context = ScopeProperty.capture() //TODO not as heavy
   def rework[T](body : => T): T = {
@@ -154,24 +155,24 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
 /**
   * Define a clock domain which is x time slower than the current clock
   */
-class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
-  def this(factor: BigInt) : Unit = {
-    this(factor, allowRounding = false)
-  }
-
-  def this(frequency: HertzNumber, allowRounding : Boolean) : Unit = {
-    this((ClockDomain.current.frequency.getValue / frequency).toBigInt, allowRounding)
-
-    val factor = ClockDomain.current.frequency.getValue / frequency
-    require(allowRounding || factor.toBigInt == factor)
-  }
-
-  def this(frequency: HertzNumber) : Unit = {
-    this(frequency, allowRounding = false)
-  }
-
-  def getFrequency() = (ClockDomain.current.frequency.getValue.toBigDecimal / BigDecimal(factor)) Hz
-}
+//class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
+//  def this(factor: BigInt) {
+//    this(factor, allowRounding = false)
+//  }
+//
+//  def this(frequency: HertzNumber, allowRounding : Boolean) {
+//    this((ClockDomain.current.frequency.getValue / frequency).toBigInt, allowRounding)
+//
+//    val factor = ClockDomain.current.frequency.getValue / frequency
+//    require(allowRounding || factor.toBigInt == factor)
+//  }
+//
+//  def this(frequency: HertzNumber) {
+//    this(frequency, allowRounding = false)
+//  }
+//
+//  def getFrequency() = (ClockDomain.current.frequency.getValue.toBigDecimal / BigDecimal(factor)) Hz
+//}
 
 
 /**

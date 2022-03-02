@@ -74,7 +74,39 @@ trait VecFactory {
   val Vec = new VecBuilder()
 }
 
+object Vec {
+  def apply[T <: Data](elements: TraversableOnce[T], dataType : HardType[T] = null): Vec[T] = {
+    val vector = elements.toVector
 
+    if(vector.nonEmpty) {
+      val vecType = if(dataType != null) dataType else {
+        val data = vector.reduce((a, b) => {
+          if (a.getClass.isAssignableFrom(b.getClass)) a
+          else if (b.getClass.isAssignableFrom(a.getClass)) b
+          else throw new Exception("can't mux that")
+        })
+        HardType(data)
+      }
+
+      new Vec(vecType, vector)
+    }else{
+      new Vec[T](null.asInstanceOf[T], vector)
+    }
+  }
+
+  def apply[T <: Data](gen: => T, size: Int): Vec[T] = Vec.fill(size)(gen)
+  def apply[T <: Data](gen: HardType[T], size: Int): Vec[T] = Vec.fill(size)(gen())
+
+  def apply[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
+
+  def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
+    Vec((0 until size).map(gen(_)))
+  }
+
+  def fill[T <: Data](size: Int)(dataType: => T): Vec[T] = {
+    Vec((0 until size).map(_ => dataType), HardType(dataType))
+  }
+}
 
 class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec: Vec[T]) extends Assignable {
 

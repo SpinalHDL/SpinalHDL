@@ -150,6 +150,15 @@ trait UFixFactory extends TypeFactory{
   def UFix(peak: ExpNumber, resolution: ExpNumber): UFix = postTypeFactory(new UFix(peak.value, peak.value - resolution.value))
 }
 
+object SFix{
+  def apply(peak: ExpNumber, width: BitCount): SFix = (new SFix(peak.value, width.value))
+  def apply(peak: ExpNumber, resolution: ExpNumber): SFix = (new SFix(peak.value, 1 + peak.value - resolution.value))
+}
+
+object UFix{
+  def apply(peak: ExpNumber, width: BitCount): UFix = (new UFix(peak.value, width.value))
+  def apply(peak: ExpNumber, resolution: ExpNumber): UFix = (new UFix(peak.value, peak.value - resolution.value))
+}
 
 trait SFixCast {
   @deprecated("Use xxx.toSFix instead", "???")
@@ -408,7 +417,7 @@ class SFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
     copy.y := this.y
     copy.x.addTag(tagTruncated)
     copy.y.addTag(tagTruncated)
-    copy
+    copy.asInstanceOf[this.type]
   }
 
   override def clone: this.type = new SFix2D(maxExp, bitCount).asInstanceOf[this.type]
@@ -529,7 +538,7 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
     copy.y := this.y
     copy.x.addTag(tagTruncated)
     copy.y.addTag(tagTruncated)
-    copy
+    copy.asInstanceOf[this.type]
   }
 
   override def clone: UFix2D.this.type = new UFix2D(maxExp, bitCount).asInstanceOf[this.type]

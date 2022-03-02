@@ -34,6 +34,12 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
+object UInt{
+  /** Create a new UInt */
+  def apply() = new UInt()
+  /** Create a new UInt of a given width */
+  def apply(width: BitCount): UInt = UInt().setWidth(width.value)
+}
 
 /**
   * The UInt type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
@@ -48,7 +54,7 @@ trait UIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
-class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
+class UInt() extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BaseTypePrimitives[UInt] with BitwiseOp[UInt]{
   override def tag(q: QFormat): UInt = {
     require(!q.signed, "assign SQ to UInt")
     require(q.width == this.getWidth, s"${q} width mismatch!")
@@ -369,7 +375,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node
   })
 
-  override def resize(width: BitCount) = resize(width.value)
+  override def resize(width: BitCount) : this.type = resize(width.value)
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1

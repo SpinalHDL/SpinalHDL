@@ -25,7 +25,7 @@ import spinal.core.internals._
 import spinal.idslplugin.ValCallback
 
 import scala.collection.mutable
-
+import scala.reflect.Selectable
 
 /**
   * The Bundle is a composite type that defines a group of named signals (of any SpinalHDL basic type) under a single name.
@@ -89,7 +89,7 @@ trait ValCallbackRec extends ValCallback{
   }
 }
 
-class Bundle extends MultiData with Nameable with ValCallbackRec {
+class Bundle extends MultiData with Nameable with ValCallbackRec with Selectable{
 
   var hardtype: HardType[_] = null
 

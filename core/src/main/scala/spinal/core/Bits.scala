@@ -32,6 +32,12 @@ trait BitsFactory {
   def Bits(width: BitCount): Bits = Bits().setWidth(width.value)
 }
 
+object Bits {
+  /** Create a new Bits */
+  def apply() = new Bits()
+  /** Create a new Bits of a given width */
+  def apply(width: BitCount): Bits = Bits().setWidth(width.value)
+}
 
 /**
   * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
@@ -45,7 +51,7 @@ trait BitsFactory {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
   */
-class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[Bits] with BitwiseOp[Bits]{
+class Bits() extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[Bits] with BitwiseOp[Bits]{
 
   override def getTypeObject  = TypeBits
 
@@ -191,7 +197,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     node
   })
 
-  override def resize(width: BitCount) = resize(width.value)
+  override def resize(width: BitCount) : Bits = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits
 

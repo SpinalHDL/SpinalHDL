@@ -31,7 +31,7 @@ import scala.language.experimental.macros
 import scala.languageFeature._
 
 
-package object core extends BaseTypeFactory with BaseTypeCast {
+package object core extends BaseTypeCast {
 
   import languageFeature.implicitConversions
 
