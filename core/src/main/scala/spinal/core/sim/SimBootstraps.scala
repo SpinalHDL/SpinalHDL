@@ -799,17 +799,17 @@ case class SimConfigLegacy[T <: Component](
   def normalOptimisation: this.type = { _simConfig.normalOptimisation ; this }
   def allOptimisation: this.type    = { _simConfig.allOptimisation ; this }
 
-  def doSim(body: T => Unit): Unit = compile.doSim(body)
-  def doSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doSim(body: T => Unit): Unit = compile().doSim(body)
+  def doSim(name: String)(body: T => Unit): Unit = compile().doSim(name)(body)
+  def doSim(name: String, seed: Int)(body: T => Unit): Unit = compile().doSim(name, seed)(body)
 
-  def doManagedSim(body: T => Unit): Unit = compile.doSim(body)
-  def doManagedSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doManagedSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doManagedSim(body: T => Unit): Unit = compile().doSim(body)
+  def doManagedSim(name: String)(body: T => Unit): Unit = compile().doSim(name)(body)
+  def doManagedSim(name: String, seed: Int)(body: T => Unit): Unit = compile().doSim(name, seed)(body)
 
-  def doSimUntilVoid(body: T => Unit): Unit = compile.doSimUntilVoid(body)
-  def doSimUntilVoid(name: String)(body: T => Unit): Unit = compile.doSimUntilVoid(name)(body)
-  def doSimUntilVoid(name: String, seed: Int)(body: T => Unit): Unit = compile.doSimUntilVoid(name, seed)(body)
+  def doSimUntilVoid(body: T => Unit): Unit = compile().doSimUntilVoid(body)
+  def doSimUntilVoid(name: String)(body: T => Unit): Unit = compile().doSimUntilVoid(name)(body)
+  def doSimUntilVoid(name: String, seed: Int)(body: T => Unit): Unit = compile().doSimUntilVoid(name, seed)(body)
 
   def compile(): SimCompiled[T] = {
     (_rtlGen, _spinalReport)  match {

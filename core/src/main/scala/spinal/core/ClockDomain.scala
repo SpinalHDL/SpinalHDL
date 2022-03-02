@@ -248,7 +248,7 @@ object Clock{
     source.addTag(ClockDriverTag(sink))
     sink.addTag(ClockDrivedTag(source))
   }
-  def sync(a : Bool, b : Bool): Unit ={
+  def sync(a : Bool, b : Bool): this.type ={
     val tag = new ClockSyncTag(a, b)
     a.addTag(tag)
     b.addTag(tag)

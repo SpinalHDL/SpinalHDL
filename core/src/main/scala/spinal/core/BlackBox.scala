@@ -202,7 +202,7 @@ abstract class BlackBox extends Component{
   * Create a blackBox with std_ulogic instead of std_logic
   */
 abstract class BlackBoxULogic extends BlackBox {
-  replaceStdLogicByStdULogic
+  replaceStdLogicByStdULogic()
 }
 
 

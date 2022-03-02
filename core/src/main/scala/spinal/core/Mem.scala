@@ -302,7 +302,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
 
   def writeImpl(address: UInt, data: Data, enable: Bool = null, mask: Bits = null, allowMixedWidth: Boolean = false): Unit = {
 
-    val whenCond =  if(enable == null) ConditionalContext.isTrue else enable
+    val whenCond =  if(enable == null) ConditionalContext.isTrue() else enable
     val writePort = MemWrite(this, address, data.asBits, mask, whenCond, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
     this.parentScope.append(writePort)
     this.dlcAppend(writePort)
@@ -482,7 +482,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     symbolWidth
   }
 
-  private[core] def getMemSymbolCount(): Int = getWidth / getMemSymbolWidth
+  private[core] def getMemSymbolCount(): Int = getWidth / getMemSymbolWidth()
 
   def randBoot(): this.type = {
     if(!globalData.phaseContext.config.noRandBoot) addTag(spinal.core.randomBoot)
