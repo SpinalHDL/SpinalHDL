@@ -136,19 +136,23 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   private def alignRanges(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
     val expDiff = l.exp.value - r.exp.value
-    if (expDiff >= 0) {
-      (l.maxValue*BigInt(2).pow(expDiff), l.minValue*BigInt(2).pow(expDiff), r.maxValue, r.minValue)
+    if (expDiff < 0) {
+      (l.maxValue*BigInt(2).pow(-expDiff), l.minValue*BigInt(2).pow(-expDiff), r.maxValue, r.minValue)
+    } else if (expDiff > 0) {
+      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(expDiff), r.minValue*BigInt(2).pow(expDiff))
     } else {
-      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(-expDiff), r.minValue*BigInt(2).pow(-expDiff))
+      (l.maxValue, l.minValue, r.maxValue, r.minValue)
     }
   }
 
   private def alignLR(l: AFix, r: AFix): (Bits, Bits) = {
     val expDiff = l.exp.value - r.exp.value
-    if (expDiff >= 0) {
-      (l.raw << expDiff, r.raw)
+    if (expDiff < 0) {
+      (l.raw << -expDiff, r.raw)
+    } else if (expDiff > 0) {
+      (l.raw, r.raw << expDiff)
     } else {
-      (l.raw, r.raw << -expDiff)
+      (l.raw, r.raw)
     }
   }
 
