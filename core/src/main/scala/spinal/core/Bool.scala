@@ -32,6 +32,11 @@ trait BoolFactory {
 }
 
 
+object Bool{
+  def apply() : Bool = new Bool
+  def apply(value: Boolean): Bool = BoolLiteral(value, this.Bool().setAsTypeNode())
+}
+
 /**
   * The Bool type corresponds to a boolean value (True or False)
   *

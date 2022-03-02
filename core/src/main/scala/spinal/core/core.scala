@@ -38,9 +38,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   type Module = spinal.core.Component
   type dontName = spinal.core.DontName @field
 
-  def Bool : Bool = new Bool
-  def Bool(u: DummyTrait = DummyObject) : Bool = new Bool
-  def Bool(value: Boolean): Bool = BoolLiteral(value, this.Bool().setAsTypeNode())
 
   /**
     * Scala implicit
@@ -474,7 +471,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       val leftWidth = elements.map(_.getBitsWidth).sum
       var rightOp = right
       if(right.hasTag(tagAutoResize)){
-        rightOp = right.resize(leftWidth bits)
+        rightOp = right.resize(leftWidth)
       }
       assert(rightOp.getWidth == leftWidth, s"Width missmatch (${right.getWidth} != $leftWidth")
       var offset = 0
