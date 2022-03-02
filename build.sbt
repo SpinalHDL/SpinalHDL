@@ -75,7 +75,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
 //    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
-  .aggregate(play, idslpayload, idslplugin)
+  .aggregate(play, sim, idslpayload, idslplugin, core)
   //.aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
 
@@ -111,17 +111,17 @@ lazy val idslplugin = (project in file("idslplugin"))
     )
   )
 
-//lazy val sim = (project in file("sim"))
-//  .settings(
-//    defaultSettings,
-//    name := "SpinalHDL-sim",
-//    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-//    libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
-//    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
-//    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
-//    version := SpinalVersion.sim
-//  )
-//
+lazy val sim = (project in file("sim"))
+  .settings(
+    defaultSettings,
+    name := "SpinalHDL-sim",
+    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+    libraryDependencies += "net.openhft" % "affinity" % "3.1.11",
+    libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25",
+    libraryDependencies += "com.github.dblock" % "oshi-core" % "3.4.0",
+    version := SpinalVersion.sim
+  )
+
 val defaultSettingsWithPlugin = defaultSettings ++ Seq(
   scalacOptions += (artifactPath in(idslplugin, Compile, packageBin)).map { file =>
     s"-Xplugin:${file.getAbsolutePath}"
@@ -138,32 +138,32 @@ lazy val play = (project in file("play"))
   )
 
 
-//lazy val core = (project in file("core"))
-//  .dependsOn(idslplugin)
-//  .settings(
-//    defaultSettingsWithPlugin,
-//    name := "SpinalHDL-core",
+lazy val core = (project in file("core"))
+  .dependsOn(idslplugin)
+  .settings(
+    defaultSettingsWithPlugin,
+    name := "SpinalHDL-core",
 //    libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
-//    libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.1",
-//    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
-//
-//    resolvers += Resolver.sonatypeRepo("public"),
-//    version := SpinalVersion.core,
-//    sourceGenerators in Compile += Def.task {
-//      val dir = (sourceManaged in Compile).value
-//      dir.mkdirs()
-//      val file = dir / "Info.scala"
-//      IO.write(file, """package spinal.core
-//                       |object Info {
-//                       |  val version = "%s"
-//                       |  val name = "%s"
-//                       |  val gitHash = "%s"
-//                       |}
-//                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
-//      Seq(file)
-//    }.taskValue
-//  )
-//  .dependsOn(sim)
+    libraryDependencies += "com.github.scopt" %% "scopt" % "4.0.1",
+    libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.2.7",
+
+    resolvers += Resolver.sonatypeRepo("public"),
+    version := SpinalVersion.core,
+    sourceGenerators in Compile += Def.task {
+      val dir = (sourceManaged in Compile).value
+      dir.mkdirs()
+      val file = dir / "Info.scala"
+      IO.write(file, """package spinal.core
+                       |object Info {
+                       |  val version = "%s"
+                       |  val name = "%s"
+                       |  val gitHash = "%s"
+                       |}
+                       |""".stripMargin.format(SpinalVersion.core, name, gitHash(dir)))
+      Seq(file)
+    }.taskValue
+  )
+  .dependsOn(sim)
 //
 //lazy val lib = (project in file("lib"))
 //  .settings(

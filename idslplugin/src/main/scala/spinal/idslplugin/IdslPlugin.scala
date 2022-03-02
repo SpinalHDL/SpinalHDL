@@ -18,7 +18,7 @@ class IdslPlugin extends StandardPlugin {
   override val name: String = "IdslPlugin"
   override val description: String = "IDSL plugin"
 
-  def init(options: List[String]): List[PluginPhase] = List(new PostInitPhase, new ValCallbackPhase)
+  def init(options: List[String]): List[PluginPhase] = Nil //List(new PostInitPhase, new ValCallbackPhase)
 }
 
 
