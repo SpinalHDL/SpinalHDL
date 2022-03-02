@@ -31,8 +31,9 @@ class ValCallbackPhase extends PluginPhase {
   override val runsBefore = Set(PickleQuotes.name)
 
   def symbolHasTrait(s: ClassSymbol, name: String)(implicit ctx: Context): Boolean = {
+    if(s.fullName.toString == name) return true
     s.parentSyms.exists {
-      case p : ClassSymbol => (p.fullName.toString == name) || symbolHasTrait(p, name)
+      case p : ClassSymbol => symbolHasTrait(p, name)
     }
   }
 
@@ -46,14 +47,14 @@ class ValCallbackPhase extends PluginPhase {
     val cs = ctx.owner.asClass
 
     //No io bundle without component trait compilation time check
-//    tree.foreachSubTree {
-//      case vd: ValDef if vd.name.toString == "io" && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => {
-//        if (!symbolHasTrait(cs, "spinal.core.Component") && !symbolHasTrait(cs, "spinal.core.Area") && !symbolHasTrait(cs, "spinal.core.Data") && !symbolHasTrait(cs, "spinal.core.AllowIoBundle")) {
-//          report.error(s"MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component", vd.sourcePos)
-//        }
-//      }
-//      case _ =>
-//    }
+    tree.body.foreach {
+      case vd: ValDef if vd.name.toString == "io" && vd.rhs != null && typeHasTrait(vd.rhs.tpe, "spinal.core.Bundle") => {
+        if (!symbolHasTrait(cs, "spinal.core.Component") && !symbolHasTrait(cs, "spinal.core.Area") && !symbolHasTrait(cs, "spinal.core.Data") && !symbolHasTrait(cs, "spinal.core.AllowIoBundle")) {
+          report.error(s"MISSING EXTENDS COMPONENT\nclass with 'val io = new Bundle{...}' should extends spinal.core.Component", vd.sourcePos)
+        }
+      }
+      case _ =>
+    }
 
 
     if (symbolHasTrait(cs, "spinal.idslplugin.ValCallback")) {
