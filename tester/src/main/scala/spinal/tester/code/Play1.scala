@@ -2321,11 +2321,11 @@ object vhd_stdio_play3 {
 //  import spinal.core.MacroTest._
 //
 //  class TopLevel extends Component {
-//    val e = enum('s1, 's2, 's3)
+//    val e = senum('s1, 's2, 's3)
 //
 //    import e._
 //
-//    val e2 = enum('s1, 's2, 's3)
+//    val e2 = senum('s1, 's2, 's3)
 //
 //    import e2._
 //

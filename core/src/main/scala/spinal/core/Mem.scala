@@ -195,7 +195,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
         def walk(that: BaseType): Unit = that.head match {
           case AssignmentStatement(_, literal: Literal) if element.hasOnlyOneStatement =>
             val value = (((literal match {
-              case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.enum)
+              case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.senum)
               case literal: BitVectorLiteral => {
                 if(literal.minimalValueBitWidth > width)
                   SpinalError(s"MEM_INIT error, literal at intex $elementId is too big. 0x${literal.getValue().toString(16).toUpperCase()} => ${literal.minimalValueBitWidth} bits (more than $width bits)")

@@ -480,7 +480,7 @@ object PlayDevSwitchEnum{
 //    }
 //
 //
-//    val enum = new Bundle {
+//    val senum = new Bundle {
 //      object State extends SpinalEnum{
 //        val X,Y, Z = newElement()
 //      }

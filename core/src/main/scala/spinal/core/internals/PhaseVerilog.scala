@@ -184,9 +184,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str    = encoding.getValue(enum).toString(2)
-      val length = encoding.getWidth(enum.spinalEnum)
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str    = encoding.getValue(senum).toString(2)
+      val length = encoding.getWidth(senum.spinalEnum)
       length.toString + "'b" + ("0" * (length - str.length)) + str
     }
 
