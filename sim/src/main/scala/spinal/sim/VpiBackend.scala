@@ -120,13 +120,13 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     analyzeRTL() 
   }
 
-  def clean() {
+  def clean() : Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
     FileUtils.cleanDirectory(new File(pluginsPath))
   }
 
-  def compileVPI()  // Return the plugin name
-  def analyzeRTL()
+  def compileVPI() : Unit   // Return the plugin name
+  def analyzeRTL() : Unit
   def runSimulation(sharedMemIface: SharedMemIface) : Thread
 
   def instanciate_() : (SharedMemIface, Thread) = {
@@ -153,11 +153,11 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def instanciate(seed : Long) : (SharedMemIface, Thread) = {
     val ret = if(useCache) {
       VpiBackend.synchronized {
-        instanciate_
+        instanciate_()
       }
     } else {
       this.synchronized {
-        instanciate_
+        instanciate_()
       }
     }
     ret._1.set_seed(seed)
@@ -240,7 +240,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     }
   } 
 
-  def analyzeRTL() {
+  def analyzeRTL() : Unit = {
 
     val vhdlSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".vhd") || 
     s.endsWith(".vhdl")) }
@@ -404,7 +404,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
     }
   } 
 
-  def analyzeRTL() {
+  def analyzeRTL() : Unit = {
     val verilogSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".v") || 
                                                            s.endsWith(".sv") ||
                                                            s.endsWith(".vl")) }
