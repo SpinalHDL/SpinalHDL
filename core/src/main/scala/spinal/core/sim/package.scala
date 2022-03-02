@@ -778,7 +778,7 @@ package object sim {
   case class SimMutex(){
     val queue = mutable.Queue[SimThread]()
     var locked = false
-    def lock(){
+    def lock() : Unit = {
       if(locked) {
         val t = simThread
         queue.enqueue(t)
@@ -787,7 +787,7 @@ package object sim {
         locked = true
       }
     }
-    def unlock(){
+    def unlock() : Unit = {
       assert(locked)
       if(queue.nonEmpty) {
         queue.dequeue().resume()

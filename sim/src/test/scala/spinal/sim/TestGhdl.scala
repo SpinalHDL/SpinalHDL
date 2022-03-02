@@ -234,10 +234,10 @@ object TestGhdl7 extends App{
   val nibble1 = new Signal(Seq("adder","nibble1"), new UIntDataType(4))
   val nibble2 = new Signal(Seq("adder","nibble2"), new UIntDataType(4))
   val sum = new Signal(Seq("adder","sum"), new UIntDataType(4))
-  simVpi.eval
+  simVpi.eval()
   simVpi.setInt(nibble1, 3)
   simVpi.setInt(nibble2, 5)
-  simVpi.eval
+  simVpi.eval()
   println("3 + 5 = " + simVpi.getInt(sum).toString)
   simVpi.setLong(nibble1, 4)
   simVpi.setLong(nibble2, 1)
@@ -245,7 +245,7 @@ object TestGhdl7 extends App{
   println("4 + 1 = " + simVpi.getLong(sum).toString)
   simVpi.setBigInt(nibble1, BigInt(2))
   simVpi.setBigInt(nibble2, BigInt(3))
-  simVpi.eval
+  simVpi.eval()
   println("2 + 3 = " + simVpi.getBigInt(sum).toString)
   println("Finished TestGhdl7")
 }
@@ -349,7 +349,7 @@ object TestGhdl12 extends App {
   config.waveFormat = WaveFormat.VCD
   config.useCache = true
 
-  val (ghdlbackend, _) = GhdlBackend.getLLVM(config).instanciate
+  val (ghdlbackend, _) = GhdlBackend.getLLVM(config).instanciate()
    for(i <- 0l to 1000000l){
     ghdlbackend.randomize(i)
     ghdlbackend.sleep(1)

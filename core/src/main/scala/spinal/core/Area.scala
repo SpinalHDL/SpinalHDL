@@ -155,18 +155,18 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
   * Define a clock domain which is x time slower than the current clock
   */
 class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
-  def this(factor: BigInt) {
+  def this(factor: BigInt) : Unit = {
     this(factor, allowRounding = false)
   }
 
-  def this(frequency: HertzNumber, allowRounding : Boolean) {
+  def this(frequency: HertzNumber, allowRounding : Boolean) : Unit = {
     this((ClockDomain.current.frequency.getValue / frequency).toBigInt, allowRounding)
 
     val factor = ClockDomain.current.frequency.getValue / frequency
     require(allowRounding || factor.toBigInt == factor)
   }
 
-  def this(frequency: HertzNumber) {
+  def this(frequency: HertzNumber) : Unit = {
     this(frequency, allowRounding = false)
   }
 
