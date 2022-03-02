@@ -71,7 +71,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
  * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
  * hardware representation of the the element.
  *
- * @param defaultEncoding encoding of the enum
+ * @param defaultEncoding encoding of the senum
  */
 class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
 
@@ -229,40 +229,40 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
 /**
   * Node representation which contains the value of an SpinalEnumElement
   */
-class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal with InferableEnumEncodingImpl {
+class EnumLiteral[T <: SpinalEnum](val senum: SpinalEnumElement[T]) extends Literal with InferableEnumEncodingImpl {
 
   override def getTypeObject: Any = TypeEnum
 
   override def opName: String = "E"
 
   override def clone: this.type = {
-    val ret = new EnumLiteral(enum).asInstanceOf[this.type]
+    val ret = new EnumLiteral(senum).asInstanceOf[this.type]
     ret.copyEncodingConfig(this)
     ret
   }
 
-  override def getValue(): BigInt = encoding.getValue(enum)
+  override def getValue(): BigInt = encoding.getValue(senum)
 
   private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol: Char): String = {
-    val str = encoding.getValue(enum).toString(2)
+    val str = encoding.getValue(senum).toString(2)
     "0" * (bitCount - str.length) + str
   }
   override def hasPoison() = false
 
-  override def getDefinition: SpinalEnum = enum.spinalEnum
+  override def getDefinition: SpinalEnum = senum.spinalEnum
 
-  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.spinalEnum.defaultEncoding
+  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = senum.spinalEnum.defaultEncoding
 }
 
 
-class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
+class EnumPoison(val senum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
 
   override def getTypeObject: Any = TypeEnum
 
   override def opName: String = "E?"
 
   override def clone: this.type = {
-    val ret = new EnumPoison(enum).asInstanceOf[this.type]
+    val ret = new EnumPoison(senum).asInstanceOf[this.type]
     ret.copyEncodingConfig(this)
     ret
   }
@@ -270,13 +270,13 @@ class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodin
   override def getValue(): BigInt = throw new Exception("EnumPoison has no value")
 
   private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol: Char): String = {
-    val str = poisonSymbol.toString * encoding.getWidth(enum)
+    val str = poisonSymbol.toString * encoding.getWidth(senum)
     "0" * (bitCount - str.length) + str
   }
 
-  override def getDefinition: SpinalEnum = enum
+  override def getDefinition: SpinalEnum = senum
   override def hasPoison() = true
-  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.defaultEncoding
+  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = senum.defaultEncoding
 }
 
 
@@ -286,10 +286,10 @@ class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodin
   */
 trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   /** Return the width of the encoding  */
-  def getWidth(enum: SpinalEnum): Int
+  def getWidth(senum: SpinalEnum): Int
   /** Return the value of the encoding */
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
-  def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T]
+  def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T]
 
   def isNative: Boolean
 }
@@ -299,9 +299,9 @@ trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   * Inferred encoding
   */
 object inferred extends SpinalEnumEncoding{
-  override def getWidth(enum: SpinalEnum): Int = ???
+  override def getWidth(senum: SpinalEnum): Int = ???
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = ???
-  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = ???
+  override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = ???
   override def isNative: Boolean = ???
 }
 
@@ -310,9 +310,9 @@ object inferred extends SpinalEnumEncoding{
   * Native encoding
   */
 object native extends SpinalEnumEncoding{
-  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.length)
+  override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
-  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
+  override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.toInt)
 
   override def isNative = true
   setName("native")
@@ -324,9 +324,9 @@ object native extends SpinalEnumEncoding{
   * @example{{{ 000, 001, 010, 011, 100, 101, .... }}}
   */
 object binarySequential extends SpinalEnumEncoding{
-  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.length)
+  override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.length)
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
-  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.toInt)
+  override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.toInt)
   override def isNative = false
   setName("seq")
 }
@@ -337,9 +337,9 @@ object binarySequential extends SpinalEnumEncoding{
   * @example{{{ 001, 010, 100 }}}
   */
 object binaryOneHot extends SpinalEnumEncoding{
-  override def getWidth(enum: SpinalEnum): Int = enum.elements.length
+  override def getWidth(senum: SpinalEnum): Int = senum.elements.length
   override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
-  override def getElement[T <: SpinalEnum](element: BigInt, enum : T): SpinalEnumElement[T] = enum.elements(element.bitLength-1)
+  override def getElement[T <: SpinalEnum](element: BigInt, senum : T): SpinalEnumElement[T] = senum.elements(element.bitLength-1)
   override def isNative = false
   setName("oh")
 }
@@ -370,10 +370,10 @@ object SpinalEnumEncoding{
   def apply(name: String, spec: BigInt => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
 
   def apply(spec: BigInt => BigInt): SpinalEnumEncoding = new SpinalEnumEncoding {
-    override def getWidth(enum: SpinalEnum): Int = log2Up(enum.elements.map(getValue(_)).max)
+    override def getWidth(senum: SpinalEnum): Int = log2Up(senum.elements.map(getValue(_)).max)
     override def isNative: Boolean = false
     override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = spec(element.position)
-    override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = ???
+    override def getElement[T <: SpinalEnum](element: BigInt, senum: T) = ???
   }
 
   def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X], BigInt]): SpinalEnumEncoding = list(spec).setName(name)
@@ -386,12 +386,12 @@ object SpinalEnumEncoding{
     return new SpinalEnumEncoding {
       val width = log2Up(spec.values.foldLeft(BigInt(0))((a, b) => if(a > b) a else b) + 1)
       val specInv = spec.map(_.swap)
-      override def getWidth(enum: SpinalEnum): Int = width
+      override def getWidth(senum: SpinalEnum): Int = width
       override def isNative: Boolean = false
       override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
-      override def getElement[T <: SpinalEnum](element: BigInt, enum: T) = specInv(element).asInstanceOf[SpinalEnumElement[T]]
+      override def getElement[T <: SpinalEnum](element: BigInt, senum: T) = specInv(element).asInstanceOf[SpinalEnumElement[T]]
     }
   }
 }

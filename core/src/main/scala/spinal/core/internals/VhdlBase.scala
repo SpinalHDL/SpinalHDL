@@ -62,20 +62,20 @@ trait VhdlBase extends VhdlVerilogBase{
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
 
-  def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+  def emitEnumLiteral[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
     if(encoding.isNative)
-      return enumPackageName + "." + enum.getName()
+      return enumPackageName + "." + senum.getName()
     else
-      return enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+      return senum.spinalEnum.getName() + "_" + encoding.getName() + "_" + senum.getName()
   }
 
-  def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T]): String = emitEnumType(enum.spinalEnum, enum.getEncoding)
+  def emitEnumType[T <: SpinalEnum](senum: SpinalEnumCraft[T]): String = emitEnumType(senum.spinalEnum, senum.getEncoding)
 
-  def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding): String = {
+  def emitEnumType(senum: SpinalEnum, encoding: SpinalEnumEncoding): String = {
     if(encoding.isNative)
-      return enum.getName()
+      return senum.getName()
     else
-      return enum.getName() + "_" + encoding.getName() + "_type"
+      return senum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def emitStructType(struct: SpinalStruct): String = {
@@ -87,7 +87,7 @@ trait VhdlBase extends VhdlVerilogBase{
     case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
     case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
-    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
+    case senum: SpinalEnumCraft[_] => emitEnumType(senum)
     case struct: SpinalStruct => emitStructType(struct)
   }
 

@@ -932,7 +932,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
           val privateNsN = (if(config.privateNamespace) topLevel.definitionName + "_" else "")
           c.definitionName = pre + privateNsN + classNameOf(c)
         } else {
-          c.definitionName = pre + c.definitionName 
+          c.definitionName = pre + c.definitionName
         }
       }
       if (c.definitionName == "") {
@@ -970,7 +970,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkDeclarations {
-      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum, null) //Encodings will be added later
+      case senum: SpinalEnumCraft[_] => enums.getOrElseUpdate(senum.spinalEnum, null) //Encodings will be added later
       case _ =>
     }
 
@@ -1099,14 +1099,14 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
       node.bootInferration()
     })
 
-    nodes.foreach(enum => {
-      enum.swapEncoding(encodingSwap(enum.getEncoding))
+    nodes.foreach(senum => {
+      senum.swapEncoding(encodingSwap(senum.getEncoding))
     })
 
     algo = globalData.allocateAlgoIncrementale()
 
-    nodes.foreach(enum => {
-      if(enum.propagateEncoding){
+    nodes.foreach(senum => {
+      if(senum.propagateEncoding){
 
         def propagateOn(that : Expression): Unit = {
           that match {
@@ -1115,7 +1115,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
               that.algoIncrementale = algo
 
-              if(that.encodingProposal(enum.getEncoding)) {
+              if(that.encodingProposal(senum.getEncoding)) {
                 that match {
                   case that: SpinalEnumCraft[_] =>
                     that.dlcForeach(s => propagateOn(s.source))
@@ -1129,39 +1129,39 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
           }
         }
 
-        enum match {
-          case enum : SpinalEnumCraft[_] =>
-            enum.dlcForeach(s => propagateOn(s.source))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+        senum match {
+          case senum : SpinalEnumCraft[_] =>
+            senum.dlcForeach(s => propagateOn(s.source))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
           case _ =>
-            enum.foreachExpression(propagateOn(_))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+            senum.foreachExpression(propagateOn(_))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
         }
       }
     })
 
     //Feed enums with encodings
     enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
-    nodes.foreach(enum => {
-      enums(enum.getDefinition) += enum.getEncoding
+    nodes.foreach(senum => {
+      enums(senum.getDefinition) += senum.getEncoding
     })
 
     //give a name to unnamed encodingss
     val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
-    for((enum,encodings) <- enums){
+    for((senum,encodings) <- enums){
       for(encoding <- encodings) {
         val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
 
-        for(element <- enum.elements){
+        for(element <- senum.elements){
           val key = encoding.getValue(element)
           reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
         }
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -2211,15 +2211,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
 
-    for((enum, encodings) <- enums;
+    for((senum, encodings) <- enums;
         encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       reservedKeyWords.foreach(encodingsScope.allocateName(_))
-      for (el <- enum.elements) {
+      for (el <- senum.elements) {
         el.setName(encodingsScope.allocateName(el.getName()))
       }
-      
+
       if (encoding.isWeak)
         encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else

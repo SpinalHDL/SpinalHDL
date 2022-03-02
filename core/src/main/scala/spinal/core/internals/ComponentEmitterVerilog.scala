@@ -212,8 +212,8 @@ class ComponentEmitterVerilog(
       }
       s.walkExpression{
         case literal: EnumLiteral[_] => {
-          if(!literal.enum.spinalEnum.isGlobalEnable) {
-            localEnums.add((literal.enum.spinalEnum, literal.encoding))
+          if(!literal.senum.spinalEnum.isGlobalEnable) {
+            localEnums.add((literal.senum.spinalEnum, literal.encoding))
           }
         }
         case _ =>
@@ -554,10 +554,10 @@ class ComponentEmitterVerilog(
     }
   }
 
-  def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-    //      val str    = encoding.getValue(enum).toString(2)
-    val str    = encoding.getValue(enum).toString(10)
-    val length = encoding.getWidth(enum.spinalEnum)
+  def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+    //      val str    = encoding.getValue(senum).toString(2)
+    val str    = encoding.getValue(senum).toString(10)
+    val length = encoding.getWidth(senum.spinalEnum)
     //      length.toString + "'b" + ("0" * (length - str.length)) + str
     length.toString + "'d" + str
   }
@@ -767,7 +767,7 @@ class ComponentEmitterVerilog(
                   def emitIsCond(that: Expression): String = {
                     that match {
                       case lit: EnumLiteral[_] if (lit.encoding == binaryOneHot) => {
-                        val expr = emitEnumLiteral(lit.enum, lit.encoding)
+                        val expr = emitEnumLiteral(lit.senum, lit.encoding)
                         s"(((${emitExpression(switchStatement.value)}) & ${expr}) == ${expr})"
                       }
                     }
@@ -801,7 +801,7 @@ class ComponentEmitterVerilog(
                     case e: BitVectorLiteral => emitBitVectorLiteral(e)
 //                    case e: BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth, 'x')}"
                     case e: BoolLiteral => if (e.value) "1'b1" else "1'b0"
-                    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+                    case lit: EnumLiteral[_] => emitEnumLiteral(lit.senum, lit.encoding)
                     case e: SwitchStatementKeyBool => emitMaskedLiteral(e.key)
                   }
 
@@ -1494,7 +1494,7 @@ end
   }
 
   def emitEnumLiteralWrap(e: EnumLiteral[_  <: SpinalEnum]): String = {
-    emitEnumLiteral(e.enum, e.encoding)
+    emitEnumLiteral(e.senum, e.encoding)
   }
 
   def enumEgualsImpl(eguals: Boolean)(e: BinaryOperator with EnumEncoded): String = {
@@ -1504,8 +1504,8 @@ end
     encoding match {
       case `binaryOneHot` => {
         (e.left, e.right) match {
-//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
-//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.enum.position}])"
+//          case (sig, lit : EnumLiteral[_]) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
+//          case (lit : EnumLiteral[_], sig) => s"(${if (eguals) "" else "! "}${emitExpression(sig)}[${lit.senum.position}])"
           case _ => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} ${encoding.getWidth(enumDef)}'b${"0" * encoding.getWidth(enumDef)})"
         }
       }
@@ -1523,7 +1523,7 @@ end
   }
 
   def emitEnumPoison(e: EnumPoison): String = {
-    val width = e.encoding.getWidth(e.enum)
+    val width = e.encoding.getWidth(e.senum)
     s"(${width}'b${"x" * width})"
   }
 
@@ -1630,7 +1630,7 @@ end
     case  e: Operator.Bool.Or                         => operatorImplAsBinaryOperator("||")(e)
     case  e: Operator.Bool.Xor                        => operatorImplAsBinaryOperator("^")(e)
 
-    //enum
+    //senum
     case  e: Operator.Enum.Equal                      => enumEgualsImpl(true)(e)
     case  e: Operator.Enum.NotEqual                   => enumEgualsImpl(false)(e)
 

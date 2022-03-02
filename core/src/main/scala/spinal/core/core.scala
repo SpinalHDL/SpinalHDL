@@ -63,7 +63,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
   /**
-    * Implicit enum conversion
+    * Implicit senum conversion
     */
   implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) = element.asInstanceOf[SpinalEnumElement[T]]
   implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     = craft.asInstanceOf[SpinalEnumCraft[T]]
