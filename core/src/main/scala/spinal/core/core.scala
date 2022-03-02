@@ -20,10 +20,10 @@
 \*                                                                           */
 package spinal
 
-import spinal.core.internals.*
+import spinal.core.internals._
 
 import scala.annotation.elidable
-import scala.annotation.elidable.*
+import scala.annotation.elidable._
 import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
