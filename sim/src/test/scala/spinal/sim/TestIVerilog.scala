@@ -21,7 +21,7 @@ object TestIVerilog1 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (iverilogbackend, _) = new IVerilogBackend(config).instanciate
+  val (iverilogbackend, _) = new IVerilogBackend(config).instanciate()
   val clk = iverilogbackend.get_signal_handle("TestMemIVerilog.clk")
   val reset = iverilogbackend.get_signal_handle("TestMemIVerilog.reset")
   val addr = iverilogbackend.get_signal_handle("TestMemIVerilog.io_addr")
@@ -62,7 +62,7 @@ object TestIVerilog2 extends App{
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
 
-  val (iverilogbackend, _) = new IVerilogBackend(config).instanciate
+  val (iverilogbackend, _) = new IVerilogBackend(config).instanciate()
   val clk = iverilogbackend.get_signal_handle("TestMemIVerilog.clk")
   val reset = iverilogbackend.get_signal_handle("TestMemIVerilog.reset")
   val addr = iverilogbackend.get_signal_handle("TestMemIVerilog.io_addr")

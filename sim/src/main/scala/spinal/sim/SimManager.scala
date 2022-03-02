@@ -128,7 +128,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   val readBypass = if(raw.isBufferedWrite) mutable.HashMap[Signal, BigInt]() else null
-  def setupJvmThread(thread: Thread){}
+  def setupJvmThread(thread: Thread): Unit = {}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = {
     if(readBypass == null) return raw.getInt(bt)
