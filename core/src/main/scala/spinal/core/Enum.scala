@@ -169,7 +169,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   private[core] override def newMultiplexerExpression() = new MultiplexerEnum(spinalEnum)
   private[core] override def newBinaryMultiplexerExpression() = new BinaryMultiplexerEnum(spinalEnum)
 
-  override def asBits: Bits = wrapCast(Bits(), new CastEnumToBits)
+  override def asBits: Bits = wrapCast(new Bits(), new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
     val c    = cloneOf(this)
@@ -192,7 +192,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   override def clone: this.type = {
     val res = new SpinalEnumCraft(spinalEnum).asInstanceOf[this.type]
     res.copyEncodingConfig(this)
-    res
+    res.asInstanceOf[this.type]
   }
 
   def init(enumElement: SpinalEnumElement[T]): this.type = {
@@ -205,12 +205,12 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
   override def getZero: this.type = {
     val ret = clone
     ret.assignFromBits(B(0, getEncoding.getWidth(spinalEnum) bits))
-    ret
+    ret.asInstanceOf[this.type]
   }
 
   private[core] override def weakClone: this.type = {
     val ret = new SpinalEnumCraft(spinalEnum).asInstanceOf[this.type]
-    ret
+    ret.asInstanceOf[this.type]
   }
 
   override def normalizeInputs: Unit = {
@@ -238,7 +238,7 @@ class EnumLiteral[T <: SpinalEnum](val senum: SpinalEnumElement[T]) extends Lite
   override def clone: this.type = {
     val ret = new EnumLiteral(senum).asInstanceOf[this.type]
     ret.copyEncodingConfig(this)
-    ret
+    ret.asInstanceOf[this.type]
   }
 
   override def getValue(): BigInt = encoding.getValue(senum)
@@ -264,7 +264,7 @@ class EnumPoison(val senum: SpinalEnum) extends Literal with InferableEnumEncodi
   override def clone: this.type = {
     val ret = new EnumPoison(senum).asInstanceOf[this.type]
     ret.copyEncodingConfig(this)
-    ret
+    ret.asInstanceOf[this.type]
   }
 
   override def getValue(): BigInt = throw new Exception("EnumPoison has no value")
