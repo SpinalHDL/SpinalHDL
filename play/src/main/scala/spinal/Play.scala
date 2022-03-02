@@ -1,7 +1,7 @@
 package spinal
 
 import spinal.core._
-import spinal.idslplugin.{Location, PostInitCallback, ValCallback}
+import spinal.idslplugin._
 
 
 
@@ -39,14 +39,14 @@ import spinal.idslplugin.{Location, PostInitCallback, ValCallback}
 object Main{
   def main(args: Array[String]): Unit = {
     new CCCCCCCCCC1(2,3)
-    def miaou(x : Int)(implicit loc : Location): Unit ={
-      println(s"LOC = ${loc.line} ${loc.file}")
-    }
-
-    miaou(1)
-
-
-    miaou(2)
+//    def miaou(x : Int)(implicit loc : Location): Unit ={
+//      println(s"LOC = ${loc.line} ${loc.file}")
+//    }
+//
+//    miaou(1)
+//
+//
+//    miaou(2)
   }
 }
 
