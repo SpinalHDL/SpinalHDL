@@ -69,12 +69,13 @@ object ScopeProperty {
     try{ body } finally { spc.restore() }
   }
 
-  implicit def toValue[T](scopeProperty: ScopeProperty[T]) = scopeProperty.get
-  implicit def toBits(scopeProperty: ScopeProperty[Int]) = new {
-    def bits = BitCount(scopeProperty.get)
-  }
+  implicit def toValue[T](scopeProperty: ScopeProperty[T]): T = scopeProperty.get
+  implicit def toBits(scopeProperty: ScopeProperty[Int]) : ToBitsPimper= new ToBitsPimper(scopeProperty)
 }
 
+class ToBitsPimper(scopeProperty: ScopeProperty[Int]) {
+  def bits = BitCount(scopeProperty.get)
+}
 
 class ScopeProperty[T]  {
   var storeAsMutable = false
@@ -89,7 +90,7 @@ class ScopeProperty[T]  {
     }
   }
 
-  def set(v : T) = new {
+  class SetReturn(v : T){
     val property = ScopeProperty.get
     val previous = property.get(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
     property.update(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]], v)
@@ -100,7 +101,7 @@ class ScopeProperty[T]  {
       }
     }
   }
-
+  def set(v : T) = new SetReturn(v)
   def clear() = {
     ScopeProperty.get.remove(ScopeProperty.this.asInstanceOf[ScopeProperty[Any]])
   }
@@ -131,7 +132,8 @@ class ScopeProperty[T]  {
 
   final def _default = ??? //I changed a bit the API, now instead of var _default, you can override def default. Also instead of setDefault, you can directly use "set"
 
-  def apply(value : T) = new {
+  def apply(value : T) = new ApplyClass(value)
+  class ApplyClass(value : T)  {
     def apply[B](body : => B): B = {
       val wasSet = !ScopeProperty.this.isEmpty
       val previous = if(wasSet) ScopeProperty.this.get

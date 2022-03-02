@@ -220,20 +220,23 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
 
 
 object SpinalGhdlBackend {
-  def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) = { 
+  class Backend(val signals : ArrayBuffer[Signal], vconfig : GhdlBackendConfig) extends GhdlBackend(vconfig)
+
+  def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) : Backend = {
     val vconfig = new GhdlBackendConfig()
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
     vconfig.runFlags = config.simulatorFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
-    new GhdlBackend(vconfig){
-      val signals = signalsCollector
-    }
+
+    new Backend(signalsCollector, vconfig)
   }
 }
 
 object SpinalIVerilogBackend {
+  class Backend(val signals : ArrayBuffer[Signal], vconfig : IVerilogBackendConfig) extends IVerilogBackend(vconfig)
+
   def apply[T <: Component](config: SpinalIVerilogBackendConfig[T]) = { 
     val vconfig = new IVerilogBackendConfig()
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
@@ -241,9 +244,8 @@ object SpinalIVerilogBackend {
     vconfig.logSimProcess = config.enableLogging
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
-    new IVerilogBackend(vconfig){
-      val signals = signalsCollector
-    }
+
+    new Backend(signalsCollector, vconfig)
   }
 }
 
