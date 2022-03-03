@@ -78,12 +78,12 @@ object Handle{
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 
-  implicit def miaouImplicitHandle[T](value : Handle[T]) : MiaouImplicitHandleClass[T] = MiaouImplicitHandleClass(value)
+  implicit def miaouImplicitHandle[T](value : Handle[T]) : MiaouImplicitHandleClass[T] = new MiaouImplicitHandleClass(value)
   class MiaouImplicitHandleClass[T](value : Handle[T]){
     def derivate[T2](body : (T) => T2) = value.produce(body(value))
   }
 
-  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) : MiaouImplicitBigIntHandleClass = MiaouImplicitBigIntHandleClass(value)
+  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) : MiaouImplicitBigIntHandleClass = new MiaouImplicitBigIntHandleClass(value)
   class MiaouImplicitBigIntHandleClass(value : Handle[BigInt]) {
     def loadi(that : Int) = value.load(BigInt(that))
   }

@@ -12,7 +12,6 @@ object JtagTcp {
     var inputStream: InputStream = null
     var outputStream: OutputStream = null
 
-    val server = new SocketThread
     class SocketThread extends Thread  {
       val socket = new ServerSocket(7894)
       override def run() : Unit = {
@@ -26,6 +25,7 @@ object JtagTcp {
         }
       }
     }
+    val server = new SocketThread
     onSimEnd (server.socket.close())
     server.start()
 
