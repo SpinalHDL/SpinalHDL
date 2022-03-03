@@ -20,10 +20,10 @@
 \*                                                                           */
 package spinal
 
-import spinal.core.internals.*
+import spinal.core.internals._
 
 import scala.annotation.elidable
-import scala.annotation.elidable.*
+import scala.annotation.elidable._
 import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
@@ -471,7 +471,7 @@ package object core extends BaseTypeCast {
       val leftWidth = elements.map(_.getBitsWidth).sum
       var rightOp = right
       if(right.hasTag(tagAutoResize)){
-        rightOp = right.resize(leftWidth)
+        rightOp = right.resize(leftWidth bits)
       }
       assert(rightOp.getWidth == leftWidth, s"Width missmatch (${right.getWidth} != $leftWidth")
       var offset = 0
