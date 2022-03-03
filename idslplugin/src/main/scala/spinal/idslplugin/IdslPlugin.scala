@@ -60,7 +60,7 @@ class ValCallbackPhase extends PluginPhase {
     if (symbolHasTrait(cs, "spinal.idslplugin.ValCallback")) {
       val func : TermSymbol = cs.requiredMethod("valCallback")
       tpd.cpy.Template(tree)(body = tree.body.map{
-        case vd: ValDef if !vd.symbol.annotations.exists(_.symbol.name.toString == "DontName") && !vd.rhs.isEmpty => { //TODO also, test dontname
+        case vd: ValDef if !vd.symbol.annotations.exists(_.symbol.name.toString == "DontName") && !vd.rhs.isEmpty => {
           val nameStr = vd.name.toString
           val const = Constant(nameStr)
           val lit = Literal(const)

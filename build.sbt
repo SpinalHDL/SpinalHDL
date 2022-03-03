@@ -75,7 +75,7 @@ lazy val all = (project in file("."))
     publishLocal := {},
 //    unidocProjectFilter in (ScalaUnidoc, unidoc) := inProjects(lib, core)
   )
-  .aggregate(play, sim, idslpayload, idslplugin, core)
+  .aggregate(play, sim, idslpayload, idslplugin, core, lib)
   //.aggregate(sim, idslpayload, idslplugin, core, lib, debugger, tester)
 
 
@@ -164,16 +164,16 @@ lazy val core = (project in file("core"))
     }.taskValue
   )
   .dependsOn(sim)
-//
-//lazy val lib = (project in file("lib"))
-//  .settings(
-//    defaultSettingsWithPlugin,
-//    name := "SpinalHDL-lib",
-//    libraryDependencies += "commons-io" % "commons-io" % "2.4",
-//    version := SpinalVersion.lib
-//  )
-//  .dependsOn (sim, core)
-//
+
+lazy val lib = (project in file("lib"))
+  .settings(
+    defaultSettingsWithPlugin,
+    name := "SpinalHDL-lib",
+    libraryDependencies += "commons-io" % "commons-io" % "2.4",
+    version := SpinalVersion.lib
+  )
+  .dependsOn (sim, core)
+
 //
 //lazy val debugger = (project in file("debugger"))
 //  .settings(
