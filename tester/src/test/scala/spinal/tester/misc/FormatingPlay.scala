@@ -1,6 +1,6 @@
 package spinal.tester.misc
 
-class F1(a     : Int,
+class C1(a     : Int,
          b     : Int,
          ccccc : Int,
          d     : Int,
@@ -8,7 +8,7 @@ class F1(a     : Int,
 
 }
 
-object F2{
+object O1{
   def f1(a     : Int,
          b     : Int,
          ccccc : Int,
@@ -25,5 +25,12 @@ object F2{
     d     = 1,
     e     = 1
   )
+
+
+  val a        = 0
+  val b        = 0
+  val cccccccc = 0
+  val d        = 0
+  val e        = 0
 }
 
