@@ -24,9 +24,9 @@ object AFixTester {
     for (res <- opResultsSeq) {
       println(res)
     }
-    val rangeMax = opResultsSeq.maxBy(_.maxValue).maxValue
-    val rangeMin = opResultsSeq.minBy(_.minValue).minValue
     val rangeExpMin = opResultsSeq.minBy(_.exp.value).exp
+    val rangeMax = opResultsSeq.map(af => af.maxValue*BigInt(2).pow(af.exp.value - rangeExpMin.value)).max
+    val rangeMin = opResultsSeq.map(af => af.minValue*BigInt(2).pow(af.exp.value - rangeExpMin.value)).min
     val opResults = Vec(opResultsSeq.map(af => {
       val resized_af = new AFix(rangeMax, rangeMin, rangeExpMin)
       resized_af := af
