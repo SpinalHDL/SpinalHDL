@@ -408,7 +408,7 @@ class SFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
     copy.y := this.y
     copy.x.addTag(tagTruncated)
     copy.y.addTag(tagTruncated)
-    copy
+    copy.asInstanceOf[this.type]
   }
 
   override def clone: this.type = new SFix2D(maxExp, bitCount).asInstanceOf[this.type]
@@ -529,7 +529,7 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
     copy.y := this.y
     copy.x.addTag(tagTruncated)
     copy.y.addTag(tagTruncated)
-    copy
+    copy.asInstanceOf[this.type]
   }
 
   override def clone: UFix2D.this.type = new UFix2D(maxExp, bitCount).asInstanceOf[this.type]
