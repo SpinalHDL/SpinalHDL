@@ -47,9 +47,18 @@ case class SingleMapping(address : BigInt) extends AddressMapping{
 }
 
 
+/**
+ * Creates an address mapping using a bit mask.
+ *
+ * MaskMapping(0x0000, 0x7FFF) => matches 0x0000-0x8000
+ * MaskMapping(0x80, 0xF) => matches 0x80 - 0x8F
+ *
+ * @param base Address offset to use. Must be outside of the mask
+ * @param mask Bit mask of bits to accept in the mapping
+ */
 case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
   override def hit(address: UInt): Bool = (address & ~U(mask, widthOf(address) bits)) === base
-  override def removeOffset(address: UInt) = address & ~mask
+  override def removeOffset(address: UInt) = address & U(mask, widthOf(address) bits)
   override def lowerBound = base
   override def applyOffset(addressOffset: BigInt): AddressMapping = ???
 }

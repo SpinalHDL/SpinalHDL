@@ -726,7 +726,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     ctrl.clearOnSet(regs.interrupts.enable, Regs.CONFIG, 3)
     ctrl.read(U(p.addressWidth), Regs.ADDRESS_WIDTH)
 
-    val memoryMapping = MaskMapping(0x8000, 0x0000)
+    val memoryMapping = MaskMapping(0x0000, 0x7FFF)
     val readBuffer = memory.external.readRsp.toReg
     val readState = RegInit(U"00")
     val writeState = RegInit(U"0")
