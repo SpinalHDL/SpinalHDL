@@ -42,7 +42,8 @@ class Phase(var next : Phase){
     }
   }
 
-  def retainer(count : Int) = new {
+  def retainer(count : Int) = RetainerClass(count)
+  class RetainerClass(count : Int) {
     var counter = 0
     if(count != 0) retain()
     def release(): Unit ={

@@ -17,7 +17,7 @@ class Section(val max: Int, val min: Int){
 
 object Section{
   def apply(x: Range): Section = new Section(x.max, x.min)
-  implicit def tans(x: Range) = Section(x)
+  implicit def tans(x: Range) : Section = Section(x)
 }
 
 

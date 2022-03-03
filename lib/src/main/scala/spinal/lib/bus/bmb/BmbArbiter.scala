@@ -28,7 +28,7 @@ case class BmbArbiter(inputsParameter : Seq[BmbParameter],
   val memory = (portCount > 1) generate new Area {
 //    assert(sourceRouteRange.high < p.access.sourceWidth, "Not enough source bits")
 
-    val arbiterFactory = StreamArbiterFactory.fragmentLock
+    val arbiterFactory = StreamArbiterFactory().fragmentLock
     if(lowerFirstPriority) arbiterFactory.lowerFirst else arbiterFactory.roundRobin
 
     val arbiter = arbiterFactory.build(Fragment(BmbCmd(outputParameter)), portCount)

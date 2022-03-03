@@ -324,7 +324,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     wantKill := True
   }
 
-  @dontName implicit val implicitFsm = this
+  @dontName implicit val implicitFsm : StateMachine = this
 
   override def disableAutoStart(): Unit = autoStart = false
 

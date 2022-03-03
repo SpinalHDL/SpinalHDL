@@ -98,7 +98,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The ready path is cut by an register stage
   */
   def </<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe
+    this << that.s2mPipe()
     that
   }
 
@@ -112,7 +112,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The valid/payload/ready path are cut by an register stage
   */
   def <-/<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe.m2sPipe()
+    this << that.s2mPipe().m2sPipe()
     that
   }
 
@@ -478,7 +478,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := self.valid
     next.payload := self.payload
     self.ready := next.ready && cond
-    next
   }.next
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
@@ -1286,7 +1285,7 @@ object StreamWidthAdapter {
     ret
   }
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]) : Unit = {
     SpinalVhdl(new Component{
       val input = slave(Stream(Bits(4 bits)))
       val output = master(Stream(Bits(32 bits)))
@@ -1431,7 +1430,7 @@ case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T
     val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when((channels.map(_.valid).asBits & io.push.channel).orR) {
+      when((channels.map(_.valid).asBits() & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }

@@ -21,7 +21,7 @@ trait UsbLsFsPhyAbstractIoListener{
 class UsbLsFsPhyAbstractIoAgent(usb : UsbLsFsPhyAbstractIo, cd : ClockDomain, cdRatio : Int){
   var lowSpeed = false
   var connected = false
-  val rx = new {
+  val rx = new Area{
     var dp, dm, enable = false
   }
 

@@ -1006,7 +1006,7 @@ object DmaSg{
           val engine = Aggregator(AggregatorParameter(
             byteCount = p.writeByteCount,
             burstLength = p.writeLengthWidth,
-            context = NoData
+            context = NoData()
           ))
 
           val first = Reg(Bool()) clearWhen(memoryPort.fire) setWhen(!sel.isStall)

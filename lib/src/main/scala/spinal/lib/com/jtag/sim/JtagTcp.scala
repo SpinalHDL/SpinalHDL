@@ -12,7 +12,8 @@ object JtagTcp {
     var inputStream: InputStream = null
     var outputStream: OutputStream = null
 
-    val server = new Thread  {
+    val server = new SocketThread
+    class SocketThread extends Thread  {
       val socket = new ServerSocket(7894)
       override def run() : Unit = {
         println("WAITING FOR TCP JTAG CONNECTION")

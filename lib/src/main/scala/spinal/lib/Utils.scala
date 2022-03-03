@@ -539,8 +539,8 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     valueNext := start
   }
 
-  willOverflowIfInc.allowPruning
-  willOverflow.allowPruning
+  willOverflowIfInc.allowPruning()
+  willOverflow.allowPruning()
 
   override def implicitValue: UInt = this.value
 

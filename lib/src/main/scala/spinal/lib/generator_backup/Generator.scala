@@ -78,11 +78,13 @@ object Handle{
   implicit def initImplicit[T](value : Long) : Handle[BigInt] = Handle(value)
   implicit def handleDataPimped[T <: Data](key : Handle[T]): DataPimper[T] = new DataPimper(key.get)
 
-  implicit def miaouImplicitHandle[T](value : Handle[T]) = new {
+  implicit def miaouImplicitHandle[T](value : Handle[T]) : MiaouImplicitHandleClass[T] = MiaouImplicitHandleClass(value)
+  class MiaouImplicitHandleClass[T](value : Handle[T]){
     def derivate[T2](body : (T) => T2) = value.produce(body(value))
   }
 
-  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) = new {
+  implicit def miaouImplicitBigIntHandle(value : Handle[BigInt]) : MiaouImplicitBigIntHandleClass = MiaouImplicitBigIntHandleClass(value)
+  class MiaouImplicitBigIntHandleClass(value : Handle[BigInt]) {
     def loadi(that : Int) = value.load(BigInt(that))
   }
 }
@@ -304,7 +306,7 @@ class Generator() extends Area with Dependable with PostInitCallback with TagCon
     }
   }
 
-  def export[T](h : Handle[T]) = {
+  def sexport[T](h : Handle[T]) = {
     h.produce(this.tags += new Export(h.getName, h.get))
     h
   }
@@ -377,7 +379,7 @@ class GeneratorCompiler {
 }
 
 object GeneratorComponent{
-  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.generator
+  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) : T = g.generator
 
   def apply[T <: Generator](generatorLamda : => T, name : String = null) = new GeneratorComponent(generatorLamda, name)
 }
