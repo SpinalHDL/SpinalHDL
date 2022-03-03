@@ -43,7 +43,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int, byteCount : BigInt, idWidth : In
   )
   io.axi.writeData.ready :=  arw.valid && arw.write  && stage0.ready
 
-  val stage1 = stage0.stage
+  val stage1 = stage0.stage()
   stage1.ready := (io.axi.readRsp.ready && !stage1.write) || ((io.axi.writeRsp.ready || ! stage1.last) && stage1.write)
 
   io.axi.readRsp.valid  := stage1.valid && !stage1.write

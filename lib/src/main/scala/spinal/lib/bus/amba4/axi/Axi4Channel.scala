@@ -140,7 +140,7 @@ object Axi4AxUnburstified{
       override def clone: State.this.type = new State().asInstanceOf[this.type]
     }
     val area = new Area {
-      val result = Stream Fragment (cloneOf(outPayloadType))
+      val result = Stream Fragment (outPayloadType)
       val doResult = Bool()
       val addrIncrRange = (Math.min(11, stream.payload.config.addressWidth - 1) downto 0)
 

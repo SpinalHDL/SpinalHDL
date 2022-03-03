@@ -198,7 +198,7 @@ case class BmbDecoderPerSource  (p : BmbParameter,
       internalOutputs.foreach(_.cmd.valid := False)
     }
 
-    io.input.rsp << StreamArbiterFactory.fragmentLock.roundRobin.on(internalOutputs.map(_.rsp))
+    io.input.rsp << StreamArbiterFactory().fragmentLock.roundRobin.on(internalOutputs.map(_.rsp))
   }
 }
 

@@ -47,7 +47,7 @@ case class BmbExclusiveMonitorGenerator()
     pendingWriteMax = 64
   ))
 
-  export(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0))
 }
 
 case class BmbInvalidateMonitorGenerator()
@@ -81,7 +81,7 @@ case class BmbInvalidateMonitorGenerator()
     pendingInvMax = 16
   ))
 
-  export(new MemoryConnection(input, output, 0))
+  sexport(new MemoryConnection(input, output, 0))
 }
 
 case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
@@ -103,7 +103,7 @@ case class BmbClintGenerator(apbOffset : Handle[BigInt] = Unset)
     mapping = apbOffset.derivate(SizeMapping(_, 1 << Clint.addressWidth))
   )
 
-  val hz = export(Handle(ClockDomain.current.frequency))
+  val hz = sexport(Handle(ClockDomain.current.frequency))
   if(decoder != null) interconnect.addConnection(decoder.bus, ctrl)
 }
 

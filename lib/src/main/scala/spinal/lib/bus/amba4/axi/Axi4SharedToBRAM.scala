@@ -34,7 +34,7 @@ import spinal.lib.bus.bram._
   * State of the state machine of the wrapper
   */
 object Axi4ToBRAMPhase extends SpinalEnum{
-  val SETUP, ACCESS, READ, RESPONSE = newElement
+  val SETUP, ACCESS, READ, RESPONSE = newElement()
 }
 
 

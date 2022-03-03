@@ -55,7 +55,8 @@ class Generator extends Area { //TODO TagContainer
     node
   }
 
-  val dependencies = new {
+  val dependencies = new DepdenciesFuncs()
+  class DepdenciesFuncs {
     def += [T <: Generator](that : T) : Unit = {
       +=(that.generatorDone)
     }
@@ -113,7 +114,7 @@ class Generator extends Area { //TODO TagContainer
 }
 
 object GeneratorComponent{
-  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) = g.body
+  implicit def toGenerator[T <: Generator](g : GeneratorComponent[T]) : T = g.body
 
   def apply[T <: Generator](generatorLamda : => T, name : String = null) = new GeneratorComponent(generatorLamda, name)
 }

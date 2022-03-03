@@ -55,7 +55,7 @@ object Axi4SharedToApb3Bridge{
 
 
 object Axi4ToApb3BridgePhase extends SpinalEnum{
-  val SETUP, ACCESS, RESPONSE = newElement
+  val SETUP, ACCESS, RESPONSE = newElement()
 }
 
 
