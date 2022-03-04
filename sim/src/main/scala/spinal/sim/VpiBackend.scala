@@ -65,9 +65,31 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   else (if (isMac) "darwin" 
   else "linux"))}"
 
-  class Logger extends ProcessLogger { 
-    override def err(s: => String): Unit = { if(logSimProcess) println(s) }
-    override def out(s: => String): Unit = { if(logSimProcess) println(s) }
+  def doCmd(command: String, cwd: File, message : String) = {
+    val logger = new Logger()
+    if(Process(command, cwd)! (logger) != 0){
+      println(logger.logs)
+      throw new Exception(message)
+    }
+  }
+  def doCmd(command: String, cwd: File, extraEnv: Seq[(String, String)], message : String) = {
+    val logger = new Logger()
+    if(Process(command, cwd, extraEnv :_*)! (logger) != 0){
+      println(logger.logs)
+      throw new Exception(message)
+    }
+  }
+
+  class Logger extends ProcessLogger {
+    val logs = new StringBuilder()
+    override def err(s: => String): Unit = { logs ++= (s) }
+    override def out(s: => String): Unit = { logs ++= (s) }
+    override def buffer[T](f: => T) = f
+  }
+
+  class LoggerPrint extends ProcessLogger {
+    override def err(s: => String): Unit = { println(s) }
+    override def out(s: => String): Unit = { println(s) }
     override def buffer[T](f: => T) = f
   }
 
@@ -85,33 +107,40 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
           cppSourceFile.close
         }
 
-        assert(Process(Seq(CC, 
-          "-c", 
-          CFLAGS, 
-          "SharedMemIface.cpp", 
+      doCmd(
+        Seq(CC,
+          "-c",
+          CFLAGS,
+          "SharedMemIface.cpp",
           "-o",
-          "SharedMemIface.o").mkString(" "), 
-        new File(pluginsPath)).! (new Logger()) == 0, 
-      "Compilation of SharedMemIface.cpp failed")
+          "SharedMemIface.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+        "Compilation of SharedMemIface.cpp failed"
+      )
 
-        assert(Process(Seq(CC, 
-          "-c", 
-          CFLAGS, 
-          "SharedMemIface_wrap.cxx", 
+      doCmd(
+        Seq(CC,
+          "-c",
+          CFLAGS,
+          "SharedMemIface_wrap.cxx",
           "-o",
-          "SharedMemIface_wrap.o").mkString(" "), 
-        new File(pluginsPath)).! (new Logger()) == 0, 
-      "Compilation of SharedMemIface_wrap.cxx failed")
+          "SharedMemIface_wrap.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+       "Compilation of SharedMemIface_wrap.cxx failed"
+      )
 
-        assert(Process(Seq(CC, 
+      doCmd(
+        Seq(CC,
           CFLAGS + (if(isMac) " -dynamiclib " else ""),
-          "SharedMemIface.o", 
+          "SharedMemIface.o",
           "SharedMemIface_wrap.o",
-          LDFLAGS, 
+          LDFLAGS,
           "-o",
-          sharedMemIfaceName).mkString(" "),
-
-        new File(pluginsPath)).! (new Logger()) == 0, 
+          sharedMemIfaceName
+        ).mkString(" "),
+        new File(pluginsPath),
       "Compilation of SharedMemIface." + sharedExtension + " failed")
     }
 
@@ -216,27 +245,33 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
              cppSourceFile.close
            }
 
-           assert(Process(Seq(ghdlPath,
+          doCmd(
+            Seq(ghdlPath,
              "--vpi-compile",
              CC, 
              "-c", 
              CFLAGS, 
              "VpiPlugin.cpp",
              "-o",
-             "VpiPlugin.o").mkString(" "), 
-           new File(pluginsPath)).! (new Logger()) == 0, 
-         "Compilation of VpiPlugin.o failed")
+             "VpiPlugin.o"
+            ).mkString(" "),
+           new File(pluginsPath),
+           "Compilation of VpiPlugin.o failed"
+          )
 
-           assert(Process(Seq(ghdlPath,
-             "--vpi-link",
-             CC, 
-             CFLAGS,
-             "VpiPlugin.o",
-             LDFLAGS,
-             "-o",
-             vpiModuleName).mkString(" "), 
-           new File(pluginsPath)).! (new Logger()) == 0, 
-         s"Compilation of $vpiModuleName failed")
+        doCmd(
+          Seq(ghdlPath,
+           "--vpi-link",
+           CC,
+           CFLAGS,
+           "VpiPlugin.o",
+           LDFLAGS,
+           "-o",
+           vpiModuleName
+          ).mkString(" "),
+           new File(pluginsPath),
+         s"Compilation of $vpiModuleName failed"
+        )
     }
   } 
 
@@ -246,19 +281,25 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
     s.endsWith(".vhdl")) }
       .mkString(" ")
 
-      assert(Process(Seq(ghdlPath,
+    doCmd(
+      Seq(ghdlPath,
         "-a",
         analyzeFlags,
-        vhdlSourcePaths).mkString(" "), 
-      new File(workspacePath)).! (new Logger()) == 0, 
-    s"Analyze step of vhdl files failed") 
+        vhdlSourcePaths
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Analyze step of vhdl files failed"
+    )
 
-      assert(Process(Seq(ghdlPath,
+    doCmd(
+      Seq(ghdlPath,
         "-e",
         elaborationFlags,
-        toplevelName).mkString(" "), 
-      new File(workspacePath)).! (new Logger()) == 0,
-    s"Elaboration of $toplevelName failed")
+        toplevelName
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Elaboration of $toplevelName failed"
+    )
   }
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
@@ -278,7 +319,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
           s"--vpi=${pwd + "/" + vpiModulePath}",
           runFlags).mkString(" "),
         new File(workspacePath),
-        "PATH" -> pathStr).! (new Logger())
+        "PATH" -> pathStr).! (new LoggerPrint())
 
         if (retCode != 0) {
           iface.set_crashed(retCode)
@@ -380,27 +421,33 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
              cppSourceFile.close
            }
 
-           assert(Process(Seq(CC,
-                              "-c", 
-                              IVERILOGCFLAGS,
-                              CFLAGS + " -DIVERILOG_PLUGIN", 
-                              "VpiPlugin.cpp",
-                              "-o",
-                              "VpiPlugin.o").mkString(" "), 
-                            new File(pluginsPath)).! (new Logger()) == 0, 
-                  "Compilation of VpiPlugin.o failed")
+      doCmd(
+        Seq(CC,
+          "-c",
+          IVERILOGCFLAGS,
+          CFLAGS + " -DIVERILOG_PLUGIN",
+          "VpiPlugin.cpp",
+          "-o",
+          "VpiPlugin.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+        "Compilation of VpiPlugin.o failed"
+      )
 
-            assert(Process(Seq(CC,
-                              IVERILOGCFLAGS,
-                              CFLAGS,
-                              "VpiPlugin.o",
-                              IVERILOGLDFLAGS,
-                              IVERILOGLDLIBS,
-                              LDFLAGS,
-                              "-o",
-                              vpiModuleName).mkString(" "), 
-                            new File(pluginsPath)).! (new Logger()) == 0, 
-                  s"Compilation of $vpiModuleName failed")
+      doCmd(
+        Seq(CC,
+          IVERILOGCFLAGS,
+          CFLAGS,
+          "VpiPlugin.o",
+          IVERILOGLDFLAGS,
+          IVERILOGLDLIBS,
+          LDFLAGS,
+          "-o",
+          vpiModuleName
+        ).mkString(" "),
+        new File(pluginsPath),
+        s"Compilation of $vpiModuleName failed"
+      )
     }
   } 
 
@@ -431,18 +478,21 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
 
     val verilogIncludePaths = config.rtlIncludeDirs.map("-I " + new File(_).getAbsolutePath).mkString(" ")
 
-    assert(Process(Seq(iverilogPath,
-                       analyzeFlags,
-                       "-o",
-                       toplevelName + ".vvp",
-                       "-s __simulation_def",
-                       "-s",
-                       toplevelName,
-                       verilogIncludePaths,
-                       verilogSourcePaths,
-                       s"./rtl/__simulation_def.v").mkString(" "),
-                     new File(workspacePath)).! (new Logger()) == 0, 
-           s"Analyze step of verilog files failed") 
+    doCmd(
+      Seq(iverilogPath,
+        analyzeFlags,
+        "-o",
+        toplevelName + ".vvp",
+        "-s __simulation_def",
+        "-s",
+        toplevelName,
+        verilogIncludePaths,
+        verilogSourcePaths,
+        s"./rtl/__simulation_def.v"
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Analyze step of verilog files failed"
+    )
   }
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
@@ -459,7 +509,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                 s"-m${pwd + "/" +vpiModulePath}",
                                 toplevelName + ".vvp",
                                 runFlags).mkString(" "), 
-                              new File(workspacePath)).! (new Logger())
+                              new File(workspacePath)).! (new LoggerPrint())
         if (retCode != 0) {
           iface.set_crashed(retCode)
           println(s"Simulation of $toplevelName failed")

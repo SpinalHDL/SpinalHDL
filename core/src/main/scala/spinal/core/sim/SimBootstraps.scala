@@ -734,7 +734,8 @@ case class SpinalSimConfig(
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
-          enableLogging = _withLogging
+          enableLogging = _withLogging,
+          usePluginsCache = !_disableCache
         )
         val backend = SpinalGhdlBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
@@ -760,7 +761,8 @@ case class SpinalSimConfig(
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
-          enableLogging = _withLogging
+          enableLogging = _withLogging,
+          usePluginsCache = !_disableCache
         )
         val backend = SpinalIVerilogBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
