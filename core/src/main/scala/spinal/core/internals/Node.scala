@@ -272,9 +272,10 @@ trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding 
 
   private[core] def getDefaultEncoding(): SpinalEnumEncoding
 
-  def fixEncoding(e: SpinalEnumEncoding): Unit = {
+  def fixEncoding(e: SpinalEnumEncoding): this.type = {
     encoding       = e
     encodingChoice = InferableEnumEncodingImplChoiceFixed
+    this
   }
 
   def copyEncodingConfig(that: InferableEnumEncodingImpl): Unit = {

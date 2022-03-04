@@ -187,7 +187,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
     assignFromBits(bits)
   }
 
-  override def getBitsWidth: Int = encoding.getWidth(spinalEnum)
+  override def getBitsWidth: Int = encoding match {
+    case null => SpinalError("Trying to get the bits width of a enumeration which has no fixed encoding, it has to be fixed ex : myEnum.fixEncoding(native)")
+    case _ => encoding.getWidth(spinalEnum)
+  }
 
   override def clone: this.type = {
     val res = new SpinalEnumCraft(spinalEnum).asInstanceOf[this.type]
