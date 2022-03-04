@@ -72,6 +72,20 @@ case class Axi4Shared(config: Axi4Config) extends Bundle with IMasterSlave with 
     ret
   }
 
+  def pipelined(
+    arw: StreamPipe = StreamPipe.NONE,
+    w: StreamPipe = StreamPipe.NONE,
+    b: StreamPipe = StreamPipe.NONE,
+    r: StreamPipe = StreamPipe.NONE
+  ): Axi4Shared = {
+    val ret = cloneOf(this)
+    ret.arw << this.arw.pipelined(arw)
+    ret.w << this.w.pipelined(w)
+    ret.b.pipelined(b) >> this.b
+    ret.r.pipelined(r) >> this.r
+    ret
+  }
+
   override def asMaster(): Unit = {
     master(arw,w)
     slave(b,r)
