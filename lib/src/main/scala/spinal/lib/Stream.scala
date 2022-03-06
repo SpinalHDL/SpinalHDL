@@ -160,7 +160,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
-  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
+  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
+  def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.payload))
   }
 
