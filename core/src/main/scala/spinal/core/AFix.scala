@@ -137,10 +137,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   private def alignRanges(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
     val expDiff = l.exp.value - r.exp.value
     // Scale left or right ranges if there's a difference in precision
-    if (expDiff < 0) {
-      (l.maxValue*BigInt(2).pow(-expDiff), l.minValue*BigInt(2).pow(-expDiff), r.maxValue, r.minValue)
-    } else if (expDiff > 0) {
-      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(expDiff), r.minValue*BigInt(2).pow(expDiff))
+    if (expDiff > 0) {
+      (l.maxValue*BigInt(2).pow(expDiff), l.minValue*BigInt(2).pow(expDiff), r.maxValue, r.minValue)
+    } else if (expDiff < 0) {
+      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(-expDiff), r.minValue*BigInt(2).pow(-expDiff))
     } else {
       (l.maxValue, l.minValue, r.maxValue, r.minValue)
     }
