@@ -34,7 +34,7 @@ object AFixTester {
     }))
 
     val chosenOp = opResults(io.opMode.asUInt)
-    io.outRaw := (chosenOp << 3).resized.sat(io.outRaw)
+    io.outRaw := chosenOp.resized.sat(io.outRaw)
 
     val roundResults = Vec(Seq(
       chosenOp.ceil(),
@@ -49,7 +49,7 @@ object AFixTester {
       chosenOp.roundHalfToOdd()
     ))
 
-    io.outFix := roundResults(io.roundMode.asUInt).sat(8388607, -8388608)
+    io.outFix := roundResults(io.roundMode.asUInt).sat(io.outFix)
   }
 
 }

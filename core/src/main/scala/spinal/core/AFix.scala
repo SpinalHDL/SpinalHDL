@@ -427,7 +427,22 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
-  def sat(af: AFix): AFix = sat(af.maxValue, af.minValue)
+  /**
+   * Saturates a number to the range of another number.
+   * This accounts for decimal shifting.
+   * @param af - AFix value to saturate range to
+   * @return - Saturated AFix value
+   */
+  def sat(af: AFix): AFix = {
+    val expDiff = this.exp.value - af.exp.value
+    if (expDiff > 0) {
+      sat(af.maxValue/BigInt(2).pow(expDiff), af.minValue/BigInt(2).pow(expDiff))
+    } else if (expDiff < 0) {
+      sat(af.maxValue*BigInt(2).pow(-expDiff), af.maxValue/BigInt(2).pow(-expDiff))
+    } else {
+      sat(af.maxValue, af.minValue)
+    }
+  }
   def sat(satMax: BigInt, satMin: BigInt): AFix = {
     if (this.maxValue < satMax || this.minValue > satMin) {
       if (this.hasTag(tagAutoResize)) {
