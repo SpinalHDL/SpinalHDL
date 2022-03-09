@@ -361,7 +361,7 @@ object Nameable{
 trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
-  protected var name: String = null
+  var name: String = null
   @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
