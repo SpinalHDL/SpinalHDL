@@ -51,6 +51,7 @@ purge_cocotb(){
 }
 
 install_packages(){
+  sudo apt update -y -qq
   sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
 }
 
