@@ -166,6 +166,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  /**
+   * Adds `this` to the right hand side AFix value expanding ranges as necessary
+   * @param right Value to add to `this`
+   * @return Sum
+   */
   def +(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax+rMax, lMin+rMin, Math.min(this.exp.value, right.exp.value) exp)
@@ -182,6 +187,32 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  /**
+   * Adds `this` to the right hand side AFix value without expanding ranges or checks on value overflow
+   * @param right Value to add to `this`
+   * @return Sum
+   */
+  def +|(right: AFix): AFix = {
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AFix(lMax.max(rMax), lMin.min(rMin), Math.min(this.exp.value, right.exp.value) exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trim(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt.resize(ret.bitWidth) + _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt             + _r.asSInt.resize(ret.bitWidth))
+      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) + _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) + _r.asSInt)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  /**
+   * Subtracts `this` to the right hand side AFix value expanding ranges as necessary
+   * @param right Value to subtract from `this`
+   * @return Difference
+   */
   def -(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax-rMin, lMin-rMax, Math.min(this.exp.value, right.exp.value) exp)
@@ -198,6 +229,32 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  /**
+   * Subtracts `this` from the right hand side AFix value without expanding ranges or checks on value underflow
+   * @param right Value to subtract from `this`
+   * @return Difference
+   */
+  def -|(right: AFix): AFix = {
+    val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
+    val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp.value, right.exp.value) exp)
+    ret dependsOn (this, right)
+
+    val (_l, _r) = alignLR(this, right)
+    ret.raw := trim(((this.signed, right.signed) match {
+      case (false, false) => (_l.asUInt.resize(ret.bitWidth) - _r.asUInt)
+      case (false,  true) => (_l.asUInt.intoSInt - _r.asSInt.resize(ret.bitWidth))
+      case ( true, false) => (_l.asSInt.resize(ret.bitWidth) - _r.asUInt.intoSInt)
+      case ( true,  true) => (_l.asSInt.resize(ret.bitWidth) - _r.asSInt)
+    }).asBits, ret.bitWidth)
+
+    ret
+  }
+
+  /**
+   * Mutiplies `this` by the right hand side AFix value expanding ranges as necessary
+   * @param right Value to multiply `this` by
+   * @return Product
+   */
   def *(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = (this.maxValue, this.minValue, right.maxValue, right.minValue)
     val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
@@ -216,6 +273,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  /**
+   * Divides `this` by the right hand side AFix value expanding ranges as necessary
+   * @param right Value to divide `this` by
+   * @return Quotient
+   */
   def /(right: AFix): AFix = {
     SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
@@ -233,6 +295,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  /**
+   * Divides `this` by the right hand side AFix value expanding ranges as necessary
+   * @param right Value to divide `this` by
+   * @return Remainder
+   */
   def %(right: AFix): AFix = {
     SpinalWarning("Fixed-point modulo is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
@@ -443,6 +510,13 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
       sat(af.maxValue, af.minValue)
     }
   }
+
+  /**
+   * Saturates a number to a provided integer representation value range
+   * @param satMax Max integer value to saturate
+   * @param satMin Min integer value to saturate
+   * @return - Saturated AFix value
+   */
   def sat(satMax: BigInt, satMin: BigInt): AFix = {
     if (this.maxValue < satMax || this.minValue > satMin) {
       if (this.hasTag(tagAutoResize)) {
@@ -473,6 +547,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     ret
   }
 
+  /**
+   * Rounds a value down towards negative infinity (truncation)
+   * @return Rounded result
+   */
   def floor(): AFix = {
     assert(this.exp.value < 0, f"Cannot floor() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
@@ -482,6 +560,12 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     res
   }
 
+  def truncate(): AFix = this.floor()
+
+  /**
+   * Rounds a value up towards positive infinity
+   * @return Rounded result
+   */
   def ceil(): AFix = {
     assert(this.exp.value < 0, f"Cannot ceil() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
@@ -496,6 +580,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     res
   }
 
+  /**
+   * Rounds a value towards zero
+   * @return Rounded result
+   */
   def floorToZero(): AFix = {
     assert(this.exp.value < 0, f"Cannot floorToZero() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
@@ -516,6 +604,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  /**
+   * Rounds a value towards negative or positive infinity
+   * @return Rounded result
+   */
   def ceilToInf(): AFix = {
     assert(this.exp.value < 0, f"Cannot ceilToInf() because number does not have enough fractional bits, needs at least -1 exp")
     if (this.signed) {
@@ -540,6 +632,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  /**
+   * Rounds a value up (ceiling) if x >= 0.5 otherwise rounds down (floor/truncate)
+   * @return Rounded result
+   */
   def roundHalfUp(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfUp() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
@@ -560,6 +656,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     res
   }
 
+  /**
+   * Rounds a value down (floor/truncate) if x <= 0.5 otherwise rounds up (ceil)
+   * @return Rounded result
+   */
   def roundHalfDown(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfDown() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
@@ -581,6 +681,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     res
   }
 
+  /**
+   * Rounds a value towards zero (floor/truncate) if x <= 0.5 otherwise rounds towards infinity
+   * @return Rounded result
+   */
   def roundHalfToZero(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToZero() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
@@ -610,6 +714,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  /**
+   * Rounds a value towards infinity if x >= 0.5 otherwise rounds towards zero
+   * @return Rounded result
+   */
   def roundHalfToInf(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToInf() because number does not have enough fractional bits, needs at least -2 exp")
     if (this.signed) {
@@ -639,6 +747,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
+  /**
+   * Rounds a value towards the nearest even value including half values, otherwise rounds towards odd values
+   * @return Rounded result
+   */
   def roundHalfToEven(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
@@ -710,6 +822,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     res
   }
 
+  /**
+   * Rounds a value towards the nearest odd value including half values, otherwise rounds towards even values
+   * @return Rounded result
+   */
   def roundHalfToOdd(): AFix = {
     assert(this.exp.value < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
