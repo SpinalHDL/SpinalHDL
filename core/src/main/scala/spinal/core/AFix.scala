@@ -1,6 +1,5 @@
 package spinal.core
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object AFix {
@@ -93,13 +92,6 @@ object AFix {
 }
 
 class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) extends MultiData {
-  //  assert((maxValue*BigDecimal(2).pow(-exp.value)).isWhole,
-  //    s"maxValue ${maxValue} is not representable with exponent 2^${exp.value}")
-  //  assert((minValue*BigDecimal(2).pow(-exp.value)).isWhole,
-  //    s"maxValue ${minValue} is not representable with exponent 2^${exp.value}")
-
-  // TODO?: Support dropping sign bit iff max and min have the same sign?
-  private val needsSign = (maxValue < 0) ^ (minValue < 0)
 
   val signed = (maxValue < 0) || (minValue < 0)
   val signWidth = if (signed) 1 else 0
@@ -121,17 +113,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   override def elements: ArrayBuffer[(String, Data)] = {
     ArrayBuffer("" -> raw)
-  }
-
-  // These are used for reference tracking
-  private var parents: Seq[AFix] = Nil
-  private val children: mutable.Set[AFix] = mutable.Set()
-
-  private def dependsOn(parents: AFix*): Unit = {
-    this.parents = parents
-    for (p <- parents) {
-      p.children += this
-    }
   }
 
   private def alignRanges(l: AFix, r: AFix): (BigInt, BigInt, BigInt, BigInt) = {
@@ -174,7 +155,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def +(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax+rMax, lMin+rMin, Math.min(this.exp.value, right.exp.value) exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -195,7 +175,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def +|(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), Math.min(this.exp.value, right.exp.value) exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -216,7 +195,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def -(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax-rMin, lMin-rMax, Math.min(this.exp.value, right.exp.value) exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -237,7 +215,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def -|(right: AFix): AFix = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMin), lMin.min(rMax), Math.min(this.exp.value, right.exp.value) exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -259,7 +236,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     val (lMax, lMin, rMax, rMin) = (this.maxValue, this.minValue, right.maxValue, right.minValue)
     val possibleLimits = List(lMax*rMax, lMax*rMin, lMin*rMax, lMin*rMin)
     val ret = new AFix(possibleLimits.max, possibleLimits.min, this.exp.value + right.exp.value exp)
-    ret dependsOn (this, right)
 
     val _l = this.raw
     val _r = right.raw
@@ -282,7 +258,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     SpinalWarning("Fixed-point division is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -304,7 +279,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     SpinalWarning("Fixed-point modulo is not finalized and not recommended for use!\n" + ScalaLocated.long)
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
     val ret = new AFix(lMax.max(rMax), lMin.min(rMin), this.exp.value + right.exp.value exp)
-    ret dependsOn (this, right)
 
     val (_l, _r) = alignLR(this, right)
     ret.raw := trim(((this.signed, right.signed) match {
@@ -320,7 +294,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def ==(right: AFix): Bool = this === right
   def ===(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMin > rMax || lMax < rMin) {
       False
@@ -338,7 +311,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def !=(right: AFix): Bool = this =/= right
   def =/=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMin > rMax || lMax < rMin) {
       True
@@ -355,7 +327,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def <(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMax < rMin) {
       True
@@ -374,7 +345,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def <=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMax <= rMin) {
       True
@@ -393,7 +363,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def >(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMin > rMax) {
       True
@@ -412,7 +381,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def >=(right: AFix): Bool = {
     val (lMax, lMin, rMax, rMin) = alignRanges(this, right)
-    this dependsOn right
 
     if (lMin >= rMax) {
       True
@@ -432,7 +400,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   // Shift decimal point left
   def <<(shift: Int): AFix = {
     val ret = new AFix(this.maxValue, this.minValue, (this.exp.value - shift) exp)
-    ret dependsOn this
 
     ret.raw := this.raw
 
@@ -442,7 +409,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   // Shift decimal point right
   def >>(shift: Int): AFix = {
     val ret = new AFix(this.maxValue, this.minValue, (this.exp.value + shift) exp)
-    ret dependsOn this
 
     ret.raw := this.raw
 
@@ -454,7 +420,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def <<|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
     val ret = new AFix(this.maxValue * shiftBig, this.minValue * shiftBig, (this.exp.value + shift) exp)
-    ret dependsOn this
 
     ret.raw := this.raw << shift
 
@@ -465,7 +430,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def >>|(shift: Int): AFix = {
     val shiftBig = BigInt(2).pow(shift)
     val ret = new AFix(this.maxValue / shiftBig, this.minValue / shiftBig, this.exp)
-    ret dependsOn this
 
     if (this.signed)
       ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
@@ -479,7 +443,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def negate(): AFix = {
     val ret = new AFix(-this.maxValue, -this.minValue, this.exp)
-    ret dependsOn this
 
     if (this.signed) {
       when (!this.raw.msb) {
@@ -555,7 +518,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < 0, f"Cannot floor() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     res.raw := this.raw.dropLow(-this.exp.value)
     res
   }
@@ -570,7 +533,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < 0, f"Cannot ceil() because number does not have enough fractional bits, needs at least -1 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     val fracOr = this.raw.takeLow(-this.exp.value).orR
     if (this.signed) {
       res.raw := (this.raw.dropLow(-this.exp.value).asSInt + (False ## fracOr).asSInt).asBits
@@ -589,7 +552,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
       val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-      res dependsOn this
+
       val fracOr = this.raw.takeLow(-this.exp.value).orR
       val addValue = SInt(2 bit)
       when(this.raw.msb && fracOr) {
@@ -613,7 +576,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
       val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-      res dependsOn this
+
       val fracOr = this.raw.takeLow(-this.exp.value).orR
       val addValue = SInt(2 bit)
       when(fracOr) {
@@ -640,7 +603,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < -1, f"Cannot roundHalfUp() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     val fracMSB = this.raw(-this.exp.value-1)
     val addValue = SInt(2 bit)
     when(fracMSB) {
@@ -664,7 +627,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < -1, f"Cannot roundHalfDown() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     val fracOr = this.raw.takeLow(-this.exp.value-1).orR
     val fracMSB = this.raw(-this.exp.value-1)
     val addValue = SInt(2 bit)
@@ -690,7 +653,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
       val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-      res dependsOn this
+
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
       val addValue = SInt(2 bit)
@@ -723,7 +686,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     if (this.signed) {
       val shift = BigInt(2).pow(-this.exp.value)
       val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-      res dependsOn this
+
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
       val addValue = SInt(2 bit)
@@ -755,7 +718,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < -1, f"Cannot roundHalfToEven() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
@@ -830,7 +793,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     assert(this.exp.value < -1, f"Cannot roundHalfToOdd() because number does not have enough fractional bits, needs at least -2 exp")
     val shift = BigInt(2).pow(-this.exp.value)
     val res = new AFix(this.maxValue / shift, this.minValue / shift, 0 exp)
-    res dependsOn this
+
     if (this.signed) {
       val fracOr = this.raw.takeLow(-this.exp.value-1).orR
       val fracMSB = this.raw(-this.exp.value-1)
