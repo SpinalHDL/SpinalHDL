@@ -54,7 +54,8 @@ install_packages(){
   sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
 }
 
-install_tools(){
+install_tools(){  
+  sudo apt update -y -qq
   install_verilator
   install_ghdl
   install_iverilog
