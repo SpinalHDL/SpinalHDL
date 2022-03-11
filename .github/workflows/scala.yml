@@ -47,7 +47,7 @@ jobs:
 
     - name: Install cached tools
       if: steps.tools.outputs.cache-hit != 'true'
-      run: source tools.sh && (cd ~/ && install_tools) && purge_cocotb
+      run: source tools.sh && install_packages && (cd ~/ && install_tools) && purge_cocotb
 
     - name: Install uncached tools
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
