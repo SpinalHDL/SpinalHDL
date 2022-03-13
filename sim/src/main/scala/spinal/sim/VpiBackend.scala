@@ -26,7 +26,7 @@ case class VpiBackendConfig(
   var runFlags: String       = "",
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
-  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
+  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false
@@ -250,7 +250,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
              "--vpi-compile",
              CC, 
              "-c", 
-             CFLAGS, 
+             CFLAGS + " -DGHDL_PLUGIN", 
              "VpiPlugin.cpp",
              "-o",
              "VpiPlugin.o"
@@ -517,7 +517,6 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
       }
     })
 
-//    thread.setUncaughtExceptionHandler(new VpiThreadExceptionHandler)
     thread.setDaemon(true)
     thread.start()
     thread
