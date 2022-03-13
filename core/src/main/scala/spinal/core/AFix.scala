@@ -901,8 +901,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
           this.raw := af_frac_expand.raw.asUInt.resize(this.bitWidth).asBits
 
       case f: Fix => this := AFix(f)
-      case u: UInt => this := AFix(u)
-      case s: SInt => this := AFix(s)
+      case u: UInt => this.raw := u.asBits
+      case s: SInt => this.raw := s.asBits
       case uf: UFix => this := AFix(uf)
       case sf: SFix => this := AFix(sf)
     }
@@ -933,6 +933,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   def asUFix(): UFix = this.asUInt().toUFix >> -this.exp.value
   def asSFix(): SFix = this.asSInt().toSFix >> -this.exp.value
+
+  def :=(u: UInt) = this assignFrom(u)
+  def :=(s: SInt) = this assignFrom(s)
+  def :=(u: UFix) = this assignFrom(u)
+  def :=(s: SFix) = this assignFrom(s)
 
   override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
