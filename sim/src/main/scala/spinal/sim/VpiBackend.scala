@@ -632,13 +632,27 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     )
   }
 
+  class LoggerPrintWithTerminationFilter extends ProcessLogger {
+    var terminationOfSimulation: Boolean = false
+    private def printWithFilter(s: => String): Unit =  {
+      if (s.contains("Unexpected termination of the simulation")) {
+        terminationOfSimulation = true
+      }
+      println(s)
+    }
+    override def err(s: => String): Unit = { printWithFilter(s) }
+    override def out(s: => String): Unit = { printWithFilter(s) }
+    override def buffer[T](f: => T) = f
+  }
+
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
     val thread = new Thread(new Runnable {
       val iface = sharedMemIface
+      val logger = new LoggerPrintWithTerminationFilter()
       def run(): Unit = {
         val retCode = Process(Seq(s"./$toplevelName").mkString(" "),
-          new File(workspacePath)).! (new LoggerPrint())
-        if (retCode != 0) {
+          new File(workspacePath)).! (logger)
+        if (retCode != 0 && !logger.terminationOfSimulation) {
           iface.set_crashed(retCode)
           println(s"Simulation of $toplevelName failed")
         }
