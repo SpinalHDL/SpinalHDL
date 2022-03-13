@@ -42,7 +42,7 @@ PLI_INT32 ro_cb(p_cb_data);
 PLI_INT32 delay_rw_cb(p_cb_data);
 PLI_INT32 delay_ro_cb(p_cb_data);
 
-#ifdef VPI_PLUGIN
+#ifdef VCS_PLUGIN
 extern "C" void entry_point_cb();
 #endif
 

@@ -566,7 +566,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString)
       cppSourceFile.close
     }
-    val vpiCFlags = s"-DVPI_PLUGIN -I$vpiInclude -fPIC -shared"
+    val vpiCFlags = s"-DVCS_PLUGIN -I$vpiInclude -fPIC -shared"
     doCmd(
       Seq(CC,
         CFLAGS,
