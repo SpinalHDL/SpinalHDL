@@ -33,6 +33,9 @@ object WaveFormat{
   object LXT2 extends WaveFormat("lxt2")
   object LXT2_SPEED extends WaveFormat("lxt2-speed")
   object LXT2_SPACE extends WaveFormat("lxt2-space")
+
+  // VCS only
+  object VPD extends WaveFormat("vpd")
 }
 
 class WaveFormat(val ext : String = "???")

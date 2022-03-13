@@ -42,6 +42,10 @@ PLI_INT32 ro_cb(p_cb_data);
 PLI_INT32 delay_rw_cb(p_cb_data);
 PLI_INT32 delay_ro_cb(p_cb_data);
 
+#ifdef VPI_PLUGIN
+extern "C" void entry_point_cb();
+#endif
+
 void set_error(string& error_string){
     vpi_printf("%s\n", error_string.c_str());
     shared_struct->data.resize(error_string.size());
@@ -485,9 +489,11 @@ PLI_INT32 delay_ro_cb(p_cb_data){
     return 0;
 }
 
+#ifndef VCS_PLUGIN
 extern "C" {
     void (*vlog_startup_routines[]) () = {
         entry_point_cb,
         0
     };
 }
+#endif
