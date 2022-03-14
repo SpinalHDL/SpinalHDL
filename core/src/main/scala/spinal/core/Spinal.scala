@@ -318,7 +318,7 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val fw = new FileWriter(new File(fileName))
+      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
       val bw = new BufferedWriter(fw)
 
       listPath.foreach{ path =>
