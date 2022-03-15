@@ -311,7 +311,7 @@ bool read_cmd_raw(vpiHandle handle){
     for(size_t i = 0; i < valueStrLen; i++){
         char c = value_struct.value.str[i];
         if ((c != '0') && (c != '1')) {
-            vpi_printf("Warning, value '%c' at pisition %d is neither '0' or '1'. value set to '0'.\n", c, i);
+            vpi_printf("Warning, value '%c' at position %d is neither '0' or '1'. value set to '0'.\n", c, i);
         }
     }
 
