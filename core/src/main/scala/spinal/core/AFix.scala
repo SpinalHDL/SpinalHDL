@@ -4,14 +4,6 @@ import scala.collection.mutable.ArrayBuffer
 
 object AFix {
 
-  def apply(f: Fix): AFix = {
-    val maxValue = BigInt(2).pow(f.bitWidth-1)-1
-    val minvalue = -BigInt(2).pow(f.bitWidth-1)
-    val ret = new AFix(maxValue, minvalue, -f.fracWidth exp)
-    ret.raw := f.raw
-    ret
-  }
-
   def apply(u: UInt): AFix = AFix(u, 0 exp)
   def apply(u: UInt, exp: ExpNumber): AFix = {
     val maxValue = BigInt(2).pow(u.getWidth)-1
@@ -900,7 +892,6 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         else
           this.raw := af_frac_expand.raw.asUInt.resize(this.bitWidth).asBits
 
-      case f: Fix => this := AFix(f)
       case u: UInt => this.raw := u.asBits
       case s: SInt => this.raw := s.asBits
       case uf: UFix => this := AFix(uf)
