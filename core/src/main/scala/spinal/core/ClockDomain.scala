@@ -316,6 +316,21 @@ case class ClockDomain(clock       : Bool,
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, useCache = true, propagateName = true)
 
 
+//  def renameInCurrentComponent(clock : String = "clk",
+//                               reset : String = if(config.resetActiveLevel == HIGH) "reset" else "resetn",
+//                               softReset : String = if(config.softResetActiveLevel == HIGH) "soft_reset" else "soft_resetn",
+//                               enable : String  = if(config.clockEnableActiveLevel == HIGH) "clk_en" else "clk_en"): this.type ={
+def renamePulledWires(clock     : String = null,
+                      reset     : String = null,
+                      softReset : String = null,
+                      enable    : String = null): this.type ={
+    if(clock != null) readClockWire.setName(clock)
+    if(reset != null && this.reset != null) readResetWire.setName(reset)
+    if(softReset != null && this.softReset != null) readSoftResetWire.setName(softReset)
+    if(enable != null && this.clockEnable != null) readClockEnableWire.setName(enable)
+    this
+  }
+
   def setSyncWith(that: ClockDomain) : this.type = {
     val tag = new ClockSyncTag(this.clock, that.clock)
     this.clock.addTag(tag)

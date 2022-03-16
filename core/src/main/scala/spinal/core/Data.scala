@@ -145,6 +145,8 @@ class BaseTypePimper[T <: BaseType](val _data: T) {
 
 }
 
+//object PropagatePullNameTag extends SpinalTag
+
 object Data {
 
   /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
@@ -227,7 +229,7 @@ object Data {
           val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setPartialName(srcData, "", weak=true)
+            copy.setPartialName(currentData, "", weak=true)
           copy := currentData
           ctx.restore()
           currentData = copy
@@ -247,7 +249,7 @@ object Data {
         val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setPartialName(srcData, "", weak=true)
+          copy.setPartialName(currentData, "", weak=true)
         ctx.restore()
         if (currentComponent != null) {
           val ctx = DslScopeStack.set(riseTo.parentScope)
@@ -702,6 +704,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
     ret.asInstanceOf[this.type]
   }
+
+//  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
 }
 
 trait DataWrapper extends Data{

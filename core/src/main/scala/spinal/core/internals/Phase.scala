@@ -2175,6 +2175,20 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
   override def impl(pc: PhaseContext) : Unit = {
     import pc._
 
+//    walkComponents{ c =>
+//      for((key, pulledData) <- c.pulledDataCache; if pulledData.hasTag(PropagatePullNameTag)){
+//        def rec(c : Component): Unit = {
+//          c.pulledDataCache.get(pulledData) match {
+//            case Some(x) => {
+//              c.setName(key.getName())
+//              c.children.foreach(rec)
+//            }
+//            case None =>
+//          }
+//        }
+//        pulledData.component.children.foreach(rec)
+//      }
+//    }
 
     walkStatements{
       case dst : BaseType => if (dst.isNamed) {
