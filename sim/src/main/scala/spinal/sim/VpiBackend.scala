@@ -26,7 +26,7 @@ case class VpiBackendConfig(
   var runFlags: String       = "",
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
-  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
+  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false
@@ -250,7 +250,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
              "--vpi-compile",
              CC, 
              "-c", 
-             CFLAGS, 
+             CFLAGS + " -DGHDL_PLUGIN", 
              "VpiPlugin.cpp",
              "-o",
              "VpiPlugin.o"
@@ -517,7 +517,6 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
       }
     })
 
-//    thread.setUncaughtExceptionHandler(new VpiThreadExceptionHandler)
     thread.setDaemon(true)
     thread.start()
     thread
@@ -526,5 +525,142 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
   override def isBufferedWrite: Boolean = true
 }
 
+class VCSBackendConfig extends VpiBackendConfig {
+  var vcsCC: Option[String] = None
+  var vcsLd: Option[String] = None
+}
 
+class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
+  import Backend._
+  import config._
+  override def isBufferedWrite: Boolean = true
 
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat) {
+    config.waveFormat
+  } else {
+    println("Wave format " + config.waveFormat + " not supported by VCS for now")
+    WaveFormat.NONE
+  }
+
+  val vpiModuleName = "vpi_vcs.so"
+  val vpiModulePath = pluginsPath + "/" + vpiModuleName
+  val vpiModuleAbsPath = new File(vpiModulePath).getAbsolutePath().mkString
+  val vpiInclude = sys.env.get("VCS_HOME") match {
+    case Some(x) => x + "/include"
+    case None => {
+      println("VCS_HOME not found")
+      ""
+    }
+  }
+
+  def compileVPI(): Unit = {
+    if(Files.exists(Paths.get(vpiModulePath))) {
+      return
+    }
+    val vpiPluginSource = Array("/VpiPlugin.cpp", "/SharedStruct.hpp")
+    for(filename <- vpiPluginSource) {
+      val cppSourceFile = new PrintWriter(new File(pluginsPath + "/" + filename))
+      val stream = getClass.getResourceAsStream(filename)
+      cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString)
+      cppSourceFile.close
+    }
+    val vpiCFlags = s"-DVCS_PLUGIN -I$vpiInclude -fPIC -shared"
+    doCmd(
+      Seq(CC,
+        CFLAGS,
+        vpiCFlags,
+        "VpiPlugin.cpp",
+        "-o",
+        vpiModuleName
+      ).mkString(" "),
+      new File(pluginsPath),
+      s"Compilation of $vpiModuleName failed"
+    )
+  }
+
+  private def vcsFlags(): String = {
+    val commonFlags = List(
+      "-full64",
+      "-quiet",
+      "-timescale=1ns/1ps",
+      "-debug_access+all",
+      "-debug_acc+pp+dmptf",
+      "-debug_region=+cell+encrypt",
+      "+vpi",
+      "+vcs+initreg+random",
+      "-load",
+      s"$vpiModuleAbsPath:entry_point_cb",
+      "-o",
+      toplevelName
+    )
+    val cc = config.vcsCC match {
+      case Some(x) => List("-cc", x)
+      case None => List.empty
+    }
+    val ld = config.vcsLd match {
+      case Some(x) => List("-ld", x)
+      case None => List.empty
+    }
+    val dump = waveFormat match {
+      case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
+      case WaveFormat.VPD => List(s"+vcs+vcdpluson")
+      case _ => List.empty
+    }
+    (commonFlags ++ cc ++ ld ++ dump).mkString(" ")
+  }
+
+  def analyzeRTL(): Unit = {
+    val verilogSourcePaths = rtlSourcesPaths.filter {
+      s => s.endsWith(".v") || s.endsWith(".sv") || s.endsWith(".vl")
+    }.mkString(" ")
+
+    config.rtlSourcesPaths.filter {
+      s => s.endsWith(".bin") || s.endsWith(".mem")
+    }.foreach {
+      path => FileUtils.copyFileToDirectory(new File(path), new File(workspacePath))
+    }
+
+    doCmd(
+      Seq("vcs",
+        vcsFlags(),
+        verilogSourcePaths
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Compilation of $toplevelName failed"
+    )
+  }
+
+  class LoggerPrintWithTerminationFilter extends ProcessLogger {
+    var terminationOfSimulation: Boolean = false
+    private def printWithFilter(s: => String): Unit =  {
+      if (s.contains("Unexpected termination of the simulation")) {
+        terminationOfSimulation = true
+      }
+      println(s)
+    }
+    override def err(s: => String): Unit = { printWithFilter(s) }
+    override def out(s: => String): Unit = { printWithFilter(s) }
+    override def buffer[T](f: => T) = f
+  }
+
+  def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
+    val thread = new Thread(new Runnable {
+      val iface = sharedMemIface
+      val logger = new LoggerPrintWithTerminationFilter()
+      def run(): Unit = {
+        val retCode = Process(Seq(s"./$toplevelName").mkString(" "),
+          new File(workspacePath)).! (logger)
+        if (retCode != 0 && !logger.terminationOfSimulation) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
+      }
+    })
+
+    thread.setDaemon(true)
+    thread.start()
+    thread
+  }
+}
