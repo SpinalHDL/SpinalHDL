@@ -17,18 +17,18 @@ object AFixPlay extends App{
       miaou(AFix.U(12 bits)) //Q12.0
       miaou(AFix.U(8 exp, 12 bits)) //Q8.4
       miaou(AFix.U(8 exp, -4 exp)) //Q8.4
-      miaou(AFix.U(255, -4 exp)) //Q8.4
+//      miaou(AFix.U(255, -4 exp)) //Q8.4
       miaou(AFix.S(12 bits)) //Q11.0 + sign bit
       miaou(AFix.S(8 exp, 12 bits)) //Q8.3  + sign bit
       miaou(AFix.S(8 exp, -4 exp)) //Q8.4  + sign bit
-      miaou(AFix.S(255, -256, -4 exp)) //Q8.4
+//      miaou(AFix.S(255, -256, -4 exp)) //Q8.4
     }
 
-    val l1 = new Area{
-      val a = in(AFix.S(8 exp, 4 bits))
-      val b = out(AFix.U(12 bits))
-      b := a.truncated  //.truncated
-    }
+//    val l1 = new Area{
+//      val a = in(AFix.S(8 exp, 4 bits))
+//      val b = out(AFix.U(12 bits))
+//      b := a.truncated  //.truncated
+//    }
   })
 
 }

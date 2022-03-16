@@ -4,6 +4,37 @@ import spinal.core._
 import spinal.core.{Bundle, Component, Vec, in, out}
 import spinal.tester.scalatest.AFixTester.AFixTester
 
+
+import org.scalatest.funsuite.AnyFunSuite
+import spinal.core.HardType
+import spinal.core._
+import spinal.core.sim._
+import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
+import spinal.lib.bus.bmb.{Bmb, BmbParameter, BmbSlaveFactory}
+import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbDownSizerSparse, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
+import spinal.lib.bus.bsb.sim.BsbBridgeTester
+import spinal.lib._
+import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
+
+class SpinalSimAFixTester extends AnyFunSuite {
+  test("instanciate") {
+    SpinalVerilog(new Component{
+      def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
+        assert(f.maxValue == max && f.minValue == min && f.exp.value == exp)
+      }
+      check(4095,0,0)(AFix.U(12 bits)) //Q12.0
+      check(4095,0,-4)(AFix.U(8 exp, 12 bits)) //Q8.4
+      check(4095,0,-4)(AFix.U(8 exp, -4 exp)) //Q8.4
+//      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
+//      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
+      check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
+      check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
+      check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
+//      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
+    })
+  }
+}
+
 object AFixTester {
 
   class AFixTester extends Component {
@@ -59,3 +90,4 @@ class AFixTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/AFixTester"
   override def createToplevel: Component = new AFixTester
 }
+
