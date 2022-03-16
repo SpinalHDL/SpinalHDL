@@ -36,6 +36,7 @@ object WaveFormat{
 
   // VCS only
   object VPD extends WaveFormat("vpd")
+  object FSDB extends WaveFormat("fsdb")
 }
 
 class WaveFormat(val ext : String = "???")
