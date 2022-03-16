@@ -365,7 +365,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix
     }
 
-    def toFix: Fix = Fix(self)
+    def toAFix: AFix = AFix(self)
 
     /**
       * Absolute value of a SInt
@@ -393,7 +393,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix
     }
 
-    def toFix: Fix = Fix(pimped)
+    def toAFix: AFix = AFix(pimped)
   }
 
   /**
