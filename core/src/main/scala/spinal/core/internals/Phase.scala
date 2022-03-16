@@ -555,7 +555,7 @@ class PhaseAnalog extends PhaseNetlist{
 //}
 
 
-class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]) {
+class MemTopology(val mem: Mem[_], val consumers : mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]] = mutable.HashMap[Expression, ArrayBuffer[ExpressionContainer]]()) {
   val writes                   = ArrayBuffer[MemWrite]()
   val readsAsync               = ArrayBuffer[MemReadAsync]()
   val readsSync                = ArrayBuffer[MemReadSync]()
@@ -932,7 +932,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
           val privateNsN = (if(config.privateNamespace) topLevel.definitionName + "_" else "")
           c.definitionName = pre + privateNsN + classNameOf(c)
         } else {
-          c.definitionName = pre + c.definitionName 
+          c.definitionName = pre + c.definitionName
         }
       }
       if (c.definitionName == "") {
@@ -970,7 +970,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkDeclarations {
-      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum, null) //Encodings will be added later
+      case senum: SpinalEnumCraft[_] => enums.getOrElseUpdate(senum.spinalEnum, null) //Encodings will be added later
       case _ =>
     }
 
@@ -1099,14 +1099,14 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
       node.bootInferration()
     })
 
-    nodes.foreach(enum => {
-      enum.swapEncoding(encodingSwap(enum.getEncoding))
+    nodes.foreach(senum => {
+      senum.swapEncoding(encodingSwap(senum.getEncoding))
     })
 
     algo = globalData.allocateAlgoIncrementale()
 
-    nodes.foreach(enum => {
-      if(enum.propagateEncoding){
+    nodes.foreach(senum => {
+      if(senum.propagateEncoding){
 
         def propagateOn(that : Expression): Unit = {
           that match {
@@ -1115,7 +1115,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
               that.algoIncrementale = algo
 
-              if(that.encodingProposal(enum.getEncoding)) {
+              if(that.encodingProposal(senum.getEncoding)) {
                 that match {
                   case that: SpinalEnumCraft[_] =>
                     that.dlcForeach(s => propagateOn(s.source))
@@ -1129,39 +1129,39 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
           }
         }
 
-        enum match {
-          case enum : SpinalEnumCraft[_] =>
-            enum.dlcForeach(s => propagateOn(s.source))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+        senum match {
+          case senum : SpinalEnumCraft[_] =>
+            senum.dlcForeach(s => propagateOn(s.source))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
           case _ =>
-            enum.foreachExpression(propagateOn(_))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+            senum.foreachExpression(propagateOn(_))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
         }
       }
     })
 
     //Feed enums with encodings
     enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
-    nodes.foreach(enum => {
-      enums(enum.getDefinition) += enum.getEncoding
+    nodes.foreach(senum => {
+      enums(senum.getDefinition) += senum.getEncoding
     })
 
     //give a name to unnamed encodingss
     val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
-    for((enum,encodings) <- enums){
+    for((senum,encodings) <- enums){
       for(encoding <- encodings) {
         val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
 
-        for(element <- enum.elements){
+        for(element <- senum.elements){
           val key = encoding.getValue(element)
           reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
         }
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -1271,9 +1271,11 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             }
           case _ =>
         }
-
         walkDeclarations {
-          case e: Widthable => widthableCheck(e)
+          case e: Widthable => {
+            if(e.getWidth == 0 && e.isNamed) globalData.zeroWidths += (e.component -> e)
+            widthableCheck(e)
+          }
           case _ =>
         }
 
@@ -1581,6 +1583,43 @@ class PhaseCheckCrossClock() extends PhaseCheck{
   }
 }
 
+class PhaseNextifyTag(val dest : BaseType) extends SpinalTag
+class PhaseNextifyReg() extends PhaseNetlist{
+  override def impl(pc: PhaseContext) = {
+    pc.walkDeclarations{
+      case bt : BaseType if bt.hasTag(classOf[PhaseNextifyTag])=> {
+        bt.isReg match {
+          case false => ???
+          case true => {
+            val dests = bt.getTags().collect{ case e : PhaseNextifyTag  => e.dest }
+            val seed = dests.head //Used to implement the ff input logic
+
+            dests.foreach(_.unfreeze())
+
+            for(other <- dests.filter(_ != seed)) {
+              other.component.rework{other := seed.pull()} //pull to ensure it work with in/out
+            }
+
+            bt.parentScope.onHead(seed := bt) //Default value
+
+            bt.foreachStatements{
+              case s : InitAssignmentStatement =>
+              case s : DataAssignmentStatement => {
+                //Move the assignment to the seed
+                s.dlcRemove()
+                s.target = seed
+                seed.dlcAppend(s)
+              }
+            }
+
+            bt.component.rework(bt := seed)
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) extends PhaseNetlist {
 
@@ -1615,9 +1654,15 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
         } else {
           s.foreachClockDomain(cd => {
             propagate(cd.clock)
-            if(cd.hasResetSignal) propagate(cd.reset)
-            if(cd.hasSoftResetSignal) propagate(cd.softReset)
-            if(cd.hasClockEnableSignal) propagate(cd.clockEnable)
+            def propCached(that : BaseType): Unit ={
+              s.component.pulledDataCache.get(that) match {
+                case Some(x) => propagate(x.asInstanceOf[BaseType])
+                case None =>    propagate(that)
+              }
+            }
+            if(cd.hasResetSignal) propCached(cd.reset)
+            if(cd.hasSoftResetSignal) propCached(cd.softReset)
+            if(cd.hasClockEnableSignal) propCached(cd.clockEnable)
           })
         }
 
@@ -1917,8 +1962,6 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
   }
 }
 
-
-
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
   override def impl(pc : PhaseContext): Unit = {
@@ -2168,15 +2211,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
 
-    for((enum, encodings) <- enums;
+    for((senum, encodings) <- enums;
         encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       reservedKeyWords.foreach(encodingsScope.allocateName(_))
-      for (el <- enum.elements) {
+      for (el <- senum.elements) {
         el.setName(encodingsScope.allocateName(el.getName()))
       }
-      
+
       if (encoding.isWeak)
         encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else
@@ -2408,6 +2451,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 
@@ -2532,6 +2576,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 

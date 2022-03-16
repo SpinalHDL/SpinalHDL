@@ -53,7 +53,7 @@ case class DataCacheCpuCmd()(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
   val mask = Bits(p.cpuDataWidth/8 bit)
   val bypass = Bool()
-  val all = Bool                      //Address should be zero when "all" is used
+  val all = Bool()                      //Address should be zero when "all" is used
 
 }
 case class DataCacheCpuRsp()(implicit p : DataCacheConfig) extends Bundle{

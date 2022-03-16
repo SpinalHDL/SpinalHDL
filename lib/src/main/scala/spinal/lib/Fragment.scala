@@ -394,7 +394,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
   //safeTransition => when false, the design is smaller, but the register is a Shift Register (unwanted state during loading)
   def toRegOf[T <: Data](dataType: T, safeTransition: Boolean = true): T = {
     if (safeTransition)
-      toFlowOf(dataType).toReg
+      toFlowOf(dataType).toReg()
     else {
       val fromWidth = pimped.fragment.getWidth
       val toWidth = dataType.getBitsWidth

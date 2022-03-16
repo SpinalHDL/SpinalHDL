@@ -32,6 +32,7 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
         val size    = out UInt (sizeWidth bits)
         val working = out Bool ()
         val last    = out Bool ()
+        val done    = out Bool ()
     }
     val sizeMaxOut = log2Up(outputConfig.bytePerWord)
     val sizeMaxIn  = log2Up(inputConfig.bytePerWord)
@@ -85,6 +86,7 @@ class Axi4DownsizerSubTransactionGenerator[T <: Axi4Ax](
 
     io.working := cmdExtender.io.working
     io.last := cmdExtender.io.last
+    io.done := cmdExtender.io.done
     io.start := startAddress
     io.output << cmdStream
 }
@@ -100,9 +102,8 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
     val sizeMaxIn  = log2Up(inputConfig.bytePerWord)
 
     val writeStream = cloneOf(io.output)
-    val cmdWorking  = Bool()
-    val lastCmdDone = Bool()
-    val writeCmd    = io.input.writeCmd.haltWhen(cmdWorking && !lastCmdDone)
+    val dataWorking = Bool()
+    val writeCmd    = io.input.writeCmd.haltWhen(dataWorking)
     val cmdStream   = cloneOf(writeCmd)
     val generator   = Axi4DownsizerSubTransactionGenerator(writeCmd, cmdStream, inputConfig, outputConfig)
 
@@ -111,20 +112,20 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
     val inputDataCounter = StreamTransactionCounter(writeCmd, writeData, writeCmd.len, true)
     staleInputData := !inputDataCounter.io.working && !writeCmd.fire
 
-    val dataStream    = cloneOf(writeData)
-    val streamCounter = StreamTransactionCounter(cmdStream, dataStream, cmdStream.len, true)
-
-    val lastCmdWorking = !generator.io.working && streamCounter.io.working
-    cmdWorking := generator.io.working || streamCounter.io.working
-    lastCmdDone := lastCmdWorking && streamCounter.io.done
-    val (countCmdStream, outCmdStream) = StreamFork2(cmdStream.haltWhen(streamCounter.io.working))
+    val (rspCountStream, countCmdStream, outCmdStream) = StreamFork3(cmdStream)
     writeStream.writeCmd << outCmdStream
 
-    val beatOffset = RegInit(U(0, sizeMaxIn bits))
-    when(writeCmd.fire) {
-        beatOffset := generator.io.start(inputConfig.symbolRange)
-    } elsewhen (dataStream.fire) {
-        beatOffset := (beatOffset + (1 << generator.io.size)).resized
+    val dataStream    = cloneOf(writeData)
+    val streamCounter = StreamTransactionCounter(countCmdStream, dataStream, countCmdStream.len, true)
+    countCmdStream.ready := !streamCounter.io.working
+
+    val beatOffsetReg = RegNextWhen(countCmdStream.addr(inputConfig.symbolRange), countCmdStream.fire)
+    val beatOffset    = CombInit(beatOffsetReg)
+    when(countCmdStream.fire) {
+        beatOffset := countCmdStream.addr(inputConfig.symbolRange)
+    }
+    when(dataStream.fire) {
+        beatOffsetReg := (beatOffset + (1 << generator.io.size)).resized
     }
 
     val offset = beatOffset & ~U((1 << sizeMaxOut) - 1, sizeMaxIn bits)
@@ -134,8 +135,9 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
         out.assignUnassignedByName(p)
         out
     }
+    dataWorking := inputDataCounter.io.working || (dataExtender.io.working && !dataExtender.io.done)
 
-    val staleData = !streamCounter.io.working
+    val staleData = !streamCounter.io.working && !countCmdStream.fire
     writeStream.writeData.translateFrom(dataStream.haltWhen(staleData)) { (to, from) =>
         to.data := from.data(offset << 3, outputConfig.dataWidth bits)
         if (outputConfig.useLast) to.last := streamCounter.io.last
@@ -143,8 +145,8 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
         to.assignUnassignedByName(from)
     }
 
-    val rspCtrlStream = Stream(Bool)
-    rspCtrlStream.translateFrom(countCmdStream) { (to, from) =>
+    val rspCtrlStream = Stream(Bool())
+    rspCtrlStream.translateFrom(rspCountStream) { (to, from) =>
         to := generator.io.last
     }
     val rspStream = StreamJoin(rspCtrlStream.queue(rspDepth), writeStream.writeRsp)

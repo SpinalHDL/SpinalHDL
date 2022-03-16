@@ -15,7 +15,7 @@ class BmbInvalidationArbiter(p : BmbParameter,
   }
 
 
-  val invArbiter = StreamArbiterFactory.roundRobin.transactionLock.build(BmbInv(p), portCount)
+  val invArbiter = StreamArbiterFactory().roundRobin.transactionLock.build(BmbInv(p), portCount)
   invArbiter.io.inputs <> Vec(io.inputs.map(_.inv))
 
   val (ctxFork, outputFork) = StreamFork2(invArbiter.io.output, synchronous = true)

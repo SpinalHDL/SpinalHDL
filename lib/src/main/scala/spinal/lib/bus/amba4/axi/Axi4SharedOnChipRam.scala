@@ -43,7 +43,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int, byteCount : BigInt, idWidth : In
   )
   io.axi.writeData.ready :=  arw.valid && arw.write  && stage0.ready
 
-  val stage1 = stage0.stage
+  val stage1 = stage0.stage()
   stage1.ready := (io.axi.readRsp.ready && !stage1.write) || ((io.axi.writeRsp.ready || ! stage1.last) && stage1.write)
 
   io.axi.readRsp.valid  := stage1.valid && !stage1.write
@@ -115,20 +115,8 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
                 if (axi.config.useWUser) to.user := from._1.user
                 to.setOKAY()
             }
-            val writeReady = RegInit(False).riseWhen(True)
-            writeStream.ready := writeReady
-
-            val bStream      = cloneOf(writeStream)
-            val writeLast    = writeCombined.fire && writeCombined._1.last
-            val writePayload = RegNextWhen(writeStream.payload, writeLast)
-            val writeDone    = RegInit(False)
-            when(writeLast) {
-                writeDone := True
-            } elsewhen (bStream.fire) {
-                writeDone := False
-            }
-            bStream.valid := writeDone
-            bStream.payload := writePayload
+            val writeLast = writeCombined.valid && writeCombined._1.last
+            val bStream   = writeStream.throwWhen(!writeLast).queue(1)
             axi.writeRsp << bStream
 
             val readData = ram
@@ -136,16 +124,11 @@ case class Axi4SharedOnChipRamPort(config: Axi4Config) extends ImplicitArea[Axi4
                     address = address
                 )
                 .resized
-            val savedReadData = Reg(cloneOf(readData))
             val dataValid     = RegNext(readAddrStream.fire).init(False)
-            when(dataValid) {
-                savedReadData := readData
-            }
-            val outData = cloneOf(readData)
+            val savedReadData = RegNextWhen(readData, dataValid)
+            val outData       = CombInit(savedReadData)
             when(dataValid) {
                 outData := readData
-            } otherwise {
-                outData := savedReadData
             }
 
             readStream.translateFrom(readAddrStream) { (to, from) =>

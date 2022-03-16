@@ -26,6 +26,11 @@ object CheckTester{
   }
 
   def generationShouldFaild(gen : => Component): Unit ={
+    println("[Warning] generationShouldFaild is deprecated! Use generationShouldFail")
+    generationShouldFail(gen)
+  }
+
+  def generationShouldFail(gen : => Component): Unit ={
     assert(checkFailure{SpinalVhdl(gen)})
     assert(checkFailure{SpinalVerilog(gen)})
   }
@@ -41,7 +46,7 @@ class ChecksTester extends AnyFunSuite  {
 
 
   test("BlackBoxInputUnconnected"){
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       class Sub extends BlackBox{
         val input = in Bool()
       }
@@ -75,7 +80,7 @@ class ChecksTester extends AnyFunSuite  {
 
 
   test("checkWidthAssignment") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val output = out Bits(8 bits)
       output := "00"
     })
@@ -83,7 +88,7 @@ class ChecksTester extends AnyFunSuite  {
 
 
   test("checkCombinatorialLoop") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val input = in Bits(8 bits)
       val cond = in Bool()
 
@@ -120,7 +125,7 @@ class ChecksTester extends AnyFunSuite  {
       }
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
@@ -156,7 +161,7 @@ class ChecksTester extends AnyFunSuite  {
       }
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val cond = in Bool()
       val input = in Bits(8 bits)
       val output = out Bits(8 bits)
@@ -175,7 +180,7 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("checkClockCrossing") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val clockA = in Bool()
       val clockB = in Bool()
 
@@ -226,7 +231,7 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("checkClockCrossingCheckingCheckSourcesPathsFalure") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val clock1 = in Bool()
       val clock2 = in Bool()
       val clockA =  Bool
@@ -259,7 +264,7 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("checkNoInputAssignment") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val input = in Bool()
       val output = out Bool()
       output := input
@@ -268,7 +273,7 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("checkNoSubOutputAssignment") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val sub = new Component{
         val output = out(True)
       }
@@ -279,7 +284,7 @@ class ChecksTester extends AnyFunSuite  {
 
 
   test("checkNoSubSignalAssignment") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val sub = new Component{
         val tmp = True
       }
@@ -305,12 +310,12 @@ class ChecksTester extends AnyFunSuite  {
       }
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val a = out Bool()
       a := True
       a := False
     })
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val a = out Bool()
       a := True
       when(True === True) {
@@ -319,7 +324,7 @@ class ChecksTester extends AnyFunSuite  {
       }
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val a = out Bool()
       when(True === True) {
         a := False
@@ -327,7 +332,7 @@ class ChecksTester extends AnyFunSuite  {
       a := True
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val sub = new Component{
         val a = in Bool()
         val result = out Bool()
@@ -338,7 +343,7 @@ class ChecksTester extends AnyFunSuite  {
       result := sub.result
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val sub = new Component{
         val result = out Bool()
       }
@@ -347,7 +352,7 @@ class ChecksTester extends AnyFunSuite  {
       result := sub.result
     })
 
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       val sub = new Component{
         val a = in Bool()
         val result = out Bool()
@@ -366,7 +371,7 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("checkNoResetFail") {
-    generationShouldFaild(new Component{
+    generationShouldFail(new Component{
       ClockDomain(in Bool()) {
         val output = out(RegInit(False)).setName("aaa")
       }
@@ -379,29 +384,29 @@ class ChecksTester extends AnyFunSuite  {
         val x = Bool()
       }
     }
-    generationShouldFaild(new CheckOnlyIoInBundle)
+    generationShouldFail(new CheckOnlyIoInBundle)
   }
 
 
   test("catchNegativeRangedAccess1") {
-    generationShouldFaild(new Component {
+    generationShouldFail(new Component {
       Bits(32 bits)(4 downto 7)
     })
   }
 
   test("catchNegativeRangedAccess2") {
-    generationShouldFaild(new Component {
+    generationShouldFail(new Component {
       Bits(32 bits)(-1 downto -2)
     })
   }
   test("catchNegativeRangedAccess3") {
-    generationShouldFaild(new Component {
+    generationShouldFail(new Component {
       Bits(32 bits)(4 downto 7) := 0
     })
   }
 
   test("catchNegativeRangedAccess4") {
-    generationShouldFaild(new Component {
+    generationShouldFail(new Component {
       val input = in Bits(8 bits)
       val currState = Vec(Bits(64 bits), 25)
       currState.assignFromBits(input, 0, 8)
@@ -409,10 +414,45 @@ class ChecksTester extends AnyFunSuite  {
   }
 
   test("catchShiftBig"){
-    generationShouldFaild(new Component {
+    generationShouldFail(new Component {
       val a = B(1)
       val b = a << U(2, 30 bits)
     })
+  }
+
+  test("litRange"){
+    def failBody(body :  => Unit): Unit ={
+      generationShouldFail(new Component {body})
+    }
+    def passBody(body :  => Unit): Unit ={
+      generationShouldPass(new Component {body})
+    }
+
+    failBody(out(B(1, 8 bits) === B(256)))
+    failBody(out(B(1, 8 bits) =/= B(256)))
+
+    failBody(out(S(1, 8 bits) === S(256)))
+    failBody(out(S(1, 8 bits) =/= S(256)))
+    failBody(out(S(1, 8 bits) < S(256)))
+    failBody(out(S(1, 8 bits) <= S(256)))
+
+    failBody(out(S(1, 9 bits) === S(256)))
+    failBody(out(S(1, 9 bits) =/= S(256)))
+    failBody(out(S(1, 9 bits) < S(256)))
+    failBody(out(S(1, 9 bits) <= S(256)))
+    failBody(out(S(1, 9 bits) === S(-257)))
+    failBody(out(S(1, 9 bits) =/= S(-257)))
+    failBody(out(S(1, 9 bits) < S(-257)))
+    failBody(out(S(1, 9 bits) <= S(-257)))
+
+    passBody(out(S(1, 9 bits) === S(255)))
+    passBody(out(S(1, 9 bits) =/= S(255)))
+    passBody(out(S(1, 9 bits) < S(255)))
+    passBody(out(S(1, 9 bits) <= S(255)))
+    passBody(out(S(1, 9 bits) === S(-256)))
+    passBody(out(S(1, 9 bits) =/= S(-256)))
+    passBody(out(S(1, 9 bits) < S(-256)))
+    passBody(out(S(1, 9 bits) <= S(-256)))
   }
 
 

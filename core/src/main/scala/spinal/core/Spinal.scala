@@ -138,6 +138,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalPrefix             : String = null,
                         device                         : Device = Device(),
                         inlineRom                      : Boolean = false,
+                        romReuse                       : Boolean = false,
                         genVhdlPkg                     : Boolean = true,
                         verbose                        : Boolean = false,
                         mergeAsyncProcess              : Boolean = false,
@@ -286,6 +287,15 @@ class SpinalReport[T <: Component]() {
     this
   }
 
+  def printZeroWidth() : this.type = {
+    if(globalData.zeroWidths.isEmpty) return this
+    globalData.zeroWidths.foreach{case (c, n) =>
+      SpinalWarning(s"${c}/${n.toString}")
+    }
+    this
+  }
+
+
   def mergeRTLSource(fileName: String = null): Unit = {
 
     val bb_vhdl    = new mutable.LinkedHashSet[String]()
@@ -308,7 +318,7 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val fw = new FileWriter(new File(fileName))
+      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
       val bw = new BufferedWriter(fw)
 
       listPath.foreach{ path =>

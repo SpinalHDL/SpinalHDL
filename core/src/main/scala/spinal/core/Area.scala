@@ -66,22 +66,18 @@ trait Area extends NameableByComponent with ContextUser with OwnableRef with Sca
     obj match {
       case component: Component =>
         if (component.parent == this.component) {
-          component.setPartialName(name, childNamePriority)
-          OwnableRef.proposal(component, this)
+          component.setPartialName(name, childNamePriority, this)
         }
       case namable: Nameable =>
         if (!namable.isInstanceOf[ContextUser]) {
-          namable.setPartialName(name, childNamePriority)
-          OwnableRef.proposal(namable, this)
+          namable.setPartialName(name, childNamePriority, this)
         } else if (namable.asInstanceOf[ContextUser].component == component){
-          namable.setPartialName(name, childNamePriority)
-          OwnableRef.proposal(namable, this)
+          namable.setPartialName(name, childNamePriority, this)
         } else {
           if(component != null) for (kind <- component.children) {
             //Allow to name a component by his io reference into the parent component
             if (kind.reflectIo == namable) {
-              kind.setPartialName(name, childNamePriority)
-              OwnableRef.proposal(kind, this)
+              kind.setPartialName(name, childNamePriority, this)
             }
           }
         }
@@ -159,18 +155,18 @@ class ClockEnableArea(clockEnable: Bool) extends Area with PostInitCallback {
   * Define a clock domain which is x time slower than the current clock
   */
 class SlowArea(val factor: BigInt, allowRounding : Boolean) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
-  def this(factor: BigInt) {
+  def this(factor: BigInt) = {
     this(factor, allowRounding = false)
   }
 
-  def this(frequency: HertzNumber, allowRounding : Boolean) {
+  def this(frequency: HertzNumber, allowRounding : Boolean) = {
     this((ClockDomain.current.frequency.getValue / frequency).toBigInt, allowRounding)
 
     val factor = ClockDomain.current.frequency.getValue / frequency
     require(allowRounding || factor.toBigInt == factor)
   }
 
-  def this(frequency: HertzNumber) {
+  def this(frequency: HertzNumber) = {
     this(frequency, allowRounding = false)
   }
 

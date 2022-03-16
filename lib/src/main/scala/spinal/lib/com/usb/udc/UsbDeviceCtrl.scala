@@ -173,8 +173,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     val ram = Mem(Bits(32 bits), 1 << p.addressWidth-2)
 
     val readPort = ram.readSyncPort
-    val writePort = ram.writePortWithMask
-    writePort.mask.setWidth(4)
+    val writePort = ram.writePortWithMask(4)
 
     val internal = new Area{
       val writeCmd = cloneOf(writePort)
@@ -232,7 +231,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
 
 
   val rxTimer = new Area {
-    val counter = Reg(UInt(log2Up(16) bits))
+    val counter = Reg(UInt(5 bits))
     val clear = False
     when(io.phy.tick) {
       counter := counter + 1
@@ -727,7 +726,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
     ctrl.clearOnSet(regs.interrupts.enable, Regs.CONFIG, 3)
     ctrl.read(U(p.addressWidth), Regs.ADDRESS_WIDTH)
 
-    val memoryMapping = MaskMapping(0x8000, 0x0000)
+    val memoryMapping = MaskMapping(0x0000, 0x8000)
     val readBuffer = memory.external.readRsp.toReg
     val readState = RegInit(U"00")
     val writeState = RegInit(U"0")

@@ -2,7 +2,7 @@ package spinal.lib.bus.bmb
 
 import spinal.core._
 import spinal.core.fiber._
-import spinal.lib.`export`
+import spinal.lib.`sexport`
 import spinal.lib.bus.misc._
 import spinal.lib.generator._
 
@@ -292,7 +292,7 @@ class BmbInterconnectGenerator() extends Area{
         case `DefaultMapping` => BigInt(0)
         case m => m.lowerBound
       }
-      export(new MemoryConnection(m.bus, s.bus, address))
+      sexport(new MemoryConnection(m.bus, s.bus, address))
     }
 
 

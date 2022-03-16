@@ -16,7 +16,7 @@ case class Axi4ReadOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int) exten
     val output = master(Axi4ReadOnly(outputConfig))
   }
 
-  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Ar(inputConfig),inputsCount)
+  val cmdArbiter = StreamArbiterFactory().roundRobin.build(Axi4Ar(inputConfig),inputsCount)
   (cmdArbiter.io.inputs,io.inputs.map(_.readCmd)).zipped.map(_ <> _)
   cmdArbiter.io.output <> io.output.readCmd
 
@@ -60,7 +60,7 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,
   }
 
   // Route writeCmd
-  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Aw(inputConfig),inputsCount)
+  val cmdArbiter = StreamArbiterFactory().roundRobin.build(Axi4Aw(inputConfig),inputsCount)
   (cmdArbiter.io.inputs,io.inputs.map(_.writeCmd)).zipped.map(_ <> _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.writeCmd << cmdOutputFork
@@ -152,7 +152,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     axi.sharedCmd.translateWith(axi.sharedCmd.payload)
   })
 
-  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Arw(sharedInputConfig),inputsCount)
+  val cmdArbiter = StreamArbiterFactory().roundRobin.build(Axi4Arw(sharedInputConfig),inputsCount)
   (inputsCmd,cmdArbiter.io.inputs).zipped.map(_ drive _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.sharedCmd << cmdOutputFork

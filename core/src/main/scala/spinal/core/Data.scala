@@ -653,10 +653,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
       SpinalError(
         s"""
            |*** Spinal can't clone ${this.getClass} datatype
-                                                     |*** You have two way to solve that :
-                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-                                                     |*** Or override by your self the bundle clone function
-                                                     |*** The error is """.stripMargin + this.getScalaLocationLong)
+           |*** You have two way to solve that :
+           |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+           |*** Or override by your self the bundle clone function
+           |*** The error is """.stripMargin + this.getScalaLocationLong)
       null
     }
     null
@@ -689,6 +689,18 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this := comb
     this.freeze()
     comb.asInstanceOf[this.type]
+  }
+
+  def getAheadValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+
+    val ret = cloneOf(this)
+
+    for((dst, src) <- (ret.flatten, this.flatten).zipped){
+      dst := src.getAheadValue()
+    }
+
+    ret.asInstanceOf[this.type]
   }
 }
 

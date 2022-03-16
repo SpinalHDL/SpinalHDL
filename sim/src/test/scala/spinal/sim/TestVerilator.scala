@@ -54,30 +54,30 @@ object TestVerilator1 extends App{
   simV.setLong(wvalue, 0)
   simV.setLong(wenable, 1)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setLong(addr, i)
     simV.setLong(wvalue, i)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 1)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 0)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
   }
 
   simV.setLong(wenable, 0)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     println(i.toString + " -> " + simV.getLongMem(mem, i).toString) // read from index 'i'
   }
 
-  simV.end
+  simV.end()
   println("Finished TestVerilator1")
 }
 
@@ -124,29 +124,29 @@ object TestVerilator2 extends App{
   simV.setLong(wvalue, 0)
   simV.setLong(wenable, 0)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setLongMem(mem, i, i)
   }
 
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setLong(addr, i)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 1)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 0)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     println(i.toString + " -> " + simV.getLong(rvalue).toString) // read from index 'i'
   }
 
-  simV.end
+  simV.end()
   println("Finished TestVerilator2")
 }
 
@@ -193,30 +193,30 @@ object TestVerilator3 extends App{
   simV.setBigInt(wvalue, BigInt(0))
   simV.setLong(wenable, 1)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setLong(addr, i)
     simV.setBigInt(wvalue, BigInt(i))
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 1)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 0)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
   }
 
   simV.setLong(wenable, 0)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     println(i.toString + " -> " + simV.getBigIntMem(mem, i).toString) // read from index 'i'
   }
 
-  simV.end
+  simV.end()
   println("Finished TestVerilator3")
 }
 
@@ -263,28 +263,28 @@ object TestVerilator4 extends App{
   simV.setLong(wvalue, 0)
   simV.setLong(wenable, 0)
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setBigIntMem(mem, BigInt(i), i)
   }
 
   simV.sleep(1)
-  simV.eval
+  simV.eval()
 
   for(i <- 0 to 1023){
     simV.setLong(addr, i)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 1)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     simV.setLong(clk, 0)
     simV.sleep(1)
-    simV.eval
+    simV.eval()
     println(i.toString + " -> " + simV.getBigInt(rvalue).toString) // read from index 'i'
   }
 
-  simV.end
+  simV.end()
   println("Finished TestVerilator4")
 }

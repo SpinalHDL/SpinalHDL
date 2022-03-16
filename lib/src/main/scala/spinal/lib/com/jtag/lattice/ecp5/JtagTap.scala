@@ -76,7 +76,7 @@ class JtagTap(io: JtaggIo, instructionWidth: Int=8) extends Area
     """The ECP5 JTAGG implements only 8-Bit instruction width.\n
       |Only instructions 0x32 / 0x38 are for embedded jtag usage""".stripMargin)
 
-  val instruction     = Bool // 0-> 0x32 / 1-> 0x38
+  val instruction     = Bool() // 0-> 0x32 / 1-> 0x38
   val tdo             = Bool(false)
   val state           = asJtagTapState(io)
   val lastInstruction = Reg(Bool()) init(False)

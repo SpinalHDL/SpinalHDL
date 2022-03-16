@@ -105,24 +105,24 @@ trait VerilogBase extends VhdlVerilogBase{
     " /* " + values.reduce(_ + " , " + _) + " */ "
   }
 
-  def emitEnumLiteral[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-//    prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  def emitEnumLiteral[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+//    prefix + senum.spinalEnum.getName() + "_" + encoding.getName() + "_" + senum.getName()
     var prefix_fix = prefix;
-    if(prefix=="`" && !enum.spinalEnum.isGlobalEnable) prefix_fix = ""
+    if(prefix=="`" && !senum.spinalEnum.isGlobalEnable) prefix_fix = ""
 
-    if(enum.spinalEnum.isPrefixEnable) {
-      val withEncoding = enum.spinalEnum.defaultEncoding != encoding && (enum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
-      prefix_fix + globalPrefix + enum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + enum.getName()
+    if(senum.spinalEnum.isPrefixEnable) {
+      val withEncoding = senum.spinalEnum.defaultEncoding != encoding && (senum.spinalEnum.defaultEncoding == native && encoding != binarySequential)
+      prefix_fix + globalPrefix + senum.spinalEnum.getName() + (if(withEncoding) "_" + encoding.getName() else "") + "_" + senum.getName()
     } else {
-      prefix_fix + globalPrefix + enum.getName()
+      prefix_fix + globalPrefix + senum.getName()
     }
   }
 
-  def emitEnumType[T <: SpinalEnum](enum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(enum.spinalEnum, enum.getEncoding, prefix)
+  def emitEnumType[T <: SpinalEnum](senum: SpinalEnumCraft[T], prefix: String): String = emitEnumType(senum.spinalEnum, senum.getEncoding, prefix)
 
-  def emitEnumType(enum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
-//    prefix + enum.getName() + "_" + encoding.getName() + "_type"
-    val bitCount     = encoding.getWidth(enum)
+  def emitEnumType(senum: SpinalEnum, encoding: SpinalEnumEncoding, prefix: String = "`"): String = {
+//    prefix + senum.getName() + "_" + encoding.getName() + "_type"
+    val bitCount     = encoding.getWidth(senum)
     s"[${bitCount - 1}:0]"
   }
 

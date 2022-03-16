@@ -111,6 +111,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   val usedDefinitionNames = mutable.HashSet[String]()
 
+
+  val romCache = mutable.HashMap[String, String]()
   def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
@@ -125,7 +127,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
-      pc                          = pc
+      pc                          = pc,
+      romCache                    = romCache
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {
@@ -142,7 +145,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
     val oldComponent = emitedComponent.getOrElse(trace, null)
 
     if (oldComponent == null || component.definitionNameNoMerge && component.definitionName != oldComponent.definitionName) {
-      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"$component definition name was already used once for a different layout\n${component.getScalaLocationLong}")
+      assert(!usedDefinitionNames.contains(component.definitionName) || component.isInBlackBoxTree, s"Component '${component}' with definition name '${component.definitionName}' was already used once for a different layout\n${component.getScalaLocationLong}")
       usedDefinitionNames += component.definitionName
       emitedComponent += (trace -> component)
       () => componentBuilderVerilog.result
@@ -181,9 +184,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str    = encoding.getValue(enum).toString(2)
-      val length = encoding.getWidth(enum.spinalEnum)
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str    = encoding.getValue(senum).toString(2)
+      val length = encoding.getWidth(senum.spinalEnum)
       length.toString + "'b" + ("0" * (length - str.length)) + str
     }
 

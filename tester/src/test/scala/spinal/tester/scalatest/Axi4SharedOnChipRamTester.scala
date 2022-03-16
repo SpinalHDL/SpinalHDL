@@ -182,18 +182,23 @@ class Axi4SharedOnChipRamMultiPortTester extends AnyFunSuite {
             axi4master(dut.io.axis(1), dut.clockDomain)
 
             dut.clockDomain.waitSampling((10 KiB).toInt)
-            dut.clockDomain.waitSamplingWhere(dut.io.axis(0).ar.valid.toBoolean && dut.io.axis(0).ar.ready.toBoolean)
-            dut.io.softReset #= true
-            dut.clockDomain.waitSampling(2)
+            for (i <- 0 until 20) {
+                dut.clockDomain.waitSamplingWhere(
+                    dut.io.axis(0).ar.valid.toBoolean && dut.io.axis(0).ar.ready.toBoolean
+                )
+                dut.io.softReset #= true
+                dut.clockDomain.waitSampling(1)
 
-            agents._3.reset()
-            agents._1.reset()
+                agents._3.reset()
+                agents._1.reset()
 
-            agents._4.reset()
-            agents._2.reset()
+                agents._4.reset()
+                agents._2.reset()
 
-            dut.io.softReset #= false
-            dut.clockDomain.waitSampling((100 KiB).toInt)
+                dut.io.softReset #= false
+                dut.clockDomain.waitSampling(Random.nextInt(5000))
+            }
+
             simSuccess()
         }
     }

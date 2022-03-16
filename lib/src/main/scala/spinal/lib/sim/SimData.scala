@@ -85,7 +85,7 @@ class SimData extends Dynamic{
     str.toString
   }
 
-  override def toString = toString("")
+  override def toString : String = toString("")
 
   override def equals(o: scala.Any) = o match {
     case o : SimData => values == o.values

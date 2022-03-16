@@ -37,8 +37,9 @@ trait IODirection extends BaseTypeFactory {
 
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
+  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(enum: SpinalEnum) = applyIt(enum.craft())
+  def apply(senum: SpinalEnum) = applyIt(senum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
   def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
@@ -151,6 +152,7 @@ class GlobalData(val config : SpinalConfig) {
 
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSynchronous      = mutable.HashMap[Bool, ArrayBuffer[Bool]]()
+  val zeroWidths          = mutable.LinkedHashSet[(Component, Widthable)]()
 
   var scalaLocatedEnable = false
   val scalaLocatedComponents = mutable.HashSet[Class[_]]()
@@ -359,7 +361,7 @@ object Nameable{
 trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
-  protected var name: String = null
+  var name: String = null
   @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
@@ -485,6 +487,15 @@ trait Nameable extends OwnableRef with ContextUser{
       this.name = name
       mode = OWNER_PREFIXED
       this.namePriority = namePriority
+    }
+    this
+  }
+  def setPartialName(name: String, namePriority: Byte, owner : Any): this.type = {
+    if (isPriorityApplicable(namePriority)) {
+      this.name = name
+      mode = OWNER_PREFIXED
+      this.namePriority = namePriority
+      OwnableRef.set(this, owner)
     }
     this
   }

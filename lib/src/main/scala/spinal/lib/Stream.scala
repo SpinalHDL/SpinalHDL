@@ -4,6 +4,28 @@ import spinal.core._
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
 import scala.collection.Seq
 
+trait StreamPipe {
+  def apply[T <: Data](m: Stream[T]): Stream[T]
+}
+
+object StreamPipe {
+  val NONE = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.combStage()
+  }
+  val M2S = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
+  }
+  val S2M = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe()
+  }
+  val FULL = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe().m2sPipe()
+  }
+  val HALF = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe()
+  }
+}
+
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
 
@@ -98,7 +120,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The ready path is cut by an register stage
   */
   def </<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe
+    this << that.s2mPipe()
     that
   }
 
@@ -112,7 +134,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The valid/payload/ready path are cut by an register stage
   */
   def <-/<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe.m2sPipe()
+    this << that.s2mPipe().m2sPipe()
     that
   }
 
@@ -123,21 +145,23 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  def pipelined(pipe: StreamPipe) = pipe(this)
   def pipelined(m2s : Boolean = false,
                 s2m : Boolean = false,
                 halfRate : Boolean = false) : Stream[T] = {
     (m2s, s2m, halfRate) match {
-      case (false,false,false) => this.combStage()
-      case (true,false,false) =>  this.m2sPipe()
-      case (false,true,false) =>  this.s2mPipe()
-      case (true,true,false) =>   this.s2mPipe().m2sPipe()
-      case (false,false,true) =>  this.halfPipe()
+      case (false,false,false) => StreamPipe.NONE(this)
+      case (true,false,false) =>  StreamPipe.M2S(this)
+      case (false,true,false) =>  StreamPipe.S2M(this)
+      case (true,true,false) =>   StreamPipe.FULL(this)
+      case (false,false,true) =>  StreamPipe.HALF(this)
     }
   }
 
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
-  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
+  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
+  def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.payload))
   }
 
@@ -472,6 +496,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this.ready := False
     this
   }
+
+  def forkSerial(cond : Bool): Stream[T] = new Composite(this, "forkSerial"){
+    val next = Stream(payloadType)
+    next.valid := self.valid
+    next.payload := self.payload
+    self.ready := next.ready && cond
+  }.next
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
@@ -1278,7 +1309,7 @@ object StreamWidthAdapter {
     ret
   }
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]) : Unit = {
     SpinalVhdl(new Component{
       val input = slave(Stream(Bits(4 bits)))
       val output = master(Stream(Bits(32 bits)))
@@ -1423,7 +1454,7 @@ case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T
     val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when((channels.map(_.valid).asBits & io.push.channel).orR) {
+      when((channels.map(_.valid).asBits() & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }
@@ -1610,6 +1641,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
         val working = out Bool ()
         val first   = out Bool ()
         val last    = out Bool ()
+        val done    = out Bool ()
     }
 
     val counter  = StreamTransactionCounter(io.input, io.output, io.count)
@@ -1630,6 +1662,7 @@ class StreamTransactionExtender[T <: Data, T2 <: Data](
     io.output.valid := outValid
     io.input.ready := (!outValid || counter.io.done)
     io.last := lastOne
+    io.done := counter.io.done
     io.first := (counter.io.value === 0) && counter.io.working
     io.working := counter.io.working
 }

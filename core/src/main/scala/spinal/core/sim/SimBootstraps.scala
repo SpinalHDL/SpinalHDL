@@ -220,20 +220,23 @@ case class SpinalGhdlBackendConfig[T <: Component](override val rtl : SpinalRepo
 
 
 object SpinalGhdlBackend {
-  def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) = { 
+  class Backend(val signals : ArrayBuffer[Signal], vconfig : GhdlBackendConfig) extends GhdlBackend(vconfig)
+
+  def apply[T <: Component](config: SpinalGhdlBackendConfig[T]) : Backend = {
     val vconfig = new GhdlBackendConfig()
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
     vconfig.runFlags = config.simulatorFlags.mkString(" ")
     vconfig.logSimProcess = config.enableLogging
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
-    new GhdlBackend(vconfig){
-      val signals = signalsCollector
-    }
+
+    new Backend(signalsCollector, vconfig)
   }
 }
 
 object SpinalIVerilogBackend {
+  class Backend(val signals : ArrayBuffer[Signal], vconfig : IVerilogBackendConfig) extends IVerilogBackend(vconfig)
+
   def apply[T <: Component](config: SpinalIVerilogBackendConfig[T]) = { 
     val vconfig = new IVerilogBackendConfig()
     vconfig.analyzeFlags = config.simulatorFlags.mkString(" ")
@@ -241,9 +244,8 @@ object SpinalIVerilogBackend {
     vconfig.logSimProcess = config.enableLogging
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
-    new IVerilogBackend(vconfig){
-      val signals = signalsCollector
-    }
+
+    new Backend(signalsCollector, vconfig)
   }
 }
 
@@ -661,14 +663,24 @@ case class SpinalSimConfig(
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
 
     val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
-    val rtlPatch = rtlDir.getAbsolutePath
+//    val rtlPath = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
       val src = new File(srcPath)
       val lines = Source.fromFile(src).getLines.toArray
       val w = new PrintWriter(src)
       for(line <- lines){
           val str = if(line.contains("readmem")){
-            line.replace("$readmemb(\"", "$readmemb(\"" + rtlPatch + "/")
+            val exprPattern = """.*\$readmem.*\(\"(.+)\".+\).*""".r
+            val absline = line match {
+              case exprPattern(relpath) => {
+                val windowsfix = relpath.replace(".\\", "")
+                val abspath = new File(windowsfix).getAbsolutePath
+                val ret = line.replace(relpath, abspath)
+                ret.replace("\\", "\\\\") //windows escape "\"
+              }
+              case _ => new Exception("readmem abspath replace failed")
+            }
+            absline
           } else {
             line
           }
@@ -722,7 +734,8 @@ case class SpinalSimConfig(
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
-          enableLogging = _withLogging
+          enableLogging = _withLogging,
+          usePluginsCache = !_disableCache
         )
         val backend = SpinalGhdlBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
@@ -748,7 +761,8 @@ case class SpinalSimConfig(
           waveDepth = _waveDepth,
           optimisationLevel = _optimisationLevel,
           simulatorFlags = _simulatorFlags,
-          enableLogging = _withLogging
+          enableLogging = _withLogging,
+          usePluginsCache = !_disableCache
         )
         val backend = SpinalIVerilogBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
@@ -789,17 +803,17 @@ case class SimConfigLegacy[T <: Component](
   def normalOptimisation: this.type = { _simConfig.normalOptimisation ; this }
   def allOptimisation: this.type    = { _simConfig.allOptimisation ; this }
 
-  def doSim(body: T => Unit): Unit = compile.doSim(body)
-  def doSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doSim(body: T => Unit): Unit = compile().doSim(body)
+  def doSim(name: String)(body: T => Unit): Unit = compile().doSim(name)(body)
+  def doSim(name: String, seed: Int)(body: T => Unit): Unit = compile().doSim(name, seed)(body)
 
-  def doManagedSim(body: T => Unit): Unit = compile.doSim(body)
-  def doManagedSim(name: String)(body: T => Unit): Unit = compile.doSim(name)(body)
-  def doManagedSim(name: String, seed: Int)(body: T => Unit): Unit = compile.doSim(name, seed)(body)
+  def doManagedSim(body: T => Unit): Unit = compile().doSim(body)
+  def doManagedSim(name: String)(body: T => Unit): Unit = compile().doSim(name)(body)
+  def doManagedSim(name: String, seed: Int)(body: T => Unit): Unit = compile().doSim(name, seed)(body)
 
-  def doSimUntilVoid(body: T => Unit): Unit = compile.doSimUntilVoid(body)
-  def doSimUntilVoid(name: String)(body: T => Unit): Unit = compile.doSimUntilVoid(name)(body)
-  def doSimUntilVoid(name: String, seed: Int)(body: T => Unit): Unit = compile.doSimUntilVoid(name, seed)(body)
+  def doSimUntilVoid(body: T => Unit): Unit = compile().doSimUntilVoid(body)
+  def doSimUntilVoid(name: String)(body: T => Unit): Unit = compile().doSimUntilVoid(name)(body)
+  def doSimUntilVoid(name: String, seed: Int)(body: T => Unit): Unit = compile().doSimUntilVoid(name, seed)(body)
 
   def compile(): SimCompiled[T] = {
     (_rtlGen, _spinalReport)  match {

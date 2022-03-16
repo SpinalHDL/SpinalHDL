@@ -49,6 +49,7 @@ class WishboneSlaveFactory(bus: Wishbone,reg_fedback: Boolean = true) extends Bu
 
   override def busDataWidth = bus.config.dataWidth
   override def wordAddressInc = busDataWidth / 8
+  override def writeByteEnable() = bus.SEL
 
   override def build(): Unit = {
     super.doNonStopWrite(bus.DAT_MOSI)

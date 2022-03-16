@@ -6,7 +6,7 @@ import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config, Axi4SlaveFactory}
 
 object Axi4SlaveFactoryTester {
   def axi4Config = Axi4Config(
-    addressWidth = 4,
+    addressWidth = 4+2,
     dataWidth = 32,
     idWidth = 0
   )
@@ -19,12 +19,12 @@ object Axi4SlaveFactoryTester {
 
     val ctrl = new Axi4SlaveFactory(io.bus)
     val regA, regB = Reg(UInt(20 bits)) init (44)
-    ctrl.readAndWrite(regA, address = 9, bitOffset = 10)
-    ctrl.readAndWrite(regB, address = 7, bitOffset = 10)
-    ctrl.onWrite(15) {
+    ctrl.readAndWrite(regA, address = 9*4, bitOffset = 10)
+    ctrl.readAndWrite(regB, address = 7*4, bitOffset = 10)
+    ctrl.onWrite(15*4) {
       regA := 11
     }
-    ctrl.onRead(2) {
+    ctrl.onRead(2*4) {
       regB := 33
     }
     ctrl.nonStopWrite(io.nonStopWrited, bitOffset = 4)

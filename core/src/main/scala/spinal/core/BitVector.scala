@@ -168,7 +168,7 @@ abstract class BitVector extends BaseType with Widthable {
     } else {
       res.fixedWidth = this.fixedWidth
     }
-    res
+    res.asInstanceOf[this.type]
   }
 
   /**
@@ -375,7 +375,7 @@ abstract class BitVector extends BaseType with Widthable {
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
-      ret
+      ret.asInstanceOf[this.type]
     }
     else
       getZeroUnconstrained
@@ -399,7 +399,7 @@ abstract class BitVector extends BaseType with Widthable {
         }
         override def getRealSourceNoRec: BaseType = BitVector.this
       }
-      ret
+      ret.asInstanceOf[this.type]
     }
     else
       getZeroUnconstrained
@@ -468,7 +468,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   override def toString(): String = {
     if(component == null)
-      getName()
+      s"${getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else if((isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal]))
       s"(${component.getPath() + "/" + this.getDisplayName()} : ${dirString()} $getClassIdentifier[$getWidthStringNoInferation bits])"
     else

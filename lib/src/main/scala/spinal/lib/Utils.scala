@@ -118,7 +118,6 @@ class MuxOHImpl {
 }
 
 object MuxOH extends MuxOHImpl
-object OHMux extends MuxOHImpl
 object OhMux extends MuxOHImpl
 
 
@@ -176,13 +175,12 @@ object SetFromFirstOne{
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
-  def first[T <: Data](that : T) : T = {
+  def first[T <: Data](that : T) : T = new Composite(that, "ohFirst"){
       val input = that.asBits.asUInt
       val masked = input & ~(input - 1)
-      val ret = cloneOf(that)
-      ret.assignFromBits(masked.asBits)
-      ret
-  }
+      val value = cloneOf(that)
+      value.assignFromBits(masked.asBits)
+  }.value
 
   def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
@@ -278,6 +276,20 @@ object OHMasking{
     val (pLow, pHigh) = doubleOh.splitAt(width-1)
     val selOh = (pHigh << 1) | pLow
   }.selOh
+
+  //Based on the same principal than roundRobinMasked, but with inverted priorities
+  def roundRobinMaskedInvert[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
+    val input = B(requests).reversed
+    val priorityBits = ~B(priority).reversed
+    val width = widthOf(requests)
+    assert(widthOf(priority) == width-1)
+    val doubleMask = input.rotateLeft(1) ## (input.dropHigh(1) & priorityBits)
+    val doubleOh = OHMasking.firstV2(doubleMask, firstOrder = LutInputs.get)
+    val (pLow, pHigh) = doubleOh.splitAt(width)
+    val selOh = pHigh | pLow.resized
+    val result = selOh.reversed
+  }.result
+
 
   //Same as roundRobinMasked, but priority is shifted left by one, and lsb mean that input.lsb has priority
   def roundRobinMaskedFull[T <: Data, T2 <: Data](requests : T, priority : T2) : Bits = new Composite(requests, "roundRobinMasked"){
@@ -527,8 +539,8 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     valueNext := start
   }
 
-  willOverflowIfInc.allowPruning
-  willOverflow.allowPruning
+  willOverflowIfInc.allowPruning()
+  willOverflow.allowPruning()
 
   override def implicitValue: UInt = this.value
 
@@ -893,6 +905,13 @@ class GrowableAnyPimped[T <: Any](pimped: Growable[T]) {
   }
 }
 
+class AnyPimped[T <: Any](pimped: T) {
+  def ifMap(cond : Boolean)(body : T => T): T ={
+    if(cond) body(pimped) else pimped
+  }
+}
+
+
 class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))
@@ -902,6 +921,18 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
       }
     }
   }
+
+  def onMask(conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onMask(conds : Bits)(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onSel(sel : UInt)(body : T => Unit): Unit ={
+    whenIndexed[T](pimped, sel)(body)
+  }
+
+
 
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)

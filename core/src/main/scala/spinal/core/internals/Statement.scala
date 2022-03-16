@@ -66,6 +66,16 @@ class ScopeStatement(var parentStatement: TreeStatement) {
     ctx.restore()
   }
 
+  //Execute body on the head of the ScopeStatement list
+  def onHead[T](body : => T) : T = {
+    val ctx = push()
+    val swapContext = swap()
+    val ret = body
+    ctx.restore()
+    swapContext.appendBack()
+    ret
+  }
+
   class SwapContext(cHead: Statement, cLast: Statement){
     def appendBack(): Unit ={
       if(nonEmpty){
@@ -502,7 +512,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     }
 
 
-    //TODO IR enum encoding stuff
+    //TODO IR senum encoding stuff
     value.getTypeObject match {
       case `TypeBits` => bitVectorNormalize(new ResizeBits)
       case `TypeUInt` => bitVectorNormalize(new ResizeUInt)
@@ -559,7 +569,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     var hadNonLiteralKey = false
     elements.foreach(element => element.keys.foreach{
       case lit: EnumLiteral[_] =>
-        if(!coverage.allocate(lit.enum.position)){
+        if(!coverage.allocate(lit.senum.position)){
           PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
         }
       case lit: Literal =>

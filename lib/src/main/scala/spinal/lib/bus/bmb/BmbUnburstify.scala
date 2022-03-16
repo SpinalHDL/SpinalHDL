@@ -32,7 +32,7 @@ case class BmbUnburstify(inputParameter : BmbParameter) extends Component{
     val address     = Reg(UInt(inputParameter.access.addressWidth bits))
     val context     = Reg(Bits(inputParameter.access.contextWidth bits))
     val beat        = Reg(UInt(inputParameter.access.beatCounterWidth bits))
-    val last        = beat === 1
+    val last        = beat === U(1).resized
     val addressIncr = Bmb.incr(address = address, p = inputParameter)
     val isWrite = Bmb.Cmd.Opcode.isWrite(opcode)
 
