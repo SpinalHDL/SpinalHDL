@@ -678,6 +678,13 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       path => FileUtils.copyFileToDirectory(new File(path), new File(workspacePath))
     }
 
+    val fileList = (verilogSourcePaths ++ vhdlSourcePaths).mkString("\n")
+    val fileListFile = new PrintWriter(
+      new File(s"$workspacePath/filelist.f")
+    )
+    fileListFile.write(fileList)
+    fileListFile.close()
+
     val simWaveSource =
       s"""
          |`timescale 1ns/1ps
