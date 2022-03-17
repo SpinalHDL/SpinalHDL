@@ -35,8 +35,8 @@ object WaveFormat{
   case object LXT2_SPACE extends WaveFormat("lxt2-space")
 
   // VCS only
-  object VPD extends WaveFormat("vpd")
-  object FSDB extends WaveFormat("fsdb")
+  case object VPD extends WaveFormat("vpd")
+  case object FSDB extends WaveFormat("fsdb")
 }
 
 class WaveFormat(val ext : String = "???")

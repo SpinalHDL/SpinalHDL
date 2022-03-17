@@ -563,7 +563,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
         if(sys.env.get("LD_LIBRARY_PATH") == None) {
           info += "\n $LD_LIBRARY_PATH not found"
         }
-        println(s"[Error]: ${}")
+        println(s"[Error]: ${info}")
         " "
       }
     }
@@ -617,7 +617,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       case Some(x) => List("-ld", x)
       case None => List.empty
     }
-    println("ERROR ${VERDI_HOME}")
+
     val dump = waveFormat match {
       case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
       case WaveFormat.VPD => List(s"+vcs+vcdpluson")
@@ -626,7 +626,6 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       case _ => List.empty
     }
     val cmd = (commonFlags ++ cc ++ ld ++ dump).mkString(" ")
-    println(s"[Info] ${cmd}")
     cmd
   }
 
@@ -666,7 +665,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       verilogSourcePaths + fsdbv
     ).mkString(" ")
 
-    println(s"[Info] ${vcspost}")
+    println(s"[VCS] ${vcspost}")
 
     doCmd(
       vcspost,
