@@ -635,6 +635,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       "-debug_access+all",
       "-debug_acc+pp+dmptf",
       "-debug_region=+cell+encrypt",
+      "-l vcs.log",
       "+vpi",
       "+vcs+initreg+random",
       "-load",
