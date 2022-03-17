@@ -584,14 +584,17 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       cppSourceFile.close
     }
     val vpiCFlags = s"-DVCS_PLUGIN -I$vpiInclude -fPIC -shared"
+    val vpiCommand = Seq(
+      CC,
+      CFLAGS,
+      vpiCFlags,
+      "VpiPlugin.cpp",
+      "-o",
+      vpiModuleName
+    ).mkString(" ")
+    println(s"[VPI] $vpiCommand")
     doCmd(
-      Seq(CC,
-        CFLAGS,
-        vpiCFlags,
-        "VpiPlugin.cpp",
-        "-o",
-        vpiModuleName
-      ).mkString(" "),
+      vpiCommand,
       new File(pluginsPath),
       s"Compilation of $vpiModuleName failed"
     )
@@ -679,7 +682,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
          |`timescale 1ns/1ps
          |module __simulation_def;
          |initial begin
-         |  $$fsdbDumpfile("$wavePath");
+         |  $$fsdbDumpfile("$toplevelName.fsdb");
          |  $$fsdbDumpvars($waveDepth, $toplevelName);
          |  $$fsdbDumpflush;
          |end
@@ -690,8 +693,12 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     simulationDefSourceFile.close()
 
     val fsdbv = waveFormat match {
-      case WaveFormat.FSDB => "./rtl/__simulation_def.v"
-      case _=> ""
+      case WaveFormat.FSDB => " ./rtl/__simulation_def.v"
+      case _=> " "
+    }
+    val topUnits = waveFormat match {
+      case WaveFormat.FSDB => toplevelName + " __simulation_def"
+      case _=> toplevelName
     }
 
     def analyzeSource(): Unit = {
@@ -727,13 +734,13 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       val vcsCommand = Seq(
         "vcs",
         vcsFlags(),
-        toplevelName
+        topUnits
       ).mkString(" ")
       println(s"[VCS] $vcsCommand")
       doCmd(
         vcsCommand,
         new File(workspacePath),
-        s"Compilation of $toplevelName failed"
+        s"Elaboration of $toplevelName failed"
       )
     }
 

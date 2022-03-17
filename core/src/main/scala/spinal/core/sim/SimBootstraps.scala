@@ -294,6 +294,7 @@ object SpinalVCSBackend {
     vconfig.vcsLd = config.vcsLd
     vconfig.vcsCC = config.vcsCC
     vconfig.waveDepth = config.waveDepth
+    vconfig.wavePath = config.wavePath
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
@@ -550,12 +551,13 @@ case class SpinalSimConfig(
                             var _backend           : SpinalSimBackendSel = SpinalSimBackendSel.VERILATOR,
                             var _withCoverage      : Boolean = false,
                             var _maxCacheEntries   : Int = 100,
-                            var _cachePath         : String = null,   // null => workspacePath + "/.cache"
+                            var _cachePath         : String = null, // null => workspacePath + "/.cache"
                             var _disableCache      : Boolean = false,
                             var _withLogging       : Boolean = false,
                             var _vcsCC             : Option[String] = None,
-                            var _vcsLd             : Option[String] = None
-){
+                            var _vcsLd             : Option[String] = None,
+                            var _vcsUserFlags          : VCSFlags = VCSFlags()
+  ){
 
 
   def  withVerilator : this.type = {
@@ -576,14 +578,9 @@ case class SpinalSimConfig(
     this
   }
 
-  private var vcsCompileFlags    : List[String] = List[String]()
-  private var vcsElaborateFlags    : List[String] = List[String]()
-  private var vcsRunFlags    : List[String] = List[String]()
   def withVCS(vcsFlags: VCSFlags = VCSFlags()) : this.type = {
     _backend = SpinalSimBackendSel.VCS
-    vcsCompileFlags = vcsFlags.compileFlags
-    vcsElaborateFlags = vcsFlags.elaborateFlags
-    vcsRunFlags = vcsFlags.runFlags
+    _vcsUserFlags = vcsFlags
     this
   }
   def withVPDWave: this.type = {
@@ -616,6 +613,11 @@ case class SpinalSimConfig(
 
   def withWave: this.type = {
     _waveFormat = WaveFormat.DEFAULT
+    this
+  }
+
+  def withWaveDepth(depth: Int): this.type = {
+    _waveDepth = depth
     this
   }
 
@@ -885,9 +887,9 @@ case class SpinalSimConfig(
           usePluginsCache = !_disableCache,
           vcsCC = _vcsCC,
           vcsLd = _vcsLd,
-          compileFlags = vcsCompileFlags,
-          elaborateFlags = vcsElaborateFlags,
-          runFlags = vcsRunFlags
+          compileFlags = _vcsUserFlags.compileFlags,
+          elaborateFlags = _vcsUserFlags.elaborateFlags,
+          runFlags = _vcsUserFlags.runFlags
         )
         val backend = SpinalVCSBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
