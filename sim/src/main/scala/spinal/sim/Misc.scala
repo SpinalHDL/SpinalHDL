@@ -41,7 +41,7 @@ object WaveFormat{
 
 sealed class WaveFormat(val ext : String = "???"){
   override def toString: String = {
-    getClass.getName.split("\\$").last
+    getClass().getName().split("\\$").last
   }
 }
 

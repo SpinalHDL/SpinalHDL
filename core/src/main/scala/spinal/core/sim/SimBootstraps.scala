@@ -573,6 +573,7 @@ case class SpinalSimConfig(
     this
   }
 
+  def withVcs : this.type = withVCS
   def withVCS : this.type = {
     _backend = SpinalSimBackendSel.VCS
     this
@@ -608,6 +609,16 @@ case class SpinalSimConfig(
 
   def withFstWave : this.type = {
     _waveFormat = WaveFormat.FST
+    this
+  }
+
+  def withFsdbWave : this.type = {
+    _waveFormat = WaveFormat.FSDB
+    this
+  }
+
+  def withVpdWave : this.type = {
+    _waveFormat = WaveFormat.VPD
     this
   }
 

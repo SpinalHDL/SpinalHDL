@@ -146,7 +146,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
     System.load(pwd + "/" + sharedMemIfacePath)
     compileVPI()
-    analyzeRTL() 
+    analyzeRTL()
   }
 
   def clean() : Unit = {
@@ -650,16 +650,17 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       case Some(x) => List("-ld", x)
       case None => List.empty
     }
+
     val dump = waveFormat match {
       case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
       case WaveFormat.VPD => List(s"+vcs+vcdpluson")
-//      case WaveFormat.FSDB => List("+vcs+fsdbon") // todo temporary support fsdb
       case WaveFormat.FSDB =>
         List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab", s"$verdi_home/share/PLI/VCS/LINUX64/pli.a")
       case _ => List.empty
     }
     val elaborateFlags = List(config.elaborationFlags)
-    (commonFlags ++ cc ++ ld ++ dump ++ elaborateFlags).mkString(" ")
+    val cmd = (commonFlags ++ cc ++ ld ++ dump ++ elaborateFlags).mkString(" ")
+    cmd
   }
 
   // todo 1. use three-step flow; 2. try fsdb system task.
