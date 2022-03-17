@@ -529,6 +529,7 @@ class VCSBackendConfig extends VpiBackendConfig {
   var vcsCC: Option[String] = None
   var vcsLd: Option[String] = None
   var elaborationFlags: String = ""
+  var waveDepth = 0
 }
 
 class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
@@ -536,7 +537,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
   import config._
   override def isBufferedWrite: Boolean = true
 
-  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.NONE)
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.FSDB, WaveFormat.NONE)
 
   val format = if(availableFormats contains config.waveFormat) {
     config.waveFormat
@@ -554,6 +555,20 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
 //      println("VCS_HOME not found")
       assert(assertion = false, "VCS_HOME not found! Setup your synopsys environment first.")
       ""
+    }
+  }
+
+  val verdi_home = sys.env.get("VERDI_HOME") match {
+    case Some(x) => x
+    case None => {
+      if(config.waveFormat == WaveFormat.FSDB){
+        var info = "$VERDI_HOME not found"
+        if(sys.env.get("LD_LIBRARY_PATH") == None) {
+          info += "\n $LD_LIBRARY_PATH not found"
+        }
+        println(s"[Error]: ${info}")
+        " "
+      }
     }
   }
 
@@ -635,7 +650,9 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     val dump = waveFormat match {
       case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
       case WaveFormat.VPD => List(s"+vcs+vcdpluson")
-      case WaveFormat.FSDB => List("+vcs+fsdbon") // todo temporary support fsdb
+//      case WaveFormat.FSDB => List("+vcs+fsdbon") // todo temporary support fsdb
+      case WaveFormat.FSDB =>
+        List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab", s"$verdi_home/share/PLI/VCS/LINUX64/pli.a")
       case _ => List.empty
     }
     val elaborateFlags = List(config.elaborationFlags)
@@ -657,25 +674,49 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       path => FileUtils.copyFileToDirectory(new File(path), new File(workspacePath))
     }
 
+    val simWaveSource =
+      s"""
+         |`timescale 1ns/1ps
+         |module __simulation_def;
+         |initial begin
+         |  $$fsdbDumpfile("$wavePath");
+         |  $$fsdbDumpvars($waveDepth, $toplevelName);
+         |  $$fsdbDumpflush;
+         |end
+         |endmodule""".stripMargin
+    val simulationDefSourceFile = new PrintWriter(new File(s"$workspacePath/rtl/" ++
+      "__simulation_def.v"))
+    simulationDefSourceFile.write(simWaveSource)
+    simulationDefSourceFile.close()
+
+    val fsdbv = waveFormat match {
+      case WaveFormat.FSDB => "./rtl/__simulation_def.v"
+      case _=> ""
+    }
+
     def analyzeSource(): Unit = {
       if (vhdlSourcePaths.nonEmpty) {
+        val vhdlanCommand = Seq(
+          "vhdlan",
+          vhdlanFlags(),
+          vhdlSourcePaths.mkString(" ")
+        ).mkString(" ")
+        println(s"[VHDLAN] $vhdlanCommand")
         doCmd(
-          Seq(
-            "vhdlan",
-            vhdlanFlags(),
-            vhdlSourcePaths.mkString(" ")
-          ).mkString(" "),
+          vhdlanCommand,
           new File(workspacePath),
           s"Analysis of the $toplevelName failed"
         )
       }
       if (verilogSourcePaths.nonEmpty){
+        val vloganCommand = Seq(
+          "vlogan",
+          vloganFlags(),
+          verilogSourcePaths.mkString(" ") + fsdbv
+        ).mkString(" ")
+        println(s"[VLOGAN] $vloganCommand")
         doCmd(
-          Seq(
-            "vlogan",
-            vloganFlags(),
-            verilogSourcePaths.mkString(" ")
-          ).mkString(" "),
+          vloganCommand,
           new File(workspacePath),
           s"Analysis of the $toplevelName failed"
         )
@@ -683,11 +724,14 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     }
 
     def elaborate(): Unit = {
+      val vcsCommand = Seq(
+        "vcs",
+        vcsFlags(),
+        toplevelName
+      ).mkString(" ")
+      println(s"[VCS] $vcsCommand")
       doCmd(
-        Seq("vcs",
-          vcsFlags(),
-          s"$toplevelName"
-        ).mkString(" "),
+        vcsCommand,
         new File(workspacePath),
         s"Compilation of $toplevelName failed"
       )
@@ -716,8 +760,9 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       val iface = sharedMemIface
       val logger = new LoggerPrintWithTerminationFilter()
       def run(): Unit = {
-        val retCode = Process(Seq(s"./$toplevelName", config.runFlags).mkString(" "),
-          new File(workspacePath)).! (logger)
+        val runCommand = Seq(s"./$toplevelName", config.runFlags).mkString(" ")
+        println(s"[SIMV] $runCommand")
+        val retCode = Process(runCommand, new File(workspacePath)).! (logger)
         if (retCode != 0 && !logger.terminationOfSimulation) {
           iface.set_crashed(retCode)
           println(s"Simulation of $toplevelName failed")

@@ -293,6 +293,7 @@ object SpinalVCSBackend {
     vconfig.logSimProcess = config.enableLogging
     vconfig.vcsLd = config.vcsLd
     vconfig.vcsCC = config.vcsCC
+    vconfig.waveDepth = config.waveDepth
 
     val signalsCollector = SpinalVpiBackend(config, vconfig)
 
