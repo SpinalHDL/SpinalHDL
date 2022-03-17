@@ -146,7 +146,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
 
     System.load(pwd + "/" + sharedMemIfacePath)
     compileVPI()
-    analyzeRTL() 
+    analyzeRTL()
   }
 
   def clean() : Unit = {
@@ -535,7 +535,7 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
   import config._
   override def isBufferedWrite: Boolean = true
 
-  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.NONE)
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.FSDB, WaveFormat.NONE)
 
   val format = if(availableFormats contains config.waveFormat) {
     config.waveFormat
@@ -552,6 +552,20 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
     case None => {
       println("VCS_HOME not found")
       ""
+    }
+  }
+
+  val verdi_home = sys.env.get("VERDI_HOME") match {
+    case Some(x) => x
+    case None => {
+      if(config.waveFormat == WaveFormat.FSDB){
+        var info = "$VERDI_HOME not found"
+        if(sys.env.get("LD_LIBRARY_PATH") == None) {
+          info += "\n $LD_LIBRARY_PATH not found"
+        }
+        println(s"[Error]: ${info}")
+        " "
+      }
     }
   }
 
@@ -603,12 +617,16 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       case Some(x) => List("-ld", x)
       case None => List.empty
     }
+
     val dump = waveFormat match {
       case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
       case WaveFormat.VPD => List(s"+vcs+vcdpluson")
+      case WaveFormat.FSDB => List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab ",
+        s" ${verdi_home}/share/PLI/VCS/LINUX64/pli.a" )
       case _ => List.empty
     }
-    (commonFlags ++ cc ++ ld ++ dump).mkString(" ")
+    val cmd = (commonFlags ++ cc ++ ld ++ dump).mkString(" ")
+    cmd
   }
 
   def analyzeRTL(): Unit = {
@@ -622,11 +640,35 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       path => FileUtils.copyFileToDirectory(new File(path), new File(workspacePath))
     }
 
+    val simWaveSource =
+      s"""
+         |`timescale 1ns/100ps
+         |module __simulation_def;
+         |initial begin
+         |    $$fsdbDumpfile("$wavePath") ;
+         |    $$fsdbDumpvars(0, $toplevelName);
+         |    $$fsdbDumpflush;
+         |end
+         |endmodule""".stripMargin
+    val simulationDefSourceFile = new PrintWriter(new File(s"${workspacePath}/rtl/" ++
+      "__simulation_def.v"))
+    simulationDefSourceFile.write(simWaveSource)
+    simulationDefSourceFile.close
+
+    val fsdbv = waveFormat match{
+      case WaveFormat.FSDB => " ./rtl/__simulation_def.v"
+      case _  =>  " "
+    }
+
+    val vcspost = Seq("vcs",
+      vcsFlags(),
+      verilogSourcePaths + fsdbv
+    ).mkString(" ")
+
+    println(s"[VCS] ${vcspost}")
+
     doCmd(
-      Seq("vcs",
-        vcsFlags(),
-        verilogSourcePaths
-      ).mkString(" "),
+      vcspost,
       new File(workspacePath),
       s"Compilation of $toplevelName failed"
     )

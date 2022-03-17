@@ -4,6 +4,16 @@ import spinal.sim.vpi._
 
 import scala.collection.JavaConverters._
 
+/*
+# you need setup synopsys tools env first, Example:
+
+export VCS_HOME=/tools/eda/synopsys/vcs/vcs-mx/O-2018.09-SP2/
+export PATH=$VCS_HOME/bin:$PATH
+export VERDI_HOME=/tools/eda/synopsys/verdi/verdi/Verdi_O-2018.09-SP2/
+export PATH=$VERDI_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$VERDI_HOME/share/PLI/VCS/LINUX64
+ */
+
 object TestVCS1 extends App{
   val config = new VCSBackendConfig()
   config.rtlSourcesPaths += "adder.v"
@@ -13,8 +23,8 @@ object TestVCS1 extends App{
   config.workspaceName = "yolo"
   config.wavePath = "test.vcd"
   config.waveFormat = WaveFormat.VCD
-  config.vcsCC = Some("gcc-4.4")
-  config.vcsLd = Some("g++-4.4")
+//  config.vcsCC = Some("gcc-4.4")
+//  config.vcsLd = Some("g++-4.4")
 
   val (vcsBackend, _) = new VCSBackend(config).instanciate()
   println(vcsBackend.print_signals())
