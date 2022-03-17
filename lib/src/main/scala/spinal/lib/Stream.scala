@@ -1267,6 +1267,15 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   }
 }
 
+/**
+ * Enumeration to present order of slices.
+ */
+sealed trait SlicesOrder
+/** Slice with lower bits process first */
+object LOWER_FIRST extends SlicesOrder
+/** Slice with higher bits process first */
+object HIGHER_FIRST extends SlicesOrder
+
 object StreamWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
@@ -1301,6 +1310,30 @@ object StreamWidthAdapter {
       }
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder): Unit = {
+    StreamWidthAdapter(input, output, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder, padding : Boolean): Unit = {
+    val endianness = order match {
+      case HIGHER_FIRST => BIG
+      case LOWER_FIRST => LITTLE
+    }
+    StreamWidthAdapter(input, output, endianness, padding)
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,order,padding)
+    ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
@@ -1354,6 +1387,30 @@ object StreamFragmentWidthAdapter {
       output.last := input.last
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder): Unit = {
+    StreamFragmentWidthAdapter(input, output, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder, padding : Boolean): Unit = {
+    val endianness = order match {
+      case HIGHER_FIRST => BIG
+      case LOWER_FIRST => LITTLE
+    }
+    StreamFragmentWidthAdapter(input, output, endianness, padding)
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,order,padding)
+    ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
