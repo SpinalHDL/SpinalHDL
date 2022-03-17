@@ -12,9 +12,9 @@ object TestVCS1 extends App{
   config.workspacePath = "yolo"
   config.workspaceName = "yolo"
   config.wavePath = "test.vcd"
-  config.waveFormat = WaveFormat.VCD
-  config.vcsCC = Some("gcc-4.4")
-  config.vcsLd = Some("g++-4.4")
+  config.waveFormat = WaveFormat.FSDB
+//  config.vcsCC = Some("gcc-4.4")
+//  config.vcsLd = Some("g++-4.4")
 
   val (vcsBackend, _) = new VCSBackend(config).instanciate()
   println(vcsBackend.print_signals())
