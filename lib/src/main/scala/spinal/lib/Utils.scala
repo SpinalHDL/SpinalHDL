@@ -106,12 +106,24 @@ class MuxOHImpl {
     }
   }
 
+  def mux[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
+
+  def mux[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = apply(oneHot, inputs)
+
 
   def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools,inputs)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
   def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
-  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = or(oneHot, inputs, false)
+  
+  def or[T <: Data](oneHot : BitVector,inputs : Seq[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T], bypassIfSingle : Boolean): T =  or(oneHot,Vec(inputs), bypassIfSingle)
+  def or[T <: Data](oneHot : BitVector,inputs : Vec[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T], bypassIfSingle : Boolean): T = {
     assert(oneHot.size == inputs.size)
+    if(bypassIfSingle && inputs.size == 1) return CombInit(inputs.head)
     val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
     masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
@@ -966,6 +978,16 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
       val k = by(e)
       ret.getOrElseUpdate(k, ArrayBuffer[T]()) += e
     }
+    ret
+  }
+}
+
+
+
+class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
+  def toMapLinked() : mutable.LinkedHashMap[T, T2] = {
+    val ret = mutable.LinkedHashMap[T, T2]()
+    for((k,v) <- pimped) ret(k) = v;
     ret
   }
 }
