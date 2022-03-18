@@ -753,8 +753,12 @@ class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
       )
     }
 
+    println(f"[Progress] VCS compilation started.")
+    val startAt = System.nanoTime()
     analyzeSource()
     elaborate()
+    val deltaTime = (System.nanoTime() - startAt) * 1e-9
+    println(f"[Progress] VCS compilation done in $deltaTime%1.3f s")
 
   }
 

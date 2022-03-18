@@ -882,8 +882,6 @@ case class SpinalSimConfig(
         }
 
       case SpinalSimBackendSel.VCS =>
-        println(f"[Progress] VCS compilation started")
-        val startAt = System.nanoTime()
         val vConfig = SpinalVCSBackendConfig[T](
           rtl = report,
           waveFormat = _waveFormat,
@@ -903,8 +901,6 @@ case class SpinalSimConfig(
           runFlags = _vcsUserFlags.runFlags
         )
         val backend = SpinalVCSBackend(vConfig)
-        val deltaTime = (System.nanoTime() - startAt) * 1e-6
-        println(f"[Progress] VCS compilation done in $deltaTime%1.3f ms")
         new SimCompiled(report) {
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVpi(backend)
