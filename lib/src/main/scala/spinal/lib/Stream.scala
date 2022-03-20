@@ -1305,8 +1305,8 @@ object StreamWidthAdapter {
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resized)
-        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
+        case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resize(outputWidth))
+        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
       }
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
@@ -1381,8 +1381,8 @@ object StreamFragmentWidthAdapter {
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resized)
-        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
+        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resize(outputWidth))
+        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
       }
       output.last := input.last
       input.ready := !(!output.ready && counter.willOverflowIfInc)
