@@ -55,7 +55,7 @@ class SpinalSimStreamWidthAdapterTester extends SpinalSimFunSuite {
   test("test2xIn") {
     //Compile the simulator
     val baseWidth = 32
-    val compiled = SimConfig.allOptimisation.withVcdWave.compile(rtl = new Component{
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
       val input = slave Stream(UInt(baseWidth*2 bits))
       val output = master Stream(UInt(baseWidth bits))
       val rtl = StreamWidthAdapter(input, output)
@@ -144,7 +144,7 @@ class SpinalSimStreamWidthAdapterTester extends SpinalSimFunSuite {
   test("test2xInHighFirst") {
     //Compile the simulator
     val baseWidth = 32
-    val compiled = SimConfig.allOptimisation.withVcdWave.compile(rtl = new Component{
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
       val input = slave Stream(UInt(baseWidth*2 bits))
       val output = master Stream(UInt(baseWidth bits))
       val rtl = StreamWidthAdapter(input, output, order = HIGHER_FIRST)
@@ -190,215 +190,194 @@ class SpinalSimStreamWidthAdapterTester extends SpinalSimFunSuite {
       simSuccess()
     }
   }
-  // test("testOne") {
-  //   //Compile the simulator
-  //   val compiled = SimConfig.allOptimisation.compile(
-  //     rtl = StreamWidthAdapter(
-  //       dataType = Bits(32 bits),
-  //       depth = 1
-  //     )
-  //   )
 
-  //   //Run the simulation
-  //   compiled.doSimUntilVoid { dut =>
-  //     val queueModel = mutable.Queue[Long]()
+  test("test2xOutWithNegPadding") {
+    //Compile the simulator
+    val baseWidth = 16
+    val extraWidth = -2
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
+      val input = slave Stream(UInt(baseWidth bits))
+      val output = master Stream(UInt(baseWidth*2+extraWidth bits))
+      val rtl = StreamWidthAdapter(input, output, padding=true)
+    }
+    )
 
-  //     SimTimeout(1000000 * 8)
-  //     dut.clockDomain.forkStimulus(2)
+    //Run the simulation
+    compiled.doSimUntilVoid { dut =>
+      val queueModel = mutable.Queue[BigInt]()
 
-  //     dut.io.flush #= false
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
 
-  //     //Push data randomly and fill the queueModel with pushed transactions
-  //     dut.io.push.valid #= false
-  //     dut.clockDomain.onSamplings {
-  //       if (dut.io.push.valid.toBoolean && dut.io.push.ready.toBoolean) {
-  //         queueModel.enqueue(dut.io.push.payload.toLong)
-  //       }
-  //       dut.io.push.valid.randomize()
-  //       dut.io.push.payload.randomize()
-  //     }
+      val driver = StreamDriver(dut.input, dut.clockDomain) { _ =>
+        true
+      }
+      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p => 
+        queueModel.enqueue(p.toBigInt)
+      }
 
-  //     //Pop data randomly and check that it match with the queueModel
-  //     val popThread = fork {
-  //       dut.io.pop.ready #= true
-  //       for (repeat <- 0 until 10000) {
-  //         dut.io.pop.ready.randomize()
-  //         dut.clockDomain.waitSampling()
-  //         if (dut.io.pop.valid.toBoolean && dut.io.pop.ready.toBoolean) {
-  //           assert(dut.io.pop.payload.toLong == queueModel.dequeue())
-  //         }
-  //       }
-  //       simSuccess()
-  //     }
-  //   }
-  // }
+      val ready = StreamReadyRandomizer(dut.output, dut.clockDomain)
+      val outMonitor = StreamMonitor(dut.output, dut.clockDomain) { p =>
+        assert(queueModel.nonEmpty)
+        val low = queueModel.dequeue()
+        assert(queueModel.nonEmpty)
+        val high = queueModel.dequeue()
+        val mask = ((BigInt(1) << dut.output.payload.getBitsWidth) - 1)
+        val value = ((high << baseWidth) + low) & mask
+        assert(p.toBigInt == value)
+      }
+      
+      dut.clockDomain.waitSampling(10000)
+      simSuccess()
+    }
+  }
 
+  test("test2xInWithNegPadding") {
+    //Compile the simulator
+    val baseWidth = 16
+    val extraWidth = -2
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
+      val input = slave Stream(UInt(baseWidth*2+extraWidth bits))
+      val output = master Stream(UInt(baseWidth bits))
+      val rtl = StreamWidthAdapter(input, output, padding=true)
+    }
+    )
 
-  // test("testBundle") {
-  //   //Bundle used as fifo payload
-  //   case class Transaction() extends Bundle {
-  //     val flag = Bool()
-  //     val data = Bits(8 bits)
-  //     val color = Rgb(5, 6, 5)
+    //Run the simulation
+    compiled.doSimUntilVoid { dut =>
+      val inQueue = mutable.Queue[BigInt]()
+      val lowQueue = mutable.Queue[BigInt]()
+      val highQueue = mutable.Queue[BigInt]()
 
-  //     override def clone = Transaction()
-  //   }
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
+      def check(){
+        if(inQueue.nonEmpty && lowQueue.nonEmpty && highQueue.nonEmpty){
+          val low = lowQueue.dequeue()
+          val high = highQueue.dequeue()
+          val value = (high << baseWidth) + low
+          assert(inQueue.dequeue() == value)
+        }
+      }
 
-  //   val compiled = SimConfig.allOptimisation.compile(
-  //     rtl = StreamWidthAdapter(
-  //       dataType = Transaction(),
-  //       depth = 32
-  //     )
-  //   )
+      val driver = StreamDriver(dut.input, dut.clockDomain) { p =>
+        true
+      }
+      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p =>
+        inQueue.enqueue(p.toBigInt)
+        check()
+      }
 
-  //   //Run the simulation
-  //   compiled.doSim { dut =>
-  //     //Inits
-  //     SimTimeout(1000000 * 8)
-  //     dut.clockDomain.forkStimulus(2)
-  //     dut.clockDomain.forkSimSpeedPrinter()
-  //     dut.io.flush #= false
+      val ready = StreamReadyRandomizer(dut.output, dut.clockDomain)
+      val outMonitor = StreamMonitor(dut.output, dut.clockDomain) { p =>
+        if (lowQueue.length <= highQueue.length){
+          lowQueue.enqueue(p.toBigInt)
+        } else {
+          highQueue.enqueue(p.toBigInt)
+        }
+        check()
+      }
+      
+      dut.clockDomain.waitSampling(10000)
+      simSuccess()
+    }
+  }
 
-  //     val scoreboard = ScoreboardInOrder[SimData]()
+  test("test2xInWithPosPadding") {
+    //Compile the simulator
+    val baseWidth = 16
+    val extraWidth = 2
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
+      val input = slave Stream(UInt(baseWidth*2+extraWidth bits))
+      val output = master Stream(UInt(baseWidth bits))
+      val rtl = StreamWidthAdapter(input, output, padding=true)
+    }
+    )
 
-  //     //Drivers
-  //     StreamDriver(dut.io.push, dut.clockDomain) { payload =>
-  //       payload.randomize()
-  //       true
-  //     }
-  //     StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
+    //Run the simulation
+    compiled.doSimUntilVoid { dut =>
+      val inQueue = mutable.Queue[BigInt]()
+      val lowQueue = mutable.Queue[BigInt]()
+      val midQueue = mutable.Queue[BigInt]()
+      val highQueue = mutable.Queue[BigInt]()
 
-  //     //Monitors
-  //     StreamMonitor(dut.io.push, dut.clockDomain) { payload =>
-  //       scoreboard.pushRef(payload)
-  //     }
-  //     StreamMonitor(dut.io.pop, dut.clockDomain) { payload =>
-  //       scoreboard.pushDut(payload)
-  //     }
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
+      def check(){
+        if(inQueue.nonEmpty && lowQueue.nonEmpty && midQueue.nonEmpty && highQueue.nonEmpty){
+          val low = lowQueue.dequeue()
+          val mid = midQueue.dequeue()
+          val high = highQueue.dequeue()
+          val value = (high << baseWidth*2) + (mid << baseWidth) + low
+          assert(inQueue.dequeue() == value)
+        }
+      }
 
-  //     waitUntil(scoreboard.matches == 10000)
-  //   }
-  // }
+      val driver = StreamDriver(dut.input, dut.clockDomain) { p =>
+        true
+      }
+      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p =>
+        inQueue.enqueue(p.toBigInt)
+        check()
+      }
 
-  // test("testTwoDepth") {
-  //   //Bundle used as fifo payload
-  //   case class Transaction() extends Bundle {
-  //     val flag = Bool()
-  //     val data = Bits(8 bits)
-  //     val color = Rgb(5, 6, 5)
-  //   }
+      val ready = StreamReadyRandomizer(dut.output, dut.clockDomain)
+      val outMonitor = StreamMonitor(dut.output, dut.clockDomain) { p =>
+        if (lowQueue.isEmpty || lowQueue.length < midQueue.length){
+          lowQueue.enqueue(p.toBigInt)
+        } else if (midQueue.isEmpty || midQueue.length < highQueue.length){
+          midQueue.enqueue(p.toBigInt)
+        } else {
+          highQueue.enqueue(p.toBigInt)
+        }
+        check()
+      }
+      
+      dut.clockDomain.waitSampling(10000)
+      simSuccess()
+    }
+  }
 
-  //   val compiled = SimConfig.allOptimisation.compile(
-  //     rtl = StreamWidthAdapter(
-  //       dataType = Transaction(),
-  //       depth = 2
-  //     )
-  //   )
+  test("test2xOutWithPosPadding") {
+    //Compile the simulator
+    val baseWidth = 16
+    val extraWidth = 2
+    val compiled = SimConfig.allOptimisation.compile(rtl = new Component{
+      val input = slave Stream(UInt(baseWidth bits))
+      val output = master Stream(UInt(baseWidth*2+extraWidth bits))
+      val rtl = StreamWidthAdapter(input, output, padding=true)
+    }
+    )
 
-  //   //Run the simulation
-  //   compiled.doSim { dut =>
-  //     //Inits
-  //     SimTimeout(1000000 * 8)
-  //     dut.clockDomain.forkStimulus(2)
-  //     dut.clockDomain.forkSimSpeedPrinter()
-  //     dut.io.flush #= false
+    //Run the simulation
+    compiled.doSimUntilVoid { dut =>
+      val queueModel = mutable.Queue[BigInt]()
 
-  //     val scoreboard = ScoreboardInOrder[SimData]()
+      SimTimeout(1000000 * 8)
+      dut.clockDomain.forkStimulus(2)
 
-  //     //Drivers
-  //     StreamDriver(dut.io.push, dut.clockDomain) { payload =>
-  //       payload.randomize()
-  //       true
-  //     }
-  //     StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
+      val driver = StreamDriver(dut.input, dut.clockDomain) { _ =>
+        true
+      }
+      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p => 
+        queueModel.enqueue(p.toBigInt)
+      }
 
-  //     //Monitors
-  //     StreamMonitor(dut.io.push, dut.clockDomain) { payload =>
-  //       scoreboard.pushRef(payload)
-  //     }
-  //     StreamMonitor(dut.io.pop, dut.clockDomain) { payload =>
-  //       scoreboard.pushDut(payload)
-  //     }
-
-  //     waitUntil(scoreboard.matches == 10000)
-  //   }
-  // }
-
-
-  // test("lowLatency_0") {
-  //   //Bundle used as fifo payload
-  //   case class Transaction() extends Bundle {
-  //     val flag = Bool()
-  //     val data = Bits(8 bits)
-  //     val color = Rgb(5, 6, 5)
-  //   }
-
-  //   val compiled = SimConfig.allOptimisation.compile(
-  //     rtl = StreamFifoLowLatency(
-  //       dataType = Transaction(),
-  //       depth = 2,
-  //       latency = 0
-  //     )
-  //   )
-
-  //   //Run the simulation
-  //   compiled.doSim { dut =>
-  //     //Inits
-  //     SimTimeout(1000000 * 8)
-  //     dut.clockDomain.forkStimulus(2)
-  //     dut.clockDomain.forkSimSpeedPrinter()
-  //     dut.io.flush #= false
-
-  //     val scoreboard = ScoreboardInOrder[SimData]()
-
-  //     //Drivers
-  //     StreamDriver(dut.io.push, dut.clockDomain) { payload => payload.randomize(); true }
-  //     StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
-
-  //     //Monitors
-  //     StreamMonitor(dut.io.push, dut.clockDomain) { payload => scoreboard.pushRef(payload) }
-  //     StreamMonitor(dut.io.pop, dut.clockDomain) { payload => scoreboard.pushDut(payload) }
-
-  //     waitUntil(scoreboard.matches == 10000)
-  //   }
-  // }
-
-
-  // test("lowLatency_1") {
-  //   //Bundle used as fifo payload
-  //   case class Transaction() extends Bundle {
-  //     val flag = Bool()
-  //     val data = Bits(8 bits)
-  //     val color = Rgb(5, 6, 5)
-  //   }
-
-  //   val compiled = SimConfig.allOptimisation.compile(
-  //     rtl = StreamFifoLowLatency(
-  //       dataType = Transaction(),
-  //       depth = 4,
-  //       latency = 1
-  //     )
-  //   )
-
-  //   //Run the simulation
-  //   compiled.doSim { dut =>
-  //     //Inits
-  //     SimTimeout(1000000 * 8)
-  //     dut.clockDomain.forkStimulus(2)
-  //     dut.clockDomain.forkSimSpeedPrinter()
-  //     dut.io.flush #= false
-
-  //     val scoreboard = ScoreboardInOrder[SimData]()
-
-  //     //Drivers
-  //     StreamDriver(dut.io.push, dut.clockDomain) { payload => payload.randomize(); true }
-  //     StreamReadyRandomizer(dut.io.pop, dut.clockDomain)
-
-  //     //Monitors
-  //     StreamMonitor(dut.io.push, dut.clockDomain) { payload => scoreboard.pushRef(payload) }
-  //     StreamMonitor(dut.io.pop, dut.clockDomain) { payload => scoreboard.pushDut(payload) }
-
-  //     waitUntil(scoreboard.matches == 10000)
-  //   }
-  // }
+      val ready = StreamReadyRandomizer(dut.output, dut.clockDomain)
+      val outMonitor = StreamMonitor(dut.output, dut.clockDomain) { p =>
+        assert(queueModel.nonEmpty)
+        val low = queueModel.dequeue()
+        assert(queueModel.nonEmpty)
+        val mid = queueModel.dequeue()
+        assert(queueModel.nonEmpty)
+        val high = queueModel.dequeue()
+        val mask = ((BigInt(1) << dut.output.payload.getBitsWidth) - 1)
+        val value = ((high << baseWidth*2) + (mid << baseWidth) + low) & mask
+        assert(p.toBigInt == value)
+      }
+      
+      dut.clockDomain.waitSampling(10000)
+      simSuccess()
+    }
+  }
 }
