@@ -64,34 +64,37 @@ class SpinalSimStreamWidthAdapterTester extends SpinalSimFunSuite {
 
     //Run the simulation
     compiled.doSimUntilVoid { dut =>
-      val queueModel = mutable.Queue[BigInt]()
+      val inQueue = mutable.Queue[BigInt]()
+      val lowQueue = mutable.Queue[BigInt]()
+      val highQueue = mutable.Queue[BigInt]()
 
       SimTimeout(1000000 * 8)
       dut.clockDomain.forkStimulus(2)
+      def check(){
+        if(inQueue.nonEmpty && lowQueue.nonEmpty && highQueue.nonEmpty){
+          val low = lowQueue.dequeue()
+          val high = highQueue.dequeue()
+          val value = (high << baseWidth) + low
+          assert(inQueue.dequeue() == value)
+        }
+      }
 
       val driver = StreamDriver(dut.input, dut.clockDomain) { p =>
         true
       }
-      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p => 
-        assert(queueModel.nonEmpty)
-        val low = queueModel.dequeue()
-        var high: BigInt = 1
-        var changed = false
-        if(queueModel.nonEmpty){
-          high = queueModel.dequeue()
-        }
-        else{
-          changed = true
-          assert(dut.output.valid.toBoolean)
-          high = dut.output.payload.toBigInt
-        }
-        val value = (high << baseWidth) + low
-        assert(p.toBigInt == value)
+      val inMonitor = StreamMonitor(dut.input, dut.clockDomain) { p =>
+        inQueue.enqueue(p.toBigInt)
+        check()
       }
 
       val ready = StreamReadyRandomizer(dut.output, dut.clockDomain)
       val outMonitor = StreamMonitor(dut.output, dut.clockDomain) { p =>
-        queueModel.enqueue(p.toBigInt)
+        if (lowQueue.length <= highQueue.length){
+          lowQueue.enqueue(p.toBigInt)
+        } else {
+          highQueue.enqueue(p.toBigInt)
+        }
+        check()
       }
       
       dut.clockDomain.waitSampling(10000)
