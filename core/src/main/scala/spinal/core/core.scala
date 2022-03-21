@@ -29,6 +29,7 @@ import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
 import scala.languageFeature._
+import spinal.idslplugin.Location
 
 
 package object core extends BaseTypeFactory with BaseTypeCast {
@@ -445,21 +446,25 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assert(assertion: Boolean) = scala.Predef.assert(assertion)
 
   @elidable(ASSERTION) @inline
-  final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
+  final def assert(assertion: Boolean, message: => Any)(implicit loc: Location) = scala.Predef.assert(assertion,message)
 
-  def assumeInitial(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL)
+  def assumeInitial(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL, loc)
 
-  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED)
-  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED)
+  def assume(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED, loc)
+  def cover(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String)(implicit loc: Location)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any])(implicit loc: Location) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+
+//  def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
+//    if(cond.dlcIsEmpty || !cond.head.source.isInstanceOf[Operator.Formal.InitState])
+//      cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
 
   def report(message: String)   = assert(False, message, NOTE)
   def report(message: Seq[Any]) = assert(False, message, NOTE)
