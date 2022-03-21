@@ -2,6 +2,7 @@ package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axis.Axi4Stream
 import spinal.lib.bus.bsb.Bsb
 
 
@@ -59,6 +60,23 @@ object  Axi4SpecRenamer{
         bt.setName(bt.getName().replace("payload_",""))
         bt.setName(bt.getName().replace("valid","tvalid"))
         bt.setName(bt.getName().replace("ready","tready"))
+        if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+      })
+    }
+    if(Component.current == that.component)
+      that.component.addPrePopTask(() => {doIt})
+    else
+      doIt
+
+    that
+  }
+
+  def apply(that : Axi4Stream): Axi4Stream = {
+    def doIt = {
+      that.flatten.foreach((bt) => {
+        bt.setName(bt.getName().replace("payload_", ""))
+        bt.setName(bt.getName().replace("valid", "tvalid"))
+        bt.setName(bt.getName().replace("ready", "tready"))
         if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
       })
     }
