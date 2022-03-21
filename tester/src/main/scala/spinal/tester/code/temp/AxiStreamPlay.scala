@@ -15,6 +15,18 @@ class AxiStreamComponentTop extends Component {
 
   io.data_in.stage().toAxi4Stream() >> io.data_out
 
+  val axis = new Axi4Stream(Axi4StreamConfig(dataBytes = 4))
+  axis.toStream(UInt(32 bit)) // GOOD, lengths match, no TSTRB
+
+//  val axisStrb = new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true))
+//  axisStrb.toStream(UInt(32 bit)) // BAD, has TSTRB
+
+//  val axisSmall = new Axi4Stream(Axi4StreamConfig(dataBytes = 3))
+//  axisSmall.toStream(UInt(32 bit)) // BAD, too small
+
+  val axisBig = new Axi4Stream(Axi4StreamConfig(dataBytes = 5))
+  axisBig.toStream(UInt(33 bit)) // GOOD, needs 5 bytes
+
   Axi4SpecRenamer(io.data_out)
 }
 

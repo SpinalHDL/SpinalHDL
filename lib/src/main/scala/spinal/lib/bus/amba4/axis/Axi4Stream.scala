@@ -16,20 +16,38 @@ case class Axi4StreamConfig(dataBytes: Int,
 
 case class Axi4StreamBundle(val config: Axi4StreamConfig) extends Bundle {
   val tdata = Bits(8*config.dataBytes bit)
-  val tid =   if (config.useId)   UInt(config.idWidth bit)   else null
-  val tstrb = if (config.useStrb) Bits(config.dataBytes bit) else null
-  val tkeep = if (config.useKeep) Bits(config.dataBytes bit) else null
-  val tlast = if (config.useLast) Bool()                     else null
-  val tdest = if (config.useDest) UInt(config.destWidth bit) else null
-  val tuser = if (config.useUser) Bits(config.userWidth*config.dataBytes bit) else null
+  val tid =   (config.useId)   generate UInt(config.idWidth bit)
+  val tstrb = (config.useStrb) generate Bits(config.dataBytes bit)
+  val tkeep = (config.useKeep) generate Bits(config.dataBytes bit)
+  val tlast = (config.useLast) generate Bool()
+  val tdest = (config.useDest) generate UInt(config.destWidth bit)
+  val tuser = (config.useUser) generate Bits(config.userWidth*config.dataBytes bit)
 
-  def last = if (this.tlast != null) this.tlast else False
+  def isLast = if (this.tlast != null) this.tlast else False
 
-  override def clone: Bundle = new Axi4Stream(config)
+  override def clone: Bundle = Axi4StreamBundle(config)
 }
 
 class Axi4Stream(val config: Axi4StreamConfig) extends Stream[Axi4StreamBundle](Axi4StreamBundle(config)) {
   override def connectFrom(that: Stream[Axi4StreamBundle]): Stream[Axi4StreamBundle] = Axi4StreamPriv.connectFrom(that, this)
+
+  def toStream[T <: Data](newType: HardType[T], alignment: BitAlignment = LSB): Stream[T] = {
+    val that = Stream(newType())
+    assert(!config.useStrb, s"Can't directly convert Axi4Stream $this to Stream of ${that.payloadType} because the Axi4Stream supports TSTRB.")
+    assert(config.dataBytes == Math.ceil(that.payload.getBitsWidth/8.0).toInt, s"Can't directly convert Axi4Stream $this (${this.config.dataBytes} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.payloadType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
+
+    that.arbitrationFrom(this)
+    if (alignment == LSB)
+      that.payload.assignFromBits(this.tdata.takeLow(that.payload.getBitsWidth))
+    else
+      that.payload.assignFromBits(this.tdata.takeHigh(that.payload.getBitsWidth))
+
+    that
+  }
+
+//  def <<[T <: Data](that: Stream[T]): Axi4Stream = that.toAxi4Stream() >> this
+
+  override def clone: Stream[Axi4StreamBundle] = new Axi4Stream(config)
 }
 
 
@@ -116,7 +134,7 @@ object Axi4Stream {
       * @param alignment Align the data to LSB (left expansion) or MSB (shifting left)
       * @return Stream with Axi4Stream payload
       */
-    def toAxi4Stream(alignment: BitAlignment = LSB): Stream[Axi4Stream] = {
+    def toAxi4Stream(alignment: BitAlignment = LSB): Axi4Stream = {
       source.map(_.fragment).toAxi4Stream(alignment).map(axisPayload => {
         val axisWithLast = new Axi4Stream(axisPayload.config.copy(useLast = true))
         axisWithLast.assignSomeByName(axisPayload)
