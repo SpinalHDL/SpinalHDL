@@ -285,6 +285,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
       Seq(ghdlPath,
         "-a",
         analyzeFlags,
+        "-fsynopsys",
         vhdlSourcePaths
       ).mkString(" "),
       new File(workspacePath),
@@ -295,6 +296,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
       Seq(ghdlPath,
         "-e",
         elaborationFlags,
+        "-fsynopsys",
         toplevelName
       ).mkString(" "),
       new File(workspacePath),
@@ -315,6 +317,7 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
         val retCode = Process(Seq(ghdlPath,
           "-r",
           elaborationFlags,
+          "-fsynopsys",
           toplevelName,
           s"--vpi=${pwd + "/" + vpiModulePath}",
           runFlags).mkString(" "),
