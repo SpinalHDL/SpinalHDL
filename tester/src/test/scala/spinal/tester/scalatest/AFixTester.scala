@@ -17,22 +17,43 @@ import spinal.lib._
 import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
 
 class SpinalSimAFixTester extends AnyFunSuite {
+  def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
+    assert(f.maxValue == max && f.minValue == min && f.exp.value == exp)
+  }
   test("instanciate") {
     SpinalVerilog(new Component{
-      def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
-        assert(f.maxValue == max && f.minValue == min && f.exp.value == exp)
-      }
+
       check(4095,0,0)(AFix.U(12 bits)) //Q12.0
       check(4095,0,-4)(AFix.U(8 exp, 12 bits)) //Q8.4
       check(4095,0,-4)(AFix.U(8 exp, -4 exp)) //Q8.4
+      check(4095,0,-4)(AFix.UQ(8 bits, 4 bits)) //Q8.4
 //      check(4095,0,-4)(AFix.U(255, -4 exp)) //Q8.4
 //      check(4095,2048,-4)(AFix.U(255, 128, -4 exp)) //Q8.4
       check(2047,-2048,0)(AFix.S(12 bits)) //Q11.0 + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, 12 bits)) //Q7.4  + sign bit
       check(2047,-2048,-4)(AFix.S(7 exp, -4 exp)) //Q7.4  + sign bit
+      check(2047,-2048,-4)(AFix.SQ(7 bits, 4 bits)) //Q8.4 + sign bit
 //      check(2047,-2048,-4)(AFix.S(127, -128, -4 exp)) //Q7.4 + sign bit
     })
   }
+
+  test("assign") {
+    SpinalVerilog(new Component{
+      val u_8_4_a = AFix.U(8 exp, -4 exp)
+      val u_8_4_b = AFix.U(8 exp, -4 exp)
+      val u_10_4_b = AFix.U(10 exp, -4 exp)
+      val u_8_6_b = AFix.U(8 exp, -6 exp)
+      val u_6_4_b = AFix.U(6 exp, -4 exp)
+      val u_8_2_b = AFix.U(6 exp, -4 exp)
+
+      u_8_4_b := u_8_4_a
+      u_10_4_b := u_8_4_a
+      u_8_6_b := u_8_4_a
+      u_6_4_b := u_8_4_a.truncated(saturation = true)
+      u_8_2_b := u_8_4_a.truncated(rounding = RoundType.FLOOR)
+    })
+  }
+
 }
 
 object AFixTester {

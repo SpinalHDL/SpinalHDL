@@ -52,7 +52,7 @@ object AFix {
   }
 
   def U(width: BitCount): AFix = AFix(width.value exp, 0 exp, signed = false)
-//  def U(wholeBits: BitCount, fracBits: BitCount): AFix = AFix(wholeBits.value exp, 0 exp, signed = false)
+  def UQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = false)
   def U(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value) exp, false)
   def U(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, false)
 //  def U(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits, -exp.value bit, false)
@@ -68,7 +68,7 @@ object AFix {
 //  }
 
   def S(width: BitCount): AFix = AFix(width.value-1 exp, 0 exp, signed = true)
-//  def S(wholeBits: BitCount, fracBits: BitCount): AFix = AFix(wholeBits+(1 bit), fracBits, signed = true)
+  def SQ(integerWidth: BitCount, fractionWidth: BitCount): AFix = AFix(integerWidth.value exp, -fractionWidth.value exp, signed = true)
   def S(amplitude: ExpNumber, width: BitCount): AFix = AFix(amplitude, (amplitude.value - width.value + 1) exp, true)
   def S(amplitude: ExpNumber, resolution: ExpNumber): AFix = AFix(amplitude, resolution, signed = true)
 //  def S(wholeBits: BitCount, exp: ExpNumber): AFix = AFix(wholeBits+(1 bit), -exp.value bit, signed = true)
@@ -853,31 +853,36 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
 
 
-  def truncated: AFix = {
+  def truncated(saturation : Boolean = false,
+                rounding : RoundType = RoundType.FLOOR) : AFix = {
     val copy = cloneOf(this)
     copy.raw := this.raw
-    copy.addTag(tagTruncated)
+    copy.addTag(new TagAFixTruncated(
+      saturation,
+      rounding
+    ))
     copy
   }
 
   override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case af: AFix =>
-        if(this.exp.value > af.exp.value && !af.hasTag(tagTruncated)){
+        val trunc = af.getTag(classOf[TagAFixTruncated])
+        if(this.exp.value > af.exp.value && trunc.isEmpty){
           PendingError(s"Cannot assign ${af} to ${this} as precision would be lost! Consider rounding before assignment.\n" + ScalaLocated.long)
           return
         }
 
         val (du, dd, su, sd) = alignRanges(this, af)
-        if(du < su || dd > sd){
-
+        if((du < su || dd > sd) && trunc.isEmpty){
           PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
           return
         }
 
-        if (af.bitWidth != this.bitWidth) {
-          SpinalWarning(s"Assigning ${af} to ${this} required bit expansion.\n" + ScalaLocated.long)
-        }
+//        if (af.bitWidth != this.bitWidth) {
+//          SpinalWarning(s"Assigning ${af} to ${this} required bit expansion.\n" + ScalaLocated.long)
+//        }
+
 
         var af_frac_expand: AFix = af
         if (af.exp.value > this.exp.value) {
@@ -931,3 +936,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   override def clone: this.type = new AFix(maxValue, minValue, exp).asInstanceOf[this.type]
 }
 
+
+
+class TagAFixTruncated(saturation : Boolean,
+                       rounding : RoundType) extends SpinalTag{
+  override def duplicative = true
+  override def canSymplifyHost: Boolean = true
+}
