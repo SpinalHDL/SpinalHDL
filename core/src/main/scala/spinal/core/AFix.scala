@@ -852,6 +852,20 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   override def toString: String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}[max=${maxValue}, min=${minValue}, exp=${exp}, bits=${raw.getWidth}]"
 
+  private def _round(roundType: RoundType): AFix = {
+    roundType match {
+      case RoundType.FLOOR       => this.floor()
+      case RoundType.CEIL        => this.ceil()
+      case RoundType.FLOORTOZERO => this.floorToZero()
+      case RoundType.CEILTOINF   => this.ceilToInf()
+      case RoundType.ROUNDUP     => this.roundHalfUp()
+      case RoundType.ROUNDDOWN   => this.roundHalfDown()
+      case RoundType.ROUNDTOZERO => this.roundHalfToZero()
+      case RoundType.ROUNDTOINF  => this.roundHalfToInf()
+      case RoundType.ROUNDTOEVEN => this.roundHalfToEven()
+      case RoundType.ROUNDTOODD  => this.roundHalfToOdd()
+    }
+  }
 
   def truncated(saturation : Boolean = false,
                 rounding : RoundType = RoundType.FLOOR) : AFix = {
@@ -884,16 +898,20 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 //        }
 
 
-        var af_frac_expand: AFix = af
+        var af_frac_rounded: AFix = af
         if (af.exp.value > this.exp.value) {
           val exp_diff = af.exp.value - this.exp.value
-          af_frac_expand = af <<| exp_diff
+          af_frac_rounded = af <<| exp_diff
+        } else if (af.exp.value < this.exp.value) {
+          val af_shifted = (af >> this.exp.value - af.exp.value)
+          val round_tmp = af_shifted._round(trunc.get.rounding)
+          af_frac_rounded = round_tmp << this.exp.value
         }
 
         if (this.signed)
-          this.raw := af_frac_expand.raw.asSInt.resize(this.bitWidth).asBits
+          this.raw := af_frac_rounded.raw.asSInt.resize(this.bitWidth).asBits
         else
-          this.raw := af_frac_expand.raw.asUInt.resize(this.bitWidth).asBits
+          this.raw := af_frac_rounded.raw.asUInt.resize(this.bitWidth).asBits
 
       case u: UInt => this.raw := u.asBits
       case s: SInt => this.raw := s.asBits
@@ -938,8 +956,8 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
 
 
-class TagAFixTruncated(saturation : Boolean,
-                       rounding : RoundType) extends SpinalTag{
+class TagAFixTruncated(val saturation : Boolean,
+                       val rounding : RoundType) extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
