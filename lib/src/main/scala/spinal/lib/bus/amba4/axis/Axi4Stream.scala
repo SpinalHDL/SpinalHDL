@@ -31,16 +31,27 @@ case class Axi4StreamBundle(val config: Axi4StreamConfig) extends Bundle {
 class Axi4Stream(val config: Axi4StreamConfig) extends Stream[Axi4StreamBundle](Axi4StreamBundle(config)) {
   override def connectFrom(that: Stream[Axi4StreamBundle]): Stream[Axi4StreamBundle] = Axi4StreamPriv.connectFrom(that, this)
 
-  def toStream[T <: Data](newType: HardType[T], alignment: BitAlignment = LSB): Stream[T] = {
-    val that = Stream(newType())
+  def toStream[T <: Data](newType: HardType[T], alignment: BitAlignment = LSB): Stream[TupleBundle4[T, UInt, UInt, Bits]] = {
+    val that = Stream(TupleBundle4(newType(),
+      if (this.tid != null) this.tid else UInt(0 bit),
+      if (this.tdest != null) this.tdest else UInt(0 bit),
+      if (this.tuser != null) this.tuser else Bits(0 bit)
+    ))
     assert(!config.useStrb, s"Can't directly convert Axi4Stream $this to Stream of ${that.payloadType} because the Axi4Stream supports TSTRB.")
     assert(config.dataBytes == Math.ceil(that.payload.getBitsWidth/8.0).toInt, s"Can't directly convert Axi4Stream $this (${this.config.dataBytes} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.payloadType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
 
     that.arbitrationFrom(this)
     if (alignment == LSB)
-      that.payload.assignFromBits(this.tdata.takeLow(that.payload.getBitsWidth))
+      that.payload._1.assignFromBits(this.tdata.takeLow(that.payload.getBitsWidth))
     else
-      that.payload.assignFromBits(this.tdata.takeHigh(that.payload.getBitsWidth))
+      that.payload._1.assignFromBits(this.tdata.takeHigh(that.payload.getBitsWidth))
+
+    if (this.tid != null)
+      that._2 := this.tid
+    if (this.tdest != null)
+      that._3 := this.tdest
+    if (this.tuser != null)
+      that._4 := this.tuser
 
     that
   }
