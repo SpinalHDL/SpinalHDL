@@ -9,12 +9,12 @@ import spinal.lib.bus.amba4.axis._
 
 class AxiStreamComponentTop extends Component {
   val io = new Bundle {
-    val axis_s_in = slave(new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
-    val axis_s_sel = slave(new Axi4Stream(Axi4StreamConfig(dataBytes = 1)))
-    val axis_m_out = master(new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
+    val axis_s_in = slave(Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
+    val axis_s_sel = slave(Axi4Stream(Axi4StreamConfig(dataBytes = 1)))
+    val axis_m_out = master(Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
   }
 
-  val selStream = io.axis_s_sel.toStream(Bits(4 bit)).map(_._1).stage()
+  val selStream = io.axis_s_sel.toStream(Bits(4 bit)).stage()
 
   val inStaged = io.axis_s_in.stage()
 
