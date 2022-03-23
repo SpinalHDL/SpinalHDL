@@ -780,7 +780,7 @@ case class SpinalSimConfig(
             val absline = line match {
               case exprPattern(relpath) => {
                 val windowsfix = relpath.replace(".\\", "")
-                val abspath = new File(windowsfix).getAbsolutePath
+                val abspath = new File(src.getParent + "/" + windowsfix).getAbsolutePath
                 val ret = line.replace(relpath, abspath)
                 ret.replace("\\", "\\\\") //windows escape "\"
               }

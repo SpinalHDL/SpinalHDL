@@ -1138,7 +1138,7 @@ class ComponentEmitterVerilog(
           val romStr = builder.toString
           val relativePath = romCache.get(romStr) match {
             case None =>
-              val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
+              val filePath = s"${pc.config.targetDirectory}/${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
               val file = new File(filePath)
               emitedRtlSourcesPath += filePath
               val writer = new java.io.FileWriter(file)
@@ -1146,7 +1146,7 @@ class ComponentEmitterVerilog(
               writer.flush()
               writer.close()
               if(spinalConfig.romReuse) romCache(romStr) = file.getPath
-              file.getPath
+              file.getName
             case Some(x) => x
           }
 
