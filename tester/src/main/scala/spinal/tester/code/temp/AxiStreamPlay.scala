@@ -9,25 +9,29 @@ import spinal.lib.bus.amba4.axis._
 
 class AxiStreamComponentTop extends Component {
   val io = new Bundle {
-    val data_in = slave(new Stream(Bits(32 bit)))
-    val data_out = master(new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true, useKeep = false)))
+    val axis_s_in = slave(new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
+    val axis_s_sel = slave(new Axi4Stream(Axi4StreamConfig(dataBytes = 1)))
+    val axis_m_out = master(new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true)))
   }
 
-  io.data_in.stage().toAxi4Stream() >> io.data_out
+  val selStream = io.axis_s_sel.toStream(Bits(4 bit)).map(_._1).stage()
 
-  val axis = new Axi4Stream(Axi4StreamConfig(dataBytes = 4))
-  axis.toStream(UInt(32 bit)) // GOOD, lengths match, no TSTRB
+  val inStaged = io.axis_s_in.stage()
 
-//  val axisStrb = new Axi4Stream(Axi4StreamConfig(dataBytes = 4, useStrb = true))
-//  axisStrb.toStream(UInt(32 bit)) // BAD, has TSTRB
+  val joinedStream = StreamJoin(Seq(inStaged, selStream))
+  val strobedStream = joinedStream.translateWith({
+    val newPayload: Axi4StreamBundle = inStaged.payload.clone
+    newPayload := inStaged.payload
+    newPayload.tstrb.allowOverride
+    newPayload.tstrb := inStaged.tstrb & selStream.payload.takeLow(inStaged.tstrb.getBitsWidth)
+    newPayload
+  })
 
-//  val axisSmall = new Axi4Stream(Axi4StreamConfig(dataBytes = 3))
-//  axisSmall.toStream(UInt(32 bit)) // BAD, too small
+  io.axis_m_out << strobedStream
 
-  val axisBig = new Axi4Stream(Axi4StreamConfig(dataBytes = 5))
-  axisBig.toStream(UInt(33 bit)) // GOOD, needs 5 bytes
-
-  Axi4SpecRenamer(io.data_out)
+  Axi4SpecRenamer(io.axis_s_in)
+  Axi4SpecRenamer(io.axis_s_sel)
+  Axi4SpecRenamer(io.axis_m_out)
 }
 
 object AxiStreamPlay {

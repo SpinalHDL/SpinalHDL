@@ -25,7 +25,7 @@ case class Axi4StreamBundle(val config: Axi4StreamConfig) extends Bundle {
 
   def isLast = if (this.tlast != null) this.tlast else False
 
-  override def clone: Bundle = Axi4StreamBundle(config)
+  override def clone: Axi4StreamBundle = Axi4StreamBundle(config)
 }
 
 class Axi4Stream(val config: Axi4StreamConfig) extends Stream[Axi4StreamBundle](Axi4StreamBundle(config)) {
@@ -55,8 +55,6 @@ class Axi4Stream(val config: Axi4StreamConfig) extends Stream[Axi4StreamBundle](
 
     that
   }
-
-//  def <<[T <: Data](that: Stream[T]): Axi4Stream = that.toAxi4Stream() >> this
 
   override def clone: Stream[Axi4StreamBundle] = new Axi4Stream(config)
 }
@@ -110,15 +108,19 @@ object Axi4StreamPriv {
   }
 }
 
+case class Axi4Repacker(stream: Axi4Stream) extends Component {
+  val io = new Bundle {
+    val axis_s = slave(stream.clone)
+    val axis_m = master(new Axi4Stream(stream.config.copy(useStrb = false, useKeep = false)))
+  }
+}
+
+
 sealed trait BitAlignment
 object LSB extends BitAlignment
 object MSB extends BitAlignment
 
 object Axi4Stream {
-//  implicit class RichAxiStream[T <: Axi4StreamBundle](val source: Stream[T]) {
-//    def connectFrom(sink: Stream[T]): Stream[T] = Axi4StreamPriv.connectFrom(source, sink)
-//  }
-
   implicit class RichStream[T <: Data](val source: Stream[T]) {
     /**
       * Maps a source as a AXI4-Stream. Supports optional MSB bit alignment
