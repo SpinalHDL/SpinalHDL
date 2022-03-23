@@ -34,14 +34,19 @@ object Axi4Stream {
 
   def apply(config: Axi4StreamConfig): Stream[Axi4StreamBundle] = Stream(Axi4StreamBundle(config))
 
-  sealed trait BitAlignment
-  object LSB extends BitAlignment
-  object MSB extends BitAlignment
-
   implicit class Axi4StreamRich(stream: Stream[Axi4StreamBundle]) {
      def connectFrom(that: Stream[Axi4StreamBundle]): Stream[Axi4StreamBundle] = Axi4StreamPriv.connectFrom(that, stream)
 
-    def toStream[T <: Data](newType: HardType[T], alignment: BitAlignment = LSB): Stream[T] = {
+    /**
+      * Converts the Axi4Stream into a Stream of a specified type.
+      * Does not support TSTRB or TKEEP. Will only convert continuous and aligned streams.
+      * If TLAST was present it will be dropped. Consider toStreamFragment
+      * @param newType Resulting stream payload type
+      * @param endianness Extract bits from LSB or MSB, drops additional bits
+      * @tparam T Stream payload type
+      * @return Stream of type T
+      */
+    def toStream[T <: Data](newType: HardType[T], endianness: Endianness = LITTLE): Stream[T] = {
       val that = Stream(newType())
       assert(!stream.config.useStrb, s"Can't convert Axi4Stream $this to Stream of ${that.payloadType} because the Axi4Stream supports TSTRB.")
       assert(stream.config.dataBytes == Math.ceil(that.payload.getBitsWidth/8.0).toInt, s"Can't convert Axi4Stream $this (${stream.config.dataBytes} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.payloadType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
@@ -49,7 +54,7 @@ object Axi4Stream {
         SpinalWarning(s"Axi4Stream $this converted to Stream of ${that.payloadType} discards TLAST. Consider using toFragmentStream instead.")
 
       that.arbitrationFrom(stream)
-      if (alignment == LSB)
+      if (endianness == LITTLE)
         that.payload.assignFromBits(stream.tdata.takeLow(that.payload.getBitsWidth))
       else
         that.payload.assignFromBits(stream.tdata.takeHigh(that.payload.getBitsWidth))
@@ -57,14 +62,22 @@ object Axi4Stream {
       that
     }
 
-    def toFragmentStream[T <: Data](newType: HardType[T], alignment: BitAlignment = LSB): Stream[Fragment[T]] = {
+    /**
+      * Converts the Axi4Stream into a Stream Fragment of of a specified type.
+      * Does not support TSTRB or TKEEP. Will only convert continuous and aligned streams.
+      * @param newType Resulting stream payload type
+      * @param endianness Extract bits from LSB or MSB, drops additional bits
+      * @tparam T Stream payload type
+      * @return Stream of type T
+      */
+    def toStreamFragment[T <: Data](newType: HardType[T], endianness: Endianness = LITTLE): Stream[Fragment[T]] = {
       val that = Stream(Fragment(newType()))
       assert(!stream.config.useStrb, s"Can't convert Axi4Stream $this to Stream of ${that.payloadType} because the Axi4Stream supports TSTRB.")
       assert(stream.config.dataBytes == Math.ceil(that.payload.getBitsWidth/8.0).toInt, s"Can't convert Axi4Stream $this (${stream.config.dataBytes} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.payloadType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
       assert(stream.config.useLast, "Can't convert Axi4Stream $this to Fragment Stream of ${that.payloadType} because the Axi4Stream doesn't support TLAST")
 
       that.arbitrationFrom(stream)
-      if (alignment == LSB)
+      if (endianness == LITTLE)
         that.payload.assignFromBits(stream.tdata.takeLow(that.payload.getBitsWidth))
       else
         that.payload.assignFromBits(stream.tdata.takeHigh(that.payload.getBitsWidth))
@@ -73,23 +86,35 @@ object Axi4Stream {
       that
     }
 
-    def getIdFlow[T <: Data](): Flow[UInt] = {
+    /**
+      * Results a Flow of TID. To be used with toStream functions.
+      * @return Flow of Axi4Stream TID field
+      */
+    def getIdFlow(): Flow[UInt] = {
       val idFlow = Flow(if (stream.tid != null) stream.tid else UInt(0 bit))
-      idFlow.valid := stream.fire
+      idFlow.valid := stream.valid
       idFlow.payload := stream.tid
       idFlow
     }
 
+    /**
+      * Results a Flow of TDEST. To be used with toStream functions.
+      * @return Flow of Axi4Stream TDEST field
+      */
     def getDestFlow(): Flow[UInt] = {
       val destFlow = Flow(if (stream.tdest != null) stream.tdest else UInt(0 bit))
-      destFlow.valid := stream.fire
+      destFlow.valid := stream.valid
       destFlow.payload := stream.tdest
       destFlow
     }
 
+    /**
+      * Results a Flow of TUSER. To be used with toStream functions.
+      * @return Flow of Axi4Stream TUSER field
+      */
     def getUserFlow(): Flow[Bits] = {
       val userFlow = Flow(if (stream.tuser != null) stream.tuser else Bits(0 bit))
-      userFlow.valid := stream.fire
+      userFlow.valid := stream.valid
       userFlow.payload := stream.tuser
       userFlow
     }
@@ -146,15 +171,15 @@ object Axi4Stream {
   implicit class RichStream[T <: Data](val source: Stream[T]) {
     /**
       * Maps a source as a AXI4-Stream. Supports optional MSB bit alignment
-      * @param alignment Align the data to LSB (left expansion) or MSB (shifting left)
+      * @param endianness Align the data to LSB (left expansion) or MSB (shifting left)
       * @return Stream with Axi4Stream payload
       */
-    def toAxi4Stream(alignment: BitAlignment = LSB): Axi4Stream = {
+    def toAxi4Stream(endianness: Endianness = LITTLE): Axi4Stream = {
       val payloadBytes = (source.payload.getBitsWidth/8.0).ceil.intValue()
       val axisStream = Axi4Stream(Axi4StreamConfig(dataBytes = payloadBytes))
-      alignment match {
-        case LSB => axisStream.tdata := source.payload.asBits.resize(payloadBytes*8)
-        case MSB => axisStream.tdata := source.payload.asBits.resizeLeft(payloadBytes*8)
+      endianness match {
+        case LITTLE => axisStream.tdata := source.payload.asBits.resize(payloadBytes*8)
+        case BIG => axisStream.tdata := source.payload.asBits.resizeLeft(payloadBytes*8)
       }
       axisStream.arbitrationFrom(source)
       axisStream
@@ -164,11 +189,11 @@ object Axi4Stream {
   implicit class RichStreamFragment[T <: Data](val source: Stream[Fragment[T]]) {
     /**
       * Maps a source as a AXI4-Stream with TLAST. Supports optional MSB bit alignment
-      * @param alignment Align the data to LSB (left expansion) or MSB (shifting left)
+      * @param endianness Align the data to LSB (left expansion) or MSB (shifting left)
       * @return Stream with Axi4Stream payload
       */
-    def toAxi4Stream(alignment: BitAlignment = LSB): Axi4Stream = {
-      source.map(_.fragment).toAxi4Stream(alignment).map(axisPayload => {
+    def toAxi4Stream(endianness: Endianness = LITTLE): Axi4Stream = {
+      source.map(_.fragment).toAxi4Stream(endianness).map(axisPayload => {
         val axisWithLast = Axi4Stream(axisPayload.config.copy(useLast = true))
         axisWithLast.assignSomeByName(axisPayload)
         axisWithLast.tlast := source.last
