@@ -288,7 +288,15 @@ case class BmbToApb3Generator(mapping : Handle[AddressMapping] = Unset)
 
   interconnect.addSlave(
     accessSource = accessSource,
-    accessCapabilities = accessSource.derivate(Clint.getBmbCapabilities),
+    accessCapabilities = accessSource.derivate(
+      _.copy(
+        addressWidth = apb3Config.addressWidth,
+        dataWidth = apb3Config.dataWidth,
+        lengthWidthMax = log2Up(apb3Config.dataWidth/8),
+        alignment = BmbParameter.BurstAlignement.LENGTH,
+        canMask = false
+      )
+    ),
     accessRequirements = accessRequirements,
     bus = input,
     mapping = mapping
