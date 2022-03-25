@@ -3,31 +3,31 @@ package spinal.lib.bus.amba4.axis
 import spinal.core._
 import spinal.lib._
 
-object Axi4Stream {
+/**
+ * Axi4-Stream configuration
+ * @param dataWidth Width of the bus in BYTES
+ * @param idWidth Width of the ID field in bits
+ * @param destWidth Width of the Destination field in bits
+ * @param userWidth Width of the User field in bits
+ * @param useStrb Use byte strobe bits
+ * @param useKeep Use byte keep bits
+ * @param useLast Use last bit
+ * @param useId Use ID field, must specify idWidth
+ * @param useDest Use Destination field, must specify destWidth
+ * @param useUser Use User field, must specify userWidth
+ */
+case class Axi4StreamConfig(dataWidth: Int,
+                            idWidth:   Int = -1,
+                            destWidth: Int = -1,
+                            userWidth: Int = -1,
+                            useStrb:   Boolean = false,
+                            useKeep:   Boolean = false,
+                            useLast:   Boolean = false,
+                            useId:     Boolean = false,
+                            useDest:   Boolean = false,
+                            useUser:   Boolean = false)
 
-  /**
-   * Axi4-Stream configuration
-   * @param dataWidth Width of the bus in BYTES
-   * @param idWidth Width of the ID field in bits
-   * @param destWidth Width of the Destination field in bits
-   * @param userWidth Width of the User field in bits
-   * @param useStrb Use byte strobe bits
-   * @param useKeep Use byte keep bits
-   * @param useLast Use last bit
-   * @param useId Use ID field, must specify idWidth
-   * @param useDest Use Destination field, must specify destWidth
-   * @param useUser Use User field, must specify userWidth
-   */
-  case class Axi4StreamConfig(dataWidth: Int,
-                              idWidth:   Int = -1,
-                              destWidth: Int = -1,
-                              userWidth: Int = -1,
-                              useStrb:   Boolean = false,
-                              useKeep:   Boolean = false,
-                              useLast:   Boolean = false,
-                              useId:     Boolean = false,
-                              useDest:   Boolean = false,
-                              useUser:   Boolean = false)
+object Axi4Stream {
 
   case class Axi4StreamBundle(val config: Axi4StreamConfig) extends Bundle {
     val data = Bits(8*config.dataWidth bit)
