@@ -70,8 +70,15 @@ object  Axi4SpecRenamer{
         else
           doIt
       }
-      case _: Axi4StreamBundle => {
+      case axis: Axi4StreamBundle => {
         def doIt = {
+          axis.data.overrideLocalName("tdata")
+          (axis.id != null)    generate axis.id.overrideLocalName("tid")
+          (axis.strb != null)  generate axis.strb.overrideLocalName("tstrb")
+          (axis.tkeep != null) generate axis.tkeep.overrideLocalName("tkeep")
+          (axis.last != null)  generate axis.last.overrideLocalName("tlast")
+          (axis.dest != null)  generate axis.dest.overrideLocalName("tdest")
+          (axis.user != null)  generate axis.user.overrideLocalName("tuser")
           that.flatten.foreach((bt) => {
             bt.setName(bt.getName().replace("payload_", ""))
             bt.setName(bt.getName().replace("valid", "tvalid"))
