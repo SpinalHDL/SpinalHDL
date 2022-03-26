@@ -63,6 +63,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val projectName = toplevelName + "_xsim"
   val scriptPath = new File(s"${workPath}/$scriptName").getAbsolutePath
   val headerPath = new File(s"${workPath}/$headerName").getAbsolutePath
+  val fixScriptPath = new File(s"${workPath}/sed.sh").getAbsolutePath
 
   val scriptSuffix = {
     if (isWindows) {
@@ -169,7 +170,15 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     outFile.close()
 
     val vivadoScriptPath = scriptPath.replace("\\", "/")
-    doCmd(s"sh -c \'vivado -mode batch -source $vivadoScriptPath\'",
+    val command = {
+      val baseCommand = s"vivado -mode batch -source $vivadoScriptPath"
+      if (isWindows) {
+        s"sh -c \'${baseCommand}\'"
+      } else {
+        baseCommand
+      }
+    };
+    doCmd(command,
       new File(workPath),
       "Generation of vivado script failed")
 
@@ -179,8 +188,12 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     } else {
       "sed \'/^xelab/ s/$/ -dll/\' -i elaborate.sh"
     }
+    val outFile2 = new java.io.FileWriter(fixScriptPath)
+    outFile2.write(fixElaborateCommand)
+    outFile2.flush()
+    outFile2.close()
 
-    doCmd(fixElaborateCommand,
+    doCmd(s"sh $fixScriptPath",
       new File(simulatePath),
       "Fix vivado elaborate command failed")
   }
@@ -189,7 +202,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     if (isWindows) {
       s"cmd /k ${cmd}.bat"
     } else {
-      s"sh ${cmd}.sh"
+      s"bash ${cmd}.sh"
     }
   }
 
@@ -200,6 +213,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     doCmd(getScriptCommand("elaborate"),
       new File(simulatePath),
       "run elaborate failed")
+    val simDesignDir = s"${workspacePath}/${workspaceName}/${toplevelName}_xsim.sim/sim_1/behav/xsim/xsim.dir"
+    FileUtils.copyDirectory(new File(simDesignDir), new File("xsim.dir"))
   }
 
   def compileDriver() = {
@@ -228,7 +243,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     }
 
     val simKernel = s"librdi_simulator_kernel.${dylibSuffix}"
-    val simDesign = s"${toplevelName}_xsim.sim/sim_1/behav/xsim/xsim.dir/${toplevelName}_behav/xsimk.${dylibSuffix}"
+    val simDesign = s"xsim.dir/${toplevelName}_behav/xsimk.${dylibSuffix}"
     val header =
       s"""
          |#define SIM_KERNEL "${simKernel}"
