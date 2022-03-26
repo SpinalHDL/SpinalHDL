@@ -406,9 +406,10 @@ case class SpinalXSimBackendConfig[T <: Component](val rtl               : Spina
 
 object SpinalXSimBackend {
   class Backend(val signals : ArrayBuffer[Signal], vconfig : XSimBackendConfig) extends XSimBackend(vconfig)
-  def apply[T <: Component](config: SpinalXSimBackendConfig[T], vconfig: XSimBackendConfig) = {
+  def apply[T <: Component](config: SpinalXSimBackendConfig[T]) = {
     import config._
 
+    val vconfig = new XSimBackendConfig()
     vconfig.rtlIncludeDirs  ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
     vconfig.xciSourcesPaths   =  xciSourcesPaths
@@ -608,7 +609,7 @@ case class SpinalSimConfig(
                             var _vcsLd             : Option[String] = None,
                             var _vcsUserFlags      : VCSFlags = VCSFlags(),
                             var _xciSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
-                            var _bdSourcesPaths     : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _bdSourcesPaths     : ArrayBuffer[String] = ArrayBuffer[String]()
   ){
 
 
