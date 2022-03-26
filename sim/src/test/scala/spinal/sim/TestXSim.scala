@@ -7,9 +7,8 @@ import scala.collection.JavaConverters._
 
 object TestXSim extends App{
   val config = new XSimBackendConfig()
-  config.rtlSourcesPaths += "./yolo/adder.v"
-  config.toplevelName = "adder"
-  config.pluginsPath = "simulation_plugins"
+  config.rtlSourcesPaths += "./yolo/counter.v"
+  config.toplevelName = "counter"
   config.workspacePath = "yolo"
   config.workspaceName = "yolo"
   config.wavePath = "test.vcd"

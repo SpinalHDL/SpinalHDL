@@ -17,7 +17,6 @@ case class XSimBackendConfig(
                              var xciSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var bdSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var toplevelName: String   = null,
-                             var pluginsPath: String    = "simulation_plugins",
                              var workspacePath: String  = null,
                              var workspaceName: String  = null,
                              var wavePath: String       = null,
@@ -32,7 +31,6 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val xciSourcesPaths = config.xciSourcesPaths
   val bdSourcesPaths = config.bdSourcesPaths
   val toplevelName = config.toplevelName
-  val pluginsPath = config.pluginsPath
   val workspacePath = config.workspacePath
   val workspaceName = config.workspaceName
   val wavePath = config.wavePath
@@ -59,10 +57,12 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val xciAbsoluteSourcesPaths = xciSourcesPaths map vivadoPath
   val bdAbsoluteSourcesPaths = bdSourcesPaths map vivadoPath
 
-  val scriptName = s"spinal_xsim.tcl"
+  val scriptName = "spinal_xsim.tcl"
+  val headerName = "spinal_xsim.h"
   val workPath = s"${workspacePath}/${workspaceName}"
   val projectName = toplevelName + "_xsim"
   val scriptPath = new File(s"${workPath}/$scriptName").getAbsolutePath
+  val headerPath = new File(s"${workPath}/$headerName").getAbsolutePath
 
   val scriptSuffix = {
     if (isWindows) {
@@ -72,8 +72,17 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     }
   }
   val simulatePath = new File(s"${workPath}/${projectName}.sim/sim_1/behav/xsim").getAbsolutePath
+  val simulateKernelPath = new File(s"${simulatePath}/xsim.dir/${toplevelName}_behav").getAbsolutePath
   val compilePath = s"${simulatePath}/compile.${scriptSuffix}"
   val elaboratePath = s"${simulatePath}/elaborate.${scriptSuffix}"
+
+  val vivadoInstallPath = sys.env.get("VIVADO_HOME") match {
+    case Some(x) => x
+    case None => {
+      assert(assertion = false, "VIVADO_HOME not found! Setup your vivado environment first.")
+      ""
+    }
+  }
 
   def doCmd(command: String, cwd: File, message : String) = {
     val logger = new Logger()
@@ -193,8 +202,57 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       "run elaborate failed")
   }
 
-  FileUtils.deleteQuietly(new File("workPath"))
+  def compileDriver() = {
+    val java_home = System.getProperty("java.home")
+    assert(java_home != "" && java_home != null, "JAVA_HOME need to be set")
+    val jdk = java_home.replace("/jre","").replace("\\jre","")
+    val jdkIncludes = if (isWindows) {
+      FileUtils.copyDirectory(new File(s"$jdk\\include"), new File(s"${workspacePath}\\${workspaceName}\\jniIncludes"))
+      s"jniIncludes"
+    } else {
+      jdk + "/include"
+    }
+
+    val xsim = Paths.get(vivadoInstallPath, "data", "xsim").toAbsolutePath.toString
+    val xsimIncludes = if (isWindows) {
+      FileUtils.copyDirectory(new File(s"$xsim\\include"), new File(s"${workspacePath}\\${workspaceName}\\xsimIncludes"))
+      s"xsimIncludes"
+    } else {
+      xsim + "/include"
+    }
+
+    val dylibSuffix = if (isWindows) {
+      "dll"
+    } else {
+      "so"
+    }
+
+    val simKernel = s"librdi_simulator_kernel.${dylibSuffix}"
+    val simDesign = s"${toplevelName}_xsim.sim/sim_1/behav/xsim/xsim.dir/${toplevelName}_behav/xsimk.${dylibSuffix}"
+    val header =
+      s"""
+         |#define SIM_KERNEL "${simKernel}"
+         |#define SIM_DESIGN "${simDesign}"
+         |""".stripMargin
+
+    val outFile = new java.io.FileWriter(headerPath)
+    outFile.write(header)
+    outFile.flush()
+    outFile.close()
+
+    val cFlags = List(
+      s"-I$jdkIncludes",
+      s"-I$xsimIncludes",
+      "-fPIC",
+      "-m64",
+      "-shared",
+      "-Wno-attributes")
+    println(cFlags.mkString(" "))
+  }
+
+  FileUtils.deleteQuietly(new File(s"${workPath}"))
   new File(workPath).mkdirs()
   generateScript()
   runScript()
+  compileDriver()
 }
