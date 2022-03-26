@@ -10,12 +10,14 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process._
+import spinal.sim.xsi._
 
 case class XSimBackendConfig(
                              val rtlIncludeDirs : ArrayBuffer[String] = ArrayBuffer[String](),
                              val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var xciSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
                              var bdSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
+                             var CC: String             = "g++",
                              var toplevelName: String   = null,
                              var workspacePath: String  = null,
                              var workspaceName: String  = null,
@@ -30,6 +32,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
   val rtlSourcesPaths = config.rtlSourcesPaths
   val xciSourcesPaths = config.xciSourcesPaths
   val bdSourcesPaths = config.bdSourcesPaths
+  val CC = config.CC
   val toplevelName = config.toplevelName
   val workspacePath = config.workspacePath
   val workspaceName = config.workspaceName
@@ -49,6 +52,7 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       WaveFormat.NONE
     }
   }
+  val hasWave = if (format != WaveFormat.NONE) { "true" } else { "false" }
 
   def vivadoPath(s: String): String = {
     Paths.get(s).toAbsolutePath.toString.replace("\\", "/")
@@ -183,10 +187,17 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       "Generation of vivado script failed")
 
     // Fix elaborate
+    val additionalElaborateCommand = List(
+      "-override_timeprecision",
+      "-override_timeunit",
+      "-timeprecision_vhdl 1ns",
+      "-timescale 1ns\\/1ns",
+      "-dll"
+    ).mkString(" ")
     val fixElaborateCommand = if (isWindows) {
-      "sed \'/^call xelab/ s/$/ -dll/\' -i elaborate.bat"
+      s"sed \'/^call xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.bat"
     } else {
-      "sed \'/^xelab/ s/$/ -dll/\' -i elaborate.sh"
+      s"sed \'/^xelab/ s/$$/ ${additionalElaborateCommand}/\' -i elaborate.sh"
     }
     val outFile2 = new java.io.FileWriter(fixScriptPath)
     outFile2.write(fixElaborateCommand)
@@ -248,6 +259,8 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
       s"""
          |#define SIM_KERNEL "${simKernel}"
          |#define SIM_DESIGN "${simDesign}"
+         |#define SIM_WAVE   "${wavePath}"
+         |#define SIM_HAS_WAVE ${hasWave}
          |""".stripMargin
 
     val outFile = new java.io.FileWriter(headerPath)
@@ -255,14 +268,53 @@ class XSimBackend(config: XSimBackendConfig) extends Backend {
     outFile.flush()
     outFile.close()
 
+    val cppSourceList = List(
+      "XSIIface_wrap.cxx",
+      "XSIIface.cpp",
+      "xsi_loader.cpp"
+    )
+    val cppHeaderList = List(
+      "XSIIface.hpp",
+      "xsi_loader.h",
+      "xsi_shared_lib.h"
+    )
+
+    (cppSourceList ++ cppHeaderList) foreach { name =>
+      val sourceFile = new PrintWriter(new File(s"${workspacePath}/${workspaceName}/${name}"))
+      val stream = getClass.getResourceAsStream(s"/${name}")
+      sourceFile.write(scala.io.Source.fromInputStream(stream).mkString)
+      sourceFile.close
+    }
+
+    val driver = s"spinal_xsim.${dylibSuffix}"
+    val driverPath = new File(s"${workspacePath}/${workspaceName}/${driver}").getAbsolutePath
+    val ldFlags = if (isLinux) List("-lrt", "-ldl") else List()
     val cFlags = List(
       s"-I$jdkIncludes",
       s"-I$xsimIncludes",
+      s"-I$jdkIncludes/${if(isWindows)"win32" else (if(isMac) "darwin" else "linux")}",
       "-fPIC",
       "-m64",
       "-shared",
-      "-Wno-attributes")
-    println(cFlags.mkString(" "))
+      "-Wno-attributes",
+      s"-o ${driver}",
+      cppSourceList.mkString(" "),
+      ldFlags.mkString(" ")
+    )
+
+    doCmd(
+      Seq(CC,
+        cFlags.mkString(" ")
+      ).mkString(" "),
+      new File(s"${workspacePath}/${workspaceName}"),
+      "Compilation of driver failed"
+    )
+    System.load(driverPath)
+  }
+
+  def getInterface() = {
+    val xsiIface = new XSIIface()
+    xsiIface
   }
 
   FileUtils.deleteQuietly(new File(s"${workPath}"))

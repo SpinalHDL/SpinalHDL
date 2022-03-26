@@ -1,4 +1,3 @@
-`timescale 1 ns/1 ps
 module counter(count, reset, enable, clk);
 output [3:0] count;
 input reset, enable, clk;
