@@ -4,7 +4,7 @@
 #include <iostream>
 #include <algorithm>
 
-//#include "spinal_xsim.h"
+#include "spinal_xsim.h"
 #include "XSIIface.hpp"
 #include "xsi_loader.h"
 
@@ -111,7 +111,7 @@ void XSIIface::write64(int32_t handle, int64_t data) {
 }
 
 void XSIIface::write(int32_t handle, int64_t width, const std::vector<int8_t>& data) {
-    std::vector raw(data);
+    std::vector<int8_t> raw(data);
     std::reverse(raw.begin(), raw.end());
     int64_t buffer_width = as_logic_val_width(width);
     size_t buffer_size = sizeof(s_xsi_vlog_logicval) * buffer_width;

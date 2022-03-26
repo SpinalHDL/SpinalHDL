@@ -36,9 +36,4 @@ private:
     Xsi::Loader loader;
 };
 
-#define SIM_KERNEL "${simKernel}"
-#define SIM_DESIGN "${simDesign}"
-#define SIM_WAVE   ""
-#define SIM_HAS_WAVE false
-
 #endif
