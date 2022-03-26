@@ -1145,7 +1145,7 @@ class ComponentEmitterVerilog(
               writer.write(romStr)
               writer.flush()
               writer.close()
-              if(spinalConfig.romReuse) romCache(romStr) = file.getPath
+              if(spinalConfig.romReuse) romCache(romStr) = file.getName
               file.getName
             case Some(x) => x
           }
