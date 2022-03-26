@@ -687,11 +687,11 @@ SWIGEXPORT jint JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1get_1signal
 }
 
 
-SWIGEXPORT jlong JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1read(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jlong jarg3) {
+SWIGEXPORT jlong JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1read(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jint jarg3) {
   jlong jresult = 0 ;
   XSIIface *arg1 = (XSIIface *) 0 ;
   int32_t arg2 ;
-  int64_t arg3 ;
+  int32_t arg3 ;
   std::vector< int8_t > result;
   
   (void)jenv;
@@ -699,7 +699,7 @@ SWIGEXPORT jlong JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1read(JNIEn
   (void)jarg1_;
   arg1 = *(XSIIface **)&jarg1; 
   arg2 = (int32_t)jarg2; 
-  arg3 = (int64_t)jarg3; 
+  arg3 = (int32_t)jarg3; 
   {
     try {
       result = (arg1)->read(arg2,arg3);
@@ -788,10 +788,10 @@ SWIGEXPORT jint JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1read32(JNIE
 }
 
 
-SWIGEXPORT void JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1write(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jlong jarg3, jlong jarg4, jobject jarg4_) {
+SWIGEXPORT void JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1write(JNIEnv *jenv, jclass jcls, jlong jarg1, jobject jarg1_, jint jarg2, jint jarg3, jlong jarg4, jobject jarg4_) {
   XSIIface *arg1 = (XSIIface *) 0 ;
   int32_t arg2 ;
-  int64_t arg3 ;
+  int32_t arg3 ;
   std::vector< int8_t > *arg4 = 0 ;
   
   (void)jenv;
@@ -800,7 +800,7 @@ SWIGEXPORT void JNICALL Java_spinal_sim_xsi_JNIXSIIfaceJNI_XSIIface_1write(JNIEn
   (void)jarg4_;
   arg1 = *(XSIIface **)&jarg1; 
   arg2 = (int32_t)jarg2; 
-  arg3 = (int64_t)jarg3; 
+  arg3 = (int32_t)jarg3; 
   arg4 = *(std::vector< int8_t > **)&jarg4;
   if (!arg4) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "std::vector< int8_t > const & reference is null");

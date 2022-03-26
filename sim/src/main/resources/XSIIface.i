@@ -35,10 +35,10 @@ public:
     XSIIface();
     ~XSIIface();
     int32_t get_signal_handle(const std::string& handle_name);
-    std::vector<int8_t> read(int32_t handle, int64_t width);
+    std::vector<int8_t> read(int32_t handle, int32_t width);
     int64_t read64(int32_t handle);
     int32_t read32(int32_t handle);
-    void write(int32_t handle, int64_t width, const std::vector<int8_t>& data);
+    void write(int32_t handle, int32_t width, const std::vector<int8_t>& data);
     void write64(int32_t handle, int64_t data);
     void write32(int32_t handle, int32_t data);
     

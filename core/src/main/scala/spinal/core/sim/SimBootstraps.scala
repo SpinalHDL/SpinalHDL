@@ -396,6 +396,55 @@ object SpinalVpiBackend {
   }
 }
 
+case class SpinalXSimBackendConfig[T <: Component](val rtl               : SpinalReport[T],
+                                               val xciSourcesPaths  : ArrayBuffer[String] = ArrayBuffer[String](),
+                                               val bdSourcesPaths   : ArrayBuffer[String] = ArrayBuffer[String](),
+                                               val waveFormat       : WaveFormat,
+                                               val workspacePath    : String,
+                                               val workspaceName    : String,
+                                               val wavePath         : String)
+
+object SpinalXSimBackend {
+  class Backend(val signals : ArrayBuffer[Signal], vconfig : XSimBackendConfig) extends XSimBackend(vconfig)
+  def apply[T <: Component](config: SpinalXSimBackendConfig[T], vconfig: XSimBackendConfig) = {
+    import config._
+
+    vconfig.rtlIncludeDirs  ++= rtl.rtlIncludeDirs
+    vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths.map(new File(_).getAbsolutePath)
+    vconfig.xciSourcesPaths   =  xciSourcesPaths
+    vconfig.bdSourcesPaths    = bdSourcesPaths
+    vconfig.toplevelName      = rtl.toplevelName
+    vconfig.wavePath          = "test.wdb"
+    vconfig.waveFormat        = waveFormat match {
+      case WaveFormat.DEFAULT => WaveFormat.WDB
+      case _ => waveFormat
+    }
+    vconfig.workspaceName     = workspaceName
+    vconfig.workspacePath     = workspacePath
+
+    var signalId = 0
+
+    val signalsCollector = ArrayBuffer[Signal]()
+
+    for(io <- rtl.toplevel.getAllIo){
+      val bt = io
+      val signal = new Signal(config.rtl.toplevelName +: bt.getComponents().tail.map(_.getName()) :+ bt.getName(), bt match{
+        case bt: Bool               => new BoolDataType
+        case bt: Bits               => new BitsDataType(bt.getBitsWidth)
+        case bt: UInt               => new UIntDataType(bt.getBitsWidth)
+        case bt: SInt               => new SIntDataType(bt.getBitsWidth)
+        case bt: SpinalEnumCraft[_] => new BitsDataType(bt.getBitsWidth)
+      })
+
+      bt.algoInt = signalId
+      bt.algoIncrementale = -1
+      signal.id = signalId
+      signalsCollector += signal
+      signalId += 1
+    }
+    new Backend(signalsCollector, vconfig)
+  }
+}
 
 /** Tag SimPublic  */
 object SimPublic extends SpinalTag
@@ -527,6 +576,7 @@ object SpinalSimBackendSel{
   val GHDL = new SpinalSimBackendSel
   val IVERILOG = new SpinalSimBackendSel
   val VCS = new SpinalSimBackendSel
+  val XSIM = new SpinalSimBackendSel
 }
 
 case class VCSFlags(
@@ -556,7 +606,9 @@ case class SpinalSimConfig(
                             var _withLogging       : Boolean = false,
                             var _vcsCC             : Option[String] = None,
                             var _vcsLd             : Option[String] = None,
-                            var _vcsUserFlags          : VCSFlags = VCSFlags()
+                            var _vcsUserFlags      : VCSFlags = VCSFlags(),
+                            var _xciSourcesPaths    : ArrayBuffer[String] = ArrayBuffer[String](),
+                            var _bdSourcesPaths     : ArrayBuffer[String] = ArrayBuffer[String](),
   ){
 
 
@@ -584,6 +636,18 @@ case class SpinalSimConfig(
     _vcsUserFlags = vcsFlags
     this
   }
+
+  def withXSim: this.type = {
+    _backend = SpinalSimBackendSel.XSIM
+    this
+  }
+
+  def withXSimSourcesPaths(xciSourcesPaths: ArrayBuffer[String], bdSourcesPaths: ArrayBuffer[String]): this.type = {
+    _xciSourcesPaths = xciSourcesPaths
+    _bdSourcesPaths = bdSourcesPaths
+    this
+  }
+
   def withVPDWave: this.type = {
     _waveFormat = WaveFormat.VPD
     this
@@ -746,7 +810,7 @@ case class SpinalSimConfig(
         config.generateVerilog(rtl)
       }
       case SpinalSimBackendSel.GHDL => config.generateVhdl(rtl)
-      case SpinalSimBackendSel.IVERILOG | SpinalSimBackendSel.VCS => config.generateVerilog(rtl)
+      case SpinalSimBackendSel.IVERILOG | SpinalSimBackendSel.VCS | SpinalSimBackendSel.XSIM => config.generateVerilog(rtl)
     }
     report.blackboxesSourcesPaths ++= _additionalRtlPath
     report.blackboxesIncludeDir ++= _additionalIncludeDir
@@ -904,6 +968,26 @@ case class SpinalSimConfig(
         new SimCompiled(report) {
           override def newSimRaw(name: String, seed: Int): SimRaw = {
             val raw = new SimVpi(backend)
+            raw.userData = backend.signals
+            raw
+          }
+        }
+
+      case SpinalSimBackendSel.XSIM =>
+        println(f"[Progress] XSIM compilation started")
+        val vConfig = SpinalXSimBackendConfig[T](
+          rtl = report,
+          waveFormat = _waveFormat,
+          workspacePath = s"${_workspacePath}/${_workspaceName}",
+          wavePath = s"${_workspacePath}/${_workspaceName}",
+          workspaceName = "xsim",
+          xciSourcesPaths = _xciSourcesPaths,
+          bdSourcesPaths = _bdSourcesPaths
+        )
+        val backend = SpinalXSimBackend(vConfig)
+        new SimCompiled(report) {
+          override def newSimRaw(name: String, seed: Int): SimRaw = {
+            val raw = new SimXSim(backend)
             raw.userData = backend.signals
             raw
           }

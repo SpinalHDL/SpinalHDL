@@ -27,10 +27,10 @@ public class JNIXSIIfaceJNI {
   public final static native long new_XSIIface();
   public final static native void delete_XSIIface(long jarg1);
   public final static native int XSIIface_get_signal_handle(long jarg1, XSIIface jarg1_, String jarg2);
-  public final static native long XSIIface_read(long jarg1, XSIIface jarg1_, int jarg2, long jarg3);
+  public final static native long XSIIface_read(long jarg1, XSIIface jarg1_, int jarg2, int jarg3);
   public final static native long XSIIface_read64(long jarg1, XSIIface jarg1_, int jarg2);
   public final static native int XSIIface_read32(long jarg1, XSIIface jarg1_, int jarg2);
-  public final static native void XSIIface_write(long jarg1, XSIIface jarg1_, int jarg2, long jarg3, long jarg4, VecI8 jarg4_);
+  public final static native void XSIIface_write(long jarg1, XSIIface jarg1_, int jarg2, int jarg3, long jarg4, VecI8 jarg4_);
   public final static native void XSIIface_write64(long jarg1, XSIIface jarg1_, int jarg2, long jarg3);
   public final static native void XSIIface_write32(long jarg1, XSIIface jarg1_, int jarg2, int jarg3);
   public final static native void XSIIface_sleep(long jarg1, XSIIface jarg1_, long jarg2);

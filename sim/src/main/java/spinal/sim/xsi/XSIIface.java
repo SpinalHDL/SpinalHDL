@@ -44,7 +44,7 @@ public class XSIIface {
     return JNIXSIIfaceJNI.XSIIface_get_signal_handle(swigCPtr, this, handle_name);
   }
 
-  public VecI8 read(int handle, long width) {
+  public VecI8 read(int handle, int width) {
     return new VecI8(JNIXSIIfaceJNI.XSIIface_read(swigCPtr, this, handle, width), true);
   }
 
@@ -56,7 +56,7 @@ public class XSIIface {
     return JNIXSIIfaceJNI.XSIIface_read32(swigCPtr, this, handle);
   }
 
-  public void write(int handle, long width, VecI8 data) {
+  public void write(int handle, int width, VecI8 data) {
     JNIXSIIfaceJNI.XSIIface_write(swigCPtr, this, handle, width, VecI8.getCPtr(data), data);
   }
 

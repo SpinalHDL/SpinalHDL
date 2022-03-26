@@ -22,8 +22,8 @@ void check_vlog_logicval(s_xsi_vlog_logicval *value) {
     value->bVal = 0;
 }
 
-int64_t as_logic_val_width(int64_t width) {
-    int64_t result = width / 32;
+int64_t as_logic_val_width(int32_t width) {
+    int64_t result = (int64_t)width / 32;
     if (width % 8 != 0) {
         result += 1;
     }
@@ -76,7 +76,7 @@ int64_t XSIIface::read64(int32_t handle) {
     return value;
 }
 
-std::vector<int8_t> XSIIface::read(int32_t handle, int64_t width) {
+std::vector<int8_t> XSIIface::read(int32_t handle, int32_t width) {
     int64_t buffer_width = as_logic_val_width(width);
     size_t buffer_size = sizeof(s_xsi_vlog_logicval) * buffer_width;
     s_xsi_vlog_logicval *buffer = (s_xsi_vlog_logicval *)malloc(buffer_size);
@@ -110,7 +110,7 @@ void XSIIface::write64(int32_t handle, int64_t data) {
     loader.put_value(handle, &(value[0]));
 }
 
-void XSIIface::write(int32_t handle, int64_t width, const std::vector<int8_t>& data) {
+void XSIIface::write(int32_t handle, int32_t width, const std::vector<int8_t>& data) {
     std::vector<int8_t> raw(data);
     std::reverse(raw.begin(), raw.end());
     int64_t buffer_width = as_logic_val_width(width);
