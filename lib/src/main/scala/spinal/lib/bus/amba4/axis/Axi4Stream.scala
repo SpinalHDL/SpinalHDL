@@ -181,7 +181,7 @@ object Axi4Stream {
     }
   }
 
-  implicit class RichStream[T <: Data](val source: Stream[T]) {
+  implicit class Axi4SToStreamRich[T <: Data](val source: Stream[T]) {
     /**
       * Maps a source as a AXI4-Stream. Supports optional MSB bit alignment
       * @param endianness Align the data to LSB (left expansion) or MSB (shifting left)
@@ -199,7 +199,7 @@ object Axi4Stream {
     }
   }
 
-  implicit class RichStreamFragment[T <: Data](val source: Stream[Fragment[T]]) {
+  implicit class Axi4SToStreamFragmentRich[T <: Data](val source: Stream[Fragment[T]]) {
     /**
       * Maps a source as a AXI4-Stream with TLAST. Supports optional MSB bit alignment
       * @param endianness Align the data to LSB (left expansion) or MSB (shifting left)
