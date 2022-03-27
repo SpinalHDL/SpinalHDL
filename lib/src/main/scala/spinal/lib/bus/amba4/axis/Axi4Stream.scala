@@ -86,14 +86,14 @@ object Axi4Stream {
     def toStreamFragment[T <: Data](newType: HardType[T], endianness: Endianness = LITTLE): Stream[Fragment[T]] = {
       val that = Stream(Fragment(newType()))
       assert(!stream.config.useStrb, s"Can't convert Axi4Stream $this to Stream of ${that.payloadType} because the Axi4Stream supports TSTRB.")
-      assert(stream.config.dataWidth == Math.ceil(that.payload.getBitsWidth/8.0).toInt, s"Can't convert Axi4Stream $this (${stream.config.dataWidth} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.payloadType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
+      assert(stream.config.dataWidth == Math.ceil(that.fragment.getBitsWidth/8.0).toInt, s"Can't convert Axi4Stream $this (${stream.config.dataWidth} bytes) to Stream of ${that.payloadType} (${Math.ceil(that.fragmentType.getBitsWidth/8.0).toInt} bytes) because the payload sizes do not match.")
       assert(stream.config.useLast, "Can't convert Axi4Stream $this to Fragment Stream of ${that.payloadType} because the Axi4Stream doesn't support TLAST")
 
       that.arbitrationFrom(stream)
       if (endianness == LITTLE)
-        that.payload.assignFromBits(stream.data.takeLow(that.payload.getBitsWidth))
+        that.fragment.assignFromBits(stream.data.takeLow(that.fragment.getBitsWidth))
       else
-        that.payload.assignFromBits(stream.data.takeHigh(that.payload.getBitsWidth))
+        that.fragment.assignFromBits(stream.data.takeHigh(that.fragment.getBitsWidth))
       that.last := stream.last
 
       that
@@ -188,14 +188,27 @@ object Axi4Stream {
       * @return Stream with Axi4Stream payload
       */
     def toAxi4Stream(endianness: Endianness = LITTLE): Axi4Stream = {
-      val payloadBytes = (source.payload.getBitsWidth/8.0).ceil.intValue()
-      val axisStream = Axi4Stream(Axi4StreamConfig(dataWidth = payloadBytes))
-      endianness match {
-        case LITTLE => axisStream.data := source.payload.asBits.resize(payloadBytes*8)
-        case BIG => axisStream.data := source.payload.asBits.resizeLeft(payloadBytes*8)
+      source.payload match {
+        case fragment: Fragment[_] =>
+          val payloadBytes = (fragment.fragment.getBitsWidth/8.0).ceil.intValue()
+          val axisStream = Axi4Stream(Axi4StreamConfig(dataWidth = payloadBytes, useLast = true))
+          endianness match {
+            case LITTLE => axisStream.data := fragment.fragment.asBits.resize(payloadBytes*8)
+            case BIG => axisStream.data := fragment.fragment.asBits.resizeLeft(payloadBytes*8)
+          }
+          axisStream.arbitrationFrom(source)
+          axisStream.last := fragment.last
+          axisStream
+        case data: Data =>
+          val payloadBytes = (data.getBitsWidth/8.0).ceil.intValue()
+          val axisStream = Axi4Stream(Axi4StreamConfig(dataWidth = payloadBytes))
+          endianness match {
+            case LITTLE => axisStream.data := data.asBits.resize(payloadBytes*8)
+            case BIG => axisStream.data := data.asBits.resizeLeft(payloadBytes*8)
+          }
+          axisStream.arbitrationFrom(source)
+          axisStream
       }
-      axisStream.arbitrationFrom(source)
-      axisStream
     }
   }
 
