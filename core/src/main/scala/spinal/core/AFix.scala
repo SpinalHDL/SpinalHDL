@@ -888,7 +888,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         }
 
         val (du, dd, su, sd) = alignRanges(this, af)
-        if((du < su || dd > sd) && trunc.isEmpty){
+        if((du < su || dd > sd) && (trunc.isEmpty || !trunc.get.saturation)){
           PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
           return
         }
@@ -898,20 +898,26 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 //        }
 
 
-        var af_frac_rounded: AFix = af
+        var af_rounded: AFix = af
         if (af.exp.value > this.exp.value) {
           val exp_diff = af.exp.value - this.exp.value
-          af_frac_rounded = af <<| exp_diff
+          af_rounded = af <<| exp_diff
         } else if (af.exp.value < this.exp.value) {
-          val af_shifted = (af >> this.exp.value - af.exp.value)
-          val round_tmp = af_shifted._round(trunc.get.rounding)
-          af_frac_rounded = round_tmp << this.exp.value
+          if (trunc.isDefined) {
+            af_rounded = (af >> this.exp.value)._round(trunc.get.rounding) << this.exp.value
+          }
+        }
+
+        var af_sat: AFix = af_rounded
+        if (trunc.isDefined && trunc.get.saturation) {
+          af_sat = af_sat.sat(this)
+          println(af_sat)
         }
 
         if (this.signed)
-          this.raw := af_frac_rounded.raw.asSInt.resize(this.bitWidth).asBits
+          this.raw := af_sat.raw.asSInt.resize(this.bitWidth).asBits
         else
-          this.raw := af_frac_rounded.raw.asUInt.resize(this.bitWidth).asBits
+          this.raw := af_sat.raw.asUInt.resize(this.bitWidth).asBits
 
       case u: UInt => this.raw := u.asBits
       case s: SInt => this.raw := s.asBits
