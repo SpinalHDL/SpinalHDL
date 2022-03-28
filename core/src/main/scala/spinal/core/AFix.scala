@@ -477,7 +477,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         this_resized := this.resized
         return this_resized.sat(satMax, satMin)
       } else {
-        SpinalWarning(s"Saturation of ${this} to range [${satMax} - ${satMin}] has been limited to the representable range of the input.\nConsider adjusting the saturation range or resizing the input.\n" + ScalaLocated.long)
+//        SpinalWarning(s"Saturation of ${this} to range [${satMax} - ${satMin}] has been limited to the representable range of the input.\nConsider adjusting the saturation range or resizing the input.\n" + ScalaLocated.long)
       }
     }
     val ret = new AFix(satMax.min(this.maxValue), satMin.max(this.minValue), exp)
