@@ -311,7 +311,7 @@ class ComponentEmitterVerilog(
       if(openSubIo.contains(data)) ""
       else {
         val wireName = emitReference(data, false)
-        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        val section = if(data.getBitsWidth == 1 || wireName.contains('\'')) "" else  s"[${data.getBitsWidth - 1}:0]"
         referencesOverrides.getOrElse(data, data.getNameElseThrow) match {
           case x: Literal => wireName
           case _ =>  wireName + section
