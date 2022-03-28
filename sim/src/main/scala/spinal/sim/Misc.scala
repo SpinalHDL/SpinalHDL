@@ -37,6 +37,9 @@ object WaveFormat{
   // VCS only
   object VPD extends WaveFormat("vpd")
   object FSDB extends WaveFormat("fsdb")
+
+  // XSim only
+  object WDB extends WaveFormat("wdb")
 }
 
 sealed class WaveFormat(val ext : String = "???"){
