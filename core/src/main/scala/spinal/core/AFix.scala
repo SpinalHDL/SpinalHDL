@@ -389,7 +389,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   // Shift decimal point left
   def <<(shift: Int): AFix = {
-    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value - shift) exp)
+    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value + shift) exp)
 
     ret.raw := this.raw
 
@@ -398,7 +398,7 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
   // Shift decimal point right
   def >>(shift: Int): AFix = {
-    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value + shift) exp)
+    val ret = new AFix(this.maxValue, this.minValue, (this.exp.value - shift) exp)
 
     ret.raw := this.raw
 
