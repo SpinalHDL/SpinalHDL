@@ -6,15 +6,6 @@ import spinal.tester.scalatest.AFixTester.AFixTester
 
 
 import org.scalatest.funsuite.AnyFunSuite
-import spinal.core.HardType
-import spinal.core._
-import spinal.core.sim._
-import spinal.lib.bus.bmb.sim.{BmbDriver, BmbMemoryAgent}
-import spinal.lib.bus.bmb.{Bmb, BmbParameter, BmbSlaveFactory}
-import spinal.lib.bus.bsb.{Bsb, BsbDownSizerAlignedMultiWidth, BsbDownSizerSparse, BsbParameter, BsbUpSizerDense, BsbUpSizerSparse}
-import spinal.lib.bus.bsb.sim.BsbBridgeTester
-import spinal.lib._
-import spinal.lib.system.dma.sg.{DmaSg, DmaSgTester, SgDmaTestsParameter}
 
 class SpinalSimAFixTester extends AnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
@@ -49,7 +40,7 @@ class SpinalSimAFixTester extends AnyFunSuite {
       u_8_4_b := u_8_4_a
       u_10_4_b := u_8_4_a
       u_8_6_b := u_8_4_a
-      u_6_4_b := u_8_4_a.truncated(saturation = true)
+      u_6_4_b := u_8_4_a.truncated(saturation = true, overflow = false)
       u_8_2_b := u_8_4_a.truncated(rounding = RoundType.FLOOR)
     })
   }
@@ -86,7 +77,7 @@ object AFixTester {
     }))
 
     val chosenOp = opResults(io.opMode.asUInt)
-    io.outRaw := chosenOp.resized.sat(io.outRaw)
+    io.outRaw := chosenOp.saturated()
 
     val roundResults = Vec(Seq(
       chosenOp.ceil(),

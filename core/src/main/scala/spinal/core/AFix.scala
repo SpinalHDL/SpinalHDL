@@ -880,12 +880,17 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
   }
 
-  def truncated(saturation : Boolean = false,
-                rounding : RoundType = RoundType.FLOOR) : AFix = {
+  def saturated(): AFix = this.truncated(saturation = true, overflow = false)
+
+  def truncated(saturation: Boolean = false,
+                overflow  : Boolean = true,
+                rounding  : RoundType = RoundType.FLOOR) : AFix = {
+    assert(!(saturation && overflow), s"Cannot both overflow and saturate.\n")
     val copy = cloneOf(this)
     copy.raw := this.raw
     copy.addTag(new TagAFixTruncated(
       saturation,
+      overflow,
       rounding
     ))
     copy
@@ -901,15 +906,10 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         }
 
         val (du, dd, su, sd) = alignRanges(this, af)
-        if((du < su || dd > sd) && (trunc.isEmpty || !trunc.get.saturation)){
+        if((du < su || dd > sd) && (trunc.isEmpty || (!trunc.get.saturation && !trunc.get.overflow))){
           PendingError(s"Cannot assign ${af} to ${this} as it would get out of range $du < $su || $dd > $sd \n" + ScalaLocated.long)
           return
         }
-
-//        if (af.bitWidth != this.bitWidth) {
-//          SpinalWarning(s"Assigning ${af} to ${this} required bit expansion.\n" + ScalaLocated.long)
-//        }
-
 
         var af_rounded: AFix = af
         if (af.exp.value > this.exp.value) {
@@ -922,9 +922,13 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
         }
 
         var af_sat: AFix = af_rounded
-        if (trunc.isDefined && trunc.get.saturation) {
-          af_sat = af_sat.sat(this)
-          println(af_sat)
+        if (trunc.isDefined) {
+          if (trunc.get.saturation) {
+            af_sat = af_sat.sat(this)
+          } else if (trunc.get.overflow) {
+            af_sat = this.clone
+            af_sat.raw := af_rounded.raw.resized
+          }
         }
 
         if (this.signed)
@@ -975,8 +979,9 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
 
 
 
-class TagAFixTruncated(val saturation : Boolean,
-                       val rounding : RoundType) extends SpinalTag{
+class TagAFixTruncated(val saturation: Boolean,
+                       val overflow  : Boolean,
+                       val rounding  : RoundType) extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
