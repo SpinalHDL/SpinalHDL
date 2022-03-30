@@ -75,7 +75,7 @@ object  Axi4SpecRenamer{
           axis.data.overrideLocalName("tdata")
           (axis.id != null)    generate axis.id.overrideLocalName("tid")
           (axis.strb != null)  generate axis.strb.overrideLocalName("tstrb")
-          (axis.tkeep != null) generate axis.tkeep.overrideLocalName("tkeep")
+          (axis.keep != null)  generate axis.keep.overrideLocalName("tkeep")
           (axis.last != null)  generate axis.last.overrideLocalName("tlast")
           (axis.dest != null)  generate axis.dest.overrideLocalName("tdest")
           (axis.user != null)  generate axis.user.overrideLocalName("tuser")

@@ -33,7 +33,7 @@ object Axi4Stream {
     val data = Bits(8*config.dataWidth bit)
     val id =   (config.useId)   generate UInt(config.idWidth bit)
     val strb = (config.useStrb) generate Bits(config.dataWidth bit)
-    val tkeep = (config.useKeep) generate Bits(config.dataWidth bit)
+    val keep = (config.useKeep) generate Bits(config.dataWidth bit)
     val last = (config.useLast) generate Bool()
     val dest = (config.useDest) generate UInt(config.destWidth bit)
     val user = (config.useUser) generate Bits(config.userWidth*config.dataWidth bit)
@@ -159,7 +159,7 @@ object Axi4Stream {
       sink.data := source.data.resized
       driveWeak(source,sink,source.id,sink.id, () => U(sink.id.bitsRange -> false), allowResize = true, allowDrop = false)
       driveWeak(source,sink,source.strb,sink.strb, () => B(sink.strb.bitsRange -> true), allowResize = true, allowDrop = false)
-      driveWeak(source,sink,source.tkeep,sink.tkeep, () => B(sink.tkeep.bitsRange -> true), allowResize = true, allowDrop = false)
+      driveWeak(source,sink,source.keep,sink.keep, () => B(sink.keep.bitsRange -> true), allowResize = true, allowDrop = false)
       driveWeak(source,sink,source.last,sink.last, () => False, allowResize = false,allowDrop = false)
       driveWeak(source,sink,source.dest,sink.dest, () => B(sink.dest.bitsRange -> true), allowResize = true, allowDrop = false)
 
