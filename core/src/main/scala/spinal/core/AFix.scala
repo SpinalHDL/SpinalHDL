@@ -457,14 +457,23 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
    * @param af - AFix value to saturate range to
    * @return - Saturated AFix value
    */
-  def sat(af: AFix): AFix = {
-    val expDiff = this.exp.value - af.exp.value
+  def sat(af: AFix): AFix = this.sat(af.maxValue, af.minValue, af.exp)
+
+  /**
+   *
+   * @param satMax
+   * @param satMin
+   * @param exp
+   * @return
+   */
+  def sat(satMax: BigInt, satMin: BigInt, exp: ExpNumber): AFix = {
+    val expDiff = this.exp.value - exp.value
     if (expDiff > 0) {
-      sat(af.maxValue/BigInt(2).pow(expDiff), af.minValue/BigInt(2).pow(expDiff))
+      sat(satMax/BigInt(2).pow(expDiff) - expDiff, satMin/BigInt(2).pow(expDiff) - expDiff)
     } else if (expDiff < 0) {
-      sat(af.maxValue*BigInt(2).pow(-expDiff), af.maxValue/BigInt(2).pow(-expDiff))
+      sat(satMax*BigInt(2).pow(-expDiff) - expDiff, satMin/BigInt(2).pow(-expDiff) - expDiff)
     } else {
-      sat(af.maxValue, af.minValue)
+      sat(satMax, satMin)
     }
   }
 
