@@ -713,21 +713,21 @@ object PlayVerilog1 {
 
     z(z.range) := U"0110"
 
-    val l,m = UInt(4 bits).keep()
+    val l,m = UInt(4 bits).dontSimplifyIt()
     l := a & b
     m := a
     when(a === b){
       m := b
     }
 
-    val n,o = Reg(UInt(4 bits)).keep()
+    val n,o = Reg(UInt(4 bits)).dontSimplifyIt()
     n := a & b
     o := a
     when(a === b){
       o := b
     }
 
-    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
+    val p,q = Reg(UInt(4 bits)).dontSimplifyIt() init(U"0010")
     p := a & b
     q := a
     when(a === b){
@@ -739,7 +739,7 @@ object PlayVerilog1 {
     val subOut = out(UInt(4 bits))
     subOut := sub.rsp
 
-    val r = UInt(5 bits).keep()
+    val r = UInt(5 bits).dontSimplifyIt()
     r := ((a-b) >> 2).resized
 
 
@@ -747,7 +747,7 @@ object PlayVerilog1 {
       val a,b,c = newElement
     }
 
-    val e1 = MyEnum().keep
+    val e1 = MyEnum().dontSimplifyIt
     e1 := MyEnum.a
 
     r.addAttribute("flag")
@@ -1504,7 +1504,7 @@ object PlayRename{
 
     io.sink << io.source
 
-    val toto = Reg(Bool()).init(False).keep //Force to keep clock and reset in this small example
+    val toto = Reg(Bool()).init(False).dontSimplifyIt //Force to keep clock and reset in this small example
   }
 
   def main(args: Array[String]) {
@@ -1546,7 +1546,7 @@ object PlayMentorDo{
 //    fifo.noIoPrefix()
 //  }
   class Sub extends Component{
-    val a =  True.keep()
+    val a =  True.dontSimplifyIt()
   }
   class TopLevel extends Component{
     val areaList = List.fill(2)( new Area{
@@ -1814,7 +1814,7 @@ object PlayResized54{
     val pcPlus4 = pc + 4
     pcPlus4.addAttribute("keep")
 
-    pcPlus4.keep()
+    pcPlus4.dontSimplifyIt()
   }
 
   def main(args: Array[String]) {
@@ -2898,11 +2898,11 @@ object Debug425{
 
 
     val axiReg = axiClockDomain{
-      Counter(8).value.keep()
+      Counter(8).value.dontSimplifyIt()
     }
 
     val busReg = busClockDonmain{
-      Counter(8).value.keep()
+      Counter(8).value.dontSimplifyIt()
     }
   }
 
@@ -3059,9 +3059,9 @@ object PlayPll{
   def main(args: Array[String]) {
     SpinalVhdl({
       val toplevel = new TopLevel
-      toplevel.pllClk0Area.counter.value.keep()
-      toplevel.pllClk1Area.counter.value.keep()
-      toplevel.pllClk2Area.counter.value.keep()
+      toplevel.pllClk0Area.counter.value.dontSimplifyIt()
+      toplevel.pllClk1Area.counter.value.dontSimplifyIt()
+      toplevel.pllClk2Area.counter.value.dontSimplifyIt()
       toplevel
     })
   }
