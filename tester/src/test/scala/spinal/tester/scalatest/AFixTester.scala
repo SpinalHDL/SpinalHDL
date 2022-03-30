@@ -20,7 +20,7 @@ class SpinalSimAFixTester extends AnyFunSuite {
   def check(max : Int, min : Int, exp : Int)(f : AFix): Unit ={
     assert(f.maxValue == max && f.minValue == min && f.exp.value == exp)
   }
-  test("instanciate") {
+  test("instantiate") {
     SpinalVerilog(new Component{
 
       check(4095,0,0)(AFix.U(12 bits)) //Q12.0
@@ -44,7 +44,7 @@ class SpinalSimAFixTester extends AnyFunSuite {
       val u_10_4_b = AFix.U(10 exp, -4 exp)
       val u_8_6_b = AFix.U(8 exp, -6 exp)
       val u_6_4_b = AFix.U(6 exp, -4 exp)
-      val u_8_2_b = AFix.U(6 exp, -4 exp)
+      val u_8_2_b = AFix.U(8 exp, -2 exp)
 
       u_8_4_b := u_8_4_a
       u_10_4_b := u_8_4_a
