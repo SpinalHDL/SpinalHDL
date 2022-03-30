@@ -109,9 +109,13 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     val expDiff = l.exp.value - r.exp.value
     // Scale left or right ranges if there's a difference in precision
     if (expDiff > 0) {
-      (l.maxValue*BigInt(2).pow(expDiff), l.minValue*BigInt(2).pow(expDiff), r.maxValue, r.minValue)
+      (l.maxValue*BigInt(2).pow(expDiff) + (if (l.maxValue != 0) l.maxValue.signum*(BigInt(2).pow(expDiff)-1) else 0),
+       l.minValue*BigInt(2).pow(expDiff) + (if (l.minValue != 0) l.minValue.signum*(BigInt(2).pow(expDiff)-1) else 0),
+       r.maxValue, r.minValue)
     } else if (expDiff < 0) {
-      (l.maxValue, l.minValue, r.maxValue*BigInt(2).pow(-expDiff), r.minValue*BigInt(2).pow(-expDiff))
+      (l.maxValue, l.minValue,
+       r.maxValue*BigInt(2).pow(-expDiff) + (if (r.maxValue != 0) r.maxValue.signum*(BigInt(2).pow(-expDiff)-1) else 0),
+       r.minValue*BigInt(2).pow(-expDiff) + (if (r.minValue != 0) r.minValue.signum*(BigInt(2).pow(-expDiff)-1) else 0))
     } else {
       (l.maxValue, l.minValue, r.maxValue, r.minValue)
     }
