@@ -225,14 +225,23 @@ abstract class MultiData extends Data {
 
 
   def assignUnassignedByName(that: MultiData): Unit = {
+    this.zipByName(that).filter(!_._1.hasDataAssignment).foreach{
+      case (dst, src) if dst.isDirectionLess || dst.isOutput && dst.component == Component.current || dst.isInput && dst.component.parent == Component.current =>
+        dst := src
+      case _ =>
+    }
+  }
+
+  def zipByName(that: MultiData, rec : ArrayBuffer[(BaseType, BaseType)] = ArrayBuffer()): ArrayBuffer[(BaseType, BaseType)] = {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other != null) {
         element match {
-          case b  : MultiData => b.assignUnassignedByName(other.asInstanceOf[MultiData])
-          case bt : BaseType => if(!bt.hasDataAssignment) element := other
+          case b  : MultiData => b.zipByName(other.asInstanceOf[MultiData], rec)
+          case bt : BaseType => rec += (bt -> other.asInstanceOf[BaseType])
         }
       }
     }
+    rec
   }
 }

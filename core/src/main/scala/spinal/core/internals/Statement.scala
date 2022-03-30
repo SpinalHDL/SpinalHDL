@@ -24,6 +24,7 @@ import spinal.core._
 
 import scala.collection.immutable.Iterable
 import scala.collection.mutable.ArrayBuffer
+import spinal.idslplugin.Location
 
 
 trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[SC, SE], SE <: Statement with DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainer[SC,SE]{
@@ -587,8 +588,8 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement = {
-    val node = AssertStatement(cond, message, severity, kind, trigger)
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement = {
+    val node = AssertStatement(cond, message, severity, kind, trigger, loc)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
       DslScopeStack.get.append(node)
@@ -597,8 +598,8 @@ object AssertStatementHelper{
     node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement ={
-    AssertStatementHelper(cond, List(message), severity, kind, trigger)
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement ={
+    AssertStatementHelper(cond, List(message), severity, kind, trigger, loc)
   }
 }
 
@@ -616,7 +617,7 @@ object AssertStatementTrigger{
   val INITIAL = new AssertStatementTrigger
 }
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger) extends LeafStatement with SpinalTagReady {
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location) extends LeafStatement with SpinalTagReady {
   var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {

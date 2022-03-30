@@ -518,12 +518,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   /** Return the width of the data */
   def getBitsWidth: Int
 
-  def keep(): this.type = {
-//    flatten.foreach(t => t.component.additionalNodesRoot += t);
-    dontSimplifyIt()
-    this
-  }
-
   def dontSimplifyIt(): this.type = {
     flatten.foreach(_.dontSimplifyIt())
     this

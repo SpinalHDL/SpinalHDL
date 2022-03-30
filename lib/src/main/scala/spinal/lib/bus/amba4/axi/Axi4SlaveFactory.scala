@@ -16,7 +16,7 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   bus.writeRsp << writeRsp.stage()
   when(bus.writeData.last) {
     // backpressure in last beat
-    writeJoinEvent.ready := writeRsp.ready
+    writeJoinEvent.ready := writeRsp.ready && !writeHaltRequest
     writeRsp.valid := writeJoinEvent.fire
   } otherwise {
     // otherwise, stall W channel when writeHaltRequest

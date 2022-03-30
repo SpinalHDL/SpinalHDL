@@ -311,7 +311,7 @@ class ComponentEmitterVerilog(
       if(openSubIo.contains(data)) ""
       else {
         val wireName = emitReference(data, false)
-        val section = if(data.getBitsWidth == 1) "" else  s"[${data.getBitsWidth - 1}:0]"
+        val section = if(data.getBitsWidth == 1 || wireName.contains('\'')) "" else  s"[${data.getBitsWidth - 1}:0]"
         referencesOverrides.getOrElse(data, data.getNameElseThrow) match {
           case x: Literal => wireName
           case _ =>  wireName + section
@@ -670,11 +670,11 @@ class ComponentEmitterVerilog(
               b ++= s"${tab}`ifndef SYNTHESIS\n"
               b ++= s"${tab}  `ifdef FORMAL\n"
               /* Emit actual assume/assert/cover statements */
-              b ++= s"${tab}    $keyword($cond);\n"
+              b ++= s"${tab}    $keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
               b ++= s"${tab}  `else\n"
               /* Emulate them using $display */
               b ++= s"${tab}    if(!$cond) begin\n"
-              b ++= s"""${tab}      $$display("$severity $frontString"$backString);\n"""
+              b ++= s"""${tab}      $$display("$severity $frontString"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
               if (assertStatement.severity == `FAILURE`) b ++= tab + "      $finish;\n"
               b ++= s"${tab}    end\n"
               b ++= s"${tab}  `endif\n"
@@ -688,11 +688,11 @@ class ComponentEmitterVerilog(
               }
               if (assertStatement.kind == AssertStatementKind.ASSERT && !spinalConfig.formalAsserts) {
                 b ++= s"${tab}$keyword($cond) else begin\n"
-                b ++= s"""${tab}  $severity("$frontString"$backString);\n"""
+                b ++= s"""${tab}  $severity("$frontString"$backString); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"""
                 if (assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
                 b ++= s"${tab}end\n"
               } else {
-                b ++= s"${tab}$keyword($cond);\n"
+                b ++= s"${tab}$keyword($cond); // ${assertStatement.loc.file}.scala:L${assertStatement.loc.line}\n"
               }
             }
           }
@@ -1138,15 +1138,15 @@ class ComponentEmitterVerilog(
           val romStr = builder.toString
           val relativePath = romCache.get(romStr) match {
             case None =>
-              val filePath = s"${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
+              val filePath = s"${pc.config.targetDirectory}/${nativeRomFilePrefix}_${(component.parents() :+ component).map(_.getName()).mkString("_")}_${emitReference(mem, false)}${symbolPostfix}.bin"
               val file = new File(filePath)
               emitedRtlSourcesPath += filePath
               val writer = new java.io.FileWriter(file)
               writer.write(romStr)
               writer.flush()
               writer.close()
-              if(spinalConfig.romReuse) romCache(romStr) = file.getPath
-              file.getPath
+              if(spinalConfig.romReuse) romCache(romStr) = file.getName
+              file.getName
             case Some(x) => x
           }
 

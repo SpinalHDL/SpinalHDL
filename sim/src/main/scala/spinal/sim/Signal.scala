@@ -140,6 +140,8 @@ class Signal(val path : Seq[String],val dataType : DataType) {
   var id : Int = -1
   override def toString = s"${path.mkString("/")} : $dataType"
   def toVpiAddress = path.mkString(".")
+  def toXsiAddress = path.last
+  def width = dataType.width
   val hash = toVpiAddress.hashCode()
 }
 

@@ -2926,7 +2926,7 @@ object PlayArea {
       val subArea = new Area{
         var titi = 32
         val subsubArea = new Area {
-          val toto = U(2).keep()
+          val toto = U(2).dontSimplifyIt()
         }
       }.setPartialName("chocolat")
     }

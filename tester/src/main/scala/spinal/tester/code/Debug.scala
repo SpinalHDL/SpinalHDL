@@ -596,7 +596,7 @@ case class TellMeWhy() extends Component{
   bitsTests.map(_.init(bitsTests_B().getZero))
   bitsTests.allowUnsetRegToAvoidLatch
   val tmp_read_pointer = Cat(read_pointer_n,read_pointer_q,True,False)
-  val vecSel = in(UInt(2 bits)).dontSimplifyIt().keep()
+  val vecSel = in(UInt(2 bits)).dontSimplifyIt().dontSimplifyIt()
   for( i<- 0 until 4){
     switch(vecSel){
       is(0) { bitsTests(0).b(i) := tmp_read_pointer(i) }
