@@ -940,8 +940,8 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def onMask(conds : Bits)(body : T => Unit): Unit ={
     whenMasked[T](pimped, conds)(body)
   }
-  def onSel(sel : UInt)(body : T => Unit): Unit ={
-    whenIndexed[T](pimped, sel)(body)
+  def onSel(sel : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
+    whenIndexed[T](pimped, sel, relaxedWidth)(body)
   }
 
 
@@ -1190,9 +1190,9 @@ object whenMasked{
 }
 
 object whenIndexed{
-  def apply[T](things : TraversableOnce[T], index : UInt)(body : T => Unit): Unit ={
+  def apply[T](things : TraversableOnce[T], index : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
     val thingsList = things.toList
-    assert(log2Up(thingsList.size) == widthOf(index))
+    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(index))
     switch(index) {
       for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
         body(thing)
