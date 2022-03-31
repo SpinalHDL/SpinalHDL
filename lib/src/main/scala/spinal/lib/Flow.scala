@@ -81,8 +81,11 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     ret
   }
 
-  def ccToggle(pushClock: ClockDomain, popClock: ClockDomain) : Flow[T] = {
-    val cc = new FlowCCByToggle(payloadType, pushClock, popClock).setCompositeName(this,"ccToggle", true)
+  def ccToggle(pushClock: ClockDomain,
+               popClock: ClockDomain,
+               withOutputBufferedReset : Boolean = true,
+               withOutputM2sPipe : Boolean = true) : Flow[T] = {
+    val cc = new FlowCCByToggle(payloadType, pushClock, popClock, withOutputBufferedReset=withOutputBufferedReset, withOutputM2sPipe=withOutputM2sPipe).setCompositeName(this,"ccToggle", true)
     cc.io.input << this
     cc.io.output
   }
@@ -191,7 +194,8 @@ object FlowCCByToggle {
 class FlowCCByToggle[T <: Data](dataType: HardType[T],
                                 inputClock: ClockDomain,
                                 outputClock: ClockDomain,
-                                withOutputBufferedReset : Boolean = true) extends Component {
+                                withOutputBufferedReset : Boolean = true,
+                                withOutputM2sPipe : Boolean = true) extends Component {
   val io = new Bundle {
     val input = slave  Flow (dataType)
     val output = master Flow (dataType)
@@ -211,7 +215,7 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
 
   val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset && inputClock.hasResetSignal)(inputClock)
   val outputArea = new ClockingArea(finalOutputClock) {
-    val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
+    val target = BufferCC(inputArea.target, if(finalOutputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 
     val flow = cloneOf(io.input)
@@ -219,13 +223,14 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.output << flow.m2sPipe(holdPayload = true)
+    io.output << (if(withOutputM2sPipe) flow.m2sPipe(holdPayload = true) else flow)
   }
 
-  if(inputClock.hasResetSignal){
+  if(inputClock.canInit && finalOutputClock.canInit){
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{
     inputArea.target.randBoot()
+    outputArea.hit.randBoot()
   }
 }
