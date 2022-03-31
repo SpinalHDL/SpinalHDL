@@ -201,7 +201,8 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
     val output = master Flow (dataType)
   }
 
-  val outHitSignal = Bool()
+  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset && inputClock.hasResetSignal)(inputClock)
+  val doInit = inputClock.canInit && finalOutputClock.canInit
 
   val inputArea = new ClockingArea(inputClock) {
     val target = Reg(Bool())
@@ -212,10 +213,8 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
     }
   }
 
-
-  val finalOutputClock = outputClock.withOptionalBufferedResetFrom(withOutputBufferedReset && inputClock.hasResetSignal)(inputClock)
   val outputArea = new ClockingArea(finalOutputClock) {
-    val target = BufferCC(inputArea.target, if(finalOutputClock.hasResetSignal) False else null)
+    val target = BufferCC(inputArea.target, doInit generate False, randBoot = !doInit)
     val hit = RegNext(target)
 
     val flow = cloneOf(io.input)
@@ -226,7 +225,8 @@ class FlowCCByToggle[T <: Data](dataType: HardType[T],
     io.output << (if(withOutputM2sPipe) flow.m2sPipe(holdPayload = true) else flow)
   }
 
-  if(inputClock.canInit && finalOutputClock.canInit){
+
+  if(doInit){
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{
