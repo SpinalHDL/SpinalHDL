@@ -333,9 +333,14 @@ trait BusSlaveFactory extends Area{
                             bitOffset : Int = 0): T = {
     val bitClears = nonStopWrite(Bits(widthOf(that) bits), bitOffset)
     when(isWriting(address)){
-      for(i <- 0 until widthOf(that)){
-        when(bitClears(i)){
-          that.assignFromBits(B"0", i, 1 bits)
+      if(that.isInstanceOf[SpinalEnumCraft[_]]){
+        val w = widthOf(that)
+        that.assignFromBits(that.asBits & ~bitClears)
+      } else {
+        for (i <- 0 until widthOf(that)) {
+          when(bitClears(i)) {
+            that.assignFromBits(B"0", i, 1 bits)
+          }
         }
       }
     }
