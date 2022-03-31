@@ -285,6 +285,7 @@ case class ClockDomain(clock       : Bool,
   def hasClockEnableSignal = clockEnable != null
   def hasResetSignal       = reset != null
   def hasSoftResetSignal   = softReset != null
+  def canInit = hasResetSignal || hasSoftResetSignal || config.resetKind == BOOT
 
   def push() = ClockDomain.push(this)
 //  def pop(): Unit  = ClockDomain.pop()
