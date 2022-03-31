@@ -44,6 +44,13 @@ trait JtagTapFunctions {
    * @param instructionId instructionID or IR at which the data read/write will be generated
    */
   def readAndWrite[T<: Data](captureData: T, updateData: T, captureReady: Bool, updateValid:Bool)(instructionId: Int) : Area
+  def readAndWriteWithEvents[T<: Data, T2 <: Data](captureType: HardType[T], updateType: HardType[T2])(instructionId: Int) = new Area {
+    val captureData = captureType()
+    val updateData = updateType()
+    val captureValid = isCapturing(instructionId)
+    val updateValid  = isUpdating(instructionId)
+    val logic = readAndWrite(captureData,updateData,Bool() ,Bool())(instructionId)
+  }
 
   /**
    * must implement a Fragment output from a DR UPDATE
@@ -52,4 +59,9 @@ trait JtagTapFunctions {
    * @param instructionId instructionID or IR at which the fragment will be generated
    */
   def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]], sinkClockDomain : ClockDomain)(instructionId: Int) : Area
+
+
+  def isUpdating(instructionId : Int) : Bool = ???
+  def isCapturing(instructionId : Int) : Bool = ???
+  def isReseting() : Bool = ???
 }
