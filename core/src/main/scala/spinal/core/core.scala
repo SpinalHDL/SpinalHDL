@@ -375,6 +375,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := self
       fix
     }
+
+    def toAFix: AFix = AFix(self)
+
     /**
       * Absolute value of a SInt
       * @example {{{ myUInt := mySInt.abs }}}
@@ -400,6 +403,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := pimped
       fix
     }
+
+    def toAFix: AFix = AFix(pimped)
   }
 
   /**

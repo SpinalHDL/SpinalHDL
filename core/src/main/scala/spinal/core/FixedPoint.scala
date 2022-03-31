@@ -20,6 +20,9 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.ScopeStatement
+
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 sealed trait RoundType
@@ -134,8 +137,6 @@ object getFixSym{
 //    SpinalInfo(pretag + " " + FixPointConfig(getFixRound(),getFixSym()).toString())
 //  }
 //}
-
-
 
 
 
