@@ -489,7 +489,7 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     this
   }
 
-//  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidth} bits]"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidth} bits]"
 }
 
 
