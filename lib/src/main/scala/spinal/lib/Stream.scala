@@ -507,10 +507,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 
   def check(payloadInvariance: Boolean = false): this.type = {
-    val rValid = RegInit(False) 
+    val rValid = RegInit(False) setWhen(this.valid) clearWhen(this.fire)
     val rData = RegNextWhen(this.payload, this.valid && !rValid)
-
-    rValid setWhen(this.valid && !rValid) clearWhen(this.fire)
 
     val stack = Thread.currentThread().getStackTrace().mkString
     assert(!(!this.valid && rValid), "Stream transaction disappeared: " + stack)
