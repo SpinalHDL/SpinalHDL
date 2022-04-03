@@ -505,6 +505,24 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }.next
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
+
+  def check(payloadInvariance: Boolean = false): this.type = {
+    val rValid = RegInit(False) 
+    val rData = RegNextWhen(this.payload, this.valid && !rValid)
+
+    rValid setWhen(this.valid && !rValid) clearWhen(this.fire)
+
+    val stack = Thread.currentThread().getStackTrace().mkString
+    assert(!(!this.valid && rValid), "Stream transaction disappeared: " + stack)
+    if (payloadInvariance) {
+      assert(
+        !rValid || rData === this.payload,
+        "Stream transaction payload changed: " + stack
+      )
+    }
+
+    this
+  }
 }
 
 object StreamArbiter {
