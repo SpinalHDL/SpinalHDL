@@ -510,12 +510,12 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     val rValid = RegInit(False) setWhen(this.valid) clearWhen(this.fire)
     val rData = RegNextWhen(this.payload, this.valid && !rValid)
 
-    val stack = Thread.currentThread().getStackTrace().mkString
-    assert(!(!this.valid && rValid), "Stream transaction disappeared:\\n" + ScalaLocated.long.replace("\n", "\\n"))
+    val stack =  ScalaLocated.long.replace("\n", "\\n")
+    assert(!(!this.valid && rValid), "Stream transaction disappeared:\\n" + stack)
     if (payloadInvariance) {
       assert(
         !rValid || rData === this.payload,
-        "Stream transaction payload changed:\\n" + ScalaLocated.long.replace("\n", "\\n")
+        "Stream transaction payload changed:\\n" + stack
       )
     }
 
