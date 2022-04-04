@@ -423,6 +423,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastUInt(delay))
 
   def reversed = U(B(this.asBools.reverse))
+
+  object wrap {
+    def <(that: UInt): Bool = { (_data - that).msb }
+    def >=(that: UInt): Bool = { !(<(that)) }
+    def <=(that: UInt): Bool = { val result = _data - that; result === 0 || result.msb }
+    def >(that: UInt): Bool = { !(<=(that)) }
+  }
 }
 
 
