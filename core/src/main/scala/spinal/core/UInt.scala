@@ -425,10 +425,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   def reversed = U(B(this.asBools.reverse))
 
   object wrap {
-    def <(that: UInt): Bool = { (_data - that).msb }
-    def >=(that: UInt): Bool = { !(<(that)) }
-    def <=(that: UInt): Bool = { val result = _data - that; result === 0 || result.msb }
-    def >(that: UInt): Bool = { !(<=(that)) }
+    private def checkBits(that: UInt) = {
+      assert(that.getBitsWidth == _data.getBitsWidth, "wrap only works on UInt with same width.")
+    }
+    def <(that: UInt): Bool = { checkBits(that); (_data - that).msb }
+    def >=(that: UInt): Bool = { checkBits(that); !(<(that)) }
+    def <=(that: UInt): Bool = { checkBits(that); val result = _data - that; result === 0 || result.msb }
+    def >(that: UInt): Bool = { checkBits(that); !(<=(that)) }
   }
 }
 
