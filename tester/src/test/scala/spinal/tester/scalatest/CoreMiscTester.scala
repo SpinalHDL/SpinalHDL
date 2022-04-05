@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
+import scala.util.Random
 class CoreMiscTester extends AnyFunSuite{
   test("SlowArea"){
     SimConfig.withConfig(SpinalConfig(defaultClockDomainFrequency = FixedFrequency(4000 Hz))).compile(new Component{
@@ -97,19 +98,25 @@ class CoreMiscTester extends AnyFunSuite{
     val width = 8
     SimConfig.compile(new Component{
       val smaller, bigger, eq_smaller, eq_bigger = out(Bool())
-      val x, y = out(UInt(width bits))
+      val x, y = in(UInt(width bits))
 
       smaller := x.wrap < y
       bigger := x.wrap > y
       eq_smaller := x.wrap <= y
       eq_bigger := x.wrap >= y
     }).doSim(seed = 42){dut =>      
-      for(i <- 0 until 1000){
+      val quarter = 1<<(width - 2)
+      for(i <- 0 until 2000){
         dut.x.randomize()
-        dut.y.randomize()
-        val x = dut.x.toInt
+        sleep(1)
+        var x = dut.x.toInt
+        var value = x + Random.nextInt(2*quarter) - quarter // ensure two datas' distance are not beyond a quarter.
+        value = if (value < 0) -value else value
+        value %= 4*quarter
+        dut.y #= value
+        sleep(1)
         val y = dut.y.toInt
-        val needReverse = (x - y).abs >= (1<<(width-1))
+        val needReverse = (x - y).abs > 3* quarter
 
         assert(dut.smaller.toBoolean == (if(needReverse) x > y else x < y))
         assert(dut.bigger.toBoolean == (if(needReverse) x < y else x > y))
