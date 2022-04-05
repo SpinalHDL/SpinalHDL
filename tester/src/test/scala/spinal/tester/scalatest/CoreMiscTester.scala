@@ -92,4 +92,31 @@ class CoreMiscTester extends AnyFunSuite{
       }
     }
   }
+
+  test("uint_wrap_comparison"){
+    val width = 8
+    SimConfig.compile(new Component{
+      val smaller, bigger, eq_smaller, eq_bigger = out(Bool())
+      val x, y = out(UInt(width bits))
+
+      smaller := x.wrap < y
+      bigger := x.wrap > y
+      eq_smaller := x.wrap <= y
+      eq_bigger := x.wrap >= y
+    }).doSim(seed = 42){dut =>      
+      for(i <- 0 until 1000){
+        dut.x.randomize()
+        dut.y.randomize()
+        val x = dut.x.toInt
+        val y = dut.y.toInt
+        val needReverse = (x - y).abs >= (1<<(width-1))
+
+        assert(dut.smaller.toBoolean == (if(needReverse) x > y else x < y))
+        assert(dut.bigger.toBoolean == (if(needReverse) x < y else x > y))
+        assert(dut.eq_smaller.toBoolean == (if(needReverse) x >= y else x <= y))
+        assert(dut.eq_bigger.toBoolean == (if(needReverse) x <= y else x >= y))
+        sleep(1)
+      }
+    }
+  }
 }
