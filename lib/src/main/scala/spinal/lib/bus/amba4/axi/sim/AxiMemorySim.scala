@@ -246,7 +246,7 @@ case class AxiJob (
   if(burstType == 1){
     assert(
       assertion = ((burstLength << burstSize) + (address & 4095)) <= 4095,
-      message   = s"Write request crossing 4k boundary (addr=${address.toHexString}, len=${burstLength.toLong.toHexString}"
+      message   = s"Read/write request crossing 4k boundary (addr=${address.toHexString}, len=${burstLength.toLong.toHexString}"
     )
   }
   def burstAddress(i : Int):Long = {
