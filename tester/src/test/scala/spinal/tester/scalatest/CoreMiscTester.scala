@@ -102,13 +102,17 @@ class CoreMiscTester extends AnyFunSuite{
         total - 1 - i
       }.asBits.asUInt
     }).doSim(seed = 42){dut =>
-      dut.data.randomize()
-      sleep(1)
-      val data = dut.data.toBigInt
-      val outData = dut.outData.toBigInt.toByteArray
-      for ((v, i) <- data.toByteArray.zipWithIndex) {
-        assert(v == outData(8-i))
-      }      
+      for(j <- 0 until 1000) {
+        dut.data.randomize()
+        sleep(1)
+        val data = dut.data.toBigInt
+        val outData = dut.outData.toBigInt
+        for ( i <- 0 until 8) {
+          val in = (data >> i * 8) & 0xFF
+          val out = (outData >> (7-i) *8) & 0xFF
+          assert(in == out)
+        }
+      }
     }
   }
 }
