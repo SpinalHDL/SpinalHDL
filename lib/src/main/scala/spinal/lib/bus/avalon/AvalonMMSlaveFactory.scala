@@ -8,7 +8,7 @@ import scala.collection.Seq
 object AvalonMMSlaveFactory{
   def getAvalonConfig(addressWidth: Int,
                       dataWidth: Int,
-                      useByteEnable: Boolean) = {
+                      useByteEnable: Boolean = false) = {
     AvalonMMConfig.pipelined(
       addressWidth = addressWidth,
       dataWidth = dataWidth,
