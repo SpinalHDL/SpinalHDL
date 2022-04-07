@@ -424,7 +424,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   def reversed = U(B(this.asBools.reverse))
 
-  object wrap {
+  def wrap = new {
     private def checkBits(that: UInt) = {
       assert(that.getBitsWidth == _data.getBitsWidth, "wrap only works on UInt with same width.")
     }
