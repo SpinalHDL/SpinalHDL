@@ -75,11 +75,12 @@ object AvalonMMConfig{
 
 
   def pipelined(addressWidth : Int,
-                dataWidth : Int) = AvalonMMConfig(
+                dataWidth : Int,
+                useByteEnable : Boolean = false) = AvalonMMConfig(
       addressWidth=addressWidth,
       dataWidth=dataWidth,
       burstCountWidth = -1,
-      useByteEnable = false,
+      useByteEnable = useByteEnable,
       useDebugAccess = false,
       useRead = true,
       useWrite = true,
