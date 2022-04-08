@@ -132,7 +132,31 @@ class CoreMiscTester extends AnyFunSuite{
       val data = in(Bits(64 bits))
       val outData = out(UInt(64 bits))
 
-      outData := data.subdivideIn(8 bits).shuffle{ (total, i) =>
+      val outSet = data.subdivideIn(8 bits)
+      outData := outSet.shuffle{ (i) =>
+        outSet.length - 1 - i
+      }.asBits.asUInt
+    }).doSim(seed = 42){dut =>
+      for(j <- 0 until 1000) {
+        dut.data.randomize()
+        sleep(1)
+        val data = dut.data.toBigInt
+        val outData = dut.outData.toBigInt
+        for ( i <- 0 until 8) {
+          val in = (data >> i * 8) & 0xFF
+          val out = (outData >> (7-i) *8) & 0xFF
+          assert(in == out)
+        }
+      }
+    }
+  }
+
+  test("reverse_by_shuffle_with_size"){
+    SimConfig.compile(new Component{
+      val data = in(Bits(64 bits))
+      val outData = out(UInt(64 bits))
+
+      outData := data.subdivideIn(8 bits).shuffleWithSize{ (total, i) =>
         total - 1 - i
       }.asBits.asUInt
     }).doSim(seed = 42){dut =>

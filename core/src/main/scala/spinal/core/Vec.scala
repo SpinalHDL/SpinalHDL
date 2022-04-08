@@ -279,7 +279,15 @@ class Vec[T <: Data](val dataType: HardType[T], val vec: Vector[T]) extends Mult
     elementsCache
   }
 
-  def shuffle(indexMapping: (Int, Int) => Int): Vec[T] = {
+  def shuffle(indexMapping: (Int) => Int): Vec[T] = {
+    val out = cloneOf(this)
+    for(i <- range){
+      out(indexMapping(i)) := vec(i)
+    }
+    out
+  }
+
+  def shuffleWithSize(indexMapping: (Int, Int) => Int): Vec[T] = {
     val out = cloneOf(this)
     for(i <- range){
       out(indexMapping(length, i)) := vec(i)
