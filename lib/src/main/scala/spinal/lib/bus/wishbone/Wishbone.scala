@@ -144,7 +144,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     * @example{{{wishboneMaster >> wishboneSlave}}}
     */
   def >> (that : Wishbone) : Unit = {
-    assert(that.config.addressWidth >= this.config.addressWidth)
+    assert(that.config.addressWidth <= this.config.addressWidth)
     assert(that.config.dataWidth == this.config.dataWidth)
     /////////////////////
     // MINIMAL SIGNALS //
