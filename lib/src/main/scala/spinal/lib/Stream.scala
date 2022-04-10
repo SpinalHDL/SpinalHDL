@@ -506,7 +506,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 
-  def check(payloadInvariance: Boolean = false): this.type = {
+  /**
+   * Assert that this stream conforms to the stream semantics:
+   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+   * - After being asserted, valid may only be deasserted once the current payload was acknowleged.
+   * 
+   * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
+   */
+  def withAsserts(payloadInvariance: Boolean = false): this.type = {
     val rValid = RegInit(False) setWhen(this.valid) clearWhen(this.fire)
     val rData = RegNextWhen(this.payload, this.valid && !rValid)
 
