@@ -129,18 +129,18 @@ trait BusIf extends BusIfBase {
   protected def int_RFMS(regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
-    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}RAW"))
-    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}FORCE"))
-    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}MASK"))
-    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}STATUS"))
+    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}INT_FORCE"))
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
-      val nm = event.getName()
-      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"${nm}_raw" )(SymbolName(s"${nm}_raw")).lsb
-      val force = FORCE.field(1 bit, AccessType.RW,   resetValue = 0, doc = s"${nm}_force" )(SymbolName(s"${nm}_force")).lsb
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
+      val nm = event.getPartialName()
+      val force = FORCE.field(1 bit, AccessType.RW,   resetValue = 0, doc = s"force, default 0" )(SymbolName(s"${nm}_force")).lsb
+      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw")).lsb
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status")).lsb
       raw.setWhen(event)
-      status := (raw || force) && mask
+      status := (raw || force) && (!mask)
       status
     }.reduceLeft(_ || _)
     ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
@@ -153,16 +153,16 @@ trait BusIf extends BusIfBase {
   protected def int_RMS(regNamePre: String, triggers: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(triggers.size <= this.busDataWidth )
-    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}_RAW"))
-    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}_MASK"))
-    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}_STATUS"))
+    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_MASK"))
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = triggers.map{ event =>
       val nm = event.getName()
-      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"${nm}_raw" )(SymbolName(s"${nm}_raw")).lsb
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
+      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"raw, default 0" )(SymbolName(s"${nm}_raw")).lsb
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask, default 1, int off" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts default 0" )(SymbolName(s"${nm}_status")).lsb
       raw.setWhen(event)
-      status := raw && mask
+      status := raw && (!mask)
       status
     }.reduceLeft(_ || _)
     ret.setName(s"${regNamePre_.toLowerCase()}intr")
@@ -175,13 +175,13 @@ trait BusIf extends BusIfBase {
   protected def int_MS(regNamePre: String, int_levels: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(int_levels.size <= this.busDataWidth )
-    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}_RAW"))
-    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}_STATUS"))
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 1, int off")(SymbolName(s"${regNamePre_}INT_RAW"))
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}INT_STATUS"))
     val ret = int_levels.map{ level =>
       val nm = level.getName()
-      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
-      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
-      status := level && mask
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"mask" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"stauts" )(SymbolName(s"${nm}_status")).lsb
+      status := level && (!mask)
       status
     }.reduceLeft(_ || _)
     ret.setName(s"${regNamePre_.toLowerCase()}intr")
