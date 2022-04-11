@@ -119,7 +119,13 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
       case AccessType.W0P   => WBP(section, resetValue, AccessType.W0P )  //- W: 0/1 pulse/no effect on matching bit, R: no effect
     }
     val newdoc = if(doc.isEmpty && acc == AccessType.NA) "Reserved" else doc
-    val nameRemoveNA = if(acc == AccessType.NA) "--" else symbol.name
+    val signame = if(symbol.name.startsWith("<local ")){
+      SpinalWarning("an unload signal created; `val signame = field(....)` is recomended instead `field(....)`")
+      "unload"
+    } else {
+      symbol.name
+    }
+    val nameRemoveNA = if(acc == AccessType.NA) "--" else signame
     fields   += Field(nameRemoveNA, ret, section, acc, resetValue, Rerror, newdoc)
     fieldPtr += bc.value
     ret
@@ -136,7 +142,25 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   def getFieldDescrs() : List[FieldDescr] = getFields
 
   def accept(vs : BusIfVisitor) = {
-      vs.visit(this)
+    duplicateRenaming()
+    vs.visit(this)
+  }
+
+  protected def duplicateRenaming() = {
+    val counts = new scala.collection.mutable.HashMap[String, Int]()
+    val ret = fields.zipWithIndex.map{case(fd, i) =>
+      val name = fd.name
+      val newname = if(counts.contains(name)){
+        counts(name) += 1
+        s"${name}${counts(name)}"
+      } else {
+        counts(name) = 0
+        name
+      }
+      fd.copy(name = newname)
+    }
+    fields.clear()
+    fields ++= ret
   }
 }
 

@@ -1,7 +1,8 @@
 package spinal.lib.bus.regif.Document
 
-import spinal.core.GlobalData
+import spinal.core.{GlobalData, SpinalError}
 import spinal.lib.bus.regif._
+
 import scala.collection.mutable
 import java.io.PrintWriter
 
@@ -10,6 +11,11 @@ final case class CHeaderGenerator(
     prefix : String,
     regType : String = "u32"
     ) extends BusIfVisitor {
+    val words = "\\w*".r
+    prefix match{
+        case words(_*) => null
+        case _ => SpinalError(s"${prefix} should be Valid naming : '[A-Za-z0-9_]+'")
+    }
         
     case class Reg(name : String, addr : Long)
     case class Field(name : String, width : Long, accessType : AccessType)
