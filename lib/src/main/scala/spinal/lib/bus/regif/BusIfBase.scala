@@ -35,7 +35,6 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
-
   def checkLastNA: Unit = RegInsts.foreach(_.checkLast)
 
   component.addPrePopTask(() => {
@@ -78,6 +77,7 @@ trait BusIf extends BusIfBase {
     res
   }
 
+  @deprecated(message = "", since = "2022-12-31")
   def FactoryInterruptWithMask(regNamePre: String, triggers: Bool*): Bool = {
     triggers.size match {
       case 0 => SpinalError("There have no inputs Trigger signals")
@@ -98,15 +98,95 @@ trait BusIf extends BusIfBase {
     intWithMask.foldLeft(False)(_||_)
   }
 
-//  @AutoInterrupt
-//  def interruptFactory2(regNamePre: String, triggers: Bool*): Bool = {
-//    triggers.size match {
-//      case 0 => SpinalError("There have no inputs Trigger signals")
-//      case x if x > busDataWidth => SpinalError(s"Trigger signal numbers exceed Bus data width ${busDataWidth}")
-//      case _ =>
-//    }
-//    False
-//  }
+  def interruptFactory(regNamePre: String, triggers: Bool*): Bool = {
+    require(triggers.size > 0)
+    val groups = triggers.grouped(this.busDataWidth)
+    val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val namePre = if (groups.size == 1) regNamePre else regNamePre + i
+      int_RFMS(namePre, trigs:_*)
+    }
+    val intr = Vec(ret).asBits.orR
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    intr.setName(regNamePre_ + "intr")
+    intr
+  }
+
+  def interruptLevelFactory(regNamePre: String, levels: Bool*): Bool = {
+    require(levels.size > 0)
+    val groups = levels.grouped(this.busDataWidth)
+    val ret = groups.zipWithIndex.map{case (trigs, i) =>
+      val namePre = if (groups.size == 1) regNamePre else regNamePre + i
+      int_MS(namePre, trigs:_*)
+    }
+    val intr = Vec(ret).asBits.orR
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    intr.setName(regNamePre_ + "intr")
+    intr
+  }
+  /*
+  interrupt with Raw/Force/Mask/Status Register Interface
+  * */
+  protected def int_RFMS(regNamePre: String, triggers: Bool*): Bool = {
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    require(triggers.size <= this.busDataWidth )
+    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}RAW"))
+    val FORCE  = this.newReg("Interrupt Force  Register\n for SW debug use")(SymbolName(s"${regNamePre_}FORCE"))
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}MASK"))
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}STATUS"))
+    val ret = triggers.map{ event =>
+      val nm = event.getName()
+      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"${nm}_raw" )(SymbolName(s"${nm}_raw")).lsb
+      val force = FORCE.field(1 bit, AccessType.RW,   resetValue = 0, doc = s"${nm}_force" )(SymbolName(s"${nm}_force")).lsb
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
+      raw.clearWhen(event)
+      status := (raw || force) && mask
+      status
+    }.reduceLeft(_ || _)
+    ret.setName(s"${regNamePre_.toLowerCase()}intr")
+    ret
+  }
+
+  /*
+    interrupt with Force/Mask/Status Register Interface
+    * */
+  protected def int_RMS(regNamePre: String, triggers: Bool*): Bool = {
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    require(triggers.size <= this.busDataWidth )
+    val RAW    = this.newReg("Interrupt Raw status Register\n set when event \n clear when write 1")(SymbolName(s"${regNamePre_}_RAW"))
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}_MASK"))
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}_STATUS"))
+    val ret = triggers.map{ event =>
+      val nm = event.getName()
+      val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"${nm}_raw" )(SymbolName(s"${nm}_raw")).lsb
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
+      raw.clearWhen(event)
+      status := raw && mask
+      status
+    }.reduceLeft(_ || _)
+    ret.setName(s"${regNamePre_.toLowerCase()}_int")
+    ret
+  }
+
+  /*
+    interrupt with Mask/Status Register Interface
+    * */
+  protected def int_MS(regNamePre: String, int_levels: Bool*): Bool = {
+    val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
+    require(int_levels.size <= this.busDataWidth )
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")
+    val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}_STATUS"))
+    val ret = int_levels.map{ level =>
+      val nm = level.getName()
+      val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
+      val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
+      status := level && mask
+      status
+    }.reduceLeft(_ || _)
+    ret.setName(s"${regNamePre_.toLowerCase()}_int")
+    ret
+  }
 
   def accept(vs : BusIfVisitor) = {
     checkLastNA
