@@ -139,11 +139,11 @@ trait BusIf extends BusIfBase {
       val force = FORCE.field(1 bit, AccessType.RW,   resetValue = 0, doc = s"${nm}_force" )(SymbolName(s"${nm}_force")).lsb
       val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
       val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
-      raw.clearWhen(event)
+      raw.setWhen(event)
       status := (raw || force) && mask
       status
     }.reduceLeft(_ || _)
-    ret.setName(s"${regNamePre_.toLowerCase()}intr")
+    ret.setName(s"${regNamePre_.toLowerCase()}intr", weak = true)
     ret
   }
 
@@ -161,11 +161,11 @@ trait BusIf extends BusIfBase {
       val raw   = RAW.field(1 bit, AccessType.W1C,    resetValue = 0, doc = s"${nm}_raw" )(SymbolName(s"${nm}_raw")).lsb
       val mask  = MASK.field(1 bit, AccessType.RW,    resetValue = 1, doc = s"${nm}_mask" )(SymbolName(s"${nm}_mask")).lsb
       val status= STATUS.field(1 bit, AccessType.RO,  resetValue = 0, doc = s"${nm}_stauts" )(SymbolName(s"${nm}_status")).lsb
-      raw.clearWhen(event)
+      raw.setWhen(event)
       status := raw && mask
       status
     }.reduceLeft(_ || _)
-    ret.setName(s"${regNamePre_.toLowerCase()}_int")
+    ret.setName(s"${regNamePre_.toLowerCase()}intr")
     ret
   }
 
@@ -184,7 +184,7 @@ trait BusIf extends BusIfBase {
       status := level && mask
       status
     }.reduceLeft(_ || _)
-    ret.setName(s"${regNamePre_.toLowerCase()}_int")
+    ret.setName(s"${regNamePre_.toLowerCase()}intr")
     ret
   }
 
