@@ -100,7 +100,7 @@ trait BusIf extends BusIfBase {
 
   def interruptFactory(regNamePre: String, triggers: Bool*): Bool = {
     require(triggers.size > 0)
-    val groups = triggers.grouped(this.busDataWidth)
+    val groups = triggers.grouped(this.busDataWidth).toList
     val ret = groups.zipWithIndex.map{case (trigs, i) =>
       val namePre = if (groups.size == 1) regNamePre else regNamePre + i
       int_RFMS(namePre, trigs:_*)
@@ -175,7 +175,7 @@ trait BusIf extends BusIfBase {
   protected def int_MS(regNamePre: String, int_levels: Bool*): Bool = {
     val regNamePre_ = if (regNamePre != "") regNamePre+"_" else ""
     require(int_levels.size <= this.busDataWidth )
-    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")
+    val MASK   = this.newReg("Interrupt Mask   Register\n1: int off\n0: int open\n default 0xFFFF")(SymbolName(s"${regNamePre_}_RAW"))
     val STATUS = this.newReg("Interrupt status Register\n the final int out")(SymbolName(s"${regNamePre_}_STATUS"))
     val ret = int_levels.map{ level =>
       val nm = level.getName()
