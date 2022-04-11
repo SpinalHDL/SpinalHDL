@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
+import spinal.lib._
 import scala.util.Random
 class CoreMiscTester extends AnyFunSuite{
   test("SlowArea"){
