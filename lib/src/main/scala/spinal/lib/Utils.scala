@@ -945,7 +945,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   }
 
   def shuffle(indexMapping: (Int) => Int): ArrayBuffer[T] = {
-    val out = ArrayBuffer[T]()
+    val out = ArrayBuffer[T]() ++ pimped
     for((v, i) <- pimped.zipWithIndex){
       out(indexMapping(i)) = v
     }
@@ -953,7 +953,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   }
 
   def shuffleWithSize(indexMapping: (Int, Int) => Int): ArrayBuffer[T] = {
-    val out = ArrayBuffer[T]()
+    val out = ArrayBuffer[T]() ++ pimped
     for((v, i) <- pimped.zipWithIndex){
       out(indexMapping(pimped.size, i)) = v
     }
