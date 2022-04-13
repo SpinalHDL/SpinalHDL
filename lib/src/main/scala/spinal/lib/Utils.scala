@@ -944,7 +944,21 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     whenIndexed[T](pimped, sel, relaxedWidth)(body)
   }
 
+  def shuffle(indexMapping: (Int) => Int): ArrayBuffer[T] = {
+    val out = ArrayBuffer[T]() ++ pimped
+    for((v, i) <- pimped.zipWithIndex){
+      out(indexMapping(i)) = v
+    }
+    out
+  }
 
+  def shuffleWithSize(indexMapping: (Int, Int) => Int): ArrayBuffer[T] = {
+    val out = ArrayBuffer[T]() ++ pimped
+    for((v, i) <- pimped.zipWithIndex){
+      out(indexMapping(pimped.size, i)) = v
+    }
+    out
+  }
 
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
@@ -1029,6 +1043,9 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     val hitValue = PriorityMux(hits,(0 until size).map(U(_,log2Up(size) bit)))
     (hitValid,hitValue)
   }
+
+  def shuffle(indexMapping: (Int) => Int): Vec[T] = Vec(new TraversableOnceAnyPimped[T](pimped).shuffle(indexMapping))
+  def shuffleWithSize(indexMapping: (Int, Int) => Int): Vec[T] = Vec(new TraversableOnceAnyPimped[T](pimped).shuffleWithSize(indexMapping))
 }
 
 

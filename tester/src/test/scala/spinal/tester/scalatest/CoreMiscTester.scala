@@ -3,6 +3,7 @@ package spinal.tester.scalatest
 import org.scalatest.funsuite.AnyFunSuite
 import spinal.core._
 import spinal.core.sim._
+import spinal.lib._
 import scala.util.Random
 class CoreMiscTester extends AnyFunSuite{
   test("SlowArea"){
@@ -123,6 +124,53 @@ class CoreMiscTester extends AnyFunSuite{
         assert(dut.eq_smaller.toBoolean == (if(needReverse) x >= y else x <= y))
         assert(dut.eq_bigger.toBoolean == (if(needReverse) x <= y else x >= y))
         sleep(1)
+      }
+    }
+  }
+
+  test("reverse_by_shuffle"){
+    SimConfig.compile(new Component{
+      val data = in(Bits(64 bits))
+      val outData = out(UInt(64 bits))
+
+      val outSet = data.subdivideIn(8 bits)
+      outData := outSet.shuffle{ (i) =>
+        outSet.length - 1 - i
+      }.asBits.asUInt
+    }).doSim(seed = 42){dut =>
+      for(j <- 0 until 1000) {
+        dut.data.randomize()
+        sleep(1)
+        val data = dut.data.toBigInt
+        val outData = dut.outData.toBigInt
+        for ( i <- 0 until 8) {
+          val in = (data >> i * 8) & 0xFF
+          val out = (outData >> (7-i) *8) & 0xFF
+          assert(in == out)
+        }
+      }
+    }
+  }
+
+  test("reverse_by_shuffle_with_size"){
+    SimConfig.compile(new Component{
+      val data = in(Bits(64 bits))
+      val outData = out(UInt(64 bits))
+
+      outData := data.subdivideIn(8 bits).shuffleWithSize{ (total, i) =>
+        total - 1 - i
+      }.asBits.asUInt
+    }).doSim(seed = 42){dut =>
+      for(j <- 0 until 1000) {
+        dut.data.randomize()
+        sleep(1)
+        val data = dut.data.toBigInt
+        val outData = dut.outData.toBigInt
+        for ( i <- 0 until 8) {
+          val in = (data >> i * 8) & 0xFF
+          val out = (outData >> (7-i) *8) & 0xFF
+          assert(in == out)
+        }
       }
     }
   }
