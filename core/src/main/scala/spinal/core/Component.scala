@@ -297,6 +297,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     * @example{{{ toplevel/[myComponent1]/[myComponent2] // Current component is myComponent2 }}}
     */
   def getPath(sep: String = "/"): String = (if (parent == null) "" else getParentsPath(sep) + sep) + this.getDisplayName()
+  def getRtlPath(separator : String = "/") : String = {
+    if(parent == null) "" else (parents().tail :+this) .mkString(separator)
+  }
 
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret      = mutable.Set[Data]()
