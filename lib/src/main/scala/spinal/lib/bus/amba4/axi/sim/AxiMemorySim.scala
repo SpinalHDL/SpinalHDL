@@ -210,7 +210,8 @@ case class SparseMemory() {
 
 case class AxiJob (
   address     : Long,
-  burstLength : Int
+  burstLength : Int,
+  id          : Int
 ) {
   // check for read/write over 4k boundary
 }
@@ -243,8 +244,8 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
   /** Bus word width in bytes */
   val busWordWidth = axi.config.dataWidth / 8
 
-  def newAxiJob(address : Long, burstLength : Int) : AxiJob = {
-    AxiJob(address, burstLength)
+  def newAxiJob(address : Long, burstLength : Int, id : Int) : AxiJob = {
+    AxiJob(address, burstLength, id)
   }
 
   def start() : Unit = {
@@ -298,7 +299,11 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         message   = s"Read request crossing 4k boundary (addr=${ar.payload.addr.toBigInt.toString(16)}, len=${ar.payload.len.toLong.toHexString}"
       )
       
-      pending_reads += newAxiJob(ar.payload.addr.toLong, ar.payload.len.toInt)
+      var id = 0
+      if(ar.config.useId)
+        id = ar.payload.id.toInt
+
+      pending_reads += newAxiJob(ar.payload.addr.toLong, ar.payload.len.toInt, id)
 
       //println("AXI4 read cmd: addr=0x" + ar.payload.addr.toLong.toHexString + " count=" + (ar.payload.len.toBigInt+1))
 
@@ -324,6 +329,9 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         var job = pending_reads.front
 
         r.valid #= true
+
+        if(r.config.useId)
+          r.payload.id #= job.id
 
         var i = 0
         while(i <= job.burstLength) {
@@ -372,7 +380,11 @@ case class AxiMemorySim(axi : Axi4, clockDomain : ClockDomain, config : AxiMemor
         message   = s"Write request crossing 4k boundary (addr=${aw.payload.addr.toBigInt.toString(16)}, len=${aw.payload.len.toLong.toHexString}"
       )
 
-      pending_writes += newAxiJob(aw.payload.addr.toLong, aw.payload.len.toInt)
+      var id = 0
+      if(aw.config.useId)
+        id = aw.payload.id.toInt
+
+      pending_writes += newAxiJob(aw.payload.addr.toLong, aw.payload.len.toInt, id)
 
       //println("AXI4 write cmd: addr=0x" + aw.payload.addr.toLong.toHexString + " count=" + (aw.payload.len.toBigInt+1))
 
