@@ -25,8 +25,7 @@ final case class CHeaderGenerator(
     val regs : mutable.ListBuffer[RegDescr] = mutable.ListBuffer[RegDescr]()
     val types : mutable.ListBuffer[Type] = mutable.ListBuffer[Type]()
     var regLength : Int = 0
-    var addrLength : Int = 0
-    
+
     def begin(busDataWidth : Int) : Unit = {
 
     }
@@ -37,13 +36,9 @@ final case class CHeaderGenerator(
 
     def visit(descr : RegDescr) : Unit = {
         def nameLen = descr.getName.length()
-        def len = scala.math.log(descr.getAddr) / scala.math.log(16) + 1
 
         if(nameLen > regLength)
             regLength = nameLen
-
-        if(len > addrLength)
-            addrLength = len.toInt
 
         regs += descr
         types += Type(descr.getName, descr.getFieldDescrs)
@@ -68,7 +63,7 @@ final case class CHeaderGenerator(
             pw.write(s"#define ${prefix.toUpperCase()}_${reg.getName.toUpperCase()} ")
             pw.write(" " * (regLength - reg.getName.length))
             pw.write("0x")
-            pw.print(reg.getAddr.formatted(s"%0${addrLength}x"))
+            pw.print(reg.getAddr.formatted(s"%0${4}x"))
             pw.println()
         }
         pw.println()
