@@ -1,6 +1,7 @@
 package spinal.tester
 
 import spinal.core._
+import spinal.core.formal._
 import spinal.core.internals._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3Gpio, Apb3SlaveFactory}
@@ -1595,4 +1596,37 @@ object PlayFixPointProperty2 extends App {
   }
 
   check(RoundType.ROUNDUP, true)  //it's ok now
+}
+
+object PlayFormal extends App{
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+
+  class testCounter(start: Int,end: Int) extends Component{
+    val io = new Bundle{
+        val output = out UInt(log2Up(end) bits)
+        val inc = in Bool()
+    }
+    val dutCounter = Counter(start,end)
+    io.output := dutCounter.value
+    when(io.inc){
+        dutCounter.increment()
+    }
+    GenerationFlags.formal{
+        when(initstate()){
+            assume(ClockDomain.current.isResetActive)
+        }
+        cover(dutCounter.willOverflow)
+        assert(dutCounter.value <= end)
+        // assert(dutCounter.valueNext <= end -1)
+        assert(dutCounter.valueNext <= end)
+        assert(start <= dutCounter.value)
+        assert(start <= dutCounter.valueNext)
+        assert((dutCounter.value === dutCounter.valueNext -1) || dutCounter.willOverflow || !dutCounter.willIncrement)
+        assert(!dutCounter.willOverflowIfInc || dutCounter.value === end )
+        assert(!dutCounter.willOverflow || (dutCounter.value === end) || !dutCounter.willIncrement)
+    }
+  }
+  val rtl = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
+  val verf = SpinalVerifyConfig().withSymbiYosys.doVerify(rtl)
 }
