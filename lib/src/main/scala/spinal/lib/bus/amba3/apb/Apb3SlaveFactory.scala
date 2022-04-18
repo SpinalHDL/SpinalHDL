@@ -33,7 +33,6 @@ object Apb3SlaveFactory {
   def apply(bus: Apb3, selId: Int = 0, dontCareReadData : Boolean = false) = new Apb3SlaveFactory(bus, selId, dontCareReadData)
 }
 
-
 class Apb3SlaveFactory(bus: Apb3, selId: Int, dontCareReadData : Boolean = false) extends BusSlaveFactoryDelayed {
 
   bus.PREADY := True
