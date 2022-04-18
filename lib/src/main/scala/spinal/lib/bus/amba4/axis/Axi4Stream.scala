@@ -41,6 +41,56 @@ object Axi4Stream {
     def isLast = if (this.last != null) this.last else False
 
     override def clone: Axi4StreamBundle = Axi4StreamBundle(config)
+
+    override def bundleAssign(that: Bundle)(f: (Data, Data) => Unit): Unit = {
+      that match {
+        case that : Axi4StreamBundle => {
+          assert(that.config.dataWidth <= this.config.dataWidth, s"Axi4Stream $that directly drives stream $this with smaller data width! (${that.config.dataWidth} > ${this.config.dataWidth})")
+          if (that.config.useId)
+            assert(that.config.idWidth <= this.config.idWidth, s"Axi4Stream $that directly drives stream $this with smaller ID width! (${that.config.idWidth} > ${this.config.idWidth})")
+          if (that.config.useDest)
+            assert(that.config.destWidth <= this.config.destWidth, s"Axi4Stream $that directly drives stream $this with smaller destination width! (${that.config.destWidth} > ${this.config.destWidth})")
+          if (that.config.useUser)
+            assert(that.config.userWidth <= this.config.userWidth, s"Axi4Stream $that directly drives stream $this with smaller user width! (${that.config.userWidth} > ${this.config.userWidth})")
+
+          this.data := that.data.resized
+          Axi4StreamBundlePriv.driveWeak(that,this,that.id,this.id, () => U(this.id.bitsRange -> false), allowResize = true, allowDrop = false)
+          Axi4StreamBundlePriv.driveWeak(that,this,that.strb,this.strb, () => B(this.strb.bitsRange -> true), allowResize = true, allowDrop = false)
+          Axi4StreamBundlePriv.driveWeak(that,this,that.keep,this.keep, () => B(this.keep.bitsRange -> true), allowResize = true, allowDrop = false)
+          Axi4StreamBundlePriv.driveWeak(that,this,that.last,this.last, () => False, allowResize = false,allowDrop = false)
+          Axi4StreamBundlePriv.driveWeak(that,this,that.dest,this.dest, () => B(this.dest.bitsRange -> true), allowResize = true, allowDrop = false)
+
+          (this.user != null, that.user != null) match {
+            case (false, false) =>
+            case (true, false) => B(this.user.bitsRange -> false)
+            case (false, true) => LocatedPendingError(s"${that.user} can't drive $this because the corresponding sink signal does not exist")
+            case (true, true) => {
+              val sourceSlices = that.user.subdivideIn(that.config.dataWidth slices)
+              val sinkSlices = this.user.subdivideIn(this.config.dataWidth slices)
+              val sourceSlicesPad = sourceSlices.padTo(sinkSlices.length, null)
+              sourceSlicesPad.zip(sinkSlices).foreach(pair => {
+                val (sourceSlice, sinkSlice) = pair
+                if (sourceSlice != null) {
+                  sourceSlice := sinkSlice.resized
+                } else
+                  sinkSlice := B(sinkSlice.bitsRange -> false)
+              })
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private object Axi4StreamBundlePriv {
+    def driveWeak[T <: Data](source : Bundle,sink : Bundle, by : T,to : T,defaultValue : () => T,allowResize : Boolean,allowDrop : Boolean) : Unit = {
+      (to != null,by != null) match {
+        case (false,false) =>
+        case (true,false) => if(defaultValue != null) to := defaultValue() else LocatedPendingError(s"$source can't drive $to because the corresponding source signal does not exist")
+        case (false,true) => if(!allowDrop) LocatedPendingError(s"$by can't drive $sink because the corresponding sink signal does not exist")
+        case (true,true) => to := (if(allowResize) by.resized else by)
+      }
+    }
   }
 
   type Axi4Stream = Stream[Axi4StreamBundle]
@@ -66,8 +116,6 @@ object Axi4Stream {
   }
 
   implicit class Axi4StreamRich(stream: Stream[Axi4StreamBundle]) {
-     def connectFrom(that: Stream[Axi4StreamBundle]): Stream[Axi4StreamBundle] = Axi4StreamPriv.connectFrom(that, stream)
-
     /**
       * Converts the Axi4Stream into a Stream of bits.
       * Does not support TSTRB or TKEEP. Will only convert continuous and aligned streams.
@@ -134,54 +182,6 @@ object Axi4Stream {
       userFlow.valid := stream.valid
       userFlow.payload := stream.user
       userFlow
-    }
-  }
-
-  object Axi4StreamPriv {
-    def driveWeak[T <: Data](source : Bundle,sink : Bundle, by : T,to : T,defaultValue : () => T,allowResize : Boolean,allowDrop : Boolean) : Unit = {
-      (to != null,by != null) match {
-        case (false,false) =>
-        case (true,false) => if(defaultValue != null) to := defaultValue() else LocatedPendingError(s"$source can't drive $to because the corresponding source signal does not exist")
-        case (false,true) => if(!allowDrop) LocatedPendingError(s"$by can't drive $sink because the corresponding sink signal does not exist")
-        case (true,true) => to := (if(allowResize) by.resized else by)
-      }
-    }
-
-    def resizeOrTrim(source: Bits, sink: Bits): Unit = sink(Math.min(source.getBitsWidth, sink.getBitsWidth) downto 0) := source.resize(Math.max(source.getBitsWidth, sink.getBitsWidth))
-
-    def connectFrom[T <: Axi4StreamBundle](source: Stream[T], sink: Stream[T]): Stream[T] = {
-      sink.arbitrationFrom(source)
-      assert(source.config.dataWidth <= sink.config.dataWidth, s"Axi4Stream $source directly drives stream $sink with smaller data width! (${source.config.dataWidth} > ${sink.config.dataWidth})")
-      assert(source.config.idWidth <= sink.config.idWidth, s"Axi4Stream $source directly drives stream $sink with smaller ID width! (${source.config.idWidth} > ${sink.config.idWidth})")
-      assert(source.config.destWidth <= sink.config.destWidth, s"Axi4Stream $source directly drives stream $sink with smaller destination width! (${source.config.destWidth} > ${sink.config.destWidth})")
-      assert(source.config.userWidth <= sink.config.userWidth, s"Axi4Stream $source directly drives stream $sink with smaller user width! (${source.config.userWidth} > ${sink.config.userWidth})")
-
-      sink.data := source.data.resized
-      driveWeak(source,sink,source.id,sink.id, () => U(sink.id.bitsRange -> false), allowResize = true, allowDrop = false)
-      driveWeak(source,sink,source.strb,sink.strb, () => B(sink.strb.bitsRange -> true), allowResize = true, allowDrop = false)
-      driveWeak(source,sink,source.keep,sink.keep, () => B(sink.keep.bitsRange -> true), allowResize = true, allowDrop = false)
-      driveWeak(source,sink,source.last,sink.last, () => False, allowResize = false,allowDrop = false)
-      driveWeak(source,sink,source.dest,sink.dest, () => B(sink.dest.bitsRange -> true), allowResize = true, allowDrop = false)
-
-      (sink.user != null, source.user != null) match {
-        case (false, false) =>
-        case (true, false) => B(sink.user.bitsRange -> false)
-        case (false, true) => LocatedPendingError(s"${source.user} can't drive $sink because the corresponding sink signal does not exist")
-        case (true, true) => {
-          val sourceSlices = source.user.subdivideIn(source.config.dataWidth slices)
-          val sinkSlices = sink.user.subdivideIn(sink.config.dataWidth slices)
-          val sourceSlicesPad = sourceSlices.padTo(sinkSlices.length, null)
-          sourceSlicesPad.zip(sinkSlices).foreach(pair => {
-            val (sourceSlice, sinkSlice) = pair
-            if (sourceSlice != null)
-              resizeOrTrim(sourceSlice, sinkSlice)
-            else
-              sinkSlice := B(sinkSlice.bitsRange -> false)
-          })
-        }
-      }
-
-      sink
     }
   }
 }
