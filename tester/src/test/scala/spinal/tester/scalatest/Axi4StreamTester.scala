@@ -11,7 +11,7 @@ case class Axi4StreamEndianFixture[T <: Data](config: Axi4StreamConfig, outType:
     val s_axis = slave(Axi4Stream(config))
     val m_data = master(Stream(outType))
     val s_data = slave(Stream(outType))
-    val m_axis = master(Axi4Stream(config))
+    val m_axis = master(Axi4Stream(config.copy(useKeep = true)))
   }
 
   io.m_data << io.s_axis.toBitStream().map(_.toDataType(outType())).stage()
@@ -23,7 +23,7 @@ case class Axi4StreamFragmentFixture[T <: Data](config: Axi4StreamConfig, outTyp
     val s_axis = slave(Axi4Stream(config))
     val m_data = master(Stream(Fragment(outType)))
     val s_data = slave(Stream(Fragment(outType)))
-    val m_axis = master(Axi4Stream(config))
+    val m_axis = master(Axi4Stream(config.copy(useKeep = true)))
   }
 
   io.m_data << io.s_axis.toBitStreamFragment().map(f => {
