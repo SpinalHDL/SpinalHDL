@@ -1618,7 +1618,6 @@ object PlayFormal extends App{
         }
         cover(dutCounter.willOverflow)
         assert(dutCounter.value <= end)
-        // assert(dutCounter.valueNext <= end -1)
         assert(dutCounter.valueNext <= end)
         assert(start <= dutCounter.value)
         assert(start <= dutCounter.valueNext)
@@ -1628,5 +1627,5 @@ object PlayFormal extends App{
     }
   }
   val rtl = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
-  val verf = FormalConfig.doVerify(rtl)
+  val verf = FormalConfig.withDepth(2).addMode("prove").doVerify(rtl)
 }
