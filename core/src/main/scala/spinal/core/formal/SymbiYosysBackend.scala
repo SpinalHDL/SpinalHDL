@@ -153,7 +153,9 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     )
   }
 
-  def checks(): Unit = {}
+  def checks(): Unit = {
+    config.modes.map(x => SbyMode.withName(x))
+  }
 
   clean()
   checks()
