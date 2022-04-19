@@ -112,9 +112,9 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       })
       .mkString(" ")
     val engineCmds = config.engines.map(engine => engine.command).mkString("\n")
-    val modeCmd = config.modes.mkString(" ")
+    val modeCmd = config.modes.map(x => s"mode $x").mkString("\n") + "\n"
     val script = "[options]\n" +
-      s"mode $modeCmd\n" +
+      modeCmd +
       s"depth ${config.depth}\n" +
       (config.timeout.map(t => s"timeout $t\n").getOrElse("")) +
       (if (config.multiClock) { "multiclock on\n" }
