@@ -34,14 +34,9 @@ import sys.process._
 
 case class SpinalSymbiYosysBackendConfig[T <: Component](
     rtl: SpinalReport[T],
-    maxCacheEntries: Int = 100,
-    cachePath: String = null,
     workspacePath: String = "./",
     workspaceName: String = null,
-    logPath: String = null,
-    logPrefix: String = null,
-    customFlags: ArrayBuffer[String] = ArrayBuffer[String](),
-    withProve: Boolean
+    modes: ArrayBuffer[String] = ArrayBuffer[String]()
 )
 
 object SpinalSymbiYosysBackend {
@@ -54,13 +49,9 @@ object SpinalSymbiYosysBackend {
     vconfig.rtlIncludeDirs ++= rtl.rtlIncludeDirs
     vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
     vconfig.toplevelName = rtl.toplevelName
-    vconfig.logPath = logPath
-    vconfig.logPrefix = logPrefix
-    vconfig.maxCacheEntries = maxCacheEntries
-    vconfig.cachePath = cachePath
     vconfig.workspaceName = workspaceName
     vconfig.workspacePath = workspacePath
-    vconfig.customFlags = customFlags
+    vconfig.modes ++= config.modes
 
     new SymbiYosysBackend(vconfig)
   }
@@ -135,20 +126,14 @@ object SpinalFormalBackendSel {
 
 /** SpinalSim configuration
   */
-case class SpinalVerifyConfig(
+case class SpinalFormalConfig(
     var _workspacePath: String = System.getenv().getOrDefault("SPINALSIM_WORKSPACE", "./simWorkspace"),
     var _workspaceName: String = null,
     var _spinalConfig: SpinalConfig = SpinalConfig(),
-    var _customFlags: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
-    var _waveFormat: WaveFormat = WaveFormat.NONE,
-    var _withProve: Boolean = false,
-    var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
-    var _maxCacheEntries: Int = 100,
-    var _cachePath: String = null, // null => workspacePath + "/.cache"
-    var _disableCache: Boolean = false,
-    var _withLogging: Boolean = false
+    var _modes: ArrayBuffer[String] = ArrayBuffer[String]("bmc"),
+    var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS
 ) {
 
   def withSymbiYosys: this.type = {
@@ -156,18 +141,8 @@ case class SpinalVerifyConfig(
     this
   }
 
-  def withWave: this.type = {
-    _waveFormat = WaveFormat.DEFAULT
-    this
-  }
-
-  def withProve: this.type = {
-    _withProve = true
-    this
-  }
-
-  def withLogging: this.type = {
-    _withLogging = true
+  def addMode(mode: String): this.type = {
+    _modes += mode
     this
   }
 
@@ -186,11 +161,6 @@ case class SpinalVerifyConfig(
     this
   }
 
-  def addCustomFlag(flag: String): this.type = {
-    _customFlags += flag
-    this
-  }
-
   def addRtl(that: String): this.type = {
     _additionalRtlPath += that
     this
@@ -198,21 +168,6 @@ case class SpinalVerifyConfig(
 
   def addIncludeDir(that: String): this.type = {
     _additionalIncludeDir += that
-    this
-  }
-
-  def maxCacheEntries(count: Int): this.type = {
-    _maxCacheEntries = count
-    this
-  }
-
-  def cachePath(path: String): this.type = {
-    _cachePath = path
-    this
-  }
-
-  def disableCache: this.type = {
-    _disableCache = true
     this
   }
 
@@ -302,15 +257,9 @@ case class SpinalVerifyConfig(
         val startAt = System.nanoTime()
         val vConfig = SpinalSymbiYosysBackendConfig[T](
           rtl = report,
-          maxCacheEntries = _maxCacheEntries,
-          cachePath =
-            if (!_disableCache) (if (_cachePath != null) _cachePath else s"${_workspacePath}/.cache") else null,
           workspacePath = s"${_workspacePath}/${_workspaceName}",
-          logPath = s"${_workspacePath}/${_workspaceName}",
-          logPrefix = null,
           workspaceName = "formal",
-          withProve = _withProve,
-          customFlags = _customFlags
+          modes = _modes
         )
         val backend = SpinalSymbiYosysBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
