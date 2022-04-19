@@ -1628,5 +1628,5 @@ object PlayFormal extends App{
     }
   }
   val rtl = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
-  val verf = SpinalFormalConfig().withSymbiYosys.doVerify(rtl)
+  val verf = FormalConfig.doVerify(rtl)
 }
