@@ -7,12 +7,13 @@ import scala.collection.Seq
 
 object AvalonMMSlaveFactory{
   def getAvalonConfig(addressWidth: Int,
-                      dataWidth: Int) = {
+                      dataWidth: Int,
+                      useByteEnable: Boolean = false) = {
     AvalonMMConfig.pipelined(
       addressWidth = addressWidth,
-      dataWidth = dataWidth
+      dataWidth = dataWidth,
+      useByteEnable = useByteEnable
     ).copy(
-      useByteEnable = false,
       useWaitRequestn = true
     )
   }
@@ -22,7 +23,7 @@ object AvalonMMSlaveFactory{
 
 
 class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
-  assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth, bus.config.dataWidth))
+  assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth, bus.config.dataWidth, bus.config.useByteEnable))
 
   bus.waitRequestn := True
 

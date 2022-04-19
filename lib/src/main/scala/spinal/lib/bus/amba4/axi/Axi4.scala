@@ -54,7 +54,7 @@ case class Axi4Config(addressWidth : Int,
                       rUserWidth   : Int = -1,
                       wUserWidth   : Int = -1,
                       bUserWidth   : Int = -1,
-                      
+
                       readIssuingCapability     : Int = -1,
                       writeIssuingCapability    : Int = -1,
                       combinedIssuingCapability : Int = -1,
@@ -76,6 +76,9 @@ case class Axi4Config(addressWidth : Int,
     "Inconsistent combined issuing capability")
   require(readDataReorderingDepth <= readIssuingCapability,
     "Inconsistent read data reordering depth")
+
+  require(List(8, 16, 32, 64, 128, 256, 512, 1024) contains dataWidth,
+    "Valid data width: 8, 16, 32, 64, 128, 256, 512 or 1024 bit")
 
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)

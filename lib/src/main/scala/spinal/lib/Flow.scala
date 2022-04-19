@@ -120,6 +120,10 @@ class Flow[T <: Data](val payloadType: HardType[T]) extends Bundle with IMasterS
     this
   }
 
+  def ~[T2 <: Data](that: T2): Flow[T2] = translateWith(that)
+  def ~~[T2 <: Data](translate: (T) => T2): Flow[T2] = map(translate)
+  def map[T2 <: Data](translate: (T) => T2): Flow[T2] = (this ~ translate(this.payload))
+
   def m2sPipe : Flow[T] = m2sPipe()
   def m2sPipe(holdPayload : Boolean = false, flush : Bool = null): Flow[T] = {
     if(!holdPayload) {

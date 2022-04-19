@@ -4,6 +4,9 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
 
+object AxiLite4SlaveFactory {
+  def apply(bus: AxiLite4) = new AxiLite4SlaveFactory(bus)
+}
 
 class AxiLite4SlaveFactory(bus : AxiLite4, useWriteStrobes : Boolean = false) extends BusSlaveFactoryDelayed{
 

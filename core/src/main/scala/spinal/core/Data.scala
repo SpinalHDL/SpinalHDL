@@ -699,6 +699,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.asInstanceOf[this.type]
   }
 
+  def getRtlPath(separator : String = "/") : String = {
+    (getComponents().tail.map(_.getName()) :+ this.getName()).mkString(separator)
+  }
+
 //  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
 }
 

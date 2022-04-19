@@ -6,7 +6,7 @@ import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.eda.altera.QSysify
 
 object AvalonMMUartCtrl{
-  def getAvalonMMConfig = AvalonMMSlaveFactory.getAvalonConfig(addressWidth = 4,dataWidth = 32)
+  def getAvalonMMConfig = AvalonMMSlaveFactory.getAvalonConfig(addressWidth = 4,dataWidth = 32,false)
 
   def main(args: Array[String]) {
     val report = SpinalVerilog(new AvalonMMUartCtrl(UartCtrlMemoryMappedConfig(UartCtrlGenerics()))).printPruned()

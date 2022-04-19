@@ -114,6 +114,7 @@ object B extends BitVectorLiteralFactory[Bits] {
   def apply(head: Data, tail: Data*) : Bits = Cat((head +: tail).reverse)
   def apply(value : Seq[Data]) : Bits = Cat(value)
   def apply[T <: Data](value : Vec[T]) : Bits = B(value.asInstanceOf[Data])
+  def apply(value : MaskedLiteral, filling : Boolean = false): Bits = value.asBits(filling)
 
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
@@ -138,6 +139,8 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: Bits, width : BitCount): UInt = that.asUInt.resize(width)
   def apply(that: SInt, width : BitCount): UInt = that.asUInt.resize(width)
 
+  def apply(value : MaskedLiteral, filling : Boolean = false): UInt = value.asUInt(filling)
+
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
   override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
@@ -157,6 +160,8 @@ object S extends BitVectorLiteralFactory[SInt] {
   def apply(that: Bool, width : BitCount): SInt = that.asSInt.resize(width)
   def apply(that: Bits, width : BitCount): SInt = that.asSInt.resize(width)
   def apply(that: UInt, width : BitCount): SInt = that.asSInt.resize(width)
+
+  def apply(value : MaskedLiteral, filling : Boolean = false): SInt = value.asSInt(filling)
 
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true

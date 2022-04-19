@@ -30,6 +30,10 @@ import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryElement, Sing
 import scala.collection.Seq
 
 
+object AhbLite3SlaveFactory {
+  def apply(bus: AhbLite3, incAddress: Int = 0) = new AhbLite3SlaveFactory(bus, incAddress)
+}
+
 class AhbLite3SlaveFactory(bus: AhbLite3, incAddress: Int = 0) extends BusSlaveFactoryDelayed{
 
   override def readHalt()  = {}

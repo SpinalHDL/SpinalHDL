@@ -4,6 +4,10 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
 
+object Axi4SlaveFactory {
+  def apply(bus: Axi4) = new Axi4SlaveFactory(bus)
+}
+
 class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
 
   val readHaltRequest = False
