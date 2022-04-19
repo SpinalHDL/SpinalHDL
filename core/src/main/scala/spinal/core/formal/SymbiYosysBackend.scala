@@ -21,7 +21,7 @@ object SbyMode extends Enumeration {
   val Synth = Value("synth")
 }
 
-sealed trait SbyEngine {
+sealed trait SbyEngine extends FormalEngin {
   def command: String
 }
 
@@ -80,20 +80,20 @@ case class Abc() extends SbyEngine {
   def command: String = { "abc" }
 }
 
-class SymbiYosysBackendConfig {
-  val rtlSourcesPaths = ArrayBuffer[String]()
-  val rtlIncludeDirs = ArrayBuffer[String]()
-  val engines: Seq[SbyEngine] = Seq(SmtBmc())
-  val modes = ArrayBuffer[String]()
-  var depth: Int = 100
-  var timeout: Option[Int] = None
-  var multiClock: Boolean = false
-  var toplevelName: String = null
-  var workspacePath: String = null
-  var workspaceName: String = null
-}
+class SymbiYosysBackendConfig(
+    val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
+    val rtlIncludeDirs: ArrayBuffer[String] = ArrayBuffer[String](),
+    var engines: ArrayBuffer[SbyEngine] = ArrayBuffer(SmtBmc()),
+    val modes: ArrayBuffer[String] = ArrayBuffer[String](),
+    var depth: Int = 100,
+    var timeout: Option[Int] = None,
+    var multiClock: Boolean = false,
+    var toplevelName: String = null,
+    var workspacePath: String = null,
+    var workspaceName: String = null
+)
 
-class SymbiYosysBackend(val config: SymbiYosysBackendConfig) {
+class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
   val workspaceName = config.workspaceName
   val workspacePath = config.workspacePath
   val workDir = s"${workspacePath}/${workspaceName}"
@@ -130,7 +130,6 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) {
       "[files]\n" +
       localSources
 
-    val scriptName = "formal.sby"
     new File(workDir).mkdir()
     Files.write(
       Paths.get(sbyFilePath),
@@ -142,6 +141,16 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) {
     override def err(s: => String): Unit = { if (!s.startsWith("ar: creating ")) println(s) }
     override def out(s: => String): Unit = {}
     override def buffer[T](f: => T) = f
+  }
+
+  def doVerify(name: String): Unit = {
+    println(f"[Progress] Start ${config.toplevelName} formal verification with $name.")
+    val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
+    val command = if (isWindows) "sby.exe" else "sby"
+    assert(
+      Process(Seq(command, sbyFilePath), new File(workspacePath)).!(new Logger()) == 0,
+      "SymbiYosys invocation failed"
+    )
   }
 
   def checks(): Unit = {}

@@ -32,62 +32,9 @@ import scala.io.Source
 import scala.util.Random
 import sys.process._
 
-case class SpinalSymbiYosysBackendConfig[T <: Component](
-    rtl: SpinalReport[T],
-    workspacePath: String = "./",
-    workspaceName: String = null,
-    modes: ArrayBuffer[String] = ArrayBuffer[String]()
-)
-
-object SpinalSymbiYosysBackend {
-
-  def apply[T <: Component](config: SpinalSymbiYosysBackendConfig[T]) = {
-
-    import config._
-
-    val vconfig = new SymbiYosysBackendConfig()
-    vconfig.rtlIncludeDirs ++= rtl.rtlIncludeDirs
-    vconfig.rtlSourcesPaths ++= rtl.rtlSourcesPaths
-    vconfig.toplevelName = rtl.toplevelName
-    vconfig.workspaceName = workspaceName
-    vconfig.workspacePath = workspacePath
-    vconfig.modes ++= config.modes
-
-    new SymbiYosysBackend(vconfig)
-  }
-}
-
-/** Run formal verification
-  */
-abstract class FormalCompiled[T <: Component](val report: SpinalReport[T]) {
-  def dut = report.toplevel
-
-  val testNameMap = mutable.HashMap[String, Int]()
-
-  def allocateTestName(name: String): String = {
-    testNameMap.synchronized {
-      val value = testNameMap.getOrElseUpdate(name, 0)
-      testNameMap(name) = value + 1
-      if (value == 0) {
-        return name
-      } else {
-        val ret = name + "_" + value
-        println(s"[Info] Test '$name' was reallocated as '$ret' to avoid collision")
-        return ret
-      }
-    }
-  }
-
-  def doVerify(): Unit = doVerifyApi()
-  def doVerify(name: String): Unit = doVerifyApi(name = name)
-
-  def doVerifyApi(name: String = "test"): Unit = {
-    GlobalData.set(report.globalData)
-
-    val allocatedName = allocateTestName(name)
-
-    println(f"[Progress] Start ${dut.definitionName} $allocatedName formal verification.")
-  }
+trait FormalEngin {}
+trait FormalBackend {
+  def doVerify(name: String = "formal"): Unit
 }
 
 /** Formal verify Workspace
@@ -133,8 +80,12 @@ case class SpinalFormalConfig(
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
     var _modes: ArrayBuffer[String] = ArrayBuffer[String]("bmc"),
+    var _depth: Int = 100,
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS
 ) {
+  var _multiClock = false
+  var _timeout: Option[Int] = None;
+  var _engines: ArrayBuffer[FormalEngin] = ArrayBuffer[FormalEngin]()
 
   def withSymbiYosys: this.type = {
     _backend = SpinalFormalBackendSel.SYMBIYOSYS
@@ -145,6 +96,33 @@ case class SpinalFormalConfig(
     _modes += mode
     this
   }
+
+  def withDepth(depth: Int): this.type = {
+    _depth = depth
+    this
+  }
+
+  def withTimeout(timeout: Int): this.type = {
+    _timeout = Some(timeout)
+    this
+  }
+
+  def withEngies(engins: Seq[FormalEngin]): this.type = {
+    _engines.clear()
+    _engines ++= engins
+    this
+  }
+
+  def addEngin(engin: FormalEngin): this.type = {
+    _engines ++= Seq(engin)
+    this
+  }
+
+  // TODO: auto infer if the target has multiple clock domain.
+  // def withMultiClock: this.type = {
+  //   _multiClock = true
+  //   this
+  // }
 
   def workspacePath(path: String): this.type = {
     _workspacePath = path
@@ -178,11 +156,11 @@ case class SpinalFormalConfig(
   def doVerify[T <: Component](rtl: => T): Unit = compile(rtl).doVerify()
   def doVerify[T <: Component](rtl: => T, name: String): Unit = compile(rtl).doVerify(name)
 
-  def compile[T <: Component](rtl: => T): FormalCompiled[T] = {
+  def compile[T <: Component](rtl: => T): FormalBackend = {
     this.copy().compileCloned(rtl)
   }
 
-  def compileCloned[T <: Component](rtl: => T): FormalCompiled[T] = {
+  def compileCloned[T <: Component](rtl: => T): FormalBackend = {
     val uniqueId = FormalWorkspace.allocateUniqueId()
     new File(s"tmp").mkdirs()
     new File(s"tmp/job_$uniqueId").mkdirs()
@@ -204,7 +182,7 @@ case class SpinalFormalConfig(
     compile[T](report)
   }
 
-  def compile[T <: Component](report: SpinalReport[T]): FormalCompiled[T] = {
+  def compile[T <: Component](report: SpinalReport[T]): FormalBackend = {
     if (_workspacePath.startsWith("~"))
       _workspacePath = System.getProperty("user.home") + _workspacePath.drop(1)
 
@@ -255,22 +233,27 @@ case class SpinalFormalConfig(
       case SpinalFormalBackendSel.SYMBIYOSYS =>
         println(f"[Progress] Yosys compilation started")
         val startAt = System.nanoTime()
-        val vConfig = SpinalSymbiYosysBackendConfig[T](
-          rtl = report,
+        val vConfig = new SymbiYosysBackendConfig(
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           workspaceName = "formal",
-          modes = _modes
+          toplevelName = report.toplevelName,
+          modes = _modes,
+          depth = _depth,
+          timeout = _timeout
         )
-        val backend = SpinalSymbiYosysBackend(vConfig)
+        vConfig.rtlSourcesPaths ++= report.rtlSourcesPaths
+        vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
+        if (_engines.nonEmpty)
+          vConfig.engines = _engines.map(x =>
+            x match {
+              case e: SbyEngine => e
+            }
+          )
+
+        val backend = new SymbiYosysBackend(vConfig)
         val deltaTime = (System.nanoTime() - startAt) * 1e-6
         println(f"[Progress] Yosys compilation done in $deltaTime%1.3f ms")
-        new FormalCompiled(report) {
-          // override def newSimRaw(name: String, seed: Int): SimRaw = {
-          //   val raw = new SimVerilator(backend, backend.instanciate(name, seed))
-          //   raw.userData = backend.config.signals
-          //   raw
-          // }
-        }
+        backend
     }
   }
 }
