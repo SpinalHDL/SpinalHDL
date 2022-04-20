@@ -44,7 +44,7 @@ case class SmtBmc(
     unroll: Option[Boolean] = None,
     dumpsmt2: Boolean = false,
     progress: Boolean = true,
-    solver: SmtBmcSolver.SmtBmcSolver = SmtBmcSolver.Z3
+    solver: SmtBmcSolver.SmtBmcSolver = SmtBmcSolver.Yices
 ) extends SbyEngine {
   def command: String = {
     "smtbmc" +
