@@ -25,8 +25,8 @@ val defaultSettings = Defaults.coreDefaultSettings ++ xerial.sbt.Sonatype.sonaty
 
   libraryDependencies += "org.scala-lang" % "scala-library" % scalaVersion.value,
 
-  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.5.0",
-  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.5.0",
+  dependencyOverrides += "net.java.dev.jna" % "jna" % "5.10.0",
+  dependencyOverrides += "net.java.dev.jna" % "jna-platform" % "5.10.0",
   dependencyOverrides += "org.slf4j" % "slf4j-api" % "1.7.25",
   dependencyOverrides += "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
 
