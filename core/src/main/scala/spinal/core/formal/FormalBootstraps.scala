@@ -81,7 +81,8 @@ case class SpinalFormalConfig(
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
     var _modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
-    var _keepDebugInfo: Boolean = false
+    var _keepDebugInfo: Boolean = false,
+    var _hasAsync: Boolean = false
 ) {
   var _multiClock = false
   var _timeout: Option[Int] = None;
@@ -123,11 +124,10 @@ case class SpinalFormalConfig(
     this
   }
 
-  // TODO: auto infer if the target has multiple clock domain.
-  // def withMultiClock: this.type = {
-  //   _multiClock = true
-  //   this
-  // }
+  def withAsync: this.type = {
+    _hasAsync = true
+    this
+  }
 
   def workspacePath(path: String): this.type = {
     _workspacePath = path
@@ -249,7 +249,8 @@ case class SpinalFormalConfig(
           toplevelName = report.toplevelName,
           modesWithDepths = _modesWithDepths,
           timeout = _timeout,
-          keepDebugInfo = _keepDebugInfo
+          keepDebugInfo = _keepDebugInfo,
+          multiClock = _hasAsync
         )
         vConfig.rtlSourcesPaths ++= report.rtlSourcesPaths
         vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
