@@ -84,8 +84,7 @@ class SymbiYosysBackendConfig(
     val rtlSourcesPaths: ArrayBuffer[String] = ArrayBuffer[String](),
     val rtlIncludeDirs: ArrayBuffer[String] = ArrayBuffer[String](),
     var engines: ArrayBuffer[SbyEngine] = ArrayBuffer(SmtBmc()),
-    val modes: ArrayBuffer[String] = ArrayBuffer[String](),
-    var depth: Int = 100,
+    var modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
     var timeout: Option[Int] = None,
     var multiClock: Boolean = false,
     var toplevelName: String = null,
@@ -112,10 +111,21 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       })
       .mkString(" ")
     val engineCmds = config.engines.map(engine => engine.command).mkString("\n")
-    val modeCmd = config.modes.map(x => s"mode $x").mkString("\n") + "\n"
-    val script = "[options]\n" +
+
+    if(!config.modesWithDepths.nonEmpty) config.modesWithDepths("bmc") = 100
+    var modes = config.modesWithDepths.keys
+    val taskCmd = modes.mkString("\n")
+    val modeCmd = modes.map(x => s"$x: mode $x").mkString("\n")
+    val depthCmd = modes.map(x => s"$x: depth ${config.modesWithDepths(x)}").mkString("\n")
+
+    val script = "[tasks]\n" + 
+      taskCmd +
+      "\n\n" +
+      "[options]\n" +
       modeCmd +
-      s"depth ${config.depth}\n" +
+      "\n" +
+      depthCmd +
+      "\n" +
       (config.timeout.map(t => s"timeout $t\n").getOrElse("")) +
       (if (config.multiClock) { "multiclock on\n" }
        else { "" }) +
@@ -154,7 +164,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
   }
 
   def checks(): Unit = {
-    config.modes.map(x => SbyMode.withName(x))
+    config.modesWithDepths.keySet.map(x => SbyMode.withName(x))
   }
 
   clean()

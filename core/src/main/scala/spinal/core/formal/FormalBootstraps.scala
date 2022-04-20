@@ -27,7 +27,7 @@ import spinal.core.{Component, GlobalData, SpinalConfig, SpinalReport, BlackBox}
 import spinal.sim._
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.io.Source
 import scala.util.Random
 import sys.process._
@@ -79,8 +79,7 @@ case class SpinalFormalConfig(
     var _spinalConfig: SpinalConfig = SpinalConfig(),
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
-    var _modes: ArrayBuffer[String] = ArrayBuffer[String]("bmc"),
-    var _depth: Int = 100,
+    var _modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS
 ) {
   var _multiClock = false
@@ -92,13 +91,18 @@ case class SpinalFormalConfig(
     this
   }
 
-  def addMode(mode: String): this.type = {
-    _modes += mode
+  def withBMC(depth:Int = 100): this.type = {
+    _modesWithDepths("bmc") = depth
     this
   }
 
-  def withDepth(depth: Int): this.type = {
-    _depth = depth
+  def withProve(depth:Int = 100): this.type = {
+    _modesWithDepths("prove") = depth
+    this
+  }
+
+  def withCover(depth:Int = 100): this.type = {
+    _modesWithDepths("cover") = depth
     this
   }
 
@@ -237,8 +241,7 @@ case class SpinalFormalConfig(
           workspacePath = s"${_workspacePath}/${_workspaceName}",
           workspaceName = "formal",
           toplevelName = report.toplevelName,
-          modes = _modes,
-          depth = _depth,
+          modesWithDepths = _modesWithDepths,
           timeout = _timeout
         )
         vConfig.rtlSourcesPaths ++= report.rtlSourcesPaths

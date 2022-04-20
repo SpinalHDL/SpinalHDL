@@ -1627,5 +1627,5 @@ object PlayFormal extends App{
     }
   }
   val rtl = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
-  val verf = FormalConfig.withDepth(2).addMode("prove").doVerify(rtl)
+  val verf = FormalConfig.withProve(2).doVerify(rtl)
 }
