@@ -89,7 +89,8 @@ class SymbiYosysBackendConfig(
     var multiClock: Boolean = false,
     var toplevelName: String = null,
     var workspacePath: String = null,
-    var workspaceName: String = null
+    var workspaceName: String = null,
+    var keepDebugInfo: Boolean = false
 )
 
 class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
@@ -112,13 +113,13 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       .mkString(" ")
     val engineCmds = config.engines.map(engine => engine.command).mkString("\n")
 
-    if(!config.modesWithDepths.nonEmpty) config.modesWithDepths("bmc") = 100
+    if (!config.modesWithDepths.nonEmpty) config.modesWithDepths("bmc") = 100
     var modes = config.modesWithDepths.keys
     val taskCmd = modes.mkString("\n")
     val modeCmd = modes.map(x => s"$x: mode $x").mkString("\n")
     val depthCmd = modes.map(x => s"$x: depth ${config.modesWithDepths(x)}").mkString("\n")
 
-    val script = "[tasks]\n" + 
+    val script = "[tasks]\n" +
       taskCmd +
       "\n\n" +
       "[options]\n" +
@@ -158,16 +159,16 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
     val command = if (isWindows) "sby.exe" else "sby"
     assert(
-      Process(Seq(command, sbyFilePath), new File(workspacePath)).!(new Logger()) == 0,
+      Process(Seq(command, "-f", sbyFilePath), new File(workspacePath)).!(new Logger()) == 0,
       "SymbiYosys invocation failed"
     )
+    if (!config.keepDebugInfo) clean()
   }
 
   def checks(): Unit = {
     config.modesWithDepths.keySet.map(x => SbyMode.withName(x))
   }
 
-  clean()
   checks()
   genSby()
 }

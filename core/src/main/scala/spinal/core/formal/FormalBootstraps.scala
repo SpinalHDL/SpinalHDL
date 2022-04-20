@@ -80,7 +80,8 @@ case class SpinalFormalConfig(
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
     var _modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
-    var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS
+    var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
+    var _keepDebugInfo: Boolean = false
 ) {
   var _multiClock = false
   var _timeout: Option[Int] = None;
@@ -91,17 +92,17 @@ case class SpinalFormalConfig(
     this
   }
 
-  def withBMC(depth:Int = 100): this.type = {
+  def withBMC(depth: Int = 100): this.type = {
     _modesWithDepths("bmc") = depth
     this
   }
 
-  def withProve(depth:Int = 100): this.type = {
+  def withProve(depth: Int = 100): this.type = {
     _modesWithDepths("prove") = depth
     this
   }
 
-  def withCover(depth:Int = 100): this.type = {
+  def withCover(depth: Int = 100): this.type = {
     _modesWithDepths("cover") = depth
     this
   }
@@ -140,6 +141,11 @@ case class SpinalFormalConfig(
 
   def withConfig(config: SpinalConfig): this.type = {
     _spinalConfig = config
+    this
+  }
+
+  def withDebug: this.type = {
+    _keepDebugInfo = true
     this
   }
 
@@ -242,7 +248,8 @@ case class SpinalFormalConfig(
           workspaceName = "formal",
           toplevelName = report.toplevelName,
           modesWithDepths = _modesWithDepths,
-          timeout = _timeout
+          timeout = _timeout,
+          keepDebugInfo = _keepDebugInfo
         )
         vConfig.rtlSourcesPaths ++= report.rtlSourcesPaths
         vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
