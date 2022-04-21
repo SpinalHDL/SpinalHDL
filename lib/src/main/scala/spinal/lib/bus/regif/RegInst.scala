@@ -41,21 +41,29 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends Ram
   // RamDescr implementation
   def getName()        : String = name
   def getDoc()         : String = ""
+
 }
 
 class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
 
   // FifoDescr implementation
-  def getName()        : String = name
   def getAddr()        : Long   = addr
   def getDoc()         : String = doc
-
+  def setName(name: String): FIFOInst = {
+    _name = name
+    this
+  }
   def accept(vs : BusIfVisitor) = {
       vs.visit(this)
   }
 }
 
 case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
+  def setName(name: String): RegInst = {
+    _name = name
+    this
+  }
+
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
     spareNumbers match {
@@ -136,7 +144,6 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   }
 
   // RegDescr implementation
-  def getName()        : String           = name
   def getAddr()        : Long             = addr
   def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
@@ -157,7 +164,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
         counts(name) = 0
         name
       }
-      fd.copy(name = newname)
+      fd.setName(newname)
     }
     fields.clear()
     fields ++= ret
@@ -165,9 +172,13 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
 }
 
 abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
+  protected var _name = name
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var Rerror: Boolean = false
+
+  def getName(): String = _name
+  def setName(name: String): RegBase
 
   def readErrorTag = Rerror
   def getFields = fields.toList

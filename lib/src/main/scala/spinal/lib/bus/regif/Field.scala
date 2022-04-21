@@ -9,11 +9,13 @@ case class Field(name: String,
                  resetValue: Long,
                  readError: Boolean,
                  doc: String) extends FieldDescr {
+  private var _name = name
 
   def tailBitPos = section.max
 
   // FieldDescr implementation
-  def getName()       : String     = name
+  def getName()       : String     = _name
+  def setName(name: String): Field = {_name = name ; this}
   def getWidth()      : Int        = hardbit.getWidth
   def getSection()    : Range      = section
   def getAccessType() : AccessType = accType
