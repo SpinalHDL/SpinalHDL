@@ -78,6 +78,25 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = doc)
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(bt, acc, resetValue, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val sectionNext: Section = pos + bt.getBitsWidth-1 downto pos
+    val sectionExists: Section = fieldPtr downto 0
+    val ret = pos match {
+      case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
+      case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
+      case x if (x == fieldPtr) => field(bt, acc, resetValue, doc)
+      case _ => {
+        field(Bits(pos - fieldPtr bit), AccessType.NA)(SymbolName("reserved"))
+        field(bt, acc, resetValue, doc)
+      }
+    }
+    fieldPtr = pos + bt.getBitsWidth
+    ret
+  }
+
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def fieldAt(pos: Int, bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = "")(symbol)
   @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
