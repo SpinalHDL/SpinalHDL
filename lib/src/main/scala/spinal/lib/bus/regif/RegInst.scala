@@ -94,7 +94,20 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     ret
   }
 
-  def field(bc: BitCount, acc: AccessType, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = "")
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = doc)
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(bt, acc, resetValue, doc = "")
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val regfield = bt()
+    val ret = field(bt.getBitsWidth bit, acc, resetValue, doc)(symbol)
+    regfield.assignFromBits(ret)
+    regfield
+  }
+
+  def field(bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = "")(symbol)
+  def field(bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = doc)(symbol)
+  def field(bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue, doc = "")(symbol)
+  def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
@@ -204,6 +217,8 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     event
   }
 
+  protected def _RO[T <: BaseType](hardType: HardType[T]): T = hardType()
+
   protected def RO(bc: BitCount): Bits = Bits(bc)
 
   protected def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={
@@ -212,6 +227,14 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     when(hitDoWrite && hardRestFirstFlag){
       ret := busif.writeData(section)
       hardRestFirstFlag.clear()
+    }
+    ret
+  }
+
+  protected def _W[T <: BaseType](hardType: HardType[T], section: Range, resetValue: Long ): T ={
+    val ret = Reg(hardType()) init resetValue.asInstanceOf[T]
+    when(hitDoWrite){
+      ret.assignFromBits(busif.writeData(section))
     }
     ret
   }
