@@ -78,7 +78,14 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = "")(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = doc)(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue, doc = "")(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val sectionNext: Section = pos+bc.value-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
     val ret = pos match {
@@ -104,9 +111,13 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     regfield
   }
 
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = "")(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = doc)(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue, doc = "")(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
   def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
