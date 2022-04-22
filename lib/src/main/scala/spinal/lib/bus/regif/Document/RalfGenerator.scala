@@ -43,7 +43,7 @@ final case class RalfGenerator(name: String) extends BusIfVisitor {
     sb ++= "\n"
 
     sb ++=
-      s"  }".stripMargin
+      s"  }\n".stripMargin
   }
 
   def end() : Unit = {

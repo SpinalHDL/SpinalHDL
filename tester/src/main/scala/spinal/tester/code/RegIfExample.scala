@@ -6,9 +6,6 @@ import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.misc.SizeMapping
 import spinal.lib.bus.regif.AccessType._
 import spinal.lib.bus.regif._
-import spinal.lib.bus.regif.Document.CHeaderGenerator
-import spinal.lib.bus.regif.Document.HtmlGenerator
-import spinal.lib.bus.regif.Document.JsonGenerator
 
 class RegIfExample extends Component {
   val io = new Bundle{

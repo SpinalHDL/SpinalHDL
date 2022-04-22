@@ -6,9 +6,6 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba3.apb.sim.Apb3Driver
 import spinal.lib.bus.regif._
-import spinal.lib.bus.regif.Document.CHeaderGenerator
-import spinal.lib.bus.regif.Document.HtmlGenerator
-import spinal.lib.bus.regif.Document.JsonGenerator
 
 class RegFileIntrExample extends Component{
   val io = new Bundle{

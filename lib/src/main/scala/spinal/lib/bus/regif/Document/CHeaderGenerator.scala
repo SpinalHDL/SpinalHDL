@@ -46,7 +46,7 @@ final case class CHeaderGenerator(
     
     def end() : Unit = {
         val pc = GlobalData.get.phaseContext
-        val targetPath = s"${pc.config.targetDirectory}/${fileName}"
+        val targetPath = s"${pc.config.targetDirectory}/${fileName}.h"
         val pw = new PrintWriter(targetPath)
 
         pw.write(
