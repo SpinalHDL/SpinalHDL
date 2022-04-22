@@ -76,6 +76,18 @@ trait ValCallbackRec extends ValCallback{
           for ((e, i) <- seq.zipWithIndex) {
             valCallbackOn(e._2, name + "_" + i, refs)
           }
+        case prod : Tuple2[_,_] if !name.contains("$")=> //$ check to avoid trigerring on val (x,y)
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case prod : Tuple3[_,_,_] if !name.contains("$") =>
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case prod : Tuple4[_,_,_,_] if !name.contains("$") =>
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
         case Some(x) => valCallbackOn(x, name, refs)
         case _             =>
       }

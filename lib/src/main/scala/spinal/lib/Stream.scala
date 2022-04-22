@@ -825,19 +825,17 @@ object StreamFork {
 }
 
 object StreamFork2 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 2, synchronous).setCompositeName(input, "fork", true)
-    fork.io.input << input
-    return (fork.io.outputs(0), fork.io.outputs(1))
-  }
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
+    val outputs = (cloneOf(input), cloneOf(input))
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
+  }.outputs
 }
 
 object StreamFork3 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 3, synchronous).setCompositeName(input, "fork", true)
-    fork.io.input << input
-    return (fork.io.outputs(0), fork.io.outputs(1), fork.io.outputs(2))
-  }
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = new Composite(input, "fork3"){
+    val outputs = (cloneOf(input), cloneOf(input), cloneOf(input))
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous)
+  }.outputs
 }
 
 /**
@@ -857,38 +855,44 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType), portCount)
   }
+  val logic = new StreamForkArea(io.input, io.outputs, synchronous)
+}
+
+class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area {
+  val portCount = outputs.size
   if (synchronous) {
-    io.input.ready := io.outputs.map(_.ready).reduce(_ && _)
-    io.outputs.foreach(_.valid := io.input.valid && io.input.ready)
-    io.outputs.foreach(_.payload := io.input.payload)
+    input.ready := outputs.map(_.ready).reduce(_ && _)
+    outputs.foreach(_.valid := input.valid && input.ready)
+    outputs.foreach(_.payload := input.payload)
   } else {
     /* Store if an output stream already has taken its value or not */
     val linkEnable = Vec(RegInit(True),portCount)
-    
+
     /* Ready is true when every output stream takes or has taken its value */
-    io.input.ready := True
+    input.ready := True
     for (i <- 0 until portCount) {
-      when(!io.outputs(i).ready && linkEnable(i)) {
-        io.input.ready := False
+      when(!outputs(i).ready && linkEnable(i)) {
+        input.ready := False
       }
     }
 
     /* Outputs are valid if the input is valid and they haven't taken their value yet.
      * When an output fires, mark its value as taken. */
     for (i <- 0 until portCount) {
-      io.outputs(i).valid := io.input.valid && linkEnable(i)
-      io.outputs(i).payload := io.input.payload
-      when(io.outputs(i).fire) {
+      outputs(i).valid := input.valid && linkEnable(i)
+      outputs(i).payload := input.payload
+      when(outputs(i).fire) {
         linkEnable(i) := False
       }
     }
 
     /* Reset the storage for each new value */
-    when(io.input.ready) {
+    when(input.ready) {
       linkEnable.foreach(_ := True)
     }
   }
 }
+
 
 case class EventEmitter(on : Event){
   val reg = RegInit(False)
