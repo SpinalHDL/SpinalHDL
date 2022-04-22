@@ -1,4 +1,4 @@
-package spinal.lib.bus.regif.Document
+package spinal.lib.bus.regif
 
 import spinal.core.GlobalData
 import spinal.lib.bus.regif._

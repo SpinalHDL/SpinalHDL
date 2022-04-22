@@ -176,7 +176,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     } else {
       symbol.name
     }
-    val nameRemoveNA = if(acc == AccessType.NA) "--" else signame
+    val nameRemoveNA = if(acc == AccessType.NA) "RESERVED" else signame
     fields   += Field(nameRemoveNA, ret, section, acc, resetValue, Rerror, newdoc)
     fieldPtr += bc.value
     ret
