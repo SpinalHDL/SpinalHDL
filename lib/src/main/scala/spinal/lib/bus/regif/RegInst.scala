@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer
+import AccessType._
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -126,7 +127,10 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   def field[T <: BaseType](bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
     val regfield = bt()
     val ret = field(bt.getBitsWidth bit, acc, resetValue, doc)(symbol)
-    regfield.assignFromBits(ret)
+    acc match {
+      case AccessType.RO => ret := regfield.asBits
+      case _ => regfield.assignFromBits(ret)
+    }
     regfield
   }
 
