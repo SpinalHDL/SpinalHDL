@@ -1629,3 +1629,50 @@ object PlayFormal extends App{
   val rtl = SpinalConfig(defaultConfigForClockDomains=ClockDomainConfig(resetActiveLevel=HIGH)).includeFormal.generateSystemVerilog(new testCounter(2,10))
   val verf = FormalConfig.withProve(2).doVerify(rtl)
 }
+
+object PlayFormal2 extends App {
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+
+  class Toplevel() extends Component {
+    val inc = in(Bool())
+    val interval = in(UInt(27 bits))
+    val value = out(UInt(32 bits))
+    val counter = Reg(UInt(32 bits)) init (0)
+    when(inc) {
+      counter := counter + interval
+    }
+    value := counter
+  }
+
+  FormalConfig
+    .withProve(40)
+    .doVerify(new Component {
+      val dut = new Toplevel()
+      val reset = ClockDomain.current.isResetActive
+
+      assumeInitial(reset)
+
+      val inc = anyseq(Bool())
+      // assume no inc while reset. here it is not reasonable.
+      // when(reset){
+      //   assume(inc === False)
+      // }
+      dut.inc := inc
+
+      val interval = anyconst(UInt(27 bits))
+      dut.interval := interval
+      assume(interval > 0)
+
+      when(!past(inc)) {
+        assert(stable(dut.value))
+      }
+
+      when(!past(reset) && past(inc)) { // This fix the problem that could fail when reset and inc comes at the same time.
+        assert(changed(dut.value))
+        assert(
+          dut.value === past(dut.counter.pull) + dut.interval
+        )
+      }
+    })
+}
