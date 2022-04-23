@@ -79,9 +79,9 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = "")
-  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = doc)
-  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(bt, acc, resetValue, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue = 0, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue = 0, doc = doc)
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue, doc = "")
   def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
     val sectionNext: Section = pos + bt.getBitsWidth-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
@@ -180,7 +180,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     } else {
       symbol.name
     }
-    val nameRemoveNA = if(acc == AccessType.NA) "RESERVED" else signame
+    val nameRemoveNA = if(acc == AccessType.NA) "--" else signame
     fields   += Field(nameRemoveNA, ret, section, acc, resetValue, Rerror, newdoc)
     fieldPtr += bc.value
     ret
@@ -211,7 +211,10 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
         counts(name) = 0
         name
       }
-      fd.setName(newname)
+      if(name != "--") {//dont touch RESERVED name
+        fd.setName(newname)
+      }
+      fd
     }
     fields.clear()
     fields ++= ret

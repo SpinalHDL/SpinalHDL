@@ -1,24 +1,20 @@
 package spinal.lib.bus.regif
-
 import spinal.core.GlobalData
-import spinal.lib.bus.regif.{BusIfVisitor, FifoDescr, RegDescr}
+import spinal.lib.bus.regif._
 
 import java.io.PrintWriter
 
-final case class RalfGenerator(name: String) extends BusIfVisitor {
+final case class RalfGenerator(fileName : String) extends BusIfVisitor {
   val sb : StringBuilder = new StringBuilder
   var prefix = ""
+  var width = 0
 
   def clean(str : String) : String = {
     str.replace("\n","\\n").replace("\r","\\r")
   }
 
   def begin(busDataWidth : Int) : Unit = {
-    sb ++=
-      s"""block ${name}{
-         |  endian little;
-         |  bytes ${scala.math.ceil(busDataWidth/4).toInt};
-         |""".stripMargin
+    width = busDataWidth
   }
 
   def visit(descr : FifoDescr)  : Unit = {
@@ -26,33 +22,53 @@ final case class RalfGenerator(name: String) extends BusIfVisitor {
   }
 
   def visit(descr : RegDescr) : Unit = {
-    sb ++= prefix
+    def formatResetValue(value: BigInt, bitCount: Int):String = {
+      val hexCount = scala.math.ceil(bitCount/4.0).toInt
+      val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
+      s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
+    }
 
-    sb ++=
-      s"  register ${descr.getName()} @'h${descr.getAddr().toHexString} {\n"
+    def fieldDescr(fd: FieldDescr) = {
+      def rename(name: String) = {
+        if(fd.getWidth() == 1){
+          if(name == "--") s"RSV_${fd.getSection().start}" else name
+        } else {
+          if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
+        }
+      }
+      def access = {
+        val ret = fd.getAccessType().toString.toLowerCase()
+        if(ret == "na") "ro" else ret
+      }
+      s"""    field ${rename(fd.getName())} @${fd.getSection().end} {
+         |      bits ${fd.getWidth()};
+         |      access ${access};
+         |      reset ${formatResetValue(fd.getResetValue(), fd.getWidth())};
+         |    }""".stripMargin
+    }
 
-    descr.getFieldDescrs().foreach(f =>{
-      sb ++=
-        s"""|    field ${f.getName()} @${f.getSection().last} {
-            |      bits ${f.getWidth()} ;
-            |      access ${f.getAccessType().toString.toLowerCase()} ;
-            |      reset  ${f.getWidth()}'h${f.getResetValue().toHexString};
-            |     }
-            |""".stripMargin
-    })
-    sb ++= "\n"
+    val ret =
+      s"""  register ${descr.getName()} @'h${descr.getAddr().toHexString} {
+         |${descr.getFieldDescrs().map(fieldDescr).mkString("\n")}
+         |  }
+         |""".stripMargin
 
-    sb ++=
-      s"  }\n".stripMargin
+    sb ++= ret
   }
 
   def end() : Unit = {
     val pc = GlobalData.get.phaseContext
-    val targetPath = s"${pc.config.targetDirectory}/${name}.ralf"
+    val targetPath = s"${pc.config.targetDirectory}/${fileName}.ralf"
     val pw = new PrintWriter(targetPath)
 
-    sb ++= "}\n"
-    pw.write(sb.toString())
+    val cont = s"""
+      |block ${this.fileName} {
+      |  endian little;
+      |  bytes ${scala.math.ceil(this.width/8.0).toInt};
+      |${sb}}
+      |""".stripMargin
+
+    pw.write(cont.toString())
 
     pw.close()
   }
