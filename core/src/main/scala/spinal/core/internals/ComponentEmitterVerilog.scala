@@ -1671,6 +1671,12 @@ end
     case e : Operator.Formal.Changed                  => s"!$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.InitState                => s"$$initstate()"
+    case e : Operator.Formal.RandomExp                => e.kind match {
+      case Operator.Formal.RANDOM_ANY_SEQ   => "$anyseq"
+      case Operator.Formal.RANDOM_ANY_CONST => "$anyconst"
+      case Operator.Formal.RANDOM_ALL_SEQ   => "$allseq"
+      case Operator.Formal.RANDOM_ALL_CONST => "$allconst"
+    }
   }
 
   elaborate()

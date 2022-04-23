@@ -313,6 +313,33 @@ object InferWidth
   */
 object Operator {
   object Formal{
+
+    class RandomExpKind
+    val RANDOM_ANY_SEQ = new RandomExpKind()
+    val RANDOM_ANY_CONST = new RandomExpKind()
+    val RANDOM_ALL_SEQ = new RandomExpKind()
+    val RANDOM_ALL_CONST = new RandomExpKind()
+    abstract class RandomExp(val kind : RandomExpKind) extends Expression{
+      override def remapExpressions(func: Expression => Expression) = {}
+      override def foreachExpression(func: Expression => Unit) = {}
+      override def opName: String = "$random()"
+    }
+    class RandomExpBool(kind : RandomExpKind) extends RandomExp(kind) {
+      override def getTypeObject = TypeBool
+    }
+    abstract class RandomExpBitVector(kind : RandomExpKind, val width : Int) extends RandomExp(kind) with WidthProvider {
+      override def getWidth = width
+    }
+    class RandomExpBits(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeBits
+    }
+    class RandomExpUInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeUInt
+    }
+    class RandomExpSInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeSInt
+    }
+
     abstract class Past(val delay : Int) extends UnaryOperator
 
     class PastBool(delay : Int) extends Past(delay) {

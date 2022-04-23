@@ -20,6 +20,7 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.Operator.Formal
 import spinal.core.internals._
 import spinal.idslplugin.Location
 
@@ -280,6 +281,8 @@ class Bool extends BaseType with DataPrimitives[Bool]  with BaseTypePrimitives[B
   def init(value : Boolean) : Bool = this.init(Bool(value))
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBool(delay))
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBool(kind))
 }
 
 /**

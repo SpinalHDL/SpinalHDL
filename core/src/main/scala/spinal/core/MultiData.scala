@@ -20,6 +20,8 @@
 \*                                                                           */
 package spinal.core
 
+import spinal.core.internals.Operator
+
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.Seq
 
@@ -244,4 +246,6 @@ abstract class MultiData extends Data {
     }
     rec
   }
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = elements.foreach(_._2.assignFormalRandom(kind))
 }

@@ -2,6 +2,8 @@ package spinal.core
 
 import spinal.core.internals.Operator
 
+
+
 object Formal {
 
   //that.formalPast(delay) replacement
@@ -24,6 +26,23 @@ object Formal {
     val ret = Bool()
     ret.assignFrom(new Operator.Formal.InitState)
     ret
+  }
+
+  def anyseq[T <: Data](that : T) : T = {
+    that.assignFormalRandom(Operator.Formal.RANDOM_ANY_SEQ)
+    that
+  }
+  def anyconst[T <: Data](that : T) : T = {
+    that.assignFormalRandom(Operator.Formal.RANDOM_ANY_CONST)
+    that
+  }
+  def allseq[T <: Data](that : T) : T = {
+    that.assignFormalRandom(Operator.Formal.RANDOM_ALL_SEQ)
+    that
+  }
+  def allconst[T <: Data](that : T) : T = {
+    that.assignFormalRandom(Operator.Formal.RANDOM_ALL_CONST)
+    that
   }
 
 //  def past[T <: Data](that : T, delay : Int) : T = that.formalPast(delay)
