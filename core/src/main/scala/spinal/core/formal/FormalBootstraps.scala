@@ -210,6 +210,7 @@ case class SpinalFormalConfig(
     new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
 
     val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
+    val preparedRTLs = new ArrayBuffer[String]()
 //    val rtlPath = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
       val src = new File(srcPath)
@@ -237,6 +238,7 @@ case class SpinalFormalConfig(
 
       val dst = new File(rtlDir.getAbsolutePath + "/" + src.getName)
       FileUtils.copyFileToDirectory(src, rtlDir)
+      preparedRTLs.append(dst.toString)
     }
 
     _backend match {
@@ -252,7 +254,7 @@ case class SpinalFormalConfig(
           keepDebugInfo = _keepDebugInfo,
           multiClock = _hasAsync
         )
-        vConfig.rtlSourcesPaths ++= report.rtlSourcesPaths
+        vConfig.rtlSourcesPaths ++= preparedRTLs
         vConfig.rtlIncludeDirs ++= report.rtlIncludeDirs
         if (_engines.nonEmpty)
           vConfig.engines = _engines.map(x =>
