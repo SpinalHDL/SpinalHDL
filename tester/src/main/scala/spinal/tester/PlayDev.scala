@@ -1678,3 +1678,67 @@ object PlayFormal2 extends App {
       // assert((!reset && inc) |=> dut.value === past(dut.value) + dut.interval)
     })
 }
+
+object PlayFormalFifo extends App {
+  import spinal.core.GenerationFlags._
+  import spinal.core.Formal._
+
+  FormalConfig
+    .withProve(10)
+    .doVerify(new Component {
+      val dut = StreamFifo(UInt(7 bits), 4)
+      val reset = ClockDomain.current.isResetActive
+
+      assumeInitial(reset)
+
+      val inValue = anyseq(UInt(7 bits))
+      val inValid = anyseq(Bool())
+      val outReady = anyseq(Bool())
+      dut.io.push.payload := inValue
+      dut.io.push.valid := inValid
+      dut.io.pop.ready := outReady
+      // assume no inc while reset. here it is not reasonable.
+      when(reset || past(reset)){
+        assume(inValid === False)
+      }
+
+      when(inValid) {
+        assume(stable(inValue))
+      }
+
+      when(past(dut.io.pop.valid && !dut.io.pop.fire)) {
+        assert(stable(dut.io.pop.payload))
+      }
+
+      val d1 = anyconst(UInt(7 bits))
+      val d2 = anyconst(UInt(7 bits))
+
+      val d1_in = CombInit(False)
+      when(dut.io.push.valid && dut.io.push.payload === d1) {
+        d1_in := True
+      }
+
+      val d2_in = CombInit(False)
+      when(dut.io.push.valid && dut.io.push.payload === d2) {
+        d2_in := True
+      }
+
+      val d1_out = CombInit(False)
+      when(dut.io.pop.valid && dut.io.pop.payload === d1) {
+        d1_out := True
+      }
+
+      val d2_out = CombInit(False)
+      when(dut.io.pop.valid && dut.io.pop.payload === d2) {
+        d2_out := True
+      }
+
+      when(d2_in) {
+        assume(d1_in === True)
+      }
+
+      when(d2_out && d2_in) {
+        assert(d1_out === True)
+      }
+    })
+}
