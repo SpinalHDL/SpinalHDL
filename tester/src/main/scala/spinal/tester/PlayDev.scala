@@ -1697,12 +1697,12 @@ object PlayFormalFifo extends App {
       dut.io.push.payload := inValue
       dut.io.push.valid := inValid
       dut.io.pop.ready := outReady
-      // assume no inc while reset. here it is not reasonable.
+      // assume no valid while reset and one clock later.
       when(reset || past(reset)){
         assume(inValid === False)
       }
 
-      when(inValid) {
+      when(past(dut.io.push.valid && !dut.io.push.fire)) {
         assume(stable(inValue))
       }
 
@@ -1711,26 +1711,33 @@ object PlayFormalFifo extends App {
       }
 
       val d1 = anyconst(UInt(7 bits))
+      val d1_in = RegInit(False)
+      when(dut.io.push.fire && dut.io.push.payload === d1) {
+        assume(d1_in === True)
+      }
+
+      val d1_out = RegInit(False)
+      when(dut.io.pop.fire && dut.io.pop.payload === d1) {
+        assume(d1_out === True)
+      }
+
+      when(d1_out) {
+        assert(d1_in === True)
+      }
+
       val d2 = anyconst(UInt(7 bits))
-
-      val d1_in = CombInit(False)
-      when(dut.io.push.valid && dut.io.push.payload === d1) {
-        d1_in := True
+      val d2_in = RegInit(False)
+      when(dut.io.push.fire && dut.io.push.payload === d2) {
+        assume(d2_in === True)
       }
 
-      val d2_in = CombInit(False)
-      when(dut.io.push.valid && dut.io.push.payload === d2) {
-        d2_in := True
-      }
+      val d2_out = RegInit(False)
+      when(d2_in && dut.io.pop.fire && dut.io.pop.payload === d2) {
+        assume(d2_out === True)
+      }     
 
-      val d1_out = CombInit(False)
-      when(dut.io.pop.valid && dut.io.pop.payload === d1) {
-        d1_out := True
-      }
-
-      val d2_out = CombInit(False)
-      when(dut.io.pop.valid && dut.io.pop.payload === d2) {
-        d2_out := True
+      when(d2_out) {
+        assert(d2_in === True)
       }
 
       when(d2_in) {
