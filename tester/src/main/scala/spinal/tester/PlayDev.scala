@@ -1668,11 +1668,13 @@ object PlayFormal2 extends App {
         assert(stable(dut.value))
       }
 
-      when(!past(reset) && past(inc)) { // This fix the problem that could fail when reset and inc comes at the same time.
+      when(past(!reset && inc)) { // This fix the problem that could fail when reset and inc comes at the same time.
         assert(changed(dut.value))
         assert(
-          dut.value === past(dut.counter.pull) + dut.interval
+          dut.value === past(dut.value) + dut.interval
         )
-      }
+      } 
+      // assert((!reset && inc) |=> changed(dut.value))
+      // assert((!reset && inc) |=> dut.value === past(dut.value) + dut.interval)
     })
 }
