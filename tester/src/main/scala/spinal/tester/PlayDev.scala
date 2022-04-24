@@ -1702,23 +1702,23 @@ object PlayFormalFifo extends App {
         assume(inValid === False)
       }
 
-      when(past(dut.io.push.valid && !dut.io.push.fire)) {
-        assume(stable(inValue))
-      }
-
-      when(past(dut.io.pop.valid && !dut.io.pop.fire)) {
-        assert(stable(dut.io.pop.payload))
-      }
+      // val d1_in = RegInit(False)
+      // when(dut.io.push.fire && dut.io.push.payload === d1) {
+      //   assume(d1_in === True)
+      // }
+      dut.io.push.formalHold()
+      dut.io.pop.formalHold()
 
       val d1 = anyconst(UInt(7 bits))
-      val d1_in = RegInit(False)
-      when(dut.io.push.fire && dut.io.push.payload === d1) {
-        assume(d1_in === True)
-      }
-
-      val d1_out = RegInit(False)
-      when(dut.io.pop.fire && dut.io.pop.payload === d1) {
-        assume(d1_out === True)
+      // val d1_in = RegInit(False)
+      // when(dut.io.push.fire && dut.io.push.payload === d1) {
+      //   assume(d1_in === True)
+      // }
+      val d1_in = dut.io.push.formalCreateEvent{x => 
+        x.fire && x.payload===d1
+      }     
+      val d1_out = dut.io.pop.formalCreateEvent{x => 
+        x.fire && x.payload===d1
       }
 
       when(d1_out) {
@@ -1726,15 +1726,12 @@ object PlayFormalFifo extends App {
       }
 
       val d2 = anyconst(UInt(7 bits))
-      val d2_in = RegInit(False)
-      when(dut.io.push.fire && dut.io.push.payload === d2) {
-        assume(d2_in === True)
+      val d2_in = dut.io.push.formalCreateEvent{x => 
+        x.fire && x.payload===d2
       }
-
-      val d2_out = RegInit(False)
-      when(d2_in && dut.io.pop.fire && dut.io.pop.payload === d2) {
-        assume(d2_out === True)
-      }     
+      val d2_out = dut.io.pop.formalCreateEvent{x => 
+        x.fire && x.payload===d2
+      }
 
       when(d2_out) {
         assert(d2_in === True)
