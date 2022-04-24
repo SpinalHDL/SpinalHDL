@@ -35,7 +35,25 @@ trait BusIf extends BusIfBase {
   def getModuleName: String
   val regPre: String
 
-  def checkLastNA: Unit = RegInsts.foreach(_.checkLast)
+  private def checkLastNA(): Unit = RegInsts.foreach(_.checkLast)
+  private def regNameUpdate(): Unit = {
+    val words = "\\w*".r
+    val pre = regPre match{
+      case "" => ""
+      case words(_*) => regPre + "_"
+      case _ => SpinalError(s"${regPre} should be Valid naming : '[A-Za-z0-9_]+'")
+    }
+    RegInsts.foreach(t => t.setName(s"${pre}${t.getName()}"))
+  }
+
+  private var isChecked: Boolean = false
+  def preCheck(): Unit = {
+    if(!isChecked){
+      checkLastNA()
+      regNameUpdate()
+      isChecked = true
+    }
+  }
 
   component.addPrePopTask(() => {
     readGenerator()
@@ -212,7 +230,7 @@ trait BusIf extends BusIfBase {
   }
 
   def accept(vs : BusIfVisitor) = {
-    checkLastNA
+    preCheck()
 
     vs.begin(busDataWidth)
 
