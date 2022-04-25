@@ -21,8 +21,8 @@
 package spinal.core.internals
 
 import java.io.File
-
 import spinal.core._
+import spinal.core.internals.Operator.Formal
 import spinal.core.sim.{SimPublic, TracingOff}
 
 import scala.collection.mutable
@@ -1671,11 +1671,20 @@ end
     case e : Operator.Formal.Changed                  => s"!$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.Stable                   => s"$$stable(${emitExpression(e.source)})"
     case e : Operator.Formal.InitState                => s"$$initstate()"
-    case e : Operator.Formal.RandomExp                => e.kind match {
-      case Operator.Formal.RANDOM_ANY_SEQ   => "$anyseq"
-      case Operator.Formal.RANDOM_ANY_CONST => "$anyconst"
-      case Operator.Formal.RANDOM_ALL_SEQ   => "$allseq"
-      case Operator.Formal.RANDOM_ALL_CONST => "$allconst"
+    case e : Operator.Formal.RandomExp                => {
+      val prefix = e.kind match {
+        case Operator.Formal.RANDOM_ANY_SEQ   => "$anyseq"
+        case Operator.Formal.RANDOM_ANY_CONST => "$anyconst"
+        case Operator.Formal.RANDOM_ALL_SEQ   => "$allseq"
+        case Operator.Formal.RANDOM_ALL_CONST => "$allconst"
+      }
+      val width = e match {
+        case vector: Formal.RandomExpBitVector => vector.getWidth
+        case bool: Formal.RandomExpBool => 1
+        case enum: Formal.RandomExpEnum => enum.encoding.getWidth(enum.getDefinition)
+        case _ => ???
+      }
+      s"$prefix($width)"
     }
   }
 
