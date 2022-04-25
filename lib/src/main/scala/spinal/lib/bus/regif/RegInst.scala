@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable.ListBuffer
+import AccessType._
 
 class Section(val max: Int, val min: Int){
   override def toString(): String = {
@@ -41,21 +42,29 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends Ram
   // RamDescr implementation
   def getName()        : String = name
   def getDoc()         : String = ""
+
 }
 
 class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
 
   // FifoDescr implementation
-  def getName()        : String = name
   def getAddr()        : Long   = addr
   def getDoc()         : String = doc
-
+  def setName(name: String): FIFOInst = {
+    _name = name
+    this
+  }
   def accept(vs : BusIfVisitor) = {
       vs.visit(this)
   }
 }
 
 case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
+  def setName(name: String): RegInst = {
+    _name = name
+    this
+  }
+
   def checkLast={
     val spareNumbers = if(fields.isEmpty) busif.busDataWidth else busif.busDataWidth-1 - fields.last.tailBitPos
     spareNumbers match {
@@ -70,7 +79,33 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     fields.map(_.accType == AccessType.NA).foldLeft(true)(_&&_)
   }
 
-  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue = 0, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue = 0, doc = doc)
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = fieldAt(pos, bt, acc, resetValue, doc = "")
+  def fieldAt[T <: BaseType](pos: Int, bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val sectionNext: Section = pos + bt.getBitsWidth-1 downto pos
+    val sectionExists: Section = fieldPtr downto 0
+    val ret = pos match {
+      case x if x < fieldPtr => SpinalError(s"field Start Point ${x} conflict to allocated Section ${sectionExists}")
+      case _ if sectionNext.max >= busif.busDataWidth => SpinalError(s"Range ${sectionNext} exceed Bus width ${busif.busDataWidth}")
+      case x if (x == fieldPtr) => field(bt, acc, resetValue, doc)
+      case _ => {
+        field(Bits(pos - fieldPtr bit), AccessType.NA)(SymbolName("reserved"))
+        field(bt, acc, resetValue, doc)
+      }
+    }
+    fieldPtr = pos + bt.getBitsWidth
+    ret
+  }
+
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = "")(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue = 0, doc = doc)(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = fieldAt(pos, bc, acc, resetValue, doc = "")(symbol)
+  @deprecated(message = "fieldAt(pos, Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def fieldAt(pos: Int, bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val sectionNext: Section = pos+bc.value-1 downto pos
     val sectionExists: Section = fieldPtr downto 0
     val ret = pos match {
@@ -86,7 +121,27 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
     ret
   }
 
-  def field(bc: BitCount, acc: AccessType, resetValue:Long = 0, doc: String = "")(implicit symbol: SymbolName): Bits = {
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = "")
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, doc: String)(implicit symbol: SymbolName): T = field(bt, acc, resetValue = 0, doc = doc)
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, resetValue:Long)(implicit symbol: SymbolName): T = field(bt, acc, resetValue, doc = "")
+  def field[T <: BaseType](bt: HardType[T], acc: AccessType, resetValue:Long , doc: String)(implicit symbol: SymbolName): T = {
+    val regfield = bt()
+    val ret = field(bt.getBitsWidth bit, acc, resetValue, doc)(symbol)
+    acc match {
+      case AccessType.RO => ret := regfield.asBits
+      case _ => regfield.assignFromBits(ret)
+    }
+    regfield
+  }
+
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def field(bc: BitCount, acc: AccessType)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = "")(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def field(bc: BitCount, acc: AccessType, doc: String)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue = 0, doc = doc)(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def field(bc: BitCount, acc: AccessType, resetValue: Long)(implicit symbol: SymbolName): Bits = field(bc, acc, resetValue, doc = "")(symbol)
+  @deprecated(message = "field(Bits/UInt/SInt(n bit)/Bool, acc) recommend", since = "2022-12-31")
+  def field(bc: BitCount, acc: AccessType, resetValue: Long, doc: String)(implicit symbol: SymbolName): Bits = {
     val section: Range = fieldPtr+bc.value-1 downto fieldPtr
     val ret: Bits = acc match {
       case AccessType.RO    => RO(bc)                       //- W: no effect, R: no effect
@@ -136,7 +191,6 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   }
 
   // RegDescr implementation
-  def getName()        : String           = name
   def getAddr()        : Long             = addr
   def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
@@ -157,7 +211,10 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
         counts(name) = 0
         name
       }
-      fd.copy(name = newname)
+      if(name != "--") {//dont touch RESERVED name
+        fd.setName(newname)
+      }
+      fd
     }
     fields.clear()
     fields ++= ret
@@ -165,9 +222,13 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
 }
 
 abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
+  protected var _name = name
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0
   protected var Rerror: Boolean = false
+
+  def getName(): String = _name
+  def setName(name: String): RegBase
 
   def readErrorTag = Rerror
   def getFields = fields.toList
@@ -193,6 +254,8 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     event
   }
 
+  protected def _RO[T <: BaseType](hardType: HardType[T]): T = hardType()
+
   protected def RO(bc: BitCount): Bits = Bits(bc)
 
   protected def W1(bc: BitCount, section: Range, resetValue: Long ): Bits ={
@@ -201,6 +264,14 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
     when(hitDoWrite && hardRestFirstFlag){
       ret := busif.writeData(section)
       hardRestFirstFlag.clear()
+    }
+    ret
+  }
+
+  protected def _W[T <: BaseType](hardType: HardType[T], section: Range, resetValue: Long ): T ={
+    val ret = Reg(hardType()) init resetValue.asInstanceOf[T]
+    when(hitDoWrite){
+      ret.assignFromBits(busif.writeData(section))
     }
     ret
   }

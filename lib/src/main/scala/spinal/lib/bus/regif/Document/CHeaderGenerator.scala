@@ -1,4 +1,4 @@
-package spinal.lib.bus.regif.Document
+package spinal.lib.bus.regif
 
 import spinal.core.{GlobalData, SpinalError}
 import spinal.lib.bus.regif._
@@ -46,7 +46,7 @@ final case class CHeaderGenerator(
     
     def end() : Unit = {
         val pc = GlobalData.get.phaseContext
-        val targetPath = s"${pc.config.targetDirectory}/${fileName}"
+        val targetPath = s"${pc.config.targetDirectory}/${fileName}.h"
         val pw = new PrintWriter(targetPath)
 
         pw.write(
@@ -60,7 +60,7 @@ final case class CHeaderGenerator(
                 |""".stripMargin)
         
         for(reg <- regs) {
-            pw.write(s"#define ${prefix.toUpperCase()}_${reg.getName.toUpperCase()} ")
+            pw.write(s"#define ${reg.getName.toUpperCase()} ")
             pw.write(" " * (regLength - reg.getName.length))
             pw.write("0x")
             pw.print(reg.getAddr.formatted(s"%0${4}x"))
@@ -92,7 +92,7 @@ final case class CHeaderGenerator(
             })
 
             pw.println("\t} reg;")
-            pw.println(s"} ${prefix.toLowerCase}_${t.name.toLowerCase()}_t;\n")
+            pw.println(s"} ${t.name.toLowerCase()}_t;\n")
         }
         
         pw.write(s"#endif /* ${guardName} */")
