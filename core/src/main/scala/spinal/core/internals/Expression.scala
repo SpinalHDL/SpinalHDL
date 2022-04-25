@@ -339,6 +339,11 @@ object Operator {
     class RandomExpSInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
       override def getTypeObject = TypeSInt
     }
+    class RandomExpEnum(enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
+      override def getTypeObject = TypeEnum
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+    }
 
     abstract class Past(val delay : Int) extends UnaryOperator
 

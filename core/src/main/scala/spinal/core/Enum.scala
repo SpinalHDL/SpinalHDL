@@ -227,7 +227,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T) extends BaseType with 
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastEnum(this.spinalEnum, delay))
 
-  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) : Unit = ???
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpEnum(this.spinalEnum, kind))
 }
 
 
