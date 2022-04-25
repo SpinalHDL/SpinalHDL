@@ -63,14 +63,3 @@ class SpinalSimPhaseTester extends SpinalSimFunSuite{
     }
   }
 }
-
-
-
-
-
-//        fork{
-//          while(true) {
-//            dut.io.pop.ready #= Random.nextDouble() < 0.1
-//            dut.clockDomain.waitSampling()
-//          }
-//        }

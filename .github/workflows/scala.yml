@@ -34,6 +34,15 @@ jobs:
           ~/.sbt
         key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}
 
+    ##############################################
+
+    - name: Setup env
+      run: |
+        echo "$HOME/fpga-toolchain/bin" >> $GITHUB_PATH
+        echo "$HOME/tools/bin" >> $GITHUB_PATH
+
+    ##############################################
+
     - name: Cache tools
       id: tools
       uses: actions/cache@v2
@@ -42,15 +51,30 @@ jobs:
           ~/tools
         key: ${{ runner.os }}-tools_v3
 
-    - name: Setup env
-      run: echo "$HOME/tools/bin" >> $GITHUB_PATH
-
     - name: Install cached tools
       if: steps.tools.outputs.cache-hit != 'true'
       run: source tools.sh && install_packages && (cd ~/ && install_tools) && purge_cocotb
 
+    ##############################################
+
+    - name: Cache fpga_toolchain
+      id: fpga_toolchain
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/fpga-toolchain
+        key: ${{ runner.os }}-fpga_toolchain_v2
+
+    - name: Install fpga_toolchain
+      if: steps.fpga_toolchain.outputs.cache-hit != 'true'
+      run: source tools.sh && (cd ~/ && install_fpga_toolchain)
+
+    ##############################################
+
     - name: Install uncached tools
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
+
+    ##############################################
 
     - name: Compile tests
       run: sbt "+test:compile"

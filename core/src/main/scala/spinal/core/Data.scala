@@ -704,6 +704,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   }
 
 //  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
+
+  def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
 }
 
 trait DataWrapper extends Data{

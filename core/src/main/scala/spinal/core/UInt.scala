@@ -433,6 +433,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     def <=(that: UInt): Bool = { checkBits(that); val result = _data - that; result === 0 || result.msb }
     def >(that: UInt): Bool = { checkBits(that); !(<=(that)) }
   }
+
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpUInt(kind, widthOf(this)))
 }
 
 
