@@ -72,19 +72,22 @@ class ComponentEmitterVhdl(
 
 
     ret ++= s"\nentity ${c.definitionName} is\n"
-    ret ++= s"  port("
-    var first = true
 
-    for(portMap <- portMaps){
-      if(first){
-        ret ++= s"\n    $portMap"
-        first = false
-      } else {
-        ret ++= s";\n    $portMap"
+    if (portMaps.length > 0) {
+      ret ++= s"  port("
+      var first = true
+
+      for (portMap <- portMaps) {
+        if (first) {
+          ret ++= s"\n    $portMap"
+          first = false
+        } else {
+          ret ++= s";\n    $portMap"
+        }
       }
-    }
 
-    ret ++= "\n  );\n"
+      ret ++= "\n  );\n"
+    }
 
     ret ++= s"end ${c.definitionName};\n"
     ret ++= s"\n"
