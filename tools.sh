@@ -55,6 +55,12 @@ install_packages(){
   sudo apt install -y gnat-9  libgnat-9 zlib1g-dev libboost-dev
 }
 
+install_fpga_toolchain(){
+  wget https://github.com/YosysHQ/fpga-toolchain/releases/download/nightly-20211006/fpga-toolchain-linux_x86_64-nightly-20211006.tar.xz
+  tar -xf fpga-toolchain-linux_x86_64-nightly-20211006.tar.xz
+  ls ~/fpga-toolchain
+}
+
 install_tools(){
   install_verilator
   install_ghdl
