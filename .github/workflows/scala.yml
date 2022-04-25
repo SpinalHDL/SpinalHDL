@@ -74,12 +74,13 @@ jobs:
     - name: Install uncached tools
       run: source tools.sh && install_packages && (cd ~/ && install_cocotb) && purge_cocotb
 
+    ##############################################
 
     - name: Formal temp
       run: sbt "testOnly *SpinalPhaseVerifier*"
 
-    #- name: Compile tests
-#      run: sbt "+test:compile"
+    - name: Compile tests
+      run: sbt "+test:compile"
 
- #   - name: Run tests
-#      run: sbt "++2.11.12; test"
+    - name: Run tests
+      run: sbt "++2.11.12; test"
