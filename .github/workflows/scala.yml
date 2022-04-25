@@ -62,8 +62,8 @@ jobs:
       uses: actions/cache@v2
       with:
         path: |
-          ~/tools
-        key: ${{ runner.os }}-fpga_toolchain_v1
+          ~/fpga-toolchain
+        key: ${{ runner.os }}-fpga_toolchain_v2
 
     - name: Install fpga_toolchain
       if: steps.fpga_toolchain.outputs.cache-hit != 'true'
