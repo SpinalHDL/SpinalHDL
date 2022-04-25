@@ -532,8 +532,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   def formalHold(): Unit = {
     import spinal.core.Formal._
     when(past(this.valid && !this.fire)) {
-      if(valid.getDirection == in) assume(stable(this.payload.asBits))
-      if(valid.getDirection == out) assert(stable(this.payload.asBits))
+      if(valid.getDirection == in) assume(stable(this.payload))
+      if(valid.getDirection == out) assert(stable(this.payload))
     }
   }
 

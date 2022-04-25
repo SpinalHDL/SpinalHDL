@@ -20,8 +20,8 @@ object Formal {
 
   def rose(that : Bool) : Bool = that.rise(True)
   def fell(that : Bool) : Bool = that.fall(False)
-  def changed[T <: BaseType](that : T, init : T = null) : Bool = RegNext(that, init = init) =/= that
-  def stable[T <: BaseType](that : T, init : T = null) : Bool = RegNext(that, init = init) === that
+  def changed[T <: Data](that : T, init : T = null.asInstanceOf[T]) : Bool = RegNext(that, init = init) =/= that
+  def stable[T <: Data](that : T, init : T = null.asInstanceOf[T]) : Bool = RegNext(that, init = init) === that
   def initstate() : Bool = {
     val ret = Bool()
     ret.assignFrom(new Operator.Formal.InitState)
