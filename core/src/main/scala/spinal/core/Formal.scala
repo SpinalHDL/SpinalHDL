@@ -7,19 +7,16 @@ import spinal.core.internals.Operator
 object Formal {
 
   //that.formalPast(delay) replacement
-  def past[T <: Data](that : T, delay : Int, action: (Int, T) => Unit = null) : T = {
+  def past[T <: Data](that : T, delay : Int) : T = {
     require(delay >= 0,"Negative cycleCount is not allowed in Delay")
     var ptr = that
     for(i <- 0 until delay) {
       ptr = RegNext(ptr)
       ptr.unsetName().setCompositeName(that, "past_" + (i + 1), true)
-      if(action != null) action(i, ptr)
-      ptr
     }
     ptr
   }
   def past[T <: Data](that : T) : T = past(that, 1)
-  def pastWithActions[T <: Data](that : T, delay : Int)(action: (Int, T) => Unit) : T = past(that, delay, action)
 
   def rose(that : Bool) : Bool = that.rise(True)
   def fell(that : Bool) : Bool = that.fall(False)
