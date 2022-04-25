@@ -58,8 +58,8 @@ jobs:
           ~/tools
         key: ${{ runner.os }}-fpga_toolchain_v1
 
-    - name: Setup env fpga_toolchain
-      run: echo "$HOME/fpga-toolchain/bin" >> $GITHUB_PATH
+#    - name: Setup env fpga_toolchain
+#      run: echo "$HOME/fpga-toolchain/bin" >> $GITHUB_PATH
 
     - name: Install fpga_toolchain
       if: steps.fpga_toolchain.outputs.cache-hit != 'true'
