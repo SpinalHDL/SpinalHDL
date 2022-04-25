@@ -64,9 +64,52 @@ class SpinalSimPhaseTester extends SpinalSimFunSuite{
   }
 }
 
+class SpinalPhaseVerifier extends SpinalFormalFunSuite {
+  test("fifo_order") {    
+    // import spinal.core._
+    import spinal.core.formal._
+    import spinal.core.GenerationFlags._
+    import spinal.core.Formal._
 
+    FormalConfig
+      .withProve(10)
+      .doVerify(new Component {
+        val dut = StreamFifo(UInt(7 bits), 4)
+        val reset = ClockDomain.current.isResetActive
 
+        assumeInitial(reset)
 
+        val inValue = anyseq(UInt(7 bits))
+        val inValid = anyseq(Bool())
+        val outReady = anyseq(Bool())
+        dut.io.push.payload := inValue
+        dut.io.push.valid := inValid
+        dut.io.pop.ready := outReady
+
+        // assume no valid while reset and one clock later.
+        when(reset || past(reset)) {
+          assume(inValid === False)
+        }
+
+        dut.io.push.formalHold()
+        dut.io.pop.formalHold()
+
+        val d1 = anyconst(UInt(7 bits))
+        val d1_in = dut.io.push.formalCreateEvent { x => x.fire && x.payload === d1 }
+        val d1_out = dut.io.pop.formalCreateEvent { x => x.fire && x.payload === d1 }
+        when(d1_out) { assert(d1_in === True) }
+
+        val d2 = anyconst(UInt(7 bits))
+        val d2_in = dut.io.push.formalCreateEvent { x => x.fire && x.payload === d2 }
+        val d2_out = dut.io.pop.formalCreateEvent { x => x.fire && x.payload === d2 }
+        when(d2_out) { assert(d2_in === True) }
+
+        assume(d1 =/= d2)
+        when(d2_in) { assume(d1_in === True) }
+        when(d2_out && d2_in) { assert(d1_out === True) }
+      })
+  }
+}
 
 //        fork{
 //          while(true) {
