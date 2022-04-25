@@ -76,9 +76,6 @@ jobs:
 
     ##############################################
 
-    - name: Formal temp
-      run: sbt "testOnly *SpinalPhaseVerifier*"
-
     - name: Compile tests
       run: sbt "+test:compile"
 
