@@ -61,13 +61,6 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
     dut.clockDomain.forkStimulus(10)
     SimTimeout(1000000L)
 
-    // Burst in some data
-//    for (_ <- 0 until 100) {
-//      dut.io.axis_s.payload.randomize()
-//      dut.io.axis_s.valid.randomize()
-//      dut.clockDomain.waitSampling(2)
-//    }
-
     val scoreboard = ScoreboardInOrder[Seq[Axi4CheckByte]]()
 
     val INPUT_BEATS = 100
@@ -75,7 +68,6 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
     var lastBeat = false
     var lastBeatDone = false
 
-//    fork {
       StreamDriver(dut.io.axis_s, dut.clockDomain)(p => {
         if (lastBeat) {
           p.last #= true
@@ -85,7 +77,6 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
           !lastBeatDone
         }
       })
-//    }
 
     def copyCheckByte(axisBundle: Axi4StreamBundle, idx: Int): Axi4CheckByte = {
       val data = (axisBundle.data.toBigInt >> 8*idx) & BigInt(0xFF)
@@ -133,22 +124,16 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
       })
     }
 
-//    fork {
       streamByteTransactionMonitor(dut.io.axis_s, dut.clockDomain)(txn => {
         scoreboard.pushRef(txn)
       })
-//    }
 
-//    fork {
       streamByteTransactionMonitor(dut.io.axis_m, dut.clockDomain)(txn => {
         scoreboard.pushDut(txn)
         scoreboard.check()
       })
-//    }
 
-//    fork {
       StreamReadyRandomizer(dut.io.axis_m, dut.clockDomain)
-//    }
 
     while(!lastBeatDone) {
       dut.clockDomain.waitSampling()
