@@ -1,7 +1,9 @@
 package spinal.lib
 
 import spinal.core._
+import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+
 import scala.collection.Seq
 
 trait StreamPipe {
@@ -510,32 +512,29 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    * Assert that this stream conforms to the stream semantics:
    * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
    * - After being asserted, valid may only be deasserted once the current payload was acknowleged.
-   * 
+   *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
-  def withAsserts(payloadInvariance: Boolean = false): this.type = {
-    val rValid = RegInit(False) setWhen(this.valid) clearWhen(this.fire)
-    val rData = RegNextWhen(this.payload, this.valid && !rValid)
-
+  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
+    import spinal.core.Formal._
     val stack = ScalaLocated.long
-    assert(!(!this.valid && rValid), "Stream transaction disappeared:\n" + stack)
-    if (payloadInvariance) {
-      assert(
-        !rValid || rData === this.payload,
-        "Stream transaction payload changed:\n" + stack
-      )
+    when(past(this.isStall) init(False)) {
+      assert(this.valid,  "Stream transaction disappeared:\n" + stack)
+      if(payloadInvariance) assert(stable(this.payload), "Stream transaction payload changed:\n" + stack)
     }
-
     this
   }
 
-  def formalHold(): Unit = {
+  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location): this.type  = {
     import spinal.core.Formal._
-    when(past(this.valid && !this.fire)) {
-      if(valid.getDirection == in) assume(stable(this.payload))
-      if(valid.getDirection == out) assert(stable(this.payload))
+    when(past(this.isStall) init (False)) {
+      assume(this.valid)
+      if(payloadInvariance) assume(stable(this.payload))
     }
+    this
   }
+
+
 
   // this could be more generic.
   def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {

@@ -1706,8 +1706,8 @@ object PlayFormalFifo extends App {
       // when(dut.io.push.fire && dut.io.push.payload === d1) {
       //   assume(d1_in === True)
       // }
-      dut.io.push.formalHold()
-      dut.io.pop.formalHold()
+      dut.io.push.withAssumes()
+      dut.io.pop.withAsserts()
 
       val d1 = anyconst(UInt(7 bits))
       // val d1_in = RegInit(False)
@@ -1745,4 +1745,19 @@ object PlayFormalFifo extends App {
         assert(d1_out === True)
       }
     })
+}
+
+
+object PlayFormalDev extends App {
+  import spinal.core.Formal._
+
+  FormalConfig.withBMC(10).doVerify(new Component {
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    val stream = Stream(UInt(8 bits))
+    anyseq(stream)
+    stream.withAssumes(payloadInvariance = false)
+    stream.withAsserts()
+    cover(False)
+  })
 }
