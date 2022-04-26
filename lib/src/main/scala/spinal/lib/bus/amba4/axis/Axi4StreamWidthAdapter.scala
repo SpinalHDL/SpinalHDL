@@ -14,9 +14,22 @@ object Axi4StreamWidthAdapter {
   }
 }
 
+/**
+ * Adapts the width of a sparse Axi4Stream. Input and output configurations should be direct assignment compatible.
+ * @param inConfig The input stream configuration
+ * @param outConfig The output stream configuration
+ */
 class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamConfig) extends Component {
   assert(inConfig.useKeep, "Axi4Stream condenser input config needs keeps (useKeep) enabled")
   assert(outConfig.useKeep, "Axi4Stream condenser input config needs keeps (useKeep) enabled")
+
+  /*
+   * TODO list of possible optimizations:
+   * - Convert sliding window bitvector slices into mux trees
+   *    This should hint to the synthesizer to use hardware muxes such as in Xilinx parts (F7, F8) when more optimal
+   * - Rework logic relying on both buffer keep bits AND numeric fill level
+   *    These values are redundant to simplify logic but they must stay in perfect sync. Removing one might be more resilient?
+   */
 
   val io = new Bundle {
     val axis_s = slave(Axi4Stream(inConfig))
