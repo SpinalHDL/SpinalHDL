@@ -9,7 +9,7 @@ import spinal.lib.bus.amba4.axis._
 import spinal.lib.sim.{ScoreboardInOrder, StreamDriver, StreamMonitor, StreamReadyRandomizer}
 
 import scala.BigInt
-import scala.collection.mutable
+import scala.collection.mutable.ListBuffer
 
 case class Axi4StreamWidthAdapterFixture(inSize: Int, outSize: Int) extends Component {
   var inputConfig = Axi4StreamConfig(dataWidth = inSize,
@@ -93,7 +93,7 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
     }
 
     def streamByteTransactionMonitor(stream: Axi4Stream, clockDomain: ClockDomain)(callback: (Seq[Axi4CheckByte]) => Unit) = {
-      var currentTransaction = mutable.MutableList[Axi4CheckByte]()
+      var currentTransaction = ListBuffer[Axi4CheckByte]()
 
       StreamMonitor(stream, clockDomain)(p => {
         // Test flow control
@@ -118,8 +118,8 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
           }
         }
         if (p.last.toBoolean) {
-          callback(currentTransaction)
-          currentTransaction = new mutable.MutableList[Axi4CheckByte]()
+          callback(currentTransaction.toList)
+          currentTransaction = new ListBuffer[Axi4CheckByte]()
         }
       })
     }
