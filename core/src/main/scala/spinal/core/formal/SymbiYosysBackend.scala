@@ -1,11 +1,12 @@
 package spinal.core.formal
 
-import java.io.{File, PrintWriter, BufferedInputStream, FileInputStream, FileFilter}
+import java.io.{BufferedInputStream, File, FileFilter, FileInputStream, PrintWriter}
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
 import org.apache.commons.io.FileUtils
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.io.Source
 import sys.process._
 
 class SpinalSbyException extends Exception {}
@@ -158,10 +159,33 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     println(f"[Progress] Start ${config.toplevelName} formal verification with $name.")
     val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
     val command = if (isWindows) "sby.exe" else "sby"
-    assert(
-      Process(Seq(command, "-f", sbyFilePath), new File(workspacePath)).!(new Logger()) == 0,
-      "SymbiYosys invocation failed"
-    )
+    val success = Process(Seq(command, "-f", sbyFilePath), new File(workspacePath)).!(new Logger()) == 0
+    if(!success){
+      val logFileName = config.modesWithDepths.head._1 match {
+        case "bmc" => "logfile.txt"
+        case "prove" => "logfile_basecase.txt"
+        case "cover" => "logfile.txt"
+      }
+      val logFile = new File(workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0/$logFileName")
+      if(logFile.exists()){
+        val pattern = """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
+        for (line <- Source.fromFile(logFile).getLines) {
+          println(line)
+          if(line.contains("Assert failed in") || line.contains("Unreached cover statement")){
+            pattern.findFirstMatchIn(line) match {
+              case Some(x) => {
+                val sourceName = x.group(1)
+                val assertLine = x.group(2).toInt
+                val source = Source.fromFile(workspacePath + "/rtl/"+sourceName).getLines.drop(assertLine)
+                println("--   " + source.next().dropWhile(_ == ' '))
+              }
+              case None =>
+            }
+          }
+        }
+      }
+      throw new Exception("SymbiYosys failure")
+    }
     if (!config.keepDebugInfo) clean()
   }
 
