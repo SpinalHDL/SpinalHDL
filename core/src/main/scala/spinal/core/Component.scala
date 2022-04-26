@@ -75,6 +75,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   }
 
+  var withVitalOutputs = false
+  def asFormalDut() : this.type = {
+    withVitalOutputs = true
+    this
+  }
 
   def isLogicLess = dslBody.isEmpty && children.isEmpty
 

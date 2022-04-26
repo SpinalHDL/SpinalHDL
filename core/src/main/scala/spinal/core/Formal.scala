@@ -3,7 +3,9 @@ package spinal.core
 import spinal.core.internals.Operator
 
 
-
+object FormalDut{
+  def apply[T <: Component](dut : T) = dut.asFormalDut()
+}
 object Formal {
 
   //that.formalPast(delay) replacement
@@ -44,6 +46,7 @@ object Formal {
     that.assignFormalRandom(Operator.Formal.RANDOM_ALL_CONST)
     that
   }
+
 
 //  def past[T <: Data](that : T, delay : Int) : T = that.formalPast(delay)
 //  def rose(that : Bool) : Bool = that.wrapUnaryOperator(new Operator.Formal.Rose)
