@@ -1835,6 +1835,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
 
     //Check hierarchy read/write violation
     walkComponents(c => {
+      val autoPullOn = mutable.LinkedHashSet[Expression]()
       c.dslBody.walkStatements(s => {
         var error = false
 
@@ -1868,13 +1869,17 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case _ =>
         }
 
-        if(!error) s.walkExpression {
+        if(!error) s.walkDrivingExpressions {
           case bt: BaseType =>
             if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
               if(bt.component == null || bt.getComponents().head != pc.topLevel){
                 PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
               } else {
-                PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                if(c.withHierarchyAutoPull){
+                  autoPullOn += bt
+                } else {
+                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                }
               }
             }
           case s : MemPortStatement =>{
@@ -1885,6 +1890,18 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case _ =>
         }
       })
+
+      if(autoPullOn.nonEmpty) c.rework{
+        c.dslBody.walkStatements(s =>
+          s.walkRemapDrivingExpressions(e =>
+            if(autoPullOn.contains(e)){
+              e.asInstanceOf[BaseType].pull()
+            } else {
+              e
+            }
+          )
+        )
+      }
 
       //Check register defined as component inputs
       c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){

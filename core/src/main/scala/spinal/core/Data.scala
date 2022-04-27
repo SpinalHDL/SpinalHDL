@@ -407,7 +407,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def flattenLocalName: Seq[String]
   def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
   /** Pull a signal to the top level (use for debugging) */
-  def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
+  def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
+  def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
   /** Concatenation between two data */
   def ##(right: Data): Bits = this.asBits ## right.asBits
