@@ -26,6 +26,7 @@ case class UsbDeviceWithPhyWishbone(p : UsbDeviceCtrlParameter, phyCd : ClockDom
     val wishbone = slave(Wishbone(wishboneParameter))
     val usb = master(UsbPhyFsNativeIo())
     val power = in Bool()
+    val interrupt = out Bool()
   }
 
   val ctrl = new Area {
@@ -34,6 +35,7 @@ case class UsbDeviceWithPhyWishbone(p : UsbDeviceCtrlParameter, phyCd : ClockDom
 
     bridge.io.input <> io.wishbone
     bridge.io.output <> logic.io.ctrl
+    logic.io.interrupt <> io.interrupt
   }
 
   val phy = phyCd on new Area{
