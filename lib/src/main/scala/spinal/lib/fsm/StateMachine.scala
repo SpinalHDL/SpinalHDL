@@ -158,7 +158,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
 
   def makeInstantEntry(): State ={
-    setEntry(stateBoot)
+    setEntry(stateBoot.unsetName())
     stateBoot
   }
 
