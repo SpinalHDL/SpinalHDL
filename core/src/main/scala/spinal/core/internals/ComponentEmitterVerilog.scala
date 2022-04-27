@@ -374,7 +374,7 @@ class ComponentEmitterVerilog(
           case spinal.core.inout                         => "~"
           case _  => SpinalError("Not founded IO type")
         }
-        s"    .${portAlign}    (${wireAlign}  )${comma} //${dirtag}\n"
+        s"    .${portAlign} (${wireAlign})${comma} //${dirtag}\n"
       }.mkString
 
 
