@@ -162,7 +162,7 @@ object Data {
 
     val startComponent = srcData.component
 
-    if (useCache) {
+    if (useCache && finalComponent != null) {
       val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
       if (finalComponentCacheState != null)
         return finalComponentCacheState.asInstanceOf[srcData.type]
@@ -219,7 +219,7 @@ object Data {
 
     //Build the path from srcData to the commonComponent (falling path)
     while(currentComponent != commonComponent){
-      if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
+      if(useCache &&  currentComponent != null &&  currentComponent.parent != null && currentComponent.parent.pulledDataCache.contains(srcData)){
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
         currentComponent = currentComponent.parent
       } else {
@@ -235,14 +235,14 @@ object Data {
           currentData = copy
         }
         currentComponent = currentComponent.parent
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
     //Build the path from commonComponent to the targetComponent (rising path)
     for(riseTo <- risePath.reverseIterator){
-      if(useCache && riseTo.pulledDataCache.contains(srcData)){
+      if(useCache && riseTo != null && riseTo.pulledDataCache.contains(srcData)){
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
@@ -261,12 +261,12 @@ object Data {
         currentData = copy
 
         currentComponent = riseTo
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
-    if (useCache)
+    if (useCache && currentComponent != null)
       currentComponent.pulledDataCache.put(srcData, currentData)
     currentData
   }
