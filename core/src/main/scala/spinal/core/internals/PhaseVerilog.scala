@@ -42,7 +42,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
-      outFile.write("`timescale 1ns/1ps ")
+      outFile.write("`timescale 1ns/1ps")
 
       emitEnumPackage(outFile)
 

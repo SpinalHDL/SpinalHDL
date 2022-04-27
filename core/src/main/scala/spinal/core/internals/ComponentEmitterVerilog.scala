@@ -351,7 +351,7 @@ class ComponentEmitterVerilog(
               case _                            => SpinalError(s"The generic type ${"\""}${e._1} - ${e._2}${"\""} of the blackbox ${"\""}${bb.definitionName}${"\""} is not supported in Verilog")
             }
           }
-          logics.setCharAt(logics.size - 2, ' ')
+          logics.replace(logics.length - 2, logics.length, "\n")
           logics ++= s"  ) "
         }
       }
