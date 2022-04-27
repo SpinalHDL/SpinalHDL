@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import spinal.core.Formal._
+
 import spinal.core.formal._
 import spinal.core._
 import spinal.lib.{Stream, StreamFifo, Timeout, master, slave}

@@ -1063,7 +1063,7 @@ object PlayAssertFormal extends App {
       }
     }
     GenerationFlags.formal{
-      import spinal.core.Formal._
+      import spinal.core.formal._
 //      val a = past(B"1010")
       val b = rose(False)
       val c = fell(False)
@@ -1393,7 +1393,7 @@ object DebBugFormal extends App{
     /////////////////////////////
     GenerationFlags.formal{
       when(True){
-        assert(io.input =/= Formal.past(io.output.data))
+        assert(io.input =/= formal.past(io.output.data))
       }
     }
   }
@@ -1600,7 +1600,7 @@ object PlayFixPointProperty2 extends App {
 
 object PlayFormal extends App{
   import spinal.core.GenerationFlags._
-  import spinal.core.Formal._
+  import spinal.core.formal._
 
   class testCounter(start: Int,end: Int) extends Component{
     val io = new Bundle{
@@ -1632,7 +1632,7 @@ object PlayFormal extends App{
 
 object PlayFormal2 extends App {
   import spinal.core.GenerationFlags._
-  import spinal.core.Formal._
+  import spinal.core.formal._
 
   class Toplevel() extends Component {
     val inc = in(Bool())
@@ -1681,7 +1681,7 @@ object PlayFormal2 extends App {
 
 object PlayFormalFifo extends App {
   import spinal.core.GenerationFlags._
-  import spinal.core.Formal._
+  import spinal.core.formal._
 
   FormalConfig
     .withProve(10)
@@ -1749,15 +1749,27 @@ object PlayFormalFifo extends App {
 
 
 object PlayFormalDev extends App {
-  import spinal.core.Formal._
+  import spinal.core.formal._
 
   FormalConfig.withBMC(10).doVerify(new Component {
-    assumeInitial(ClockDomain.current.isResetActive)
+//    assumeInitial(ClockDomain.current.isResetActive)
 
-    val stream = Stream(UInt(8 bits))
-    anyseq(stream)
-    stream.withAssumes(payloadInvariance = false)
-    stream.withAsserts()
-    cover(False)
+    val sub = FormalDut(new Component{
+      val sub2 = new Component {
+        val t = U(42, 8 bits)
+      }
+    })
+    assert(sub.sub2.t === 42)
+
+
+    //    val y = CombInit(sub.sub2.t)
+
+//    anyseq(sub.a)
+
+//    val stream = Stream(UInt(8 bits))
+//    anyseq(stream)
+//    stream.withAssumes(payloadInvariance = false)
+//    stream.withAsserts()
+//    cover(False)
   })
 }

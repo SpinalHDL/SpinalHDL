@@ -516,7 +516,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
    */
   def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
-    import spinal.core.Formal._
+    import spinal.core.formal._
     val stack = ScalaLocated.long
     when(past(this.isStall) init(False)) {
       assert(this.valid,  "Stream transaction disappeared:\n" + stack)
@@ -526,7 +526,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
   }
 
   def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location): this.type  = {
-    import spinal.core.Formal._
+    import spinal.core.formal._
     when(past(this.isStall) init (False)) {
       assume(this.valid)
       if(payloadInvariance) assume(stable(this.payload))
@@ -538,7 +538,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 
   // this could be more generic.
   def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {
-    import spinal.core.Formal._
+    import spinal.core.formal._
     val event = RegInit(False)
     when(getCond(this)) {
       assume(event === True)

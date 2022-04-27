@@ -7,7 +7,6 @@ import FormalFifo._
 class FormalSimpleTester extends SpinalFormalFunSuite {
   import spinal.core.formal._
   import spinal.core.GenerationFlags._
-  import spinal.core.Formal._
 
   def shouldFail(body : => Unit) = assert(try{
     body
