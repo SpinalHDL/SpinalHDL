@@ -4,7 +4,11 @@ import spinal.core.internals.Operator
 
 
 object FormalDut{
-  def apply[T <: Component](dut : T) = dut.asFormalDut()
+  def apply[T <: Component](dut : T) = {
+    val c = Component.current
+    if(c != null) c.withAutoPull()
+    dut.asFormalDut()
+  }
 }
 object Formal {
 

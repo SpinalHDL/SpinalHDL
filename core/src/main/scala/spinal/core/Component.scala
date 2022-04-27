@@ -83,6 +83,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
 
   var withHierarchyAutoPull = false
+  def withAutoPull(): Unit ={
+    withHierarchyAutoPull = true
+  }
 
   def isLogicLess = dslBody.isEmpty && children.isEmpty
 
