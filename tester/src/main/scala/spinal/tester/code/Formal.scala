@@ -92,3 +92,35 @@ object LimitedCounterMoreAssertFormal extends App {
     }
   })
 }
+
+import spinal.core._
+import spinal.lib._
+class DutWithRam extends Component{
+  val ram = Mem.fill(4)(UInt(8 bits))
+  val write = slave(ram.writePort)
+  val read = slave(ram.readAsyncPort)
+}
+
+object FormalRam extends App {
+  import spinal.core.formal._
+
+  FormalConfig.withBMC(15).doVerify(new Component {
+    val dut = FormalDut(new DutWithRam())
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    // assume that no word in the ram has the value 1
+    for(i <- 0 until dut.ram.wordCount){
+      assumeInitial(dut.ram(i) =/= 1)
+    }
+
+    // Allow the write anything but value 1 in the ram
+    anyseq(dut.write)
+    clockDomain.withoutReset(){ //As the memory write can occur during reset, we need to ensure the assume apply there too
+      assume(dut.write.data =/= 1)
+    }
+
+    // Check that no word in the ram is set to 1
+    anyseq(dut.read.address)
+    assert(dut.read.data =/= 1)
+  })
+}

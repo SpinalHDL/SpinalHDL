@@ -87,6 +87,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     withHierarchyAutoPull = true
   }
 
+  var isFormalTester = false
+  def setFormalTester(): Unit ={
+    isFormalTester = true
+  }
+
   def isLogicLess = dslBody.isEmpty && children.isEmpty
 
   /** Contains all in/out signals of the component */

@@ -235,6 +235,12 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     ret
   }
 
+  def apply(address : Int) : T = {
+    assert(Component.current.isFormalTester, "Mem.apply(address : Int) purpose is only for formal testers")
+    assert(address >= 0 && address < wordCount, s"Address is out of the memory range. $address ")
+    component.rework(this.readAsync(U(address, addressWidth bits)))
+  }
+
   val addressType = HardType(UInt(addressWidth bit))
 
 //  def addressTypeAt(initialValue: BigInt) = U(initialValue, addressWidth bit)
