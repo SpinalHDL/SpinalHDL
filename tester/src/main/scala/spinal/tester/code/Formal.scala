@@ -93,6 +93,62 @@ object LimitedCounterMoreAssertFormal extends App {
   })
 }
 
+object LimitedCounterProveFormal extends App {
+  import spinal.core.formal._
+
+  FormalConfig.withProve(15).doVerify(new Component {
+    val dut = FormalDut(new LimitedCounter())
+
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    assert(dut.value >= 2)
+    assert(dut.value <= 10)
+  })
+}
+
+object LimitedCounterCoverFormal extends App {
+  import spinal.core.formal._
+
+  FormalConfig.withCover(15).doVerify(new Component {
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    val dut = FormalDut(new LimitedCounterInc())
+    anyseq(dut.inc)    
+    ClockDomain.current.duringReset { assume(dut.inc === False) }
+
+    for(i <- 2 to 10){
+      cover(dut.value === i)
+    }
+  })
+}
+
+object LimitedCounterAllFormal extends App {
+  import spinal.core.formal._
+
+  FormalConfig.withCover(15).withBMC(15).withProve(15).doVerify(new Component {    
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    val dut = FormalDut(new LimitedCounterInc())
+    anyseq(dut.inc)    
+    ClockDomain.current.duringReset { assume(dut.inc === False) }
+
+    val dst = anyconst(UInt(4 bits))
+    assume(dst >= 2 && dst <= 10)
+    cover(dut.value === dst)
+    
+    assert(dut.value >= 2)
+    assert(dut.value <= 10)
+
+    when(past(dut.inc)){
+      when(past(dut.value) < 10) {
+        assert(past(dut.value) === dut.value - 1)
+      }.otherwise {
+        assert(past(dut.value) === dut.value)
+      }
+    }
+  })
+}
+
 import spinal.core._
 import spinal.lib._
 class DutWithRam extends Component{
