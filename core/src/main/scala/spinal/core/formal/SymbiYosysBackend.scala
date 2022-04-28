@@ -188,10 +188,10 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
         }
       }
       val assertedLinesFormated = assertedLines.map{l =>
-        val splits = l.split("//")
+        val splits = l.split("// ")
         "(" + splits(1).replace(":L", ":") + ")  "
       }
-      val assertsReport = assertedLinesFormated.zipWithIndex.map(e => "\tassertion.triggered.at(Formal.scala:124)" + "\n").mkString("")
+      val assertsReport = assertedLinesFormated.map(e => s"\tassertion.triggered.at${e}\n").mkString("")
       val proofAt = "\tproof in " + workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0"
       throw new Exception("SymbiYosys failure\n" + assertsReport + proofAt)
     }
