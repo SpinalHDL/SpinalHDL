@@ -70,8 +70,7 @@ class ComponentEmitterVhdl(
 
     emitLibrary(ret)
 
-    val definitionComments = component.definition.getTags().collect{case t : CommentTag => "\n--" + t.comment.replace("\n","\n--")}.mkString("")
-    ret ++= definitionComments
+    ret ++= commentTagsToString(component.definition, "--")
 
     ret ++= s"\nentity ${c.definitionName} is\n"
 
@@ -281,6 +280,7 @@ class ComponentEmitterVhdl(
       val isBBUsingULogic        = isBB && children.asInstanceOf[BlackBox].isUsingULogic
       val isBBUsingNoNumericType = isBB && children.asInstanceOf[BlackBox].isUsingNoNumericType
       val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
+      logics ++= commentTagsToString(children, "  --")
       logics ++= s"  ${
         children.getName()
       } : $definitionString\n"

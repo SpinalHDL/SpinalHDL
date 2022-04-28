@@ -75,6 +75,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     def addComment(str : String) = this.addTag(new CommentTag(str))
   }
 
+  def addComment(str : String) = this.addTag(new CommentTag(str))
+
   var withVitalOutputs = false
   def asFormalDut() : this.type = {
     withVitalOutputs = true

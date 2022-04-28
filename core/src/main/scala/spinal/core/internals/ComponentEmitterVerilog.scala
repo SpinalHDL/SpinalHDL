@@ -59,9 +59,9 @@ class ComponentEmitterVerilog(
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
-    val definitionComments = component.definition.getTags().collect{case t : CommentTag => "\n//" + t.comment.replace("\n","\n//")}.mkString("")
-    s"""${definitionComments}
-      |${definitionAttributes}module ${component.definitionName} (
+    val definitionComments = commentTagsToString(component.definition, "//")
+    s"""
+      |${definitionComments}${definitionAttributes}module ${component.definitionName} (
       |${ports}
       |${localparams}
       |${declarations}
@@ -69,6 +69,8 @@ class ComponentEmitterVerilog(
       |endmodule
       |""".stripMargin
   }
+
+
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo
@@ -328,6 +330,8 @@ class ComponentEmitterVerilog(
       val instanceAttributes = emitSyntaxAttributes(child.instanceAttributes)
 
       val istracingOff = child.hasTag(TracingOff)
+
+      logics ++= commentTagsToString(child, "  //")
 
       if(istracingOff){
         logics ++= s" ${emitCommentAttributes(List(Verilator.tracing_off))} \n"

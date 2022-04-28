@@ -102,6 +102,11 @@ abstract class ComponentEmitter {
       null
   }
 
+  def commentTagsToString(host : SpinalTagReady, comment : String) : String = {
+    val strings = host.getTags().collect{case t : CommentTag => comment + t.comment.replace("\n","\n" + comment)}
+    if(strings.isEmpty) "" else strings.mkString("\n") + "\n"
+  }
+
   def elaborate() = {
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
