@@ -93,7 +93,7 @@ case class Axi4SharedToApb3Bridge(addressWidth: Int, dataWidth: Int, idWidth: In
         io.apb.PSEL(0) := True
         if (axiConfig.useStrb) {
           // Ignore write packages with no strobe signal asserted and overwrite phase + PSEL.
-          when(io.axi.writeData.valid &&
+          when(io.axi.sharedCmd.write &&
                io.axi.writeData.strb === B(0, axiConfig.bytePerWord bits)) {
             phase := RESPONSE
             io.apb.PSEL(0) := False
