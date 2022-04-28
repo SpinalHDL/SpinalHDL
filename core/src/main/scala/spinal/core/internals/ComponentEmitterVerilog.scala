@@ -59,7 +59,8 @@ class ComponentEmitterVerilog(
 
   def result: String = {
     val ports = portMaps.map{ portMap => s"${theme.porttab}${portMap}\n"}.mkString + s");"
-    s"""
+    val definitionComments = component.definition.getTags().collect{case t : CommentTag => "\n//" + t.comment.replace("\n","\n//")}.mkString("")
+    s"""${definitionComments}
       |${definitionAttributes}module ${component.definitionName} (
       |${ports}
       |${localparams}

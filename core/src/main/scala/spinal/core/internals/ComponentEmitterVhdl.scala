@@ -70,6 +70,8 @@ class ComponentEmitterVhdl(
 
     emitLibrary(ret)
 
+    val definitionComments = component.definition.getTags().collect{case t : CommentTag => "\n--" + t.comment.replace("\n","\n--")}.mkString("")
+    ret ++= definitionComments
 
     ret ++= s"\nentity ${c.definitionName} is\n"
 

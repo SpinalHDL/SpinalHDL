@@ -787,6 +787,8 @@ object tagTruncated                  extends SpinalTag{
 object tagAFixResized                   extends SpinalTag
 class IfDefTag(val cond : String)       extends SpinalTag
 
+class CommentTag(val comment : String) extends SpinalTag
+
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false
 }
