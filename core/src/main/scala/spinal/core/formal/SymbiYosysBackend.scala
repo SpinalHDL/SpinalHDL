@@ -161,37 +161,43 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     val command = if (isWindows) "sby.exe" else "sby"
     val success = Process(Seq(command, "-f", sbyFilePath), new File(workspacePath)).!(new Logger()) == 0
     if(!success){
-      val logFileName = config.modesWithDepths.head._1 match {
-        case "bmc" => "logfile.txt"
-        case "prove" => "logfile_basecase.txt"
-        case "cover" => "logfile.txt"
-      }
-      val logFile = new File(workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0/$logFileName")
+
+
       var assertedLines = ArrayBuffer[String]()
-      if(logFile.exists()){
-        val pattern = """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
-        for (line <- Source.fromFile(logFile).getLines) {
-          println(line)
-          if(line.contains("Assert failed in") || line.contains("Unreached cover statement")){
-            pattern.findFirstMatchIn(line) match {
-              case Some(x) => {
-                val sourceName = x.group(1)
-                val assertLine = x.group(2).toInt
-                val source = Source.fromFile(workspacePath + "/rtl/"+sourceName).getLines.drop(assertLine)
-                val assertString = source.next().dropWhile(_ == ' ')
-                assertedLines += assertString
-                println("--   " +assertString)
+      def analyseLog(file : File): Unit ={
+        if(file.exists()){
+          val pattern = """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
+          for (line <- Source.fromFile(file).getLines) {
+            println(line)
+            if(line.contains("Assert failed in") || line.contains("Unreached cover statement")){
+              pattern.findFirstMatchIn(line) match {
+                case Some(x) => {
+                  val sourceName = x.group(1)
+                  val assertLine = x.group(2).toInt
+                  val source = Source.fromFile(workspacePath + "/rtl/"+sourceName).getLines.drop(assertLine)
+                  val assertString = source.next().dropWhile(_ == ' ')
+                  assertedLines += assertString
+                  println("--   " +assertString)
+                }
+                case None =>
               }
-              case None =>
             }
           }
         }
       }
+      val logFileName = config.modesWithDepths.head._1 match {
+        case "bmc" => Seq("logfile.txt")
+        case "prove" => Seq("logfile_basecase.txt", "logfile_induction.txt")
+        case "cover" => Seq("logfile.txt")
+      }
+      for(e <- logFileName) analyseLog(new File(workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0/$e"))
+
+
       val assertedLinesFormated = assertedLines.map{l =>
         val splits = l.split("// ")
         "(" + splits(1).replace(":L", ":") + ")  "
       }
-      val assertsReport = assertedLinesFormated.map(e => s"\tassertion.triggered.at${e}\n").mkString("")
+      val assertsReport = assertedLinesFormated.map(e => s"\tissue.triggered.from${e}\n").mkString("")
       val proofAt = "\tproof in " + workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0"
       throw new Exception("SymbiYosys failure\n" + assertsReport + proofAt)
     }
