@@ -167,6 +167,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
         case "cover" => "logfile.txt"
       }
       val logFile = new File(workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0/$logFileName")
+      var assertedLines = ArrayBuffer[String]()
       if(logFile.exists()){
         val pattern = """(\w+.sv):(\d+).(\d+)-(\d+).(\d+)""".r
         for (line <- Source.fromFile(logFile).getLines) {
@@ -177,14 +178,22 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
                 val sourceName = x.group(1)
                 val assertLine = x.group(2).toInt
                 val source = Source.fromFile(workspacePath + "/rtl/"+sourceName).getLines.drop(assertLine)
-                println("--   " + source.next().dropWhile(_ == ' '))
+                val assertString = source.next().dropWhile(_ == ' ')
+                assertedLines += assertString
+                println("--   " +assertString)
               }
               case None =>
             }
           }
         }
       }
-      throw new Exception("SymbiYosys failure")
+      val assertedLinesFormated = assertedLines.map{l =>
+        val splits = l.split("//")
+        "(" + splits(1).replace(":L", ":") + ")  "
+      }
+      val assertsReport = assertedLinesFormated.zipWithIndex.map(e => "\tassertion.triggered.at(Formal.scala:124)" + "\n").mkString("")
+      val proofAt = "\tproof in " + workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0"
+      throw new Exception("SymbiYosys failure\n" + assertsReport + proofAt)
     }
     if (!config.keepDebugInfo) clean()
   }
