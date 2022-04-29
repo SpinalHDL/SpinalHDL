@@ -190,7 +190,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
         case "prove" => Seq("logfile_basecase.txt", "logfile_induction.txt")
         case "cover" => Seq("logfile.txt")
       }
-      for(e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"/${config.toplevelName}_${config.modesWithDepths.head._1}","engine_0",e)).toFile())
+      for(e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"${config.toplevelName}_${config.modesWithDepths.head._1}","engine_0",e)).toFile())
 
 
       val assertedLinesFormated = assertedLines.map{l =>
