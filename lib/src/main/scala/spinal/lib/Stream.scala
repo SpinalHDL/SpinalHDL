@@ -1037,6 +1037,41 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
       risingOccupancy := False
     }
   }
+  
+  def withAssumes() = {
+    import spinal.core.formal._
+    assume(io.pop.payload === past(logic.ram(logic.popPtr)))
+  }
+
+  def formalCheck(cond: T => Bool): Vec[Bool] = {
+    val pushBound = logic.pushPtr.value + depth
+    val check = Vec(False, depth)
+    for (i <- 0 until depth) {
+      val popIndex = logic.popPtr.resize(log2Up(depth) + 1 bits) + i
+      when(logic.popPtr < logic.pushPtr) {
+        when(popIndex < logic.pushPtr) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr > logic.pushPtr) {
+        when(popIndex < pushBound) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr === logic.pushPtr && io.pop.valid) {
+        check(i) := cond(logic.ram(i))
+      }
+    }
+    check
+  }
+
+  def formalContains(word: T): Bool = {
+    formalCheck(_ === word).reduce(_ || _)
+  }
+  def formalContains(cond: T => Bool): Bool = {
+    formalCheck(cond).reduce(_ || _)
+  }
+
+  def formalCount(word: T): UInt = {
+    CountOne(formalCheck(_ === word))
+  }
+  def formalCount(cond: T => Bool): UInt = {
+    CountOne(formalCheck(cond))
+  }
 }
 
 object StreamFifoLowLatency{
