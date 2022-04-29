@@ -1796,7 +1796,7 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
     import pc._
 
     walkStatements{
-      case s: SwitchStatement if s.isFullyCoveredWithoutDefault =>
+      case s: SwitchStatement if s.isFullyCoveredWithoutDefault && !s.coverUnreachable =>
         if(s.defaultScope != null && !s.defaultScope.isEmpty){
           PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
         }

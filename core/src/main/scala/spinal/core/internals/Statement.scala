@@ -437,6 +437,7 @@ class WhenStatement(var cond: Expression) extends TreeStatement{
 class SwitchStatement(var value: Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope: ScopeStatement = null
+  var coverUnreachable = false
 
   override def foreachStatements(func: (Statement) => Unit): Unit = {
     elements.foreach(x => x.scopeStatement.foreachStatements(func))
