@@ -31,6 +31,18 @@ object LimitedCounterFormal extends App {
   })
 }
 
+object LimitedCounterProveFormal extends App {
+  import spinal.core.formal._
+
+  FormalConfig.withProve(15).doVerify(new Component {
+    val dut = FormalDut(new LimitedCounter())
+
+    assumeInitial(ClockDomain.current.isResetActive)
+
+    assert(dut.value >= 2)
+    assert(dut.value <= 10)
+  })
+}
 
 class LimitedCounterEmbedded extends Component{
   val value = Reg(UInt(4 bits)) init(2)
@@ -109,9 +121,11 @@ object FormalRam extends App {
     assumeInitial(ClockDomain.current.isResetActive)
 
     // assume that no word in the ram has the value 1
-    for(i <- 0 until dut.ram.wordCount){
-      assumeInitial(dut.ram(i) =/= 1)
-    }
+//    for(i <- 0 until dut.ram.wordCount){
+//      assumeInitial(dut.ram(i) =/= 1)
+//    }
+    assumeInitial(!dut.ram.formalContains(1))
+//    assumeInitial(dut.ram.formalCount(1) === 0)
 
     // Allow the write anything but value 1 in the ram
     anyseq(dut.write)
