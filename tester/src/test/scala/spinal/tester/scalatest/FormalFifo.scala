@@ -3,7 +3,7 @@ package spinal.tester.scalatest
 
 import spinal.core.formal._
 import spinal.core._
-import spinal.lib.{Stream, StreamFifo, Timeout, master, slave}
+import spinal.lib.{Stream, StreamFifo, Timeout, master, slave, CountOne}
 
 object FormalFifo {
   val Error = new AreaRoot {
@@ -128,7 +128,7 @@ object FormalFifo {
   }
 
   def fifoProveTest(error: Any, trigger : Any) = {
-    def prepareData(inStream: Stream[UInt], outStream: Stream[UInt], ram: Vec[UInt]): Tuple3[UInt, Bool, Bool] = {
+    def prepareData(inStream: Stream[UInt], outStream: Stream[UInt], ram: Vec[UInt], push: UInt, pop: UInt): Tuple3[UInt, Bool, Bool] = {
       val data = anyconst(UInt(7 bits))
       assume(data =/= 0)
 
@@ -138,6 +138,23 @@ object FormalFifo {
       when(!data_in) { assert(!data_out) }
       
       when(!data_in) {assume(ram.map(_ =/= data).reduce(_ && _))}
+      // when(rose(data_in)) {assert(ram(past(push)) === data)}
+      val pushBound = push + 4
+      val check = Vec(False, 4)
+      when(data_in && !data_out) {
+        for (i <- 0 until 4){
+          val pop_i = pop.resize(3 bits) + i
+          when(pop < push) {
+            when(pop_i < push){ check(i) := ram(pop_i.resized) === data }
+          }.elsewhen(pop > push) {
+            when(pop_i < pushBound) { check(i) := ram(pop_i.resized) === data}
+          }.elsewhen(pop === push && outStream.valid) {
+            check(i) := ram(i) === data
+          }
+        }
+        assert(CountOne(check) === 1)
+      }
+      assume(outStream.payload === past(ram(pop)))
       // when(data_out) { assert(data_in === True) }
       // when(outStream.valid && data === outStream.payload) { assert(data_in === True) }
       cover(data_out)
@@ -175,11 +192,13 @@ object FormalFifo {
         for(i <- 0 until 4){
           fifoRam(i) := dut.dut.logic.ram(i)
         }
+        val fifoPush = dut.dut.logic.pushPtr
+        val fifoPop = dut.dut.logic.popPtr
 
-        val (d1, d1_in, d1_out) = prepareData(dut.io.push, dut.io.pop, fifoRam)
+        val (d1, d1_in, d1_out) = prepareData(dut.io.push, dut.io.pop, fifoRam, fifoPush, fifoPop)
         dut.io.d1 := d1
 
-        val (d2, d2_in, d2_out) = prepareData(dut.io.push, dut.io.pop, fifoRam)
+        val (d2, d2_in, d2_out) = prepareData(dut.io.push, dut.io.pop, fifoRam, fifoPush, fifoPop)
         dut.io.d2 := d2
                 
         // when(d2_out) {
