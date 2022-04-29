@@ -533,18 +533,6 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
     this
   }
-
-
-
-  // this could be more generic.
-  def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {
-    import spinal.core.formal._
-    val event = RegInit(False)
-    when(getCond(this)) {
-      assume(event === True)
-    }
-    event
-  }
 }
 
 object StreamArbiter {
