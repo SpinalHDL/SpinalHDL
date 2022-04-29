@@ -105,6 +105,7 @@ object LimitedCounterMoreAssertFormal extends App {
   })
 }
 
+
 object LimitedCounterCoverFormal extends App {
   import spinal.core.formal._
 

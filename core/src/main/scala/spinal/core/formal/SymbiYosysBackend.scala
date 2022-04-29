@@ -95,14 +95,14 @@ class SymbiYosysBackendConfig(
 )
 
 class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBackend {
-  val workspaceName = config.workspaceName
-  val workspacePath = config.workspacePath
-  val workDir = s"${workspacePath}/${workspaceName}"
+  val workspaceName = new File(config.workspaceName).toPath()
+  val workspacePath = new File(config.workspacePath).toPath()
+  val workDir = workspaceName.resolve(workspacePath)
   val sbyFileName = s"${config.toplevelName}.sby"
-  val sbyFilePath = new File(s"${workDir}/$sbyFileName").getAbsolutePath
+  val sbyFilePath = workDir.resolve(sbyFileName)
 
   def clean(): Unit = {
-    FileUtils.deleteQuietly(new File(workDir))
+    FileUtils.deleteQuietly(workDir.toFile())
   }
 
   def genSby(): Unit = {
@@ -142,9 +142,9 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
       "[files]\n" +
       localSources
 
-    new File(workDir).mkdir()
+    workDir.toFile.mkdir()
     Files.write(
-      Paths.get(sbyFilePath),
+      sbyFilePath,
       script.getBytes()
     )
   }
@@ -159,7 +159,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
     println(f"[Progress] Start ${config.toplevelName} formal verification with $name.")
     val isWindows = System.getProperty("os.name").toLowerCase.contains("windows")
     val command = if (isWindows) "sby.exe" else "sby"
-    val success = Process(Seq(command, "-f", sbyFilePath), new File(workspacePath)).!(new Logger()) == 0
+    val success = Process(Seq(command, "-f", sbyFilePath.toString()), workspacePath.toFile()).!(new Logger()) == 0
     if(!success){
 
 
@@ -174,7 +174,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
                 case Some(x) => {
                   val sourceName = x.group(1)
                   val assertLine = x.group(2).toInt
-                  val source = Source.fromFile(workspacePath + "/rtl/"+sourceName).getLines.drop(assertLine)
+                  val source = Source.fromFile(workspacePath.resolve(Paths.get("rtl", sourceName)).toFile()).getLines.drop(assertLine)
                   val assertString = source.next().dropWhile(_ == ' ')
                   assertedLines += assertString
                   println("--   " +assertString)
@@ -190,7 +190,7 @@ class SymbiYosysBackend(val config: SymbiYosysBackendConfig) extends FormalBacke
         case "prove" => Seq("logfile_basecase.txt", "logfile_induction.txt")
         case "cover" => Seq("logfile.txt")
       }
-      for(e <- logFileName) analyseLog(new File(workDir + s"/${config.toplevelName}_${config.modesWithDepths.head._1}/engine_0/$e"))
+      for(e <- logFileName) analyseLog(workDir.resolve(Paths.get(s"${config.toplevelName}_${config.modesWithDepths.head._1}","engine_0",e)).toFile())
 
 
       val assertedLinesFormated = assertedLines.map{l =>
