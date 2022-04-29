@@ -1038,12 +1038,12 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
     }
   }
   
-  def withAssumes() = {
+  def withAssumes() = this.rework {
     import spinal.core.formal._
     assume(io.pop.payload === past(logic.ram(logic.popPtr)))
   }
 
-  def formalCheck(cond: T => Bool): Vec[Bool] = {
+  def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
     val pushBound = logic.pushPtr.value + depth
     val check = Vec(False, depth)
     for (i <- 0 until depth) {
@@ -1059,17 +1059,17 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
     check
   }
 
-  def formalContains(word: T): Bool = {
-    formalCheck(_ === word).reduce(_ || _)
+  def formalContains(word: T): Bool = this.rework {
+    formalCheck(_ === word.pull()).reduce(_ || _)
   }
-  def formalContains(cond: T => Bool): Bool = {
+  def formalContains(cond: T => Bool): Bool = this.rework {
     formalCheck(cond).reduce(_ || _)
   }
 
-  def formalCount(word: T): UInt = {
-    CountOne(formalCheck(_ === word))
+  def formalCount(word: T): UInt = this.rework {
+    CountOne(formalCheck(_ === word.pull()))
   }
-  def formalCount(cond: T => Bool): UInt = {
+  def formalCount(cond: T => Bool): UInt = this.rework {
     CountOne(formalCheck(cond))
   }
 }
