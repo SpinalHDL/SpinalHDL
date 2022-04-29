@@ -22,16 +22,16 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
 //      shouldFail(fifoProveTest(error, trigger))
 //    }
 //  }
-//  test("fifo-prove ok"){ fifoProveTest(null, Trigger.ANY) }
+ test("fifo-prove ok"){ fifoProveTest(null, Trigger.ANY) }
 
-  for(error <- Error.all;
-      trigger <- Trigger.all;
-      if !(List(Error.DROP_POP, Error.DROP_PUSH, Error.CORRUPT).contains(error) && trigger == Trigger.D2)){
-    test(s"fifo-bmc-$error-$trigger"){
-      shouldFail(fifoBmcTest(error, trigger))
-    }
-  }
-  test("fifo-bmc ok"){ fifoBmcTest(null, Trigger.ANY, 10) }
+  // for(error <- Error.all;
+  //     trigger <- Trigger.all;
+  //     if !(List(Error.DROP_POP, Error.DROP_PUSH, Error.CORRUPT).contains(error) && trigger == Trigger.D2)){
+  //   test(s"fifo-bmc-$error-$trigger"){
+  //     shouldFail(fifoBmcTest(error, trigger))
+  //   }
+  // }
+  // test("fifo-bmc ok"){ fifoBmcTest(null, Trigger.ANY, 10) }
 
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {

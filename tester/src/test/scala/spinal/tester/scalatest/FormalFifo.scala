@@ -128,8 +128,30 @@ object FormalFifo {
   }
 
   def fifoProveTest(error: Any, trigger : Any) = {
+    def prepareData(inStream: Stream[UInt], outStream: Stream[UInt], ram: Vec[UInt]): Tuple3[UInt, Bool, Bool] = {
+      val data = anyconst(UInt(7 bits))
+      assume(data =/= 0)
+
+      val data_in = RegInit(False) setWhen (inStream.fire && data === inStream.payload)
+      val data_out = RegInit(False) setWhen (outStream.fire && data === outStream.payload)
+      when(data_in) { assume(inStream.payload =/= data) }
+      when(!data_in) { assert(!data_out) }
+      
+      when(!data_in) {assume(ram.map(_ =/= data).reduce(_ && _))}
+      // when(data_out) { assert(data_in === True) }
+      // when(outStream.valid && data === outStream.payload) { assert(data_in === True) }
+      cover(data_out)
+
+      // val data_cnt = Counter(0, 4)
+      // when(!data_in) { data_cnt.clear() }
+      // when(data_in && outStream.fire && data_cnt.value < 4) { data_cnt.increment() }
+      // when(data_in && data_cnt.value === 4) { assert(data_out) }
+
+      (data, data_in, data_out)
+    }
+
     FormalConfig.withProve(10).doVerify(new Component {
-        val dut = new StreamFifoWrapper(error, trigger)
+        val dut = FormalDut(new StreamFifoWrapper(error, trigger))
         val reset = ClockDomain.current.isResetActive
 
         assumeInitial(reset)
@@ -149,19 +171,31 @@ object FormalFifo {
         dut.io.push.withAssumes()
         dut.io.pop.withAsserts()
 
-        val d1 = anyconst(UInt(7 bits))
-        val d1_in = dut.io.push.formalCreateEvent { x => x.fire && x.payload === d1 }
-        val d1_out = dut.io.pop.formalCreateEvent { x => x.fire && x.payload === d1 }
-        when(d1_out) { assert(d1_in === True) }
+        val fifoRam = Vec(UInt(7 bits), 4)
+        for(i <- 0 until 4){
+          fifoRam(i) := dut.dut.logic.ram(i)
+        }
 
-        val d2 = anyconst(UInt(7 bits))
-        val d2_in = dut.io.push.formalCreateEvent { x => x.fire && x.payload === d2 }
-        val d2_out = dut.io.pop.formalCreateEvent { x => x.fire && x.payload === d2 }
-        when(d2_out) { assert(d2_in === True) }
+        val (d1, d1_in, d1_out) = prepareData(dut.io.push, dut.io.pop, fifoRam)
+        dut.io.d1 := d1
 
-        assume(d1 =/= d2)
-        when(d2_in) { assume(d1_in === True) }
-        when(d2_out && d2_in) { assert(d1_out === True) }
+        val (d2, d2_in, d2_out) = prepareData(dut.io.push, dut.io.pop, fifoRam)
+        dut.io.d2 := d2
+                
+        // when(d2_out) {
+        //   d1_in := False
+        //   d1_out := False
+        //   when(dut.io.pop.fire) {
+        //     d2_in := False
+        //     d2_out := False
+        //   }
+        // }
+
+        assume(d1 =/= d2)        
+        when(!d1_in) { assume(!d2_in) }
+        when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
+        // when(d2_in) { assume(d1_in) }
+        // when(d2_out && d2_in) { assert(d1_out) }
       }
     )
   }
