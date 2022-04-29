@@ -204,12 +204,15 @@ case class SpinalFormalConfig(
     println(
       f"[Progress] Formal verification workspace in ${new File(s"${_workspacePath}/${_workspaceName}").getAbsolutePath}"
     )
-    new File(s"${_workspacePath}").mkdirs()
-    FileUtils.deleteQuietly(new File(s"${_workspacePath}/${_workspaceName}"))
-    new File(s"${_workspacePath}/${_workspaceName}").mkdirs()
-    new File(s"${_workspacePath}/${_workspaceName}/rtl").mkdirs()
+    val rootWorkplace = new File(_workspacePath).getAbsoluteFile.toPath()
+    val workingWorksplace = rootWorkplace.resolve(_workspaceName)
+    val rtlDir = workingWorksplace.resolve("rtl")
 
-    val rtlDir = new File(s"${_workspacePath}/${_workspaceName}/rtl")
+    rootWorkplace.toFile.mkdirs()
+    FileUtils.deleteQuietly(workingWorksplace.toFile())
+    workingWorksplace.toFile.mkdirs()
+    rtlDir.toFile.mkdirs()
+
     val rtlFiles = new ArrayBuffer[String]()
 //    val rtlPath = rtlDir.getAbsolutePath
     report.generatedSourcesPaths.foreach { srcPath =>
@@ -236,8 +239,8 @@ case class SpinalFormalConfig(
       }
       w.close()
 
-      val dst = new File(rtlDir.getAbsolutePath + "/" + src.getName)
-      FileUtils.copyFileToDirectory(src, rtlDir)
+      val dst = rtlDir.resolve(src.getName)
+      FileUtils.copyFileToDirectory(src, rtlDir.toFile())
       rtlFiles.append(dst.toString)
     }
 
@@ -246,7 +249,7 @@ case class SpinalFormalConfig(
         println(f"[Progress] Yosys compilation started")
         val startAt = System.nanoTime()
         val vConfig = new SymbiYosysBackendConfig(
-          workspacePath = s"${_workspacePath}/${_workspaceName}",
+          workspacePath = workingWorksplace.toString(),
           workspaceName = "formal",
           toplevelName = report.toplevelName,
           modesWithDepths = _modesWithDepths,
