@@ -13,6 +13,9 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   def formalCount(word : T): UInt ={
     CountOne((0 until mem.wordCount).map(mem(_) === word))
   }
+  def formalCount(cond : T => Bool) : UInt ={
+    CountOne((0 until mem.wordCount).map(i => cond(mem(i))))
+  }
 
   //def streamReadSync[T2 <: Data](event : Event,address: UInt, linkedData: T2) : (Event,T,T2) = {
 
