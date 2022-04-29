@@ -125,6 +125,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     this
   }
 
+  var corruptedState : Bool = null
+  def inCorruptedState(): Bool ={
+    if(corruptedState == null) corruptedState = Bool().setCompositeName(this, "corruptedState", weak = true)
+    corruptedState
+  }
+
   def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
@@ -141,6 +147,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   val wantStart = False
   val wantKill = False
   var autoStart = true
+
 
   @dontName var parentStateMachine: StateMachineAccessor = null
   @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
@@ -251,6 +258,22 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     }
     when(wantKill){
       forceGoto(stateBoot)
+    }
+
+    if(corruptedState != null){
+      switch(stateReg, coverUnreachable = true){
+        for(e <- states) is(enumOf(e)){
+          corruptedState := False
+        }
+        default{
+          corruptedState := True
+        }
+      }
+      for(state <- states){
+        when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
+          state.onEntryTasks.foreach(_())
+        }
+      }
     }
   }
 

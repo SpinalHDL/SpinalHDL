@@ -228,6 +228,8 @@ object GenerationFlags{
   object synthesis extends GenerationFlags
   object formal extends GenerationFlags
   object simulation extends GenerationFlags
+
+  implicit def generationFlagsToBoolean(flag : GenerationFlags) : Boolean = flag.isEnabled
 }
 
 object SpinalConfig{

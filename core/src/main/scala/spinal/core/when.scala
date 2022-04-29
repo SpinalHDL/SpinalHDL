@@ -146,12 +146,13 @@ class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with 
   */
 object switch {
 
-    def apply[T <: BaseType](value: T)(block: => Unit)(implicit loc : Location): Unit = {
+    def apply[T <: BaseType](value: T, coverUnreachable : Boolean = false)(block: => Unit)(implicit loc : Location): Unit = {
       value.setName("switch_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
       val globalData      = value.globalData
       val switchStatement = new SwitchStatement(value)
       val switchContext   = new SwitchContext(switchStatement)
 
+      switchStatement.coverUnreachable = coverUnreachable
       SwitchStack(switchContext).on(block)
       DslScopeStack.get.append(switchStatement)
   }

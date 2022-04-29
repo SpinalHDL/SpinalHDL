@@ -236,9 +236,16 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
   }
 
   def apply(address : Int) : T = {
-    assert(Component.current.isFormalTester, "Mem.apply(address : Int) purpose is only for formal testers")
+    assert(Component.current.isFormalTester || GenerationFlags.formal, "Mem.apply(address : Int) purpose is only for formal testers")
     assert(address >= 0 && address < wordCount, s"Address is out of the memory range. $address ")
     component.rework(this.readAsync(U(address, addressWidth bits)))
+  }
+
+  def formalContains(word : T): Bool ={
+    (0 until wordCount).map(apply(_) === word).reduce(_ || _)
+  }
+  def formalContains(cond : T => Bool): Bool ={
+    (0 until wordCount).map(i => cond(apply(i))).reduce(_ || _)
   }
 
   val addressType = HardType(UInt(addressWidth bit))

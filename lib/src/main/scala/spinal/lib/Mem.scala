@@ -10,6 +10,13 @@ case class ReadRetLinked[T <: Data, T2 <: Data](readType: HardType[T], linkedTyp
 
 class MemPimped[T <: Data](mem: Mem[T]) {
 
+  def formalCount(word : T): UInt ={
+    CountOne((0 until mem.wordCount).map(mem(_) === word))
+  }
+  def formalCount(cond : T => Bool) : UInt ={
+    CountOne((0 until mem.wordCount).map(i => cond(mem(i))))
+  }
+
   //def streamReadSync[T2 <: Data](event : Event,address: UInt, linkedData: T2) : (Event,T,T2) = {
 
   def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2, crossClock:Boolean = false) : Stream[ReadRetLinked[T,T2]] = {
