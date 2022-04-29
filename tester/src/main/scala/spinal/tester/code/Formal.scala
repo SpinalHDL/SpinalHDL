@@ -105,19 +105,6 @@ object LimitedCounterMoreAssertFormal extends App {
   })
 }
 
-object LimitedCounterProveFormal extends App {
-  import spinal.core.formal._
-
-  FormalConfig.withProve(15).doVerify(new Component {
-    val dut = FormalDut(new LimitedCounter())
-
-    assumeInitial(ClockDomain.current.isResetActive)
-
-    assert(dut.value >= 2)
-    assert(dut.value <= 10)
-  })
-}
-
 object LimitedCounterCoverFormal extends App {
   import spinal.core.formal._
 
