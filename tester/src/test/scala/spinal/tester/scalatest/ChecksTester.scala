@@ -420,6 +420,41 @@ class ChecksTester extends AnyFunSuite  {
     })
   }
 
+  test("litRange"){
+    def failBody(body :  => Unit): Unit ={
+      generationShouldFail(new Component {body})
+    }
+    def passBody(body :  => Unit): Unit ={
+      generationShouldPass(new Component {body})
+    }
+
+    failBody(out(B(1, 8 bits) === B(256)))
+    failBody(out(B(1, 8 bits) =/= B(256)))
+
+    failBody(out(S(1, 8 bits) === S(256)))
+    failBody(out(S(1, 8 bits) =/= S(256)))
+    failBody(out(S(1, 8 bits) < S(256)))
+    failBody(out(S(1, 8 bits) <= S(256)))
+
+    failBody(out(S(1, 9 bits) === S(256)))
+    failBody(out(S(1, 9 bits) =/= S(256)))
+    failBody(out(S(1, 9 bits) < S(256)))
+    failBody(out(S(1, 9 bits) <= S(256)))
+    failBody(out(S(1, 9 bits) === S(-257)))
+    failBody(out(S(1, 9 bits) =/= S(-257)))
+    failBody(out(S(1, 9 bits) < S(-257)))
+    failBody(out(S(1, 9 bits) <= S(-257)))
+
+    passBody(out(S(1, 9 bits) === S(255)))
+    passBody(out(S(1, 9 bits) =/= S(255)))
+    passBody(out(S(1, 9 bits) < S(255)))
+    passBody(out(S(1, 9 bits) <= S(255)))
+    passBody(out(S(1, 9 bits) === S(-256)))
+    passBody(out(S(1, 9 bits) =/= S(-256)))
+    passBody(out(S(1, 9 bits) < S(-256)))
+    passBody(out(S(1, 9 bits) <= S(-256)))
+  }
+
 
   test("scopeProperty"){
     object FixedPointProperty extends ScopeProperty[Int]{

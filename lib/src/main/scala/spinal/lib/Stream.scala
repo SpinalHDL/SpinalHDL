@@ -1,8 +1,32 @@
 package spinal.lib
 
 import spinal.core._
+import spinal.idslplugin.Location
 import spinal.lib.eda.bench.{AlteraStdTargets, Bench, Rtl, XilinxStdTargets}
+
 import scala.collection.Seq
+
+trait StreamPipe {
+  def apply[T <: Data](m: Stream[T]): Stream[T]
+}
+
+object StreamPipe {
+  val NONE = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.combStage()
+  }
+  val M2S = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.m2sPipe()
+  }
+  val S2M = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe()
+  }
+  val FULL = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.s2mPipe().m2sPipe()
+  }
+  val HALF = new StreamPipe {
+    override def apply[T <: Data](m: Stream[T]) = m.halfPipe()
+  }
+}
 
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
@@ -98,7 +122,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The ready path is cut by an register stage
   */
   def </<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe
+    this << that.s2mPipe()
     that
   }
 
@@ -112,7 +136,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
 /** Connect that to this. The valid/payload/ready path are cut by an register stage
   */
   def <-/<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe.m2sPipe()
+    this << that.s2mPipe().m2sPipe()
     that
   }
 
@@ -123,21 +147,23 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     into
   }
 
+  def pipelined(pipe: StreamPipe) = pipe(this)
   def pipelined(m2s : Boolean = false,
                 s2m : Boolean = false,
                 halfRate : Boolean = false) : Stream[T] = {
     (m2s, s2m, halfRate) match {
-      case (false,false,false) => this.combStage()
-      case (true,false,false) =>  this.m2sPipe()
-      case (false,true,false) =>  this.s2mPipe()
-      case (true,true,false) =>   this.s2mPipe().m2sPipe()
-      case (false,false,true) =>  this.halfPipe()
+      case (false,false,false) => StreamPipe.NONE(this)
+      case (true,false,false) =>  StreamPipe.M2S(this)
+      case (false,true,false) =>  StreamPipe.S2M(this)
+      case (true,true,false) =>   StreamPipe.FULL(this)
+      case (false,false,true) =>  StreamPipe.HALF(this)
     }
   }
 
   def &(cond: Bool): Stream[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
-  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
+  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = map(translate)
+  def map[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.payload))
   }
 
@@ -478,10 +504,47 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     next.valid := self.valid
     next.payload := self.payload
     self.ready := next.ready && cond
-    next
   }.next
 
   override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
+
+  /**
+   * Assert that this stream conforms to the stream semantics:
+   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+   * - After being asserted, valid may only be deasserted once the current payload was acknowleged.
+   *
+   * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
+   */
+  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
+    import spinal.core.formal._
+    val stack = ScalaLocated.long
+    when(past(this.isStall) init(False)) {
+      assert(this.valid,  "Stream transaction disappeared:\n" + stack)
+      if(payloadInvariance) assert(stable(this.payload), "Stream transaction payload changed:\n" + stack)
+    }
+    this
+  }
+
+  def withAssumes(payloadInvariance : Boolean = true)(implicit loc : Location): this.type  = {
+    import spinal.core.formal._
+    when(past(this.isStall) init (False)) {
+      assume(this.valid)
+      if(payloadInvariance) assume(stable(this.payload))
+    }
+    this
+  }
+
+
+
+  // this could be more generic.
+  def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {
+    import spinal.core.formal._
+    val event = RegInit(False)
+    when(getCond(this)) {
+      assume(event === True)
+    }
+    event
+  }
 }
 
 object StreamArbiter {
@@ -779,19 +842,17 @@ object StreamFork {
 }
 
 object StreamFork2 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 2, synchronous).setCompositeName(input, "fork", true)
-    fork.io.input << input
-    return (fork.io.outputs(0), fork.io.outputs(1))
-  }
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T]) = new Composite(input, "fork2"){
+    val outputs = (cloneOf(input), cloneOf(input))
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2), synchronous)
+  }.outputs
 }
 
 object StreamFork3 {
-  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = {
-    val fork = new StreamFork(input.payloadType, 3, synchronous).setCompositeName(input, "fork", true)
-    fork.io.input << input
-    return (fork.io.outputs(0), fork.io.outputs(1), fork.io.outputs(2))
-  }
+  def apply[T <: Data](input: Stream[T], synchronous: Boolean = false): (Stream[T], Stream[T], Stream[T]) = new Composite(input, "fork3"){
+    val outputs = (cloneOf(input), cloneOf(input), cloneOf(input))
+    val logic = new StreamForkArea(input, List(outputs._1, outputs._2, outputs._3), synchronous)
+  }.outputs
 }
 
 /**
@@ -811,38 +872,44 @@ class StreamFork[T <: Data](dataType: HardType[T], portCount: Int, synchronous: 
     val input = slave Stream (dataType)
     val outputs = Vec(master Stream (dataType), portCount)
   }
+  val logic = new StreamForkArea(io.input, io.outputs, synchronous)
+}
+
+class StreamForkArea[T <: Data](input : Stream[T], outputs : Seq[Stream[T]], synchronous: Boolean = false) extends Area {
+  val portCount = outputs.size
   if (synchronous) {
-    io.input.ready := io.outputs.map(_.ready).reduce(_ && _)
-    io.outputs.foreach(_.valid := io.input.valid && io.input.ready)
-    io.outputs.foreach(_.payload := io.input.payload)
+    input.ready := outputs.map(_.ready).reduce(_ && _)
+    outputs.foreach(_.valid := input.valid && input.ready)
+    outputs.foreach(_.payload := input.payload)
   } else {
     /* Store if an output stream already has taken its value or not */
     val linkEnable = Vec(RegInit(True),portCount)
-    
+
     /* Ready is true when every output stream takes or has taken its value */
-    io.input.ready := True
+    input.ready := True
     for (i <- 0 until portCount) {
-      when(!io.outputs(i).ready && linkEnable(i)) {
-        io.input.ready := False
+      when(!outputs(i).ready && linkEnable(i)) {
+        input.ready := False
       }
     }
 
     /* Outputs are valid if the input is valid and they haven't taken their value yet.
      * When an output fires, mark its value as taken. */
     for (i <- 0 until portCount) {
-      io.outputs(i).valid := io.input.valid && linkEnable(i)
-      io.outputs(i).payload := io.input.payload
-      when(io.outputs(i).fire) {
+      outputs(i).valid := input.valid && linkEnable(i)
+      outputs(i).payload := input.payload
+      when(outputs(i).fire) {
         linkEnable(i) := False
       }
     }
 
     /* Reset the storage for each new value */
-    when(io.input.ready) {
+    when(input.ready) {
       linkEnable.foreach(_ := True)
     }
   }
 }
+
 
 case class EventEmitter(on : Event){
   val reg = RegInit(False)
@@ -1244,6 +1311,15 @@ class StreamCCByToggle[T <: Data](dataType: HardType[T],
   }
 }
 
+/**
+ * Enumeration to present order of slices.
+ */
+sealed trait SlicesOrder
+/** Slice with lower bits process first */
+object LOWER_FIRST extends SlicesOrder
+/** Slice with higher bits process first */
+object HIGHER_FIRST extends SlicesOrder
+
 object StreamWidthAdapter {
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
@@ -1273,11 +1349,35 @@ object StreamWidthAdapter {
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resized)
-        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
+        case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resize(outputWidth))
+        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
       }
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder): Unit = {
+    StreamWidthAdapter(input, output, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], order : SlicesOrder, padding : Boolean): Unit = {
+    val endianness = order match {
+      case HIGHER_FIRST => BIG
+      case LOWER_FIRST => LITTLE
+    }
+    StreamWidthAdapter(input, output, endianness, padding)
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,order,padding)
+    ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
@@ -1286,7 +1386,7 @@ object StreamWidthAdapter {
     ret
   }
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]) : Unit = {
     SpinalVhdl(new Component{
       val input = slave(Stream(Bits(4 bits)))
       val output = master(Stream(Bits(32 bits)))
@@ -1325,12 +1425,36 @@ object StreamFragmentWidthAdapter {
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resized)
-        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
+        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resize(outputWidth))
+        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resize(outputWidth))
       }
       output.last := input.last
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder): Unit = {
+    StreamFragmentWidthAdapter(input, output, order, false)
+  }
+
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], order : SlicesOrder, padding : Boolean): Unit = {
+    val endianness = order match {
+      case HIGHER_FIRST => BIG
+      case LOWER_FIRST => LITTLE
+    }
+    StreamFragmentWidthAdapter(input, output, endianness, padding)
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,order,false)
+    ret
+  }
+
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], order : SlicesOrder, padding : Boolean) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,order,padding)
+    ret
   }
 
   def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
@@ -1431,7 +1555,7 @@ case class StreamFifoMultiChannelSharedSpace[T <: Data](payloadType : HardType[T
     val previousAddress = MuxOH(io.push.channel, channels.map(_.lastPtr))
     when(io.push.stream.fire) {
       payloadRam.write(pushNextEntry, io.push.stream.payload)
-      when((channels.map(_.valid).asBits & io.push.channel).orR) {
+      when((channels.map(_.valid).asBits() & io.push.channel).orR) {
         nextRam.write(previousAddress, pushNextEntry)
       }
     }

@@ -24,6 +24,7 @@ import spinal.core._
 
 import scala.collection.immutable.Iterable
 import scala.collection.mutable.ArrayBuffer
+import spinal.idslplugin.Location
 
 
 trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[SC, SE], SE <: Statement with DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainer[SC,SE]{
@@ -64,6 +65,16 @@ class ScopeStatement(var parentStatement: TreeStatement) {
     val ctx = push()
     body
     ctx.restore()
+  }
+
+  //Execute body on the head of the ScopeStatement list
+  def onHead[T](body : => T) : T = {
+    val ctx = push()
+    val swapContext = swap()
+    val ret = body
+    ctx.restore()
+    swapContext.appendBack()
+    ret
   }
 
   class SwapContext(cHead: Statement, cLast: Statement){
@@ -426,6 +437,7 @@ class WhenStatement(var cond: Expression) extends TreeStatement{
 class SwitchStatement(var value: Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope: ScopeStatement = null
+  var coverUnreachable = false
 
   override def foreachStatements(func: (Statement) => Unit): Unit = {
     elements.foreach(x => x.scopeStatement.foreachStatements(func))
@@ -502,7 +514,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     }
 
 
-    //TODO IR enum encoding stuff
+    //TODO IR senum encoding stuff
     value.getTypeObject match {
       case `TypeBits` => bitVectorNormalize(new ResizeBits)
       case `TypeUInt` => bitVectorNormalize(new ResizeUInt)
@@ -559,7 +571,7 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
     var hadNonLiteralKey = false
     elements.foreach(element => element.keys.foreach{
       case lit: EnumLiteral[_] =>
-        if(!coverage.allocate(lit.enum.position)){
+        if(!coverage.allocate(lit.senum.position)){
           PendingError(s"UNREACHABLE IS STATEMENT in the switch statement at \n" + element.getScalaLocationLong)
         }
       case lit: Literal =>
@@ -577,8 +589,8 @@ class SwitchStatement(var value: Expression) extends TreeStatement{
 
 object AssertStatementHelper{
 
-  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement = {
-    val node = AssertStatement(cond, message, severity, kind, trigger)
+  def apply(cond: Bool, message: Seq[Any], severity: AssertNodeSeverity, kind: AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement = {
+    val node = AssertStatement(cond, message, severity, kind, trigger, loc)
 
     if(!GlobalData.get.phaseContext.config.noAssert){
       DslScopeStack.get.append(node)
@@ -587,8 +599,8 @@ object AssertStatementHelper{
     node
   }
 
-  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger): AssertStatement ={
-    AssertStatementHelper(cond, List(message), severity, kind, trigger)
+  def apply(cond: Bool, message: String, severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location): AssertStatement ={
+    AssertStatementHelper(cond, List(message), severity, kind, trigger, loc)
   }
 }
 
@@ -606,7 +618,7 @@ object AssertStatementTrigger{
   val INITIAL = new AssertStatementTrigger
 }
 
-case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger) extends LeafStatement with SpinalTagReady {
+case class AssertStatement(var cond: Expression, message: Seq[Any], severity: AssertNodeSeverity, kind : AssertStatementKind, trigger : AssertStatementTrigger, loc: Location) extends LeafStatement with SpinalTagReady {
   var clockDomain = ClockDomain.current
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {

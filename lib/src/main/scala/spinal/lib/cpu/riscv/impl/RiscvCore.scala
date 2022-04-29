@@ -1096,13 +1096,13 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
 
   // profiling/debug counters
   val performanceCounters = new Area{
-    val decode_pcLoad = Counter(1<<30,decode.pcLoad.valid).value.keep()
-    val execute1_pcLoad = Counter(1<<30,execute1.pcLoad.valid).value.keep()
+    val decode_pcLoad = Counter(1<<30,decode.pcLoad.valid).value.dontSimplifyIt()
+    val execute1_pcLoad = Counter(1<<30,execute1.pcLoad.valid).value.dontSimplifyIt()
 
-    val decode_halt = Counter(1<<30,decode.halt && decode.inInst.valid).value.keep()
-    val execute0_halt = Counter(1<<30,execute0.halt && execute0.inInst.valid).value.keep()
-    val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.keep()
-    val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.keep()
+    val decode_halt = Counter(1<<30,decode.halt && decode.inInst.valid).value.dontSimplifyIt()
+    val execute0_halt = Counter(1<<30,execute0.halt && execute0.inInst.valid).value.dontSimplifyIt()
+    val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.dontSimplifyIt()
+    val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.dontSimplifyIt()
   }
 
 

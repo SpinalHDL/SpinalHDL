@@ -125,6 +125,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     this
   }
 
+  var corruptedState : Bool = null
+  def inCorruptedState(): Bool ={
+    if(corruptedState == null) corruptedState = Bool().setCompositeName(this, "corruptedState", weak = true)
+    corruptedState
+  }
+
   def setEncoding(encoding: SpinalEnumEncoding): Unit = enumDef.defaultEncoding = encoding
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
@@ -142,6 +148,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   val wantKill = False
   var autoStart = true
 
+
   @dontName var parentStateMachine: StateMachineAccessor = null
   @dontName val childStateMachines = mutable.LinkedHashSet[StateMachineAccessor]()
   @dontName val states   = ArrayBuffer[State]()
@@ -158,7 +165,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
   var stateBoot : State = new State()(this).setCompositeName(this, "BOOT", Nameable.DATAMODEL_WEAK)
 
   def makeInstantEntry(): State ={
-    setEntry(stateBoot)
+    setEntry(stateBoot.unsetName())
     stateBoot
   }
 
@@ -252,6 +259,22 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     when(wantKill){
       forceGoto(stateBoot)
     }
+
+    if(corruptedState != null){
+      switch(stateReg, coverUnreachable = true){
+        for(e <- states) is(enumOf(e)){
+          corruptedState := False
+        }
+        default{
+          corruptedState := True
+        }
+      }
+      for(state <- states){
+        when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
+          state.onEntryTasks.foreach(_())
+        }
+      }
+    }
   }
 
   Component.current.afterElaboration{
@@ -324,7 +347,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated {
     wantKill := True
   }
 
-  @dontName implicit val implicitFsm = this
+  @dontName implicit val implicitFsm : StateMachine = this
 
   override def disableAutoStart(): Unit = autoStart = false
 

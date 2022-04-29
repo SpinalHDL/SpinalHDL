@@ -145,7 +145,7 @@ case class Axi4WriteOnlyDownsizer(inputConfig: Axi4Config, outputConfig: Axi4Con
         to.assignUnassignedByName(from)
     }
 
-    val rspCtrlStream = Stream(Bool)
+    val rspCtrlStream = Stream(Bool())
     rspCtrlStream.translateFrom(rspCountStream) { (to, from) =>
         to := generator.io.last
     }

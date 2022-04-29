@@ -72,9 +72,27 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   val definition = new SpinalTagReady {
-
+    def addComment(str : String) = this.addTag(new CommentTag(str))
   }
 
+  def addComment(str : String) = this.addTag(new CommentTag(str))
+
+  var withVitalOutputs = false
+  def asFormalDut() : this.type = {
+    withVitalOutputs = true
+    this
+  }
+
+
+  var withHierarchyAutoPull = false
+  def withAutoPull(): Unit ={
+    withHierarchyAutoPull = true
+  }
+
+  var isFormalTester = false
+  def setFormalTester(): Unit ={
+    isFormalTester = true
+  }
 
   def isLogicLess = dslBody.isEmpty && children.isEmpty
 
@@ -297,6 +315,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     * @example{{{ toplevel/[myComponent1]/[myComponent2] // Current component is myComponent2 }}}
     */
   def getPath(sep: String = "/"): String = (if (parent == null) "" else getParentsPath(sep) + sep) + this.getDisplayName()
+  def getRtlPath(separator : String = "/") : String = {
+    if(parent == null) "" else (parents().tail :+this) .mkString(separator)
+  }
 
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret      = mutable.Set[Data]()

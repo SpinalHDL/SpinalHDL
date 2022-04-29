@@ -26,7 +26,7 @@ case class VpiBackendConfig(
   var runFlags: String       = "",
   var sharedMemSize: Int     = 65536,
   var CC: String             = "g++",
-  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing", 
+  var CFLAGS: String         = "-std=c++11 -Wall -Wextra -pedantic -O2 -Wno-strict-aliasing -Wno-write-strings", 
   var LDFLAGS: String        = "-lpthread ", 
   var useCache: Boolean      = false,
   var logSimProcess: Boolean = false
@@ -65,9 +65,31 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   else (if (isMac) "darwin" 
   else "linux"))}"
 
-  class Logger extends ProcessLogger { 
-    override def err(s: => String): Unit = { if(logSimProcess) println(s) }
-    override def out(s: => String): Unit = { if(logSimProcess) println(s) }
+  def doCmd(command: String, cwd: File, message : String) = {
+    val logger = new Logger()
+    if(Process(command, cwd)! (logger) != 0){
+      println(logger.logs)
+      throw new Exception(message)
+    }
+  }
+  def doCmd(command: String, cwd: File, extraEnv: Seq[(String, String)], message : String) = {
+    val logger = new Logger()
+    if(Process(command, cwd, extraEnv :_*)! (logger) != 0){
+      println(logger.logs)
+      throw new Exception(message)
+    }
+  }
+
+  class Logger extends ProcessLogger {
+    val logs = new StringBuilder()
+    override def err(s: => String): Unit = { logs ++= (s) }
+    override def out(s: => String): Unit = { logs ++= (s) }
+    override def buffer[T](f: => T) = f
+  }
+
+  class LoggerPrint extends ProcessLogger {
+    override def err(s: => String): Unit = { println(s) }
+    override def out(s: => String): Unit = { println(s) }
     override def buffer[T](f: => T) = f
   }
 
@@ -85,48 +107,55 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
           cppSourceFile.close
         }
 
-        assert(Process(Seq(CC, 
-          "-c", 
-          CFLAGS, 
-          "SharedMemIface.cpp", 
+      doCmd(
+        Seq(CC,
+          "-c",
+          CFLAGS,
+          "SharedMemIface.cpp",
           "-o",
-          "SharedMemIface.o").mkString(" "), 
-        new File(pluginsPath)).! (new Logger()) == 0, 
-      "Compilation of SharedMemIface.cpp failed")
+          "SharedMemIface.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+        "Compilation of SharedMemIface.cpp failed"
+      )
 
-        assert(Process(Seq(CC, 
-          "-c", 
-          CFLAGS, 
-          "SharedMemIface_wrap.cxx", 
+      doCmd(
+        Seq(CC,
+          "-c",
+          CFLAGS,
+          "SharedMemIface_wrap.cxx",
           "-o",
-          "SharedMemIface_wrap.o").mkString(" "), 
-        new File(pluginsPath)).! (new Logger()) == 0, 
-      "Compilation of SharedMemIface_wrap.cxx failed")
+          "SharedMemIface_wrap.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+       "Compilation of SharedMemIface_wrap.cxx failed"
+      )
 
-        assert(Process(Seq(CC, 
+      doCmd(
+        Seq(CC,
           CFLAGS + (if(isMac) " -dynamiclib " else ""),
-          "SharedMemIface.o", 
+          "SharedMemIface.o",
           "SharedMemIface_wrap.o",
-          LDFLAGS, 
+          LDFLAGS,
           "-o",
-          sharedMemIfaceName).mkString(" "),
-
-        new File(pluginsPath)).! (new Logger()) == 0, 
+          sharedMemIfaceName
+        ).mkString(" "),
+        new File(pluginsPath),
       "Compilation of SharedMemIface." + sharedExtension + " failed")
     }
 
     System.load(pwd + "/" + sharedMemIfacePath)
     compileVPI()
-    analyzeRTL() 
+    analyzeRTL()
   }
 
-  def clean() {
+  def clean() : Unit = {
     FileUtils.deleteQuietly(new File(s"${workspacePath}/${workspaceName}"))
     FileUtils.cleanDirectory(new File(pluginsPath))
   }
 
-  def compileVPI()  // Return the plugin name
-  def analyzeRTL()
+  def compileVPI() : Unit   // Return the plugin name
+  def analyzeRTL() : Unit
   def runSimulation(sharedMemIface: SharedMemIface) : Thread
 
   def instanciate_() : (SharedMemIface, Thread) = {
@@ -153,11 +182,11 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
   def instanciate(seed : Long) : (SharedMemIface, Thread) = {
     val ret = if(useCache) {
       VpiBackend.synchronized {
-        instanciate_
+        instanciate_()
       }
     } else {
       this.synchronized {
-        instanciate_
+        instanciate_()
       }
     }
     ret._1.set_seed(seed)
@@ -216,49 +245,63 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
              cppSourceFile.close
            }
 
-           assert(Process(Seq(ghdlPath,
+          doCmd(
+            Seq(ghdlPath,
              "--vpi-compile",
              CC, 
              "-c", 
-             CFLAGS, 
+             CFLAGS + " -DGHDL_PLUGIN", 
              "VpiPlugin.cpp",
              "-o",
-             "VpiPlugin.o").mkString(" "), 
-           new File(pluginsPath)).! (new Logger()) == 0, 
-         "Compilation of VpiPlugin.o failed")
+             "VpiPlugin.o"
+            ).mkString(" "),
+           new File(pluginsPath),
+           "Compilation of VpiPlugin.o failed"
+          )
 
-           assert(Process(Seq(ghdlPath,
-             "--vpi-link",
-             CC, 
-             CFLAGS,
-             "VpiPlugin.o",
-             LDFLAGS,
-             "-o",
-             vpiModuleName).mkString(" "), 
-           new File(pluginsPath)).! (new Logger()) == 0, 
-         s"Compilation of $vpiModuleName failed")
+        doCmd(
+          Seq(ghdlPath,
+           "--vpi-link",
+           CC,
+           CFLAGS,
+           "VpiPlugin.o",
+           LDFLAGS,
+           "-o",
+           vpiModuleName
+          ).mkString(" "),
+           new File(pluginsPath),
+         s"Compilation of $vpiModuleName failed"
+        )
     }
   } 
 
-  def analyzeRTL() {
+  def analyzeRTL() : Unit = {
 
     val vhdlSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".vhd") || 
     s.endsWith(".vhdl")) }
       .mkString(" ")
 
-      assert(Process(Seq(ghdlPath,
+    doCmd(
+      Seq(ghdlPath,
         "-a",
         analyzeFlags,
-        vhdlSourcePaths).mkString(" "), 
-      new File(workspacePath)).! (new Logger()) == 0, 
-    s"Analyze step of vhdl files failed") 
+        "-fsynopsys",
+        vhdlSourcePaths
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Analyze step of vhdl files failed"
+    )
 
-      assert(Process(Seq(ghdlPath,
+    doCmd(
+      Seq(ghdlPath,
         "-e",
         elaborationFlags,
-        toplevelName).mkString(" "), 
-      new File(workspacePath)).! (new Logger()) == 0,
-    s"Elaboration of $toplevelName failed")
+        "-fsynopsys",
+        toplevelName
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Elaboration of $toplevelName failed"
+    )
   }
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
@@ -274,11 +317,12 @@ class GhdlBackend(config: GhdlBackendConfig) extends VpiBackend(config) {
         val retCode = Process(Seq(ghdlPath,
           "-r",
           elaborationFlags,
+          "-fsynopsys",
           toplevelName,
           s"--vpi=${pwd + "/" + vpiModulePath}",
           runFlags).mkString(" "),
         new File(workspacePath),
-        "PATH" -> pathStr).! (new Logger())
+        "PATH" -> pathStr).! (new LoggerPrint())
 
         if (retCode != 0) {
           iface.set_crashed(retCode)
@@ -380,31 +424,37 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
              cppSourceFile.close
            }
 
-           assert(Process(Seq(CC,
-                              "-c", 
-                              IVERILOGCFLAGS,
-                              CFLAGS + " -DIVERILOG_PLUGIN", 
-                              "VpiPlugin.cpp",
-                              "-o",
-                              "VpiPlugin.o").mkString(" "), 
-                            new File(pluginsPath)).! (new Logger()) == 0, 
-                  "Compilation of VpiPlugin.o failed")
+      doCmd(
+        Seq(CC,
+          "-c",
+          IVERILOGCFLAGS,
+          CFLAGS + " -DIVERILOG_PLUGIN",
+          "VpiPlugin.cpp",
+          "-o",
+          "VpiPlugin.o"
+        ).mkString(" "),
+        new File(pluginsPath),
+        "Compilation of VpiPlugin.o failed"
+      )
 
-            assert(Process(Seq(CC,
-                              IVERILOGCFLAGS,
-                              CFLAGS,
-                              "VpiPlugin.o",
-                              IVERILOGLDFLAGS,
-                              IVERILOGLDLIBS,
-                              LDFLAGS,
-                              "-o",
-                              vpiModuleName).mkString(" "), 
-                            new File(pluginsPath)).! (new Logger()) == 0, 
-                  s"Compilation of $vpiModuleName failed")
+      doCmd(
+        Seq(CC,
+          IVERILOGCFLAGS,
+          CFLAGS,
+          "VpiPlugin.o",
+          IVERILOGLDFLAGS,
+          IVERILOGLDLIBS,
+          LDFLAGS,
+          "-o",
+          vpiModuleName
+        ).mkString(" "),
+        new File(pluginsPath),
+        s"Compilation of $vpiModuleName failed"
+      )
     }
   } 
 
-  def analyzeRTL() {
+  def analyzeRTL() : Unit = {
     val verilogSourcePaths = rtlSourcesPaths.filter { s => (s.endsWith(".v") || 
                                                            s.endsWith(".sv") ||
                                                            s.endsWith(".vl")) }
@@ -431,18 +481,21 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
 
     val verilogIncludePaths = config.rtlIncludeDirs.map("-I " + new File(_).getAbsolutePath).mkString(" ")
 
-    assert(Process(Seq(iverilogPath,
-                       analyzeFlags,
-                       "-o",
-                       toplevelName + ".vvp",
-                       "-s __simulation_def",
-                       "-s",
-                       toplevelName,
-                       verilogIncludePaths,
-                       verilogSourcePaths,
-                       s"./rtl/__simulation_def.v").mkString(" "),
-                     new File(workspacePath)).! (new Logger()) == 0, 
-           s"Analyze step of verilog files failed") 
+    doCmd(
+      Seq(iverilogPath,
+        analyzeFlags,
+        "-o",
+        toplevelName + ".vvp",
+        "-s __simulation_def",
+        "-s",
+        toplevelName,
+        verilogIncludePaths,
+        verilogSourcePaths,
+        s"./rtl/__simulation_def.v"
+      ).mkString(" "),
+      new File(workspacePath),
+      s"Analyze step of verilog files failed"
+    )
   }
 
   def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
@@ -459,7 +512,7 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
                                 s"-m${pwd + "/" +vpiModulePath}",
                                 toplevelName + ".vvp",
                                 runFlags).mkString(" "), 
-                              new File(workspacePath)).! (new Logger())
+                              new File(workspacePath)).! (new LoggerPrint())
         if (retCode != 0) {
           iface.set_crashed(retCode)
           println(s"Simulation of $toplevelName failed")
@@ -467,7 +520,6 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
       }
     })
 
-//    thread.setUncaughtExceptionHandler(new VpiThreadExceptionHandler)
     thread.setDaemon(true)
     thread.start()
     thread
@@ -476,5 +528,273 @@ class IVerilogBackend(config: IVerilogBackendConfig) extends VpiBackend(config) 
   override def isBufferedWrite: Boolean = true
 }
 
+class VCSBackendConfig extends VpiBackendConfig {
+  var vcsCC: Option[String] = None
+  var vcsLd: Option[String] = None
+  var elaborationFlags: String = ""
+  var waveDepth = 0
+}
 
+class VCSBackend(config: VCSBackendConfig) extends VpiBackend(config) {
+  import Backend._
+  import config._
+  override def isBufferedWrite: Boolean = true
 
+  val availableFormats = Array(WaveFormat.VCD, WaveFormat.VPD, WaveFormat.DEFAULT, WaveFormat.FSDB, WaveFormat.NONE)
+
+  val format = if(availableFormats contains config.waveFormat) {
+    config.waveFormat
+  } else {
+    println("Wave format " + config.waveFormat + " not supported by VCS for now")
+    WaveFormat.NONE
+  }
+
+  val vpiModuleName = "vpi_vcs.so"
+  val vpiModulePath = pluginsPath + "/" + vpiModuleName
+  val vpiModuleAbsPath = new File(vpiModulePath).getAbsolutePath().mkString
+  val vpiInclude = sys.env.get("VCS_HOME") match {
+    case Some(x) => x + "/include"
+    case None => {
+//      println("VCS_HOME not found")
+      assert(assertion = false, "VCS_HOME not found! Setup your synopsys environment first.")
+      ""
+    }
+  }
+
+  val verdi_home = sys.env.get("VERDI_HOME") match {
+    case Some(x) => x
+    case None => {
+      if(config.waveFormat == WaveFormat.FSDB){
+        var info = "$VERDI_HOME not found"
+        if(sys.env.get("LD_LIBRARY_PATH") == None) {
+          info += "\n $LD_LIBRARY_PATH not found"
+        }
+        println(s"[Error]: ${info}")
+        " "
+      }
+    }
+  }
+
+  def compileVPI(): Unit = {
+    if(Files.exists(Paths.get(vpiModulePath))) {
+      return
+    }
+    val vpiPluginSource = Array("/VpiPlugin.cpp", "/SharedStruct.hpp")
+    for(filename <- vpiPluginSource) {
+      val cppSourceFile = new PrintWriter(new File(pluginsPath + "/" + filename))
+      val stream = getClass.getResourceAsStream(filename)
+      cppSourceFile.write(scala.io.Source.fromInputStream(stream).mkString)
+      cppSourceFile.close
+    }
+    val vpiCFlags = s"-DVCS_PLUGIN -I$vpiInclude -fPIC -shared"
+    val vpiCommand = Seq(
+      CC,
+      CFLAGS,
+      vpiCFlags,
+      "VpiPlugin.cpp",
+      "-o",
+      vpiModuleName
+    ).mkString(" ")
+    println(s"[VPI] $vpiCommand")
+    doCmd(
+      vpiCommand,
+      new File(pluginsPath),
+      s"Compilation of $vpiModuleName failed"
+    )
+  }
+
+  private def vloganFlags(): String = {
+    val commonFlags = List(
+      "-nc",
+      "-full64",
+      "-sverilog",
+      "+v2k",
+      "-ntb",
+      "-debug_access+all",
+      "-timescale=1ns/1ps",
+      "-l vlogan.log"
+    )
+    val analysisFlags = List(config.analyzeFlags)
+    (commonFlags ++ analysisFlags).mkString(" ")
+  }
+
+  private def vhdlanFlags(): String = {
+    val commonFlags = List(
+      "-nc",
+      "-full64",
+      "-debug_access+all",
+      "-timescale=1ns/1ps",
+      "-l vhdlan.log"
+    )
+    val analysisFlags = List(config.analyzeFlags)
+    (commonFlags ++ analysisFlags).mkString(" ")
+  }
+
+  private def vcsFlags(): String = {
+    val commonFlags = List(
+      "-full64",
+      "-quiet",
+      "-timescale=1ns/1ps",
+      "-debug_access+all",
+      "-debug_acc+pp+dmptf",
+      "-debug_region=+cell+encrypt",
+      "-l vcs.log",
+      "+vpi",
+      "+vcs+initreg+random",
+      "-load",
+      s"$vpiModuleAbsPath:entry_point_cb",
+      "-o",
+      toplevelName
+    )
+    val cc = config.vcsCC match {
+      case Some(x) => List("-cc", x)
+      case None => List.empty
+    }
+    val ld = config.vcsLd match {
+      case Some(x) => List("-ld", x)
+      case None => List.empty
+    }
+
+    val dump = waveFormat match {
+      case WaveFormat.VCD => List(s"+vcs+dumpvars+$toplevelName.vcd")
+      case WaveFormat.VPD => List(s"+vcs+vcdpluson")
+      case WaveFormat.FSDB =>
+        List(s"-P ${verdi_home}/share/PLI/VCS/LINUX64/novas.tab", s"$verdi_home/share/PLI/VCS/LINUX64/pli.a")
+      case _ => List.empty
+    }
+    val elaborateFlags = List(config.elaborationFlags)
+    val cmd = (commonFlags ++ cc ++ ld ++ dump ++ elaborateFlags).mkString(" ")
+    cmd
+  }
+
+  // todo 1. use three-step flow; 2. try fsdb system task.
+  def analyzeRTL(): Unit = {
+    val verilogSourcePaths = rtlSourcesPaths.filter {
+      s => s.endsWith(".v") || s.endsWith(".sv") || s.endsWith(".vl") || s.endsWith(".vh") || s.endsWith(".svh") || s.endsWith(".vr")
+    }//.mkString(" ")
+    val vhdlSourcePaths = rtlSourcesPaths.filter {
+      s => s.endsWith(".vhd") || s.endsWith(".vhdl")
+    }//.mkString(" ")
+
+    config.rtlSourcesPaths.filter {
+      s => s.endsWith(".bin") || s.endsWith(".mem")
+    }.foreach {
+      path => FileUtils.copyFileToDirectory(new File(path), new File(workspacePath))
+    }
+
+    val fileList = (verilogSourcePaths ++ vhdlSourcePaths).mkString("\n")
+    val fileListFile = new PrintWriter(
+      new File(s"$workspacePath/filelist.f")
+    )
+    fileListFile.write(fileList)
+    fileListFile.close()
+
+    val simWaveSource =
+      s"""
+         |`timescale 1ns/1ps
+         |module __simulation_def;
+         |initial begin
+         |  $$fsdbDumpfile("$toplevelName.fsdb");
+         |  $$fsdbDumpvars($waveDepth, $toplevelName);
+         |  $$fsdbDumpflush;
+         |end
+         |endmodule""".stripMargin
+    val simulationDefSourceFile = new PrintWriter(new File(s"$workspacePath/rtl/" ++
+      "__simulation_def.v"))
+    simulationDefSourceFile.write(simWaveSource)
+    simulationDefSourceFile.close()
+
+    val fsdbv = waveFormat match {
+      case WaveFormat.FSDB => " ./rtl/__simulation_def.v"
+      case _=> " "
+    }
+    val topUnits = waveFormat match {
+      case WaveFormat.FSDB => toplevelName + " __simulation_def"
+      case _=> toplevelName
+    }
+
+    def analyzeSource(): Unit = {
+      if (vhdlSourcePaths.nonEmpty) {
+        val vhdlanCommand = Seq(
+          "vhdlan",
+          vhdlanFlags(),
+          vhdlSourcePaths.mkString(" ")
+        ).mkString(" ")
+        println(s"[VHDLAN] $vhdlanCommand")
+        doCmd(
+          vhdlanCommand,
+          new File(workspacePath),
+          s"Analysis of the $toplevelName failed"
+        )
+      }
+      if (verilogSourcePaths.nonEmpty){
+        val vloganCommand = Seq(
+          "vlogan",
+          vloganFlags(),
+          verilogSourcePaths.mkString(" ") + fsdbv
+        ).mkString(" ")
+        println(s"[VLOGAN] $vloganCommand")
+        doCmd(
+          vloganCommand,
+          new File(workspacePath),
+          s"Analysis of the $toplevelName failed"
+        )
+      }
+    }
+
+    def elaborate(): Unit = {
+      val vcsCommand = Seq(
+        "vcs",
+        vcsFlags(),
+        topUnits
+      ).mkString(" ")
+      println(s"[VCS] $vcsCommand")
+      doCmd(
+        vcsCommand,
+        new File(workspacePath),
+        s"Elaboration of $toplevelName failed"
+      )
+    }
+
+    println(f"[Progress] VCS compilation started.")
+    val startAt = System.nanoTime()
+    analyzeSource()
+    elaborate()
+    val deltaTime = (System.nanoTime() - startAt) * 1e-9
+    println(f"[Progress] VCS compilation done in $deltaTime%1.3f s")
+
+  }
+
+  class LoggerPrintWithTerminationFilter extends ProcessLogger {
+    var terminationOfSimulation: Boolean = false
+    private def printWithFilter(s: => String): Unit =  {
+      if (s.contains("Unexpected termination of the simulation")) {
+        terminationOfSimulation = true
+      }
+      println(s)
+    }
+    override def err(s: => String): Unit = { printWithFilter(s) }
+    override def out(s: => String): Unit = { printWithFilter(s) }
+    override def buffer[T](f: => T) = f
+  }
+
+  def runSimulation(sharedMemIface: SharedMemIface) : Thread = {
+    val thread = new Thread(new Runnable {
+      val iface = sharedMemIface
+      val logger = new LoggerPrintWithTerminationFilter()
+      def run(): Unit = {
+        val runCommand = Seq(s"./$toplevelName", config.runFlags).mkString(" ")
+        println(s"[SIMV] $runCommand")
+        val retCode = Process(runCommand, new File(workspacePath)).! (logger)
+        if (retCode != 0 && !logger.terminationOfSimulation) {
+          iface.set_crashed(retCode)
+          println(s"Simulation of $toplevelName failed")
+        }
+      }
+    })
+
+    thread.setDaemon(true)
+    thread.start()
+    thread
+  }
+}

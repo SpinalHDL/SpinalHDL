@@ -67,6 +67,18 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     ret
   }
 
+  def pipelined(
+    aw: StreamPipe = StreamPipe.NONE,
+    w: StreamPipe = StreamPipe.NONE,
+    b: StreamPipe = StreamPipe.NONE
+  ): Axi4WriteOnly = {
+    val ret = cloneOf(this)
+    ret.aw << this.aw.pipelined(aw)
+    ret.w << this.w.pipelined(w)
+    ret.b.pipelined(b) >> this.b
+    ret
+  }
+
   override def asMaster(): Unit = {
     master(aw, w)
     slave(b)

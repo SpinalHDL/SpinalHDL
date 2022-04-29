@@ -106,19 +106,30 @@ class MuxOHImpl {
     }
   }
 
+  def mux[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
+
+  def mux[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def mux[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = apply(oneHot, inputs)
+
 
   def or[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = or(oneHot.asBools,inputs)
   def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  or(oneHot,Vec(inputs))
   def or[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = or(oneHot.asBools,inputs)
-  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = {
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = or(oneHot, inputs, false)
+  
+  def or[T <: Data](oneHot : BitVector,inputs : Seq[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T], bypassIfSingle : Boolean): T =  or(oneHot,Vec(inputs), bypassIfSingle)
+  def or[T <: Data](oneHot : BitVector,inputs : Vec[T], bypassIfSingle : Boolean): T = or(oneHot.asBools,inputs, bypassIfSingle)
+  def or[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T], bypassIfSingle : Boolean): T = {
     assert(oneHot.size == inputs.size)
+    if(bypassIfSingle && inputs.size == 1) return CombInit(inputs.head)
     val masked = (oneHot, inputs).zipped.map((sel, value) => sel ? value.asBits | B(0, widthOf(value) bits))
     masked.reduceBalancedTree(_ | _).as(inputs.head)
   }
 }
 
 object MuxOH extends MuxOHImpl
-object OHMux extends MuxOHImpl
 object OhMux extends MuxOHImpl
 
 
@@ -176,13 +187,12 @@ object SetFromFirstOne{
 object OHMasking{
 
   /** returns an one hot encoded vector with only LSB of the word present */
-  def first[T <: Data](that : T) : T = {
+  def first[T <: Data](that : T) : T = new Composite(that, "ohFirst"){
       val input = that.asBits.asUInt
       val masked = input & ~(input - 1)
-      val ret = cloneOf(that)
-      ret.assignFromBits(masked.asBits)
-      ret
-  }
+      val value = cloneOf(that)
+      value.assignFromBits(masked.asBits)
+  }.value
 
   def firstV2[T <: Data](that : T, firstOrder : Int = LutInputs.get) : T = {
     val lutSize = LutInputs.get
@@ -541,8 +551,8 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     valueNext := start
   }
 
-  willOverflowIfInc.allowPruning
-  willOverflow.allowPruning
+  willOverflowIfInc.allowPruning()
+  willOverflow.allowPruning()
 
   override def implicitValue: UInt = this.value
 
@@ -924,6 +934,32 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
     }
   }
 
+  def onMask(conds : TraversableOnce[Bool])(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onMask(conds : Bits)(body : T => Unit): Unit ={
+    whenMasked[T](pimped, conds)(body)
+  }
+  def onSel(sel : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
+    whenIndexed[T](pimped, sel, relaxedWidth)(body)
+  }
+
+  def shuffle(indexMapping: (Int) => Int): ArrayBuffer[T] = {
+    val out = ArrayBuffer[T]() ++ pimped
+    for((v, i) <- pimped.zipWithIndex){
+      out(indexMapping(i)) = v
+    }
+    out
+  }
+
+  def shuffleWithSize(indexMapping: (Int, Int) => Int): ArrayBuffer[T] = {
+    val out = ArrayBuffer[T]() ++ pimped
+    for((v, i) <- pimped.zipWithIndex){
+      out(indexMapping(pimped.size, i)) = v
+    }
+    out
+  }
+
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
   }
@@ -956,6 +992,16 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
       val k = by(e)
       ret.getOrElseUpdate(k, ArrayBuffer[T]()) += e
     }
+    ret
+  }
+}
+
+
+
+class TraversableOnceAnyTuplePimped[T <: Any, T2 <: Any](pimped: Seq[(T, T2)]) {
+  def toMapLinked() : mutable.LinkedHashMap[T, T2] = {
+    val ret = mutable.LinkedHashMap[T, T2]()
+    for((k,v) <- pimped) ret(k) = v;
     ret
   }
 }
@@ -997,6 +1043,9 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
     val hitValue = PriorityMux(hits,(0 until size).map(U(_,log2Up(size) bit)))
     (hitValid,hitValue)
   }
+
+  def shuffle(indexMapping: (Int) => Int): Vec[T] = Vec(new TraversableOnceAnyPimped[T](pimped).shuffle(indexMapping))
+  def shuffleWithSize(indexMapping: (Int, Int) => Int): Vec[T] = Vec(new TraversableOnceAnyPimped[T](pimped).shuffleWithSize(indexMapping))
 }
 
 
@@ -1158,9 +1207,9 @@ object whenMasked{
 }
 
 object whenIndexed{
-  def apply[T](things : TraversableOnce[T], index : UInt)(body : T => Unit): Unit ={
+  def apply[T](things : TraversableOnce[T], index : UInt, relaxedWidth : Boolean = false)(body : T => Unit): Unit ={
     val thingsList = things.toList
-    assert(log2Up(thingsList.size) == widthOf(index))
+    assert(relaxedWidth || log2Up(thingsList.size) == widthOf(index))
     switch(index) {
       for ((thing, idx) <- thingsList.zipWithIndex) is(idx) {
         body(thing)

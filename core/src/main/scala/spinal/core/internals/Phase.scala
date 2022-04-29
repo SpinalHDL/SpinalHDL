@@ -932,7 +932,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
           val privateNsN = (if(config.privateNamespace) topLevel.definitionName + "_" else "")
           c.definitionName = pre + privateNsN + classNameOf(c)
         } else {
-          c.definitionName = pre + c.definitionName 
+          c.definitionName = pre + c.definitionName
         }
       }
       if (c.definitionName == "") {
@@ -970,7 +970,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkDeclarations {
-      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum, null) //Encodings will be added later
+      case senum: SpinalEnumCraft[_] => enums.getOrElseUpdate(senum.spinalEnum, null) //Encodings will be added later
       case _ =>
     }
 
@@ -1099,14 +1099,14 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
       node.bootInferration()
     })
 
-    nodes.foreach(enum => {
-      enum.swapEncoding(encodingSwap(enum.getEncoding))
+    nodes.foreach(senum => {
+      senum.swapEncoding(encodingSwap(senum.getEncoding))
     })
 
     algo = globalData.allocateAlgoIncrementale()
 
-    nodes.foreach(enum => {
-      if(enum.propagateEncoding){
+    nodes.foreach(senum => {
+      if(senum.propagateEncoding){
 
         def propagateOn(that : Expression): Unit = {
           that match {
@@ -1115,7 +1115,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
 
               that.algoIncrementale = algo
 
-              if(that.encodingProposal(enum.getEncoding)) {
+              if(that.encodingProposal(senum.getEncoding)) {
                 that match {
                   case that: SpinalEnumCraft[_] =>
                     that.dlcForeach(s => propagateOn(s.source))
@@ -1129,39 +1129,39 @@ class PhaseInferEnumEncodings(pc: PhaseContext, encodingSwap: (SpinalEnumEncodin
           }
         }
 
-        enum match {
-          case enum : SpinalEnumCraft[_] =>
-            enum.dlcForeach(s => propagateOn(s.source))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+        senum match {
+          case senum : SpinalEnumCraft[_] =>
+            senum.dlcForeach(s => propagateOn(s.source))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
           case _ =>
-            enum.foreachExpression(propagateOn(_))
-            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+            senum.foreachExpression(propagateOn(_))
+            consumers.getOrElse(senum, Nil).foreach(propagateOn(_))
         }
       }
     })
 
     //Feed enums with encodings
     enums.keys.toArray.distinct.foreach(enums(_) = mutable.LinkedHashSet[SpinalEnumEncoding]())
-    nodes.foreach(enum => {
-      enums(enum.getDefinition) += enum.getEncoding
+    nodes.foreach(senum => {
+      enums(senum.getDefinition) += senum.getEncoding
     })
 
     //give a name to unnamed encodingss
     val unnamedEncodings = enums.valuesIterator.flatten.toSeq.distinct.withFilter(_.isUnnamed).foreach(_.setName("anonymousEnc", Nameable.DATAMODEL_WEAK))
 
     //Check that there is no encoding overlaping
-    for((enum,encodings) <- enums){
+    for((senum,encodings) <- enums){
       for(encoding <- encodings) {
         val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
 
-        for(element <- enum.elements){
+        for(element <- senum.elements){
           val key = encoding.getValue(element)
           reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
         }
 
         for((key,elements) <- reserveds){
           if(elements.length != 1){
-            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+            PendingError(s"Conflict in the $senum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${senum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
           }
         }
       }
@@ -1583,6 +1583,43 @@ class PhaseCheckCrossClock() extends PhaseCheck{
   }
 }
 
+class PhaseNextifyTag(val dest : BaseType) extends SpinalTag
+class PhaseNextifyReg() extends PhaseNetlist{
+  override def impl(pc: PhaseContext) = {
+    pc.walkDeclarations{
+      case bt : BaseType if bt.hasTag(classOf[PhaseNextifyTag])=> {
+        bt.isReg match {
+          case false => ???
+          case true => {
+            val dests = bt.getTags().collect{ case e : PhaseNextifyTag  => e.dest }
+            val seed = dests.head //Used to implement the ff input logic
+
+            dests.foreach(_.unfreeze())
+
+            for(other <- dests.filter(_ != seed)) {
+              other.component.rework{other := seed.pull()} //pull to ensure it work with in/out
+            }
+
+            bt.parentScope.onHead(seed := bt) //Default value
+
+            bt.foreachStatements{
+              case s : InitAssignmentStatement =>
+              case s : DataAssignmentStatement => {
+                //Move the assignment to the seed
+                s.dlcRemove()
+                s.target = seed
+                seed.dlcAppend(s)
+              }
+            }
+
+            bt.component.rework(bt := seed)
+          }
+        }
+      }
+      case _ =>
+    }
+  }
+}
 
 class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) extends PhaseNetlist {
 
@@ -1673,6 +1710,7 @@ class PhaseRemoveUselessStuff(postClockPulling: Boolean, tagVitals: Boolean) ext
     topLevel.getAllIo.withFilter(bt => !bt.isDirectionLess).foreach(propagate(_, tagVitals))
     walkComponents{
       case c: BlackBox if c.isBlackBox => c.getAllIo.withFilter(_.isInputOrInOut).foreach(propagate(_, tagVitals))
+      case c if c.withVitalOutputs => c.getAllIo.withFilter(bt => bt.isOutputOrInOut).foreach(propagate(_, tagVitals))
       case c =>
     }
 
@@ -1758,7 +1796,7 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
     import pc._
 
     walkStatements{
-      case s: SwitchStatement if s.isFullyCoveredWithoutDefault =>
+      case s: SwitchStatement if s.isFullyCoveredWithoutDefault && !s.coverUnreachable =>
         if(s.defaultScope != null && !s.defaultScope.isEmpty){
           PendingError(s"UNREACHABLE DEFAULT STATEMENT on \n" + s.getScalaLocationLong)
         }
@@ -1797,6 +1835,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
 
     //Check hierarchy read/write violation
     walkComponents(c => {
+      val autoPullOn = mutable.LinkedHashSet[Expression]()
       c.dslBody.walkStatements(s => {
         var error = false
 
@@ -1830,13 +1869,17 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case _ =>
         }
 
-        if(!error) s.walkExpression {
+        if(!error) s.walkDrivingExpressions {
           case bt: BaseType =>
             if (!(bt.component == c) && !(bt.isInputOrInOut && bt.component.parent == c) && !(bt.isOutputOrInOut && bt.component.parent == c)) {
               if(bt.component == null || bt.getComponents().head != pc.topLevel){
                 PendingError(s"OLD NETLIST RE-USED : $bt is used to drive the $s statement, but was defined in another netlist.\nBe sure you didn't defined a hardware constant as a 'val' in a global scala object.\n${s.getScalaLocationLong}")
               } else {
-                PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                if(c.withHierarchyAutoPull){
+                  autoPullOn += bt
+                } else {
+                  PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+                }
               }
             }
           case s : MemPortStatement =>{
@@ -1847,6 +1890,18 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case _ =>
         }
       })
+
+      if(autoPullOn.nonEmpty) c.rework{
+        c.dslBody.walkStatements(s =>
+          s.walkRemapDrivingExpressions(e =>
+            if(autoPullOn.contains(e)){
+              e.asInstanceOf[BaseType].pull()
+            } else {
+              e
+            }
+          )
+        )
+      }
 
       //Check register defined as component inputs
       c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
@@ -1924,8 +1979,6 @@ class PhaseCheck_noRegisterAsLatch() extends PhaseCheck{
     }
   }
 }
-
-
 
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
@@ -2140,6 +2193,20 @@ class PhasePropagateNames(pc: PhaseContext) extends PhaseMisc {
   override def impl(pc: PhaseContext) : Unit = {
     import pc._
 
+//    walkComponents{ c =>
+//      for((key, pulledData) <- c.pulledDataCache; if pulledData.hasTag(PropagatePullNameTag)){
+//        def rec(c : Component): Unit = {
+//          c.pulledDataCache.get(pulledData) match {
+//            case Some(x) => {
+//              c.setName(key.getName())
+//              c.children.foreach(rec)
+//            }
+//            case None =>
+//          }
+//        }
+//        pulledData.component.children.foreach(rec)
+//      }
+//    }
 
     walkStatements{
       case dst : BaseType => if (dst.isNamed) {
@@ -2176,15 +2243,15 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
 
 
-    for((enum, encodings) <- enums;
+    for((senum, encodings) <- enums;
         encodingsScope = new NamingScope(duplicationPostfix);
         encoding <- encodings){
 
       reservedKeyWords.foreach(encodingsScope.allocateName(_))
-      for (el <- enum.elements) {
+      for (el <- senum.elements) {
         el.setName(encodingsScope.allocateName(el.getName()))
       }
-      
+
       if (encoding.isWeak)
         encoding.setName(encodingsScope.allocateName(encoding.getName()))
       else
@@ -2416,6 +2483,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 
@@ -2540,6 +2608,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseAnalog()
+    phases += new PhaseNextifyReg()
     phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnnameds(true)
 

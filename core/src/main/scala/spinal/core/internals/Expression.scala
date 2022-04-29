@@ -38,6 +38,7 @@ trait Expression extends BaseNode with ExpressionContainer {
   }
 
   override def toString = opName
+  def toStringRec(level : Int = 1) : String = toString
 }
 
 
@@ -234,6 +235,23 @@ abstract class BinaryOperator extends Operator {
 
 abstract class BinaryOperatorWidthableInputs extends BinaryOperator {
   override type T = Expression with WidthProvider
+
+  def checkLiteralRange(check : (BitVectorLiteral, Expression with WidthProvider) => Unit): Unit ={
+    (left, right) match {
+      case (_ : BitVectorLiteral, _ : BitVectorLiteral) =>
+      case (lit : BitVectorLiteral, value : T) => check(lit, value)
+      case (value : T, lit : BitVectorLiteral) => check(lit, value)
+      case _ =>
+    }
+  }
+
+  def checkLiteralRanges(signed  : Boolean) ={
+    checkLiteralRange { (lit, value) =>
+      if(lit.poisonMask == null && lit.getWidth > value.getWidth) {
+        PendingError(s"OUT OF RANGE CONSTANT. Operator ${this.toStringMultiLine} is checking a value against a out of range constant\n${this.getScalaLocationLong}")
+      }
+    }
+  }
 }
 
 
@@ -295,6 +313,38 @@ object InferWidth
   */
 object Operator {
   object Formal{
+
+    class RandomExpKind
+    val RANDOM_ANY_SEQ = new RandomExpKind()
+    val RANDOM_ANY_CONST = new RandomExpKind()
+    val RANDOM_ALL_SEQ = new RandomExpKind()
+    val RANDOM_ALL_CONST = new RandomExpKind()
+    abstract class RandomExp(val kind : RandomExpKind) extends Expression{
+      override def remapExpressions(func: Expression => Expression) = {}
+      override def foreachExpression(func: Expression => Unit) = {}
+      override def opName: String = "$random()"
+    }
+    class RandomExpBool(kind : RandomExpKind) extends RandomExp(kind) {
+      override def getTypeObject = TypeBool
+    }
+    abstract class RandomExpBitVector(kind : RandomExpKind, val width : Int) extends RandomExp(kind) with WidthProvider {
+      override def getWidth = width
+    }
+    class RandomExpBits(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeBits
+    }
+    class RandomExpUInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeUInt
+    }
+    class RandomExpSInt(kind : RandomExpKind, width : Int) extends RandomExpBitVector(kind, width) {
+      override def getTypeObject = TypeSInt
+    }
+    class RandomExpEnum(enumDef: SpinalEnum, kind : RandomExpKind) extends RandomExp(kind) with InferableEnumEncodingImpl{
+      override def getTypeObject = TypeEnum
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+    }
+
     abstract class Past(val delay : Int) extends UnaryOperator
 
     class PastBool(delay : Int) extends Past(delay) {
@@ -626,6 +676,7 @@ object Operator {
     class Equal extends BitVector.Equal {
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
@@ -635,6 +686,7 @@ object Operator {
     class NotEqual extends BitVector.NotEqual {
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, new ResizeBits, right, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, new ResizeBits, left, this)
       }
@@ -743,6 +795,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -754,6 +807,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -763,6 +817,7 @@ object Operator {
       override def opName: String = "UInt === UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -772,6 +827,7 @@ object Operator {
       override def opName: String = "UInt =/= UInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(false)
         left  = InputNormalize.resize(left, targetWidth, new ResizeUInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
       }
@@ -885,6 +941,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -896,6 +953,7 @@ object Operator {
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(true))(this)}
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -905,6 +963,7 @@ object Operator {
       override def opName: String = "SInt === SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
@@ -914,6 +973,7 @@ object Operator {
       override def opName: String = "SInt =/= SInt"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
+        checkLiteralRanges(true)
         left  = InputNormalize.resize(left, targetWidth, new ResizeSInt)
         right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }

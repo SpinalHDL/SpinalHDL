@@ -207,9 +207,9 @@ class PhaseVhdl(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc wit
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str = encoding.getValue(enum).toString(2)
-      "\"" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str + "\""
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str = encoding.getValue(senum).toString(2)
+      "\"" + ("0" * (encoding.getWidth(senum.spinalEnum) - str.length)) + str + "\""
     }
 
     ret ++= s"end $enumPackageName;\n\n"

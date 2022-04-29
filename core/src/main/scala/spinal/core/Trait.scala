@@ -37,8 +37,9 @@ trait IODirection extends BaseTypeFactory {
 
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
+  def apply[T <: Data](data: HardType[T]): T = applyIt(data())
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(enum: SpinalEnum) = applyIt(enum.craft())
+  def apply(senum: SpinalEnum) = applyIt(senum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
   def Bool(u: Unit = null) = applyIt(spinal.core.Bool())
@@ -360,7 +361,7 @@ object Nameable{
 trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
 
-  protected var name: String = null
+  var name: String = null
   @dontName protected var nameableRef: Nameable = null
 
   private var mode: Byte = UNNAMED
@@ -783,7 +784,10 @@ object tagTruncated                  extends SpinalTag{
   override def duplicative = true
   override def canSymplifyHost: Boolean = true
 }
+object tagAFixResized                   extends SpinalTag
 class IfDefTag(val cond : String)       extends SpinalTag
+
+class CommentTag(val comment : String) extends SpinalTag
 
 class ExternalDriverTag(val driver : Data)             extends SpinalTag{
   override def allowMultipleInstance = false

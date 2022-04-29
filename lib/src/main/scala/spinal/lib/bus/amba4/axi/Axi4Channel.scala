@@ -57,9 +57,9 @@ class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth){
  */
 case class Axi4W(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
-  val strb = if(config.useStrb) Bits(config.bytePerWord bits) else null
-  val user = if(config.useWUser) Bits(config.wUserWidth bits)     else null
-  val last = if(config.useLast)  Bool()                            else null
+  val strb = if(config.useStrb)  Bits(config.bytePerWord bits) else null
+  val user = if(config.useWUser) Bits(config.wUserWidth bits)  else null
+  val last = if(config.useLast)  Bool()                        else null
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
@@ -71,8 +71,8 @@ case class Axi4W(config: Axi4Config) extends Bundle {
  * @param config Axi4 configuration class
  */
 case class Axi4B(config: Axi4Config) extends Bundle {
-  val id   = if(config.useId)   UInt(config.idWidth bits)   else null
-  val resp = if(config.useResp) Bits(2 bits)                else null
+  val id   = if(config.useId)    UInt(config.idWidth bits)    else null
+  val resp = if(config.useResp)  Bits(2 bits)                 else null
   val user = if(config.useBUser) Bits(config.bUserWidth bits) else null
 
   import Axi4.resp._
@@ -94,8 +94,8 @@ case class Axi4B(config: Axi4Config) extends Bundle {
  */
 case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
-  val id   = if(config.useId)   UInt(config.idWidth bits)   else null
-  val resp = if(config.useResp) Bits(2 bits)               else null
+  val id   = if(config.useId)    UInt(config.idWidth bits)    else null
+  val resp = if(config.useResp)  Bits(2 bits)                 else null
   val last = if(config.useLast)  Bool()                       else null
   val user = if(config.useRUser) Bits(config.rUserWidth bits) else null
 
@@ -118,15 +118,15 @@ case class Axi4R(config: Axi4Config) extends Bundle {
 
 class Axi4AxUnburstified(val config : Axi4Config, userWidth : Int) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
-  val id     = if(config.useId)     UInt(config.idWidth bits)   else null
-  val region = if(config.useRegion) Bits(4 bits)                else null
-  val size   = if(config.useSize)   UInt(3 bits)                else null
-  val burst  = if(config.useBurst)  Bits(2 bits)                else null
-  val lock   = if(config.useLock)   Bits(1 bits)                else null
-  val cache  = if(config.useCache)  Bits(4 bits)                else null
-  val qos    = if(config.useQos)    Bits(4 bits)                else null
-  val user   = if(userWidth >= 0)   Bits(userWidth bits)        else null
-  val prot   = if(config.useProt)   Bits(3 bits)                else null
+  val id     = if(config.useId)     UInt(config.idWidth bits) else null
+  val region = if(config.useRegion) Bits(4 bits)              else null
+  val size   = if(config.useSize)   UInt(3 bits)              else null
+  val burst  = if(config.useBurst)  Bits(2 bits)              else null
+  val lock   = if(config.useLock)   Bits(1 bits)              else null
+  val cache  = if(config.useCache)  Bits(4 bits)              else null
+  val qos    = if(config.useQos)    Bits(4 bits)              else null
+  val user   = if(userWidth >= 0)   Bits(userWidth bits)      else null
+  val prot   = if(config.useProt)   Bits(3 bits)              else null
 }
 
 object Axi4AxUnburstified{
@@ -140,7 +140,7 @@ object Axi4AxUnburstified{
       override def clone: State.this.type = new State().asInstanceOf[this.type]
     }
     val area = new Area {
-      val result = Stream Fragment (cloneOf(outPayloadType))
+      val result = Stream Fragment (outPayloadType)
       val doResult = Bool()
       val addrIncrRange = (Math.min(11, stream.payload.config.addressWidth - 1) downto 0)
 

@@ -6,6 +6,10 @@
 #define INITIAL_SEED 0x5EED5EED
 #endif
 
+#if defined(GHDL_PLUGIN)
+    #define BUGGY_RW_SYNCH
+#endif
+
 #include<boost/interprocess/sync/scoped_lock.hpp>
 #include<cassert>
 #include<iostream>
@@ -38,8 +42,12 @@ PLI_INT32 ro_cb(p_cb_data);
 PLI_INT32 delay_rw_cb(p_cb_data);
 PLI_INT32 delay_ro_cb(p_cb_data);
 
+#ifdef VCS_PLUGIN
+extern "C" void entry_point_cb();
+#endif
+
 void set_error(string& error_string){
-    cout << error_string << endl;
+    vpi_printf("%s\n", error_string.c_str());
     shared_struct->data.resize(error_string.size());
     std::copy(error_string.begin(),
             error_string.end(),
@@ -58,7 +66,7 @@ bool check_error(){
             set_error(error_string);
             return true;
         } else {
-            cout << "VPI message : " << err.message << endl;
+            vpi_printf("VPI message : %s\n", err.message);
         }
     }
 
@@ -68,7 +76,6 @@ bool check_error(){
 bool register_cb(PLI_INT32(*f)(p_cb_data),
         PLI_INT32 reason,
         int64_t cycles){
-
     s_cb_data cbData;
     memset(&cbData, 0, sizeof(cbData));
     s_vpi_time simuTime;
@@ -92,19 +99,11 @@ bool register_cb(PLI_INT32(*f)(p_cb_data),
 }
 
 void entry_point_cb() {
-
-    ifstream shmem_file(SHMEM_FILENAME);
-    string shmem_name;
-    getline(shmem_file, shmem_name);
-    cout << "Shared memory key : " << shmem_name << endl;
-    segment = managed_shared_memory(open_only, shmem_name.c_str());
-    auto ret_struct = segment.find<SharedStruct>("SharedStruct");
-    shared_struct = ret_struct.first; 
     register_cb(start_cb, cbStartOfSimulation, -1);
     if(check_error()) return;
     register_cb(end_cb, cbEndOfSimulation, -1);
     if(check_error()) return;
-    #ifndef IVERILOG_PLUGIN
+    #ifdef BUGGY_RW_SYNCH
     register_cb(delay_ro_cb, cbAfterDelay, 0);
     #else
     register_cb(delay_rw_cb, cbAfterDelay, 0);
@@ -114,7 +113,7 @@ void entry_point_cb() {
 
 bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
     char* module_name = vpi_get_str(vpiName, module_handle);
-    cout << " Signals of " << module_name << endl;
+    vpi_printf(" Signals of %s\n", module_name);
     msg_ss << " Signals of " << module_name << endl;
 
     vpiHandle net_iterator = vpi_iterate(vpiNet,module_handle);
@@ -125,7 +124,7 @@ bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
             string net_full_name = vpi_get_str(vpiFullName, net_handle);
             if(check_error()) return true;
 
-            cout << "    " << net_full_name.c_str() << endl;
+            vpi_printf("    %s\n", net_full_name.c_str());
             msg_ss << "    " << net_full_name.c_str() << endl;
 
             vpiHandle net = vpi_handle_by_name(const_cast<char*>(net_full_name.c_str()),
@@ -142,17 +141,16 @@ bool print_net_in_module(vpiHandle module_handle, stringstream &msg_ss){
             vpi_free_object(net_handle);
         }
     } else {
-        cout << "   No handles." << endl;
+        vpi_printf("   No handles.\n");
         msg_ss << "   No handles." << endl;
     }
 
-    cout << endl;
+    vpi_printf("\n");
     msg_ss << endl;
     return false;
 }
 
 bool print_signals_cmd(){
-
     vpiHandle mod_iterator;
     vpiHandle mod_handle, child_mod_handle;
     std::vector<vpiHandle> mod_handles;
@@ -196,7 +194,6 @@ bool print_signals_cmd(){
 }
 
 bool randomize_in_module(vpiHandle module_handle, mt19937& mt_rand){
-
     vpiHandle net_iterator = vpi_iterate(vpiNet, module_handle);
     if(check_error()) return true;
     if(net_iterator){
@@ -239,7 +236,6 @@ bool set_seed_cmd(){
 }
 
 bool randomize_cmd(){
-
     vpiHandle mod_iterator;
     vpiHandle mod_handle, child_mod_handle;
     std::vector<vpiHandle> mod_handles;
@@ -281,7 +277,6 @@ bool randomize_cmd(){
 
 
 bool get_signal_handle_cmd(){
-
     int64_t handle = (int64_t)vpi_handle_by_name((PLI_BYTE8*) shared_struct->data.data(), 
             NULL);
     if(check_error()) return true; 
@@ -306,7 +301,6 @@ void sanitize_byte_str(char* byte_str){
 }
 
 bool read_cmd_raw(vpiHandle handle){
-
     s_vpi_value value_struct;
     value_struct.format = vpiBinStrVal;
     shared_struct->data.clear();
@@ -317,7 +311,7 @@ bool read_cmd_raw(vpiHandle handle){
     for(size_t i = 0; i < valueStrLen; i++){
         char c = value_struct.value.str[i];
         if ((c != '0') && (c != '1')) {
-            cout << "Warning, value '" << c << "' at position "<< i << " is neither '0' or '1'. value set to '0'." << endl;
+            vpi_printf("Warning, value '%c' at position %d is neither '0' or '1'. value set to '0'.\n", c, i);
         }
     }
 
@@ -373,7 +367,6 @@ bool read_mem_cmd(){
 }
 
 bool write_cmd_raw(vpiHandle handle){
-
     s_vpi_value value_struct;
     ss.str(std::string());
     ss << setw(8);
@@ -408,8 +401,7 @@ bool write_mem_cmd(){
 }
 
 bool sleep_cmd(){
-
-    #ifndef IVERILOG_PLUGIN
+    #ifdef GHDL_PLUGIN
     register_cb(delay_ro_cb, cbAfterDelay, shared_struct->sleep_cycles*1000000);
     #else
     register_cb(delay_rw_cb, cbAfterDelay, shared_struct->sleep_cycles);
@@ -426,23 +418,28 @@ bool close_cmd(){
 }
 
 PLI_INT32 start_cb(p_cb_data){
-    cout << "Start of simulation" << endl;
+    ifstream shmem_file(SHMEM_FILENAME);
+    string shmem_name;
+    getline(shmem_file, shmem_name);
+    vpi_printf("Shared memory key : %s\n", shmem_name.c_str());
+    segment = managed_shared_memory(open_only, shmem_name.c_str());
+    auto ret_struct = segment.find<SharedStruct>("SharedStruct");
+    shared_struct = ret_struct.first; 
+    vpi_printf("Start of simulation\n");
     return 0;
 }
 
 PLI_INT32 end_cb(p_cb_data){
-
     ProcStatus status = shared_struct->proc_status.load();
     if((status != ProcStatus::closed) && (status != ProcStatus::closed)) {
         string error_str("Unexpected termination of the simulation");
         set_error(error_str);
     }
-    cout << "End of simulation" << endl;
+    vpi_printf("End of simulation\n");
     return 0;
 }
 
 PLI_INT32 rw_cb(p_cb_data){
-
     bool run_simulation;
     do {
         run_simulation = false;
@@ -481,22 +478,22 @@ PLI_INT32 ro_cb(p_cb_data){
 }
 
 PLI_INT32 delay_rw_cb(p_cb_data){
-
     register_cb(rw_cb, cbReadWriteSynch, 0);
     check_error();
     return 0;
 }
 
 PLI_INT32 delay_ro_cb(p_cb_data){
-
     register_cb(ro_cb, cbReadOnlySynch, 0);
     check_error();
     return 0;
 }
 
+#ifndef VCS_PLUGIN
 extern "C" {
     void (*vlog_startup_routines[]) () = {
         entry_point_cb,
         0
     };
 }
+#endif

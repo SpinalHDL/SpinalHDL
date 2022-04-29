@@ -72,6 +72,22 @@ trait ValCallbackRec extends ValCallback{
           for ((e, i) <- seq.zipWithIndex) {
             valCallbackOn(e, name + "_" + i, refs)
           }
+        case seq: mutable.LinkedHashMap[_, _]   =>
+          for ((e, i) <- seq.zipWithIndex) {
+            valCallbackOn(e._2, name + "_" + i, refs)
+          }
+        case prod : Tuple2[_,_] if !name.contains("$")=> //$ check to avoid trigerring on val (x,y)
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case prod : Tuple3[_,_,_] if !name.contains("$") =>
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
+        case prod : Tuple4[_,_,_,_] if !name.contains("$") =>
+          for ((e, i) <- prod.productIterator.zipWithIndex) {
+            valCallbackOn(e, name + "_" + i, refs)
+          }
         case Some(x) => valCallbackOn(x, name, refs)
         case _             =>
       }
@@ -128,19 +144,24 @@ class Bundle extends MultiData with Nameable with ValCallbackRec {
     }
   }
 
+  def bundleAssign(that : Bundle)(f : (Data, Data) => Unit): Unit ={
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other == null) {
+        LocatedPendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.")
+      }
+      else {
+        f(element, other)
+      }
+    }
+  }
+
   private[core] override def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = {
     that match {
       case that: Bundle =>
         if (!this.getClass.isAssignableFrom(that.getClass)) SpinalError("Bundles must have the same final class to" +
           " be assigned. Either use assignByName or assignSomeByName at \n" + ScalaLocated.long)
-        for ((name, element) <- elements) {
-          val other = that.find(name)
-          if (other == null) {
-            LocatedPendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.")
-          }
-          else
-            element.compositAssignFrom(other,element,kind)
-        }
+        bundleAssign(that)((to, from) => to.compositAssignFrom(from,to,kind))
       case _ => throw new Exception("Undefined assignment")
     }
   }

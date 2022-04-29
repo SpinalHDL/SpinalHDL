@@ -55,7 +55,7 @@ object Axi4SharedToApb3Bridge{
 
 
 object Axi4ToApb3BridgePhase extends SpinalEnum{
-  val SETUP, ACCESS, RESPONSE = newElement
+  val SETUP, ACCESS, RESPONSE = newElement()
 }
 
 
@@ -91,6 +91,16 @@ case class Axi4SharedToApb3Bridge(addressWidth: Int, dataWidth: Int, idWidth: In
       when(io.axi.sharedCmd.valid && (!io.axi.sharedCmd.write || io.axi.writeData.valid)) {
         phase := ACCESS
         io.apb.PSEL(0) := True
+        if (axiConfig.useStrb) {
+          // Ignore write packages with no strobe signal asserted and overwrite phase + PSEL.
+          when(io.axi.sharedCmd.write &&
+               io.axi.writeData.strb === B(0, axiConfig.bytePerWord bits)) {
+            phase := RESPONSE
+            io.apb.PSEL(0) := False
+            io.axi.sharedCmd.ready := True
+            io.axi.writeData.ready := True
+          }
+        }
       }
     }
     is(ACCESS){

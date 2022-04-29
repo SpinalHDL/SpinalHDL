@@ -145,6 +145,8 @@ class BaseTypePimper[T <: BaseType](val _data: T) {
 
 }
 
+//object PropagatePullNameTag extends SpinalTag
+
 object Data {
 
   /** Creates a signal path through the component hierarchy to finalComponent to read the srcData signal
@@ -160,7 +162,7 @@ object Data {
 
     val startComponent = srcData.component
 
-    if (useCache) {
+    if (useCache && finalComponent != null) {
       val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
       if (finalComponentCacheState != null)
         return finalComponentCacheState.asInstanceOf[srcData.type]
@@ -217,7 +219,7 @@ object Data {
 
     //Build the path from srcData to the commonComponent (falling path)
     while(currentComponent != commonComponent){
-      if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
+      if(useCache &&  currentComponent != null &&  currentComponent.parent != null && currentComponent.parent.pulledDataCache.contains(srcData)){
         currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
         currentComponent = currentComponent.parent
       } else {
@@ -227,27 +229,27 @@ object Data {
           val ctx = DslScopeStack.set(currentComponent.dslBody)
           val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setPartialName(srcData, "", weak=true)
+            copy.setPartialName(currentData, "", weak=true)
           copy := currentData
           ctx.restore()
           currentData = copy
         }
         currentComponent = currentComponent.parent
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
     //Build the path from commonComponent to the targetComponent (rising path)
     for(riseTo <- risePath.reverseIterator){
-      if(useCache && riseTo.pulledDataCache.contains(srcData)){
+      if(useCache && riseTo != null && riseTo.pulledDataCache.contains(srcData)){
         currentComponent = riseTo
         currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
       }else {
         val ctx = DslScopeStack.set(riseTo.dslBody)
         val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setPartialName(srcData, "", weak=true)
+          copy.setPartialName(currentData, "", weak=true)
         ctx.restore()
         if (currentComponent != null) {
           val ctx = DslScopeStack.set(riseTo.parentScope)
@@ -259,12 +261,12 @@ object Data {
         currentData = copy
 
         currentComponent = riseTo
-        if (useCache)
+        if (useCache && currentComponent != null)
           currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
-    if (useCache)
+    if (useCache && currentComponent != null)
       currentComponent.pulledDataCache.put(srcData, currentData)
     currentData
   }
@@ -405,7 +407,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def flattenLocalName: Seq[String]
   def flattenForeach(body : BaseType => Unit) : Unit = flatten.foreach(body(_))
   /** Pull a signal to the top level (use for debugging) */
-  def pull(): this.type = Data.doPull(this, Component.current, useCache = false, propagateName = false)
+  def pull(): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = false)
+  def pull(propagateName : Boolean): this.type = Data.doPull(this, Component.current, useCache = true, propagateName = propagateName)
 
   /** Concatenation between two data */
   def ##(right: Data): Bits = this.asBits ## right.asBits
@@ -515,12 +518,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   /** Return the width of the data */
   def getBitsWidth: Int
-
-  def keep(): this.type = {
-//    flatten.foreach(t => t.component.additionalNodesRoot += t);
-    dontSimplifyIt()
-    this
-  }
 
   def dontSimplifyIt(): this.type = {
     flatten.foreach(_.dontSimplifyIt())
@@ -690,6 +687,26 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     this.freeze()
     comb.asInstanceOf[this.type]
   }
+
+  def getAheadValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+
+    val ret = cloneOf(this)
+
+    for((dst, src) <- (ret.flatten, this.flatten).zipped){
+      dst := src.getAheadValue()
+    }
+
+    ret.asInstanceOf[this.type]
+  }
+
+  def getRtlPath(separator : String = "/") : String = {
+    (getComponents().tail.map(_.getName()) :+ this.getName()).mkString(separator)
+  }
+
+//  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
+
+  def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
 }
 
 trait DataWrapper extends Data{

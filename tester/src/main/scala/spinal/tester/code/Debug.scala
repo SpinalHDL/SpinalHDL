@@ -170,17 +170,27 @@ object Debug2 extends App{
 
 
   SpinalConfig().includeFormal.generateSystemVerilog(new Component{
-    case class Wuff(val a : Int) extends Bundle{
-      println(a)
+
+
+    val cacheFsm = new StateMachine {
+      //    val idle = new State with EntryPoint
+      val idle = makeInstantEntry()
+      val flagCompare = new State
+      val allocation = new State
+      val writeBack = new State
     }
 
-    val miaou = Wuff(1)
-    val miaou2 = miaou.copy(2)
-
-    class Miaou(val a : UInt = UInt(32 bits), b : Bool = Bool()) extends Bundle
-
-    val x = new Miaou()
-    val y = new Miaou(42, False)
+//    case class Wuff(val a : Int) extends Bundle{
+//      println(a)
+//    }
+//
+//    val miaou = Wuff(1)
+//    val miaou2 = miaou.copy(2)
+//
+//    class Miaou(val a : UInt = UInt(32 bits), b : Bool = Bool()) extends Bundle
+//
+//    val x = new Miaou()
+//    val y = new Miaou(42, False)
 //    val z = x.copy(42, False)
 
 //    val a,b = in Bits(8 bits)
@@ -353,7 +363,7 @@ class TopLevel extends Component {
   // some logic
 
   import spinal.core.GenerationFlags._
-  import spinal.core.Formal._
+  import spinal.core.formal._
 
   GenerationFlags.formal {
 //    assumeInitial(clockDomain.isResetActive)
@@ -596,7 +606,7 @@ case class TellMeWhy() extends Component{
   bitsTests.map(_.init(bitsTests_B().getZero))
   bitsTests.allowUnsetRegToAvoidLatch
   val tmp_read_pointer = Cat(read_pointer_n,read_pointer_q,True,False)
-  val vecSel = in(UInt(2 bits)).dontSimplifyIt().keep()
+  val vecSel = in(UInt(2 bits)).dontSimplifyIt().dontSimplifyIt()
   for( i<- 0 until 4){
     switch(vecSel){
       is(0) { bitsTests(0).b(i) := tmp_read_pointer(i) }

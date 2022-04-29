@@ -28,6 +28,8 @@ import scala.annotation.meta.field
 import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
 import scala.language.experimental.macros
+import scala.languageFeature._
+import spinal.idslplugin.Location
 
 
 package object core extends BaseTypeFactory with BaseTypeCast {
@@ -44,9 +46,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   /**
     * Scala implicit
     */
-  implicit lazy val implicitConversions = scala.language.implicitConversions
-  implicit lazy val reflectiveCalls     = scala.language.reflectiveCalls
-  implicit lazy val postfixOps          = scala.language.postfixOps
+  implicit lazy val implicitConversions : implicitConversions = scala.language.implicitConversions
+  implicit lazy val reflectiveCalls     : reflectiveCalls = scala.language.reflectiveCalls
+  implicit lazy val postfixOps          : postfixOps = scala.language.postfixOps
 
   /** Implicit clause builder for `elseWhen` */
   implicit class ElseWhenClauseBuilder(cond: Bool){
@@ -63,13 +65,13 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
   /**
-    * Implicit enum conversion
+    * Implicit senum conversion
     */
-  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) = element.asInstanceOf[SpinalEnumElement[T]]
-  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     = craft.asInstanceOf[SpinalEnumCraft[T]]
+  implicit def EnumEtoEnumE2[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T2]) : SpinalEnumElement[T] = element.asInstanceOf[SpinalEnumElement[T]]
+  implicit def EnumCtoEnumC2[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T2])     : SpinalEnumCraft[T] = craft.asInstanceOf[SpinalEnumCraft[T]]
 
-  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) = element.asInstanceOf[SpinalEnumElement[T2]]
-  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     = craft.asInstanceOf[SpinalEnumCraft[T2]]
+  implicit def EnumEtoEnumE3[T <: SpinalEnum, T2 <: T](element: SpinalEnumElement[T]) : SpinalEnumElement[T2] = element.asInstanceOf[SpinalEnumElement[T2]]
+  implicit def EnumCtoEnumC3[T <: SpinalEnum, T2 <: T](craft: SpinalEnumCraft[T])     : SpinalEnumCraft[T2] = craft.asInstanceOf[SpinalEnumCraft[T2]]
 
   implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
 
@@ -249,13 +251,22 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
-    def L(args: Any*): List[Any] ={
-      val ret = ArrayBuffer[Any]()
+    class LList extends ArrayBuffer[Any]{
+      def stripMargin = {
+        for((e, i) <- this.zipWithIndex) e match{
+          case s : String => this(i) = s.stripMargin
+          case _ =>
+        }
+        this
+      }
+    }
+    def L(args: Any*): LList ={
+      val ret = new LList()
       for((s,i) <- sc.parts.zipWithIndex){
         ret += s
         if(args.size > i) ret += args(i)
       }
-      ret.toList
+      ret
     }
 
     def Bits(args: Any*): Bits = B(args)
@@ -364,6 +375,9 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := self
       fix
     }
+
+    def toAFix: AFix = AFix(self)
+
     /**
       * Absolute value of a SInt
       * @example {{{ myUInt := mySInt.abs }}}
@@ -389,6 +403,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix.raw := pimped
       fix
     }
+
+    def toAFix: AFix = AFix(pimped)
   }
 
   /**
@@ -415,8 +431,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
 
 
-  implicit def BooleanPimped(that : Boolean) = new BooleanPimped(that)
-  implicit def IntPimped(that : Int) = new IntPimped(that)
+  implicit def BooleanPimped(that : Boolean) : BooleanPimped = new BooleanPimped(that)
+  implicit def IntPimped(that : Int)         : IntPimped = new IntPimped(that)
 
 
   //For backward compatibility
@@ -435,21 +451,25 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def assert(assertion: Boolean) = scala.Predef.assert(assertion)
 
   @elidable(ASSERTION) @inline
-  final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
+  final def assert(assertion: Boolean, message: => Any)(implicit loc: Location) = scala.Predef.assert(assertion,message)
 
-  def assumeInitial(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL)
+  def assumeInitial(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.INITIAL, loc)
 
-  def assume(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED)
-  def cover(assertion: Bool) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED)
+  def assume(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.ASSUME, AssertStatementTrigger.CLOCKED, loc)
+  def cover(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, ERROR, AssertStatementKind.COVER, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, severity: AssertNodeSeverity) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, Nil, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any]) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String)(implicit loc: Location)   = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any])(implicit loc: Location) = AssertStatementHelper(assertion, message, FAILURE, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
 
-  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
-  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED)
+  def assert(assertion: Bool, message: String,   severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+  def assert(assertion: Bool, message: Seq[Any], severity: AssertNodeSeverity)(implicit loc: Location) = AssertStatementHelper(assertion, message, severity, AssertStatementKind.ASSERT, AssertStatementTrigger.CLOCKED, loc)
+
+//  def apply(cond: Bool)(block: => Unit)(implicit loc: Location): WhenContext = {
+//    if(cond.dlcIsEmpty || !cond.head.source.isInstanceOf[Operator.Formal.InitState])
+//      cond.setName("when_" + loc.file + "_l" + loc.line, Nameable.REMOVABLE)
 
   def report(message: String)   = assert(False, message, NOTE)
   def report(message: Seq[Any]) = assert(False, message, NOTE)

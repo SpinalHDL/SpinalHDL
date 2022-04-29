@@ -59,6 +59,16 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     ret
   }
 
+  def pipelined(
+    ar: StreamPipe = StreamPipe.NONE,
+    r: StreamPipe = StreamPipe.NONE
+  ): Axi4ReadOnly = {
+    val ret = cloneOf(this)
+    ret.ar << this.ar.pipelined(ar)
+    ret.r.pipelined(r) >> this.r
+    ret
+  }
+
   override def asMaster(): Unit = {
     master(ar)
     slave(r)

@@ -2,14 +2,15 @@ package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.bsb.Bsb
+import spinal.lib.bus.amba4.axis.Axi4Stream.Axi4StreamBundle
+import spinal.lib.bus.bsb.{Bsb, BsbTransaction}
 
 
 
 object Axi4ToAxi4Shared{
   def apply(axi : Axi4): Axi4Shared ={
     val axiShared = new Axi4Shared(axi.config)
-    val arbiter = StreamArbiterFactory.roundRobin.build(new Axi4Ax(axi.config, axi.config.arwUserWidth),2)
+    val arbiter = StreamArbiterFactory().roundRobin.build(new Axi4Ax(axi.config, axi.config.arwUserWidth),2)
     arbiter.io.inputs(0) << axi.ar.asInstanceOf[Stream[Axi4Ax]]
     arbiter.io.inputs(1) << axi.aw.asInstanceOf[Stream[Axi4Ax]]
 
@@ -48,24 +49,49 @@ object  Axi4SpecRenamer{
     that
   }
 
-  def apply(that : Bsb): Bsb ={
-    def doIt = {
-      that.data.overrideLocalName("tdata")
-      that.mask.overrideLocalName("tkeep")
-      that.source.overrideLocalName("tid")
-      that.sink.overrideLocalName("tdest")
-      that.last.overrideLocalName("tlast")
-      that.flatten.foreach((bt) => {
-        bt.setName(bt.getName().replace("payload_",""))
-        bt.setName(bt.getName().replace("valid","tvalid"))
-        bt.setName(bt.getName().replace("ready","tready"))
-        if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
-      })
+  def apply[T <: Data](that : Stream[T]): Stream[T] = {
+    that.payload match {
+      case bsb: BsbTransaction => {
+        def doIt = {
+          bsb.data.overrideLocalName("tdata")
+          bsb.mask.overrideLocalName("tkeep")
+          bsb.source.overrideLocalName("tid")
+          bsb.sink.overrideLocalName("tdest")
+          bsb.last.overrideLocalName("tlast")
+          that.flatten.foreach((bt) => {
+            bt.setName(bt.getName().replace("payload_",""))
+            bt.setName(bt.getName().replace("valid","tvalid"))
+            bt.setName(bt.getName().replace("ready","tready"))
+            if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+          })
+        }
+        if(Component.current == that.component)
+          that.component.addPrePopTask(() => {doIt})
+        else
+          doIt
+      }
+      case axis: Axi4StreamBundle => {
+        def doIt = {
+          axis.data.overrideLocalName("tdata")
+          (axis.id != null)    generate axis.id.overrideLocalName("tid")
+          (axis.strb != null)  generate axis.strb.overrideLocalName("tstrb")
+          (axis.keep != null)  generate axis.keep.overrideLocalName("tkeep")
+          (axis.last != null)  generate axis.last.overrideLocalName("tlast")
+          (axis.dest != null)  generate axis.dest.overrideLocalName("tdest")
+          (axis.user != null)  generate axis.user.overrideLocalName("tuser")
+          that.flatten.foreach((bt) => {
+            bt.setName(bt.getName().replace("payload_", ""))
+            bt.setName(bt.getName().replace("valid", "tvalid"))
+            bt.setName(bt.getName().replace("ready", "tready"))
+            if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+          })
+        }
+        if(Component.current == that.component)
+          that.component.addPrePopTask(() => {doIt})
+        else
+          doIt
+      }
     }
-    if(Component.current == that.component)
-      that.component.addPrePopTask(() => {doIt})
-    else
-      doIt
 
     that
   }

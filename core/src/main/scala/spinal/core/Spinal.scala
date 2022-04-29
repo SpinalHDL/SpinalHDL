@@ -138,6 +138,7 @@ case class SpinalConfig(mode                           : SpinalMode = null,
                         anonymSignalPrefix             : String = null,
                         device                         : Device = Device(),
                         inlineRom                      : Boolean = false,
+                        romReuse                       : Boolean = false,
                         genVhdlPkg                     : Boolean = true,
                         verbose                        : Boolean = false,
                         mergeAsyncProcess              : Boolean = false,
@@ -227,6 +228,8 @@ object GenerationFlags{
   object synthesis extends GenerationFlags
   object formal extends GenerationFlags
   object simulation extends GenerationFlags
+
+  implicit def generationFlagsToBoolean(flag : GenerationFlags) : Boolean = flag.isEnabled
 }
 
 object SpinalConfig{
@@ -317,7 +320,7 @@ class SpinalReport[T <: Component]() {
 
     /** Merge a list of path into one file */
     def mergeFile(listPath: mutable.LinkedHashSet[String], fileName: String) {
-      val fw = new FileWriter(new File(fileName))
+      val fw = new FileWriter(new File(s"${globalData.config.targetDirectory}/$fileName"))
       val bw = new BufferedWriter(fw)
 
       listPath.foreach{ path =>

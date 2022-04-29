@@ -1,10 +1,10 @@
-package spinal.lib.bus.regif.Document
+package spinal.lib.bus.regif
 
 import spinal.core.GlobalData
 import spinal.lib.bus.regif._
 import java.io.PrintWriter
 
-final case class HtmlGenerator(fileName : String, name : String) extends BusIfVisitor {
+final case class HtmlGenerator(fileName : String, title : String) extends BusIfVisitor {
     val sb : StringBuilder = new StringBuilder("")
     var dataWidth : Int = 32
 
@@ -53,10 +53,10 @@ final case class HtmlGenerator(fileName : String, name : String) extends BusIfVi
 
     def end() : Unit = {
         val pc = GlobalData.get.phaseContext
-        val targetPath = s"${pc.config.targetDirectory}/${fileName}"
+        val targetPath = s"${pc.config.targetDirectory}/${fileName}.html"
         val pw = new PrintWriter(targetPath)
 
-        pw.write(DocTemplate.getHTML(name, sb.toString()))
+        pw.write(DocTemplate.getHTML(title, sb.toString()))
 
         pw.close()
     }

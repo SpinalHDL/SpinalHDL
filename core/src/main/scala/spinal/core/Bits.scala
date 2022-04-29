@@ -191,7 +191,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
     node
   })
 
-  override def resize(width: BitCount) = resize(width.value)
+  override def resize(width: BitCount) : Bits = resize(width.value)
 
   override def resizeFactory: Resize = new ResizeBits
 
@@ -234,4 +234,6 @@ class Bits extends BitVector with DataPrimitives[Bits] with BaseTypePrimitives[B
 
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastBits(delay))
   def reversed = B(asBools.reverse)
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpBits(kind, widthOf(this)))
 }

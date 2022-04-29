@@ -7,7 +7,7 @@ trait IMasterSlave {
   var isMasterInterface: Boolean = false
 
   def asMaster(): Unit
-  def asSlave(): Unit = master(this).asInstanceOf[Data].flip
+  def asSlave(): Unit = master(this).asInstanceOf[Data].flip()
 }
 
 //trait MasterSlave extends IMasterSlave{

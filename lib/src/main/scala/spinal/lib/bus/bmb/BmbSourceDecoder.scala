@@ -16,7 +16,7 @@ case class BmbSourceDecoder(inputParameter : BmbParameter) extends Component{
   }
 
   Vec(io.outputs.map(_.cmd)) <> StreamDemux(io.input.cmd, io.input.cmd.source, io.outputs.size)
-  val arbiter = StreamArbiterFactory.fragmentLock.roundRobin.build(Fragment(BmbRsp(inputParameter)), outputParameters.size)
+  val arbiter = StreamArbiterFactory().fragmentLock.roundRobin.build(Fragment(BmbRsp(inputParameter)), outputParameters.size)
   arbiter.io.inputs <> Vec(io.outputs.map(_.rsp))
   arbiter.io.output <> io.input.rsp
 

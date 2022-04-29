@@ -52,6 +52,19 @@ object Rtl {
     }
     c
   }
+
+  def xorOutputs[T <: Component](c : T): T ={
+    def buf1[T <: Data](that : T) = KeepAttribute(RegNext(that)).addAttribute("DONT_TOUCH")
+    def buf[T <: Data](that : T) = buf1(buf1(buf1(that)))
+    c.rework{
+      val outputs = c.getAllIo.toList.filter(_.isOutput)
+      val bools = outputs.flatMap(_.asBits.asBools)
+      outputs.foreach(_.setAsDirectionLess())
+
+      val agreg = out(B(bools).xorR)
+    }
+    c
+  }
 }
 
 object Bench {

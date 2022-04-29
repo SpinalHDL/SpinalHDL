@@ -151,9 +151,17 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapFuncti
     area
   }
 
-//  override def hasUpdate(now : Bool)(instructionId : Int): Unit ={
-//    now :=  instruction === instructionId && fsm.state === JtagState.DR_UPDATE
-//  }
+  override def isUpdating(instructionId: Int) : Bool = {
+    instruction === instructionId && fsm.state === JtagState.DR_UPDATE
+  }
+
+  override def isCapturing(instructionId: Int) : Bool = {
+    instruction === instructionId && fsm.state === JtagState.DR_CAPTURE
+  }
+
+  override def isReseting() : Bool = {
+    fsm.state === JtagState.RESET
+  }
 }
 
 //══════════════════════════════════════════════════════════════════════════════

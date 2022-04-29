@@ -31,7 +31,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   globalPrefix = pc.config.globalPrefix
 
   var outFile: java.io.FileWriter = null
-  def targetPath = pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+  def rtlName = (if(pc.config.netlistFileName == null)(topLevel.definitionName + (if(pc.config.isSystemVerilog) ".sv" else ".v")) else pc.config.netlistFileName)
+  def targetPath = pc.config.targetDirectory + "/" + rtlName
 
   override def impl(pc: PhaseContext): Unit = {
 
@@ -41,7 +42,7 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       outFile = new java.io.FileWriter(targetPath)
       outFile.write(VhdlVerilogBase.getHeader("//", pc.config.rtlHeader, topLevel, config.headerWithDate, config.headerWithRepoHash))
 
-      outFile.write("`timescale 1ns/1ps ")
+      outFile.write("`timescale 1ns/1ps")
 
       emitEnumPackage(outFile)
 
@@ -111,6 +112,8 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   val usedDefinitionNames = mutable.HashSet[String]()
 
+
+  val romCache = mutable.HashMap[String, String]()
   def compile(component: Component): () => String = {
     val componentBuilderVerilog = new ComponentEmitterVerilog(
       c                           = component,
@@ -121,11 +124,12 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       asyncResetCombSensitivity   = config.asyncResetCombSensitivity,
       anonymSignalPrefix          = if(pc.config.anonymSignalUniqueness) globalData.anonymSignalPrefix + "_" + component.definitionName else globalData.anonymSignalPrefix,
       nativeRom                   = config.inlineRom,
-      nativeRomFilePrefix         = targetPath,
+      nativeRomFilePrefix         = rtlName,
       emitedComponentRef          = emitedComponentRef,
       emitedRtlSourcesPath        = report.generatedSourcesPaths,
       spinalConfig                = pc.config,
-      pc                          = pc
+      pc                          = pc,
+      romCache                    = romCache
     )
 
     if(component.parentScope == null && pc.config.dumpWave != null) {
@@ -181,9 +185,9 @@ class PhaseVerilog(pc: PhaseContext, report: SpinalReport[_]) extends PhaseMisc 
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str    = encoding.getValue(enum).toString(2)
-      val length = encoding.getWidth(enum.spinalEnum)
+    def idToBits[T <: SpinalEnum](senum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str    = encoding.getValue(senum).toString(2)
+      val length = encoding.getWidth(senum.spinalEnum)
       length.toString + "'b" + ("0" * (length - str.length)) + str
     }
 

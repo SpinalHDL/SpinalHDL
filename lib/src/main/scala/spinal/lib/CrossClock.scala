@@ -4,8 +4,8 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get): T = {
-    val c = new BufferCC(input, init, bufferDepth)
+  def apply[T <: Data](input: T, init: => T = null, bufferDepth: Int = defaultDepth.get, randBoot : Boolean = false): T = {
+    val c = new BufferCC(input, init, bufferDepth, randBoot)
     c.setCompositeName(input, "buffercc", true)
     c.io.dataIn := input
 
@@ -17,7 +17,7 @@ object BufferCC {
   val defaultDepth = ScopeProperty(2)
 }
 
-class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get) extends Component {
+class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC.defaultDepth.get, randBoot : Boolean = false) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
@@ -26,6 +26,7 @@ class BufferCC[T <: Data](dataType: T, init :  => T, bufferDepth: Int = BufferCC
   }
 
   val buffers = Vec(Reg(dataType, init),bufferDepth)
+  if(randBoot) buffers.foreach(_.randBoot())
 
   buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)

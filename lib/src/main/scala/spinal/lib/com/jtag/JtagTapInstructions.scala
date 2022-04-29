@@ -121,8 +121,6 @@ class JtagTapInstructionReadWrite[T <: Data](captureData: T, updateData: T, capt
     when(ctrl.update) {
       captureReady := True // ready for new data
     }
-  }elsewhen(ctrl.reset) {
-      store.clearAll()
   }
   ctrl.tdo := store.lsb // tdo DR shifting
   updateData.assignFromBits(store)

@@ -369,7 +369,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node
   })
 
-  override def resize(width: BitCount) = resize(width.value)
+  override def resize(width: BitCount) : this.type = resize(width.value)
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
@@ -423,6 +423,19 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override private[core] def formalPast(delay: Int) = this.wrapUnaryOperator(new Operator.Formal.PastUInt(delay))
 
   def reversed = U(B(this.asBools.reverse))
+
+  def wrap = new {
+    private def checkBits(that: UInt) = {
+      assert(that.getBitsWidth == _data.getBitsWidth, "wrap only works on UInt with same width.")
+    }
+    def <(that: UInt): Bool = { checkBits(that); (_data - that).msb }
+    def >=(that: UInt): Bool = { checkBits(that); !(<(that)) }
+    def <=(that: UInt): Bool = { checkBits(that); val result = _data - that; result === 0 || result.msb }
+    def >(that: UInt): Bool = { checkBits(that); !(<=(that)) }
+  }
+
+
+  override def assignFormalRandom(kind: Operator.Formal.RandomExpKind) = this.assignFrom(new Operator.Formal.RandomExpUInt(kind, widthOf(this)))
 }
 
 

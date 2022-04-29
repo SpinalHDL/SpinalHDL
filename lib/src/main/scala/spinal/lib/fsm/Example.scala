@@ -320,7 +320,7 @@ object StateMachineTryExample {
         }
       }
     }
-    fsm.counter.keep
+    fsm.counter.dontSimplifyIt
   }
 
   def main(args: Array[String]) {
@@ -373,7 +373,7 @@ object StateMachineTry2Example {
         }
       }
     }
-    fsm.stateReg.keep()
+    fsm.stateReg.dontSimplifyIt()
   }
 
   def main(args: Array[String]) {

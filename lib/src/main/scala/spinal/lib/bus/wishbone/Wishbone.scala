@@ -70,10 +70,10 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
   // OPTIONAL FLOW CONTROS //
   ///////////////////////////
   val SEL       = if(config.useSEL)   Bits(config.selWidth bits) else null
-  val STALL     = if(config.useSTALL) Bool                       else null
-  val ERR       = if(config.useERR)   Bool                       else null
-  val LOCK      = if(config.useLOCK)  Bool                       else null
-  val RTY       = if(config.useRTY)   Bool                       else null
+  val STALL     = if(config.useSTALL) Bool()                     else null
+  val ERR       = if(config.useERR)   Bool()                     else null
+  val LOCK      = if(config.useLOCK)  Bool()                     else null
+  val RTY       = if(config.useRTY)   Bool()                     else null
   val CTI       = if(config.useCTI)   Bits(3 bits)               else null
 
   //////////
@@ -144,7 +144,7 @@ case class Wishbone(config: WishboneConfig) extends Bundle with IMasterSlave {
     * @example{{{wishboneMaster >> wishboneSlave}}}
     */
   def >> (that : Wishbone) : Unit = {
-    assert(that.config.addressWidth >= this.config.addressWidth)
+    assert(that.config.addressWidth <= this.config.addressWidth)
     assert(that.config.dataWidth == this.config.dataWidth)
     /////////////////////
     // MINIMAL SIGNALS //

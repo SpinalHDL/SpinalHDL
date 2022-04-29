@@ -458,7 +458,7 @@ JNIEXPORT void API JNICALL ${jniPrefix}disableWave_1${uniqueId}
     }
 
     val arch = System.getProperty("os.arch")
-    val flags   = if(isMac) List("-dynamiclib") else (if(arch == "arm" || arch == "aarch64") List("-fPIC", "-shared", "-Wno-attributes") else List("-fPIC", "-m64", "-shared", "-Wno-attributes"))
+    val flags   = if(isMac) List("-dynamiclib") else (if(arch == "arm" || arch == "aarch64" || arch == "loongarch64") List("-fPIC", "-shared", "-Wno-attributes") else List("-fPIC", "-m64", "-shared", "-Wno-attributes"))
 
     val waveArgs = format match {
       case WaveFormat.FST =>  "-CFLAGS -DTRACE --trace-fst"

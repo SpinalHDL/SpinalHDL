@@ -251,8 +251,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def rootScopeStatement = if(isInput) component.parentScope else parentScope
 
   override def clone: this.type = {
-    val res = this.getClass.newInstance.asInstanceOf[this.type]
-    res
+    val res = this.getClass.newInstance
+    res.asInstanceOf[this.type]
   }
 
 
@@ -289,7 +289,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
     val typeNode = weakClone.setAsTypeNode()
     typeNode.assignFrom(e)
-    typeNode
+    typeNode.asInstanceOf[this.type]
   }
 
   private[core] def wrapWithBool(e: Expression): Bool = {
@@ -362,5 +362,13 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
       s"(${(if (component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${dirString()} $getClassIdentifier)"
     else
       head.source.toString
+  }
+
+  override def getAheadValue() : this.type = {
+    assert(this.isReg, "Next value is only for regs")
+    val ret = this.parentScope.onHead(this.clone).asInstanceOf[this.type].setCompositeName(this, "aheadValue", true)
+    this.addTag(new PhaseNextifyTag(ret))
+    ret.freeze()
+    ret.pull().asInstanceOf[this.type]
   }
 }

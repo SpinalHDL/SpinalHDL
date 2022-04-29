@@ -68,15 +68,8 @@ class SimFailure(message : String) extends Exception (message)
 object SimManager{
   var cpuAffinity = 0
   lazy val cpuCount = {
-    try {
-      val systemInfo = new oshi.SystemInfo
-      systemInfo.getHardware.getProcessor.getLogicalProcessorCount
-    } catch {
-      // fallback when oshi can't work on Apple M1
-      // see https://github.com/oshi/oshi/issues/1462
-      // remove this workaround when the issue is fixed
-      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError) => Runtime.getRuntime().availableProcessors()
-    }
+    val systemInfo = new oshi.SystemInfo
+    systemInfo.getHardware.getProcessor.getLogicalProcessorCount
   }
   def newCpuAffinity() : Int = synchronized {
     val ret = cpuAffinity
@@ -128,7 +121,7 @@ class SimManager(val raw : SimRaw) {
   }
 
   val readBypass = if(raw.isBufferedWrite) mutable.HashMap[Signal, BigInt]() else null
-  def setupJvmThread(thread: Thread){}
+  def setupJvmThread(thread: Thread): Unit = {}
   def onEnd(callback : => Unit) : Unit = onEndListeners += (() => callback)
   def getInt(bt : Signal) : Int = {
     if(readBypass == null) return raw.getInt(bt)

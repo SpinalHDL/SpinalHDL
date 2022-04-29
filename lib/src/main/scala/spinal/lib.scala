@@ -3,10 +3,10 @@ package spinal
 import spinal.core._
 import spinal.lib.tools.binarySystem
 import spinal.core.fiber.{Engine, Handle}
+import spinal.lib.TraversableOncePimped
 import spinal.lib.generator.Export
 
-import scala.collection.Seq
-import scala.collection.Iterable
+import scala.collection.{Iterable, Seq, TraversableOnce}
 import scala.collection.generic.Growable
 
 package object lib  {
@@ -17,54 +17,57 @@ package object lib  {
 
   def Event = new Stream(NoData)
 
-  def NoData = new NoData
+  def NoData() = new NoData
 
-  def export[T](named : Handle[T], value :  => Any) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName, value)) }
+  def sexport[T](named : Handle[T], value :  => Any) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(named.getName(), value)) }
   }
 
-  def export[T](h : Handle[T]) = {
-    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName, h.get)) }
+  def sexport[T](h : Handle[T]) = {
+    Engine.get.onCompletion += {() => Component.current.addTag(new Export(h.getName(), h.get)) }
     h
   }
 
-  def export[T <: SpinalTag](h : T) = {
+  def sexport[T <: SpinalTag](h : T) = {
     Engine.get.onCompletion += {() => Component.current.addTag(h) }
     h
   }
 
-  implicit def AnyPimped[T <: Any](that: T) = new AnyPimped(that)
+  implicit def AnyPimpedDef[T <: Any](that: T) : AnyPimped[T] = new AnyPimped(that)
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
-  implicit def traversableOncePimped[T <: Data](that: Seq[T]) = new TraversableOncePimped[T](that)
-  implicit def traversableOnceBoolPimped(that: Seq[Bool]) = new TraversableOnceBoolPimped(that)
-  implicit def traversableOnceAnyPimped[T <: Any](that: Seq[T]) = new TraversableOnceAnyPimped(that)
-  implicit def growableAnyPimped[T <: Any](that: Growable[T]) = new GrowableAnyPimped(that)
+  implicit def traversableOncePimped[T <: Data](that: TraversableOnce[T]) : TraversableOncePimped[T]= new TraversableOncePimped[T](that.toSeq)
+  implicit def traversableOnceBoolPimped(that: TraversableOnce[Bool]) : TraversableOnceBoolPimped = new TraversableOnceBoolPimped(that.toSeq)
+  implicit def traversableOnceAnyPimped[T <: Any](that: TraversableOnce[T]) : TraversableOnceAnyPimped[T] = new TraversableOnceAnyPimped(that.toSeq)
+  implicit def traversableOnceAnyTuplePimped[T <: Any, T2 <: Any](that: TraversableOnce[(T, T2)]) : TraversableOnceAnyTuplePimped[T, T2] = new TraversableOnceAnyTuplePimped(that.toSeq)
 
-  implicit def clockDomainPimped(cd: ClockDomain) = new ClockDomainPimped(cd)
+
+  implicit def growableAnyPimped[T <: Any](that: Growable[T]) : GrowableAnyPimped[T] = new GrowableAnyPimped(that)
+
+  implicit def clockDomainPimped(cd: ClockDomain) : ClockDomainPimped = new ClockDomainPimped(cd)
 
 
 
 //  implicit def seqPimped[T <: Data](that: scala.IndexedSeq[T]) = new TraversableOncePimped[T](that)
 
-  implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
-  implicit def streamFragmentPimped[T <: Data](that: Stream[Fragment[T]]) = new StreamFragmentPimped[T](that)
-  implicit def streamBitsPimped[T <: Data](that: Stream[Bits]) = new StreamBitsPimped(that)
-  implicit def flowBitsPimped[T <: Data](that: Flow[Bits]) = new FlowBitsPimped(that)
-  implicit def dataCarrierFragmentPimped[T <: Data](that: DataCarrier[Fragment[T]]) = new DataCarrierFragmentPimped[T](that)
-  implicit def dataCarrierFragmentBitsPimped(that: DataCarrier[Fragment[Bits]]) = new DataCarrierFragmentBitsPimped(that)
-  implicit def streamFragmentBitsPimped(that: Stream[Fragment[Bits]]) = new StreamFragmentBitsPimped(that)
-  implicit def stringPimped(that: String) = new StringPimped(that)
-  implicit def memPimped[T <: Data](mem: Mem[T]) = new MemPimped(mem)
-  implicit def boolPimped(that: Bool) = new BoolPimped(that)
+  implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) : FlowFragmentPimped[T] = new FlowFragmentPimped[T](that)
+  implicit def streamFragmentPimped[T <: Data](that: Stream[Fragment[T]]) : StreamFragmentPimped[T] = new StreamFragmentPimped[T](that)
+  implicit def streamBitsPimped(that: Stream[Bits]) : StreamBitsPimped = new StreamBitsPimped(that)
+  implicit def flowBitsPimped(that: Flow[Bits]) : FlowBitsPimped= new FlowBitsPimped(that)
+  implicit def dataCarrierFragmentPimped[T <: Data](that: DataCarrier[Fragment[T]]) : DataCarrierFragmentPimped[T] = new DataCarrierFragmentPimped[T](that)
+  implicit def dataCarrierFragmentBitsPimped(that: DataCarrier[Fragment[Bits]]) : DataCarrierFragmentBitsPimped = new DataCarrierFragmentBitsPimped(that)
+  implicit def streamFragmentBitsPimped(that: Stream[Fragment[Bits]]) : StreamFragmentBitsPimped = new StreamFragmentBitsPimped(that)
+  implicit def stringPimped(that: String) : StringPimped = new StringPimped(that)
+  implicit def memPimped[T <: Data](mem: Mem[T]) : MemPimped[T] = new MemPimped(mem)
+  implicit def boolPimped(that: Bool) : BoolPimped = new BoolPimped(that)
 
   implicit class UIntPimper(that : UInt){
     def toOneHot : Bits = B"1" << that
   }
 
-  implicit def easyFragment[T <: Data](that: Fragment[T]) = that.fragment
-  
-  def StreamArbiterFactory = new StreamArbiterFactory()
+  implicit def easyFragment[T <: Data](that: Fragment[T]) : T = that.fragment
+
+  def StreamArbiterFactory() = new StreamArbiterFactory()
   type ScalaStream[T] = collection.immutable.Stream[T]
   def ScalaStream = collection.immutable.Stream
 
@@ -139,4 +142,7 @@ package object lib  {
     def binIntsToInt: Int       = binIntsToBigInt.toInt
     def binIntsToLong: Long     = binIntsToBigInt.toLong
   }
+  
+  
+  val OHMux = new MuxOHImpl
 }
