@@ -59,14 +59,6 @@ object FormalFifo {
         assume(io.d1 =/= (io.d2 ^ 1))
         dut.io.pop >> io.pop
       }
-      case Error.DROP_PUSH =>{
-        dut.io.push << io.push.throwWhen(condPush)
-        dut.io.pop >> io.pop
-      }
-      case Error.DROP_POP =>{
-        dut.io.push << io.push
-        dut.io.pop.throwWhen(condPop) >> io.pop
-      }
       case Error.LOCK_PUSH =>{
         dut.io.push << io.push.haltWhen(condPush)
         dut.io.pop >> io.pop
