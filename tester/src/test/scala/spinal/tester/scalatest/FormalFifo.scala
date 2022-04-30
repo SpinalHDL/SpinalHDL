@@ -160,18 +160,20 @@ object FormalFifo {
         dut.io.pop.withAsserts()
         dut.dut.withAssumes()
 
-        val (d1, d1_in, d1_out) = prepareData(dut.io.push, dut.io.pop)
+        val d1 = anyconst(UInt(7 bits))
+        val d2 = anyconst(UInt(7 bits))        
         dut.io.d1 := d1
+        dut.io.d2 := d2
+
+        val (d1_in, d2_in) = dut.io.push.withOrderAssumes(d1, d2)
+        val (d1_out, d2_out) = dut.io.pop.withOrderAsserts(d1, d2)
+
         when(!d1_in) { assume(!dut.dut.formalContains(d1)) }
         when(d1_in && !d1_out) { assert(dut.dut.formalCount(d1) === 1) }
 
-        val (d2, d2_in, d2_out) = prepareData(dut.io.push, dut.io.pop)
-        dut.io.d2 := d2
         when(!d2_in) { assume(!dut.dut.formalContains(d2)) }
         when(d2_in && !d2_out) { assert(dut.dut.formalCount(d2) === 1) }
 
-        assume(d1 =/= d2)
-        when(!d1_in) { assume(!d2_in) }
         when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
       })
   }

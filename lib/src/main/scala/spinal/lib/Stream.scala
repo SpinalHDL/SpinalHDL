@@ -533,6 +533,34 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     }
     this
   }
+
+  def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+    import spinal.core.formal._
+    val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindOut = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+
+    when(!aheadOut){ assert(!behindOut) }
+    when(behindOut){ assert(aheadOut) }
+
+    cover(aheadOut)
+    cover(behindOut)
+    
+    (aheadOut, behindOut)
+  }
+
+  def withOrderAssumes(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+    import spinal.core.formal._
+    val aheadIn = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindIn = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+    when(aheadIn) { assume(this.payload =/= dataAhead) }
+    when(behindIn) { assume(this.payload =/= dataBehind) }
+    
+    assume(dataAhead =/= dataBehind)
+    when(!aheadIn) { assume(!behindIn) }
+    when(behindIn) { assume(aheadIn) }
+
+    (aheadIn, behindIn)
+  }
 }
 
 object StreamArbiter {
