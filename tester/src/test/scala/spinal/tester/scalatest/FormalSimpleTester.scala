@@ -2,7 +2,6 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import FormalFifo._
 
 class FormalSimpleTester extends SpinalFormalFunSuite {
   import spinal.core.formal._
@@ -14,25 +13,6 @@ class FormalSimpleTester extends SpinalFormalFunSuite {
   } catch{
     case e => println(e); true
   })
-
-
-//  for(error <- Error.all;
-//      trigger <- Trigger.all){
-//    test(s"fifo-prove-$error-$trigger"){
-//      shouldFail(fifoProveTest(error, trigger))
-//    }
-//  }
- test("fifo-prove ok"){ fifoProveTest(null, Trigger.ANY) }
-
-  // for(error <- Error.all;
-  //     trigger <- Trigger.all;
-  //     if !(List(Error.DROP_POP, Error.DROP_PUSH, Error.CORRUPT).contains(error) && trigger == Trigger.D2)){
-  //   test(s"fifo-bmc-$error-$trigger"){
-  //     shouldFail(fifoBmcTest(error, trigger))
-  //   }
-  // }
-  // test("fifo-bmc ok"){ fifoBmcTest(null, Trigger.ANY, 10) }
-
   def startDoneTest(maxDelay : Int): Unit ={
     class StartDoneDut() extends Component {
       val start = in(Bool())
