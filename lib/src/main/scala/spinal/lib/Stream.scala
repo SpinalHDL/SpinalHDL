@@ -534,16 +534,32 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-
-
-  // this could be more generic.
-  def formalCreateEvent(getCond: Stream[T] => Bool): Bool = {
+  def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
     import spinal.core.formal._
-    val event = RegInit(False)
-    when(getCond(this)) {
-      assume(event === True)
-    }
-    event
+    val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindOut = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+
+    when(!aheadOut){ assert(!behindOut) }
+    when(behindOut){ assert(aheadOut) }
+
+    cover(aheadOut)
+    cover(behindOut)
+    
+    (aheadOut, behindOut)
+  }
+
+  def withOrderAssumes(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
+    import spinal.core.formal._
+    val aheadIn = RegInit(False) setWhen (this.fire && dataAhead === this.payload)
+    val behindIn = RegInit(False) setWhen (this.fire && dataBehind === this.payload)
+    when(aheadIn) { assume(this.payload =/= dataAhead) }
+    when(behindIn) { assume(this.payload =/= dataBehind) }
+    
+    assume(dataAhead =/= dataBehind)
+    when(!aheadIn) { assume(!behindIn) }
+    when(behindIn) { assume(aheadIn) }
+
+    (aheadIn, behindIn)
   }
 }
 
@@ -1048,6 +1064,41 @@ class StreamFifo[T <: Data](dataType: HardType[T], depth: Int) extends Component
       popPtr.clear()
       risingOccupancy := False
     }
+  }
+  
+  def withAssumes() = this.rework {
+    import spinal.core.formal._
+    assume(io.pop.payload === past(logic.ram(logic.popPtr)))
+  }
+
+  def formalCheck(cond: T => Bool): Vec[Bool] = this.rework {
+    val pushBound = logic.pushPtr.value + depth
+    val check = Vec(False, depth)
+    for (i <- 0 until depth) {
+      val popIndex = logic.popPtr.resize(log2Up(depth) + 1 bits) + i
+      when(logic.popPtr < logic.pushPtr) {
+        when(popIndex < logic.pushPtr) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr > logic.pushPtr) {
+        when(popIndex < pushBound) { check(i) := cond(logic.ram(popIndex.resized)) }
+      }.elsewhen(logic.popPtr === logic.pushPtr && io.pop.valid) {
+        check(i) := cond(logic.ram(i))
+      }
+    }
+    check
+  }
+
+  def formalContains(word: T): Bool = this.rework {
+    formalCheck(_ === word.pull()).reduce(_ || _)
+  }
+  def formalContains(cond: T => Bool): Bool = this.rework {
+    formalCheck(cond).reduce(_ || _)
+  }
+
+  def formalCount(word: T): UInt = this.rework {
+    CountOne(formalCheck(_ === word.pull()))
+  }
+  def formalCount(cond: T => Bool): UInt = this.rework {
+    CountOne(formalCheck(cond))
   }
 }
 

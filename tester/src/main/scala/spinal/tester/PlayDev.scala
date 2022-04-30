@@ -1714,24 +1714,16 @@ object PlayFormalFifo extends App {
       // when(dut.io.push.fire && dut.io.push.payload === d1) {
       //   assume(d1_in === True)
       // }
-      val d1_in = dut.io.push.formalCreateEvent{x => 
-        x.fire && x.payload===d1
-      }     
-      val d1_out = dut.io.pop.formalCreateEvent{x => 
-        x.fire && x.payload===d1
-      }
+      val d1_in = RegInit(False) setWhen (dut.io.push.fire && d1 === dut.io.push.payload)
+      val d1_out = RegInit(False) setWhen (dut.io.pop.fire && d1 === dut.io.pop.payload)
 
       when(d1_out) {
         assert(d1_in === True)
       }
 
       val d2 = anyconst(UInt(7 bits))
-      val d2_in = dut.io.push.formalCreateEvent{x => 
-        x.fire && x.payload===d2
-      }
-      val d2_out = dut.io.pop.formalCreateEvent{x => 
-        x.fire && x.payload===d2
-      }
+      val d2_in = RegInit(False) setWhen (dut.io.push.fire && d2 === dut.io.push.payload)
+      val d2_out = RegInit(False) setWhen (dut.io.pop.fire && d2 === dut.io.pop.payload)
 
       when(d2_out) {
         assert(d2_in === True)
