@@ -33,12 +33,12 @@ object FormalFifo extends App {
     val condPush = trigger match {
       case Trigger.D1  => io.push.payload === io.d1
       case Trigger.D2  => io.push.payload === io.d2
-      case Trigger.ANY => anyseq(Bool())
+      case Trigger.ANY => True
     }
     val condPop = trigger match {
       case Trigger.D1  => io.pop.payload === io.d1
       case Trigger.D2  => io.pop.payload === io.d2
-      case Trigger.ANY => anyseq(Bool())
+      case Trigger.ANY => True
     }
     error match {
       case Error.DROP_PUSH => {
@@ -172,13 +172,13 @@ object FormalFifo extends App {
     case e => println(e); true
   })
 
-//   for (
-//     error <- Error.all;
-//     trigger <- Trigger.all
-//   ) {
-//     shouldFail(fifoTest(error, trigger))
-//   }
-  fifoTest(Error.LOCK_PUSH, Trigger.ANY)
+  for (
+    error <- Error.all;
+    trigger <- Trigger.all
+  ) {
+    println("Processing " +s"fifo-$error-$trigger "+"verification.")
+    shouldFail(fifoTest(error, trigger))
+  }
   fifoTest(null, Trigger.ANY)
 
 }
