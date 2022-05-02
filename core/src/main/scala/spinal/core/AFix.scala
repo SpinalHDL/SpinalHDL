@@ -469,9 +469,11 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
   def sat(satMax: BigInt, satMin: BigInt, exp: ExpNumber): AFix = {
     val expDiff = this.exp.value - exp.value
     if (expDiff > 0) {
-      sat(satMax/BigInt(2).pow(expDiff) - expDiff, satMin/BigInt(2).pow(expDiff) - expDiff)
+      sat(satMax/BigInt(2).pow(expDiff),
+          satMin/BigInt(2).pow(expDiff))
     } else if (expDiff < 0) {
-      sat(satMax*BigInt(2).pow(-expDiff) - expDiff, satMin/BigInt(2).pow(-expDiff) - expDiff)
+      sat(satMax*BigInt(2).pow(-expDiff) + (if (satMax != 0) BigInt(2).pow(-expDiff)-1 else 0),
+          satMin*BigInt(2).pow(-expDiff) + (if (satMin != 0) BigInt(2).pow(-expDiff)-1 else 0))
     } else {
       sat(satMax, satMin)
     }
@@ -495,17 +497,17 @@ class AFix(val maxValue: BigInt, val minValue: BigInt, val exp: ExpNumber) exten
     }
     val ret = new AFix(satMax.min(this.maxValue), satMin.max(this.minValue), exp)
     when (this > AFix(satMax, exp)) {
-      if (this.signed)
-        ret.raw := BigIntToSInt(satMax).resize(ret.bitWidth).asBits
+      if (ret.signed)
+        ret.raw := BigIntToSInt(ret.maxValue).resize(ret.bitWidth).asBits
       else
-        ret.raw := BigIntToUInt(satMax).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToUInt(ret.maxValue).resize(ret.bitWidth).asBits
     } elsewhen (this < AFix(satMin, exp)) {
-      if (this.signed)
-        ret.raw := BigIntToSInt(satMin).resize(ret.bitWidth).asBits
+      if (ret.signed)
+        ret.raw := BigIntToSInt(ret.minValue).resize(ret.bitWidth).asBits
       else
-        ret.raw := BigIntToUInt(satMin).resize(ret.bitWidth).asBits
+        ret.raw := BigIntToUInt(ret.minValue).resize(ret.bitWidth).asBits
     } otherwise {
-      if (this.signed)
+      if (ret.signed)
         ret.raw := this.raw.asSInt.resize(ret.bitWidth).asBits
       else
         ret.raw := this.raw.asUInt.resize(ret.bitWidth).asBits
