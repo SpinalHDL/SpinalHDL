@@ -33,12 +33,12 @@ object FormalFifo extends App {
     val condPush = trigger match {
       case Trigger.D1  => io.push.payload === io.d1
       case Trigger.D2  => io.push.payload === io.d2
-      case Trigger.ANY => True
+      case Trigger.ANY => allseq(Bool())
     }
     val condPop = trigger match {
       case Trigger.D1  => io.pop.payload === io.d1
       case Trigger.D2  => io.pop.payload === io.d2
-      case Trigger.ANY => True
+      case Trigger.ANY => allseq(Bool())
     }
     error match {
       case Error.DROP_PUSH => {
@@ -124,6 +124,7 @@ object FormalFifo extends App {
       .withBMC(10)
       .withProve(10)
       .withCover(10)
+      .addEngin(SmtBmc(stbv = true, solver=SmtBmcSolver.Z3))
       .withDebug
       .doVerify(new Component {
         val dut = FormalDut(new StreamFifoWrapper(error, trigger))
