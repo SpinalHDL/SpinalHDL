@@ -132,13 +132,10 @@ object FormalFifo extends App {
 
         assumeInitial(reset)
 
-        val inValue = anyseq(UInt(7 bits))
-        val inValid = anyseq(Bool())
-        val outReady = anyseq(Bool())
-        dut.io.push.payload := inValue
-        dut.io.push.valid := inValid
-        dut.io.pop.ready := outReady
+        anyseq(dut.io.push.payload)
+        anyseq(dut.io.pop.ready)
 
+        val inValid = anyseq(dut.io.push.valid)
         // assume no valid while reset and one clock later.
         when(reset || past(reset)) {
           assume(inValid === False)
@@ -180,6 +177,7 @@ object FormalFifo extends App {
     println("Processing " +s"fifo-$error-$trigger "+"verification.")
     shouldFail(fifoTest(error, trigger))
   }
+  println("Processing right FIFO verification.")
   fifoTest(null, Trigger.ANY)
 
 }
