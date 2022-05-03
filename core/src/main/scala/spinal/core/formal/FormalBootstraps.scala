@@ -21,13 +21,14 @@
 package spinal.core.formal
 
 import java.io.{File, PrintWriter}
+
 import org.apache.commons.io.FileUtils
 import spinal.core.internals.{PhaseContext, PhaseNetlist}
 import spinal.core.{Component, GlobalData, SpinalConfig, SpinalReport, BlackBox}
 import spinal.sim._
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 import scala.io.Source
 import scala.util.Random
 import sys.process._
@@ -79,7 +80,7 @@ case class SpinalFormalConfig(
     var _spinalConfig: SpinalConfig = SpinalConfig().includeFormal,
     var _additionalRtlPath: ArrayBuffer[String] = ArrayBuffer[String](),
     var _additionalIncludeDir: ArrayBuffer[String] = ArrayBuffer[String](),
-    var _modesWithDepths: HashMap[String, Int] = HashMap[String, Int](),
+    var _modesWithDepths: LinkedHashMap[String, Int] = LinkedHashMap[String, Int](),
     var _backend: SpinalFormalBackendSel = SpinalFormalBackendSel.SYMBIYOSYS,
     var _keepDebugInfo: Boolean = false,
     var _hasAsync: Boolean = false
