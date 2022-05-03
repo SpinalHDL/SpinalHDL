@@ -36,6 +36,43 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
 
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
+
+  def formalCommon(operation: (Bool)=>spinal.core.internals.AssertStatement, maxLen: Int = 256) = {
+    val endAddr = addr + ((len+^1) << size) - 1 //(len << size) //should be ((len+1) << size) - 1
+    val in4KBoundary = endAddr(config.addressWidth - 1 downto 12) === addr(config.addressWidth - 1 downto 12)
+    val addrAlignedToSize = (addr(6 downto 0) & ((U(1, 7 bits) << size) - 1)) === 0
+    val validWrapLen = Seq(2, 4, 8, 16).map(len === _).reduce(_ || _)
+    val validCache = !Seq(4, 5, 8, 9, 0xC, 0xD).map(cache === _).reduce(_||_)
+
+    import spinal.core.formal._
+    if(config.useBurst) {
+      operation(burst =/= RESERVED)
+      when(burst === INCR) { operation(in4KBoundary) }
+      when(burst === Axi4.burst.WRAP) {
+        operation(addrAlignedToSize)
+        operation(validWrapLen)
+      }
+    } else {
+      operation(in4KBoundary)
+    }
+
+    if(config.useLen && maxLen < 256) operation(len < maxLen)
+    if(config.useSize) operation(size <= log2Up(config.bytePerWord))
+
+    if(config.useCache) operation(validCache)
+    if(config.useLock) {
+      if(config.useLen) when(lock === Axi4.lock.EXCLUSIVE) { operation(len(7 downto 4) === 0) }
+      if(config.useCache) when(lock === Axi4.lock.EXCLUSIVE) { operation(cache(3 downto 2) === 0) }
+    }
+  }
+
+  def withAsserts(maxLen: Int = 256) = {
+    formalCommon(assert)
+  }
+
+  def withAssumes(maxLen: Int = 256) = {
+    formalCommon(assume)
+  }
 }
 
 
