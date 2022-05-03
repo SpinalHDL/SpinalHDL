@@ -51,6 +51,14 @@ class RegIfExample extends Component {
   val fillPos   =  M_TURBO_3G_INTER_FILL.field(UInt(9 bit), RW, doc="interlave start Column of fill Number").asOutput()
   M_TURBO_3G_INTER_FILL.reserved(7 bits)
   val fillRow   =  M_TURBO_3G_INTER_FILL.field(Bits(9 bit), RW, doc="interlave fill Row number, 0~2 avaliable\n n+1 row").asOutput()
+
+  val M_TEST = busif.newReg("TEST REGISTER")
+  val reg = SInt(8 bit)
+  reg := 33
+  M_TEST.registerInOnlyReadLogic(reg, RW, 0x32, "onlyregister not generate WriteLogic but have readLogic")
+  M_TEST.registerAtOnlyReadLogic(10, reg, RW, 0x32, "onlyregister not generate WriteLogic but have readLogic")
+  val txx = Reg(UInt(6 bit)) init 0
+  M_TEST.registerInWithWriteLogic(txx, RW, 0x332, "register with writeLogic")
 }
 
 class RegIfExample2 extends Component {
