@@ -41,7 +41,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   val buffer     = Reg(Axi4StreamBundle(inConfig.copy(dataWidth = MAX_SIZE, useLast = false, useId = false, useDest = false)))
   buffer.keep.init(B(buffer.keep.bitsRange -> False))
   // Store valid byte bits OR wire in keep as it's functionally the same
-  val bufferValid = if (needsValid) Reg(Bits(MAX_SIZE bit)) else buffer.keep
+  val bufferValid = if (needsValid) { Reg(Bits(MAX_SIZE bit)) init(0) } else buffer.keep
   val bufferLast = RegInit(False)
   val bufferId   = inConfig.useId   generate Reg(io.axis_s.id)
   val bufferDest = inConfig.useDest generate Reg(io.axis_s.dest)
@@ -180,7 +180,7 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   outStream.config.useUser generate { outStream.user := buffer.user(outConfig.dataWidth*outConfig.userWidth-1 downto 0) }
   inConfig.useId   generate { outStream.id := bufferId }
   inConfig.useDest generate { outStream.dest := bufferDest }
-  outStream.last := bufferLast && !buffer.keep(outConfig.dataWidth-1)
+  outStream.last := bufferLast && !bufferValid(outConfig.dataWidth-1)
 
   // Buffer update
   val fillLevel = Reg(UInt(log2Up(MAX_SIZE) bit)) init(0)
