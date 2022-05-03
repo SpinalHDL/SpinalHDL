@@ -6,8 +6,8 @@ import spinal.lib.bus.amba4.axi.Axi4SpecRenamer
 import spinal.lib.bus.amba4.axis.Axi4Stream._
 
 object Axi4StreamWidthAdapter {
-  def apply(in: Axi4Stream, out: Axi4Stream): Axi4StreamWidthAdapter = {
-    val streamWidthAdapter = new Axi4StreamWidthAdapter(in.config, out.config)
+  def apply(in: Axi4Stream, out: Axi4Stream, compact: Boolean = false): Axi4StreamWidthAdapter = {
+    val streamWidthAdapter = new Axi4StreamWidthAdapter(in.config, out.config, compact = compact)
     streamWidthAdapter.io.axis_s << in
     streamWidthAdapter.io.axis_m >> out
     streamWidthAdapter
@@ -19,9 +19,9 @@ object Axi4StreamWidthAdapter {
  * @param inConfig The input stream configuration
  * @param outConfig The output stream configuration
  */
-class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamConfig) extends Component {
-  assert(inConfig.useKeep, "Axi4Stream condenser input config needs keeps (useKeep) enabled")
-  assert(outConfig.useKeep, "Axi4Stream condenser input config needs keeps (useKeep) enabled")
+class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamConfig, compact: Boolean = false) extends Component {
+
+  val needsValid = !inConfig.useKeep || !compact
 
   /*
    * TODO list of possible optimizations:
@@ -40,23 +40,27 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
 
   val buffer     = Reg(Axi4StreamBundle(inConfig.copy(dataWidth = MAX_SIZE, useLast = false, useId = false, useDest = false)))
   buffer.keep.init(B(buffer.keep.bitsRange -> False))
+  // Store valid byte bits OR wire in keep as it's functionally the same
+  val bufferValid = if (needsValid) Reg(Bits(MAX_SIZE bit)) else buffer.keep
   val bufferLast = RegInit(False)
   val bufferId   = inConfig.useId   generate Reg(io.axis_s.id)
   val bufferDest = inConfig.useDest generate Reg(io.axis_s.dest)
 
   // Maps inputs into buffer slices given the current fill level
-  def doWriteStage(inBundle: Axi4StreamBundle, bufBundle: Axi4StreamBundle, doWrite: Bool, fillLevel: UInt): Axi4StreamBundle = {
+  def doWriteStage(inBundle: Axi4StreamBundle, bufBundle: Axi4StreamBundle, bufValid: Bits, doWrite: Bool, fillLevel: UInt): (Axi4StreamBundle, Bits) = {
     val inDataWidth = inBundle.config.dataWidth
     val outDataWidth = outConfig.dataWidth
     val bufDataWidth = bufBundle.config.dataWidth
     val bufUserWidth = bufBundle.config.userWidth
     val bufExtDataWidth = bufDataWidth+Math.min(inDataWidth, outDataWidth)
     val bufferExt_data = Bits(8*bufExtDataWidth bit)
+    val bufferExt_valid = needsValid generate { Bits(bufExtDataWidth bit) }
     val bufferExt_keep = Bits(bufExtDataWidth bit)
     val bufferExt_strb = inConfig.useStrb generate Bits(bufExtDataWidth bit)
     val bufferExt_user = inConfig.useUser generate Bits(bufExtDataWidth*bufUserWidth bit)
 
     val invalidByte_data = B(0, 8 bit)
+    val invalidByte_valid = False
     val invalidByte_keep = False
     val invalidByte_strb = inConfig.useStrb generate False
     val invalidByte_user = inConfig.useUser generate B(0, bufUserWidth bit)
@@ -65,7 +69,8 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
     for (bufIdx <- 0 until bufExtDataWidth) {
 
       val thisByte_data = if (bufIdx < bufDataWidth) bufBundle.data.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_data
-      val thisByte_keep = if (bufIdx < bufDataWidth) bufBundle.keep.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_keep
+      val thisByte_valid = if (bufIdx < bufDataWidth) bufValid.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_valid
+      val thisByte_keep = inConfig.useKeep generate { if (bufIdx < bufDataWidth) bufBundle.keep.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_keep }
       val thisByte_strb = inConfig.useStrb generate { if (bufIdx < bufDataWidth) bufBundle.strb.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_strb }
       val thisByte_user = inConfig.useUser generate { if (bufIdx < bufDataWidth) bufBundle.user.subdivideIn(bufDataWidth slices)(bufIdx) else invalidByte_user }
 
@@ -84,7 +89,8 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
       val mappingVec = Vec(mapping.map(IntToUInt))
 
       val muxInput_data = invalidByte_data ## thisByte_data ## inBundle.data
-      val muxInput_keep = invalidByte_keep ## thisByte_keep ## inBundle.keep
+      val muxInput_valid = needsValid generate { invalidByte_valid ## thisByte_valid ## B((0 until inDataWidth) -> True) }
+      val muxInput_keep = inConfig.useKeep generate { invalidByte_keep ## thisByte_keep ## inBundle.keep }
       val muxInput_strb = inConfig.useStrb generate { invalidByte_strb ## thisByte_strb ## inBundle.strb }
       val muxInput_user = inConfig.useUser generate { invalidByte_user ## thisByte_user ## inBundle.user }
 
@@ -95,25 +101,28 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
         muxSelect := inBundle.config.dataWidth
       }
       bufferExt_data.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_data.subdivideIn(inDataWidth+2 slices)(muxSelect)
-      bufferExt_keep.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_keep.subdivideIn(inDataWidth+2 slices)(muxSelect)
+      needsValid generate { bufferExt_valid.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_valid.subdivideIn(inDataWidth+2 slices)(muxSelect) }
+      inConfig.useKeep generate { bufferExt_keep.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_keep.subdivideIn(inDataWidth+2 slices)(muxSelect) }
       inConfig.useStrb generate { bufferExt_strb.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_strb.subdivideIn(inDataWidth+2 slices)(muxSelect) }
       inConfig.useUser generate { bufferExt_user.subdivideIn(bufExtDataWidth slices)(bufIdx) := muxInput_user.subdivideIn(inDataWidth+2 slices)(muxSelect) }
     }
     val bundle = Axi4StreamBundle(inConfig.copy(dataWidth = bufExtDataWidth, useLast = false, useId = false, useDest = false))
     bundle.data := bufferExt_data
-    bundle.keep := bufferExt_keep
+    inConfig.useKeep generate { bundle.keep := bufferExt_keep }
     inConfig.useStrb generate { bundle.strb := bufferExt_strb }
     inConfig.useUser generate { bundle.user := bufferExt_user }
-    bundle
+
+    (bundle, bufferExt_valid)
   }
 
   // Shifts the buffer slices down by one read size
-  def doReadStage(bufBundle: Axi4StreamBundle, readSize: Int, doRead: Bool): Axi4StreamBundle = {
+  def doReadStage(bufBundle: Axi4StreamBundle, bufValid: Bits, readSize: Int, doRead: Bool): (Axi4StreamBundle, Bits) = {
     val bufDataWidth = bufBundle.config.dataWidth
     val bufUserWidth = bufBundle.config.userWidth
     val outBufDataWidth = bufBundle.config.dataWidth-readSize
 
     val buffer_data = Bits(outBufDataWidth*8 bit)
+    val buffer_valid = needsValid generate { Bits(outBufDataWidth bit) }
     val buffer_keep = Bits(outBufDataWidth bit)
     val buffer_strb = inConfig.useStrb generate Bits(outBufDataWidth bit)
     val buffer_user = inConfig.useUser generate Bits(outBufDataWidth*bufUserWidth bit)
@@ -127,39 +136,46 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
       }
 
       buffer_data.subdivideIn(outBufDataWidth slices)(idx) := bufBundle.data.subdivideIn(bufDataWidth slices)(readIdx)
-      buffer_keep.subdivideIn(outBufDataWidth slices)(idx) := bufBundle.keep.subdivideIn(bufDataWidth slices)(readIdx)
+      needsValid generate { buffer_valid.subdivideIn(outBufDataWidth slices)(idx) := bufValid.subdivideIn(bufDataWidth slices)(readIdx) }
+      inConfig.useKeep generate { buffer_keep.subdivideIn(outBufDataWidth slices)(idx) := bufBundle.keep.subdivideIn(bufDataWidth slices)(readIdx) }
       inConfig.useStrb generate { buffer_strb.subdivideIn(outBufDataWidth slices)(idx) := bufBundle.strb.subdivideIn(bufDataWidth slices)(readIdx) }
       inConfig.useUser generate { buffer_user.subdivideIn(outBufDataWidth slices)(idx) := bufBundle.user.subdivideIn(bufDataWidth slices)(readIdx) }
     }
 
     val bundle = Axi4StreamBundle(bufBundle.config.copy(dataWidth = outBufDataWidth, useLast = false, useId = false, useDest = false))
     bundle.data := buffer_data
-    bundle.keep := buffer_keep
+    inConfig.useKeep generate { bundle.keep := buffer_keep }
     inConfig.useStrb generate { bundle.strb := buffer_strb }
     inConfig.useUser generate { bundle.user := buffer_user }
 
-    bundle
+    (bundle, buffer_valid)
   }
 
-  val inCompact = Axi4StreamSparseCompactor(io.axis_s)
+  val inCompact = if (compact) Axi4StreamSparseCompactor(io.axis_s) else io.axis_s.stage()
 
   // Compute next write size
   val inStage = inCompact.stage()
 
   // Buffer the input write size
   var writeBytes_preReg = U(0, log2Up(inConfig.dataWidth+1) bit)
-  inCompact.keep.asBools.foreach(bit => {
-    when(bit) {
-      writeBytes_preReg \= writeBytes_preReg+1
+  if (compact && !needsValid) {
+    inCompact.keep.asBools.foreach(bit => {
+      when(bit) {
+        writeBytes_preReg \= writeBytes_preReg+1
+      }
+    })
+  } else {
+    when(inCompact.valid) {
+      writeBytes_preReg \= inCompact.config.dataWidth
     }
-  })
+  }
   val writeBytes = RegNextWhen(writeBytes_preReg, inCompact.fire)
 
   // Output stream signals
   val outStream = Axi4Stream(inConfig.copy(dataWidth = outConfig.dataWidth))
-  outStream.valid := buffer.keep(outConfig.dataWidth-1) || bufferLast
+  outStream.valid := bufferValid(outConfig.dataWidth-1) || bufferLast
   outStream.data  := buffer.data(outConfig.dataWidth*8-1 downto 0)
-  outStream.keep  := buffer.keep(outConfig.dataWidth-1 downto 0)
+  outStream.config.useKeep generate { outStream.keep := buffer.keep(outConfig.dataWidth-1 downto 0) }
   outStream.config.useStrb generate { outStream.strb := buffer.strb(outConfig.dataWidth-1 downto 0) }
   outStream.config.useUser generate { outStream.user := buffer.user(outConfig.dataWidth*outConfig.userWidth-1 downto 0) }
   inConfig.useId   generate { outStream.id := bufferId }
@@ -180,21 +196,23 @@ class Axi4StreamWidthAdapter(inConfig: Axi4StreamConfig, outConfig: Axi4StreamCo
   }
   fillLevel := fillLevel_next
 
-  val writeBuffer = doWriteStage(inStage.payload, buffer, inStage.fire, fillLevel)
+  val (writeBuffer, writeBufferValid) = doWriteStage(inStage.payload, buffer, bufferValid, inStage.fire, fillLevel)
   bufferLast setWhen(inStage.lastFire)
-  when(!buffer.keep(0)) {
+  when(!bufferValid(0)) {
     inConfig.useId generate { bufferId := inStage.id }
     inConfig.useDest generate { bufferDest := inStage.dest }
   }
-  val readWriteBuffer = doReadStage(writeBuffer, outConfig.dataWidth, outStream.fire)
+  val readWriteBuffer = doReadStage(writeBuffer, writeBufferValid, outConfig.dataWidth, outStream.fire)
   bufferLast clearWhen(outStream.lastFire)
 
   when(inStage.fire || outStream.fire) {
-    buffer := readWriteBuffer
+    val (readBuffer, readBufferValid) = readWriteBuffer
+    buffer := readBuffer
+    needsValid generate { bufferValid := readBufferValid.resized }
   }
 
   // Input stream signals
-  val canWrite = !buffer.keep.reversed(writeBytes)
+  val canWrite = !bufferValid.reversed(writeBytes)
   val canWriteWhenRead = if (inConfig.dataWidth > outConfig.dataWidth) (writeBytes <= outConfig.dataWidth) else True
   inStage.ready := !bufferLast && (canWrite || (canWriteWhenRead && outStream.fire))
 
