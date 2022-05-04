@@ -121,6 +121,11 @@ trait DataPrimitives[T <: Data]{
       }
     }
   }
+
+  def boot(that: T): T = {
+    _data.bootFrom(that)
+    _data
+  }
 }
 
 trait BaseTypePrimitives[T <: BaseType] {
@@ -707,6 +712,22 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //  def propagatePullName() : this.type = this.addTag(PropagatePullNameTag)
 
   def assignFormalRandom(kind : Operator.Formal.RandomExpKind) : Unit = ???
+
+  def bootFrom(that: AnyRef, target: AnyRef = this) = (that, target) match {
+    case (init: Data, target: Data) if ! target.isReg =>
+      for ((e, initElement) <- (target.flatten, init.flatten).zipped) {
+        def recursiveSearch(bt: BaseType): Unit = {
+          if (bt.isReg)
+            bt.boot (initElement)
+          else if(Statement.isFullToFullStatement(bt))
+            recursiveSearch(bt.head.source.asInstanceOf[BaseType])
+          else
+            LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+        }
+        recursiveSearch(e)
+      }
+    case _ => compositAssignFrom(that,target,InitialAssign)
+  }
 }
 
 trait DataWrapper extends Data{
