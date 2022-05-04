@@ -2,14 +2,18 @@ package spinal.tester.scalatest
 
 import spinal.core.formal._
 import spinal.core._
-import spinal.lib.{Stream, StreamFifo, Timeout, master, slave, CountOne}
+import spinal.lib.{StreamFifo, History}
 
 class FormalFifoTester extends SpinalFormalFunSuite {
   test("fifo-verify all") {
+    val initialCycles = 2
+    val inOutDelay = 2
+    val coverCycles = 10
     FormalConfig
       .withBMC(10)
       .withProve(10)
-      .withCover(10)
+      .withCover(coverCycles)
+      // .withDebug
       .doVerify(new Component {
         val dut = FormalDut(new StreamFifo(UInt(7 bits), 4))
         val reset = ClockDomain.current.isResetActive
@@ -45,6 +49,9 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         when(d2_in && !d2_out) { assert(dut.formalCount(d2) === 1) }
 
         when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
+
+        //back to back transaction cover test.
+        cover(History(dut.io.pop.fire, coverCycles - initialCycles - inOutDelay - 1).reduce(_ && _))
       })
   }
 }
