@@ -34,10 +34,10 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends Ram
     hit
   }
 
-  val hitRead  = hitRange(busif.readAddress)
-  val hitWrite = hitRange(busif.writeAddress)
-  val hitDoRead  = hitRead && busif.doRead
-  val hitDoWrite = hitWrite && busif.doWrite
+  def hitRead  = hitRange(busif.readAddress)
+  def hitWrite = hitRange(busif.writeAddress)
+  def hitDoRead  = hitRead && busif.doRead
+  def hitDoWrite = hitWrite && busif.doWrite
 
   // RamDescr implementation
   def getName()        : String = name
@@ -318,9 +318,13 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   def getFields = fields.toList
 
   val hitRead  = busif.readAddress === U(addr)
+  hitRead.setName(s"raddrAt${addr.toHexString}", weak = true)
   val hitWrite = busif.writeAddress === U(addr)
+  hitWrite.setName(s"waddrAt${addr.toHexString}", weak = true)
   val hitDoRead  = hitRead && busif.doRead
+  hitDoRead.setName(s"bus_${hitRead.getName()}", weak = true)
   val hitDoWrite = hitWrite && busif.doWrite
+  hitDoWrite.setName(s"bus_${hitWrite.getName()}", weak = true)
 
   def readBits: Bits = {
     fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
