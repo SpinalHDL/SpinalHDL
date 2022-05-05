@@ -510,11 +510,11 @@ trait Nameable extends OwnableRef with ContextUser{
   def setName(name : String) : this.type = setName(name, false)
   def setName(name: String, weak: Boolean): this.type = setName(name, if(weak) USER_WEAK else USER_SET)
   def setName(name: String, namePriority: Byte): this.type = {
-    val words = "[A-Za-z_]*\\w*".r
-    name match{
-      case words(_*) => null
-      case _ => SpinalError(s"${name} should be Valid naming : '[A-Za-z_]\\w*'")
-    }
+//    val words = "[A-Za-z_]*\\w*".r
+//    name match{
+//      case words(_*) => null
+//      case _ => SpinalError(s"${name} should be Valid naming : '[A-Za-z_]\\w*'")
+//    }
     if (isPriorityApplicable(namePriority)) {
       this.name = name
       mode = ABSOLUTE
