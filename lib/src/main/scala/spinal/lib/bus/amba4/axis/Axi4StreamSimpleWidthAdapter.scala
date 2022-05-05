@@ -62,6 +62,14 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
       inConfig.useId generate { buffer.id init(0) }
       inConfig.useLast generate { buffer.last init(False) }
 
+      val start = Reg(Bool) init(True)
+      start clearWhen start && io.axis_s.fire && counter === 0
+      if (inConfig.useLast) {
+        start setWhen io.axis_m.lastFire
+      } else {
+        start setWhen io.axis_m.fire
+      }
+
       val bufferLast = if (inConfig.useLast) buffer.last else False
 
       when(io.axis_s.fire) {
@@ -76,7 +84,7 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
         buffer.last clearWhen io.axis_m.fire
       }
 
-      when (io.axis_s.lastFire || counter.willOverflowIfInc) {
+      when (start && io.axis_s.fire) {
         inConfig.useDest generate { buffer.dest := io.axis_s.dest }
         inConfig.useId generate { buffer.id := io.axis_s.id }
       }
