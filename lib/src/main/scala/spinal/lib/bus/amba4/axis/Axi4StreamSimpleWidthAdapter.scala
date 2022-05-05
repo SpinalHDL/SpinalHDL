@@ -51,13 +51,16 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
     val maxCount = (outWidth.floatValue()/inWidth).floor.intValue()
     val padBytes = (inWidth*maxCount) % outWidth
     if (maxCount > 1) {
-      val counter = Counter(maxCount-1, inc = io.axis_s.fire)
+      val counter = Counter(maxCount+1, inc = io.axis_s.fire)
 
-      val buffer = Reg(Axi4StreamBundle(outConfig.copy(dataWidth=(maxCount-1)*outWidth, useId = false, useDest = false)))
-      buffer.data.reversed(0, padBytes*8 bit).clearAll()
-      inConfig.useKeep generate { buffer.keep.reversed(0, padBytes bit).clearAll() }
-      inConfig.useStrb generate { buffer.strb.reversed(0, padBytes bit).clearAll() }
-      inConfig.useUser generate { buffer.user.reversed(0, padBytes*inConfig.userWidth bit).clearAll() }
+      val buffer = Reg(Axi4StreamBundle(outConfig.copy(dataWidth=(maxCount)*inWidth)))
+      buffer.data init(0)
+      inConfig.useKeep generate { buffer.keep init(0) }
+      inConfig.useStrb generate { buffer.strb init(0) }
+      inConfig.useUser generate { buffer.user init(0) }
+      inConfig.useDest generate { buffer.dest init(0) }
+      inConfig.useId generate { buffer.id init(0) }
+      inConfig.useLast generate { buffer.last init(False) }
 
       val bufferLast = if (inConfig.useLast) buffer.last else False
 
@@ -73,24 +76,31 @@ class Axi4StreamSimpleWidthAdapter(inConfig: Axi4StreamConfig, outWidth: Int) ex
         buffer.last clearWhen io.axis_m.fire
       }
 
+      when (io.axis_s.lastFire || counter.willOverflowIfInc) {
+        inConfig.useDest generate { buffer.dest := io.axis_s.dest }
+        inConfig.useId generate { buffer.id := io.axis_s.id }
+      }
+
       when (io.axis_m.fire) {
         buffer.data.clearAll()
         inConfig.useStrb generate buffer.strb.clearAll()
         inConfig.useKeep generate buffer.keep.clearAll()
         inConfig.useUser generate buffer.user.clearAll()
+        inConfig.useDest generate buffer.dest.clearAll()
+        inConfig.useId   generate buffer.id.clearAll()
+        counter.clear()
       }
 
       io.axis_m.data := buffer.data.resized
       inConfig.useKeep generate { io.axis_m.keep := buffer.keep.resized }
       inConfig.useStrb generate { io.axis_m.strb := buffer.strb.resized }
       inConfig.useUser generate { io.axis_m.user := buffer.user.resized }
+      inConfig.useDest generate { io.axis_m.dest := buffer.dest }
+      inConfig.useId   generate { io.axis_m.id := buffer.id }
+      inConfig.useLast generate { io.axis_m.last := bufferLast }
 
-      inConfig.useDest generate { io.axis_m.dest := io.axis_s.dest }
-      inConfig.useId   generate { io.axis_m.id := io.axis_s.id }
-      inConfig.useLast generate { io.axis_m.last := bufferLast && counter.willOverflowIfInc }
-
-      io.axis_s.ready := (io.axis_m.ready || !counter.willOverflowIfInc) && !bufferLast
-      io.axis_m.valid := io.axis_s.valid && (counter.willOverflowIfInc || bufferLast)
+      io.axis_s.ready := !counter.willOverflowIfInc && !bufferLast
+      io.axis_m.valid := (counter.willOverflowIfInc || bufferLast)
     } else {
       io.axis_m << io.axis_s
     }
