@@ -44,12 +44,12 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
     override def equals(that: Any): Boolean = {
       that match {
         case that: Axi4CheckByte => {
-          that.data == data
-          that.strb == strb
-          that.keep == keep
-          that.last == last
-          that.id == id
-          that.dest == dest
+          that.data == data &&
+          that.strb == strb &&
+          that.keep == keep &&
+          that.last == last &&
+//          that.id == id &&
+//          that.dest == dest &&
           that.user == user
         }
         case _ => false
@@ -105,19 +105,23 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
         // Build scoreboard reference
         for (idx <- 0 until p.config.dataWidth) {
           if (!p.config.useKeep || p.keep.toBigInt.testBit(idx)) {
-            var axisByte = copyCheckByte(p, idx)
-            // Is last byte?
-            if (p.config.useLast) {
-              if ((p.config.useKeep && (p.keep.toBigInt >> idx+1) == 0) || (idx == p.config.dataWidth-1)) {
-                axisByte = axisByte.copy(last = true)
-              } else {
-                axisByte = axisByte.copy(last = false)
-              }
-            }
-            currentTransaction += axisByte
+            currentTransaction += copyCheckByte(p, idx).copy(last = false)
           }
         }
-        if (p.last.toBoolean) {
+
+        if (!p.config.useLast) {
+          if (p.config.useKeep) {
+            currentTransaction = currentTransaction.filter(_.keep)
+          }
+
+          currentTransaction.foreach(b => callback(List(b)))
+          currentTransaction = new ListBuffer[Axi4CheckByte]()
+        } else if (p.last.toBoolean) {
+          if (p.config.useKeep) {
+            currentTransaction = currentTransaction.filter(_.keep)
+          }
+
+          currentTransaction += Axi4CheckByte(keep = true, last = true)
           callback(currentTransaction.toList)
           currentTransaction = new ListBuffer[Axi4CheckByte]()
         }
