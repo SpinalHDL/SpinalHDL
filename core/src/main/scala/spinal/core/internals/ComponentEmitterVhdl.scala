@@ -35,7 +35,8 @@ class ComponentEmitterVhdl(
   asyncResetCombSensitivity          : Boolean,
   anonymSignalPrefix                 : String,
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component,Component],
-  pc                                 : PhaseContext
+  pc                                 : PhaseContext,
+  override val spinalConfig          : SpinalConfig
 ) extends ComponentEmitter{
 
   import vhdlBase._

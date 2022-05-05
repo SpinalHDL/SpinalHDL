@@ -42,7 +42,7 @@ class ComponentEmitterVerilog(
   emitedComponentRef                 : java.util.concurrent.ConcurrentHashMap[Component, Component],
   emitedRtlSourcesPath               : mutable.LinkedHashSet[String],
   pc                                 : PhaseContext,
-  spinalConfig                       : SpinalConfig,
+  override val spinalConfig          : SpinalConfig,
   romCache                           : mutable.HashMap[String, String]
 ) extends ComponentEmitter {
 
