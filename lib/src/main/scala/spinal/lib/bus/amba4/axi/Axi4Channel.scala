@@ -53,7 +53,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
       operation(burst =/= RESERVED)
       switch(burst) {
         is(INCR) {
-          operation(in4KBoundary)
+          if (config.addressWidth > 12) operation(in4KBoundary)
         }
         is(WRAP) {
           if (config.useSize) operation(addrAlignedToSize)
