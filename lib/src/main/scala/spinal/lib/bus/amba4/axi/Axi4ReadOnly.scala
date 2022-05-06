@@ -73,4 +73,26 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     master(ar)
     slave(r)
   }
+
+  def formalCommon(operation: (Bool) => spinal.core.internals.AssertStatement) = {
+  }
+
+  def withAsserts() = {
+    ar.withAsserts()
+    r.withAsserts()
+
+    when(ar.valid) {
+      ar.payload.withAsserts()
+    }
+    // formalCommon(assert)
+  }
+
+  def withAssumes() = {
+    ar.withAssumes()
+    r.withAssumes()
+
+    when(ar.valid) {
+      ar.payload.withAssumes()
+    }
+  }
 }

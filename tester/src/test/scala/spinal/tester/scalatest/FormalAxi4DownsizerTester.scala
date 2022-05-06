@@ -29,13 +29,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         anyseq(dut.io.output.b.payload)
         val outBValid = anyseq(dut.io.output.b.valid)
         
-        dut.io.input.aw.withAssumes()
-        dut.io.input.w.withAssumes()
-        dut.io.input.b.withAsserts()
+        // dut.io.input.aw.withAssumes()
+        // dut.io.input.w.withAssumes()
+        // dut.io.input.b.withAsserts()
 
-        dut.io.output.b.withAssumes()
-        dut.io.output.aw.withAsserts()
-        dut.io.output.w.withAsserts()
+        // dut.io.output.b.withAssumes()
+        // dut.io.output.aw.withAsserts()
+        // dut.io.output.w.withAsserts()
         
         when(reset || past(reset)) {
           assume(inWValid === False)
@@ -43,12 +43,14 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
           assume(outBValid === False)
         }
 
-        when(dut.io.input.aw.valid){
-            dut.io.input.aw.payload.withAssumes()
-        }
-        when(dut.io.output.aw.valid){
-            dut.io.output.aw.payload.withAsserts()
-        }
+        // when(dut.io.input.aw.valid){
+        //     dut.io.input.aw.payload.withAssumes()
+        // }
+        // when(dut.io.output.aw.valid){
+        //     dut.io.output.aw.payload.withAsserts()
+        // }
+        dut.io.input.withAssumes()
+        dut.io.output.withAsserts()
         
         val maxStall = 20
         val inTimeOut = Counter(maxStall, dut.io.input.aw.isStall)
