@@ -35,6 +35,9 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         dut.io.push.withAssumes()
         dut.io.pop.withAsserts()
         dut.withAssumes()
+        
+        dut.io.push.withCovers()
+        dut.io.pop.withCovers()
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))

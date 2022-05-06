@@ -534,6 +534,14 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
+  def withCovers(): this.type  = {
+    import spinal.core.formal._
+    cover(this.valid && !this.ready)
+    cover(this.ready && !this.valid)
+    cover(this.fire)
+    this
+  }
+
   def withOrderAsserts(dataAhead : T, dataBehind : T)(implicit loc : Location) : Tuple2[Bool, Bool] = {
     import spinal.core.formal._
     val aheadOut = RegInit(False) setWhen (this.fire && dataAhead === this.payload)

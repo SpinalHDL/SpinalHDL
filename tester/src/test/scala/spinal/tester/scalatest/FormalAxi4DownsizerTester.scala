@@ -21,13 +21,13 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         anyseq(dut.io.input.aw.payload)
         anyseq(dut.io.input.w.payload)
         anyseq(dut.io.input.b.ready)
-        val inWValid = anyseq(dut.io.input.w.valid)
-        val inAWValid = anyseq(dut.io.input.aw.valid)
+        anyseq(dut.io.input.w.valid)
+        anyseq(dut.io.input.aw.valid)
 
         anyseq(dut.io.output.aw.ready)
         anyseq(dut.io.output.w.ready)
         anyseq(dut.io.output.b.payload)
-        val outBValid = anyseq(dut.io.output.b.valid)
+        anyseq(dut.io.output.b.valid)
         
         // dut.io.input.aw.withAssumes()
         // dut.io.input.w.withAssumes()
@@ -37,11 +37,11 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         // dut.io.output.aw.withAsserts()
         // dut.io.output.w.withAsserts()
         
-        when(reset || past(reset)) {
-          assume(inWValid === False)
-          assume(inAWValid === False)
-          assume(outBValid === False)
-        }
+        // when(reset || past(reset)) {
+        //   assume(dut.io.input.w.valid === False)
+        //   assume(dut.io.input.aw.valid === False)
+        //   assume(dut.io.output.b.valid === False)
+        // }
 
         // when(dut.io.input.aw.valid){
         //     dut.io.input.aw.payload.withAssumes()
@@ -67,8 +67,10 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
             assume(dut.io.output.aw.ready === True)
         }
 
-        cover(dut.io.output.b.fire)
-        cover(dut.io.input.b.fire)
+        dut.io.output.withCovers()
+        dut.io.input.withCovers()
+        // cover(dut.io.output.b.fire)
+        // cover(dut.io.input.b.fire)
       })
   }
 

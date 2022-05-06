@@ -126,4 +126,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     formalWrite(assume)
     formalResponse(assert)
   }
+
+  def withCovers() = {
+    aw.withCovers()
+    w.withCovers()
+    b.withCovers()
+  }
 }
