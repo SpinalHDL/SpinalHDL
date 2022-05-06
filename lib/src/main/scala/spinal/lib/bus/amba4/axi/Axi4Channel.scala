@@ -37,7 +37,7 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
 
   override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 
-  def formalCommon(operation: (Bool) => spinal.core.internals.AssertStatement, maxLen: Int = 256) = {
+  def formalCommon(operation: (Bool) => spinal.core.internals.AssertStatement) = {
     val maxSize = log2Up(config.bytePerWord)
     val formalLen = if (config.useLen) len else U(0, 8 bits)
     val formalSize = if (config.useSize) size else U(maxSize, 3 bits)
@@ -76,11 +76,11 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
     }
   }
 
-  def withAsserts(maxLen: Int = 256) = {
+  def withAsserts() = {
     formalCommon(assert)
   }
 
-  def withAssumes(maxLen: Int = 256) = {
+  def withAssumes() = {
     formalCommon(assume)
   }
 }
