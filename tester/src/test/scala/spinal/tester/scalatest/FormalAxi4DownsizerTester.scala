@@ -2,7 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core.formal._
 import spinal.core._
-import spinal.lib.{History, Counter}
+import spinal.lib.{History, Counter, master, slave}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Config, Axi4Downsizer, Axi4WriteOnlyDownsizer, Axi4ReadOnlyDownsizer}
 
 class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
@@ -18,37 +18,12 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         assumeInitial(reset)
 
-        anyseq(dut.io.input.aw.payload)
-        anyseq(dut.io.input.w.payload)
-        anyseq(dut.io.input.b.ready)
-        anyseq(dut.io.input.w.valid)
-        anyseq(dut.io.input.aw.valid)
+        val input = slave(Axi4WriteOnly(inConfig))
+        dut.io.input << input
 
-        anyseq(dut.io.output.aw.ready)
-        anyseq(dut.io.output.w.ready)
-        anyseq(dut.io.output.b.payload)
-        anyseq(dut.io.output.b.valid)
+        val output = master(Axi4WriteOnly(outConfig))
+        dut.io.output >> output
         
-        // dut.io.input.aw.withAssumes()
-        // dut.io.input.w.withAssumes()
-        // dut.io.input.b.withAsserts()
-
-        // dut.io.output.b.withAssumes()
-        // dut.io.output.aw.withAsserts()
-        // dut.io.output.w.withAsserts()
-        
-        // when(reset || past(reset)) {
-        //   assume(dut.io.input.w.valid === False)
-        //   assume(dut.io.input.aw.valid === False)
-        //   assume(dut.io.output.b.valid === False)
-        // }
-
-        // when(dut.io.input.aw.valid){
-        //     dut.io.input.aw.payload.withAssumes()
-        // }
-        // when(dut.io.output.aw.valid){
-        //     dut.io.output.aw.payload.withAsserts()
-        // }
         dut.io.input.withAssumes()
         dut.io.output.withAsserts()
         
@@ -69,8 +44,6 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
 
         dut.io.output.withCovers()
         dut.io.input.withCovers()
-        // cover(dut.io.output.b.fire)
-        // cover(dut.io.input.b.fire)
       })
   }
 
