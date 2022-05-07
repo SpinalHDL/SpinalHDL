@@ -75,7 +75,10 @@ object SimManager{
       // fallback when oshi can't work on Apple M1
       // see https://github.com/oshi/oshi/issues/1462
       // remove this workaround when the issue is fixed
-      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError) => Runtime.getRuntime().availableProcessors()
+      //
+      // DO NOT REMOVE `_ : IllegalStateException` until net.java.dev.jna >= 5.8
+      // see java-native-access/jna#1324, also SpinalHDL/SpinalHDL#711
+      case e @ (_ : NoClassDefFoundError | _ : UnsatisfiedLinkError | _ : IllegalStateException) => Runtime.getRuntime().availableProcessors()
     }
   }
   def newCpuAffinity() : Int = synchronized {
