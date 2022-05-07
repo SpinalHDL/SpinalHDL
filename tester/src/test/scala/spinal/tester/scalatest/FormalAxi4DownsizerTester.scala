@@ -24,12 +24,9 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         val output = master(Axi4WriteOnly(outConfig))
         dut.io.output >> output
         
-        dut.io.input.withAssumes()
-        dut.io.output.withAsserts()
-        
         val maxStall = 20
-        dut.io.input.aw.withTimeOutAsserts(maxStall)
-        dut.io.output.aw.withTimeOutAssumes(maxStall)
+        dut.io.input.withAssumes(maxStall)
+        dut.io.output.withAsserts(maxStall)
 
         dut.io.output.withCovers()
         dut.io.input.withCovers()
