@@ -28,19 +28,8 @@ class FormalAxi4DownsizerTester extends SpinalFormalFunSuite {
         dut.io.output.withAsserts()
         
         val maxStall = 20
-        val inTimeOut = Counter(maxStall, dut.io.input.aw.isStall)
-        when(dut.io.input.aw.fire) {
-            inTimeOut.clear()
-        } otherwise {
-            assert(!inTimeOut.willOverflow)
-        }
-
-        val outTimeOut = Counter(maxStall, dut.io.output.aw.isStall)
-        when(dut.io.output.aw.fire) {
-            outTimeOut.clear()
-        } elsewhen(outTimeOut.willOverflow) {
-            assume(dut.io.output.aw.ready === True)
-        }
+        dut.io.input.aw.withTimeOutAsserts(maxStall)
+        dut.io.output.aw.withTimeOutAssumes(maxStall)
 
         dut.io.output.withCovers()
         dut.io.input.withCovers()
