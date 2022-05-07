@@ -534,11 +534,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-  def withCovers(): this.type  = {
+  def withCovers(back2BackCycles: Int = 1): this.type  = {
     import spinal.core.formal._
-    cover(this.valid && !this.ready)
-    cover(this.ready && !this.valid)
-    cover(this.fire)
+    val hist = History(this.fire, back2BackCycles).reduce(_ && _)
+    cover(hist)
+    cover(this.isStall)
+    // doubt that if this is required in generic scenario.
+    // cover(this.ready && !this.valid)
     this
   }
 

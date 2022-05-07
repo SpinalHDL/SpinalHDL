@@ -37,7 +37,8 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         dut.withAssumes()
         
         dut.io.push.withCovers()
-        dut.io.pop.withCovers()
+        //back to back transaction cover test.
+        dut.io.pop.withCovers(coverCycles - initialCycles - inOutDelay - 1)
 
         val d1 = anyconst(UInt(7 bits))
         val d2 = anyconst(UInt(7 bits))
@@ -52,9 +53,6 @@ class FormalFifoTester extends SpinalFormalFunSuite {
         when(d2_in && !d2_out) { assert(dut.formalCount(d2) === 1) }
 
         when(d1_in && d2_in && !d1_out) { assert(!d2_out) }
-
-        //back to back transaction cover test.
-        cover(History(dut.io.pop.fire, coverCycles - initialCycles - inOutDelay - 1).reduce(_ && _))
       })
   }
 }
