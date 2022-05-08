@@ -317,10 +317,10 @@ abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
   def readErrorTag = Rerror
   def getFields = fields.toList
 
-  val hitRead  = busif.readAddress === U(addr)
-  val hitWrite = busif.writeAddress === U(addr)
-  val hitDoRead  = hitRead && busif.doRead
-  val hitDoWrite = hitWrite && busif.doWrite
+  val hitDoRead  = busif.readAddress === U(addr) && busif.doRead
+  hitDoRead.setName(f"read_hit_0x${addr}%04x", weak = true)
+  val hitDoWrite = busif.writeAddress === U(addr) && busif.doWrite
+  hitDoWrite.setName(f"write_hit_0x${addr}%04x", weak = true)
 
   def readBits: Bits = {
     fields.map(_.hardbit).reverse.foldRight(Bits(0 bit))((x,y) => x ## y) //TODO
