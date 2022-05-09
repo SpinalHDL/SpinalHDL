@@ -71,7 +71,7 @@ object Axi4Stream {
               sourceSlicesPad.zip(sinkSlices).foreach(pair => {
                 val (sourceSlice, sinkSlice) = pair
                 if (sourceSlice != null) {
-                  sourceSlice := sinkSlice.resized
+                  sinkSlice := sourceSlice.resized
                 } else
                   sinkSlice := B(sinkSlice.bitsRange -> false)
               })
@@ -116,6 +116,9 @@ object Axi4Stream {
   }
 
   implicit class Axi4StreamRich(stream: Stream[Axi4StreamBundle]) {
+
+    def lastFire: Bool = stream.isLast && stream.fire
+
     /**
       * Converts the Axi4Stream into a Stream of bits.
       * Does not support TSTRB or TKEEP. Will only convert continuous and aligned streams.
