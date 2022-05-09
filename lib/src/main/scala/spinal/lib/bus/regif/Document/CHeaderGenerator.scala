@@ -30,18 +30,18 @@ final case class CHeaderGenerator(
 
     }
 
-    def visit(descr : FifoDescr)  : Unit = {
+    def visit(descr : BaseDescriptor) : Unit = {
+        descr match {
+            case descr: RegDescr => {
+                def nameLen = descr.getName.length()
 
-    }
+                if(nameLen > regLength)
+                    regLength = nameLen
 
-    def visit(descr : RegDescr) : Unit = {
-        def nameLen = descr.getName.length()
-
-        if(nameLen > regLength)
-            regLength = nameLen
-
-        regs += descr
-        types += Type(descr.getName, descr.getFieldDescrs)
+                regs += descr
+                types += Type(descr.getName, descr.getFieldDescrs)
+            }
+        }
     }
     
     def end() : Unit = {

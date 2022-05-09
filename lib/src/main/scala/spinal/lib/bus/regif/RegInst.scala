@@ -42,13 +42,15 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends Ram
   // RamDescr implementation
   def getName()        : String = name
   def getDoc()         : String = ""
+  def getAddr()        : BigInt = sizeMap.base
+  def getSize()        : BigInt = sizeMap.size
 
 }
 
-class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
+class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends RegBase(name,addr,doc,busif) with FifoDescr {
 
   // FifoDescr implementation
-  def getAddr()        : Long   = addr
+  def getAddr()        : BigInt = addr
   def getDoc()         : String = doc
   def setName(name: String): FIFOInst = {
     _name = name
@@ -59,7 +61,7 @@ class FIFOInst(name: String, addr: Long, doc:String, busif: BusIf) extends RegBa
   }
 }
 
-case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
+case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extends RegBase(name, addr, doc, busif) with RegDescr {
   def setName(name: String): RegInst = {
     _name = name
     this
@@ -275,7 +277,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   }
 
   // RegDescr implementation
-  def getAddr()        : Long             = addr
+  def getAddr()        : BigInt           = addr
   def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
 
@@ -305,7 +307,7 @@ case class RegInst(name: String, addr: Long, doc: String, busif: BusIf) extends 
   }
 }
 
-abstract class RegBase(name: String, addr: Long, doc: String, busif: BusIf) {
+abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected var _name = name
   protected val fields = ListBuffer[Field]()
   protected var fieldPtr: Int = 0

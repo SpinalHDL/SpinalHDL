@@ -17,43 +17,43 @@ final case class RalfGenerator(fileName : String) extends BusIfVisitor {
     width = busDataWidth
   }
 
-  def visit(descr : FifoDescr)  : Unit = {
-
-  }
-
-  def visit(descr : RegDescr) : Unit = {
-    def formatResetValue(value: BigInt, bitCount: Int):String = {
-      val hexCount = scala.math.ceil(bitCount/4.0).toInt
-      val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
-      s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
-    }
-
-    def fieldDescr(fd: FieldDescr) = {
-      def rename(name: String) = {
-        if(fd.getWidth() == 1){
-          if(name == "--") s"RSV_${fd.getSection().start}" else name
-        } else {
-          if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
+  def visit(descr : BaseDescriptor) : Unit = {
+    descr match {
+      case descr: RegDescr => {
+        def formatResetValue(value: BigInt, bitCount: Int):String = {
+          val hexCount = scala.math.ceil(bitCount/4.0).toInt
+          val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
+          s"${bitCount}'h%${hexCount}s".format(unsignedValue.toString(16)).replace(' ','0')
         }
+
+        def fieldDescr(fd: FieldDescr) = {
+          def rename(name: String) = {
+            if(fd.getWidth() == 1){
+              if(name == "--") s"RSV_${fd.getSection().start}" else name
+            } else {
+              if(name == "--") s"RSV_${fd.getSection().start}_${fd.getSection().end}" else name
+            }
+          }
+          def access = {
+            val ret = fd.getAccessType().toString.toLowerCase()
+            if(ret == "na") "ro" else ret
+          }
+          s"""    field ${rename(fd.getName())} @${fd.getSection().end} {
+             |      bits ${fd.getWidth()};
+             |      access ${access};
+             |      reset ${formatResetValue(fd.getResetValue(), fd.getWidth())};
+             |    }""".stripMargin
+        }
+
+        val ret =
+          s"""  register ${descr.getName()} @'h${descr.getAddr().toString(16).toUpperCase} {
+             |${descr.getFieldDescrs().map(fieldDescr).mkString("\n")}
+             |  }
+             |""".stripMargin
+
+        sb ++= ret
       }
-      def access = {
-        val ret = fd.getAccessType().toString.toLowerCase()
-        if(ret == "na") "ro" else ret
-      }
-      s"""    field ${rename(fd.getName())} @${fd.getSection().end} {
-         |      bits ${fd.getWidth()};
-         |      access ${access};
-         |      reset ${formatResetValue(fd.getResetValue(), fd.getWidth())};
-         |    }""".stripMargin
     }
-
-    val ret =
-      s"""  register ${descr.getName()} @'h${descr.getAddr().toHexString} {
-         |${descr.getFieldDescrs().map(fieldDescr).mkString("\n")}
-         |  }
-         |""".stripMargin
-
-    sb ++= ret
   }
 
   def end() : Unit = {

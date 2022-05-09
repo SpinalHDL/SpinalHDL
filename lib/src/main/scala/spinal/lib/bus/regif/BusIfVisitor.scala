@@ -1,35 +1,33 @@
 package spinal.lib.bus.regif
 
-trait RamDescr {
+trait BaseDescriptor {
   def getName()        : String
   def getDoc()         : String
 }
 
-trait FifoDescr {
-  def getName()        : String
-  def getAddr()        : Long
-  def getDoc()         : String
+trait MemoryMappedDescriptor extends BaseDescriptor {
+  def getAddr()        : BigInt
 }
 
-trait RegDescr {
-  def getName()        : String
-  def getAddr()        : Long
-  def getDoc()         : String
+trait RamDescr extends MemoryMappedDescriptor {
+  def getSize()        : BigInt
+}
+
+trait FifoDescr extends MemoryMappedDescriptor {}
+
+trait RegDescr extends MemoryMappedDescriptor {
   def getFieldDescrs() : List[FieldDescr]
 }
 
-trait FieldDescr {
-  def getName()       : String
+trait FieldDescr extends BaseDescriptor {
   def getWidth()      : Int
   def getSection()    : Range
   def getAccessType() : AccessType
   def getResetValue() : Long
-  def getDoc()        : String
 }
 
 trait  BusIfVisitor {
-  def begin(busDataWidth : Int) : Unit
-  def visit(descr : FifoDescr)  : Unit  
-  def visit(descr : RegDescr)   : Unit
-  def end()                     : Unit
+  def begin(busDataWidth : Int)      : Unit
+  def visit(descr : BaseDescriptor)  : Unit
+  def end()                          : Unit
 }
