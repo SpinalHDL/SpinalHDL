@@ -105,11 +105,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
   def withAsserts(maxStallCycles : Int = 0) = {
     aw.withAsserts()
-    aw.withTimeOutAssumes(maxStallCycles)
+    aw.withTimeoutAssumes(maxStallCycles)
     w.withAsserts()
-    w.withTimeOutAssumes(maxStallCycles)
+    w.withTimeoutAssumes(maxStallCycles)
     b.withAssumes()
-    b.withTimeOutAsserts(maxStallCycles)
+    b.withTimeoutAsserts(maxStallCycles)
 
     when(aw.valid) {
       aw.payload.withAsserts()
@@ -120,11 +120,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
   def withAssumes(maxStallCycles : Int = 0) = {
     aw.withAssumes()
-    aw.withTimeOutAsserts(maxStallCycles)
+    aw.withTimeoutAsserts(maxStallCycles)
     w.withAssumes()
-    w.withTimeOutAsserts(maxStallCycles)
+    w.withTimeoutAsserts(maxStallCycles)
     b.withAsserts()
-    b.withTimeOutAssumes(maxStallCycles)
+    b.withTimeoutAssumes(maxStallCycles)
 
     when(aw.valid) {
       aw.payload.withAssumes()

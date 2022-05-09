@@ -579,7 +579,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    *
    * @param maxStallCycles Check that the max cycles the interface would hold in stall.
    */
-  def withTimeOutAsserts(maxStallCycles : Int = 0) : this.type = {
+  def withTimeoutAsserts(maxStallCycles : Int = 0) : this.type = {
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall)
@@ -589,7 +589,7 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     this
   }
 
-  def withTimeOutAssumes(maxStallCycles : Int = 0) : this.type = {
+  def withTimeoutAssumes(maxStallCycles : Int = 0) : this.type = {
     import spinal.core.formal._
     if (maxStallCycles > 0) {
       val counter = Counter(maxStallCycles, this.isStall)
