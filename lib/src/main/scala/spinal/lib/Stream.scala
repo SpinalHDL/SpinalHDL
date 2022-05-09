@@ -514,9 +514,8 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
    * - After being asserted, valid may only be deasserted once the current payload was acknowleged.
    *
    * @param payloadInvariance Check that the payload does not change when valid is high and ready is low.
-   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
    */
-  def withAsserts(payloadInvariance : Boolean = true, maxStallCycles : Int = 0)(implicit loc : Location) : this.type = {
+  def withAsserts(payloadInvariance : Boolean = true)(implicit loc : Location) : this.type = {
     import spinal.core.formal._
     val stack = ScalaLocated.long
     when(past(this.isStall) init(False)) {
@@ -573,6 +572,13 @@ class Stream[T <: Data](val payloadType :  HardType[T]) extends Bundle with IMas
     (aheadIn, behindIn)
   }
 
+  /**
+   * Assert that this stream conforms to the stream semantics:
+   * https://spinalhdl.github.io/SpinalDoc-RTD/dev/SpinalHDL/Libraries/stream.html#semantics
+   * - After being asserted, valid should be acknowledged in limited cycles.
+   *
+   * @param maxStallCycles Check that the max cycles the interface would hold in stall.
+   */
   def withTimeOutAsserts(maxStallCycles : Int = 0) : this.type = {
     import spinal.core.formal._
     if (maxStallCycles > 0) {
