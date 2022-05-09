@@ -151,46 +151,46 @@ class Axi4StreamWidthAdapterTester extends AnyFunSuite {
      Test with KEEP compacting
    */
   test("downsize_coprime_compact") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 3, compact = true)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 3, compact = true)).doSim("test")(widthAdapterTest)
   }
 
   test("upsize_coprime_compact") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(3, 4, compact = true)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(3, 4, compact = true)).doSim("test")(widthAdapterTest)
   }
 
   test("downsize_even_compact") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(8, 4, compact = true)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(8, 4, compact = true)).doSim("test")(widthAdapterTest)
   }
 
   test("upsize_even_compact") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 8, compact = true)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 8, compact = true)).doSim("test")(widthAdapterTest)
   }
 
   test("equal_sizes_compact") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 4, compact = true)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 4, compact = true)).doSim("test")(widthAdapterTest)
   }
 
   /*
    Test without KEEP compacting
    */
   test("downsize_coprime") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 3, compact = false)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 3, compact = false)).doSim("test")(widthAdapterTest)
   }
 
   test("upsize_coprime") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(3, 4, compact = false)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(3, 4, compact = false)).doSim("test")(widthAdapterTest)
   }
 
   test("downsize_even") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(8, 4, compact = false)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(8, 4, compact = false)).doSim("test")(widthAdapterTest)
   }
 
   test("upsize_even") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 8, compact = false)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 8, compact = false)).doSim("test")(widthAdapterTest)
   }
 
   test("equal_sizes") {
-    SimConfig.withWave.compile(Axi4StreamWidthAdapterFixture(4, 4, compact = false)).doSim("test")(widthAdapterTest)
+    SimConfig.compile(Axi4StreamWidthAdapterFixture(4, 4, compact = false)).doSim("test")(widthAdapterTest)
   }
 
 }
