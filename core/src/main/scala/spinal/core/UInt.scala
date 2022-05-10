@@ -91,7 +91,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def +^(right: UInt): UInt = this.expand + right.expand
   override def -^(right: UInt): UInt = this.expand - right.expand
   override def +|(right: UInt): UInt = (this +^ right).sat(1)
-  override def -|(right: UInt): UInt = (this -^ right).sat(1)
+  override def -|(right: UInt): UInt = (this -^ right)._satAsSInt2UInt()
 
   /* Implement BitwiseOp operators */
   override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
@@ -120,6 +120,15 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       ret.setAll()
     }.otherwise{
       ret := this(getWidth-m-1 downto 0)
+    }
+    ret
+  }
+  private def _satAsSInt2UInt(): UInt = {
+    val ret = UInt(getWidth-1 bit)
+    when(this.msb){
+      ret.clearAll()
+    }.otherwise{
+      ret := this(getWidth-2 downto 0)
     }
     ret
   }
