@@ -22,7 +22,7 @@ object Section{
 }
 
 
-case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends RamDescr {
+case class RamInst(name: String, sizeMap: SizeMapping, doc: String, busif: BusIf) extends RamDescr {
   private var Rerror: Boolean = false
   def readErrorTag = Rerror
 
@@ -41,7 +41,7 @@ case class RamInst(name: String, sizeMap: SizeMapping, busif: BusIf) extends Ram
 
   // RamDescr implementation
   def getName()        : String = name
-  def getDoc()         : String = ""
+  def getDoc()         : String = doc
   def getAddr()        : BigInt = sizeMap.base
   def getSize()        : BigInt = sizeMap.size
 
@@ -55,9 +55,6 @@ class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends Reg
   def setName(name: String): FIFOInst = {
     _name = name
     this
-  }
-  def accept(vs : BusIfVisitor) = {
-      vs.visit(this)
   }
 }
 
@@ -281,7 +278,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
   def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
 
-  def accept(vs : BusIfVisitor) = {
+  override def accept(vs : BusIfVisitor) = {
     duplicateRenaming()
     vs.visit(this)
   }
@@ -656,6 +653,4 @@ abstract class RegBase(name: String, addr: BigInt, doc: String, busif: BusIf) {
   protected def NA(bc: BitCount): Bits = {
     Bits(bc).clearAll()
   }
-
-  def accept(vs : BusIfVisitor)
 }

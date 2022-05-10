@@ -49,6 +49,7 @@ final case class JsonGenerator(fileName : String) extends BusIfVisitor {
 
                 prefix = ",\n"
             }
+            case _ => ???
         }
     }
     

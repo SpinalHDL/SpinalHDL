@@ -41,6 +41,7 @@ final case class CHeaderGenerator(
                 regs += descr
                 types += Type(descr.getName, descr.getFieldDescrs)
             }
+            case _ => ???
         }
     }
     

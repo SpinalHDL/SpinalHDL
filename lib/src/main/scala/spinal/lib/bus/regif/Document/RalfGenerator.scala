@@ -53,6 +53,7 @@ final case class RalfGenerator(fileName : String) extends BusIfVisitor {
 
         sb ++= ret
       }
+      case _ => ???
     }
   }
 

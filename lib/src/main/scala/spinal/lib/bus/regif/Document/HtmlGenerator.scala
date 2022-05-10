@@ -48,6 +48,7 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
 
                 descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_))
             }
+            case _ => ???
         }
     }
 
