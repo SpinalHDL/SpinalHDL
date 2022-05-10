@@ -139,6 +139,9 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       aw.payload.withCovers()
     }
     w.withCovers(2)
+    when(w.fire) {
+      w.payload.withCovers()
+    }
     b.withCovers(2)
   }
 }

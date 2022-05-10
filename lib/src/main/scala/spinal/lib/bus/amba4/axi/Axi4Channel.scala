@@ -143,6 +143,15 @@ case class Axi4W(config: Axi4Config) extends Bundle {
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
+
+  def withCovers() = {
+    if(config.useLast) cover(last === True)
+    if(config.useStrb) {
+      val fullStrb = (1 << config.bytePerWord) - 1
+      cover(strb === fullStrb)
+      cover(strb =/= fullStrb)
+    }
+  }
 }
 
 
