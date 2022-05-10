@@ -134,8 +134,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
   }
 
   def withCovers() = {
-    aw.withCovers()
-    w.withCovers()
-    b.withCovers()
+    aw.withCovers(2)
+    when(aw.fire) {
+      aw.payload.withCovers()
+    }
+    w.withCovers(2)
+    b.withCovers(2)
   }
 }

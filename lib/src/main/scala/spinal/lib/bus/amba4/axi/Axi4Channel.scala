@@ -83,6 +83,39 @@ class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   def withAssumes() = {
     formalCommon(assume)
   }
+
+  def withCovers() = {
+    // Unaligned burst access.
+    if(config.useSize && config.useBurst) {
+      cover( size === U(Axi4.size.BYTE_2) && addr(0) === True && burst === FIXED )
+      cover( size === U(Axi4.size.BYTE_2) && addr(1) === True && burst === INCR )
+    }
+
+    if(config.useBurst) {
+      cover( burst === FIXED )
+      cover( burst === INCR )
+      cover( burst === WRAP )
+    }
+
+    if(config.useLock) {
+      cover( lock === Axi4.lock.NORMAL )
+      cover( lock === Axi4.lock.EXCLUSIVE )
+    }
+
+    if(config.useCache) {
+      Seq(0, 1, 2, 3, 6, 7, 0xA, 0xB, 0xE, 0xF).map(x => cover( cache === x ))
+      if(config.useLock) cover(lock === Axi4.lock.EXCLUSIVE && cache === M"--0-")
+    }
+
+    if(config.useProt) {
+      cover( prot === M"--0")
+      cover( prot === M"--1")
+      cover( prot === M"-0-")
+      cover( prot === M"-1-")
+      cover( prot === M"0--")
+      cover( prot === M"1--")
+    }
+  }
 }
 
 
