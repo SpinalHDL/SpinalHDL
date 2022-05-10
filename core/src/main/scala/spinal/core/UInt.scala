@@ -128,7 +128,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     when(this.msb){
       ret.clearAll()
     }.otherwise{
-      ret := this(getWidth-1 downto 0)
+      ret := this(getWidth-2 downto 0)
     }
     ret
   }
