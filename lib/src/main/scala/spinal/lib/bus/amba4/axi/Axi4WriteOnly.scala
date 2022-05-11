@@ -91,7 +91,26 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(reset || past(reset)) {
       operation(aw.valid === False)
       operation(w.valid === False)
-    }    
+    }
+
+    val transactionDone = True
+
+    val maxSize = log2Up(config.bytePerWord)
+    val len = Reg(UInt(8 bits)) init(0)
+    val size = Reg(UInt(3 bits)) init(maxSize)
+    when(aw.fire) {
+      if(config.useLen) len := aw.len else len := 0
+      if(config.useSize) size := aw.size else size := 0
+    }
+
+    val wCount = Counter(9 bits, w.fire)
+    when(w.fire) {
+      when(transactionDone) { wCount.clear() }
+    }
+    
+    when(wCount >= len){ transactionDone := True }
+    .otherwise{ transactionDone := False }
+    when(aw.fire){ operation(transactionDone) }
   }
 
   def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = {
