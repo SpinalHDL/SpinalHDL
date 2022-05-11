@@ -7,13 +7,12 @@ trait BaseDescriptor {
 
 trait MemoryMappedDescriptor extends BaseDescriptor {
   def getAddr()        : BigInt
+  def getSize()        : BigInt
 
   def accept(visitor: BusIfVisitor): Unit = visitor.visit(this)
 }
 
-trait RamDescr extends MemoryMappedDescriptor {
-  def getSize()        : BigInt
-}
+trait RamDescr extends MemoryMappedDescriptor {}
 
 trait FifoDescr extends MemoryMappedDescriptor {}
 

@@ -51,6 +51,7 @@ class FIFOInst(name: String, addr: BigInt, doc:String, busif: BusIf) extends Reg
 
   // FifoDescr implementation
   def getAddr()        : BigInt = addr
+  def getSize()        : BigInt = busif.wordAddressInc
   def getDoc()         : String = doc
   def setName(name: String): FIFOInst = {
     _name = name
@@ -275,6 +276,7 @@ case class RegInst(name: String, addr: BigInt, doc: String, busif: BusIf) extend
 
   // RegDescr implementation
   def getAddr()        : BigInt           = addr
+  def getSize()        : BigInt           = busif.wordAddressInc
   def getDoc()         : String           = doc
   def getFieldDescrs() : List[FieldDescr] = getFields
 
