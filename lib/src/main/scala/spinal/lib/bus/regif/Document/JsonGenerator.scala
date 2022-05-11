@@ -16,40 +16,41 @@ final case class JsonGenerator(fileName : String) extends BusIfVisitor {
         sb ++= "["
     }
 
-    def visit(descr : FifoDescr)  : Unit = {
+    def visit(descr : BaseDescriptor) : Unit = {
+        descr match {
+            case descr: RegDescr => {
+                sb ++= prefix
 
-    }
+                sb ++=
+                  s"""|{
+                      |   "addr"   : ${descr.getAddr()},
+                      |   "name"   : "${descr.getName()}",
+                      |   "doc"    : "${clean(descr.getDoc())}",
+                      |   "fields" :[\n""".stripMargin
 
-    def visit(descr : RegDescr) : Unit = {
-        sb ++= prefix
+                var fieldPrefix = ""
+                descr.getFieldDescrs().foreach(f =>{
+                    sb ++= fieldPrefix
+                    sb ++=
+                      s"""|       {
+                          |           "accType" : "${f.getAccessType()}",
+                          |           "name"    : "${f.getName()}",
+                          |           "width"   : ${f.getWidth()},
+                          |           "reset"   : ${f.getResetValue()},
+                          |           "doc"     : "${clean(f.getDoc())}"
+                          |       }""".stripMargin
+                    fieldPrefix = ",\n"
+                })
+                sb ++= "\n"
 
-        sb ++=
-            s"""|{
-                |   "addr"   : ${descr.getAddr()},
-                |   "name"   : "${descr.getName()}",
-                |   "doc"    : "${clean(descr.getDoc())}",
-                |   "fields" :[\n""".stripMargin
+                sb ++=
+                  s"""|   ]
+                      |}""".stripMargin
 
-        var fieldPrefix = ""
-        descr.getFieldDescrs().foreach(f =>{
-            sb ++= fieldPrefix
-            sb ++=
-                s"""|       {
-                    |           "accType" : "${f.getAccessType()}",
-                    |           "name"    : "${f.getName()}",
-                    |           "width"   : ${f.getWidth()},
-                    |           "reset"   : ${f.getResetValue()},
-                    |           "doc"     : "${clean(f.getDoc())}"
-                    |       }""".stripMargin
-            fieldPrefix = ",\n"
-        })
-        sb ++= "\n"
-
-        sb ++=
-            s"""|   ]
-                |}""".stripMargin
-        
-        prefix = ",\n"
+                prefix = ",\n"
+            }
+            case _ => ???
+        }
     }
     
     def end() : Unit = {
