@@ -35,21 +35,23 @@ final case class HtmlGenerator(fileName : String, title : String) extends BusIfV
 
     def visit(descr : BaseDescriptor) : Unit = {
         descr match {
-            case descr: RegDescr => {
-                val fieldsNumbers = descr.getFieldDescrs.size
-                sb ++=
-                  s"""          <tr class="reg" align="left">
-                     |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.toString(16).toUpperCase}</td>
-                     |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
-                     |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
-                     |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
-                     |${genTds(descr.getFieldDescrs.last)}
-                     |          </tr>""".stripMargin
-
-                descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_))
-            }
+            case descr: RegDescr => regDescrVisit(descr)
             case _ => ???
         }
+    }
+
+    private def regDescrVisit(descr: RegDescr) = {
+        val fieldsNumbers = descr.getFieldDescrs.size
+        sb ++=
+          s"""          <tr class="reg" align="left">
+             |            <td align="center" rowspan="${fieldsNumbers}">0x${descr.getAddr.toString(16).toUpperCase}</td>
+             |            <td align="left" rowspan="${fieldsNumbers}">${(descr.getName).toUpperCase()}</td>
+             |            <td class="fixWidth" align="center" rowspan="${fieldsNumbers}">${descr.getDoc} </td>
+             |            <td align="center" rowspan="${fieldsNumbers}">${dataWidth}</td>
+             |${genTds(descr.getFieldDescrs.last)}
+             |          </tr>""".stripMargin
+
+        descr.getFieldDescrs().reverse.tail.foreach(sb ++= genTr(_))
     }
 
     def end() : Unit = {
