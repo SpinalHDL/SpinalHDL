@@ -93,8 +93,6 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       operation(w.valid === False)
     }
 
-    val transactionDone = True
-
     val maxSize = log2Up(config.bytePerWord)
     val len = Reg(UInt(8 bits)) init(0)
     val size = Reg(UInt(3 bits)) init(maxSize)
@@ -104,12 +102,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
 
     val wCount = Counter(9 bits, w.fire)
+    val transactionDone = wCount >= len
     when(w.fire) {
       when(transactionDone) { wCount.clear() }
     }
     
-    when(wCount >= len){ transactionDone := True }
-    .otherwise{ transactionDone := False }
     when(aw.fire){ operation(transactionDone) }
   }
 
