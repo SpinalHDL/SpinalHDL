@@ -84,7 +84,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     slave(b)
   }
 
-  def formalWrite(operation: (Bool) => spinal.core.internals.AssertStatement) = {
+  def formalWrite(operation: (Bool) => spinal.core.internals.AssertStatement): Bool = {
     import spinal.core.formal._
     val reset = ClockDomain.current.isResetActive
 
@@ -107,7 +107,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       when(transactionDone) { wCount.clear() }
     }
     
-    when(aw.fire){ operation(transactionDone) }
+    when(!aw.valid && transactionDone){ operation(!w.valid) }
+    transactionDone
   }
 
   def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = {
@@ -130,7 +131,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAsserts()
     }
-    formalWrite(assert)
+    val transactionDone = formalWrite(assert)    
+    when(!transactionDone) { assume(!aw.ready) }
     formalResponse(assume)
   }
 
@@ -145,7 +147,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAssumes()
     }
-    formalWrite(assume)
+    val transactionDone = formalWrite(assume)    
+    when(!transactionDone) { assume(!aw.valid) }
     formalResponse(assert)
   }
 
