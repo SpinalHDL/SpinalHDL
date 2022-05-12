@@ -84,7 +84,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     slave(b)
   }
 
-  def formalWrite(operation: (Bool) => spinal.core.internals.AssertStatement): Bool = {
+  def formalWrite(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
     import spinal.core.formal._
     val reset = ClockDomain.current.isResetActive
 
@@ -108,10 +108,9 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
     
     when(!aw.valid && transactionDone){ operation(!w.valid) }
-    transactionDone
   }
 
-  def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = {
+  def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
     import spinal.core.formal._
     val reset = ClockDomain.current.isResetActive
 
@@ -120,7 +119,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }    
   }
 
-  def withAsserts(maxStallCycles : Int = 0) = {
+  def withAsserts(maxStallCycles : Int = 0) = new Area {
     aw.withAsserts()
     aw.withTimeoutAssumes(maxStallCycles)
     w.withAsserts()
@@ -131,12 +130,13 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAsserts()
     }
-    val transactionDone = formalWrite(assert)    
-    when(!transactionDone) { assume(!aw.ready) }
+    val write = formalWrite(assert)    
+    //TODO: this would lead to address channel stall when previous transaction is not completed.
+    when(!write.transactionDone) { assume(!aw.ready) }
     formalResponse(assume)
   }
 
-  def withAssumes(maxStallCycles : Int = 0) = {
+  def withAssumes(maxStallCycles : Int = 0) = new Area {
     aw.withAssumes()
     aw.withTimeoutAsserts(maxStallCycles)
     w.withAssumes()
@@ -147,8 +147,9 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAssumes()
     }
-    val transactionDone = formalWrite(assume)    
-    when(!transactionDone) { assume(!aw.valid) }
+    val write = formalWrite(assume)    
+    //TODO: this would lead to address channel stall when previous transaction is not completed.
+    when(!write.transactionDone) { assume(!aw.valid) }
     formalResponse(assert)
   }
 
