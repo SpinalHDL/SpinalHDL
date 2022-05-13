@@ -107,7 +107,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
       when(transactionDone) { wCount.clear() }
     }
     
-    when(!aw.valid && transactionDone){ operation(!w.valid) }
+    when(w.valid){ operation(aw.valid || transactionDone) }
   }
 
   def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
