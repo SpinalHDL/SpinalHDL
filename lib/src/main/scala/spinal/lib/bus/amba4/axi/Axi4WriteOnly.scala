@@ -94,11 +94,11 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
 
     val maxSize = log2Up(config.bytePerWord)
-    val len = Reg(UInt(8 bits)) init(0)
-    val size = Reg(UInt(3 bits)) init(maxSize)
+    val len = Reg(UInt(8 bits)) init (0)
+    val size = Reg(UInt(3 bits)) init (maxSize)
     when(aw.fire) {
-      if(config.useLen) len := aw.len else len := 0
-      if(config.useSize) size := aw.size else size := 0
+      if (config.useLen) len := aw.len else len := 0
+      if (config.useSize) size := aw.size else size := 0
     }
 
     val wCount = Counter(9 bits, w.fire)
@@ -106,8 +106,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(w.fire) {
       when(transactionDone) { wCount.clear() }
     }
-    
-    when(w.valid){ operation(aw.valid || transactionDone) }
+
+    when(w.valid) { operation(aw.valid || transactionDone) }
   }
 
   def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
@@ -116,10 +116,10 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
 
     when(reset || past(reset)) {
       operation(b.valid === False)
-    }    
+    }
   }
 
-  def withAsserts(maxStallCycles : Int = 0) = new Area {
+  def withAsserts(maxStallCycles: Int = 0) = new Area {
     aw.withAsserts()
     aw.withTimeoutAssumes(maxStallCycles)
     w.withAsserts()
@@ -130,13 +130,13 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAsserts()
     }
-    val write = formalWrite(assert)    
-    //TODO: this would lead to address channel stall when previous transaction is not completed.
+    val write = formalWrite(assert)
+    // TODO: this would lead to address channel stall when previous transaction is not completed.
     when(!write.transactionDone) { assume(!aw.ready) }
     formalResponse(assume)
   }
 
-  def withAssumes(maxStallCycles : Int = 0) = new Area {
+  def withAssumes(maxStallCycles: Int = 0) = new Area {
     aw.withAssumes()
     aw.withTimeoutAsserts(maxStallCycles)
     w.withAssumes()
@@ -147,8 +147,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     when(aw.valid) {
       aw.payload.withAssumes()
     }
-    val write = formalWrite(assume)    
-    //TODO: this would lead to address channel stall when previous transaction is not completed.
+    val write = formalWrite(assume)
+    // TODO: this would lead to address channel stall when previous transaction is not completed.
     when(!write.transactionDone) { assume(!aw.valid) }
     formalResponse(assert)
   }
