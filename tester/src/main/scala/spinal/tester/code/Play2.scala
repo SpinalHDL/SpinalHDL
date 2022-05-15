@@ -1464,6 +1464,22 @@ object PlayHistory {
 }
 
 
+object PlayHistoryPopAny {
+  class TopLevel extends Component {
+    val input = in(UInt(4 bits))
+    val cond = in(Bool())
+    val history = HistoryPopAny(input, 4, cond=cond, init=U(0))
+    val result = Vec(master(Stream(input.clone)), 3)
+    history.zip(result).map(x => x._1 >> x._2)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+
 object PlayRandBoot{
   class TopLevel extends Component {
     val toto = Reg(UInt(4 bits)).randBoot().dontSimplifyIt()

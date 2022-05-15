@@ -1109,6 +1109,36 @@ object History {
 
 }
 
+object HistoryPopAny {
+  def apply[T <: Data](that: T, length: Int, cond: Bool = null, init: T = null): Vec[Stream[T]] = {
+    val outStreams = Vec(Stream(cloneOf(that)), length - 1)
+    val outFired = outStreams.map(_.fire).reduce(_ | _)
+    def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
+      left match {
+        case 0 => Nil
+        case 1 => prev :: Nil
+        case _ => prev :: builder({
+          val stream = prev.m2sPipe(collapsBubble = false)
+
+          val out = cloneOf(prev)
+          out.valid := stream.valid
+          out.payload := stream.payload
+          outStreams(length - left) << out
+
+          val next = stream.throwWhen(out.fire)
+          next
+        }, left - 1)
+      }
+    }
+    val inputBuffer = Stream(cloneOf(that)); 
+    inputBuffer.valid := cond
+    inputBuffer.payload := that
+    val connections = Vec(builder(inputBuffer, length))
+    connections(length-1).ready := !outFired && cond
+    outStreams
+  }
+}
+
 object SetCount
 {
   def apply(in: Iterable[Bool]): UInt = {
