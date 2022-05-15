@@ -102,12 +102,12 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
 
     val wCount = Counter(9 bits, w.fire)
-    val transactionDone = wCount >= len
+    val transactionIdle = wCount >= len
     when(w.fire) {
-      when(transactionDone) { wCount.clear() }
+      when(transactionIdle) { wCount.clear() }
     }
 
-    when(w.valid) { operation(aw.valid || transactionDone) }
+    when(w.valid) { operation(aw.valid || transactionIdle) }
   }
 
   def formalResponse(operation: (Bool) => spinal.core.internals.AssertStatement) = new Area {
@@ -132,7 +132,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
     val write = formalWrite(assert)
     // TODO: this would lead to address channel stall when previous transaction is not completed.
-    when(!write.transactionDone) { assume(!aw.ready) }
+    when(!write.transactionIdle) { assume(!aw.ready) }
     formalResponse(assume)
   }
 
@@ -149,7 +149,7 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     }
     val write = formalWrite(assume)
     // TODO: this would lead to address channel stall when previous transaction is not completed.
-    when(!write.transactionDone) { assume(!aw.valid) }
+    when(!write.transactionIdle) { assume(!aw.valid) }
     formalResponse(assert)
   }
 
