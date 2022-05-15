@@ -415,6 +415,7 @@ case class UsbDeviceCtrl(p: UsbDeviceCtrlParameter, bmbParameter : BmbParameter)
         when(token.endpoint =/= 0){
           goto(IDLE)
         } otherwise {
+          ep.word(15 downto 4) := 0 //Ensure no offset is applyed from memory address 0x40-0x47
           desc.offset := 0x40-12
           desc.length := 8
           desc.direction := False
