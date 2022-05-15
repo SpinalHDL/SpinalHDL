@@ -1112,7 +1112,6 @@ object History {
 object HistoryPopAny {
   def apply[T <: Data](that: T, length: Int, cond: Bool = null, init: T = null): Vec[Stream[T]] = {
     val outStreams = Vec(Stream(cloneOf(that)), length - 1)
-    val outFired = outStreams.map(_.fire).reduce(_ | _)
     def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
       left match {
         case 0 => Nil
@@ -1134,7 +1133,7 @@ object HistoryPopAny {
     inputBuffer.valid := cond
     inputBuffer.payload := that
     val connections = Vec(builder(inputBuffer, length))
-    connections(length-1).ready := !outFired && cond
+    connections(length-1).ready := cond
     outStreams
   }
 }
