@@ -72,7 +72,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
     if (isWindows)
       '"' + path + '"'
     else
-      path.replace(" ", "\\ ")
+      path
   ).map(path => s"-I$path").mkString(" ")
 
   def doCmd(command: String, cwd: File, message : String) = {
