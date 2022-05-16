@@ -1464,13 +1464,12 @@ object PlayHistory {
 }
 
 
-object PlayHistoryPopAny {
+object PlayHistoryModifyable {
   class TopLevel extends Component {
-    val input = in(UInt(4 bits))
-    val cond = in(Bool())
-    val history = HistoryPopAny(input, 4, cond=cond, init=U(0))
-    val result = Vec(master(Stream(input.clone)), 3)
-    history.zip(result).map(x => x._1 >> x._2)
+    val input = slave(Flow(UInt(4 bits)))
+    val history = HistoryModifyable(input, 4)
+    val result = Vec(master(Stream(input.payload.clone)), 3)
+    history.io.outStreams.zip(result).map(x => x._1 >> x._2)
   }
 
   def main(args: Array[String]) {
