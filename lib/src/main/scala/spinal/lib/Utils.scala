@@ -1132,7 +1132,6 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
           {
             val streamId = length - left
 
-            // val stream = prev.m2sPipe(collapsBubble = false)
             val stream = Stream(payloadType)
             val rValid = RegNextWhen(prev.valid, prev.ready) init (False)
             val rData = RegNextWhen(prev.payload, prev.ready)
@@ -1151,8 +1150,6 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
                 .otherwise { rData := inPort.payload }
             }
 
-            // val current = stream.throwWhen(outPort.fire | inPort.fire)
-            // val next = Stream(cloneOf(that.payload))
             val next = stream.throwWhen(outPort.fire)
             next
           },
