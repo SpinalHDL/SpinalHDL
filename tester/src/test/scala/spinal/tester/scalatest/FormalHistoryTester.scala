@@ -7,8 +7,8 @@ import spinal.lib._
 class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
   test("pop_any") {
     FormalConfig
-    //   .withBMC(10)
-    //   .withProve(10)
+      //   .withBMC(10)
+      //   .withProve(10)
       .withCover(10)
       .withDebug
       .doVerify(new Component {
@@ -19,7 +19,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val control = Vec(slave(Stream(input.payloadType)), depth - 1)
         dut.io.outStreams.zip(result).map(x => x._1 >> x._2)
         dut.io.inStreams.zip(control).map(x => x._2 >> x._1)
-        
+
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 

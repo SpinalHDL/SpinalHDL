@@ -1117,7 +1117,7 @@ object HistoryModifyable {
   }
 }
 
-class HistoryModifyable[T <: Data](val payloadType :  HardType[T], val length: Int) extends Component {
+class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int) extends Component {
   val io = new Bundle {
     val input = slave(Flow(payloadType))
     val outStreams = Vec(master(Stream(payloadType)), length - 1)
@@ -1127,40 +1127,44 @@ class HistoryModifyable[T <: Data](val payloadType :  HardType[T], val length: I
     left match {
       case 0 => Nil
       case 1 => prev :: Nil
-      case _ => prev :: builder({
-        val streamId = length - left
+      case _ =>
+        prev :: builder(
+          {
+            val streamId = length - left
 
-        // val stream = prev.m2sPipe(collapsBubble = false)
-        val stream = Stream(payloadType)
-        val rValid = RegNextWhen(prev.valid, prev.ready) init(False)
-        val rData = RegNextWhen(prev.payload, prev.ready)
-        stream.valid := rValid
-        stream.payload := rData
-        prev.ready := stream.ready
+            // val stream = prev.m2sPipe(collapsBubble = false)
+            val stream = Stream(payloadType)
+            val rValid = RegNextWhen(prev.valid, prev.ready) init (False)
+            val rData = RegNextWhen(prev.payload, prev.ready)
+            stream.valid := rValid
+            stream.payload := rData
+            prev.ready := stream.ready
 
-        val outPort = cloneOf(prev)
-        outPort.valid := stream.valid
-        outPort.payload := stream.payload
-        io.outStreams(streamId) << outPort
-        val inPort = io.inStreams(streamId)
-        inPort.ready := stream.valid
-        when(inPort.fire) {
-          when(stream.fire) { stream.payload := inPort.payload }
-          .otherwise { rData := inPort.payload }
-        }
+            val outPort = cloneOf(prev)
+            outPort.valid := stream.valid
+            outPort.payload := stream.payload
+            io.outStreams(streamId) << outPort
+            val inPort = io.inStreams(streamId)
+            inPort.ready := stream.valid
+            when(inPort.fire) {
+              when(stream.fire) { stream.payload := inPort.payload }
+                .otherwise { rData := inPort.payload }
+            }
 
-        // val current = stream.throwWhen(outPort.fire | inPort.fire)
-        // val next = Stream(cloneOf(that.payload))
-        val next = stream.throwWhen(outPort.fire)
-        next
-      }, left - 1)
+            // val current = stream.throwWhen(outPort.fire | inPort.fire)
+            // val next = Stream(cloneOf(that.payload))
+            val next = stream.throwWhen(outPort.fire)
+            next
+          },
+          left - 1
+        )
     }
   }
-  val inputBuffer = Stream(payloadType); 
+  val inputBuffer = Stream(payloadType);
   inputBuffer.valid := io.input.valid
   inputBuffer.payload := io.input.payload
   val connections = Vec(builder(inputBuffer, length))
-  connections(length-1).ready := io.input.valid
+  connections(length - 1).ready := io.input.valid
 }
 
 object SetCount
