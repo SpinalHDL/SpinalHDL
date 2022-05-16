@@ -981,7 +981,7 @@ class ComponentEmitterVhdl(
       }
     }
 
-    def emitRead(b: StringBuilder, mem: Mem[_], address: Expression, target: Expression, tab: String) = {
+    def emitRead(b: StringBuilder, mem: Mem[_], address: Expression, target: Expression, tab: String, symbolNames: Seq[String]) = {
       val ramRead = {
 
         val symbolCount = mem.getMemSymbolCount
@@ -989,19 +989,32 @@ class ComponentEmitterVhdl(
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
           b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}(to_integer(${emitExpression(address)}));\n"
         else{
-          val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
-            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= s"  signal $symboleReadDataName : std_logic_vector(${mem.getMemSymbolWidth()-1} downto 0);\n"
-            b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i(to_integer(${emitExpression(address)}));\n"
-            symboleReadDataName
+          for(i <- 0 until symbolCount) yield {
+            declarations ++= s"  signal ${symbolNames(i)} : std_logic_vector(${mem.getMemSymbolWidth()-1} downto 0);\n"
+            b ++= s"$tab${symbolNames(i)} <= ${emitReference(mem,false)}_symbol$i(to_integer(${emitExpression(address)}));\n"
           }
 
-          logics ++= s"  process (${symboleReadDataNames.mkString(", " )})\n"
+          logics ++= s"  process (${symbolNames.mkString(", " )})\n"
           logics ++= s"  begin\n"
-          logics ++= s"    ${emitExpression(target)} <= ${symboleReadDataNames.reverse.mkString(" & " )};\n"
+          logics ++= s"    ${emitExpression(target)} <= ${symbolNames.reverse.mkString(" & " )};\n"
           logics ++= s"  end process;\n"
         }
 //          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
+      }
+    }
+
+    def emitReadInit(b: StringBuilder, mem: Mem[_], initValue: Expression, target: Expression, tab: String, symbolNames: Seq[String]): Unit = {
+      val symbolCount = mem.getMemSymbolCount
+
+      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+        b ++= s"${tab}${emitExpression(target)} <= ${emitExpressionNoWrappeForFirstOne(initValue)};\n"
+      } else {
+        val symbolsTag = mem.getTag(classOf[MemSymbolesTag]).get
+        val bitPerSymbol = mem.getMemSymbolWidth()
+        symbolsTag.mapping.zipWithIndex.foreach { case (mapping, i) =>
+          val range = s"(${(i + 1) * bitPerSymbol - 1} downto ${i * bitPerSymbol})"
+          b ++= s"${tab}${symbolNames(i)} <= ${emitExpressionNoWrappeForFirstOne(initValue)}$range;\n"
+        }
       }
     }
 
@@ -1013,22 +1026,23 @@ class ComponentEmitterVhdl(
         if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
         if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
         if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+        val readSignalNames: Seq[String] = for (i <- 0 until symbolCount) yield component.localNamingScope.allocateName(anonymSignalPrefix)
         if(memReadSync.readEnable != null) {
           b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
-          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
+          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ", readSignalNames)
           b ++= s"${tab}end if;\n"
         } else {
-          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
+          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab, readSignalNames)
         }
       case memReadWrite: MemReadWrite =>
         if(memReadWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadWrite.mem} because of its mixed width ports")
         //                    if (memReadWrite.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadWrite")
         //                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadWrite")
 
-        val symbolCount = memReadWrite.mem.getMemSymbolCount
+        val readSignalNames: Seq[String] = for (i <- 0 until symbolCount) yield component.localNamingScope.allocateName(anonymSignalPrefix)
         emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} = '1' and ${emitExpression(memReadWrite.writeEnable)} = '1'", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab)
         b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
-        emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+        emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ", readSignalNames)
         b ++= s"${tab}end if;\n"
     }
 
@@ -1046,12 +1060,13 @@ class ComponentEmitterVhdl(
       case memReadWrite: MemReadWrite  =>
         if(memReadWrite.readUnderWrite != dontCare) SpinalError(s"memReadWrite can only be emited as dontCare into VHDL $memReadWrite")
         if(memReadWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadWrite.mem} because of its mixed width ports")
+        val readSignalNames: Seq[String] = if (symbolCount > 1) for (i <- 0 until symbolCount) yield component.localNamingScope.allocateName(anonymSignalPrefix) else Seq()
         emitClockedProcess((tab, b) => {
           val symbolCount = memReadWrite.mem.getMemSymbolCount()
           b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
-          emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+          emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ", readSignalNames)
           b ++= s"${tab}end if;\n"
-        }, null, tmpBuilder, memReadWrite.clockDomain, false)
+        }, (tab, b) => emitReadInit(b, mem, memReadWrite.initValue, memReadWrite, tab, readSignalNames), tmpBuilder, memReadWrite.clockDomain, memReadWrite.withReset)
 
         emitClockedProcess((tab, b) => {
           val symbolCount = memReadWrite.mem.getMemSymbolCount()
@@ -1062,15 +1077,17 @@ class ComponentEmitterVhdl(
         if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
         if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"memReadSync with writeFirst is as dontCare into VHDL $memReadSync")
         if(memReadSync.readUnderWrite == readFirst) SpinalError(s"memReadSync with readFirst is as dontCare into VHDL $memReadSync")
+        val readSignalNames: Seq[String] = if (symbolCount > 1) for (i <- 0 until symbolCount) yield component.localNamingScope.allocateName(anonymSignalPrefix) else Seq()
         emitClockedProcess((tab, b) => {
           if(memReadSync.readEnable != null) {
             b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
-            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ", readSignalNames)
             b ++= s"${tab}end if;\n"
           } else {
-            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
+            emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab, readSignalNames)
           }
-        }, null, tmpBuilder, memReadSync.clockDomain, false)
+        }, (tab, b) => emitReadInit(b, mem, memReadSync.initValue, memReadSync, tab, readSignalNames),
+          tmpBuilder, memReadSync.clockDomain, memReadSync.withReset)
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
         if (port.readUnderWrite != writeFirst) SpinalWarning(s"memReadAsync can only be write first into VHDL")
