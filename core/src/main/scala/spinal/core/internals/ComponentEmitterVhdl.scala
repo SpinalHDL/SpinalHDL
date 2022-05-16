@@ -1003,8 +1003,10 @@ class ComponentEmitterVhdl(
       }
     }
 
-    def emitReadInit(b: StringBuilder, mem: Mem[_], initValue: Expression, target: Expression, tab: String, symbolNames: Seq[String]): Unit = {
+    def emitReadInit(b: StringBuilder, mem: Mem[_], target: Expression, tab: String, symbolNames: Seq[String]): Unit = {
       val symbolCount = mem.getMemSymbolCount
+
+      val initValue = BitsLiteral(0, mem.getWidth)
 
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
         b ++= s"${tab}${emitExpression(target)} <= ${emitExpressionNoWrappeForFirstOne(initValue)};\n"
@@ -1066,7 +1068,7 @@ class ComponentEmitterVhdl(
           b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
           emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ", readSignalNames)
           b ++= s"${tab}end if;\n"
-        }, (tab, b) => emitReadInit(b, mem, memReadWrite.initValue, memReadWrite, tab, readSignalNames), tmpBuilder, memReadWrite.clockDomain, memReadWrite.withReset)
+        }, (tab, b) => emitReadInit(b, mem, memReadWrite, tab + "  ", readSignalNames), tmpBuilder, memReadWrite.clockDomain, memReadWrite.withReset)
 
         emitClockedProcess((tab, b) => {
           val symbolCount = memReadWrite.mem.getMemSymbolCount()
@@ -1086,7 +1088,7 @@ class ComponentEmitterVhdl(
           } else {
             emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab, readSignalNames)
           }
-        }, (tab, b) => emitReadInit(b, mem, memReadSync.initValue, memReadSync, tab, readSignalNames),
+        }, (tab, b) => emitReadInit(b, mem, memReadSync, tab + "  ", readSignalNames),
           tmpBuilder, memReadSync.clockDomain, memReadSync.withReset)
       case port: MemReadAsync  =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")

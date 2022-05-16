@@ -281,58 +281,20 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
     data.assignFromBits(readBits)
   }
 
-  def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, init: Option[T] = None): T = {
+  def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, withReset: Boolean = false): T = {
     val readWord = wordType()
-    readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false, init = init)
+    readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false, withReset = withReset)
     readWord
   }
 
-  def readSyncMixedWidth(address: UInt, data: Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, init: Option[T] = None): Unit ={
-    readSyncImpl(address, data, enable, readUnderWrite, clockCrossing, true, init = init)
+  def readSyncMixedWidth(address: UInt, data: Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, withReset: Boolean = false): Unit ={
+    readSyncImpl(address, data, enable, readUnderWrite, clockCrossing, true, withReset = withReset)
   }
 
-  def readSyncImpl(address: UInt, data : Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, allowMixedWidth: Boolean = false, init: Option[Data] = None): Unit = {
+  def readSyncImpl(address: UInt, data : Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false, allowMixedWidth: Boolean = false, withReset: Boolean = false): Unit = {
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
-    val literalInit = init.map { init =>
-      val elements = init.flatten
-      var builder  = BigInt(0)
-
-      val widthsMasks = _widths.map(w => ((BigInt(1) << w) - 1))
-      var nextOffset  = 0
-      val offsets = _widths.map(width => {
-        val w = nextOffset
-        nextOffset += width
-        w
-      })
-      for(elementId <- (0 until _widths.length)) {
-        val element = elements(elementId)
-        val offset  = offsets(elementId)
-        val width   = _widths(elementId)
-        val mask    = widthsMasks(elementId)
-
-        def walk(that: BaseType): Unit = that.head match {
-          case AssignmentStatement(_, literal: Literal) if element.hasOnlyOneStatement =>
-            val value = (((literal match {
-              case literal: EnumLiteral[_]   => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.senum)
-              case literal: BitVectorLiteral => {
-                if(literal.minimalValueBitWidth > width)
-                  SpinalError(s"MEM_INIT error, literal at intex $elementId is too big. 0x${literal.getValue().toString(16).toUpperCase()} => ${literal.minimalValueBitWidth} bits (more than $width bits)")
-                literal.getValue()
-              }
-              case literal: Literal          => literal.getValue()
-            }) & mask) << offset)
-
-            builder += value
-          case AssignmentStatement(_, input : BaseType) if element.hasOnlyOneStatement  => walk(input)
-          case _ => SpinalError("ROM initial value should be provided from full literals value")
-        }
-        walk(element)
-      }
-      BitsLiteral(builder, getWidth)
-    }
-
-    val readPort = MemReadSync(this, address, data.getBitsWidth, if(enable != null) enable else True, readUnderWrite, ClockDomain.current, init = literalInit)
+    val readPort = MemReadSync(this, address, data.getBitsWidth, if(enable != null) enable else True, readUnderWrite, ClockDomain.current, withReset = withReset)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
     if(clockCrossing) readPort.addTag(crossClockDomain)
 
@@ -405,8 +367,9 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                     mask          : Bits = null,
                     readUnderWrite: ReadUnderWritePolicy = dontCare,
                     clockCrossing : Boolean = false,
-                    duringWrite   : DuringWritePolicy = dontCare): T = {
-    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,false, duringWrite = duringWrite)
+                    duringWrite   : DuringWritePolicy = dontCare,
+                    withReset     : Boolean = false): T = {
+    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,false, duringWrite = duringWrite, withReset = withReset)
   }
 
   def readWriteSyncMixedWidth[U <: Data](address       : UInt,
@@ -428,7 +391,8 @@ class Mem[T <: Data](val wordType: HardType[T], val wordCount: Int) extends Decl
                                    readUnderWrite  : ReadUnderWritePolicy = dontCare,
                                    clockCrossing   : Boolean = false,
                                    allowMixedWidth : Boolean = false,
-                                   duringWrite : DuringWritePolicy = dontCare): U = {
+                                   duringWrite : DuringWritePolicy = dontCare,
+                                   withReset       : Boolean = false): U = {
 
     val readWritePort = MemReadWrite(this, address, data.asBits, mask,enable, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current, readUnderWrite, duringWrite)
 
@@ -613,7 +577,7 @@ class MemReadAsync extends MemPortStatement with WidthProvider with SpinalTagRea
 }
 
 object MemReadSync{
-  def apply(mem: Mem[_], address: UInt, width: Int, enable: Bool, readUnderWrite: ReadUnderWritePolicy, clockDomain: ClockDomain, init: Option[Literal] = None): MemReadSync = {
+  def apply(mem: Mem[_], address: UInt, width: Int, enable: Bool, readUnderWrite: ReadUnderWritePolicy, clockDomain: ClockDomain, withReset: Boolean = false): MemReadSync = {
     val port = new MemReadSync
     port.mem            = mem
     port.address        = address
@@ -621,8 +585,7 @@ object MemReadSync{
     port.readEnable     = enable
     port.clockDomain    = clockDomain
     port.readUnderWrite = readUnderWrite
-    port.withReset      = init.isDefined
-    port.initValue      = init.getOrElse(BitsLiteral(0, width))
+    port.withReset      = withReset
 
     port
   }
@@ -637,7 +600,6 @@ class MemReadSync() extends MemPortStatement with WidthProvider with SpinalTagRe
   var clockDomain    : ClockDomain = null
   var readUnderWrite : ReadUnderWritePolicy = null
   var withReset      : Boolean = false
-  var initValue      : Literal = null
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
