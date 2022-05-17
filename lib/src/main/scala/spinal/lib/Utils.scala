@@ -1122,6 +1122,7 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
     val input = slave(Flow(payloadType))
     val outStreams = Vec(master(Stream(payloadType)), length - 1)
     val inStreams = Vec(slave(Stream(payloadType)), length - 1)
+    val willOverflow = out(Bool())
   }
   def builder(prev: Stream[T], left: Int): List[Stream[T]] = {
     left match {
@@ -1167,8 +1168,8 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
   val cachedConnections = (1 until length).map( x => connections(x))
   val readyAvailable = cachedConnections.map(!_.valid)
 
-  def full = CountOne(readyAvailable) === 0
-  def willOverflow = this.full && io.input.valid
+  val full = CountOne(readyAvailable) === 0
+  io.willOverflow := this.full && io.input.valid && !io.outStreams.sExist(_.fire)
   when(this.full) {
     cachedConnections.last.ready := io.input.valid
   }.otherwise {

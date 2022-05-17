@@ -32,36 +32,48 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
 
         val dataOut = anyconst(cloneOf(input.payload))
         val dataIn = anyconst(cloneOf(input.payload))
-        def getTrianglePair(target: Vec[Stream[UInt]]) = {
-          target.range.map { x =>
-            (0 until x).map(y => (target(x), target(y)))
-          }.flatten
-        }
-        getTrianglePair(results).map(x => when(x._1.valid && x._2.valid) { assert(x._1.payload =/= x._2.payload) })
+        assume(dataOut =/= dataIn)
 
         if (outOnly) {
           controls.map(x => assume(x.valid === False))
         } else {
-          assume(getTrianglePair(controls).map(x => x._1.payload =/= x._2.payload).reduce(_ && _))
-          when(input.valid) { assume(controls.map(x => input.payload =/= x.payload).reduce(_ && _)) }
-          controls.map(y => when(y.valid) { assume(results.map(x => y.payload =/= x.payload).reduce(_ && _)) })
           assume(controls.map(x => x.payload =/= dataOut).reduce(_ && _))
 
-          controls.zip(results).map(x => {
-            val inputFire = if(x._1 == controls.last) input.valid else False
-            when(past(x._1.payload === dataIn && x._1.fire && !x._2.fire && !inputFire)) {
-              assert(results.sExist(y => y.valid && y.payload === dataIn))
-            }})
+          controls
+            .zip(results)
+            .map(x => {
+              val inputFire = if (x._1 == controls.last) input.valid else False
+              when(past(x._1.payload === dataIn && x._1.fire && !x._2.fire && !inputFire)) {
+                assert(results.sExist(y => y.valid && y.payload === dataIn))
+              }
+            })
 
           controls.map(x => cover(x.fire))
           results.zip(controls).map(x => cover(x._1.fire && x._2.fire))
         }
 
-        results.map(x =>
-          when(past(x.payload === dataOut && x.fire)) {
-            assert(!results.sExist(x => x.valid && x.payload === dataOut))
-          }
+        val inputCount = U(input.valid && input.payload === dataOut)
+        val validCount = results.sCount(x => x.valid && x.payload === dataOut)
+
+        assert(
+          (input.valid && results.sCount(_.valid) === depth - 1 && results.sCount(_.fire) === 0) === dut.io.willOverflow
         )
+        val overflowCondition = dut.io.willOverflow && results.last.payload === dataOut
+        def modifying(in: Stream[UInt], out: Stream[UInt]) = {
+          out.valid && !out.ready && out.payload === dataOut && in.fire
+        }
+        val modifyCount = CountOne(
+          controls
+            .filter(_ != controls.last)
+            .zip(results.filter(_ != results.last))
+            .map(x => modifying(x._1, x._2))
+        ) + U(modifying(controls.last, results.last) && !overflowCondition)
+        val overflowCount = U(overflowCondition)
+        val fireCount = results.sCount(x => x.fire && x.payload === dataOut)
+
+        when(withPast()) {
+          assert(past(validCount - fireCount + inputCount - overflowCount - modifyCount) === validCount)
+        }
         results.map(x => cover(x.fire))
         cover(results(0).fire && results(2).fire)
       })
