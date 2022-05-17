@@ -1143,14 +1143,15 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
             outPort.valid := stream.valid
             outPort.payload := stream.payload
             io.outStreams(streamId) << outPort
+
+            val next = stream.throwWhen(outPort.fire)
             val inPort = io.inStreams(streamId)
             inPort.ready := stream.valid
             when(inPort.fire) {
-              when(stream.fire) { stream.payload := inPort.payload }
+              when(stream.fire) { next.payload := inPort.payload }
                 .otherwise { rData := inPort.payload }
             }
 
-            val next = stream.throwWhen(outPort.fire)
             next
           },
           left - 1

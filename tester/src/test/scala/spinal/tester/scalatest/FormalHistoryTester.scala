@@ -24,7 +24,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
-        when(input.valid) { results.map(x => assume(input.payload =/= x.payload)) }
+        when(input.valid) { results.map(x => when(x.valid) { assume(input.payload =/= x.payload) }) }
 
         val exists = CountOne(results.map(_.valid))
         val outFired = CountOne(results.map(_.fire))
@@ -43,7 +43,8 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         } else {
           assume(getTrianglePair(controls).map(x => x._1.payload =/= x._2.payload).reduce(_ && _))
           when(input.valid) { assume(controls.map(x => input.payload =/= x.payload).reduce(_ && _)) }
-          controls.map(y => assume(!results.sExist(x => x.valid && x.payload === y.payload)))
+          controls.map(y => when(y.valid) { assume(results.map(x => y.payload =/= x.payload).reduce(_ && _)) })
+          assume(controls.map(x => x.payload =/= dataOut).reduce(_ && _))
 
           controls.map(x => cover(x.fire))
           results.zip(controls).map(x => cover(x._1.fire && x._2.fire))
@@ -55,7 +56,6 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
           }
         )
         results.map(x => cover(x.fire))
-        results.map(x => when(x.valid) { assume(x.payload =/= input.payload) })
         cover(results(0).fire && results(2).fire)
       })
   }
