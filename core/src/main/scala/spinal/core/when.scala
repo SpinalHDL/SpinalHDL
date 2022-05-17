@@ -192,6 +192,11 @@ object is {
 
     values.foreach {
       case value: BaseType => onBaseType(value)
+      case key : Boolean   =>
+        switchValue match {
+          case switchValue: Bool => onBaseType(Bool(key))
+          case _                 => SpinalError("The switch is not a Bool")
+        }
       case key: Int        =>
         switchValue match {
           case switchValue: Bits => onBaseType(B(key))
