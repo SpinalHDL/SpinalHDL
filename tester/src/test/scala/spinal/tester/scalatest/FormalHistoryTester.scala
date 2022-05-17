@@ -24,11 +24,9 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
-        when(input.valid) { results.map(x => when(x.valid) { assume(input.payload =/= x.payload) }) }
-
-        val exists = CountOne(results.map(_.valid))
-        val outFired = CountOne(results.map(_.fire))
-        results.map(x => when(past(x.fire)) { assert(exists === past(exists - outFired + U(input.valid))) })
+        assert(
+          (input.valid && results.sCount(_.valid) === depth - 1 && results.sCount(_.fire) === 0) === dut.io.willOverflow
+        )
 
         val dataOut = anyconst(cloneOf(input.payload))
         val dataIn = anyconst(cloneOf(input.payload))
@@ -57,9 +55,6 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val inputCount = U(input.valid && input.payload === dataOut)
         val validCount = results.sCount(x => x.valid && x.payload === dataOut)
 
-        assert(
-          (input.valid && results.sCount(_.valid) === depth - 1 && results.sCount(_.fire) === 0) === dut.io.willOverflow
-        )
         val overflowCondition = dut.io.willOverflow && results.last.payload === dataOut
         def modifying(in: Stream[UInt], out: Stream[UInt]) = {
           out.valid && !out.ready && out.payload === dataOut && in.fire
