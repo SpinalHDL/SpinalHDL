@@ -18,8 +18,8 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val dut = HistoryModifyable(input, depth)
         val results = Vec(master(Stream(input.payloadType)), depth - 1)
         val controls = Vec(slave(Stream(input.payloadType)), depth - 1)
-        dut.io.outStreams.zip(results).map(x => x._1 >> x._2)
-        dut.io.inStreams.zip(controls).map(x => x._2 >> x._1)
+        dut.io.outStreams.zip(results).map { case (from, to) => from >> to }
+        dut.io.inStreams.zip(controls).map { case (to, from) => from >> to }
 
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
@@ -41,15 +41,17 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
 
           controls
             .zip(results)
-            .map(x => {
-              val inputFire = if (x._1 == controls.last) input.valid else False
-              when(past(x._1.payload === dataIn && x._1.fire && !x._2.fire && !inputFire)) {
-                assert(results.sExist(y => y.valid && y.payload === dataIn))
+            .map {
+              case (in, out) => {
+                val inputFire = if (in == controls.last) input.valid else False
+                when(past(in.payload === dataIn && in.fire && !out.fire && !inputFire)) {
+                  assert(results.sExist(y => y.valid && y.payload === dataIn))
+                }
               }
-            })
+            }
 
           controls.map(x => cover(x.fire))
-          results.zip(controls).map(x => cover(x._1.fire && x._2.fire))
+          results.zip(controls).map { case (out, in) => cover(in.fire && out.fire) }
         }
 
         val inputCount = U(input.valid && input.payload === dataOut)
@@ -66,7 +68,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
           controls
             .filter(_ != controls.last)
             .zip(results.filter(_ != results.last))
-            .map(x => modifying(x._1, x._2))
+            .map { case (in, out) => modifying(in, out) }
         ) + U(modifying(controls.last, results.last) && !overflowCondition)
         val overflowCount = U(overflowCondition)
         val fireCount = results.sCount(x => x.fire && x.payload === dataOut)
