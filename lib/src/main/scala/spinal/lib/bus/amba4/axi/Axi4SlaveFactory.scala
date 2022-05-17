@@ -4,6 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc._
 
+import scala.collection.mutable.ArrayBuffer
+
 object Axi4SlaveFactory {
   def apply(bus: Axi4) = new Axi4SlaveFactory(bus)
 }
@@ -41,6 +43,10 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
   readRsp.last := readDataStage.last
   readRsp.id := readDataStage.id
 
+  var prohibitedReadAddress,prohibitedWriteAddress=ArrayBuffer[BigInt]()
+  def  prohibitRead(address  : BigInt=null)={if(address != null)prohibitedReadAddress += address}
+  def  prohibitWrite(address : BigInt=null)={if(address != null)prohibitedWriteAddress += address}
+
   val writeOccur = writeJoinEvent.fire
   val readOccur = bus.readRsp.fire
 
@@ -65,6 +71,9 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
           assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedWriteElements(jobs, writeJoinEvent.valid, writeOccur, bus.writeData.data)
+            if(prohibitedWriteAddress contains address.address) {
+              bus.b.resp:=Axi4.resp.SLVERR.resized //TODO  do the same for !address.isInstanceOf[SingleMapping]
+            }
           }
         case _ =>
       }
@@ -83,7 +92,11 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
           assert(address.address % log2Up(bus.config.dataWidth/8) == 0)
           is(address.address) {
             doMappedReadElements(jobs, readDataStage.valid, readOccur, readRsp.data)
+            if(prohibitedReadAddress contains address.address) {
+              bus.r.resp:=Axi4.resp.SLVERR.resized
+            }
           }
+
         case _ =>
       }
     }
@@ -95,7 +108,7 @@ class Axi4SlaveFactory(bus: Axi4) extends BusSlaveFactoryDelayed {
     }
   }
 
-  override def wordAddressInc: Int = busDataWidth / 8
+ override def wordAddressInc: Int = busDataWidth / 8
 
   override def busDataWidth: Int = bus.config.dataWidth
 }
