@@ -31,6 +31,7 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         results.map(x => when(past(x.fire)) { assert(exists === past(exists - outFired + U(input.valid))) })
 
         val dataOut = anyconst(cloneOf(input.payload))
+        val dataIn = anyconst(cloneOf(input.payload))
         def getTrianglePair(target: Vec[Stream[UInt]]) = {
           target.range.map { x =>
             (0 until x).map(y => (target(x), target(y)))
@@ -45,6 +46,12 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
           when(input.valid) { assume(controls.map(x => input.payload =/= x.payload).reduce(_ && _)) }
           controls.map(y => when(y.valid) { assume(results.map(x => y.payload =/= x.payload).reduce(_ && _)) })
           assume(controls.map(x => x.payload =/= dataOut).reduce(_ && _))
+
+          controls.zip(results).map(x => {
+            val inputFire = if(x._1 == controls.last) input.valid else False
+            when(past(x._1.payload === dataIn && x._1.fire && !x._2.fire && !inputFire)) {
+              assert(results.sExist(y => y.valid && y.payload === dataIn))
+            }})
 
           controls.map(x => cover(x.fire))
           results.zip(controls).map(x => cover(x._1.fire && x._2.fire))
