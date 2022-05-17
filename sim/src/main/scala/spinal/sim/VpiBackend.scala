@@ -68,7 +68,7 @@ abstract class VpiBackend(val config: VpiBackendConfig) extends Backend {
                       else "linux"))}"
   )
 
-  CFLAGS = includes.map(path =>
+  CFLAGS += includes.map(path =>
     if (isWindows)
       '"' + path + '"'
     else
