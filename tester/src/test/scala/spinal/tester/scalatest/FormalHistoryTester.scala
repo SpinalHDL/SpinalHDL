@@ -7,7 +7,7 @@ import spinal.lib._
 class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
   test("pop_any") {
     FormalConfig
-      //   .withBMC(10)
+      .withBMC(10)
       //   .withProve(10)
       .withCover(10)
       .withDebug
@@ -23,14 +23,18 @@ class FormalHistoryModifyableTester extends SpinalFormalFunSuite {
         val reset = ClockDomain.current.isResetActive
         assumeInitial(reset)
 
-        when(input.valid) { assume(input.payload =/= past(input.payload)) }
+        dut.io.outStreams.map(x => when(input.valid) { assume(input.payload =/= x.payload) })
 
-        dut.io.inStreams.map(x => cover(x.fire))
-        // control.map(x => assume(x.valid === False)) // no modify.
+        val exists = CountOne(dut.io.outStreams.map(_.valid))
+        val outFired = CountOne(dut.io.outStreams.map(_.fire))
+        dut.io.outStreams.map(x => when(past(x.fire)){ assert(exists === past(exists - outFired + U(input.valid))) })
+
+        // dut.io.inStreams.map(x => cover(x.fire))
+        control.map(x => assume(x.valid === False)) // no modify.
         dut.io.outStreams.map(x => cover(x.fire))
         dut.io.outStreams.map(x => when(x.valid) { assume(x.payload =/= input.payload) })
         // dut.map(x => x.withAsserts())
-        cover(dut.io.outStreams(1).fire && dut.io.inStreams(1).fire)
+        // cover(dut.io.outStreams(1).fire && dut.io.inStreams(1).fire)
         cover(dut.io.outStreams(0).fire && dut.io.outStreams(2).fire)
       })
   }

@@ -1133,8 +1133,8 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
             val streamId = length - left
 
             val stream = Stream(payloadType)
-            val rValid = RegNextWhen(prev.valid, prev.ready) init (False)
-            val rData = RegNextWhen(prev.payload, prev.ready)
+            val rValid = RegNextWhen(prev.valid, stream.ready) init (False)
+            val rData = RegNextWhen(prev.payload, stream.ready)
             stream.valid := rValid
             stream.payload := rData
             prev.ready := stream.ready
@@ -1160,8 +1160,20 @@ class HistoryModifyable[T <: Data](val payloadType: HardType[T], val length: Int
   val inputBuffer = Stream(payloadType);
   inputBuffer.valid := io.input.valid
   inputBuffer.payload := io.input.payload
+
   val connections = Vec(builder(inputBuffer, length))
-  connections(length - 1).ready := io.input.valid
+  connections(length - 1).ready := False
+  val cachedConnections = (1 until length).map( x => connections(x))
+  val readyAvailable = cachedConnections.map(!_.valid)
+
+  def full = CountOne(readyAvailable) === 0
+  def willOverflow = this.full && io.input.valid
+  when(this.full) {
+    cachedConnections.last.ready := io.input.valid
+  }.otherwise {
+    val readyId = OHToUInt(OHMasking.first(readyAvailable))
+    cachedConnections(readyId).ready := io.input.valid
+  }
 }
 
 object SetCount
